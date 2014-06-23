@@ -1267,6 +1267,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             # register the crawlers and start crawling
             # g1 ==> Xsync, g2 ==> config.change_detector(changelog by default)
             # g3 ==> changelog History
+            changelog_register_failed = False
             (inf, ouf, ra, wa) = gconf.rpc_fd.split(',')
             os.close(int(ra))
             os.close(int(wa))
@@ -1278,7 +1279,6 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     "local %s, remote %s" %
                     (CHANGELOG_AGENT_CLIENT_VERSION, rv))
 
-            g1.register()
             try:
                 workdir = g2.setup_working_dir()
                 # register with the changelog library
@@ -1288,38 +1288,55 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                                          workdir, gconf.changelog_log_file,
                                          g2.CHANGELOG_LOG_LEVEL,
                                          g2.CHANGELOG_CONN_RETRIES)
-                g2.register(changelog_agent)
-                g3.register(changelog_agent)
-            except ChangelogException as e:
-                logging.debug("Changelog register failed: %s - %s" %
-                              (e.errno, e.strerror))
+                register_time = int(time.time())
+                g2.register(register_time, changelog_agent)
+                g3.register(register_time, changelog_agent)
+            except ChangelogException:
+                changelog_register_failed = True
+                register_time = int(time.time())
+                logging.info("Changelog register failed, fallback to xsync")
 
+            g1.register(register_time)
+            logging.info("Register time: %s" % register_time)
             # oneshot: Try to use changelog history api, if not
             # available switch to FS crawl
             # Note: if config.change_detector is xsync then
             # it will not use changelog history api
             try:
-                g3.crawlwrap(oneshot=True)
+                if not changelog_register_failed:
+                    g3.crawlwrap(oneshot=True)
+                else:
+                    g1.crawlwrap(oneshot=True)
             except (ChangelogException, NoPurgeTimeAvailable,
                     PartialHistoryAvailable) as e:
                 if isinstance(e, ChangelogException):
-                    logging.debug('Changelog history crawl failed, failback '
-                                  'to xsync: %s - %s' % (e.errno, e.strerror))
-                elif isinstance(e, NoPurgeTimeAvailable):
-                    logging.debug('Using xsync crawl since no purge time '
-                                  'available')
+                    logging.info('Changelog history crawl failed, fallback '
+                                 'to xsync: %s - %s' % (e.errno, e.strerror))
                 elif isinstance(e, PartialHistoryAvailable):
-                    logging.debug('Using xsync crawl after consuming history '
-                                  'till %s' % str(e))
-                g1.crawlwrap(oneshot=True)
+                    logging.info('Partial history available, using xsync crawl'
+                                 ' after consuming history '
+                                 'till %s' % str(e))
+                g1.crawlwrap(oneshot=True, no_stime_update=True)
+
+            # Reset xsync upper limit. g2, g3 are changelog and history
+            # instances, but if change_detector is set to xsync then
+            # g1, g2, g3 will be xsync instances.
+            g1.xsync_upper_limit = None
+            if getattr(g2, "xsync_upper_limit", None) is not None:
+                g2.xsync_upper_limit = None
+
+            if getattr(g3, "xsync_upper_limit", None) is not None:
+                g3.xsync_upper_limit = None
 
             # crawl loop: Try changelog crawl, if failed
             # switch to FS crawl
             try:
-                g2.crawlwrap()
+                if not changelog_register_failed:
+                    g2.crawlwrap()
+                else:
+                    g1.crawlwrap()
             except ChangelogException as e:
-                logging.debug('Changelog crawl failed, failback to xsync: '
-                              '%s - %s' % (e.errno, e.strerror))
+                logging.info('Changelog crawl failed, fallback to xsync')
                 g1.crawlwrap()
         else:
             sup(self, *args)
