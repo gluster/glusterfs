@@ -318,3 +318,69 @@ function volume_exists() {
                 return 0
         fi
 }
+
+# arg-1 : From which node the command should be trigerred
+#         Ex : $CLI_1, $CLI_2, etc.
+# arg-2 : Volume name
+# arg-3 : Starting index for the snapname "snap$i"
+# arg-4 : Number of snapshots to be taken
+function snap_create()
+{
+        eval local cli_index=\$$1
+        local volname=$2
+        local i=$3
+        local limit=$[$i + $4]
+
+        while [ $i -lt $limit ]
+        do
+                $cli_index snapshot create snap$i $volname
+                i=$[$i+1]
+        done
+}
+
+# arg-1 : From which node the command should be trigerred
+#         Ex : $CLI_1. $CLI_2, etc.
+# arg-2 : Volume name.
+function get_snap_count()
+{
+        eval local cli_index=\$$1
+        local volname=$2
+
+
+        if [ -z "$2" ]
+        then
+                $cli_index snapshot list | grep -v "No snapshots present"\
+                                         | wc -l
+        else
+                $cli_index snapshot list $volname\
+                                         | grep -v "No snapshots present"\
+                                         | wc -l
+        fi
+}
+
+# arg-1 : From which node the command should be trigerred
+#         Ex : $CLI_1, $CLI_2, etc.
+# arg-2 : Starting index for the snapname "snap$i"
+# arg-3 : Number of snapshots to be deleted.
+function snap_delete()
+{
+        eval local cli_index=\$$1
+        local i=$2
+        local limit=$[$i + $3]
+
+        while [ $i -lt $limit ]
+        do
+                $cli_index snapshot delete snap$i
+                i=$[$i+1]
+        done
+}
+
+# arg-1 : From which node the command should be triggered
+#         Ex : $CLI_1, $CLI_2, etc.
+# arg-2 : key value
+function snap_config()
+{
+        eval local cli_index=\$$1
+        local var=$2
+        $cli_index snapshot config | grep "^$var" | sed 's/.*: //'
+}
