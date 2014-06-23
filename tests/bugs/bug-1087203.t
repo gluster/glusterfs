@@ -5,48 +5,10 @@
 . $(dirname $0)/../snapshot.rc
 . $(dirname $0)/../cluster.rc
 
-function config_validate ()
-{
-        local var=$1
-        $CLI_1 snapshot config | grep "^$var" | sed 's/.*: //'
-}
-
-function snap_create ()
-{
-        local limit=$1;
-        local i=0
-        while [ $i -lt $limit ]
-        do
-                $CLI_1 snapshot create snap$i ${V0}
-                i=$[$i+1]
-        done
-}
-
-function snap_delete ()
-{
-        local limit=$1;
-        local i=0
-        while [ $i -lt $limit ]
-        do
-                $CLI_1 snapshot delete snap$i
-                i=$[$i+1]
-        done
-}
-
-function get_snap_count ()
-{
-        $CLI_1 snapshot list | wc -l
-}
-
 function get_volume_info ()
 {
         local var=$1
         $CLI_1 volume info $V0 | grep "^$var" | sed 's/.*: //'
-}
-
-function is_snapshot_present ()
-{
-        $CLI_1 snapshot list
 }
 
 cleanup;
@@ -94,7 +56,7 @@ TEST $CLI_1 snapshot config $V0 snap-max-hard-limit 10
 
 # Validating auto-delete feature
 # Make sure auto-delete is disabled by default
-EXPECT 'disable' config_validate 'auto-delete'
+EXPECT 'disable' snap_config CLI_1 'auto-delete'
 
 # Test for invalid value for auto-delete
 TEST ! $CLI_1 snapshot config auto-delete test
@@ -103,36 +65,39 @@ TEST $CLI_1 snapshot config snap-max-hard-limit 6
 TEST $CLI_1 snapshot config snap-max-soft-limit 50
 
 # Create 4 snapshots
-TEST snap_create 4;
+snap_index=1
+snap_count=4
+TEST snap_create CLI_1 $V0 $snap_index $snap_count
 
 # If auto-delete is disabled then oldest snapshot
 # should not be deleted automatically.
-EXPECT '4' get_snap_count;
+EXPECT '4' get_snap_count CLI_1;
 
-TEST snap_delete 4;
+TEST snap_delete CLI_1 $snap_index $snap_count;
 
 # After all those 4 snaps are deleted, There will not be any snaps present
-EXPECT 'No snapshots present' is_snapshot_present;
+EXPECT '0' get_snap_count CLI_1;
 
 TEST $CLI_1 snapshot config auto-delete enable
+
 # auto-delete is already enabled, Hence expect a failure.
 TEST ! $CLI_1 snapshot config auto-delete on
 
 # Testing other boolean values with auto-delete
 TEST $CLI_1 snapshot config auto-delete off
-EXPECT 'off' config_validate 'auto-delete'
+EXPECT 'off' snap_config CLI_1 'auto-delete'
 
 TEST $CLI_1 snapshot config auto-delete true
-EXPECT 'true' config_validate 'auto-delete'
+EXPECT 'true' snap_config CLI_1 'auto-delete'
 
 # Try to create 4 snaps again, As auto-delete is enabled
 # oldest snap should be deleted and snapcount should be 3
 
-TEST snap_create 4;
-EXPECT '3' get_snap_count;
+TEST snap_create CLI_1 $V0 $snap_index $snap_count;
+EXPECT '3' get_snap_count CLI_1;
 
 TEST $CLI_1 snapshot config auto-delete disable
-EXPECT 'disable' config_validate 'auto-delete'
+EXPECT 'disable' snap_config CLI_1 'auto-delete'
 
 cleanup;
 

@@ -7721,11 +7721,14 @@ out:
 }
 
 int32_t
-cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict)
+cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
 {
-        int32_t       ret        = -1;
-        char         *snap_name  = NULL;
+        int32_t         ret             = -1;
+        char            *snap_name      = NULL;
+        int32_t         delete_cmd      = -1;
+        cli_local_t     *local          = NULL;
 
+        GF_ASSERT (frame);
         GF_ASSERT (rsp);
         GF_ASSERT (dict);
 
@@ -7734,6 +7737,31 @@ cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict)
                         rsp->op_errstr ? rsp->op_errstr :
                         "Please check log file for details");
                 ret = rsp->op_ret;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "delete-cmd", &delete_cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not get delete-cmd");
+                goto out;
+        }
+
+        if (delete_cmd == GF_SNAP_DELETE_TYPE_ALL ||
+            delete_cmd == GF_SNAP_DELETE_TYPE_VOL) {
+                local = ((call_frame_t *) frame) -> local;
+                if (!local) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "frame->local is NULL");
+                        goto out;
+                }
+
+                /* During first call back of snapshot delete of type
+                 * ALL and VOL, We will get the snapcount and snapnames.
+                 * Hence to make the subsequent rpc calls for individual
+                 * snapshot delete, We need to save it in local dictionary.
+                 */
+                dict_copy (dict, local->dict);
+                ret = 0;
                 goto out;
         }
 
@@ -8455,6 +8483,60 @@ out:
         return ret;
 }
 
+int32_t
+cli_populate_req_dict_for_delete (dict_t *snap_dict, dict_t *dict, size_t index)
+{
+        int32_t         ret             = -1;
+        char            key[PATH_MAX]   = "";
+        char            *buffer         = NULL;
+        int             type            = 0;
+        int             snapcount       = 0;
+
+        GF_ASSERT (snap_dict);
+        GF_ASSERT (dict);
+
+        ret = dict_set_int32 (snap_dict, "delete-cmd",
+                              GF_SNAP_DELETE_TYPE_SNAP);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save command "
+                        "type in snap dictionary");
+                goto out;
+        }
+
+        ret = snprintf (key, sizeof (key), "snapname%lu", index);
+        if (ret < 0) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, key, &buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get snapname");
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (snap_dict, "snapname", buffer);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to save snapname");
+                goto out;
+        }
+
+        ret = dict_set_int32 (snap_dict, "type", GF_SNAP_OPTION_TYPE_DELETE);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to save command type");
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (snap_dict, "cmd-str",
+                                       "snapshot delete");
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Could not save command string as delete");
+                goto out;
+        }
+out:
+        return ret;
+}
+
 int
 cli_populate_req_dict_for_status (dict_t *snap_dict, dict_t *dict, int index) {
         int             ret             =       -1;
@@ -8818,7 +8900,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
         case GF_SNAP_OPTION_TYPE_DELETE:
-                ret = cli_snapshot_remove_reply (&rsp, dict);
+                ret = cli_snapshot_remove_reply (&rsp, dict, frame);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Failed to delete snap");
@@ -8847,6 +8929,123 @@ out:
 
         free (rsp.dict.dict_val);
         free (rsp.op_errstr);
+
+        return ret;
+}
+
+int32_t
+gf_cli_snapshot_for_delete (call_frame_t *frame, xlator_t *this,
+                            void *data)
+{
+        gf_cli_req      req                     = {{0,}};
+        dict_t          *options                = NULL;
+        int32_t         ret                     = -1;
+        int32_t         cmd                     = -1;
+        cli_local_t     *local                  = NULL;
+        dict_t          *snap_dict              = NULL;
+        int32_t         snapcount               = 0;
+        int             i                       = 0;
+        char            question[PATH_MAX]      = "";
+        char            *volname                = NULL;
+        gf_answer_t     answer                  = GF_ANSWER_NO;
+
+        GF_VALIDATE_OR_GOTO ("cli", frame,  out);
+        GF_VALIDATE_OR_GOTO ("cli", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("cli", this, out);
+        GF_VALIDATE_OR_GOTO ("cli", data, out);
+
+        local = frame->local;
+
+        options = data;
+
+        ret = dict_get_int32 (local->dict, "delete-cmd", &cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
+                        "delete-cmd");
+                goto out;
+        }
+
+        /* No need multiple RPCs for individual snapshot delete*/
+        if (cmd == GF_SNAP_DELETE_TYPE_SNAP) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (local->dict, "snapcount",
+                              &snapcount);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not get "
+                        "snapcount");
+                goto out;
+        }
+
+        if (snapcount == 0) {
+                cli_out ("No snapshots present");
+                goto out;
+        }
+
+        if (cmd == GF_SNAP_DELETE_TYPE_ALL) {
+                snprintf (question, sizeof (question), "System contains %d "
+                          "snapshot(s).\nDo you still "
+                          "want to continue and delete them? ",
+                           snapcount);
+        } else {
+                ret = dict_get_str (local->dict, "volname", &volname);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to fetch "
+                                "volname from local dictionary");
+                        goto out;
+                }
+
+                snprintf (question, sizeof (question), "Volume (%s) contains "
+                          "%d snapshot(s).\nDo you still want to "
+                           "continue and delete them? ", volname,
+                           snapcount);
+        }
+
+        answer = cli_cmd_get_confirmation (global_state, question);
+        if (GF_ANSWER_NO == answer) {
+                ret = 0;
+                gf_log ("cli", GF_LOG_DEBUG, "User cancelled "
+                        "snapshot delete operation for snap delete");
+                goto out;
+        }
+
+        for (i = 1 ; i <= snapcount ; i++) {
+                ret = -1;
+
+                snap_dict = dict_new();
+                if (!snap_dict)
+                        goto out;
+
+                ret = cli_populate_req_dict_for_delete (snap_dict,
+                                                       local->dict, i);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not "
+                                "populate snap request dictionary");
+                        goto out;
+                }
+
+                ret = cli_to_glusterd (&req, frame,
+                                gf_cli_snapshot_cbk,
+                                (xdrproc_t) xdr_gf_cli_req, snap_dict,
+                                GLUSTER_CLI_SNAP, this, cli_rpc_prog,
+                                NULL);
+                if (ret) {
+                        /* Fail the operation if deleting one of the
+                         * snapshots is failed
+                         */
+                        gf_log ("cli", GF_LOG_ERROR, "cli_to_glusterd "
+                                "for snapshot delete failed");
+                        goto out;
+                }
+                dict_unref (snap_dict);
+                snap_dict = NULL;
+        }
+
+out:
+        if (snap_dict)
+                dict_unref (snap_dict);
 
         return ret;
 }
@@ -9002,6 +9201,15 @@ gf_cli_snapshot (call_frame_t *frame, xlator_t *this,
                                         "xml output");
                                 goto out;
                         }
+                }
+        }
+
+        if (GF_SNAP_OPTION_TYPE_DELETE == type) {
+                ret = gf_cli_snapshot_for_delete (frame, this, data);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "cli to glusterd "
+                                "for snapshot delete command failed");
+                        goto out;
                 }
         }
 

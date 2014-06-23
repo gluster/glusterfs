@@ -3123,15 +3123,10 @@ glusterd_snapshot_get_vol_snapnames (dict_t *dict, glusterd_volinfo_t *volinfo)
         list_for_each_entry_safe (snap_vol, tmp_vol,
                                   &volinfo->snap_volumes, snapvol_list) {
                 snapcount++;
-                snapname = gf_strdup (snap_vol->snapshot->snapname);
-                if (!snapname) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "strdup failed");
-                        ret = -1;
-                        goto out;
-                }
                 snprintf (key, sizeof (key), "snapname%d", snapcount);
-                ret = dict_set_dynstr (dict, key, snapname);
+
+                ret = dict_set_dynstr_with_alloc (dict, key,
+                                                  snap_vol->snapshot->snapname);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                 "set %s", key);
@@ -4472,23 +4467,104 @@ out:
         return ret;
 }
 
-/* This is a snapshot remove handler function. This function will be
- * executed in the originator node. This function is responsible for
- * calling mgmt v3 framework to do the actual remove on all the bricks
- *
- * @param req           RPC request object
- * @param op            gluster operation
- * @param dict          dictionary containing snapshot remove request
- * @param err_str       In case of an err this string should be populated
- * @param len           length of err_str buffer
- *
- * @return              Negative value on Failure and 0 in success
- */
-int
-glusterd_handle_snapshot_remove (rpcsvc_request_t *req, glusterd_op_t op,
-                                 dict_t *dict, char *err_str, size_t len)
+int32_t
+glusterd_handle_snapshot_delete_vol (dict_t *dict, char *err_str, int len)
 {
-        int                      ret            = -1;
+        int32_t                 ret             = -1;
+        int32_t                 i               = 0;
+        glusterd_volinfo_t      *snap_volinfo   = NULL;
+        glusterd_volinfo_t      *volinfo        = NULL;
+        glusterd_volinfo_t      *temp_volinfo   = NULL;
+        char                    key[PATH_MAX]   =  "";
+        xlator_t                *this           = NULL;
+        char                    *volname        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        "volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (err_str, len, "Volume (%s) does not exist", volname);
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get volinfo of "
+                        "volume %s", volname);
+                goto out;
+        }
+
+        ret = glusterd_snapshot_get_vol_snapnames (dict, volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get snapshot list for volume %s", volname);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+glusterd_handle_snapshot_delete_all (dict_t *dict)
+{
+        int32_t         ret             = -1;
+        int32_t         i               =  0;
+        char            key[PATH_MAX]   =  "";
+        glusterd_conf_t *priv           = NULL;
+        glusterd_snap_t *snap           = NULL;
+        glusterd_snap_t *tmp_snap       = NULL;
+        xlator_t        *this           = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (dict);
+
+        list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots, snap_list) {
+                /* indexing from 1 to n, to keep it uniform with other code
+                 * paths
+                 */
+                i++;
+                ret = snprintf (key, sizeof (key), "snapname%d", i);
+                if (ret < 0) {
+                        goto out;
+                }
+
+                ret = dict_set_dynstr_with_alloc (dict, key, snap->snapname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not save "
+                                "snap name");
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (dict, "snapcount", i);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not save snapcount");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int32_t
+glusterd_handle_snapshot_delete_type_snap (rpcsvc_request_t *req,
+                                           glusterd_op_t op,
+                                           dict_t *dict, char *err_str,
+                                           size_t len)
+{
+        int32_t                 ret             = -1;
         int64_t                  volcount       = 0;
         char                    *snapname       = NULL;
         char                    *volname        = NULL;
@@ -4499,6 +4575,7 @@ glusterd_handle_snapshot_remove (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                *this           = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
 
         GF_ASSERT (req);
         GF_ASSERT (dict);
@@ -4552,6 +4629,90 @@ glusterd_handle_snapshot_remove (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
+        ret = 0;
+
+out :
+        return ret;
+}
+
+/* This is a snapshot remove handler function. This function will be
+ * executed in the originator node. This function is responsible for
+ * calling mgmt v3 framework to do the actual remove on all the bricks
+ *
+ * @param req           RPC request object
+ * @param op            gluster operation
+ * @param dict          dictionary containing snapshot remove request
+ * @param err_str       In case of an err this string should be populated
+ * @param len           length of err_str buffer
+ *
+ * @return              Negative value on Failure and 0 in success
+ */
+int
+glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
+                                 dict_t *dict, char *err_str, size_t len)
+{
+        int                      ret            = -1;
+        xlator_t                *this           = NULL;
+        int32_t                  delete_cmd     = -1;
+
+        this = THIS;
+
+        GF_ASSERT (this);
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+        GF_ASSERT (err_str);
+
+        ret = dict_get_int32 (dict, "delete-cmd", &delete_cmd);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get delete-cmd");
+                goto out;
+        }
+
+        switch (delete_cmd) {
+        case GF_SNAP_DELETE_TYPE_SNAP:
+                ret = glusterd_handle_snapshot_delete_type_snap (req, op, dict,
+                                                                 err_str, len);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to handle "
+                                "snapshot delete for type SNAP");
+                        goto out;
+                }
+                break;
+
+        case GF_SNAP_DELETE_TYPE_ALL:
+                ret = glusterd_handle_snapshot_delete_all (dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to handle "
+                                "snapshot delete for type ALL");
+                        goto out;
+                }
+                break;
+
+        case GF_SNAP_DELETE_TYPE_VOL:
+                ret = glusterd_handle_snapshot_delete_vol (dict, err_str, len);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to handle "
+                                "snapshot delete for type VOL");
+                        goto out;
+                }
+                break;
+
+        default:
+                gf_log (this->name, GF_LOG_ERROR, "Wrong snapshot delete type");
+                break;
+        }
+
+        if ( ret == 0 && (delete_cmd == GF_SNAP_DELETE_TYPE_ALL ||
+                          delete_cmd == GF_SNAP_DELETE_TYPE_VOL)) {
+                ret = glusterd_op_send_cli_response (op, 0, 0, req, dict,
+                                                     err_str);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to send cli "
+                                "response");
+                        goto out;
+                }
+        }
         ret = 0;
 out:
         return ret;
@@ -7343,7 +7504,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 }
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
-                ret = glusterd_handle_snapshot_remove (req, cli_op, dict,
+                ret = glusterd_handle_snapshot_delete (req, cli_op, dict,
                                                        err_str,
                                                        sizeof (err_str));
                 if (ret) {

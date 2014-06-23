@@ -3424,7 +3424,7 @@ cli_snap_info_parse (dict_t *dict, const char **words, int wordcount)
         GF_ASSERT (dict);
 
         if (wordcount > 4 || wordcount < cmdi) {
-                gf_log ("", GF_LOG_ERROR, "Invalid syntax");
+                gf_log ("cli", GF_LOG_ERROR, "Invalid syntax");
                 goto out;
         }
 
@@ -3475,7 +3475,7 @@ cli_snap_info_parse (dict_t *dict, const char **words, int wordcount)
 
         ret = dict_set_str (dict, "volname", (char *)words[wordcount - 1]);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Count not save "
+                gf_log ("cli", GF_LOG_ERROR, "Could not save "
                         "volume name %s", words[wordcount - 1]);
                 goto out;
         }
@@ -3636,33 +3636,70 @@ cli_snap_delete_parse (dict_t *dict, const char **words, int wordcount,
 
         int             ret             =       -1;
         const char      *question       =       NULL;
+        int32_t         cmd             =       -1;
+        unsigned int    cmdi            =       2;
         gf_answer_t     answer          =       GF_ANSWER_NO;
-
-        question = "Deleting snap will erase all the information about "
-                   "the snap. Do you still want to continue?";
 
         GF_ASSERT (words);
         GF_ASSERT (dict);
 
-        if (wordcount != 3) {
+        if (wordcount > 4 || wordcount <= cmdi) {
                 gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
                 goto out;
         }
 
-        ret = dict_set_str (dict, "snapname", (char *)words[2]);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Unable to save snapname %s",
-                        words[2]);
+        question = "Deleting snap will erase all the information about "
+                   "the snap. Do you still want to continue?";
+
+        if (strcmp (words [cmdi], "all") == 0) {
+                ret = 0;
+                cmd = GF_SNAP_DELETE_TYPE_ALL;
+        } else if (strcmp (words [cmdi], "volume") == 0) {
+                if (++cmdi == wordcount) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "volname",
+                                    (char *)words[cmdi]);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not save "
+                                "volume name %s", words[wordcount - 1]);
+                        goto out;
+                }
+                cmd = GF_SNAP_DELETE_TYPE_VOL;
+        } else {
+                ret = dict_set_str (dict, "snapname", (char *)words[cmdi]);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Unable to save "
+                                "snapname %s", words[2]);
+                        goto out;
+                }
+                cmd = GF_SNAP_DELETE_TYPE_SNAP;
+        }
+
+        if ((cmdi + 1) != wordcount) {
+                ret = -1;
+                gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
                 goto out;
         }
 
-        answer = cli_cmd_get_confirmation (state, question);
-        if (GF_ANSWER_NO == answer) {
-                ret = 1;
-                gf_log ("cli", GF_LOG_DEBUG, "User cancelled "
-                        "snapshot delete operation for snap %s",
-                        (char *)words[2]);
-                goto out;
+        if (cmd == GF_SNAP_DELETE_TYPE_SNAP) {
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 1;
+                        gf_log ("cli", GF_LOG_DEBUG, "User cancelled "
+                                "snapshot delete operation for snap %s",
+                                (char *)words[2]);
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (dict, "delete-cmd", cmd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save "
+                        "type of snapshot delete");
         }
 out:
         return ret;
@@ -4002,7 +4039,7 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                                         "activate", "deactivate", "list",
                                         "status", "config", "info", NULL};
         char               *invalid_snapnames[] = {"description", "force",
-                                                  "volume", NULL};
+                                                  "volume", "all", NULL};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
