@@ -588,7 +588,7 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "error occurred "
-                        "while Creating a file %s", strerror (op_errno));
+                        "while creating directory %s", strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
@@ -662,7 +662,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "error occurred "
-                        "while Creating a file %s", strerror (op_errno));
+                        "while creating file %s", strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
@@ -1818,8 +1818,8 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
-                        "creating symlinks ", strerror (op_errno));
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred with "
+                        "mknod ", strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
@@ -2358,8 +2358,8 @@ marker_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_TRACE, "%s occurred while "
-                        "creating symlinks ", strerror (op_errno));
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred in "
+                        "fsetxattr", strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
@@ -2426,8 +2426,8 @@ marker_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s occurred while "
-                        "creating symlinks ", strerror (op_errno));
+                gf_log (this->name, GF_LOG_TRACE, "%s occurred in "
+                        "fsetattr ", strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
@@ -2496,8 +2496,7 @@ marker_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_ERROR),
+                gf_log (this->name, GF_LOG_TRACE,
                         "%s occurred during setattr of %s",
                         strerror (op_errno),
                         (local ? local->loc.path : "<nul>"));
@@ -2559,8 +2558,10 @@ marker_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t      *priv    = NULL;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "%s occurred while "
-                        "creating symlinks ", strerror (op_errno));
+                gf_log (this->name, GF_LOG_TRACE,
+                                "%s occurred while "
+                                "removing extended attribute",
+                                     strerror (op_errno));
         }
 
         local = (marker_local_t *) frame->local;
@@ -2869,7 +2870,7 @@ mem_acct_init (xlator_t *this)
 
         if (ret != 0) {
                 gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
-                       "failed");
+                       " failed");
                 return ret;
         }
 
@@ -2906,14 +2907,11 @@ init_xtime_priv (xlator_t *this, dict_t *options)
 
                 if (ret == -1){
                         priv->marker_xattr = NULL;
-
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to allocate memory");
                         goto out;
                 }
 
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "the volume-uuid = %s", priv->volume_uuid);
+                        "volume-uuid = %s", priv->volume_uuid);
         } else {
                 priv->volume_uuid = NULL;
 
