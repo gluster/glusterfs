@@ -80,7 +80,7 @@
 /*!
  * @messageid 108004
  * @diagnosis Replication sub volume witnessed a connection notification
- * from a brick which does not belong to it's replica set.
+ * from a brick which does not belong to its replica set.
  * @recommendedaction None. This is a safety check in code.
  */
 #define AFR_MSG_INVALID_CHILD_UP        (GLFS_COMP_BASE_AFR + 4)
@@ -88,8 +88,10 @@
 
 /*!
  * @messageid 108005
- * @diagnosis A brick that was down earlier has come back up.
- * @recommendedaction Possibly check why the brick went down to begin with.
+ * @diagnosis A replica set that was inaccessible because all its bricks were
+ * down is now accessible because at least one of its bricks came back up.
+ * @recommendedaction Possibly check why all the bricks of that replica set
+ * went down to begin with.
  */
 #define AFR_MSG_SUBVOL_UP               (GLFS_COMP_BASE_AFR + 5)
 
