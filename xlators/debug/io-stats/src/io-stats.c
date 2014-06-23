@@ -381,6 +381,7 @@ ios_stat_unref (struct ios_stat *iosstat)
         UNLOCK (&iosstat->lock);
 
         if (cleanup) {
+                LOCK_DESTROY (&iosstat->lock);
                 GF_FREE (iosstat);
                 iosstat = NULL;
         }
@@ -2747,6 +2748,17 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+void
+ios_conf_destroy (struct ios_conf *conf)
+{
+        if (!conf)
+                return;
+
+        ios_destroy_top_stats (conf);
+        LOCK_DESTROY (&conf->lock);
+        GF_FREE(conf);
+}
+
 int
 init (xlator_t *this)
 {
@@ -2782,12 +2794,13 @@ init (xlator_t *this)
 
         conf = GF_CALLOC (1, sizeof(*conf), gf_io_stats_mt_ios_conf);
 
-        if (!conf) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
-                return -1;
-        }
+        if (!conf)
+                goto out;
 
+        /*
+         * Init it just after calloc, so that we are sure the lock is inited
+         * in case of error paths.
+         */
         LOCK_INIT (&conf->lock);
 
         gettimeofday (&conf->cumulative.started_at, NULL);
@@ -2795,7 +2808,7 @@ init (xlator_t *this)
 
         ret = ios_init_top_stats (conf);
         if (ret)
-                return -1;
+                goto out;
 
         GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
@@ -2838,12 +2851,13 @@ init (xlator_t *this)
         this->private = conf;
         ret = 0;
 out:
-        if (!this->private)
+        if (!this->private) {
+                ios_conf_destroy (conf);
                 ret = -1;
+        }
 
         return ret;
 }
-
 
 void
 fini (xlator_t *this)
@@ -2854,15 +2868,9 @@ fini (xlator_t *this)
                 return;
 
         conf = this->private;
-
-        if (!conf)
-                return;
         this->private = NULL;
 
-        ios_destroy_top_stats (conf);
-
-        GF_FREE(conf);
-
+        ios_conf_destroy (conf);
         gf_log (this->name, GF_LOG_INFO,
                 "io-stats translator unloaded");
         return;
