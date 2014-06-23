@@ -557,7 +557,7 @@ mq_readdir_cbk (call_frame_t *frame,
         local = mq_local_ref (frame->local);
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_TRACE,
                         "readdir failed %s", strerror (op_errno));
                 local->err = -1;
 
@@ -1295,9 +1295,8 @@ mq_get_parent_inode_local (xlator_t *this, quota_local_t *local)
         local->ctx = ctx;
 
         if (list_empty (&ctx->contribution_head)) {
-                gf_log_callingfn (this->name, GF_LOG_WARNING,
-                        "contribution node list is empty which "
-                        "is an error");
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                        "contribution node list is empty");
                 ret = -1;
                 goto out;
         }
