@@ -1198,7 +1198,7 @@ init (xlator_t *this)
 
 
         if ((-1 == ret) && (ENOENT == errno)) {
-                ret = mkdir (workdir, 0777);
+                ret = mkdir_p (workdir, 0777, _gf_true);
 
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
