@@ -1392,6 +1392,11 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&priv->callstubs);
 
         this->private = priv;
+
+        ret = index_dir_create (this, XATTROP_SUBDIR);
+        if (ret < 0)
+                goto out;
+
         ret = gf_thread_create (&thread, &w_attr, index_worker, this);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "Failed to create "
