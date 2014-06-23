@@ -108,7 +108,7 @@ struct cli_cmd snapshot_cmds[] = {
           cli_cmd_snapshot_cbk,
           "Snapshot Config."
         },
-        {"snapshot delete <snapname>",
+        {"snapshot delete (all | snapname | volume <volname>)",
           cli_cmd_snapshot_cbk,
           "Snapshot Delete."
         },
