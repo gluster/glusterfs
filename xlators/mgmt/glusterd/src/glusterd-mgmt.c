@@ -1765,7 +1765,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
-        char                        *tmp_errstr      = NULL;
+        char                        *cli_errstr      = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1843,7 +1843,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         /* quorum check of the volume is done here */
         ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "quorum check failed");
+                gf_log (this->name, GF_LOG_WARNING,
+                                "Volume quorum check failed");
                 goto out;
         }
 
@@ -1897,7 +1898,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                    unlock ops also. We might lose the actual error that
                    caused the failure.
                 */
-                tmp_errstr = op_errstr;
+                cli_errstr = op_errstr;
                 op_errstr = NULL;
                 goto unbarrier;
         }
@@ -1922,11 +1923,15 @@ unbarrier:
                 goto out;
         }
 
-        // quorum check of the snapshot volume
-        ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr);
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "quorum check failed");
-                goto out;
+        /*Do a quorum check if the commit phase is successful*/
+        if (success) {
+                //quorum check of the snapshot volume
+                ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, 
+                                "Snapshot Volume quorum check failed");
+                        goto out;
+                }
         }
 
         ret = 0;
@@ -1951,19 +1956,15 @@ out:
                                                     npeers, is_acquired);
 
         /* If the commit op (snapshot taking) failed, then the error is stored
-           in tmp_errstr and unbarrier is called. Suppose, if unbarrier also
+           in cli_errstr and unbarrier is called. Suppose, if unbarrier also
            fails, then the error happened in unbarrier is logged and freed.
-           The error happened in commit op, which is stored in tmp_errstr
+           The error happened in commit op, which is stored in cli_errstr
            is sent to cli.
         */
-        if (tmp_errstr) {
-                if (op_errstr) {
-                        gf_log (this->name, GF_LOG_ERROR, "unbarrier brick op"
-                                "failed with the error %s", op_errstr);
-                        GF_FREE (op_errstr);
-                        op_errstr = NULL;
-                }
-                op_errstr = tmp_errstr;
+        if (cli_errstr) {
+                GF_FREE (op_errstr);
+                op_errstr = NULL;
+                op_errstr = cli_errstr;
         }
 
         /* LOCAL VOLUME(S) UNLOCK */
