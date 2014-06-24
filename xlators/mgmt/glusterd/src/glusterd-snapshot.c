@@ -3665,7 +3665,7 @@ glusterd_take_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
         } while (ptr != NULL);
         runner_end (&runner);
 
-        /* Takng the actual snapshot */
+        /* Taking the actual snapshot */
         runinit (&runner);
         snprintf (msg, sizeof (msg), "taking snapshot of the brick %s",
                   origin_brick_path);
@@ -7104,6 +7104,44 @@ out:
         return ret;
 }
 
+/*
+  Verify availability of lvm commands
+*/
+
+static gf_boolean_t
+glusterd_is_lvm_cmd_available (char *lvm_cmd)
+{
+        int32_t     ret  = 0;
+        struct stat buf  = {0,};
+
+        if (!lvm_cmd)
+                return _gf_false;
+
+        ret = stat (lvm_cmd, &buf);
+        if (ret != 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "stat fails on %s, exiting. (errno = %d (%s))",
+                        lvm_cmd, errno, strerror(errno));
+                return _gf_false;
+        }
+
+        if ((!ret) && (!S_ISREG(buf.st_mode))) {
+                gf_log (THIS->name, GF_LOG_CRITICAL,
+                        "Provided command %s is not a regular file,"
+                        "exiting", lvm_cmd);
+                return _gf_false;
+        }
+
+        if ((!ret) && (!(buf.st_mode & S_IXUSR))) {
+                gf_log (THIS->name, GF_LOG_CRITICAL,
+                        "Provided command %s has no exec permissions,"
+                        "exiting", lvm_cmd);
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 int
 glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
 {
@@ -7173,6 +7211,14 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
         if (ret < 0) {
                 snprintf (err_str, sizeof (err_str), "Command type not found");
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
+        }
+
+        if (!glusterd_is_lvm_cmd_available (LVM_CREATE)) {
+                snprintf (err_str, sizeof (err_str), "LVM commands not found,"
+                          " snapshot functionality is disabled");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                ret = -1;
                 goto out;
         }
 
