@@ -6,6 +6,7 @@
 ###
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -37,7 +38,7 @@ TEST [ $count -eq 0 ]
 
 TEST rmdir $M0/test
 
-TEST umount -l $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0;
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 
