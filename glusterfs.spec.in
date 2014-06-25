@@ -315,6 +315,8 @@ Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-cli = %{version}-%{release}
 Requires:         %{name}-libs = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
+# nfs-utils provides rpc.statd and it is a requirement for gluster-nfs
+Requires:         nfs-utils
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
 %else
@@ -965,6 +967,9 @@ fi
 %changelog
 * Fri Jun 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - killall --wait in %%post server (#1113959, #1113745)
+
+* Wed Jun 25 2014 Vikhyat Umrao <vumrao@redhat.com>
+- add nfs-utils package dependency for server package (#1113007)
 
 * Thu May 22 2014 Niels de Vos <ndevos@redhat.com>
 - Almost drop calling ./autogen.sh
