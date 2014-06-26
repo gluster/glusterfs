@@ -84,15 +84,12 @@ call_frame_t *
 quotad_aggregator_get_frame_from_req (rpcsvc_request_t *req)
 {
         call_frame_t *frame  = NULL;
-        client_t     *client = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", req, out);
 
         frame = quotad_aggregator_alloc_frame (req);
         if (!frame)
                 goto out;
-
-        client = req->trans->xl_private;
 
         frame->root->op       = req->procnum;
 
@@ -101,9 +98,6 @@ quotad_aggregator_get_frame_from_req (rpcsvc_request_t *req)
         frame->root->uid      = req->uid;
         frame->root->gid      = req->gid;
         frame->root->pid      = req->pid;
-
-        gf_client_ref (client);
-        frame->root->client   = client;
 
         frame->root->lk_owner = req->lk_owner;
 

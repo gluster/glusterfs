@@ -112,12 +112,8 @@ ret:
                 quotad_aggregator_free_state (state);
         }
 
-        if (frame) {
-                if (frame->root->client)
-                        gf_client_unref (frame->root->client);
-
+        if (frame)
                 STACK_DESTROY (frame->root);
-        }
 
         if (new_iobref) {
                 iobref_unref (iobref);
