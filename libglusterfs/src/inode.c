@@ -389,6 +389,10 @@ __inode_unref (inode_t *inode)
         if (!inode)
                 return NULL;
 
+        /*
+         * Root inode should always be in active list of inode table. So unrefs
+         * on root inode are no-ops.
+         */
         if (__is_root_gfid(inode->gfid))
                 return inode;
 
@@ -419,6 +423,18 @@ __inode_ref (inode_t *inode)
                 inode->table->lru_size--;
                 __inode_activate (inode);
         }
+
+        /*
+         * Root inode should always be in active list of inode table. So unrefs
+         * on root inode are no-ops. If we do not allow unrefs but allow refs,
+         * it leads to refcount overflows and deleting and adding the inode
+         * to active-list, which is ugly. active_size (check __inode_activate)
+         * in inode table increases which is wrong. So just keep the ref
+         * count as 1 always
+         */
+        if (__is_root_gfid(inode->gfid) && inode->ref)
+                return inode;
+
         inode->ref++;
 
         return inode;
