@@ -3062,6 +3062,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         int                    ret = -1;
         glusterd_peerctx_t     *peerctx = NULL;
         data_t                 *data = NULL;
+        glusterd_peer_hostname_t *address = NULL;
 
         peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
         if (!peerctx)
@@ -3072,8 +3073,18 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
         peerctx->peerinfo = peerinfo;
 
+        /* Use the first hostname from the address list to create the peer RPC
+         */
+        address = list_entry (&peerinfo->hostnames, glusterd_peer_hostname_t,
+                              hostname_list);
+        if (!address) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Could not get the first "
+                        "address for peer");
+                goto out;
+        }
         ret = glusterd_transport_inet_options_build (&options,
-                                                     peerinfo->hostname,
+                                                     address->hostname,
                                                      peerinfo->port);
         if (ret)
                 goto out;
