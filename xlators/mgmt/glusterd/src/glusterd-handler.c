@@ -2493,32 +2493,27 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
 
         args.mode = GD_MODE_ON;
         while ( i <= count) {
-                snprintf (key, sizeof (key), "friend%d.uuid", i);
-                ret = dict_get_str (dict, key, &uuid_buf);
-                if (ret)
+                snprintf (key, sizeof (key), "friend%d", i);
+                ret = gd_peerinfo_from_dict (dict, key, &peerinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not create "
+                                "peerinfo from dict for prefix %s", key);
                         goto out;
-                uuid_parse (uuid_buf, uuid);
-                snprintf (key, sizeof (key), "friend%d.hostname", i);
-                ret = dict_get_str (dict, key, &hostname);
-                if (ret)
-                        goto out;
-
-                gf_log ("", GF_LOG_INFO, "Received uuid: %s, hostname:%s",
-                                uuid_buf, hostname);
-
-                if (uuid_is_null (uuid)) {
-                        gf_log (this->name, GF_LOG_WARNING, "Updates mustn't "
-                                "contain peer with 'null' uuid");
-                        continue;
                 }
 
-                if (!uuid_compare (uuid, MY_UUID)) {
+                if (!uuid_compare (peerinfo->uuid, MY_UUID)) {
                         gf_log ("", GF_LOG_INFO, "Received my uuid as Friend");
+                        /* A peerinfo object referencing self is not useful */
+                        glusterd_friend_cleanup (peerinfo);
+                        peerinfo = NULL;
                         i++;
                         continue;
                 }
 
-                ret = glusterd_friend_find (uuid, hostname, &tmp);
+                /* TODO: This needs to fixed. The below will not work with
+                 * address lists
+                 */
+                ret = glusterd_friend_find (peerinfo->uuid, hostname, &tmp);
 
                 if (!ret) {
                         if (strcmp (hostname, tmp->hostname) != 0) {
@@ -2529,10 +2524,15 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                         continue;
                 }
 
-                ret = glusterd_friend_add (hostname, friend_req.port,
-                                           GD_FRIEND_STATE_BEFRIENDED,
-                                           &uuid, &peerinfo, 0, &args);
+                /* If it is a new peer, it should be added as a friend.
+                 * The friend state machine will take care of correcting the
+                 * state as required
+                 */
+                peerinfo->state.state = GD_FRIEND_STATE_BEFRIENDED;
 
+                ret = glusterd_friend_add_from_peerinfo (peerinfo, 0, &args);
+
+                peerinfo = NULL;
                 i++;
         }
 
@@ -2547,6 +2547,9 @@ out:
         } else {
                 free (friend_req.friends.friends_val);//malloced by xdr
         }
+
+        if (peerinfo)
+                glusterd_friend_cleanup (peerinfo);
 
         glusterd_friend_sm ();
         glusterd_op_sm ();

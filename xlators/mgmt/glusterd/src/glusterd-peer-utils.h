@@ -66,4 +66,8 @@ gd_add_address_to_peer (glusterd_peerinfo_t *peerinfo, const char *address);
 int
 gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
                        const char *prefix);
+
+int
+gd_peerinfo_from_dict (dict_t *dict, char *prefix,
+                       glusterd_peerinfo_t **peerinfo);
 #endif /* _GLUSTERD_PEER_UTILS_H */

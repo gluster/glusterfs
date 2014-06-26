@@ -575,3 +575,108 @@ out:
                 ret);
         return ret;
 }
+
+/* gd_peerinfo_from_dict creates a peerinfo object from details of peer with
+ * @prefix in @dict and stores its address into @peerinfo.
+ * All the parmeters are necessary
+ */
+int
+gd_peerinfo_from_dict (dict_t *dict, char *prefix,
+                       glusterd_peerinfo_t **peerinfo)
+{
+        int                  ret      = -1;
+        xlator_t            *this     = NULL;
+        glusterd_conf_t     *conf     = NULL;
+        glusterd_peerinfo_t *new_peer = NULL;
+        char                 key[100] = {0,};
+        char                *uuid_str = NULL;
+        char                *hostname = NULL;
+        int                  count    = 0;
+        int                  i        = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", (this != NULL), out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (peerinfo != NULL), out);
+
+        ret = glusterd_peerinfo_new (&new_peer, GD_FRIEND_STATE_DEFAULT, NULL,
+                                     NULL, 0);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Could not create peerinfo "
+                        "object");
+                goto out;
+        }
+
+        snprintf (key, sizeof (key), "%s.uuid", prefix);
+        ret = dict_get_str (dict, key, &uuid_str);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
+                        "dictionary", key);
+                goto out;
+        }
+        uuid_parse (uuid_str, new_peer->uuid);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.hostname", prefix);
+        ret = dict_get_str (dict, key, &hostname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
+                        "dictionary", key);
+                goto out;
+        }
+        ret = gd_add_address_to_peer (new_peer, hostname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not add address to peer");
+                goto out;
+        }
+
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                ret = 0;
+                goto cont;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.address-count", prefix);
+        ret = dict_get_int32 (dict, key, &count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
+                        "dictionary", key);
+                goto out;
+        }
+        hostname = NULL;
+        for (i = 0; i < count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.hostname%d",prefix, i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Key %s not present "
+                                "in dictionary", key);
+                        goto out;
+                }
+                ret = gd_add_address_to_peer (new_peer, hostname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Could not add address to peer");
+                        goto out;
+                }
+
+                hostname = NULL;
+        }
+
+cont:
+        *peerinfo = new_peer;
+        new_peer = NULL;
+out:
+        if (new_peer)
+                glusterd_friend_cleanup (new_peer);
+
+        gf_log (this ? this->name : "glusterd", GF_LOG_DEBUG, "Returning %d",
+                ret);
+        return ret;
+}
