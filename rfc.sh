@@ -1,8 +1,10 @@
 #!/bin/sh -e
-
+# Since we run with '#!/bin/sh -e'
+#   '$? != 0' will force an exit,
+# i.e. where we are interested in the result of a command,
+# we have to run the command in an if-statement.
 
 branch="master";
-
 
 set_hooks_commit_msg()
 {
@@ -34,8 +36,6 @@ is_num()
 
 rebase_changes()
 {
-    git fetch origin;
-
     GIT_EDITOR=$0 git rebase -i origin/$branch;
 }
 
@@ -82,6 +82,43 @@ assert_diverge()
     git diff origin/$branch..HEAD | grep -q .;
 }
 
+check_patches_for_coding_style()
+{
+    git fetch origin;
+
+    check_patch_script=./extras/checkpatch.pl
+    if [ ! -e ./extras/checkpatch.pl ] ; then
+        echo "checkpatch is not executable .. abort"
+        exit 1
+    fi
+
+    ## Set this to known value once Jenkins URL changes
+    export JENKINS_URL="review.gluster.org"
+
+    echo "Running coding guidelines check ..."
+    head=$(git rev-parse --abbrev-ref HEAD)
+    # Kludge: "1>&2 && echo $? || echo $?" is to get around
+    #         "-e" from script invocation
+    RES=$(git format-patch --stdout origin/${branch}..${head} \
+          | ${check_patch_script} --terse - 1>&2 && echo $? || echo $?)
+    if [ "$RES" -eq 1 ] ; then
+        echo "Errors caught, get details by:"
+        echo "  git format-patch --stdout  origin/${branch}..${head} \\"
+        echo "  | ./extras/checkpatch.pl --jenkins-url ${JENKINS_URL} -"
+        echo "and correct errors"
+        exit 1
+    elif [ "$RES" -eq 2 ] ; then
+        echo "Warnings caught, get details by:"
+        echo "  git format-patch --stdout  origin/${branch}..${head} \\"
+        echo "  | ./extras/checkpatch.pl --jenkins-url ${JENKINS_URL} -"
+        echo -n "Do you want to continue anyway [no/yes]: "
+        read yesno
+        if [ "${yesno}" != "yes" ] ; then
+            echo "Aborting..."
+            exit 1
+        fi
+    fi
+}
 
 main()
 {
@@ -91,6 +128,8 @@ main()
         editor_mode "$@";
         return;
     fi
+
+    check_patches_for_coding_style;
 
     rebase_changes;
 
