@@ -62,7 +62,8 @@ def gmaster_builder(excrawl=None):
     modemixin = gconf.special_sync_mode
     if not modemixin:
         modemixin = 'normal'
-    changemixin = isinstance(excrawl, str) and excrawl or gconf.change_detector
+    changemixin = 'xsync' if gconf.change_detector == 'xsync' \
+                  else excrawl or gconf.change_detector
     logging.info('setting up %s change detection mode' % changemixin)
     modemixin = getattr(this, modemixin.capitalize() + 'Mixin')
     crawlmixin = getattr(this, 'GMaster' + changemixin.capitalize() + 'Mixin')
