@@ -200,7 +200,7 @@ glusterd_options_init (xlator_t *this)
 
         ret = glusterd_store_retrieve_options (this);
         if (ret == 0) {
-                goto set;
+                goto out;
         }
 
         ret = dict_set_str (priv->opts, GLUSTERD_GLOBAL_OPT_VERSION,
@@ -213,17 +213,6 @@ glusterd_options_init (xlator_t *this)
                 gf_log (this->name, GF_LOG_ERROR, "Unable to store version");
                 return ret;
         }
-
-set:
-        if (priv->op_version >= GD_OP_VERSION_3_6_0) {
-                ret = glusterd_check_and_set_config_limit (priv);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed "
-                                "to set config limit in options");
-                        return ret;
-                }
-        }
-
 out:
         return 0;
 }
