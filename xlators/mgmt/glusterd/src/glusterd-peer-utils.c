@@ -487,3 +487,91 @@ gd_add_address_to_peer (glusterd_peerinfo_t *peerinfo, const char *address)
 out:
         return ret;
 }
+
+/* gd_add_friend_to_dict() adds details of @friend into @dict with the given
+ * @prefix. All the parameters are compulsary.
+ *
+ * The complete address list is added to the dict only if the cluster op-version
+ * is >= GD_OP_VERSION_3_6_0
+ */
+int
+gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
+                       const char *prefix)
+{
+        int                       ret      = -1;
+        xlator_t                 *this     = NULL;
+        glusterd_conf_t          *conf     = NULL;
+        char                      key[100] = {0,};
+        glusterd_peer_hostname_t *address  = NULL;
+        int                       count    = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", (this != NULL), out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, (conf != NULL), out);
+
+        GF_VALIDATE_OR_GOTO (this->name, (friend != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
+
+        snprintf (key, sizeof (key), "%s.uuid", prefix);
+        ret = dict_set_dynstr_with_alloc (dict, key, uuid_utoa (friend->uuid));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set key %s in dict", key);
+                goto out;
+        }
+
+        /* Setting the first hostname from the list with this key for backward
+         * compatability
+         */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.hostname", prefix);
+        address = list_entry (&friend->hostnames, glusterd_peer_hostname_t,
+                              hostname_list);
+        if (!address) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Could not retrieve first "
+                        "address for peer");
+                goto out;
+        }
+        ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set key %s in dict", key);
+                goto out;
+        }
+
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                ret = 0;
+                goto out;
+        }
+
+        address = NULL;
+        list_for_each_entry (address, &friend->hostnames, hostname_list) {
+                GF_VALIDATE_OR_GOTO (this->name, (address != NULL), out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
+                ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set key %s in dict", key);
+                        goto out;
+                }
+                count++;
+                address = NULL;
+        }
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.address-count", prefix);
+        ret = dict_set_int32 (dict, key, count);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set key %s in dict", key);
+
+out:
+        gf_log (this ? this->name : "glusterd", GF_LOG_DEBUG, "Returning %d",
+                ret);
+        return ret;
+}
