@@ -3919,25 +3919,14 @@ cli_snap_config_parse (const char **words, int wordcount, dict_t *dict,
                         goto out;
                 }
 
-                if ((strcmp (words[cmdi], "enable") == 0) ||
-                    (strcmp (words[cmdi], "disable") == 0)) {
-                        ret = dict_set_str (dict, "auto-delete",
-                                            (char *)words[cmdi]);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
-                                        "value of auto-delete in request "
-                                        "dictionary");
-                                goto out;
-                        }
-                        auto_delete = 1;
-                } else {
-                        ret = -1;
-                        cli_err ("Please enter a valid value (enable/disable) "
-                                 "for auto-delete");
-                        gf_log ("cli", GF_LOG_ERROR, "Invalid value for "
-                                "auto-delete");
+                ret = dict_set_str (dict, "auto-delete", (char *)words[cmdi]);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set "
+                                "value of auto-delete in request "
+                                "dictionary");
                         goto out;
                 }
+                auto_delete = 1;
 
                 if (++cmdi != wordcount) {
                         ret = -1;

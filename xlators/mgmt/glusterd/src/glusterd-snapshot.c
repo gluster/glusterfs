@@ -207,19 +207,19 @@ int
 snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                                 char *op_errstr, int len)
 {
-        char                err_str[PATH_MAX]    = "";
-        char                buf[PATH_MAX]        = "";
-        glusterd_conf_t    *conf                 = NULL;
-        glusterd_volinfo_t *volinfo              = NULL;
-        int                 ret                  = -1;
-        uint64_t            active_hard_limit    = 0;
-        uint64_t            snap_max_limit       = 0;
-        uint64_t            soft_limit_value     = -1;
-        uint64_t            count                = 0;
-        xlator_t           *this                 = NULL;
-        uint64_t            opt_hard_max         = 0;
-        uint64_t            opt_soft_max         = 0;
-        char               *auto_delete          = NULL;
+        char          err_str[PATH_MAX] = "";
+        char          buf[PATH_MAX]     = "";
+        glusterd_conf_t    *conf        = NULL;
+        glusterd_volinfo_t *volinfo     = NULL;
+        int           ret               = -1;
+        uint64_t      active_hard_limit = 0;
+        uint64_t      snap_max_limit    = 0;
+        uint64_t      soft_limit_value  = -1;
+        uint64_t      count             = 0;
+        xlator_t     *this              = NULL;
+        uint64_t      opt_hard_max      = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
+        uint64_t      opt_soft_max      = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
+        char         *auto_delete       = "disable";
 
         this = THIS;
 
@@ -231,25 +231,13 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
 
         GF_ASSERT (conf);
 
-        ret = dict_get_uint64 (conf->opts,
-                               GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
-                               &opt_hard_max);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "%s from opts dictionary",
-                        GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-                goto out;
-        }
 
-        ret = dict_get_uint64 (conf->opts,
-                              GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
-                              &opt_soft_max);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "%s from options",
-                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
-                goto out;
-        }
+        /* config values snap-max-hard-limit and snap-max-soft-limit are
+         * optional and hence we are not erroring out if values are not
+         * present
+         */
+        gd_get_snap_conf_values_if_present (conf->opts, &opt_hard_max,
+                                            &opt_soft_max);
 
         if (!volname) {
                 /* For system limit */
@@ -395,15 +383,12 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 goto out;
         }
 
-        ret = dict_get_str (conf->opts,
-                            GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+        /* "auto-delete" might not be set by user explicitly,
+         * in that case it's better to consider the default value.
+         * Hence not erroring out if Key is not found.
+         */
+        ret = dict_get_str (conf->opts, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                             &auto_delete);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "%s from options",
-                        GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE);
-                goto out;
-        }
 
         ret = dict_set_dynstr_with_alloc (rsp_dict,
                                      GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
@@ -1042,7 +1027,7 @@ snap_max_hard_limits_validate (dict_t *dict, char *volname,
         int                 ret               = -1;
         uint64_t            max_limit         = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
         xlator_t           *this              = NULL;
-        uint64_t            opt_hard_max      = 0;
+        uint64_t            opt_hard_max      = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
 
         this = THIS;
 
@@ -1068,14 +1053,18 @@ snap_max_hard_limits_validate (dict_t *dict, char *volname,
                 }
         }
 
+        /* "snap-max-hard-limit" might not be set by user explicitly,
+         * in that case it's better to use the default value.
+         * Hence not erroring out if Key is not found.
+         */
         ret = dict_get_uint64 (conf->opts,
                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                &opt_hard_max);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "%s from opts dictionary",
+                ret = 0;
+                gf_log (this->name, GF_LOG_DEBUG, "%s is not present in "
+                        "opts dictionary",
                         GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-                goto out;
         }
 
         /* volume snap-max-hard-limit cannot exceed system snap-max-hard-limit.
@@ -1118,8 +1107,8 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
         uint64_t            soft_limit          = 0;
         gf_loglevel_t       loglevel            = GF_LOG_ERROR;
         uint64_t            max_limit           = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
-        char               *req_auto_delete     = NULL;
-        char               *cur_auto_delete     = NULL;
+        char                cur_auto_delete     = 0;
+        int                 req_auto_delete     = 0;
 
         this = THIS;
 
@@ -1138,12 +1127,11 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = dict_get_uint64 (dict, "snap-max-hard-limit", &hard_limit);
-
-        ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
-
-        ret = dict_get_str (dict, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
-                           &req_auto_delete);
+        /* config values snap-max-hard-limit and snap-max-soft-limit are
+         * optional and hence we are not erroring out if values are not
+         * present
+         */
+        gd_get_snap_conf_values_if_present (dict, &hard_limit, &soft_limit);
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1183,23 +1171,42 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                         break;
                 }
 
-                if (req_auto_delete) {
-                        ret = dict_get_str (conf->opts,
-                                         GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
-                                         &cur_auto_delete);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "get auto-delete value from options");
-                                goto out;
-                        }
-
-                        if (strcmp (req_auto_delete, cur_auto_delete) == 0) {
-                                ret = -1;
-                                snprintf (err_str, PATH_MAX, "auto-delete "
-                                          "is already %sd", req_auto_delete);
-                                goto out;
-                        }
+                /* If hard_limit or soft_limit is set then need not check
+                 * for auto-delete
+                 */
+                if (hard_limit || soft_limit) {
+                        ret = 0;
+                        goto out;
                 }
+
+                req_auto_delete = dict_get_str_boolean (dict,
+                                        GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                        _gf_false);
+                if (req_auto_delete < 0) {
+                        ret = -1;
+                        snprintf (err_str, sizeof (err_str), "Please enter a "
+                                  "valid boolean value for auto-delete");
+                        goto out;
+                }
+
+                /* Ignoring the error as the auto-delete is optional and
+                 * might not be present in the options dictionary.
+                 */
+                cur_auto_delete = dict_get_str_boolean (conf->opts,
+                                        GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                        _gf_false);
+
+                if (cur_auto_delete == req_auto_delete) {
+                        ret = -1;
+                        if (cur_auto_delete == _gf_true)
+                                snprintf (err_str, sizeof (err_str),
+                                          "auto-delete is already enabled");
+                        else
+                                snprintf (err_str, sizeof (err_str),
+                                          "auto-delete is already disabled");
+                        goto out;
+                }
+
         default:
                 break;
         }
@@ -1626,26 +1633,26 @@ int
 glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                       dict_t *rsp_dict)
 {
-        char                  *volname                   = NULL;
-        char                  *snapname                  = NULL;
-        char                  *device                    = NULL;
-        char                   key[PATH_MAX]             = "";
-        char                   snap_volname[64]          = "";
-        char                   err_str[PATH_MAX]         = "";
-        int                    ret                       = -1;
-        int64_t                i                         = 0;
-        int64_t                volcount                  = 0;
-        int64_t                brick_count               = 0;
-        int64_t                brick_order               = 0;
-        glusterd_brickinfo_t  *brickinfo                 = NULL;
-        glusterd_volinfo_t    *volinfo                   = NULL;
-        xlator_t              *this                      = NULL;
-        uuid_t                *snap_volid                = NULL;
-        gf_loglevel_t          loglevel                  = GF_LOG_ERROR;
-        glusterd_conf_t       *conf                      = NULL;
-        int64_t                effective_max_limit       = 0;
-        int                    flags                     = 0;
-        uint64_t               opt_hard_max              = 0;
+        char                  *volname           = NULL;
+        char                  *snapname          = NULL;
+        char                  *device            = NULL;
+        char                   key[PATH_MAX]     = "";
+        char                   snap_volname[64]  = "";
+        char                   err_str[PATH_MAX] = "";
+        int                    ret               = -1;
+        int64_t                i                 = 0;
+        int64_t                volcount          = 0;
+        int64_t                brick_count       = 0;
+        int64_t                brick_order       = 0;
+        glusterd_brickinfo_t  *brickinfo         = NULL;
+        glusterd_volinfo_t    *volinfo           = NULL;
+        xlator_t              *this              = NULL;
+        uuid_t                *snap_volid        = NULL;
+        gf_loglevel_t          loglevel          = GF_LOG_ERROR;
+        glusterd_conf_t       *conf              = NULL;
+        int64_t                effective_max_limit = 0;
+        int                    flags             = 0;
+        uint64_t               opt_hard_max      = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
 
         this = THIS;
         GF_ASSERT (op_errstr);
@@ -1659,8 +1666,8 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
         if (volcount <= 0) {
-                snprintf (err_str, sizeof (err_str), "Invalid volume count %"PRId64
-                          " supplied", volcount);
+                snprintf (err_str, sizeof (err_str),
+                          "Invalid volume count %"PRId64" supplied", volcount);
                 ret = -1;
                 goto out;
         }
@@ -1722,14 +1729,18 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
+                /* "snap-max-hard-limit" might not be set by user explicitly,
+                 * in that case it's better to consider the default value.
+                 * Hence not erroring out if Key is not found.
+                 */
                 ret = dict_get_uint64 (conf->opts,
                                       GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                       &opt_hard_max);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                                "%s from opts dictionary",
+                        ret = 0;
+                        gf_log (this->name, GF_LOG_DEBUG, "%s is not present "
+                                "in opts dictionary",
                                 GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-                        goto out;
                 }
 
                 if (volinfo->snap_max_hard_limit < opt_hard_max)
@@ -2456,7 +2467,7 @@ glusterd_snapshot_get_snapvol_detail (dict_t *dict,
         glusterd_volinfo_t *origin_vol    = NULL;
         glusterd_conf_t    *conf          = NULL;
         xlator_t           *this          = NULL;
-        uint64_t           opt_hard_max   = 0;
+        uint64_t           opt_hard_max   = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
 
         this = THIS;
         conf = this->private;
@@ -2526,16 +2537,18 @@ glusterd_snapshot_get_snapvol_detail (dict_t *dict,
                 goto out;
         }
 
-        /* Snaps available */
-
+        /* "snap-max-hard-limit" might not be set by user explicitly,
+         * in that case it's better to consider the default value.
+         * Hence not erroring out if Key is not found.
+         */
         ret = dict_get_uint64 (conf->opts,
                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                &opt_hard_max);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "%s from opts dictionary",
+                ret = 0;
+                gf_log (this->name, GF_LOG_DEBUG, "%s is not present in "
+                        "opts dictionary",
                         GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-                goto out;
         }
 
         if (opt_hard_max < origin_vol->snap_max_hard_limit) {
@@ -2821,7 +2834,7 @@ glusterd_snapshot_get_info_by_volume (dict_t *dict, char *volname,
         glusterd_volinfo_t  *tmp_vol       = NULL;
         glusterd_conf_t     *conf          = NULL;
         xlator_t            *this          = NULL;
-        uint64_t            opt_hard_max   = 0;
+        uint64_t            opt_hard_max   = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
 
         this = THIS;
         conf = this->private;
@@ -2837,15 +2850,18 @@ glusterd_snapshot_get_info_by_volume (dict_t *dict, char *volname,
                 goto out;
         }
 
-        /* Snaps available */
+        /* "snap-max-hard-limit" might not be set by user explicitly,
+         * in that case it's better to consider the default value.
+         * Hence not erroring out if Key is not found.
+         */
         ret = dict_get_uint64 (conf->opts,
                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                &opt_hard_max);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "%s from opts dictionary",
+                ret = 0;
+                gf_log (this->name, GF_LOG_DEBUG, "%s is not present in "
+                        "opts dictionary",
                         GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-                goto out;
         }
 
         if (opt_hard_max < volinfo->snap_max_hard_limit) {
@@ -5482,15 +5498,18 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        /* Ignore the return value of the following dict_get,
-         * as they are optional
-         */
         ret = dict_get_str (dict, "volname", &volname);
 
-        ret = dict_get_uint64 (dict, "snap-max-hard-limit", &hard_limit);
+        /* config values snap-max-hard-limit and snap-max-soft-limit are
+         * optional and hence we are not erroring out if values are not
+         * present
+         */
+        gd_get_snap_conf_values_if_present (dict, &hard_limit,
+                                            &soft_limit);
 
-        ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
-
+        /* Ignoring the return value as auto-delete is optional and
+         * might not be present in the request dictionary.
+         */
         ret = dict_get_str (dict, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                             &auto_delete);
 
@@ -6280,8 +6299,8 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         glusterd_snap_t    *snap                = NULL;
         glusterd_volinfo_t *tmp_volinfo         = NULL;
         glusterd_volinfo_t *other_volinfo       = NULL;
-        uint64_t            opt_max_hard        = 0;
-        uint64_t            opt_max_soft        = 0;
+        uint64_t            opt_max_hard        = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
+        uint64_t            opt_max_soft        = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6313,15 +6332,12 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = dict_get_uint64 (priv->opts,
-                                       GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
-                                       &opt_max_hard);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                                "%s from opts dictionary",
-                                GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
-                        goto out;
-                }
+                /* config values snap-max-hard-limit and snap-max-soft-limit are
+                 * optional and hence we are not erroring out if values are not
+                 * present
+                 */
+                gd_get_snap_conf_values_if_present (priv->opts, &opt_max_hard,
+                                                    &opt_max_soft);
 
                 /* The minimum of the 2 limits i.e system wide limit and
                    volume wide limit will be considered
@@ -6330,16 +6346,6 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                         effective_max_limit = volinfo->snap_max_hard_limit;
                 else
                         effective_max_limit = opt_max_hard;
-
-                ret = dict_get_uint64 (priv->opts,
-                                       GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
-                                       &opt_max_soft);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                                "%s from opts dictionary",
-                                GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
-                        goto out;
-                }
 
                 limit = (opt_max_soft * effective_max_limit)/100;
 
@@ -6449,18 +6455,17 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                 goto out;
         }
 
-        ret = dict_get_str (priv->opts, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
-                           &auto_delete);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "the value of auto-delete from options");
-                goto out;
-        }
-
-        //ignore the errors of autodelete
-        if (strcmp (auto_delete, "enable") == 0)
+        /* "auto-delete" might not be set by user explicitly,
+         * in that case it's better to consider the default value.
+         * Hence not erroring out if Key is not found.
+         */
+        ret = dict_get_str_boolean (priv->opts,
+                                    GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                                    _gf_false);
+        if ( _gf_true == ret ) {
+                //ignore the errors of autodelete
                 ret = glusterd_handle_snap_limit (dict, rsp_dict);
-
+        }
         ret = 0;
 out:
         return ret;

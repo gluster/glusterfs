@@ -7808,17 +7808,16 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                                 "& snap-max-soft-limit for system set "
                                  "successfully");
                 } else if (hard_limit) {
-                        cli_out ("snapshot config: %s "
-                                 "for snap-max-hard-limit set successfully",
+                        cli_out ("snapshot config: snap-max-hard-limit "
+                                 "for %s set successfully",
                                  volname);
                 } else if (soft_limit) {
-                        cli_out ("snapshot config: %s "
-                                 "for snap-max-soft-limit set successfully",
+                        cli_out ("snapshot config: snap-max-soft-limit "
+                                 "for %s set successfully",
                                  volname);
                 } else if (auto_delete) {
-                        cli_out ("snapshot config: %s "
-                                 "auto-delete successfully %sd",
-                                 volname, auto_delete);
+                        cli_out ("snapshot config: auto-delete "
+                                 "successfully set");
                 }
                 break;
 

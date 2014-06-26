@@ -96,6 +96,9 @@ TEST $CLI_1 snapshot config $V0 snap-max-hard-limit 10
 # Make sure auto-delete is disabled by default
 EXPECT 'disable' config_validate 'auto-delete'
 
+# Test for invalid value for auto-delete
+TEST ! $CLI_1 snapshot config auto-delete test
+
 TEST $CLI_1 snapshot config snap-max-hard-limit 6
 TEST $CLI_1 snapshot config snap-max-soft-limit 50
 
@@ -113,8 +116,14 @@ EXPECT 'No snapshots present' is_snapshot_present;
 
 TEST $CLI_1 snapshot config auto-delete enable
 # auto-delete is already enabled, Hence expect a failure.
-TEST ! $CLI_1 snapshot config auto-delete enable
-EXPECT 'enable' config_validate 'auto-delete'
+TEST ! $CLI_1 snapshot config auto-delete on
+
+# Testing other boolean values with auto-delete
+TEST $CLI_1 snapshot config auto-delete off
+EXPECT 'off' config_validate 'auto-delete'
+
+TEST $CLI_1 snapshot config auto-delete true
+EXPECT 'true' config_validate 'auto-delete'
 
 # Try to create 4 snaps again, As auto-delete is enabled
 # oldest snap should be deleted and snapcount should be 3
