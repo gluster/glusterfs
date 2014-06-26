@@ -9,23 +9,18 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2}
 EXPECT 'Created' volinfo_field $V0 'Status';
+TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status';
-# Needed to be sure self-heal daemon is running
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST glusterfs --direct-io-mode=yes --use-readdirp=no --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
 mkdir -p $M0/dir1/dir2
 
 TEST rm -f $(gf_get_gfid_backend_file_path $B0/${V0}1 "dir1")
 TEST rmdir $B0/${V0}1/dir1/dir2
 
-TEST $CLI volume heal $V0 full
-EXPECT_WITHIN $HEAL_TIMEOUT "Y" path_exists $B0/${V0}1/dir1/dir2
-EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+TEST stat $M0/dir1/dir2
 
 TEST [ -d $B0/${V0}1/dir1/dir2 ]
 TEST [ ! -d $(gf_get_gfid_backend_file_path $B0/${V0}1 "dir1") ]
