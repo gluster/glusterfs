@@ -52,18 +52,11 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         uint32_t         oldmax_clients = -1;
         int              ret            = -1;
 
-        if (clienttable == NULL || nr > UINT32_MAX) {
+        if (clienttable == NULL || nr <= clienttable->max_clients) {
                 gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;
         }
-
-        /* expand size by power-of-two...
-           this originally came from .../xlators/protocol/server/src/server.c
-           where it was not commented */
-        nr /= (1024 / sizeof (cliententry_t));
-        nr = gf_roundup_next_power_of_two (nr + 1);
-        nr *= (1024 / sizeof (cliententry_t));
 
         oldclients = clienttable->cliententries;
         oldmax_clients = clienttable->max_clients;
@@ -71,7 +64,8 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         clienttable->cliententries = GF_CALLOC (nr, sizeof (cliententry_t),
                                                 gf_common_mt_cliententry_t);
         if (!clienttable->cliententries) {
-                ret = ENOMEM;
+                clienttable->cliententries = oldclients;
+                ret = 0;
                 goto out;
         }
         clienttable->max_clients = nr;
@@ -101,6 +95,7 @@ clienttable_t *
 gf_clienttable_alloc (void)
 {
         clienttable_t *clienttable = NULL;
+        int            result = 0;
 
         clienttable =
                 GF_CALLOC (1, sizeof (clienttable_t), gf_common_mt_clienttable_t);
@@ -108,7 +103,16 @@ gf_clienttable_alloc (void)
                 return NULL;
 
         LOCK_INIT (&clienttable->lock);
-        gf_client_clienttable_expand (clienttable, GF_CLIENTTABLE_INITIAL_SIZE);
+
+        result = gf_client_clienttable_expand (clienttable,
+                                               GF_CLIENTTABLE_INITIAL_SIZE);
+        if (result != 0) {
+                gf_log ("client_t", GF_LOG_ERROR,
+                        "gf_client_clienttable_expand failed");
+                GF_FREE (clienttable);
+                return NULL;
+        }
+
         return clienttable;
 }
 
@@ -180,8 +184,6 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 errno = EINVAL;
                 return NULL;
         }
-
-        gf_log (this->name, GF_LOG_INFO, "client_uid=%s", client_uid);
 
         clienttable = this->ctx->clienttable;
 
@@ -264,7 +266,22 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 }
 
                 client->tbl_index = clienttable->first_free;
-                cliententry = &clienttable->cliententries[client->tbl_index];
+                cliententry = &clienttable->cliententries[clienttable->first_free];
+                if (cliententry->next_free == GF_CLIENTTABLE_END) {
+                        int result =
+                                gf_client_clienttable_expand (clienttable,
+                                        clienttable->max_clients +
+                                                GF_CLIENTTABLE_INITIAL_SIZE);
+                        if (result != 0) {
+                                GF_FREE (client->scratch_ctx.ctx);
+                                GF_FREE (client->client_uid);
+                                GF_FREE (client);
+                                client = NULL;
+                                errno = result;
+                                goto unlock;
+                        }
+                        cliententry->next_free = clienttable->first_free;
+                }
                 cliententry->client = client;
                 clienttable->first_free = cliententry->next_free;
                 cliententry->next_free = GF_CLIENTENTRY_ALLOCATED;
