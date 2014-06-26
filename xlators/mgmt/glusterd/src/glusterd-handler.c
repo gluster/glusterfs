@@ -3166,6 +3166,53 @@ out:
         return ret;
 }
 
+/* glusterd_friend_add_from_peerinfo() adds a new peer into the local friends
+ * list from a pre created @peerinfo object. It otherwise works similarly to
+ * glusterd_friend_add()
+ */
+int
+glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
+                                   gf_boolean_t restore,
+                                   glusterd_peerctx_args_t *args)
+{
+        int                     ret = 0;
+        xlator_t               *this = NULL;
+        glusterd_conf_t        *conf = NULL;
+
+        this = THIS;
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        GF_VALIDATE_OR_GOTO (this->name, (friend != NULL), out);
+
+        /*
+         * We can't add to the list after calling glusterd_friend_rpc_create,
+         * even if it succeeds, because by then the callback to take it back
+         * off and free might have happened already (notably in the case of an
+         * invalid peer name).  That would mean we're adding something that had
+         * just been free, and we're likely to crash later.
+         */
+        list_add_tail (&friend->uuid_list, &conf->peers);
+
+        //restore needs to first create the list of peers, then create rpcs
+        //to keep track of quorum in race-free manner. In restore for each peer
+        //rpc-create calls rpc_notify when the friend-list is partially
+        //constructed, leading to wrong quorum calculations.
+        if (!restore) {
+                ret = glusterd_store_peerinfo (friend);
+                if (ret == 0) {
+                        ret = glusterd_friend_rpc_create (this, friend, args);
+                }
+                else {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store peerinfo");
+                }
+        }
+
+out:
+        gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
+        return ret;
+}
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
                       dict_t *dict, int *op_errno)

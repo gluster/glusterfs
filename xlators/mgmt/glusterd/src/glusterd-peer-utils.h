@@ -20,9 +20,6 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo);
 int32_t
 glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo);
 
-int32_t
-glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name);
-
 int
 glusterd_friend_find_by_hostname (const char *hoststr,
                                   glusterd_peerinfo_t  **peerinfo);
@@ -54,4 +51,12 @@ gf_boolean_t
 glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                struct list_head *peers, char **down_peerstr);
 
+int32_t
+glusterd_peer_hostname_new (const char *hostname,
+                            glusterd_peer_hostname_t **name);
+gf_boolean_t
+gd_peer_has_address (glusterd_peerinfo_t *peerinfo, const char *address);
+
+int
+gd_add_address_to_peer (glusterd_peerinfo_t *peerinfo, const char *address);
 #endif /* _GLUSTERD_PEER_UTILS_H */

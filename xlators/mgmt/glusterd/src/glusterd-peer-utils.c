@@ -9,7 +9,7 @@
 */
 
 #include "glusterd-peer-utils.h"
-
+#include "glusterd-store.h"
 int32_t
 glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
@@ -65,32 +65,6 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
         ret = 0;
 
 out:
-        return ret;
-}
-
-int32_t
-glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name)
-{
-        glusterd_peer_hostname_t        *peer_hostname = NULL;
-        int32_t                         ret = -1;
-
-        GF_ASSERT (hostname);
-        GF_ASSERT (name);
-
-        peer_hostname = GF_CALLOC (1, sizeof (*peer_hostname),
-                                   gf_gld_mt_peer_hostname_t);
-
-        if (!peer_hostname)
-                goto out;
-
-        peer_hostname->hostname = gf_strdup (hostname);
-        INIT_LIST_HEAD (&peer_hostname->hostname_list);
-
-        *name = peer_hostname;
-        ret = 0;
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -251,36 +225,36 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
         return ret;
 }
 
+/* glusterd_peerinfo_new will create a new peerinfo object and sets its address
+ * into @peerinfo. If any other parameters are given, they will be set in the
+ * peerinfo object.
+ */
 int
 glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
                        glusterd_friend_sm_state_t state, uuid_t *uuid,
                        const char *hostname, int port)
 {
         glusterd_peerinfo_t      *new_peer = NULL;
-        glusterd_peer_hostname_t *peer_hostname = NULL;
         int                      ret = -1;
 
         GF_ASSERT (peerinfo);
         if (!peerinfo)
                 goto out;
 
-        if (!hostname)
-                goto out;
-
         new_peer = GF_CALLOC (1, sizeof (*new_peer), gf_gld_mt_peerinfo_t);
         if (!new_peer)
                 goto out;
 
+        INIT_LIST_HEAD (&new_peer->uuid_list);
+
         new_peer->state.state = state;
-        new_peer->hostname = gf_strdup (hostname);
 
         INIT_LIST_HEAD (&new_peer->hostnames);
-        ret = glusterd_peer_hostname_new (hostname, &peer_hostname);
-        if (ret)
-                goto out;
-        list_add_tail (&peer_hostname->hostname_list, &new_peer->hostnames);
-
-        INIT_LIST_HEAD (&new_peer->uuid_list);
+        if (hostname) {
+                ret = gd_add_address_to_peer (new_peer, hostname);
+                if (ret)
+                        goto out;
+        }
 
         if (uuid) {
                 uuid_copy (new_peer->uuid, *uuid);
@@ -420,3 +394,75 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_peer_hostname_new (const char *hostname,
+                            glusterd_peer_hostname_t **name)
+{
+        glusterd_peer_hostname_t        *peer_hostname = NULL;
+        int32_t                         ret = -1;
+
+        GF_ASSERT (hostname);
+        GF_ASSERT (name);
+
+        peer_hostname = GF_CALLOC (1, sizeof (*peer_hostname),
+                                   gf_gld_mt_peer_hostname_t);
+
+        if (!peer_hostname)
+                goto out;
+
+        peer_hostname->hostname = gf_strdup (hostname);
+        INIT_LIST_HEAD (&peer_hostname->hostname_list);
+
+        *name = peer_hostname;
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+gf_boolean_t
+gd_peer_has_address (glusterd_peerinfo_t *peerinfo, const char *address)
+{
+        gf_boolean_t ret = _gf_false;
+        glusterd_peer_hostname_t *hostname = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", (peerinfo != NULL), out);
+        GF_VALIDATE_OR_GOTO ("glusterd", (address != NULL), out);
+
+        list_for_each_entry (hostname, &peerinfo->hostnames, hostname_list) {
+                if (strcmp (hostname->hostname, address) == 0) {
+                        ret = _gf_true;
+                        break;
+                }
+        }
+
+out:
+        return ret;
+}
+
+int
+gd_add_address_to_peer (glusterd_peerinfo_t *peerinfo, const char *address)
+{
+
+        int ret = -1;
+        glusterd_peer_hostname_t *hostname = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", (peerinfo != NULL), out);
+        GF_VALIDATE_OR_GOTO ("glusterd", (address != NULL), out);
+
+        if (gd_peer_has_address (peerinfo, address)) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_peer_hostname_new (address, &hostname);
+        if (ret)
+                goto out;
+
+        list_add_tail (&hostname->hostname_list, &peerinfo->hostnames);
+
+        ret = 0;
+out:
+        return ret;
+}

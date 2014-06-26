@@ -656,6 +656,10 @@ glusterd_friend_add (const char *hoststr, int port,
                      gf_boolean_t restore, glusterd_peerctx_args_t *args);
 
 int
+glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
+                                   gf_boolean_t restore,
+                                   glusterd_peerctx_args_t *args);
+int
 glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                             glusterd_peerctx_args_t *args);
 int
