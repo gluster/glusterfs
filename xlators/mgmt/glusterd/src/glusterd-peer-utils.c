@@ -46,6 +46,7 @@ int32_t
 glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
 {
         int32_t                         ret = -1;
+        glusterd_peer_hostname_t *hostname = NULL;
 
         if (!peerinfo)
                 goto out;
@@ -57,7 +58,11 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
         }
 
         list_del_init (&peerinfo->uuid_list);
-        GF_FREE (peerinfo->hostname);
+
+        list_for_each_entry (hostname, &peerinfo->hostnames, hostname_list) {
+                glusterd_peer_hostname_free (hostname);
+        }
+
         glusterd_sm_tr_log_delete (&peerinfo->sm_log);
         GF_FREE (peerinfo);
         peerinfo = NULL;
@@ -419,6 +424,22 @@ glusterd_peer_hostname_new (const char *hostname,
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
+
+void
+glusterd_peer_hostname_free (glusterd_peer_hostname_t *name)
+{
+        if (!name)
+                return;
+
+        list_del_init (&name->hostname_list);
+
+        GF_FREE (name->hostname);
+        name->hostname = NULL;
+
+        GF_FREE (name);
+
+        return;
 }
 
 gf_boolean_t
