@@ -775,7 +775,7 @@ pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
     kill -9 `pgrep -f gsyncd.py` &> /dev/null
 
-    killall glusterd &> /dev/null
+    killall --wait glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
 else
     glusterd --xlator-option *.upgrade=on -N
@@ -1033,6 +1033,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Jun 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- killall --wait in %%post server, (#1113543)
+
 * Thu Jun 12 2014 Varun Shastry <vshastry@redhat.com>
 - Add bash completion config to the cli package
 
