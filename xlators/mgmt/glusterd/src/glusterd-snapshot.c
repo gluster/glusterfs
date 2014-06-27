@@ -2124,7 +2124,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         continue;
                 }
 
-                if (!strstr (mnt_pt, snap_vol->volname)) {
+                if (strcmp (mnt_pt, brick_mount_path)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Lvm is not mounted for brick %s:%s. "
                                 "Removing the brick path.",
