@@ -295,13 +295,16 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
         }
 
         blen = link_len - 48;
+
+        if(len + blen >= maxlen)
+                goto err;
+
         memmove (buf + base_len + blen, buf + base_len,
                  (strlen (buf) - base_len) + 1);
 
         strncpy (base_str + pfx_len, linkname + 6, 42);
 
-        if (len + blen < maxlen)
-                strncpy (buf + pfx_len, linkname + 6, link_len - 6);
+        strncpy (buf + pfx_len, linkname + 6, link_len - 6);
 out:
         return len + blen;
 err:
