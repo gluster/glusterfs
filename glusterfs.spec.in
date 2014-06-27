@@ -938,7 +938,7 @@ pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
     kill -9 `pgrep -f gsyncd.py` &> /dev/null
 
-    killall glusterd &> /dev/null
+    killall --wait glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
 else
     glusterd --xlator-option *.upgrade=on -N
@@ -963,6 +963,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Fri Jun 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- killall --wait in %%post server (#1113959, #1113745)
+
 * Thu May 22 2014 Niels de Vos <ndevos@redhat.com>
 - Almost drop calling ./autogen.sh
 
