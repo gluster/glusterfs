@@ -73,21 +73,45 @@ out:
         return ret;
 }
 
+glusterd_peerinfo_t *
+glusterd_search_hostname (xlator_t *this, const char *hoststr1,
+                          const char *hoststr2)
+{
+        glusterd_peerinfo_t            *peer            = NULL;
+        glusterd_peer_hostname_t       *tmphost         = NULL;
+        glusterd_conf_t                *priv            = this->private;
+
+        GF_ASSERT (priv);
+        GF_ASSERT (hoststr1);
+
+        list_for_each_entry (peer, &priv->peers, uuid_list)
+                list_for_each_entry (tmphost, &peer->hostnames,hostname_list)
+                        if (!strncasecmp (tmphost->hostname, hoststr1, 1024) ||
+                            (hoststr2 &&
+                             !strncasecmp (tmphost->hostname,hoststr2, 1024))){
+
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Friend %s found.. state: %d",
+                                        tmphost->hostname, peer->state.state);
+                                return peer;
+                        }
+
+        return NULL;
+}
+
 int
 glusterd_friend_find_by_hostname (const char *hoststr,
                                   glusterd_peerinfo_t  **peerinfo)
 {
-        int                     ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_peerinfo_t     *entry = NULL;
-        struct addrinfo         *addr = NULL;
-        struct addrinfo         *p = NULL;
-        char                    *host = NULL;
-        struct sockaddr_in6     *s6 = NULL;
-        struct sockaddr_in      *s4 = NULL;
-        struct in_addr          *in_addr = NULL;
-        char                    hname[1024] = {0,};
-        xlator_t                *this  = NULL;
+        int                             ret             = -1;
+        struct addrinfo                *addr            = NULL;
+        struct addrinfo                *p               = NULL;
+        char                           *host            = NULL;
+        struct sockaddr_in6            *s6              = NULL;
+        struct sockaddr_in             *s4              = NULL;
+        struct in_addr                 *in_addr         = NULL;
+        char                            hname[1024]     = {0,};
+        xlator_t                       *this            = NULL;
 
 
         this = THIS;
@@ -95,21 +119,10 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         GF_ASSERT (peerinfo);
 
         *peerinfo = NULL;
-        priv    = this->private;
 
-        GF_ASSERT (priv);
-
-        list_for_each_entry (entry, &priv->peers, uuid_list) {
-                if (!strncasecmp (entry->hostname, hoststr,
-                                  1024)) {
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                 "Friend %s found.. state: %d", hoststr,
-                                  entry->state.state);
-                        *peerinfo = entry;
-                        return 0;
-                }
-        }
+        *peerinfo = glusterd_search_hostname (this, hoststr, NULL);
+        if (*peerinfo)
+                return 0;
 
         ret = getaddrinfo (hoststr, NULL, NULL, &addr);
         if (ret != 0) {
@@ -139,17 +152,10 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                 if (ret)
                         goto out;
 
-                list_for_each_entry (entry, &priv->peers, uuid_list) {
-                        if (!strncasecmp (entry->hostname, host,
-                            1024) || !strncasecmp (entry->hostname,hname,
-                            1024)) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Friend %s found.. state: %d",
-                                        hoststr, entry->state.state);
-                                *peerinfo = entry;
-                                freeaddrinfo (addr);
-                                return 0;
-                        }
+                *peerinfo = glusterd_search_hostname (this, host, hname);
+                if (*peerinfo) {
+                        freeaddrinfo (addr);
+                        return 0;
                 }
         }
 
