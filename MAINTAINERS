@@ -56,6 +56,7 @@ M: Jeff Darcy <jdarcy@redhat.com>
 M: Kaleb S. Keithley <kkeithle@redhat.com>
 M: Vijay Bellur <vbellur@redhat.com>
 
+
 xlators:
 --------
 Automatic File Replication (AFR)
@@ -89,11 +90,6 @@ M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/features/marker/
 
-NFS Server
-M: Santosh Pradhan <spradhan@redhat.com>
-S: Maintained
-F: xlators/nfs/
-
 Changelog
 M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
@@ -120,6 +116,7 @@ Locks
 M: Pranith Karampuri <pkarampu@redhat.com>
 S: Maintained
 F: xlators/features/locks/
+
 
 Other bits of code:
 -------------------
@@ -158,21 +155,36 @@ Distribution Specific:
 Debian Packaging
 M: Patrick Matthäi <pmatthaei@debian.org>
 M: Louis Zuckerman <me@louiszuckerman.com>
+S: Maintained
 W: http://packages.qa.debian.org/g/glusterfs.html
 
 Fedora Packaging
 M: glusterfs-owner@fedoraproject.org
+M: Humble Chirammal <hchiramm@redhat.com>
 M: Kaleb Keithley <kkeithle@redhat.com>
+M: Lalatendu Mohanty <lmohanty@redhat.com>
 M: Niels de Vos <ndevos@redhat.com>
+S: Maintained
 W: https://apps.fedoraproject.org/packages/glusterfs
 T: http://pkgs.fedoraproject.org/git/glusterfs.git
 
+FreeBSD port
+M: Harshavardhana <harsha@harshavardhana.net>
+S: Maintained
+
+MacOS X port
+M: Dennis Schafroth <dennis@schafroth.com>
+M: Harshavardhana <harsha@harshavardhana.net>
+S: Maintained
+
 NetBSD port
 M: Emmanuel Dreyfus <manu@netbsd.org>
+S: Maintained
 W: http://pkgsrc.se/filesystems/glusterfs
 
 Ubuntu Packaging
 M: Louis Zuckerman <me@louiszuckerman.com>
+S: Maintained
 W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Ubuntu/Ubuntu.README
 
 
@@ -185,6 +197,7 @@ T: https://github.com/gluster/gluster-swift.git
 
 GlusterFS Hadoop HCFS plugin
 M: Jay Vyas <jvyas@redhat.com>
+S: Maintained
 T: https://github.com/gluster/glusterfs-hadoop.git
 
 NFS-Ganesha FSAL plugin
@@ -211,6 +224,7 @@ F: source3/modules/vfs_glusterfs.c
 Wireshark dissectors
 M: Niels de Vos <ndevos@redhat.com>
 S: Maintained
+W: https://forge.gluster.org/wireshark
 T: http://code.wireshark.org/git/wireshark
 F: epan/dissectors/packet-gluster*
 
