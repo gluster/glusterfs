@@ -2402,14 +2402,13 @@ glusterd_friend_hostname_update (glusterd_peerinfo_t *peerinfo,
         GF_ASSERT (peerinfo);
         GF_ASSERT (hostname);
 
-        new_hostname = gf_strdup (hostname);
-        if (!new_hostname) {
-                ret = -1;
+        ret = gd_add_address_to_peer (peerinfo, hostname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Couldn't add address to the peer info");
                 goto out;
         }
 
-        GF_FREE (peerinfo->hostname);
-        peerinfo->hostname = new_hostname;
         if (store_update)
                 ret = glusterd_store_peerinfo (peerinfo);
 out:
