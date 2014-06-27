@@ -2164,9 +2164,15 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
               time_t *granted_time, time_t *blkd_time, gf_boolean_t active)
 {
         char  *type_str    = NULL;
-        char   granted[32] = {0,};
-        char   blocked[32] = {0,};
+        char   granted[256] = {0,};
+        char   blocked[256] = {0,};
 
+        if (granted_time)
+                gf_time_fmt (granted, sizeof (granted), *granted_time,
+                             gf_timefmt_FT);
+        if (blkd_time)
+                gf_time_fmt (blocked, sizeof (blocked), *blkd_time,
+                             gf_timefmt_FT);
         switch (flock->l_type) {
         case F_RDLCK:
                 type_str = "READ";
@@ -2190,7 +2196,7 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
                                   lkowner_utoa (owner), trans, conn_id,
-                                  ctime_r (granted_time, granted));
+                                  granted);
                 } else {
                         snprintf (str, size, RANGE_BLKD_GRNTD_FMT,
                                   type_str, flock->l_whence,
@@ -2198,18 +2204,15 @@ pl_dump_lock (char *str, int size, struct gf_flock *flock,
                                   (unsigned long long) flock->l_len,
                                   (unsigned long long) flock->l_pid,
                                   lkowner_utoa (owner), trans, conn_id,
-                                  ctime_r (blkd_time, blocked),
-                                  ctime_r (granted_time, granted));
+                                  blocked, granted);
                 }
-        }
-        else {
+        } else {
                 snprintf (str, size, RANGE_BLKD_FMT,
                           type_str, flock->l_whence,
                           (unsigned long long) flock->l_start,
                           (unsigned long long) flock->l_len,
                           (unsigned long long) flock->l_pid,
-                          lkowner_utoa (owner), trans, conn_id,
-                          ctime_r (blkd_time, blocked));
+                          lkowner_utoa (owner), trans, conn_id, blocked);
         }
 
 }
@@ -2219,12 +2222,13 @@ __dump_entrylks (pl_inode_t *pl_inode)
 {
         pl_dom_list_t   *dom  = NULL;
         pl_entry_lock_t *lock = NULL;
-        char             blocked[32] = {0,};
-        char             granted[32] = {0,};
+        char             blocked[256] = {0,};
+        char             granted[256] = {0,};
         int              count = 0;
         char             key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        char            *k = "xlator.feature.locks.lock-dump.domain.entrylk";
 
-        char tmp[256];
+        char tmp[4098];
 
         list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
 
@@ -2237,26 +2241,33 @@ __dump_entrylks (pl_inode_t *pl_inode)
 
                 list_for_each_entry (lock, &dom->entrylk_list, domain_list) {
 
-                        gf_proc_dump_build_key(key,
-                                               "xlator.feature.locks.lock-dump.domain.entrylk",
+                        gf_time_fmt (granted, sizeof (granted),
+                                     lock->granted_time.tv_sec, gf_timefmt_FT);
+                        gf_proc_dump_build_key(key, k,
                                                "entrylk[%d](ACTIVE)", count );
-                        if (lock->blkd_time.tv_sec == 0 && lock->blkd_time.tv_usec == 0) {
-                                snprintf (tmp, 256, ENTRY_GRNTD_FMT,
-                                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                          "ENTRYLK_WRLCK", lock->basename,
+                        if (lock->blkd_time.tv_sec == 0) {
+                                snprintf (tmp, sizeof (tmp), ENTRY_GRNTD_FMT,
+                                          lock->type == ENTRYLK_RDLCK ?
+                                          "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK",
+                                          lock->basename,
                                           (unsigned long long) lock->client_pid,
-                                          lkowner_utoa (&lock->owner), lock->client,
-                                          lock->connection_id,
-                                          ctime_r (&lock->granted_time.tv_sec, granted));
+                                          lkowner_utoa (&lock->owner),
+                                          lock->client,
+                                          lock->connection_id, granted);
                         } else {
-                                snprintf (tmp, 256, ENTRY_BLKD_GRNTD_FMT,
-                                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                          "ENTRYLK_WRLCK", lock->basename,
+                                gf_time_fmt (blocked, sizeof (blocked),
+                                             lock->blkd_time.tv_sec,
+                                             gf_timefmt_FT);
+                                snprintf (tmp, sizeof (tmp),
+                                          ENTRY_BLKD_GRNTD_FMT,
+                                          lock->type == ENTRYLK_RDLCK ?
+                                          "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK",
+                                          lock->basename,
                                           (unsigned long long) lock->client_pid,
-                                          lkowner_utoa (&lock->owner), lock->client,
+                                          lkowner_utoa (&lock->owner),
+                                          lock->client,
                                           lock->connection_id,
-                                          ctime_r (&lock->blkd_time.tv_sec, blocked),
-                                          ctime_r (&lock->granted_time.tv_sec, granted));
+                                          blocked, granted);
                         }
 
                         gf_proc_dump_write(key, tmp);
@@ -2264,18 +2275,21 @@ __dump_entrylks (pl_inode_t *pl_inode)
                         count++;
                 }
 
-                list_for_each_entry (lock, &dom->blocked_entrylks, blocked_locks) {
+                list_for_each_entry (lock, &dom->blocked_entrylks,
+                                     blocked_locks) {
 
-                        gf_proc_dump_build_key(key,
-                                               "xlator.feature.locks.lock-dump.domain.entrylk",
+                        gf_time_fmt (blocked, sizeof (blocked),
+                                     lock->blkd_time.tv_sec, gf_timefmt_FT);
+
+                        gf_proc_dump_build_key(key, k,
                                                "entrylk[%d](BLOCKED)", count );
-                        snprintf (tmp, 256, ENTRY_BLKD_FMT,
-                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
-                                  "ENTRYLK_WRLCK", lock->basename,
+                        snprintf (tmp, sizeof (tmp), ENTRY_BLKD_FMT,
+                                  lock->type == ENTRYLK_RDLCK ?
+                                  "ENTRYLK_RDLCK" : "ENTRYLK_WRLCK",
+                                  lock->basename,
                                   (unsigned long long) lock->client_pid,
                                   lkowner_utoa (&lock->owner), lock->client,
-                                  lock->connection_id,
-                                  ctime_r (&lock->blkd_time.tv_sec, blocked));
+                                  lock->connection_id, blocked);
 
                         gf_proc_dump_write(key, tmp);
 
@@ -2283,7 +2297,6 @@ __dump_entrylks (pl_inode_t *pl_inode)
                 }
 
         }
-
 }
 
 void
@@ -2305,7 +2318,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
         int             count = 0;
         char            key[GF_DUMP_MAX_BUF_LEN];
 
-        char tmp[256];
+        char tmp[4098];
 
         list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
 
@@ -2323,7 +2336,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                                                "inodelk[%d](ACTIVE)",count );
 
                         SET_FLOCK_PID (&lock->user_flock, lock);
-                        pl_dump_lock (tmp, 256, &lock->user_flock,
+                        pl_dump_lock (tmp, sizeof (tmp), &lock->user_flock,
                                       &lock->owner,
                                       lock->client, lock->connection_id,
                                       &lock->granted_time.tv_sec,
@@ -2340,7 +2353,7 @@ __dump_inodelks (pl_inode_t *pl_inode)
                                                "inodelk",
                                                "inodelk[%d](BLOCKED)",count );
                         SET_FLOCK_PID (&lock->user_flock, lock);
-                        pl_dump_lock (tmp, 256, &lock->user_flock,
+                        pl_dump_lock (tmp, sizeof (tmp), &lock->user_flock,
                                       &lock->owner,
                                       lock->client, lock->connection_id,
                                       0, &lock->blkd_time.tv_sec,
@@ -2372,7 +2385,7 @@ __dump_posixlks (pl_inode_t *pl_inode)
         int             count = 0;
         char            key[GF_DUMP_MAX_BUF_LEN];
 
-        char tmp[256];
+        char tmp[4098];
 
       list_for_each_entry (lock, &pl_inode->ext_list, list) {
 
@@ -2382,7 +2395,7 @@ __dump_posixlks (pl_inode_t *pl_inode)
                                      "posixlk[%d](%s)",
                                      count,
                                      lock->blocked ? "BLOCKED" : "ACTIVE");
-              pl_dump_lock (tmp, 256, &lock->user_flock,
+              pl_dump_lock (tmp, sizeof (tmp), &lock->user_flock,
                             &lock->owner, lock->client, NULL,
                             &lock->granted_time.tv_sec, &lock->blkd_time.tv_sec,
                             (lock->blocked)? _gf_false: _gf_true);
