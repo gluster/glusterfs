@@ -253,8 +253,8 @@ changelog_rollover_changelog (xlator_t *this,
                                          CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret,
                                                                            out);
                                          gf_log (this->name, GF_LOG_INFO,
-                                                 "Changelog published and"
-                                                 " signalled bnotify");
+                                                 "Changelog published: %s and"
+                                                 " signalled bnotify", bname);
                                 }
                                 ret = pthread_mutex_unlock (
                                                        &priv->bn.bnotify_mutex);
@@ -676,6 +676,30 @@ changelog_rollover (void *data)
                                 " to be drained:%ld",priv->dm.white_fop_cnt);
                         changelog_drain_white_fops (this, priv);
                 }
+
+                /* Adding delay of 1 second only during explicit rollover:
+                 *
+                 * Changelog rollover can happen either due to actual
+                 * or the explict rollover during snapshot. Actual
+                 * rollover is controlled by tuneable called 'rollover-time'.
+                 * The minimum granularity for rollover-time is 1 second.
+                 * Explicit rollover is asynchronous in nature and happens
+                 * during snapshot.
+                 *
+                 * Basically, rollover renames the current CHANGELOG file
+                 * to CHANGELOG.TIMESTAMP. Let's assume, at time 't1',
+                 * actual and explicit rollover raced against  each
+                 * other and actual rollover won the race renaming the
+                 * CHANGELOG file to CHANGELOG.t1 and opens a new
+                 * CHANGELOG file. There is high chance that, an immediate
+                 * explicit rollover at time 't1' can happen with in the same
+                 * second to rename CHANGELOG file to CHANGELOG.t1 resulting in
+                 * purging the earlier CHANGELOG.t1 file created by actual
+                 * rollover. So adding a delay of 1 second guarantees unique
+                 * CHANGELOG.TIMESTAMP during  explicit rollover.
+                 */
+                if (priv->explicit_rollover == _gf_true)
+                        sleep (1);
 
                 ret = changelog_fill_rollover_data (&cld, _gf_false);
                 if (ret) {

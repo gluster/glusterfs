@@ -1499,7 +1499,7 @@ notify (xlator_t *this, int event, void *data, ...)
                          */
                         if (ret == 0) {
                                 chlog_barrier_dequeue_all(this, &queue);
-                                gf_log(this->name, GF_LOG_DEBUG,
+                                gf_log(this->name, GF_LOG_INFO,
                                        "Disabled changelog barrier");
                         } else {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -1557,7 +1557,7 @@ notify (xlator_t *this, int event, void *data, ...)
                                 goto out;
                         }
 
-                        gf_log(this->name, GF_LOG_DEBUG,
+                        gf_log(this->name, GF_LOG_INFO,
                                            "Enabled changelog barrier");
 
                         ret = changelog_barrier_notify(priv, buf);
