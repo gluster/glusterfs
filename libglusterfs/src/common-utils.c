@@ -1921,6 +1921,70 @@ out:
         return ret;
 }
 
+/**
+ * valid_ipv4_subnetwork() takes the pattern and checks if it contains
+ * a valid ipv4 subnetwork pattern i.e. xx.xx.xx.xx/n. IPv4 address
+ * part (xx.xx.xx.xx) and mask bits lengh part (n). The mask bits lengh
+ * must be in 0-32 range (ipv4 addr is 32 bit). The pattern must be
+ * in this format.
+ *
+ * Returns _gf_true if both IP addr and mask bits len are valid
+ *         _gf_false otherwise.
+ */
+gf_boolean_t
+valid_ipv4_subnetwork (const char *address)
+{
+        char         *slash     = NULL;
+        char         *paddr     = NULL;
+        char         *endptr    = NULL;
+        long         prefixlen  = -1;
+        gf_boolean_t retv       = _gf_true;
+
+        if (address == NULL) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                              "argument invalid");
+                return _gf_false;
+        }
+
+        paddr = gf_strdup (address);
+        if (paddr == NULL) /* ENOMEM */
+                return _gf_false;
+
+        /*
+         * INVALID: If '/' is not present OR
+         *          Nothing specified after '/'
+         */
+        slash = strchr(paddr, '/');
+        if ((slash == NULL) || (slash[1] == '\0')) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "Invalid IPv4 subnetwork format");
+                retv = _gf_false;
+                goto out;
+        }
+
+        *slash = '\0';
+        retv = valid_ipv4_address (paddr, strlen(paddr), _gf_false);
+        if (retv == _gf_false) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "Invalid IPv4 subnetwork address");
+                goto out;
+        }
+
+        prefixlen = strtol (slash + 1, &endptr, 10);
+        if ((errno != 0) || (*endptr != '\0') ||
+            (prefixlen < 0) || (prefixlen > IPv4_ADDR_SIZE)) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "Invalid IPv4 subnetwork mask");
+                retv = _gf_false;
+                goto out;
+        }
+
+        retv = _gf_true;
+out:
+        GF_FREE (paddr);
+        return retv;
+}
+
 char
 valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc)
 {
@@ -2044,6 +2108,23 @@ gf_sock_union_equal_addr (union gf_sock_union *a,
 
         return _gf_false;
 }
+
+/*
+ * Check if both have same network address.
+ * Extract the network address from the sockaddr(s) addr by applying the
+ * network mask. If they match, return boolean _gf_true, _gf_false otherwise.
+ *
+ * (x == y) <=> (x ^ y == 0)
+ * (x & y) ^ (x & z) <=> x & (y ^ z)
+ *
+ * ((ip1 & mask) == (ip2 & mask)) <=> ((mask & (ip1 ^ ip2)) == 0)
+ */
+gf_boolean_t
+mask_match(const uint32_t a, const uint32_t b, const uint32_t m)
+{
+        return (((a ^ b) & m) == 0);
+}
+
 
 /*Thread safe conversion function*/
 char *

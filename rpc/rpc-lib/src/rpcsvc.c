@@ -60,6 +60,9 @@ int
 rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                rpc_transport_event_t event, void *data, ...);
 
+static int
+rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr);
+
 rpcsvc_notify_wrapper_t *
 rpcsvc_notify_wrapper_alloc (void)
 {
@@ -2236,6 +2239,13 @@ rpcsvc_transport_peer_check_search (dict_t *options, char *pattern,
                                 goto err;
                 }
 
+                /* Compare IPv4 subnetwork, TODO: IPv6 subnet support */
+                if (strchr (addrtok, '/')) {
+                        ret = rpcsvc_match_subnet_v4 (addrtok, ip);
+                        if (ret == 0)
+                                goto err;
+                }
+
                 addrtok = strtok_r (NULL, ",", &svptr);
         }
 
@@ -2514,6 +2524,62 @@ out:
         GF_FREE (srchstr);
 
         return addrstr;
+}
+
+/*
+ * rpcsvc_match_subnet_v4() takes subnetwork address pattern and checks
+ * if the target IPv4 address has the same network address with the help
+ * of network mask.
+ *
+ * Returns 0 for SUCCESS and -1 otherwise.
+ *
+ * NB: Validation of subnetwork address pattern is not required
+ *     as it's already being done at the time of CLI SET.
+ */
+static int
+rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr)
+{
+        char                 *slash     = NULL;
+        char                 *netaddr   = NULL;
+        int                   ret       = -1;
+        uint32_t              prefixlen = 0;
+        uint32_t              shift     = 0;
+        struct sockaddr_in    sin1      = {0, };
+        struct sockaddr_in    sin2      = {0, };
+        struct sockaddr_in    mask      = {0, };
+
+        /* Copy the input */
+        netaddr = gf_strdup (addrtok);
+        if (netaddr == NULL) /* ENOMEM */
+                goto out;
+
+        /* Find the network socket addr of target */
+        if (inet_pton (AF_INET, ipaddr, &sin1.sin_addr) == 0)
+                goto out;
+
+        /* Find the network socket addr of subnet pattern */
+        slash = strchr (netaddr, '/');
+        *slash = '\0';
+        if (inet_pton (AF_INET, netaddr, &sin2.sin_addr) == 0)
+                goto out;
+
+        /*
+         * Find the IPv4 network mask in network byte order.
+         * IMP: String slash+1 is already validated, it cant have value
+         * more than IPv4_ADDR_SIZE (32).
+         */
+        prefixlen = (uint32_t) atoi (slash + 1);
+        shift = IPv4_ADDR_SIZE - prefixlen;
+        mask.sin_addr.s_addr = htonl ((uint32_t)~0 << shift);
+
+        if (mask_match (sin1.sin_addr.s_addr,
+                        sin2.sin_addr.s_addr,
+                        mask.sin_addr.s_addr)) {
+                ret = 0; /* SUCCESS */
+        }
+out:
+        GF_FREE (netaddr);
+        return ret;
 }
 
 
