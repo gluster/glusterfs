@@ -2586,11 +2586,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         /* Allowing stop force to bypass the statefile check
          * as this command acts as a fail safe method to stop geo-rep
          * session. */
-        if ((type == GF_GSYNC_OPTION_TYPE_CONFIG) ||
-            ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
-            (type == GF_GSYNC_OPTION_TYPE_DELETE) ||
-            (type == GF_GSYNC_OPTION_TYPE_PAUSE) ||
-            (type == GF_GSYNC_OPTION_TYPE_RESUME)) {
+        if (!((type == GF_GSYNC_OPTION_TYPE_STOP) && is_force)) {
                 ret = lstat (statefile, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof(errmsg), "Geo-replication"
