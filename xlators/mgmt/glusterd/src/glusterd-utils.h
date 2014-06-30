@@ -36,6 +36,14 @@
                  volinfo->volname, brickid);\
 } while (0)
 
+#define glusterd_quorum_count(peerinfo, inquorum_count, active_count, _exit)\
+                if (peerinfo->quorum_contrib == QUORUM_WAITING)\
+                        goto _exit;\
+                if (_is_contributing_to_quorum (peerinfo->quorum_contrib))\
+                        inquorum_count = inquorum_count + 1;\
+                if (active_count && (peerinfo->quorum_contrib == QUORUM_UP))\
+                        *active_count = *active_count + 1;\
+
 struct glusterd_lock_ {
         uuid_t  owner;
         time_t  timestamp;
@@ -591,7 +599,8 @@ glusterd_do_quorum_action ();
 
 int
 glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
-                                    int *quorum_count);
+                                    int *quorum_count,
+                                    gf_boolean_t _xaction_peers);
 
 int
 glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str);
@@ -602,7 +611,7 @@ glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
 gf_boolean_t
 glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this);
+does_gd_meet_server_quorum (xlator_t *this, gf_boolean_t _xaction_peers);
 
 int
 glusterd_generate_and_set_task_id (dict_t *dict, char *key);
