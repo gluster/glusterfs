@@ -408,4 +408,7 @@ int32_t
 cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         struct cli_state *state);
 
+int
+cli_xml_output_vol_getopts (dict_t *dict, int op_ret, int op_errno,
+                             char *op_errstr);
 #endif /* __CLI_H__ */

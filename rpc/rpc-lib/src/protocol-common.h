@@ -175,6 +175,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_SYS_EXEC,
         GLUSTER_CLI_SNAP,
         GLUSTER_CLI_BARRIER_VOLUME,
+        GLUSTER_CLI_GET_VOL_OPT,
         GLUSTER_CLI_MAXVALUE,
 };
 
