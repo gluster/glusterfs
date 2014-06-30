@@ -1106,8 +1106,6 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->loc.path, gfid );
                 goto out;
         }
-
-        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
         dht_iatt_merge (this, &local->preparent, preparent, prev->this);
         dht_iatt_merge (this, &local->postparent, postparent, prev->this);
 
