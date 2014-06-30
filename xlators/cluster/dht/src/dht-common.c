@@ -4602,10 +4602,6 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         goto unlock;
                 }
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_iatt_merge (this, &local->preparent, preparent, prev->this);
-                dht_iatt_merge (this, &local->postparent, postparent,
-                                prev->this);
         }
 unlock:
         UNLOCK (&frame->lock);
