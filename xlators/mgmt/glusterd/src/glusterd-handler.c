@@ -13,7 +13,6 @@
 #endif
 #include <inttypes.h>
 
-
 #include "globals.h"
 #include "glusterfs.h"
 #include "compat.h"
@@ -4025,6 +4024,245 @@ glusterd_handle_barrier (rpcsvc_request_t *req)
 {
         return glusterd_big_locked_handler (req, __glusterd_handle_barrier);
 }
+
+int32_t
+glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t                   ret = -1;
+        int32_t                   count = 1;
+        int                       exists = 0;
+        char                      *key = NULL;
+        char                      *orig_key = NULL;
+        char                      *key_fixed = NULL;
+        char                      *volname = NULL;
+        char                      err_str[2048] = {0,};
+        char                      dict_key[50] = {0,};
+        xlator_t                  *this = NULL;
+        glusterd_conf_t           *priv = NULL;
+        glusterd_volinfo_t        *volinfo = NULL;
+        gf_cli_rsp                rsp = {0,};
+        char                      op_version_buff[10] = {0,};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Failed to get volume "
+                          "name while handling get volume option command");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "key", &key);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Failed to get key "
+                          "while handling get volume option for %s", volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "Received get volume opt request for "
+                "volume %s", volname);
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (err_str, sizeof(err_str),
+                          FMTSTR_CHECK_VOL_EXISTS, volname);
+                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                        volname);
+                goto out;
+        }
+        if (strcmp(key, "all")) {
+                exists = glusterd_check_option_exists (key, &key_fixed);
+                if (!exists) {
+                        snprintf (err_str, sizeof (err_str), "Option "
+                                  "with name: %s does not exist", key);
+                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                                err_str);
+                        if (key_fixed)
+                                snprintf (err_str + ret,
+                                          sizeof (err_str) - ret,
+                                          "Did you mean %s?",
+                                          key_fixed);
+                        ret = -1;
+                        goto out;
+                }
+                if (key_fixed) {
+                        orig_key = key;
+                        key = key_fixed;
+                }
+                if (strcmp (key, "cluster.op-version") == 0) {
+                        sprintf (dict_key, "key%d", count);
+                        ret = dict_set_str(dict, dict_key, key);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                       "set %s in dictionary", key);
+                                goto out;
+                        }
+                        sprintf (dict_key, "value%d", count);
+                        sprintf (op_version_buff, "%d", priv->op_version);
+                        ret = dict_set_str (dict, dict_key, op_version_buff);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set value for key %s in dictionary",
+                                        key);
+                                goto out;
+                        }
+                }
+                else if (strcmp (key, "config.memory-accounting") == 0) {
+                        sprintf (dict_key, "key%d", count);
+                        ret = dict_set_str(dict, dict_key, key);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                       "set %s in dictionary", key);
+                                goto out;
+                        }
+                        sprintf (dict_key, "value%d", count);
+
+                        if (volinfo->memory_accounting)
+                                ret = dict_set_str(dict, dict_key,"Enabled");
+                        else
+                                ret = dict_set_str(dict, dict_key,"Disabled");
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set value for key %s in dictionary",
+                                        key);
+                                goto out;
+                        }
+                }
+                else if (strcmp (key, "config.transport") == 0) {
+                        sprintf (dict_key, "key%d", count);
+                        ret = dict_set_str(dict, dict_key, key);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set %s in dictionary", key);
+                                goto out;
+                        }
+                        sprintf (dict_key, "value%d", count);
+
+                        if (volinfo->transport_type == GF_TRANSPORT_RDMA)
+                                ret = dict_set_str(dict, dict_key,"rdma");
+                        else if (volinfo->transport_type == GF_TRANSPORT_TCP)
+                                ret = dict_set_str(dict, dict_key,"tcp");
+                        else if (volinfo->transport_type ==
+                                 GF_TRANSPORT_BOTH_TCP_RDMA)
+                                ret = dict_set_str(dict, dict_key,"tcp,rdma");
+                        else
+                                ret = dict_set_str(dict, dict_key,"none");
+
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "set value for key %s in dictionary",
+                                        key);
+                                goto out;
+                        }
+                }
+                else {
+                        ret = glusterd_get_default_val_for_volopt (dict,
+                                                                  _gf_false,
+                                                                  key, orig_key,
+                                                                  volinfo->dict,
+                                                                  &rsp.op_errstr);
+                        if (ret && !rsp.op_errstr) {
+                                snprintf (err_str, sizeof(err_str),
+                                          "Failed to fetch the value of"
+                                          " %s, check log file for more"
+                                          " details", key);
+                        }
+                }
+        } else {
+                /* Handle the "all" volume option request */
+                ret = glusterd_get_default_val_for_volopt (dict, _gf_true, NULL,
+                                                           NULL, volinfo->dict,
+                                                           &rsp.op_errstr);
+                if (ret && !rsp.op_errstr) {
+                        snprintf (err_str, sizeof(err_str),
+                                  "Failed to fetch the value of all volume "
+                                  "options, check log file for more details");
+                }
+
+        }
+
+out:
+        if (ret) {
+                if (!rsp.op_errstr)
+                        rsp.op_errstr = err_str;
+                rsp.op_ret =  ret;
+        }
+        else {
+                rsp.op_errstr = "";
+                rsp.op_ret = 0;
+        }
+
+        ret = dict_allocate_and_serialize (dict, &rsp.dict.dict_val,
+                                           &rsp.dict.dict_len);
+
+        glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                               (xdrproc_t)xdr_gf_cli_rsp);
+        return ret;
+}
+
+int
+__glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf_cli_req                      cli_req = {{0,}};
+        dict_t                          *dict = NULL;
+        char                            err_str[2048] = {0,};
+        xlator_t                        *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_ASSERT (req);
+
+        ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
+                snprintf (err_str, sizeof (err_str), "Failed to decode "
+                          "request received from cli");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        snprintf (err_str, sizeof (err_str), "Unable to decode "
+                                  "the command");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+        ret = glusterd_get_volume_opts (req, dict);
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int
+glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_get_vol_opt);
+}
 static int
 get_brickinfo_from_brickid (char *brickid, glusterd_brickinfo_t **brickinfo)
 {
@@ -4503,7 +4741,8 @@ rpcsvc_actor_t gd_svc_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_COPY_FILE]          = {"COPY_FILE",          GLUSTER_CLI_COPY_FILE,        glusterd_handle_copy_file,             NULL, 0, DRC_NA},
         [GLUSTER_CLI_SYS_EXEC]           = {"SYS_EXEC",           GLUSTER_CLI_SYS_EXEC,         glusterd_handle_sys_exec,              NULL, 0, DRC_NA},
         [GLUSTER_CLI_SNAP]               = {"SNAP",               GLUSTER_CLI_SNAP,             glusterd_handle_snapshot,              NULL, 0, DRC_NA},
-        [GLUSTER_CLI_BARRIER_VOLUME] = {"BARRIER_VOLUME", GLUSTER_CLI_BARRIER_VOLUME, glusterd_handle_barrier, NULL, 0, DRC_NA},
+        [GLUSTER_CLI_BARRIER_VOLUME]     = {"BARRIER_VOLUME",     GLUSTER_CLI_BARRIER_VOLUME,   glusterd_handle_barrier,               NULL, 0, DRC_NA},
+        [GLUSTER_CLI_GET_VOL_OPT]        = {"GET_VOL_OPT",        GLUSTER_CLI_GET_VOL_OPT,      glusterd_handle_get_vol_opt,           NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

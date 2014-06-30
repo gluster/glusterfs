@@ -5693,3 +5693,81 @@ out:
 #endif /* HAVE_LIB_XML */
 }
 
+int
+cli_xml_output_vol_getopts (dict_t *dict, int op_ret, int op_errno,
+                            char *op_errstr)
+{
+#if (HAVE_LIB_XML)
+        int                     i = 0;
+        int                     ret = -1;
+        int                     count = 0;
+        xmlTextWriterPtr        writer = NULL;
+        xmlDocPtr               doc = NULL;
+        char                    *key = NULL;
+        char                    *value = NULL;
+        char                    dict_key[50] = {0,};
+
+        ret = cli_begin_xml_output (&writer, &doc);
+        if (ret)
+                goto out;
+
+        ret = cli_xml_output_common (writer, op_ret, op_errno, op_errstr);
+        if (ret)
+                goto out;
+
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volGetopts");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to retrieve count "
+                        "from the dictionary");
+                goto out;
+        }
+        if (count <= 0) {
+                gf_log ("cli", GF_LOG_ERROR, "Value of count :%d is "
+                        "invalid", count);
+                ret = -1;
+                goto out;
+        }
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"count",
+                                               "%d", count);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        for (i=1; i<=count; i++) {
+                sprintf (dict_key, "key%d", i);
+                ret = dict_get_str (dict, dict_key, &key);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to"
+                                " retrieve %s from the "
+                                "dictionary", dict_key);
+                        goto out;
+                }
+                sprintf (dict_key, "value%d", i);
+                ret = dict_get_str (dict, dict_key, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to "
+                                "retrieve key value for %s from"
+                                "the dictionary", dict_key);
+                        goto out;
+                }
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"Option",
+                                                       "%s", key);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"Value",
+                                                       "%s", value);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+        ret = cli_end_xml_output (writer, doc);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+#else
+        return 0;
+#endif /* HAVE_LIB_XML */
+}

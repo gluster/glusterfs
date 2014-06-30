@@ -18,6 +18,11 @@
 #else
 #include "mntent_compat.h"
 #endif
+#include <dlfcn.h>
+#if (HAVE_LIB_XML)
+#include <libxml/encoding.h>
+#include <libxml/xmlwriter.h>
+#endif
 
 #include "globals.h"
 #include "glusterfs.h"
@@ -46,6 +51,7 @@
 #include "glusterd-syncop.h"
 #include "glusterd-locks.h"
 #include "glusterd-messages.h"
+#include "glusterd-volgen.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -79,6 +85,8 @@
 #define NLMV1_VERSION       1
 
 #define CEILING_POS(X) (((X)-(int)(X)) > 0 ? (int)((X)+1) : (int)(X))
+
+extern struct volopt_map_entry glusterd_volopt_map[];
 
 static glusterd_lock_t lock;
 
@@ -13625,5 +13633,275 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
         ret = 0;
 out:
         GF_FREE (mnt_pt);
+        return ret;
+}
+
+int
+glusterd_get_value_for_vme_entry (struct volopt_map_entry *vme, char **def_val)
+{
+        int                      ret = -1;
+        char                    *key = NULL;
+        xlator_t                *this = NULL;
+        char                    *descr = NULL;
+        char                    *local_def_val = NULL;
+        void                    *dl_handle = NULL;
+        volume_opt_list_t        vol_opt_handle = {{0},};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        INIT_LIST_HEAD (&vol_opt_handle.list);
+
+        if (_get_xlator_opt_key_from_vme (vme, &key)) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get %s key from "
+                        "volume option entry", vme->key);
+                goto out;
+        }
+
+        ret = xlator_volopt_dynload (vme->voltype, &dl_handle, &vol_opt_handle);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "xlator_volopt_dynload error "
+                        "(%d)", ret);
+                ret = -2;
+                goto cont;
+        }
+
+        ret = xlator_option_info_list (&vol_opt_handle,key,
+                                       &local_def_val, &descr);
+        if (ret) {
+                /*Swallow Error if option not found*/
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get option for %s "
+                        "key", key);
+                ret = -2;
+                goto cont;
+        }
+        if (!local_def_val)
+                local_def_val = "(null)";
+
+        *def_val = gf_strdup (local_def_val);
+
+cont:
+        if (dl_handle) {
+                dlclose (dl_handle);
+                dl_handle = NULL;
+                vol_opt_handle.given_opt = NULL;
+        }
+        if (key) {
+                _free_xlator_opt_key (key);
+                key = NULL;
+        }
+
+        if (ret)
+                goto out;
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
+                                     char *input_key, char *orig_key,
+                                     dict_t *vol_dict, char **op_errstr)
+{
+        struct volopt_map_entry *vme = NULL;
+        int                      ret = -1;
+        int                      count = 0;
+        char                     err_str[PATH_MAX] = "";
+        xlator_t                *this = NULL;
+        char                    *def_val = NULL;
+        char                     dict_key[50] = {0,};
+        gf_boolean_t             key_found = _gf_false;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_VALIDATE_OR_GOTO (this->name, vol_dict, out);
+
+        /* Check whether key is passed for a single option */
+        if (!all_opts && !input_key) {
+                gf_log (this->name, GF_LOG_ERROR, "Key is NULL");
+                goto out;
+        }
+
+        for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
+                if (!all_opts && strcmp (vme->key, input_key))
+                        continue;
+
+                key_found = _gf_true;
+                /* First look for the key in the vol_dict, if its not
+                 * present then look for translator default value */
+                ret = dict_get_str (vol_dict, vme->key, &def_val);
+                if (!def_val) {
+                        if (vme->value) {
+                                def_val = vme->value;
+                        } else {
+                                ret = glusterd_get_value_for_vme_entry
+                                         (vme, &def_val);
+                                if (!all_opts && ret)
+                                        goto out;
+                                else if (ret == -2)
+                                        continue;
+                        }
+                }
+                count++;
+                sprintf (dict_key, "key%d", count);
+                ret = dict_set_str(ctx, dict_key, vme->key);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "set %s in dictionary", vme->key);
+                        goto out;
+                }
+                sprintf (dict_key, "value%d", count);
+                ret = dict_set_dynstr_with_alloc (ctx, dict_key, def_val);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "set %s for key %s in dictionary", def_val,
+                                vme->key);
+                        goto out;
+                }
+                def_val = NULL;
+                if (!all_opts)
+                        break;
+
+        }
+        if (!all_opts && !key_found)
+                goto out;
+
+        ret = dict_set_int32 (ctx, "count", count);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set count "
+                        "in dictionary");
+        }
+
+out:
+        if (ret && !all_opts && !key_found) {
+                snprintf (err_str, sizeof (err_str),
+                          "option %s does not exist", orig_key);
+                *op_errstr = gf_strdup (err_str);
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
+{
+        void                    *dl_handle = NULL;
+        volume_opt_list_t        vol_opt_handle = {{0},};
+        char                    *key = NULL;
+        struct volopt_map_entry *vme = NULL;
+        int                      ret = -1;
+        char                    *def_val = NULL;
+        char                    *descr = NULL;
+        char                     output_string[51200] = {0, };
+        char                    *output = NULL;
+        char                     tmp_str[2048] = {0, };
+#if (HAVE_LIB_XML)
+        xmlTextWriterPtr         writer = NULL;
+        xmlBufferPtr             buf = NULL;
+
+        if (xml_out) {
+                ret = init_sethelp_xml_doc (&writer, &buf);
+                if (ret) /*logging done in init_xml_lib*/
+                        goto out;
+        }
+#endif
+
+        INIT_LIST_HEAD (&vol_opt_handle.list);
+
+        for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
+
+                if ((vme->type == NO_DOC) || (vme->type == GLOBAL_NO_DOC))
+                        continue;
+
+                if (vme->description) {
+                        descr = vme->description;
+                        def_val = vme->value;
+                } else {
+                        if (_get_xlator_opt_key_from_vme (vme, &key)) {
+                                gf_log ("glusterd", GF_LOG_DEBUG, "Failed to "
+                                        "get %s key from volume option entry",
+                                        vme->key);
+                                goto out; /*Some error while geting key*/
+                        }
+
+                        ret = xlator_volopt_dynload (vme->voltype,
+                                                     &dl_handle,
+                                                     &vol_opt_handle);
+
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                        "xlator_volopt_dynload error(%d)", ret);
+                                ret = 0;
+                                goto cont;
+                        }
+
+                        ret = xlator_option_info_list (&vol_opt_handle, key,
+                                                       &def_val, &descr);
+                        if (ret) { /*Swallow Error i.e if option not found*/
+                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                        "Failed to get option for %s key", key);
+                                ret = 0;
+                                goto cont;
+                        }
+                }
+
+                if (xml_out) {
+#if (HAVE_LIB_XML)
+                        if (xml_add_volset_element (writer,vme->key,
+                                                    def_val, descr)) {
+                                ret = -1;
+                                goto cont;
+                        }
+#else
+                        gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+#endif
+                } else {
+                        snprintf (tmp_str, sizeof (tmp_str), "Option: %s\nDefault "
+                                        "Value: %s\nDescription: %s\n\n",
+                                        vme->key, def_val, descr);
+                        strcat (output_string, tmp_str);
+                }
+cont:
+                if (dl_handle) {
+                        dlclose (dl_handle);
+                        dl_handle = NULL;
+                        vol_opt_handle.given_opt = NULL;
+                }
+                if (key) {
+                        _free_xlator_opt_key (key);
+                        key = NULL;
+                }
+                if (ret)
+                        goto out;
+        }
+
+#if (HAVE_LIB_XML)
+        if ((xml_out) &&
+            (ret = end_sethelp_xml_doc (writer)))
+                goto out;
+#else
+        if (xml_out)
+                gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+#endif
+
+        if (!xml_out)
+                output = gf_strdup (output_string);
+        else
+#if (HAVE_LIB_XML)
+                output = gf_strdup ((char *)buf->content);
+#else
+                gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+#endif
+
+        if (NULL == output) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (ctx, "help-str", output);
+out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

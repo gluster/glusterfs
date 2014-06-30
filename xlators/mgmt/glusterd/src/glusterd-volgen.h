@@ -15,6 +15,11 @@
 #include "config.h"
 #endif
 
+#if (HAVE_LIB_XML)
+#include <libxml/encoding.h>
+#include <libxml/xmlwriter.h>
+#endif
+
 #include "glusterd.h"
 
 /* volopt map key name definitions */
@@ -114,57 +119,102 @@ struct volopt_map_entry {
         //gf_boolean_t client_option;
 };
 
-int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
+int
+glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 
-int glusterd_create_volfiles (glusterd_volinfo_t *volinfo);
+int
+glusterd_create_volfiles (glusterd_volinfo_t *volinfo);
 
-int glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo);
+int
+glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo);
 
-void glusterd_get_nfs_filepath (char *filename);
+void
+glusterd_get_nfs_filepath (char *filename);
 
 void glusterd_get_shd_filepath (char *filename);
 
-int glusterd_create_nfs_volfile ();
-int glusterd_create_shd_volfile ();
-int glusterd_create_quotad_volfile ();
-int glusterd_create_snapd_volfile (glusterd_volinfo_t *volinfo);
+int
+glusterd_create_nfs_volfile ();
 
-int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
+int
+glusterd_create_shd_volfile ();
+
+int
+glusterd_create_quotad_volfile ();
+
+int
+glusterd_create_snapd_volfile (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo);
 int
 glusterd_delete_snap_volfile (glusterd_volinfo_t *volinfo,
                               glusterd_volinfo_t *snap_volinfo,
                               glusterd_brickinfo_t *brickinfo);
 
-int glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value);
-int glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key);
+int
+glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value);
 
-int glusterd_validate_globalopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, char **op_errstr);
+int
+glusterd_volinfo_get_boolean (glusterd_volinfo_t *volinfo, char *key);
 
-int glusterd_validate_localopts (dict_t *val_dict, char **op_errstr);
-gf_boolean_t glusterd_check_globaloption (char *key);
+int
+glusterd_validate_globalopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
+                              char **op_errstr);
+
+int
+glusterd_validate_localopts (dict_t *val_dict, char **op_errstr);
+
+gf_boolean_t
+glusterd_check_globaloption (char *key);
+
 gf_boolean_t
 glusterd_check_voloption_flags (char *key, int32_t flags);
+
 gf_boolean_t
 glusterd_is_valid_volfpath (char *volname, char *brick);
-int generate_brick_volfiles (glusterd_volinfo_t *volinfo);
-int generate_snap_brick_volfiles (glusterd_volinfo_t *volinfo,
+
+int
+generate_brick_volfiles (glusterd_volinfo_t *volinfo);
+
+int
+generate_snap_brick_volfiles (glusterd_volinfo_t *volinfo,
                                   glusterd_volinfo_t *snap_volinfo);
-int generate_client_volfiles (glusterd_volinfo_t *volinfo,
+int
+generate_client_volfiles (glusterd_volinfo_t *volinfo,
                               glusterd_client_type_t client_type);
 int
 generate_snap_client_volfiles (glusterd_volinfo_t *actual_volinfo,
                                glusterd_volinfo_t *snap_volinfo,
                                glusterd_client_type_t client_type,
                                gf_boolean_t vol_restore);
-int glusterd_get_volopt_content (dict_t *dict, gf_boolean_t xml_out);
+
+int
+_get_xlator_opt_key_from_vme ( struct volopt_map_entry *vme, char **key);
+
+void
+_free_xlator_opt_key (char *key);
+
+int
+init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf);
+
+int
+xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
+                        const char *def_val, const char *dscrpt);
+
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
+
 int
 glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
+
 int
 glusterd_check_nfs_topology_identical (gf_boolean_t *identical);
+
+int
+end_sethelp_xml_doc (xmlTextWriterPtr writer);
 
 uint32_t
 glusterd_get_op_version_for_key (char *key);

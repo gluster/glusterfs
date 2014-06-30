@@ -900,4 +900,13 @@ glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo);
 void
 gd_get_snap_conf_values_if_present (dict_t *opts, uint64_t *sys_hard_limit,
                                     uint64_t *sys_soft_limit);
+
+int
+glusterd_get_volopt_content (dict_t *dict, gf_boolean_t xml_out);
+
+int
+glusterd_get_default_val_for_volopt (dict_t *dict, gf_boolean_t all_opts,
+                                         char *key, char *orig_key,
+                                         dict_t *vol_dict, char **err_str);
+
 #endif

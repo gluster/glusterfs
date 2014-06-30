@@ -9272,6 +9272,7 @@ out:
         cli_cmd_broadcast_response (ret);
         return ret;
 }
+
 int
 gf_cli_barrier_volume (call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -9287,6 +9288,149 @@ gf_cli_barrier_volume (call_frame_t *frame, xlator_t *this, void *data)
         ret = cli_to_glusterd (&req, frame, gf_cli_barrier_volume_cbk,
                                (xdrproc_t) xdr_gf_cli_req, options,
                                GLUSTER_CLI_BARRIER_VOLUME, this, cli_rpc_prog,
+                               NULL);
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
+int32_t
+gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                        void *myframe)
+{
+        gf_cli_rsp   rsp  = {0,};
+        int          ret  = -1;
+        dict_t      *dict = NULL;
+        char        *key  = NULL;
+        char        *value = NULL;
+        char         msg[1024] = {0,};
+        int          i     = 0;
+        char         dict_key[50] = {0,};
+
+        if (-1 == req->rpc_status)
+                goto out;
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+        gf_log ("cli", GF_LOG_DEBUG, "Received response to get volume option");
+
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, ""))
+                        snprintf (msg, sizeof (msg), "volume get option: "
+                                  "failed: %s", rsp.op_errstr);
+                else
+                        snprintf (msg, sizeof (msg), "volume get option: "
+                                  "failed");
+
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        ret = cli_xml_output_str ("volGetopts", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "Error outputting to xml");
+                        }
+                } else {
+                        cli_err (msg);
+                }
+                ret = 0; /* setting ret to 0 ensures we do not end up displaying
+                            double error messages */
+                goto out;
+        }
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Failed rsp_dict unserialization");
+                goto out;
+        }
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_getopts (dict, rsp.op_ret,
+                                                  rsp.op_errno,
+                                                  rsp.op_errstr);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "xml output generation "
+                                "failed");
+                        ret = 0;
+                }
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to retrieve count "
+                        "from the dictionary");
+                goto out;
+        }
+        if (count <= 0) {
+                gf_log ("cli", GF_LOG_ERROR, "Value of count :%d is "
+                        "invalid", count);
+                ret = -1;
+                goto out;
+        }
+
+        cli_out ("%-40s%-40s", "Option", "Value");
+        cli_out ("%-40s%-40s", "------", "-----");
+        for (i=1; i<=count; i++) {
+                sprintf (dict_key, "key%d", i);
+                ret = dict_get_str (dict, dict_key, &key);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to"
+                                " retrieve %s from the "
+                                "dictionary", dict_key);
+                        goto out;
+                }
+                sprintf (dict_key, "value%d", i);
+                ret = dict_get_str (dict, dict_key, &value);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to "
+                                "retrieve key value for %s from"
+                                "the dictionary", dict_key);
+                        goto out;
+                }
+                cli_out ("%-40s%-40s", key, value);
+        }
+
+out:
+        if (ret) {
+                cli_out ("volume get option failed. Check the cli/glusterd log "
+                         "file for more details");
+        }
+        if (dict)
+                dict_unref (dict);
+        free (rsp.op_errstr);
+        free (rsp.dict.dict_val);
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int
+gf_cli_get_vol_opt (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf_cli_req  req     = {{0,}};
+        dict_t     *options = NULL;
+        int         ret     = -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        options = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_get_vol_opt_cbk,
+                               (xdrproc_t)xdr_gf_cli_req, options,
+                               GLUSTER_CLI_GET_VOL_OPT, this, cli_rpc_prog,
                                NULL);
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -9408,6 +9552,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_SYS_EXEC]         = {"SYS_EXEC", gf_cli_sys_exec},
         [GLUSTER_CLI_SNAP]             = {"SNAP", gf_cli_snapshot},
         [GLUSTER_CLI_BARRIER_VOLUME]   = {"BARRIER VOLUME", gf_cli_barrier_volume},
+        [GLUSTER_CLI_GET_VOL_OPT]      = {"GET_VOL_OPT", gf_cli_get_vol_opt},
 };
 
 struct rpc_clnt_program cli_prog = {

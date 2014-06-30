@@ -2347,6 +2347,60 @@ out:
 
         return ret;
 }
+
+int
+cli_cmd_volume_getopt_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                        const char **words, int wordcount)
+{
+        int                   ret       = -1;
+        rpc_clnt_procedure_t *proc      = NULL;
+        call_frame_t         *frame     = NULL;
+        dict_t               *options   = NULL;
+        int                   sent      = 0;
+        int                   parse_err = 0;
+        cli_local_t          *local     = NULL;
+
+        if (wordcount != 4) {
+                cli_usage_out (word->pattern);
+                parse_err = 1;
+                goto out;
+        }
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        options = dict_new ();
+        if (!options)
+                goto out;
+
+        ret = dict_set_str (options, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (options, "key", (char *)words[3]);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GET_VOL_OPT];
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn)
+                ret = proc->fn (frame, THIS, options);
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_err == 0))
+                        cli_err ("Volume get option failed");
+        }
+        CLI_STACK_DESTROY (frame);
+        if (options)
+                dict_unref (options);
+        return ret;
+}
+
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
           cli_cmd_volume_info_cbk,
@@ -2473,8 +2527,11 @@ struct cli_cmd volume_cmds[] = {
         },
         {"volume barrier <VOLNAME> {enable|disable}",
          cli_cmd_volume_barrier_cbk,
-         "Barrier/unbarrier file operations on a volume"},
-
+         "Barrier/unbarrier file operations on a volume"
+        },
+        {"volume get <VOLNAME> <key|all>",
+         cli_cmd_volume_getopt_cbk,
+         "Get the value of the all options or given option for volume <VOLNAME>"},
         { NULL, NULL, NULL }
 };
 
