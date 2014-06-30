@@ -219,6 +219,7 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_peerinfo_t           *peerinfo = NULL;
         glusterd_friend_sm_event_t    *event = NULL;
         glusterd_probe_ctx_t          *ctx = NULL;
+        xlator_t                      *this = THIS;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -226,13 +227,13 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 //rsp.op_ret   = -1;
                 //rsp.op_errno = EINVAL;
                 goto out;
         }
 
-        gf_log ("glusterd", GF_LOG_INFO,
+        gf_log (this->name, GF_LOG_INFO,
                 "Received probe resp from uuid: %s, host: %s",
                 uuid_utoa (rsp.uuid), rsp.hostname);
         if (rsp.op_ret != 0) {
@@ -257,6 +258,36 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
         if (ret) {
                 GF_ASSERT (0);
+        }
+
+        if (uuid_compare (rsp.uuid, peerinfo->uuid) == 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Adding the Host: %s  with "
+                        "uuid: %s to already present peer info",
+                        rsp.hostname, uuid_utoa (rsp.uuid));
+
+                ctx = ((call_frame_t *)myframe)->local;
+                ((call_frame_t *)myframe)->local = NULL;
+
+                GF_ASSERT (ctx);
+
+                ret = gd_add_address_to_peer (peerinfo, rsp.hostname);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Couldn't add hostname to peer list");
+
+                rsp.op_errno = GF_PROBE_FRIEND;
+                if (ctx->req) {
+                        glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
+                                                      rsp.op_errno,
+                                                      rsp.op_errstr,
+                                                      ctx->hostname, ctx->port,
+                                                      ctx->dict);
+                }
+
+                glusterd_destroy_probe_ctx (ctx);
+                (void) glusterd_friend_remove (NULL, rsp.hostname);
+                ret = rsp.op_ret;
+                goto out;
         }
 
         if (strncasecmp (rsp.hostname, peerinfo->hostname, 1024)) {
