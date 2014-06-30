@@ -6,8 +6,7 @@ libgfchangelog_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 -fpic \
 				-I$(top_srcdir)/xlators/features/changelog/src \
 				-DDATADIR=\"$(localstatedir)\"
 
-libgfchangelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-			$(GF_GLUSTERFS_LIBS)
+libgfchangelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 libgfchangelog_la_LDFLAGS = $(GF_LDFLAGS) -version-info $(LIBGFCHANGELOG_LT_VERSION)
 

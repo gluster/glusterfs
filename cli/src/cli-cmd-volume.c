@@ -1222,7 +1222,8 @@ _limits_set_on_volume (char *volname) {
         /* TODO: fix hardcoding; Need to perform an RPC call to glusterd
          * to fetch working directory
          */
-        sprintf (quota_conf_file, "/var/lib/glusterd/vols/%s/quota.conf",
+        sprintf (quota_conf_file, "%s/vols/%s/quota.conf",
+                 GLUSTERD_DEFAULT_WORKDIR,
                  volname);
         fd = open (quota_conf_file, O_RDONLY);
         if (fd == -1)
@@ -1350,7 +1351,8 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
 
         //TODO: fix hardcoding; Need to perform an RPC call to glusterd
         //to fetch working directory
-        sprintf (quota_conf_file, "/var/lib/glusterd/vols/%s/quota.conf",
+        sprintf (quota_conf_file, "%s/vols/%s/quota.conf",
+                 GLUSTERD_DEFAULT_WORKDIR,
                  volname);
         fd = open (quota_conf_file, O_RDONLY);
         if (fd == -1) {

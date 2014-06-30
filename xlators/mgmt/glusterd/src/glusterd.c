@@ -1199,7 +1199,7 @@ init (xlator_t *this)
                 first_time = 1;
         }
 
-        setenv ("GLUSTERD_WORKING_DIR", workdir, 1);
+        setenv ("GLUSTERD_WORKDIR", workdir, 1);
         gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
                 workdir);
 

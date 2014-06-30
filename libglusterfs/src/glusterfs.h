@@ -158,6 +158,11 @@
 
 #define DEFAULT_VAR_RUN_DIRECTORY        DATADIR "/run/gluster"
 #define DEFAULT_GLUSTERFSD_MISC_DIRETORY DATADIR "/lib/misc/glusterfsd"
+#ifdef GF_LINUX_HOST_OS
+#define GLUSTERD_DEFAULT_WORKDIR DATADIR "/lib/glusterd"
+#else
+#define GLUSTERD_DEFAULT_WORKDIR DATADIR "/db/glusterd"
+#endif
 #define GF_REPLICATE_TRASH_DIR           ".landfill"
 
 /* GlusterFS's maximum supported Auxiliary GIDs */
@@ -577,9 +582,8 @@ struct gf_flock {
  * reduce functionality, both for users and for testing (which can now be
  * done using secure connections for all tests without change elsewhere).
  *
- * Nonetheless, TBD: define in terms of build-time PREFIX
  */
-#define SECURE_ACCESS_FILE      "/var/lib/glusterd/secure-access"
+#define SECURE_ACCESS_FILE     GLUSTERD_DEFAULT_WORKDIR "/secure-access"
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);

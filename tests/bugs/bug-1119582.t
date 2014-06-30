@@ -17,7 +17,7 @@ TEST $CLI volume set $V0 features.uss disable;
 
 TEST killall glusterd;
 
-rm -f /var/lib/glusterd/vols/$V0/snapd.info
+rm -f $GLUSTERD_WORKDIR/vols/$V0/snapd.info
 
 TEST glusterd
 

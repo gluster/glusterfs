@@ -50,6 +50,7 @@ extern int daemon(int, int);
 #include <glib/gprintf.h>
 
 #include "config-host.h"
+#include "qemu-common.h"
 #include "sysemu/sysemu.h"
 #include "trace.h"
 #include "qemu/sockets.h"

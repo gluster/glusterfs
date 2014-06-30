@@ -165,7 +165,7 @@ function run_tests()
                 echo "Running tests in file $t"
                 prove -f --timer $t
             fi
-	    TMP_RES=$?
+            TMP_RES=$?
             if [ ${TMP_RES} -ne 0 ] ; then
                 RES=${TMP_RES}
                 FAILED="$FAILED $t"

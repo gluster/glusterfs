@@ -53,7 +53,7 @@ function get_nfs_pid ()
 
 function read_nfs_pidfile ()
 {
-        echo `cat /var/lib/glusterd/nfs/run/nfs.pid`
+        echo `cat $GLUSTERD_WORKDIR/nfs/run/nfs.pid`
 }
 
 function cleanup_statedump {
@@ -163,7 +163,7 @@ function get_brick_pid {
         local host=$2
         local brick=$3
         local brick_hiphenated=$(echo $brick | tr '/' '-')
-        echo `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
+        echo `cat $GLUSTERD_WORKDIR/vols/$vol/run/${host}${brick_hiphenated}.pid`
 }
 
 function kill_brick {

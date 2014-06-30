@@ -39,12 +39,8 @@
 #define MASTER_VOL_KEY_SIZE (32)
 #define NMTD_VOL_KEY_SIZE (16)
 
-#if defined(GF_BSD_HOST_OS)
+#if !defined(GF_LINUX_HOST_OS)
 typedef off_t loff_t;
-#endif
-
-#if defined(GF_DARWIN_HOST_OS)
-typedef uint64_t loff_t;
 #endif
 
 struct crypt_key {

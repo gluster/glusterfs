@@ -1,27 +1,35 @@
 #/bin/bash
 PROGNAME="Sganesha-reset"
-OPTSPEC="volname:"
+OPTSPEC="volname:,gd-workdir:"
 VOL=
+GLUSTERD_WORKDIR=
 
 function parse_args () {
         ARGS=$(getopt -l $OPTSPEC  -o "o" -name $PROGNAME $@)
         eval set -- "$ARGS"
-        case $1 in
-            --volname)
-               shift
-               VOL=$1
-                ;;
-        esac
+        while true; do
+            case $1 in
+                --volname)
+                    shift
+                    VOL=$1
+                    ;;
+                --gd-workdir)
+                    shift
+                    GLUSTERD_WORKDIR=$1
+                    ;;
+            esac
+            shift
+        done
 }
 
 function is_volume_started () {
         volname=$1
-        echo "$(grep status /var/lib/glusterd/vols/"$volname"/info |\
+        echo "$(grep status $GLUSTERD_WORKDIR/vols/"$volname"/info |\
                 cut -d"=" -f2)"
 }
 
 parse_args $@
-if ps aux | grep -q "[g]anesha.nfsd"
+if ps auxwww | grep -q "[g]anesha.nfsd"
         then
         kill -s TERM `cat /var/run/ganesha.pid`
         sleep 10
@@ -33,6 +41,3 @@ if ps aux | grep -q "[g]anesha.nfsd"
                 gluster volume start $VOL force
         fi
 fi
-
-
-

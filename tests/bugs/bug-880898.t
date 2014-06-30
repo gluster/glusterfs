@@ -9,7 +9,7 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/brick1 $H0:$B0/brick2
 TEST $CLI volume start $V0
 pkill glusterfs
 uuid=""
-for line in $(cat /var/lib/glusterd/glusterd.info)
+for line in $(cat $GLUSTERD_WORKDIR/glusterd.info)
 do
 	if [[ $line == UUID* ]]
 	then

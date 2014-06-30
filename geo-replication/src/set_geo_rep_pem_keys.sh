@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to copy the pem keys from the user's home directory
-# to $GLUSTERD_WORKING_DIR/geo-replication/ and then copy
+# to $GLUSTERD_WORKDIR/geo-replication and then copy
 # the keys to other nodes in the cluster and add them to the
 # respective authorized keys. The script takes as argument the
 # user name and assumes that the user will be present in all
@@ -28,7 +28,7 @@ function main()
     fi
 
     if [ -f $home_dir/common_secret.pem.pub ]; then
-        cp $home_dir/common_secret.pem.pub /var/lib/glusterd/geo-replication/
+        cp $home_dir/common_secret.pem.pub ${GLUSTERD_WORKDIR}/geo-replication/
         gluster system:: copy file /geo-replication/common_secret.pem.pub
         gluster system:: execute add_secret_pub $user
     else

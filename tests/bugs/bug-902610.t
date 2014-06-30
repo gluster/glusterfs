@@ -54,8 +54,8 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0 --entry-timeout=0 --attribute-timeout
 TEST ls -l $M0
 
 ## kill 2 bricks to bring down available subvol < spread count
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}2.pid`;
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}3.pid`;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}2.pid`;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}3.pid`;
 
 mkdir $M0/dir1 2>/dev/null
 
