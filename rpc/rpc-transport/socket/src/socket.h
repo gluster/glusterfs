@@ -239,6 +239,7 @@ typedef struct {
         ot_state_t             ot_state;
         uint32_t               ot_gen;
         gf_boolean_t           is_server;
+        int                    log_ctr;
 } socket_private_t;
 
 
