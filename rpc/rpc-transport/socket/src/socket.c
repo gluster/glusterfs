@@ -576,11 +576,12 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
 
                         if (__does_socket_rwv_error_need_logging (priv,
                                                                   write)) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "%s on %s failed (%s)",
-                                        write ? "writev":"readv",
-                                        this->peerinfo.identifier,
-                                        strerror (errno));
+                                GF_LOG_OCCASIONALLY(priv->log_ctr, this->name,
+                                                    GF_LOG_WARNING,
+                                                    "%s on %s failed (%s)",
+                                                    write ? "writev":"readv",
+                                                    this->peerinfo.identifier,
+                                                    strerror (errno));
                         }
 
 			if (priv->use_ssl && priv->ssl_ssl) {
