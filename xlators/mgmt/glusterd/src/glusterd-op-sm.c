@@ -3482,7 +3482,7 @@ glusterd_op_validate_quorum (xlator_t *this, glusterd_op_t op,
                 goto out;
         }
 
-        if (does_gd_meet_server_quorum (this)) {
+        if (does_gd_meet_server_quorum (this, _gf_false)) {
                 ret = 0;
                 goto out;
         }

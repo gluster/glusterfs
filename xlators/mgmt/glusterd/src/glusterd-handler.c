@@ -1080,7 +1080,7 @@ __glusterd_handle_cli_probe (rpcsvc_request_t *req)
         }
 
         if (glusterd_is_any_volume_in_server_quorum (this) &&
-            !does_gd_meet_server_quorum (this)) {
+            !does_gd_meet_server_quorum (this, _gf_false)) {
                 glusterd_xfer_cli_probe_resp (req, -1, GF_PROBE_QUORUM_NOT_MET,
                                               NULL, hostname, port, dict);
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
@@ -1249,7 +1249,7 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
 
         if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
                 if (glusterd_is_any_volume_in_server_quorum (this) &&
-                    !does_gd_meet_server_quorum (this)) {
+                    !does_gd_meet_server_quorum (this, _gf_false)) {
                         gf_msg (this->name, GF_LOG_CRITICAL, 0,
                                 GD_MSG_SERVER_QUORUM_NOT_MET,
                                 "Server quorum not met. Rejecting operation.");
