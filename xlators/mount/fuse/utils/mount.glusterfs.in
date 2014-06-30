@@ -338,9 +338,9 @@ check_recursive_mount ()
     fi
 
     # check if the mount point is a brick's parent directory
-    GLUSTERD_WORKDIR="/var/lib/glusterd";
+    GLUSTERD_WORKDIR="@GLUSTERD_WORKDIR@";
 
-    ls -L "$GLUSTERD_WORKDIR"/vols/*/bricks/* > /dev/null 2>&1;
+    ls -L "${GLUSTERD_WORKDIR}"/vols/*/bricks/* > /dev/null 2>&1;
     if [ $? -ne 0 ]; then
         return;
     fi

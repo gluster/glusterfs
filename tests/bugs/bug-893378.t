@@ -59,7 +59,7 @@ then
         get_cached_brick
         CACHED=$?
         # Kill a brick process
-        kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}$CACHED.pid`;
+        kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}$CACHED.pid`;
 fi
 
 ## trigger a lookup

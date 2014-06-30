@@ -21,6 +21,6 @@ EXTRA_DIST = $(conf_DATA) specgen.scm MacOSX/Portfile glusterfs-mode.el        \
         command-completion/Makefile command-completion/README
 
 install-data-local:
-	$(mkdir_p) $(DESTDIR)$(localstatedir)/lib/glusterd/groups
+	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
 	$(INSTALL_DATA) $(top_srcdir)/extras/group-virt.example \
-		$(DESTDIR)$(localstatedir)/lib/glusterd/groups/virt
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/virt

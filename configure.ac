@@ -7,13 +7,14 @@ dnl  later), or the GNU General Public License, version 2 (GPLv2), in all
 dnl  cases as published by the Free Software Foundation.
 
 AC_INIT([glusterfs],
-	[m4_esyscmd([build-aux/pkg-version --version])],
-	[gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
+        [m4_esyscmd([build-aux/pkg-version --version])],
+        [gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
 
 AC_SUBST([PACKAGE_RELEASE],
          [m4_esyscmd([build-aux/pkg-version --release])])
 
 AM_INIT_AUTOMAKE
+
 # Removes warnings when using automake 1.14 around (...but option 'subdir-objects' is disabled )
 #but libglusterfs fails to build with contrib (Then are not set up that way?)
 #AM_INIT_AUTOMAKE([subdir-objects])
@@ -39,6 +40,7 @@ AC_CONFIG_FILES([Makefile
                 libglusterfs/src/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_add_secret_pub
+                geo-replication/syncdaemon/configinterface.py
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
                 rpc/Makefile
@@ -52,8 +54,8 @@ AC_CONFIG_FILES([Makefile
                 rpc/xdr/Makefile
                 rpc/xdr/src/Makefile
                 xlators/Makefile
-		xlators/meta/Makefile
-		xlators/meta/src/Makefile
+                xlators/meta/Makefile
+                xlators/meta/src/Makefile
                 xlators/mount/Makefile
                 xlators/mount/fuse/Makefile
                 xlators/mount/fuse/src/Makefile
@@ -169,6 +171,7 @@ AC_CONFIG_FILES([Makefile
                 cli/src/Makefile
                 doc/Makefile
                 extras/Makefile
+                extras/glusterd.vol
                 extras/init.d/Makefile
                 extras/init.d/glusterd.plist
                 extras/init.d/glusterd-Debian
@@ -687,7 +690,14 @@ if test "x${have_backtrace}" = "xyes"; then
 fi
 AC_SUBST(HAVE_BACKTRACE)
 
-AC_CHECK_LIB([m], [ceil], , AC_MSG_ERROR([glibc math package missing - required]))
+if test "x${have_backtrace}" != "xyes"; then
+AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
+   [have_math_h=yes],
+   AC_MSG_ERROR([need math library for libexecinfo]))
+if test "x${have_math_h}" = "xyes"; then
+   LIBS="$LIBS -lm"
+fi
+fi
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
 AC_CHECK_FUNC([malloc_stats], [have_malloc_stats=yes])
@@ -846,21 +856,31 @@ if test "x$ac_cv_header_execinfo_h" = "xno"; then
    fi
 fi
 
+### Dirty hacky stuff to make LOCALSTATEDIR work
+if test "x$prefix" = xNONE; then
+   test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
+   localstatedir=/var
+   LOCALSTATEDIR=$(eval echo ${localstatedir})
+else
+   LOCALSTATEDIR=$(eval echo ${localstatedir})
+fi
+
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
+        GF_CFLAGS="${GF_COMPILER_FLAGS} ${ARGP_STANDALONE_CPPFLAGS}"
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
+        GLUSTERD_WORKDIR="${LOCALSTATEDIR}/lib/glusterd"
         ;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
         GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -m64"
         GF_LDFLAGS=""
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
-        GF_GLUSTERFS_LIBS="-lnsl -lresolv -lsocket"
         BUILD_FUSE_CLIENT=no
         FUSE_CLIENT_SUBDIR=""
+        GLUSTERD_WORKDIR="${LOCALSTATEDIR}/lib/glusterd"
         ;;
      *netbsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
@@ -870,39 +890,33 @@ case $host_os in
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
         GF_LDADD="${ARGP_STANDALONE_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-           GF_GLUSTERFS_LIBS="-lexecinfo"
+           GF_LDFLAGS="-lexecinfo"
         fi
         GF_FUSE_LDADD="-lperfuse"
         BUILD_FUSE_CLIENT=yes
         LEXLIB=""
         BUILD_FUSERMOUNT=no
         FUSERMOUNT_SUBDIR=""
+        GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
         ;;
      *freebsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_CFLAGS="${GF_COMPILER_FLAGS} ${ARGP_STANDALONE_CPPFLAGS} -O0"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_CFLAGS="${GF_CFLAGS} -D_LIBGEN_H_"
         GF_CFLAGS="${GF_CFLAGS} -DO_DSYNC=0"
         GF_CFLAGS="${GF_CFLAGS} -Dxdr_quad_t=xdr_longlong_t"
         GF_CFLAGS="${GF_CFLAGS} -Dxdr_u_quad_t=xdr_u_longlong_t"
-        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
-        GF_FUSE_LIBS="${GF_FUSE_LIBS} /usr/lib/libutil.so"
-        GF_FUSE_LDADD="-lutil"
-        GF_CFLAGS=" -I/usr/local/include ${GF_CFLAGS}"
-        CFLAGS=" -std=gnu89 ${CFLAGS}"
-        GF_CFLAGS=" -std=gnu89 ${GF_CFLAGS}"
-        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
-        GF_LDADD="${ARGP_STANDALONE_LDADD} /usr/local/lib/libpython2.7.so /usr/local/lib/libintl.so"
-        LDFLAGS="${LDFLAGS} -L/usr/local/lib"
+        GF_LDADD="${ARGP_STANDALONE_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-           GF_GLUSTERFS_LIBS="-lexecinfo"
+           GF_LDFLAGS="-lexecinfo"
         fi
+        BUILD_FUSE_CLIENT=yes
         BUILD_FUSERMOUNT=no
-        BUILD_QEMU_BLOCK=no
         FUSERMOUNT_SUBDIR=""
+        GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
         ;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
@@ -918,6 +932,7 @@ case $host_os in
         BUILD_FUSERMOUNT="no"
         BUILD_QEMU_BLOCK="no"
         FUSERMOUNT_SUBDIR=""
+        GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
         ;;
 esac
 
@@ -1066,7 +1081,6 @@ dnl Required if cmockery2 headers are not in standar paths
 GF_CFLAGS="${GF_CFLAGS} ${UNITTEST_CPPFLAGS}"
 
 AC_SUBST(GF_HOST_OS)
-AC_SUBST([GF_GLUSTERFS_LIBS])
 AC_SUBST(GF_CFLAGS)
 AC_SUBST(GF_LDFLAGS)
 AC_SUBST(GF_LDADD)
@@ -1089,7 +1103,8 @@ AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 
-AM_CONDITIONAL([GF_INSTALL_VAR_LIB_GLUSTERD], test ! -d ${localstatedir}/lib/glusterd && test -d ${sysconfdir}/glusterd )
+AC_SUBST(GLUSTERD_WORKDIR)
+AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
 
 dnl pkg-config versioning
 GFAPI_VERSION="7.0.0"
@@ -1108,6 +1123,9 @@ AC_SUBST(LIBGFRPC_LT_VERSION)
 AC_SUBST(LIBGLUSTERFS_LT_VERSION)
 AC_SUBST(LIBGFCHANGELOG_LT_VERSION)
 AC_SUBST(GFAPI_LT_VERSION)
+
+dnl this change necessary for run-tests.sh
+AC_CONFIG_FILES([tests/env.rc],[ln -s ${ac_abs_builddir}/env.rc ${ac_abs_srcdir}/env.rc 2>/dev/null])
 
 AC_OUTPUT
 

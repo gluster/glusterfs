@@ -260,6 +260,7 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
 
                 case GD_OP_SET_VOLUME:
                         ret = glusterd_hooks_set_volume_args (op_ctx, runner);
+                        glusterd_hooks_add_working_dir (runner, priv);
                         break;
 
                 case GD_OP_GSYNC_CREATE:

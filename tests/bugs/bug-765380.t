@@ -31,7 +31,7 @@ TEST $CLI volume set $V0 node-uuid-pathinfo on
 # do not expext hostname as part of the pathinfo string
 EXPECT 0 count_hostname_or_uuid_from_pathinfo $H0
 
-uuid=`grep UUID /var/lib/glusterd/glusterd.info | cut -f2 -d=`
+uuid=`grep UUID $GLUSTERD_WORKDIR/glusterd.info | cut -f2 -d=`
 
 # ... but expect the uuid $REPLICA times
 EXPECT $REPLICA count_hostname_or_uuid_from_pathinfo $uuid

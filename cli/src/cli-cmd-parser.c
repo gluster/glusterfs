@@ -999,7 +999,6 @@ cli_is_key_spl (char *key)
         return (strcmp (key, "group") == 0);
 }
 
-#define GLUSTERD_DEFAULT_WORKDIR "/var/lib/glusterd"
 static int
 cli_add_key_group (dict_t *dict, char *key, char *value, char **op_errstr)
 {
@@ -1090,7 +1089,6 @@ out:
 
         return ret;
 }
-#undef GLUSTERD_DEFAULT_WORKDIR
 
 int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,

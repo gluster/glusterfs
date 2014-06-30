@@ -36,7 +36,7 @@ chown 1:1 $M0/dir;
 
 # Kill a brick process
 
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 # change dir ownership
 NEW_UID=36;
 NEW_GID=36;

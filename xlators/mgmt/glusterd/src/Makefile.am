@@ -41,10 +41,9 @@ AM_LDFLAGS = -L$(xlatordir)
 CLEANFILES =
 
 install-data-hook:
-
-if GF_INSTALL_VAR_LIB_GLUSTERD
-	$(mkdir_p) $(localstatedir)/lib/
-	(stat $(sysconfdir)/glusterd && \
-	    mv $(sysconfdir)/glusterd $(localstatedir)/lib/) || true;
-	(ln -sf $(localstatedir)/lib/glusterd $(sysconfdir)/glusterd) || true;
+if GF_INSTALL_GLUSTERD_WORKDIR
+	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)
+	(stat $(DESTDIR)$(sysconfdir)/glusterd && \
+	    mv $(DESTDIR)$(sysconfdir)/glusterd $(DESTDIR)$(GLUSTERD_WORKDIR)) || true;
+	(ln -sf $(DESTDIR)$(GLUSTERD_WORKDIR) $(sysconfdir)/glusterd) || true;
 endif

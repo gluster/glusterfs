@@ -8,6 +8,20 @@
   cases as published by the Free Software Foundation.
 */
 
+#if defined(__GNUC__)
+#if __GNUC__ >= 4
+#if !defined(__clang__)
+#if !defined(__NetBSD__)
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+#else
+#pragma clang diagnostic ignored "-Wunused-variable"
+#pragma clang diagnostic ignored "-Wunused-value"
+#endif
+#endif
+#endif
+
 #include "xdr-nfs3.h"
 #include "mem-pool.h"
 #include "xdr-common.h"

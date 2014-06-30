@@ -7,7 +7,20 @@ V0=${V0:=patchy};             # volume name to use in tests
 V1=${V1:=patchy1};            # volume name to use in tests
 B0=${B0:=/d/backends};        # top level of brick directories
 CC=cc
-case `uname -s` in
+OSTYPE=$(uname -s)
+
+if [ ! -f ${PWD}/tests/env.rc ]; then
+   echo "Aborting."
+   echo
+   echo "env.rc not found"
+   echo
+   echo "Please correct the problem and try again."
+   echo
+   exit 1
+fi
+. ${PWD}/tests/env.rc
+
+case $OSTYPE in
 Linux)
   H0=${H0:=`hostname --fqdn`}; # hostname
   ;;
@@ -15,6 +28,7 @@ Linux)
   H0=${H0:=`hostname`}; # hostname
   ;;
 esac
+
 DEBUG=${DEBUG:=0}             # turn on debugging?
 
 PROCESS_UP_TIMEOUT=20
@@ -293,8 +307,9 @@ function cleanup()
 		;;
 	esac
 
-
-	rm -rf /var/lib/glusterd/* $B0/* /etc/glusterd/*;
+        if [ -n "${GLUSTERD_WORKDIR}" ] ; then
+            rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
+        fi
 
 	umount -l $M0 2>/dev/null || true;
 	umount -l $M1 2>/dev/null || true;
@@ -454,10 +469,9 @@ alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
 
-ostype=$(uname -s)
-if [ x"$ostype" = x"Linux" ]; then
+if [ x"$OSTYPE" = x"Linux" ]; then
 	alias dd="dd status=none"
-elif [ x"$ostype" = x"NetBSD" ]; then
+elif [ x"$OSTYPE" = x"NetBSD" ]; then
 	alias dd="dd msgfmt=quiet"
 fi
 # MacOS doesn't seem to support either option.  Doing nothing at all is

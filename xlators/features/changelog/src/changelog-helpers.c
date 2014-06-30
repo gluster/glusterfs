@@ -25,7 +25,7 @@
 #include "changelog-encoders.h"
 #include <pthread.h>
 
-inline void
+static inline void
 __mask_cancellation (xlator_t *this)
 {
         int ret = 0;
@@ -36,7 +36,7 @@ __mask_cancellation (xlator_t *this)
                         "failed to disable thread cancellation");
 }
 
-inline void
+static inline void
 __unmask_cancellation (xlator_t *this)
 {
         int ret = 0;

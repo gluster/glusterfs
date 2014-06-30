@@ -724,13 +724,13 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_READ];
-                ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_THRU_READ);
+                ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_TYPE_READ);
 
                 ios_log (this, logfp, "\n======Write Throughput File Stats======");
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_WRITE];
-                ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_THRU_WRITE);
+                ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_TYPE_WRITE);
         }
         return 0;
 }

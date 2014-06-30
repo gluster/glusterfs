@@ -18,7 +18,7 @@ function get_brick_host_uuid()
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 
-uuid=`grep UUID /var/lib/glusterd/glusterd.info | cut -f2 -d=`
+uuid=`grep UUID $GLUSTERD_WORKDIR/glusterd.info | cut -f2 -d=`
 EXPECT $uuid get_brick_host_uuid $V0
 
 TEST $CLI volume delete $V0;

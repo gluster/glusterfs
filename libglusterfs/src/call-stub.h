@@ -170,10 +170,10 @@ typedef struct {
 		struct statvfs statvfs;
 		dict_t *xattr;
 		struct gf_flock lock;
-		gf_dirent_t entries;
 		uint32_t weak_checksum;
 		uint8_t *strong_checksum;
 		dict_t *xdata;
+                gf_dirent_t entries;
 	} args_cbk;
 } call_stub_t;
 

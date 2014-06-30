@@ -40,7 +40,7 @@ TEST $CLI --xml volume status $V0;
 TEST $CLI --xml volume status $V0 detail;
 
 # Kill the brick process. After this, port number for the killed (in this case brick) process must be "N/A".
-kill `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-brick0.pid`
+kill `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-brick0.pid`
 
 EXPECT "N/A" port_field $V0 '0'; # volume status
 EXPECT "N/A" port_field $V0 '1'; # volume status detail

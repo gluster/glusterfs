@@ -23,21 +23,21 @@ function hooks_prep ()
 {
     local event=$1
     touch /tmp/pre.out /tmp/post.out
-    touch /var/lib/glusterd/hooks/1/"$event"/pre/Spre.sh
-    touch /var/lib/glusterd/hooks/1/"$event"/post/Spost.sh
+    touch $GLUSTERD_WORKDIR/hooks/1/"$event"/pre/Spre.sh
+    touch $GLUSTERD_WORKDIR/hooks/1/"$event"/post/Spost.sh
 
-    printf "#! /bin/bash\necho "$event"Pre > /tmp/pre.out\n" > /var/lib/glusterd/hooks/1/"$event"/pre/Spre.sh
-    printf "#! /bin/bash\necho "$event"Post > /tmp/post.out\n" > /var/lib/glusterd/hooks/1/"$event"/post/Spost.sh
-    chmod a+x /var/lib/glusterd/hooks/1/"$event"/pre/Spre.sh
-    chmod a+x /var/lib/glusterd/hooks/1/"$event"/post/Spost.sh
+    printf "#! /bin/bash\necho "$event"Pre > /tmp/pre.out\n" > $GLUSTERD_WORKDIR/hooks/1/"$event"/pre/Spre.sh
+    printf "#! /bin/bash\necho "$event"Post > /tmp/post.out\n" > $GLUSTERD_WORKDIR/hooks/1/"$event"/post/Spost.sh
+    chmod a+x $GLUSTERD_WORKDIR/hooks/1/"$event"/pre/Spre.sh
+    chmod a+x $GLUSTERD_WORKDIR/hooks/1/"$event"/post/Spost.sh
 }
 
 function hooks_cleanup ()
 {
     local event=$1
     rm /tmp/pre.out /tmp/post.out
-    rm /var/lib/glusterd/hooks/1/"$event"/pre/Spre.sh
-    rm /var/lib/glusterd/hooks/1/"$event"/post/Spost.sh
+    rm $GLUSTERD_WORKDIR/hooks/1/"$event"/pre/Spre.sh
+    rm $GLUSTERD_WORKDIR/hooks/1/"$event"/post/Spost.sh
 }
 
 ## Verify volume is created and its hooks script ran

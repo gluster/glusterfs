@@ -34,4 +34,4 @@ Regression tests framework for GlusterFS
   `gluster-devel@gluster.org`.
 
 ## Reminder
-- BE WARNED THAT THE TEST CASES DELETE /var/lib/glusterd/* !!!
+- BE WARNED THAT THE TEST CASES DELETE ``GLUSTERD_WORKDIR`` * !!!

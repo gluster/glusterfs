@@ -18,7 +18,7 @@ PROGNAME="Quota-xattr-heal-add-brick"
 VOL_NAME=
 VERSION=
 VOLUME_OP=
-GLUSTERD_WORKING_DIR=
+GLUSTERD_WORKDIR=
 ENABLED_NAME="S28Quota-root-xattr-heal.sh"
 
 
@@ -45,33 +45,33 @@ eval set -- "$ARGS"
 
 while true;
 do
-        case $1 in
+    case $1 in
         --volname)
-                 shift
-                 VOL_NAME=$1
-                 ;;
+            shift
+            VOL_NAME=$1
+            ;;
         --version)
-                 shift
-                 VERSION=$1
-                 ;;
-         --gd-workdir)
-                 shift
-                 GLUSTERD_WORKING_DIR=$1
-                 ;;
-         --volume-op)
-                 shift
-                 VOLUME_OP=$1
-                 ;;
+            shift
+            VERSION=$1
+            ;;
+        --gd-workdir)
+            shift
+            GLUSTERD_WORKDIR=$1
+            ;;
+        --volume-op)
+            shift
+            VOLUME_OP=$1
+            ;;
         *)
-                 shift
-                 break
-                 ;;
-        esac
-        shift
+            shift
+            break
+            ;;
+    esac
+    shift
 done
 ##----------------------------------------
 
-ENABLED_STATE="$GLUSTERD_WORKING_DIR/hooks/$VERSION/$VOLUME_OP/post/$ENABLED_NAME"
+ENABLED_STATE="$GLUSTERD_WORKDIR/hooks/$VERSION/$VOLUME_OP/post/$ENABLED_NAME"
 
 
 FLAG=`gluster volume quota $VOL_NAME list / 2>&1 | grep \

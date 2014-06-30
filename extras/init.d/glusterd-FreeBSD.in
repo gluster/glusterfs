@@ -16,7 +16,7 @@ start_precmd="glusterd_prestart"
 
 glusterd_prestart()
 {
-    mkdir -p /var/lib/glusterd /var/log/glusterfs
+    mkdir -p @GLUSTERD_WORKDIR@ /var/log/glusterfs
     return 0
 }
 

@@ -36,7 +36,7 @@ int os_mlock(void);
 typedef struct timeval qemu_timeval;
 #define qemu_gettimeofday(tp) gettimeofday(tp, NULL)
 
-#ifndef CONFIG_UTIMENSAT
+#if !defined(CONFIG_UTIMENSAT) || defined(__FreeBSD__)
 #ifndef UTIME_NOW
 # define UTIME_NOW     ((1l << 30) - 1l)
 #endif

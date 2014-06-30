@@ -43,9 +43,7 @@
 #define OPT_SERVER_RPC_STATD_PIDFILE     "nfs.rpc-statd-pidfile"
 #define OPT_SERVER_RPC_STATD_NOTIFY_PIDFILE "nfs.rpc-statd-notify-pidfile"
 
-/* TODO: DATADIR should be based on configure's $(localstatedir) */
-#define DATADIR                         "/var/lib/glusterd"
-#define NFS_DATADIR                     DATADIR "/nfs"
+#define NFS_DATADIR                     GLUSTERD_DEFAULT_WORKDIR "/nfs"
 
 /* Forward declaration */
 int nfs_add_initer (struct list_head *list, nfs_version_initer_t init);
@@ -1853,7 +1851,7 @@ struct volume_options options[] = {
         },
         { .key = {"nfs.mount-rmtab"},
           .type = GF_OPTION_TYPE_PATH,
-          .default_value = DATADIR "/rmtab",
+          .default_value = NFS_DATADIR "/rmtab",
           .description = "Set the location of the cache file that is used to "
                          "list all the NFS-clients that have connected "
                          "through the MOUNT protocol. If this is on shared "
