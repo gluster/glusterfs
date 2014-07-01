@@ -75,8 +75,8 @@ TEST make dist
 # build the glusterfs src.rpm
 TEST build_srpm_from_tgz ${PWD}/*.tar.gz
 
-# build for the last two Fedora EPEL releases (x86_64 only)
-for MOCK_CONF in $(ls -x1 /etc/mock/*.cfg | egrep -e 'epel-[0-9]+-x86_64.cfg$' | tail -n2)
+# even though the last two Fedora EPEL releases are x86_64 only, we allow other arches to build
+for MOCK_CONF in $(ls -x1 /etc/mock/*.cfg | egrep -e 'epel-[0-9]+-'`uname -i`'.cfg$' | tail -n2)
 do
 	EPEL_RELEASE=$(basename ${MOCK_CONF} .cfg)
 	mkdir -p "${PWD}/mock.d/${EPEL_RELEASE}"
