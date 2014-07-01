@@ -192,13 +192,19 @@ err_out:
 static data_pair_t *
 _dict_lookup (dict_t *this, char *key)
 {
+        int hashval = 0;
         if (!this || !key) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
                                   "!this || !key (%s)", key);
                 return NULL;
         }
 
-        int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+        /* If the divisor is 1, the modulo is always 0,
+         * in such case avoid hash calculation.
+         */
+        if (this->hash_size != 1)
+                hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+
         data_pair_t *pair;
 
         for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
@@ -235,7 +241,7 @@ dict_lookup (dict_t *this, char *key, data_t **data)
 static int32_t
 _dict_set (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
 {
-        int hashval;
+        int hashval = 0;
         data_pair_t *pair;
         char key_free = 0;
         int tmp = 0;
@@ -250,8 +256,13 @@ _dict_set (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
                 key_free = 1;
         }
 
-        tmp = SuperFastHash (key, strlen (key));
-        hashval = (tmp % this->hash_size);
+        /* If the divisor is 1, the modulo is always 0,
+         * in such case avoid hash calculation.
+         */
+        if (this->hash_size != 1) {
+                tmp = SuperFastHash (key, strlen (key));
+                hashval = (tmp % this->hash_size);
+        }
 
         /* Search for a existing key if 'replace' is asked for */
         if (replace) {
@@ -387,6 +398,8 @@ dict_get (dict_t *this, char *key)
 void
 dict_del (dict_t *this, char *key)
 {
+        int hashval = 0;
+
         if (!this || !key) {
                 gf_log_callingfn ("dict", GF_LOG_WARNING,
                                   "!this || key=%s", key);
@@ -395,7 +408,12 @@ dict_del (dict_t *this, char *key)
 
         LOCK (&this->lock);
 
-        int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+        /* If the divisor is 1, the modulo is always 0,
+         * in such case avoid hash calculation.
+         */
+        if (this->hash_size != 1)
+                hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
+
         data_pair_t *pair = this->members[hashval];
         data_pair_t *prev = NULL;
 
