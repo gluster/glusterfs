@@ -1013,7 +1013,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = readlink (real_path, dest, size);
+        op_ret = sys_readlink (real_path, dest, size);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,

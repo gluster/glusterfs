@@ -528,7 +528,7 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
 
         priv = this->private;
 
-        ret = lstat (path, &lstatbuf);
+        ret = sys_lstat (path, &lstatbuf);
 
         if (ret != 0) {
                 if (ret == -1) {
