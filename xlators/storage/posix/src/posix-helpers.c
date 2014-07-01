@@ -1443,6 +1443,65 @@ posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd)
         return ret;
 }
 
+int
+posix_fs_health_check (xlator_t *this)
+{
+        struct  posix_private *priv     = NULL;
+        int     ret                     = -1;
+        char    *subvol_path            = NULL;
+        char    timestamp[256]          = {0,};
+        int     fd                      = -1;
+        int     timelen                 = -1;
+        int     nofbytes                = 0;
+        time_t  time_sec                = {0,};
+        char    buff[64]                = {0};
+        char    file_path[PATH_MAX]     = {0};
+
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO ("posix-helpers", priv, out);
+
+        subvol_path = priv->base_path;
+        snprintf (file_path, sizeof (file_path), "%s/%s/health_check",
+                  subvol_path, GF_HIDDEN_PATH);
+
+        time_sec = time (NULL);
+        gf_time_fmt (timestamp, sizeof timestamp, time_sec, gf_timefmt_FT);
+        timelen = strlen (timestamp);
+
+        fd = open (file_path, O_CREAT|O_RDWR, 0644);
+        if (fd == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open() on %s returned: %s", file_path,
+                        strerror (errno));
+                goto out;
+        }
+        nofbytes = write (fd, timestamp, timelen);
+        if (nofbytes != timelen) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write() on %s returned: %s", file_path,
+                        strerror (errno));
+                goto out;
+        }
+        /* Seek the offset to the beginning of the file, so that the offset for
+        read is from beginning of file */
+        lseek(fd, 0, SEEK_SET);
+        nofbytes = read (fd, buff, timelen);
+        if (nofbytes == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "read() on %s returned: %s", file_path,
+                        strerror (errno));
+                goto out;
+        }
+        ret = 0;
+out:
+        if (fd != -1) {
+                close (fd);
+        }
+        return ret;
+
+}
+
 static void *
 posix_health_check_thread_proc (void *data)
 {
@@ -1450,7 +1509,6 @@ posix_health_check_thread_proc (void *data)
         struct posix_private *priv               = NULL;
         uint32_t              interval           = 0;
         int                   ret                = -1;
-        struct stat           sb                 = {0, };
 
         this = data;
         priv = this->private;
@@ -1473,13 +1531,13 @@ posix_health_check_thread_proc (void *data)
                 /* prevent thread errors while doing the health-check(s) */
                 pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 
-                /* Do the health-check, it should be moved to its own function
-                 * in case it gets more complex. */
-                ret = stat (priv->base_path, &sb);
+                /* Do the health-check.*/
+                ret = posix_fs_health_check (this);
+
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "stat() on %s returned: %s", priv->base_path,
-                                strerror (errno));
+                                "health_check on %s returned: %s",
+                                priv->base_path, strerror (errno));
                         goto abort;
                 }
 
