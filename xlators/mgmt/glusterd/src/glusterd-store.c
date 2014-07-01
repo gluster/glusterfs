@@ -325,6 +325,17 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
                         goto out;
         }
 
+        if (strlen (brickinfo->fstype) > 0) {
+                snprintf (value, sizeof (value), "%s", brickinfo->fstype);
+                ret = gf_store_save_value (fd,
+                                GLUSTERD_STORE_KEY_BRICK_FSTYPE, value);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to save "
+                                "brick fs type of brick %s", brickinfo->path);
+                        goto out;
+                }
+        }
+
         memset (value, 0, sizeof (value));
         snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
@@ -2272,6 +2283,10 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
                                 gf_string2int (value, &brickinfo->snap_status);
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_FSTYPE,
+                                             strlen (GLUSTERD_STORE_KEY_BRICK_FSTYPE))) {
+                                strncpy (brickinfo->fstype, value,
+                                         sizeof (brickinfo->fstype));
                         } else if (!strncmp (key,
                                     GLUSTERD_STORE_KEY_BRICK_VGNAME,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
@@ -3086,7 +3101,8 @@ out:
  * at the brick_mount_path
  */
 int32_t
-glusterd_mount_brick_paths (char *brick_mount_path, char *device_path)
+glusterd_mount_brick_paths (char *brick_mount_path, char *device_path,
+                            const char *fstype)
 {
         int32_t                  ret                 = -1;
         runner_t                 runner              = {0, };
@@ -3134,7 +3150,8 @@ glusterd_mount_brick_paths (char *brick_mount_path, char *device_path)
                         "Activating %s successful", device_path);
 
         /* Mount the snapshot */
-        ret = glusterd_mount_lvm_snapshot (device_path, brick_mount_path);
+        ret = glusterd_mount_lvm_snapshot (device_path, brick_mount_path,
+                                           fstype);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to mount lvm snapshot.");
@@ -3208,7 +3225,7 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
                 /* Check if brick_mount_path is already mounted.
                  * If not, mount the device_path at the brick_mount_path */
                 ret = glusterd_mount_brick_paths (brick_mount_path,
-                                                  brickinfo->device_path);
+                                brickinfo->device_path, brickinfo->fstype);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to mount brick_mount_path");
