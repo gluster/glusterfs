@@ -5808,7 +5808,7 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
                 rpc = quotad->rpc;
         } else if (pending_node->type == GD_NODE_SNAPD) {
                 snapd = pending_node->node;
-                rpc = quotad->rpc;
+                rpc = snapd->rpc;
         } else {
                 GF_ASSERT (0);
         }
@@ -7522,7 +7522,7 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
 
         snprintf (base_key, sizeof (base_key), "brick%d", count);
         snprintf (key, sizeof (key), "%s.hostname", base_key);
-        ret = dict_set_str (dict, key, "Snap Daemon");
+        ret = dict_set_str (dict, key, "Snapshot Daemon");
         if (ret)
                 goto out;
 

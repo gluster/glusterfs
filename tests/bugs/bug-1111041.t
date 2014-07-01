@@ -8,7 +8,7 @@
 cleanup;
 
 function is_snapd_running {
-         $CLI volume status $1 | grep "Snap Daemon" | wc -l;
+         $CLI volume status $1 | grep "Snapshot Daemon" | wc -l;
 }
 
 TEST glusterd;
@@ -29,7 +29,7 @@ SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 
-SNAPD_PID2=$($CLI volume status $V0 | grep "Snap Daemon" | awk {'print $7'});
+SNAPD_PID2=$($CLI volume status $V0 | grep "Snapshot Daemon" | awk {'print $7'});
 
 TEST [ $SNAPD_PID -eq $SNAPD_PID2 ]
 
