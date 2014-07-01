@@ -971,6 +971,17 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                                         "Failed to set %s", key);
                                 goto out;
                         }
+
+                        snprintf (key, sizeof (key),
+                                  "snap%d.brick%d.fs_type",
+                                  volcount, brick_count);
+                        ret = dict_set_str (rsp_dict, key,
+                                            brickinfo->fstype);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
                 }
 
                 snprintf (key, sizeof (key), "snap%d.brick_count", volcount);
@@ -1454,6 +1465,21 @@ glusterd_snap_restore_use_rsp_dict (dict_t *dst, dict_t *src)
 
                         snprintf (key, sizeof (key),
                                   "snap%d.brick%d.device_path", i, j);
+                        ret = dict_get_str (src, key, &strvalue);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get %s", key);
+                                goto out;
+                        }
+                        ret = dict_set_dynstr_with_alloc (dst, key, strvalue);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof (key),
+                                  "snap%d.brick%d.fs_type", i, j);
                         ret = dict_get_str (src, key, &strvalue);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -3725,7 +3751,8 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
            But for now, mounting using runner apis.
         */
         ret = glusterd_mount_lvm_snapshot (brickinfo->device_path,
-                                           snap_brick_mount_path);
+                                           snap_brick_mount_path,
+                                           brickinfo->fstype);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to mount lvm snapshot.");
@@ -3978,7 +4005,7 @@ out:
         return ret;
 }
 
-/* This function will update the file-system UUID of the
+/* This function will update the file-system label of the
  * backend snapshot brick.
  *
  * @param brickinfo     brickinfo of the snap volume
@@ -3986,14 +4013,11 @@ out:
  * @return 0 on success and -1 on failure
  */
 int
-glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
+glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo)
 {
         int32_t         ret                     = -1;
         char            msg [PATH_MAX]          = "";
-        char            uuid_str [NAME_MAX]     = "";
-        char            template []             = "/tmp/xfsmountXXXXXX";
-        char           *mount_path              = NULL;
-        char           *cmd                     = NULL;
+        char            label [NAME_MAX]        = "";
         uuid_t          uuid                    = {0,};
         runner_t        runner                  = {0,};
         xlator_t       *this                    = NULL;
@@ -4005,82 +4029,39 @@ glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
         /* Generate a new UUID */
         uuid_generate (uuid);
 
-        if (NULL == uuid_utoa_r (uuid, uuid_str)) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to convert "
-                        "uuid to string for %s brick", brickinfo->path);
-                goto out;
-        }
+        GLUSTERD_GET_UUID_NOHYPHEN (label, uuid);
 
         runinit (&runner);
-        snprintf (msg, sizeof (msg), "Changing filesystem uuid of %s brick to "
-                  "%s", brickinfo->path, uuid_str);
 
         /* Call the file-system specific tools to update the file-system
-         * UUID. Currently we are only supporting xfs and ext2/ext3/ext4
+         * label. Currently we are only supporting xfs and ext2/ext3/ext4
          * file-system.
          */
         if (0 == strcmp (brickinfo->fstype, "xfs")) {
-                /* TODO: xfs_admin tool is used to replace the file-system
-                 * UUID. As of now the tool is failing with error when trying
-                 * to replace the UUID. Therefore as a workaround we mount
-                 * the file-system to a temporary location and then unmount
-                 * it.
-                 * After this xfs_admin tool works fine.
-                 */
-                mount_path = mkdtemp (template);
-                if (NULL == mount_path) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to create "
-                                "temporary folder. Error: %s",
-                                strerror (errno));
-                        runner_end (&runner);
-                        goto out;
-                }
-
-                /* First we mount the brick to a temporary path. Please
-                 * note that we are using "nouuid" option here because
-                 * both the origin volume brick and this brick will have
-                 * the same UUID. And XFS does not allow us to mount a
-                 * file-system which is sharing the UUID with any other
-                 * file-system on the system.
-                 */
-#ifdef GF_LINUX_HOST_OS
-                ret = mount (brickinfo->device_path, mount_path,
-                             brickinfo->fstype, 0, "nouuid");
-#else
-                ret = -1;
-#endif
-
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to mount "
-                                "%s at %s", brickinfo->device_path,
-                                mount_path);
-                        runner_end (&runner);
-                        goto out;
-                }
-
-                /* Now unmount the brick. */
-                ret = glusterd_umount (mount_path);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to unmount "
-                                "%s from %s", brickinfo->device_path,
-                                mount_path);
-                        runner_end (&runner);
-                        goto out;
-                }
-
-                /* Now we are ready to run xfs_admin tool */
-                runner_add_args (&runner, "xfs_admin", "-U", uuid_str,
+                /* XFS label is of size 12. Therefore we should truncate the
+                 * label to 12 bytes*/
+                label [12] = '\0';
+                snprintf (msg, sizeof (msg), "Changing filesystem label of "
+                          "%s brick to %s", brickinfo->path, label);
+                /* Run the run xfs_admin tool to change the label
+                 * of the file-system */
+                runner_add_args (&runner, "xfs_admin", "-L", label,
                                  brickinfo->device_path, NULL);
         } else if (0 == strcmp (brickinfo->fstype, "ext4") ||
                    0 == strcmp (brickinfo->fstype, "ext3") ||
                    0 == strcmp (brickinfo->fstype, "ext2")) {
+                /* Ext2/Ext3/Ext4 label is of size 16. Therefore we should
+                 * truncate the label to 16 bytes*/
+                label [16] = '\0';
+                snprintf (msg, sizeof (msg), "Changing filesystem label of "
+                          "%s brick to %s", brickinfo->path, label);
                 /* For ext2/ext3/ext4 run tune2fs to change the
-                 * file-system UUID */
-                runner_add_args (&runner, "tune2fs", "-U", uuid_str,
+                 * file-system label */
+                runner_add_args (&runner, "tune2fs", "-L", label,
                                  brickinfo->device_path, NULL);
         } else {
                 gf_log (this->name, GF_LOG_WARNING, "Changing file-system "
-                        "UUID of %s file-system is not supported as of now",
+                        "label of %s file-system is not supported as of now",
                         brickinfo->fstype);
                 runner_end (&runner);
                 ret = -1;
@@ -4091,20 +4072,13 @@ glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo)
         ret = runner_run (&runner);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to change "
-                        "filesystem uuid of %s brick to %s",
-                        brickinfo->path, uuid_str);
+                        "filesystem label of %s brick to %s",
+                        brickinfo->path, label);
                 goto out;
         }
 
         ret = 0;
 out:
-        if (NULL != mount_path) {
-                if (rmdir (mount_path)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
-                                "temporary folder %s. Error: %s",
-                                mount_path, strerror (errno));
-                }
-        }
         return ret;
 }
 
@@ -4148,16 +4122,16 @@ glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
         }
 
         /* After the snapshot both the origin brick (LVM brick) and
-         * the snapshot brick will have the same file-system UUID. This
+         * the snapshot brick will have the same file-system label. This
          * will cause lot of problems at mount time. Therefore we must
-         * generate a new UUID for the snapshot brick
+         * generate a new label for the snapshot brick
          */
-        ret = glusterd_update_fs_uuid (brickinfo);
+        ret = glusterd_update_fs_label (brickinfo);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to update "
-                        "file-system uuid for %s brick", brickinfo->path);
-                /* Failing to update UUID should not cause snapshot failure.
-                 * Currently UUID is updated only for XFS and ext2/ext3/ext4
+                        "file-system label for %s brick", brickinfo->path);
+                /* Failing to update label should not cause snapshot failure.
+                 * Currently label is updated only for XFS and ext2/ext3/ext4
                  * file-system.
                  */
         }

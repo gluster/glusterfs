@@ -454,16 +454,16 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         /* After the snapshot both the origin brick (LVM brick) and
-         * the snapshot brick will have the same file-system UUID. This
+         * the snapshot brick will have the same file-system label. This
          * will cause lot of problems at mount time. Therefore we must
-         * generate a new UUID for the snapshot brick
+         * generate a new label for the snapshot brick
          */
-        ret = glusterd_update_fs_uuid (brickinfo);
+        ret = glusterd_update_fs_label (brickinfo);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to update "
-                        "file-system uuid for %s brick", brickinfo->path);
-                /* Failing to update UUID should not cause snapshot failure.
-                 * Currently UUID is updated only for XFS and ext2/ext3/ext4
+                        "file-system label for %s brick", brickinfo->path);
+                /* Failing to update label should not cause snapshot failure.
+                 * Currently label is updated only for XFS and ext2/ext3/ext4
                  * file-system.
                  */
         }

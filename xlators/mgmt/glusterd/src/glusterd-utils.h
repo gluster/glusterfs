@@ -757,7 +757,8 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         int32_t volcount);
 
 int32_t
-glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path);
+glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path,
+                             const char *fstype);
 
 int32_t
 glusterd_umount (const char *path);
@@ -926,6 +927,6 @@ glusterd_update_fstype (char *orig_brick_path,
                         char *fstype, size_t fslen);
 
 int
-glusterd_update_fs_uuid (glusterd_brickinfo_t *brickinfo);
+glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo);
 
 #endif

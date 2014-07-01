@@ -612,6 +612,7 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
         strcpy (dup_brickinfo->hostname, brickinfo->hostname);
         strcpy (dup_brickinfo->path, brickinfo->path);
         strcpy (dup_brickinfo->device_path, brickinfo->device_path);
+        strcpy (dup_brickinfo->fstype, brickinfo->fstype);
         ret = gf_canonicalize_path (dup_brickinfo->path);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to canonicalize "
@@ -709,6 +710,13 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                 if (!ret)
                         strncpy (new_brickinfo->device_path, value,
                                  sizeof(new_brickinfo->device_path));
+
+                snprintf (key, sizeof (key), "snap%d.brick%d.fs_type",
+                          volcount, brick_count);
+                ret = dict_get_str (dict, key, &value);
+                if (!ret)
+                        strncpy (new_brickinfo->fstype, value,
+                                 sizeof(new_brickinfo->fstype));
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
@@ -2363,6 +2371,15 @@ gd_add_brick_snap_details_to_dict (dict_t *dict, char *prefix,
                 goto out;
         }
 
+        snprintf (key, sizeof (key), "%s.fs_type", prefix);
+        ret = dict_set_str (dict, key, brickinfo->fstype);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set fstype for %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+                goto out;
+        }
+
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
         ret = dict_set_str (dict, key, brickinfo->mount_dir);
@@ -3695,6 +3712,7 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
         glusterd_conf_t *conf        = NULL;
         char             key[512]    = {0,};
         char            *snap_device = NULL;
+        char            *fs_type     = NULL;
         char            *mount_dir   = NULL;
 
         this = THIS;
@@ -3726,6 +3744,14 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                 goto out;
         }
         strcpy (brickinfo->device_path, snap_device);
+
+        snprintf (key, sizeof (key), "%s.fs_type", prefix);
+        ret = dict_get_str (dict, key, &fs_type);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload", key);
+                goto out;
+        }
+        strcpy (brickinfo->fstype, fs_type);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
@@ -12206,7 +12232,8 @@ glusterd_compare_volume_name(struct list_head *list1, struct list_head *list2)
 }
 
 int32_t
-glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path)
+glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path,
+                             const char *fstype)
 {
         char               msg[NAME_MAX] = "";
         int32_t            ret           = -1;
@@ -12222,7 +12249,20 @@ glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path)
         runinit (&runner);
         snprintf (msg, sizeof (msg), "mount %s %s",
                   device_path, brick_mount_path);
-        runner_add_args (&runner, "mount", device_path, brick_mount_path, NULL);
+
+        /* XFS file-system does not allow to mount file-system with duplicate
+         * UUID. File-system UUID of snapshot and its origin volume is same.
+         * Therefore to mount such a snapshot in XFS we need to pass nouuid
+         * option
+         */
+        if (!strcmp (fstype, "xfs")) {
+                runner_add_args (&runner, "mount", "-o", "nouuid",
+                                 device_path, brick_mount_path, NULL);
+        } else {
+                runner_add_args (&runner, "mount", device_path,
+                                 brick_mount_path, NULL);
+        }
+
         runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
         ret = runner_run (&runner);
         if (ret) {
