@@ -157,6 +157,9 @@ class Monitor(object):
             return 1
         conn_timeout = int(gconf.connection_timeout)
         while ret in (0, 1):
+            # Spawn the worker and agent in lock to avoid fd leak
+            self.lock.acquire()
+
             logging.info('-' * conn_timeout)
             logging.info('starting gsyncd worker')
 
@@ -188,10 +191,9 @@ class Monitor(object):
                                                  ','.join([str(rw), str(ww),
                                                            str(ra), str(wa)]),
                                                  '--resource-remote', w[1]])
-            self.lock.acquire()
+
             cpids.add(cpid)
             agents.add(apid)
-            self.lock.release()
             os.close(pw)
 
             # close all RPC pipes in monitor
@@ -199,6 +201,7 @@ class Monitor(object):
             os.close(wa)
             os.close(rw)
             os.close(ww)
+            self.lock.release()
 
             t0 = time.time()
             so = select((pr,), (), (), conn_timeout)[0]
