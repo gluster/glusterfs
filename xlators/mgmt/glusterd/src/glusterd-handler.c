@@ -2402,14 +2402,13 @@ glusterd_friend_hostname_update (glusterd_peerinfo_t *peerinfo,
         GF_ASSERT (peerinfo);
         GF_ASSERT (hostname);
 
-        new_hostname = gf_strdup (hostname);
-        if (!new_hostname) {
-                ret = -1;
+        ret = gd_add_address_to_peer (peerinfo, hostname);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Couldn't add address to the peer info");
                 goto out;
         }
 
-        GF_FREE (peerinfo->hostname);
-        peerinfo->hostname = new_hostname;
         if (store_update)
                 ret = glusterd_store_peerinfo (peerinfo);
 out:
@@ -2493,32 +2492,27 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
 
         args.mode = GD_MODE_ON;
         while ( i <= count) {
-                snprintf (key, sizeof (key), "friend%d.uuid", i);
-                ret = dict_get_str (dict, key, &uuid_buf);
-                if (ret)
+                snprintf (key, sizeof (key), "friend%d", i);
+                ret = gd_peerinfo_from_dict (dict, key, &peerinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not create "
+                                "peerinfo from dict for prefix %s", key);
                         goto out;
-                uuid_parse (uuid_buf, uuid);
-                snprintf (key, sizeof (key), "friend%d.hostname", i);
-                ret = dict_get_str (dict, key, &hostname);
-                if (ret)
-                        goto out;
-
-                gf_log ("", GF_LOG_INFO, "Received uuid: %s, hostname:%s",
-                                uuid_buf, hostname);
-
-                if (uuid_is_null (uuid)) {
-                        gf_log (this->name, GF_LOG_WARNING, "Updates mustn't "
-                                "contain peer with 'null' uuid");
-                        continue;
                 }
 
-                if (!uuid_compare (uuid, MY_UUID)) {
+                if (!uuid_compare (peerinfo->uuid, MY_UUID)) {
                         gf_log ("", GF_LOG_INFO, "Received my uuid as Friend");
+                        /* A peerinfo object referencing self is not useful */
+                        glusterd_friend_cleanup (peerinfo);
+                        peerinfo = NULL;
                         i++;
                         continue;
                 }
 
-                ret = glusterd_friend_find (uuid, hostname, &tmp);
+                /* TODO: This needs to fixed. The below will not work with
+                 * address lists
+                 */
+                ret = glusterd_friend_find (peerinfo->uuid, hostname, &tmp);
 
                 if (!ret) {
                         if (strcmp (hostname, tmp->hostname) != 0) {
@@ -2529,10 +2523,15 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                         continue;
                 }
 
-                ret = glusterd_friend_add (hostname, friend_req.port,
-                                           GD_FRIEND_STATE_BEFRIENDED,
-                                           &uuid, &peerinfo, 0, &args);
+                /* If it is a new peer, it should be added as a friend.
+                 * The friend state machine will take care of correcting the
+                 * state as required
+                 */
+                peerinfo->state.state = GD_FRIEND_STATE_BEFRIENDED;
 
+                ret = glusterd_friend_add_from_peerinfo (peerinfo, 0, &args);
+
+                peerinfo = NULL;
                 i++;
         }
 
@@ -2547,6 +2546,9 @@ out:
         } else {
                 free (friend_req.friends.friends_val);//malloced by xdr
         }
+
+        if (peerinfo)
+                glusterd_friend_cleanup (peerinfo);
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
@@ -3062,6 +3064,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         int                    ret = -1;
         glusterd_peerctx_t     *peerctx = NULL;
         data_t                 *data = NULL;
+        glusterd_peer_hostname_t *address = NULL;
 
         peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
         if (!peerctx)
@@ -3072,8 +3075,18 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
         peerctx->peerinfo = peerinfo;
 
+        /* Use the first hostname from the address list to create the peer RPC
+         */
+        address = list_entry (&peerinfo->hostnames, glusterd_peer_hostname_t,
+                              hostname_list);
+        if (!address) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Could not get the first "
+                        "address for peer");
+                goto out;
+        }
         ret = glusterd_transport_inet_options_build (&options,
-                                                     peerinfo->hostname,
+                                                     address->hostname,
                                                      peerinfo->port);
         if (ret)
                 goto out;
@@ -3166,6 +3179,53 @@ out:
         return ret;
 }
 
+/* glusterd_friend_add_from_peerinfo() adds a new peer into the local friends
+ * list from a pre created @peerinfo object. It otherwise works similarly to
+ * glusterd_friend_add()
+ */
+int
+glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
+                                   gf_boolean_t restore,
+                                   glusterd_peerctx_args_t *args)
+{
+        int                     ret = 0;
+        xlator_t               *this = NULL;
+        glusterd_conf_t        *conf = NULL;
+
+        this = THIS;
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        GF_VALIDATE_OR_GOTO (this->name, (friend != NULL), out);
+
+        /*
+         * We can't add to the list after calling glusterd_friend_rpc_create,
+         * even if it succeeds, because by then the callback to take it back
+         * off and free might have happened already (notably in the case of an
+         * invalid peer name).  That would mean we're adding something that had
+         * just been free, and we're likely to crash later.
+         */
+        list_add_tail (&friend->uuid_list, &conf->peers);
+
+        //restore needs to first create the list of peers, then create rpcs
+        //to keep track of quorum in race-free manner. In restore for each peer
+        //rpc-create calls rpc_notify when the friend-list is partially
+        //constructed, leading to wrong quorum calculations.
+        if (!restore) {
+                ret = glusterd_store_peerinfo (friend);
+                if (ret == 0) {
+                        ret = glusterd_friend_rpc_create (this, friend, args);
+                }
+                else {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store peerinfo");
+                }
+        }
+
+out:
+        gf_log (this->name, GF_LOG_INFO, "connect returned %d", ret);
+        return ret;
+}
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
                       dict_t *dict, int *op_errno)

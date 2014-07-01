@@ -59,7 +59,7 @@ typedef struct glusterd_peer_state_info_ {
 typedef struct glusterd_peer_hostname_ {
         char                    *hostname;
         struct list_head        hostname_list;
-}glusterd_peer_hostname_t;
+} glusterd_peer_hostname_t;
 
 typedef struct glusterd_sm_transition_ {
         int             old_state;
@@ -84,6 +84,7 @@ struct glusterd_peerinfo_ {
                                                        */
         glusterd_peer_state_info_t      state;
         char                            *hostname;
+        struct list_head                hostnames;
         int                             port;
         struct list_head                uuid_list;
         struct list_head                op_peers_list;
