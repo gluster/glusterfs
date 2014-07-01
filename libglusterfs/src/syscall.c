@@ -395,7 +395,7 @@ sys_llistxattr (const char *path, char *list, size_t size)
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return  listxattr (path, list, size, XATTR_NOFOLLOW);
+        return listxattr (path, list, size, XATTR_NOFOLLOW);
 #endif
 }
 
@@ -446,7 +446,6 @@ sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 
 }
 
-
 int
 sys_fremovexattr (int filedes, const char *name)
 {
@@ -455,9 +454,6 @@ sys_fremovexattr (int filedes, const char *name)
         return fremovexattr (filedes, name);
 #endif
 
-        errno = ENOSYS;
-        return -1;
-#if 0 /* TODO: to port to other OSes, fill in each of below */
 #ifdef GF_BSD_HOST_OS
         return extattr_remove_fd (filedes, EXTATTR_NAMESPACE_USER, name);
 #endif
@@ -468,7 +464,6 @@ sys_fremovexattr (int filedes, const char *name)
 
 #ifdef GF_DARWIN_HOST_OS
         return fremovexattr (filedes, name, 0);
-#endif
 #endif
 }
 
@@ -492,7 +487,8 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return fsetxattr (filedes, name, value, size, 0, flags & ~XATTR_NOSECURITY);
+        return fsetxattr (filedes, name, value, size, 0,
+                          flags & ~XATTR_NOSECURITY);
 #endif
 
 }
@@ -515,7 +511,7 @@ sys_flistxattr (int filedes, char *list, size_t size)
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-	return flistxattr (filedes, list, size, XATTR_NOFOLLOW);
+        return flistxattr (filedes, list, size, XATTR_NOFOLLOW);
 #endif
 
 }
@@ -555,19 +551,59 @@ int
 sys_fallocate(int fd, int mode, off_t offset, off_t len)
 {
 #ifdef HAVE_FALLOCATE
-	return fallocate(fd, mode, offset, len);
+        return fallocate(fd, mode, offset, len);
 #endif
 
 #ifdef HAVE_POSIX_FALLOCATE
-	if (mode) {
-		/* keep size not supported */
-		errno = EOPNOTSUPP;
-		return -1;
-	}
+        if (mode) {
+                /* keep size not supported */
+                errno = EOPNOTSUPP;
+                return -1;
+        }
 
-	return posix_fallocate(fd, offset, len);
+        return posix_fallocate(fd, offset, len);
 #endif
 
-	errno = ENOSYS;
-	return -1;
+#if defined(F_ALLOCATECONFIG) && defined(GF_DARWIN_HOST_OS)
+        /* C conversion from C++ implementation for OSX by Mozilla Foundation */
+        if (mode) {
+                /* keep size not supported */
+                errno = EOPNOTSUPP;
+                return -1;
+        }
+        /*
+         *   The F_PREALLOCATE command operates on the following structure:
+         *
+         *    typedef struct fstore {
+         *    u_int32_t fst_flags;      // IN: flags word
+         *    int       fst_posmode;    // IN: indicates offset field
+         *    off_t     fst_offset;     // IN: start of the region
+         *    off_t     fst_length;     // IN: size of the region
+         *    off_t     fst_bytesalloc; // OUT: number of bytes allocated
+         *    } fstore_t;
+         *
+         * The flags (fst_flags) for the F_PREALLOCATE command are as follows:
+         *    F_ALLOCATECONTIG   Allocate contiguous space.
+         *    F_ALLOCATEALL      Allocate all requested space or no space at all.
+         *
+         * The position modes (fst_posmode) for the F_PREALLOCATE command
+         * indicate how to use the offset field.  The modes are as follows:
+         *    F_PEOFPOSMODE   Allocate from the physical end of file.
+         *    F_VOLPOSMODE    Allocate from the volume offset.
+         *
+         */
+
+        int ret;
+        fstore_t store = {F_ALLOCATECONTIG, F_PEOFPOSMODE, offset, len, 0};
+        ret = fcntl (fd, F_PREALLOCATE, &store);
+        if (ret == -1) {
+                store.fst_flags = F_ALLOCATEALL;
+                ret = fcntl (fd, F_PREALLOCATE, &store);
+        }
+        if (ret == -1)
+                return ret;
+        return ftruncate (fd, offset + len);
+#endif
+        errno = ENOSYS;
+        return -1;
 }
