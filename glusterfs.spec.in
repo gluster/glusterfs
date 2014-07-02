@@ -722,7 +722,8 @@ rm -rf %{buildroot}
 %endif
 %endif
 
-%post api -p /sbin/ldconfig
+%post api
+/sbin/ldconfig
 
 %post fuse
 %if ( 0%{?rhel} == 5 )
@@ -737,7 +738,8 @@ if [ $1 -ge 1 ]; then
 fi
 %endif
 
-%post libs -p /sbin/ldconfig
+%post libs
+/sbin/ldconfig
 
 %post server
 # Legacy server
@@ -815,9 +817,11 @@ fi
 %endif
 %endif
 
-%postun api -p /sbin/ldconfig
+%postun api
+/sbin/ldconfig
 
-%postun libs -p /sbin/ldconfig
+%postun libs
+/sbin/ldconfig
 
 ##-----------------------------------------------------------------------------
 ## All %files should be placed here and keep them sorted
@@ -1030,6 +1034,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Wed Sep 24 2014 Balamurugan Arumugam <barumuga@redhat.com>
+- remove /sbin/ldconfig as interpreter (#1145989)
+
 * Fri Sep 5 2014 Lalatendu Mohanty <lmohanty@redhat.com>
 - Changed the description as "GlusterFS a distributed filesystem"
 
