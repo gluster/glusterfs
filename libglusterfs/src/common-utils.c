@@ -2066,6 +2066,65 @@ out:
 }
 
 /**
+ * valid_mount_auth_address - Validate the rpc-auth.addr.allow/reject pattern
+ *
+ * @param address - Pattern to be validated
+ *
+ * @return _gf_true if "address" is "*" (anonymous) 'OR'
+ *                  if "address" is valid FQDN or valid IPv4/6 address 'OR'
+ *                  if "address" contains wildcard chars e.g. "'*' or '?' or '['"
+ *                  if "address" is valid ipv4 subnet pattern (xx.xx.xx.xx/n)
+ *         _gf_false otherwise
+ *
+ *
+ * NB: If the user/admin set for wildcard pattern, then it does not have
+ *     to be validated. Make it similar to the way exportfs (kNFS) works.
+ */
+gf_boolean_t
+valid_mount_auth_address (char *address)
+{
+        int    length = 0;
+        char   *cp    = NULL;
+
+        /* 1. Check for "NULL and empty string */
+        if ((address == NULL) || (address[0] == '\0')){
+                gf_log_callingfn (THIS->name,
+                                  GF_LOG_WARNING, "argument invalid");
+                return _gf_false;
+        }
+
+        /* 2. Check for Anonymous */
+        if (strcmp(address, "*") == 0)
+                return _gf_true;
+
+        for (cp = address; *cp; cp++) {
+                /* 3. Check for wildcard pattern */
+                if (*cp == '*' || *cp == '?' || *cp == '[') {
+                        return _gf_true;
+                }
+
+                /*
+                 * 4. check for IPv4 subnetwork i.e. xx.xx.xx.xx/n
+                 * TODO: check for IPv6 subnetwork
+                 * NB: Wildcard must not be mixed with subnetwork.
+                 */
+                if (*cp == '/') {
+                        return valid_ipv4_subnetwork (address);
+                }
+        }
+
+        /* 5. Check for v4/v6 IP addr and FQDN/hostname */
+        length = strlen (address);
+        if ((valid_ipv4_address (address, length, _gf_false)) ||
+            (valid_ipv6_address (address, length, _gf_false)) ||
+            (valid_host_name (address, length))) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
+
+/**
  * gf_sock_union_equal_addr - check if two given gf_sock_unions have same addr
  *
  * @param a - first sock union

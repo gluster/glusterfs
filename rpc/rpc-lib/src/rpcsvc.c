@@ -2392,8 +2392,20 @@ rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
 
         ret = dict_get_str (options, srchstr, &reject_str);
         GF_FREE (srchstr);
-        if (reject_str == NULL && !strcmp ("*", allow_str))
-                return RPCSVC_AUTH_ACCEPT;
+
+        /*
+         * If "reject_str" is being set as '*' (anonymous), then NFS-server
+         * would reject everything. If the "reject_str" is not set and
+         * "allow_str" is set as '*' (anonymous), then NFS-server would
+         * accept mount requests from all clients.
+         */
+        if (reject_str != NULL) {
+                if (!strcmp ("*", reject_str))
+                        return RPCSVC_AUTH_REJECT;
+        } else {
+                if (!strcmp ("*", allow_str))
+                        return RPCSVC_AUTH_ACCEPT;
+        }
 
         /* Non-default rule, authenticate */
         if (!get_host_name (client_ip, &ip))
@@ -2577,6 +2589,7 @@ rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr)
                         mask.sin_addr.s_addr)) {
                 ret = 0; /* SUCCESS */
         }
+
 out:
         GF_FREE (netaddr);
         return ret;

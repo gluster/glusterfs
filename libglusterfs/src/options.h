@@ -38,6 +38,7 @@ typedef enum {
         GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
         GF_OPTION_TYPE_PRIORITY_LIST,
         GF_OPTION_TYPE_SIZE_LIST,
+        GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
         GF_OPTION_TYPE_MAX,
 } volume_option_type_t;
 
