@@ -35,6 +35,9 @@
 #define AUTH_REJECT_OPT_KEY "auth.addr.*.reject"
 #define NFS_DISABLE_OPT_KEY "nfs.*.disable"
 
+#define SSL_CERT_DEPTH_OPT  "ssl.certificate-depth"
+#define SSL_CIPHER_LIST_OPT "ssl.cipher-list"
+
 
 typedef enum {
         GF_CLIENT_TRUSTED,

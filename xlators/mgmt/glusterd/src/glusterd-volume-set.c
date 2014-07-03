@@ -970,6 +970,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_6_0,
         },
 
+        /* Generic transport options */
+        { .key         = SSL_CERT_DEPTH_OPT,
+          .voltype     = "rpc-transport/socket",
+          .option      = "!ssl-cert-depth",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = SSL_CIPHER_LIST_OPT,
+          .voltype     = "rpc-transport/socket",
+          .option      = "!ssl-cipher-list",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+
         /* Performance xlators enable/disbable options */
         { .key         = "performance.write-behind",
           .voltype     = "performance/write-behind",
