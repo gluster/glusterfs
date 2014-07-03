@@ -15,6 +15,9 @@
 #include "glfs.h"
 #include "glfs-handles.h"
 
+int
+glfs_listxattr_process (void *value, size_t size, dict_t *xattr);
+
 static void
 glfs_iatt_from_stat (struct stat *stat, int valid, struct iatt *iatt,
                      int *glvalid)
@@ -259,7 +262,11 @@ glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object, const char *name,
         if (ret)
                 goto out;
 
-        ret = glfs_getxattr_process (value, size, xattr, name);
+        /* If @name is NULL, means get all the xattrs (i.e listxattr). */
+        if (name)
+                ret = glfs_getxattr_process (value, size, xattr, name);
+        else
+                ret = glfs_listxattr_process (value, size, xattr);
 
 out:
         loc_wipe (&loc);

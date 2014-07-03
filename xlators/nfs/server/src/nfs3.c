@@ -4099,6 +4099,10 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         stat = NFS3_OK;
+
+        /* do inode linking here */
+        gf_link_inodes_from_dirent (this, cs->fd->inode, &cs->entries);
+
 nfs3err:
         if (cs->maxcount == 0) {
                 nfs3_log_readdir_res (rpcsvc_request_xid (cs->req), stat,
