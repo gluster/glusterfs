@@ -5592,3 +5592,107 @@ dht_inode_ctx_layout_get (inode_t *inode, xlator_t *this, dht_layout_t **layout)
 
         return ret;
 }
+
+void
+dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
+                                 dht_layout_t *layout)
+{
+
+        char                    string[2048] = {0};
+        char                  *output_string = NULL;
+        int                              len = 0;
+        int                              off = 0;
+        int                                i = 0;
+        gf_loglevel_t             log_level = gf_log_get_loglevel();
+        int                              ret = 0;
+        int                   max_string_len = 0;
+
+        if (log_level < GF_LOG_INFO)
+                return;
+
+        if (!layout)
+                return;
+
+        if (!layout->cnt)
+                return;
+
+        if (!loc)
+                return;
+
+        if (!loc->path)
+                return;
+
+        max_string_len = sizeof (string);
+
+        ret = snprintf (string, max_string_len, "Setting layout of %s with ",
+                        loc->path);
+
+        if (ret < 0)
+                return;
+
+        len += ret;
+
+       /* Calculation  of total length of the string required to calloc
+        * output_string. Log includes subvolume-name, start-range, end-range and
+        * err value.
+        *
+        * This log will help to debug cases where:
+        * a) Different processes set different layout of a directory.
+        * b) Error captured in lookup, which will be filled in layout->err
+        * (like ENOENT, ESTALE etc)
+        */
+
+        for (i = 0; i < layout->cnt; i++) {
+
+                ret  = snprintf (string, max_string_len,
+                                 "[Subvol_name: %s, Err: %d , Start: "
+                                 "%"PRIu32 " , Stop: %"PRIu32 " ], ",
+                                 layout->list[i].xlator->name,
+                                 layout->list[i].err, layout->list[i].start,
+                                 layout->list[i].stop);
+
+                if (ret < 0)
+                        return;
+
+                len += ret;
+
+        }
+
+        len++;
+
+        output_string = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+
+        if (!output_string)
+                return;
+
+        ret = snprintf (output_string, len, "Setting layout of %s with ",
+                        loc->path);
+
+        if (ret < 0)
+                goto err;
+
+        off += ret;
+
+
+        for (i = 0; i < layout->cnt; i++) {
+
+                ret  =  snprintf (output_string + off, len - off,
+                                  "[Subvol_name: %s, Err: %d , Start: "
+                                  "%"PRIu32 " , Stop: %"PRIu32 " ], ",
+                                  layout->list[i].xlator->name,
+                                  layout->list[i].err, layout->list[i].start,
+                                  layout->list[i].stop);
+
+                if (ret < 0)
+                        goto err;
+
+                off += ret;
+
+        }
+
+        gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_FIXED_LAYOUT,
+                "%s", output_string);
+
+err:
+        GF_FREE (output_string);
+}

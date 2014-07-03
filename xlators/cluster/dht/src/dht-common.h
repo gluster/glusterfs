@@ -807,4 +807,7 @@ dht_inode_ctx_get1 (xlator_t *this, inode_t *inode, xlator_t **subvol);
 int
 dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
 
+void
+dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
+                                     dht_layout_t *layout);
 #endif/* _DHT_H */

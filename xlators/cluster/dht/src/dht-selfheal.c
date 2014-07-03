@@ -236,6 +236,8 @@ dht_fix_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 
         local->call_cnt = count = conf->subvolume_cnt;
 
+        dht_log_new_layout_for_dir_selfheal (this, loc, layout);
+
         for (i = 0; i < layout->cnt; i++) {
                 dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i, NULL);
 
@@ -306,6 +308,9 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         }
 
         local->call_cnt = missing_xattr;
+
+        dht_log_new_layout_for_dir_selfheal (this, loc, layout);
+
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err != -1 || !layout->list[i].stop)
                         continue;
@@ -430,6 +435,9 @@ dht_selfheal_dir_xattr_for_nameless_lookup (call_frame_t *frame, loc_t *loc,
         }
 
         local->call_cnt = missing_xattr;
+
+        dht_log_new_layout_for_dir_selfheal (this, loc, layout);
+
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].err != -1 || !layout->list[i].stop)
                         continue;
