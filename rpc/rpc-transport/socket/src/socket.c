@@ -3480,6 +3480,9 @@ socket_init (rpc_transport_t *this)
         uint32_t          keepalive = 0;
         uint32_t          backlog = 0;
 	int               session_id = 0;
+        int32_t           cert_depth = 1;
+        char             *cipher_list = "HIGH:-SSLv2";
+        int               ret;
 
         if (this->private) {
                 gf_log_callingfn (this->name, GF_LOG_ERROR,
@@ -3672,14 +3675,22 @@ socket_init (rpc_transport_t *this)
                "using %s polling thread",
 	       priv->own_thread ? "private" : "system");
 
+        if (!dict_get_int32 (this->options, "ssl-cert-depth", &cert_depth)) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using certificate depth %d", cert_depth);
+        }
+        if (!dict_get_str (this->options, "ssl-cipher-list", &cipher_list)) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using cipher list %s", cipher_list);
+        }
+
 	if (priv->use_ssl) {
 		SSL_library_init();
 		SSL_load_error_strings();
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_method();
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
-                if (SSL_CTX_set_cipher_list(priv->ssl_ctx,
-                                            "HIGH:-SSLv2") == 0) {
+                if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
                         gf_log(this->name,GF_LOG_ERROR,
                                "failed to find any valid ciphers");
                         goto err;
@@ -3708,7 +3719,7 @@ socket_init (rpc_transport_t *this)
 		}
 
 #if (OPENSSL_VERSION_NUMBER < 0x00905100L)
-		SSL_CTX_set_verify_depth(ctx,1);
+		SSL_CTX_set_verify_depth(ctx,cert_depth);
 #endif
 
 		priv->ssl_session_id = ++session_id;
@@ -3865,5 +3876,17 @@ struct volume_options options[] = {
 	{ .key   = {OWN_THREAD_OPT},
 	  .type  = GF_OPTION_TYPE_BOOL
 	},
+        { .key = {"ssl-cert-depth"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Maximum certificate-chain depth.  If zero, the "
+                         "peer's certificate itself must be in the local "
+                         "certificate list.  Otherwise, there may be up to N "
+                         "signing certificates between the peer's and the "
+                         "local list.  Ignored if SSL is not enabled."
+        },
+        { .key = {"ssl-cipher-list"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Allowed SSL ciphers  Ignored if SSL is not enabled."
+        },
         { .key = {NULL} }
 };

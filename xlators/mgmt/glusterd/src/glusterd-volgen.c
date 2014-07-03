@@ -1661,6 +1661,25 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (NULL == ptranst)
                         return -1;
 
+                if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
+                        ret = xlator_set_option (rbxl, "ssl-cert-depth", value);
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_WARNING,
+                                        "failed to set ssl-cert-depth");
+                                return -1;
+                        }
+                }
+
+                if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
+                        ret = xlator_set_option (rbxl, "ssl-cipher-list",
+                                                 value);
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_WARNING,
+                                        "failed to set ssl-cipher-list");
+                                return -1;
+                        }
+                }
+
                 if (username) {
                         ret = xlator_set_option (rbxl, "username", username);
                         if (ret)
@@ -1796,6 +1815,24 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                          brickinfo->hostname);
                 if (ret)
                         return -1;
+        }
+
+        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cert-depth", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cert-depth");
+                        return -1;
+                }
+        }
+
+        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cipher-list", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cipher-list");
+                        return -1;
+                }
         }
 
         if (username) {
@@ -2225,6 +2262,7 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char                    *str                = NULL;
         char                    *ssl_str            = NULL;
         gf_boolean_t             ssl_bool           = _gf_false;
+        char                    *value              = NULL;
 
         GF_ASSERT (graph);
         GF_ASSERT (subvol);
@@ -2286,6 +2324,24 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                         goto err;
                                 }
                         }
+                }
+        }
+
+        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cert-depth", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cert-depth");
+                        goto err;
+                }
+        }
+
+        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cipher-list", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cipher-list");
+                        goto err;
                 }
         }
 
@@ -4124,6 +4180,7 @@ glusterd_generate_snapd_volfile (volgen_graph_t *graph,
         dict_t         *set_dict        = NULL;
         char           *loglevel        = NULL;
         char           *xlator          = NULL;
+        char           *value           = NULL;
 
         set_dict = dict_copy (volinfo->dict, NULL);
         if (!set_dict)
@@ -4166,6 +4223,24 @@ glusterd_generate_snapd_volfile (volgen_graph_t *graph,
         ret = xlator_set_option (xl, "transport-type", "tcp");
         if (ret)
                 return -1;
+
+        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cert-depth", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cert-depth");
+                        return -1;
+                }
+        }
+
+        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cipher-list", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cipher-list");
+                        return -1;
+                }
+        }
 
         username = glusterd_auth_get_username (volinfo);
         passwd = glusterd_auth_get_password (volinfo);
