@@ -91,6 +91,7 @@ enum argp_option_keys {
         ARGP_LOG_FORMAT                   = 169,
         ARGP_LOG_BUF_SIZE                 = 170,
         ARGP_LOG_FLUSH_TIMEOUT            = 171,
+        ARGP_SECURE_MGMT_KEY              = 172,
 };
 
 struct _gfd_vol_top_priv_t {

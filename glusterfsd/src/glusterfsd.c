@@ -218,6 +218,8 @@ static struct argp_option gf_options[] = {
         {"use-readdirp", ARGP_FUSE_USE_READDIRP_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Use readdirp mode in fuse kernel module"
          " [default: \"off\"]"},
+        {"secure-mgmt", ARGP_SECURE_MGMT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+         "Override default for secure (SSL) management connections"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -1145,6 +1147,19 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 }
 
                 break;
+
+        case ARGP_SECURE_MGMT_KEY:
+                if (!arg)
+                        arg = "yes";
+
+                if (gf_string2boolean (arg, &b) == 0) {
+                        cmd_args->secure_mgmt = b ? 1 : 0;
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown secure-mgmt setting \"%s\"", arg);
+                break;
 	}
 
         return 0;
@@ -1493,7 +1508,14 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
         cmd_args = &ctx->cmd_args;
 
+        /* Do this before argp_parse so it can be overridden. */
+        if (access(SECURE_ACCESS_FILE,F_OK) == 0) {
+                cmd_args->secure_mgmt = 1;
+        }
+
         argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
+
+        ctx->secure_mgmt = cmd_args->secure_mgmt;
 
         if (ENABLE_DEBUG_MODE == cmd_args->debug_mode) {
                 cmd_args->log_level = GF_LOG_DEBUG;
@@ -1984,6 +2006,7 @@ main (int argc, char *argv[])
         ret = logging_init (ctx, argv[0]);
         if (ret)
                 goto out;
+
 
         /* log the version of glusterfs running here along with the actual
            command line options. */

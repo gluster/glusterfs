@@ -13,13 +13,13 @@ rm -f $SSL_BASE/glusterfs.*
 mkdir -p $B0/1
 mkdir -p $M0
 
-TEST glusterd
-TEST pidof glusterd
-TEST $CLI volume info;
-
 TEST openssl genrsa -out $SSL_KEY 1024
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
 ln $SSL_CERT $SSL_CA
+
+TEST glusterd
+TEST pidof glusterd
+TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/1
 TEST $CLI volume set $V0 server.ssl on

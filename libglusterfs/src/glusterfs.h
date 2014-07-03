@@ -414,6 +414,9 @@ struct _cmd_args {
         int             brick_port;
         char           *brick_name;
         int             brick_port2;
+
+        /* Should management connections use SSL? */
+        int             secure_mgmt;
 };
 typedef struct _cmd_args cmd_args_t;
 
@@ -435,6 +438,13 @@ typedef struct _glusterfs_graph glusterfs_graph_t;
 
 typedef int32_t (*glusterfsd_mgmt_event_notify_fn_t) (int32_t event, void *data,
                                                       ...);
+
+typedef enum {
+        MGMT_SSL_NEVER = 0,
+        MGMT_SSL_COPY_IO,
+        MGMT_SSL_ALWAYS
+} mgmt_ssl_t;
+
 struct _glusterfs_ctx {
         cmd_args_t          cmd_args;
         char               *process_uuid;
@@ -483,6 +493,26 @@ struct _glusterfs_ctx {
         int                 daemon_pipe[2];
 
         struct clienttable *clienttable;
+
+        /*
+         * Should management connections use SSL?  This is the only place we
+         * can put it where both daemon-startup and socket code will see it.
+         *
+         * Why is it an int?  Because we're included before common-utils.h,
+         * which defines gf_boolean_t (what we really want).  It doesn't make
+         * any sense, but it's not worth turning the codebase upside-down to
+         * fix it.  Thus, an int.
+         */
+        int                 secure_mgmt;
+
+        /*
+         * Should *our* server/inbound connections use SSL?  This is only true
+         * if we're glusterd and secure_mgmt is set, or if we're glusterfsd
+         * and SSL is set on the I/O path.  It should never be set e.g. for
+         * NFS.
+         */
+        mgmt_ssl_t          secure_srvr;
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
@@ -527,6 +557,26 @@ struct gf_flock {
  * suppress the "set but not used" warning that would otherwise occur.
  */
 #define GF_UNUSED __attribute__((unused))
+
+/*
+ * If present, this has the following effects:
+ *
+ *      glusterd enables privileged commands over TCP
+ *
+ *      all code enables SSL for outbound connections to management port
+ *
+ *      glusterd enables SSL for inbound connections
+ *
+ * Servers and clients enable/disable SSL among themselves by other means.
+ * Making secure management connections conditional on a file is a bit of a
+ * hack, but we don't have any other place for such global settings across
+ * all of the affected components.  Making it a compile-time option would
+ * reduce functionality, both for users and for testing (which can now be
+ * done using secure connections for all tests without change elsewhere).
+ *
+ * Nonetheless, TBD: define in terms of build-time PREFIX
+ */
+#define SECURE_ACCESS_FILE      "/var/lib/glusterd/secure-access"
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
