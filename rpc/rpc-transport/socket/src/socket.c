@@ -318,6 +318,7 @@ ssl_teardown_connection (socket_private_t *priv)
         SSL_clear(priv->ssl_ssl);
         SSL_free(priv->ssl_ssl);
         priv->ssl_ssl = NULL;
+        priv->use_ssl = _gf_false;
 }
 
 
@@ -2563,12 +2564,29 @@ socket_server_event_handler (int fd, int idx, void *data,
                         new_trans->listener = this;
                         new_priv = new_trans->private;
 
-			new_priv->use_ssl = priv->use_ssl;
+                        if (new_sockaddr.ss_family == AF_UNIX) {
+                                new_priv->use_ssl = _gf_false;
+                        }
+                        else {
+                                switch (priv->srvr_ssl) {
+                                case MGMT_SSL_ALWAYS:
+                                        /* Glusterd with secure_mgmt. */
+                                        new_priv->use_ssl = _gf_true;
+                                        break;
+                                case MGMT_SSL_COPY_IO:
+                                        /* Glusterfsd. */
+                                        new_priv->use_ssl = priv->ssl_enabled;
+                                        break;
+                                default:
+                                        new_priv->use_ssl = _gf_false;
+                                }
+                        }
+
 			new_priv->sock = new_sock;
 			new_priv->own_thread = priv->own_thread;
 
                         new_priv->ssl_ctx = priv->ssl_ctx;
-			if (priv->use_ssl && !priv->own_thread) {
+			if (new_priv->use_ssl && !new_priv->own_thread) {
 				cname = ssl_setup_connection(new_trans,1);
                                 if (!cname) {
 					gf_log(this->name,GF_LOG_ERROR,
@@ -2692,6 +2710,23 @@ socket_connect_error_cbk (void *opaque)
         return NULL;
 }
 
+static void
+socket_fix_ssl_opts (rpc_transport_t *this, socket_private_t *priv,
+                     uint16_t port)
+{
+        if (port == GF_DEFAULT_SOCKET_LISTEN_PORT) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s SSL for portmapper connection",
+                        priv->mgmt_ssl ? "enabling" : "disabling");
+                priv->use_ssl = priv->mgmt_ssl;
+        }
+        else if (priv->ssl_enabled && !priv->use_ssl) {
+                gf_log(this->name,GF_LOG_DEBUG,
+                       "re-enabling SSL for I/O connection");
+                priv->use_ssl = _gf_true;
+        }
+}
+
 static int
 socket_connect (rpc_transport_t *this, int port)
 {
@@ -2744,23 +2779,16 @@ socket_connect (rpc_transport_t *this, int port)
                         goto unlock;
                 }
 
-                if (port > 0) {
-                        sock_union.sin.sin_port = htons (port);
-                }
-                if (ntohs(sock_union.sin.sin_port) ==
-                    GF_DEFAULT_SOCKET_LISTEN_PORT) {
-                        if (priv->use_ssl) {
-                                gf_log(this->name,GF_LOG_DEBUG,
-                                "disabling SSL for portmapper connection");
-                                priv->use_ssl = _gf_false;
-                        }
+                if (sa_family == AF_UNIX) {
+                        priv->ssl_enabled = _gf_false;
+                        priv->mgmt_ssl = _gf_false;
                 }
                 else {
-                        if (priv->ssl_enabled && !priv->use_ssl) {
-                                gf_log(this->name,GF_LOG_DEBUG,
-                                       "re-enabling SSL for I/O connection");
-                                priv->use_ssl = _gf_true;
+                        if (port > 0) {
+                                sock_union.sin.sin_port = htons (port);
                         }
+                        socket_fix_ssl_opts (this, priv,
+                                             ntohs(sock_union.sin.sin_port));
                 }
 
                 memcpy (&this->peerinfo.sockaddr, &sock_union.storage,
@@ -3621,6 +3649,8 @@ socket_init (rpc_transport_t *this)
 				"invalid value given for ssl-enabled boolean");
 		}
 	}
+        priv->mgmt_ssl = this->ctx->secure_mgmt;
+        priv->srvr_ssl = this->ctx->secure_srvr;
 
         priv->ssl_own_cert = DEFAULT_CERT_PATH;
 	if (dict_get_str(this->options,SSL_OWN_CERT_OPT,&optstr) == 0) {
@@ -3656,8 +3686,11 @@ socket_init (rpc_transport_t *this)
         priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
         gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO: GF_LOG_DEBUG,
-               "SSL support is %s",
+               "SSL support on the I/O path is %s",
                priv->ssl_enabled ? "ENABLED" : "NOT enabled");
+        gf_log(this->name, priv->mgmt_ssl ? GF_LOG_INFO: GF_LOG_DEBUG,
+               "SSL support for glusterd is %s",
+               priv->mgmt_ssl ? "ENABLED" : "NOT enabled");
         /*
          * This might get overridden temporarily in socket_connect (q.v.)
          * if we're using the glusterd portmapper.
@@ -3666,8 +3699,9 @@ socket_init (rpc_transport_t *this)
 
 	priv->own_thread = priv->use_ssl;
 	if (dict_get_str(this->options,OWN_THREAD_OPT,&optstr) == 0) {
+                gf_log (this->name, GF_LOG_INFO, "OWN_THREAD_OPT found");
                 if (gf_string2boolean (optstr, &priv->own_thread) != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_WARNING,
 				"invalid value given for own-thread boolean");
 		}
 	}
@@ -3684,7 +3718,7 @@ socket_init (rpc_transport_t *this)
                         "using cipher list %s", cipher_list);
         }
 
-	if (priv->use_ssl) {
+	if (priv->ssl_enabled || priv->mgmt_ssl) {
 		SSL_library_init();
 		SSL_load_error_strings();
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_method();

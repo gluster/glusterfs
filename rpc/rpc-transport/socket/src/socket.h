@@ -217,7 +217,9 @@ typedef struct {
         int                    keepaliveintvl;
         uint32_t               backlog;
         gf_boolean_t           read_fail_log;
-        gf_boolean_t           ssl_enabled;
+        gf_boolean_t           ssl_enabled;     /* outbound I/O */
+        gf_boolean_t           mgmt_ssl;        /* outbound mgmt */
+        mgmt_ssl_t             srvr_ssl;
 	gf_boolean_t           use_ssl;
 	SSL_METHOD            *ssl_meth;
 	SSL_CTX               *ssl_ctx;

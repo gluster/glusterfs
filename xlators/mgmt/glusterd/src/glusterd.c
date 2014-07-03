@@ -68,7 +68,7 @@ rpcsvc_cbk_program_t glusterd_cbk_prog = {
 
 struct rpcsvc_program *gd_inet_programs[] = {
         &gd_svc_peer_prog,
-        &gd_svc_cli_trusted_progs,
+        &gd_svc_cli_trusted_progs, /* Must be index 1 for secure_mgmt! */
         &gd_svc_mgmt_prog,
         &gd_svc_mgmt_v3_prog,
         &gluster_pmap_prog,
@@ -1327,8 +1327,34 @@ init (xlator_t *this)
                 goto out;
         }
 
+        if (this->ctx->secure_mgmt) {
+                /*
+                 * The socket code will turn on SSL based on the same check,
+                 * but that will by default turn on own-thread as well and
+                 * we're not multi-threaded enough to handle that.  Thus, we
+                 * override the value here.
+                 */
+                ret = dict_set_str (this->options,
+                                    "transport.socket.own-thread", "off");
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to clear own-thread");
+                        goto out;
+                }
+                /*
+                 * With strong authentication, we can afford to allow
+                 * privileged operations over TCP.
+                 */
+                gd_inet_programs[1] = &gd_svc_cli_prog;
+                /*
+                 * This is the only place where we want secure_srvr to reflect
+                 * the management-plane setting.
+                 */
+                this->ctx->secure_srvr = MGMT_SSL_ALWAYS;
+        }
+
         /*
-         * only one (atmost a pair - rdma and socket) listener for
+         * only one (at most a pair - rdma and socket) listener for
          * glusterd1_mop_prog, gluster_pmap_prog and gluster_handshake_prog.
          */
         ret = rpcsvc_create_listeners (rpc, this->options, this->name);
@@ -1352,9 +1378,10 @@ init (xlator_t *this)
                 }
         }
 
-        /* Start a unix domain socket listener just for cli commands
-         * This should prevent ports from being wasted by being in TIMED_WAIT
-         * when cli commands are done continuously
+        /*
+         * Start a unix domain socket listener just for cli commands This
+         * should prevent ports from being wasted by being in TIMED_WAIT when
+         * cli commands are done continuously
          */
         uds_rpc = glusterd_init_uds_listener (this);
         if (uds_rpc == NULL) {

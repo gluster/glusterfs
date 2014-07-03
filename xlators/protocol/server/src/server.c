@@ -913,6 +913,12 @@ init (xlator_t *this)
                 goto out;
         }
 
+        /*
+         * This is the only place where we want secure_srvr to reflect
+         * the data-plane setting.
+         */
+        this->ctx->secure_srvr = MGMT_SSL_COPY_IO;
+
         ret = rpcsvc_create_listeners (conf->rpc, this->options,
                                        this->name);
         if (ret < 1) {
