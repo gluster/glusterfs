@@ -45,7 +45,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           35
+#define GLFS_DHT_NUM_MESSAGES           36
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -429,8 +429,17 @@
  * @recommendedaction  None
  *
  */
+
 #define DHT_MSG_LAYOUT_SET_FAILED     (GLFS_DHT_BASE + 35)
 
+/*!
+ * @messageid 109036
+ * @diagnosis Informational message regarding layout range distribution
+ *            for a directory across subvolumes
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LOG_FIXED_LAYOUT     (GLFS_DHT_BASE + 36)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
