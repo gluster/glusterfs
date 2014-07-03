@@ -393,30 +393,40 @@ out:
         return;
 }
 
+static gf_boolean_t
+_is_afr_an_ancestor (xlator_t *xl)
+{
+        xlator_t *parent = NULL;
+
+        if (!xl->parents)
+                return _gf_false;
+
+        for (parent = xl->parents->xlator; parent->parents;
+             parent = parent->parents->xlator) {
+                if (!strcmp (parent->type, "cluster/replicate"))
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 static int
 glfsh_validate_replicate_volume (xlator_t *xl)
 {
-        gf_boolean_t    valid_replicate = _gf_false;
-        gf_boolean_t    has_client = _gf_false;
         while (xl->next)
                 xl = xl->next;
 
         while (xl) {
-                if (strcmp (xl->type, "protocol/client") == 0) {
-                        has_client = _gf_true;
-                        if (strcmp (xl->parents->xlator->type,
-                                    "cluster/replicate") != 0) {
-                                valid_replicate = _gf_false;
-                                goto out;
+                /* Check if atleast one client xlator has AFR in its parent
+                 * ancestry */
+                if (!strcmp (xl->type, "protocol/client")) {
+                        if (_is_afr_an_ancestor(xl)) {
+                                return 1;
                         }
                 }
-
                 xl = xl->prev;
         }
-        valid_replicate = _gf_true;
-out:
-        if (has_client && valid_replicate)
-                return 0;
+
         return -1;
 }
 
@@ -497,8 +507,10 @@ main (int argc, char **argv)
 
         while (xl) {
                 if (strcmp (xl->type, "protocol/client") == 0) {
-                        glfsh_print_pending_heals (xl, &rootloc);
-                        printf("\n");
+                        if (_is_afr_an_ancestor (xl)) {
+                                glfsh_print_pending_heals (xl, &rootloc);
+                                printf("\n");
+                        }
                 }
 
                 xl = xl->prev;
