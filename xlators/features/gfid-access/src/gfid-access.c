@@ -30,6 +30,9 @@ ga_valid_inode_loc_copy (loc_t *dst, loc_t *src, xlator_t *this)
         if (ret < 0)
                 goto out;
 
+        /*
+         * Change ALL virtual inodes with real-inodes in loc
+         */
         if (dst->parent) {
                 ret = inode_ctx_get (dst->parent, this, &value);
                 if (ret < 0) {
@@ -38,14 +41,9 @@ ga_valid_inode_loc_copy (loc_t *dst, loc_t *src, xlator_t *this)
                 }
                 inode_unref (dst->parent);
                 dst->parent = inode_ref ((inode_t*)value);
-                /* if parent is virtual, no need to handle */
-                /* loc->inode */
-                goto out;
+                uuid_copy (dst->pargfid, dst->parent->gfid);
         }
 
-        /* if its an inode operation, on the virtual */
-        /* directory inode itself, we need to handle */
-        /* it properly */
         if (dst->inode) {
                 ret = inode_ctx_get (dst->inode, this, &value);
                 if (ret < 0) {
@@ -54,9 +52,10 @@ ga_valid_inode_loc_copy (loc_t *dst, loc_t *src, xlator_t *this)
                 }
                 inode_unref (dst->inode);
                 dst->inode = inode_ref ((inode_t*)value);
-                goto out;
+                uuid_copy (dst->gfid, dst->inode->gfid);
         }
 out:
+
         return ret;
 }
 
