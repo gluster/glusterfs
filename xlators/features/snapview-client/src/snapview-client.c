@@ -161,6 +161,7 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 do_unwind = _gf_false;
                         }
                 }
+
                 gf_log (this->name, GF_LOG_WARNING,
                         "Lookup on normal graph failed");
                 goto out;

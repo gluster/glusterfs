@@ -1627,18 +1627,73 @@ out:
         return 0;
 }
 
+/*
+ * This function adds the xattr keys present in the list (@list) to the dict.
+ * But the list contains only the names of the xattrs (and no value, as
+ * the gfapi functions for the listxattr operations would return only the
+ * names of the xattrs in the buffer provided by the caller, though they had
+ * got the values of those xattrs from posix) as described in the man page of
+ * listxattr. But before unwinding snapview-server has to put those names
+ * back into the dict. But to get the values for those xattrs it has to do the
+ * getxattr operation on each xattr which might turn out to be a costly
+ * operation. So for each of the xattrs present in the list, a 0 byte value
+ * ("") is set into the dict before unwinding. This can be treated as an
+ * indicator to other xlators which want to cache the xattrs (as of now,
+ * md-cache which caches acl and selinux related xattrs) to not to cache the
+ * values of the xattrs present in the dict.
+ */
+int32_t
+svs_add_xattrs_to_dict (xlator_t *this, dict_t *dict, char *list, ssize_t size)
+{
+        char           keybuffer[4096]  = {0,};
+        size_t         remaining_size   = 0;
+        int32_t        list_offset      = 0;
+        int32_t        ret              = -1;
+
+        GF_VALIDATE_OR_GOTO ("snapview-daemon", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+        GF_VALIDATE_OR_GOTO (this->name, list, out);
+
+        remaining_size = size;
+        list_offset = 0;
+        while (remaining_size > 0) {
+                strcpy (keybuffer, list + list_offset);
+#ifdef GF_DARWIN_HOST_OS
+                /* The protocol expect namespace for now */
+                char *newkey = NULL;
+                gf_add_prefix (XATTR_USER_PREFIX, keybuffer, &newkey);
+                strcpy (keybuffer, newkey);
+                GF_FREE (newkey);
+#endif
+                ret = dict_set_str (dict, keybuffer, "");
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
+                                "for the key %s failed.", keybuffer);
+                        goto out;
+                }
+
+                remaining_size -= strlen (keybuffer) + 1;
+                list_offset += strlen (keybuffer) + 1;
+        } /* while (remaining_size > 0) */
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
 int32_t
 svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
               dict_t *xdata)
 {
-        svs_inode_t   *inode_ctx  = NULL;
-        int32_t        op_ret     = -1;
-        int32_t        op_errno   = EINVAL;
-        glfs_t        *fs         = NULL;
-        glfs_object_t *object     = NULL;
-        char          *value      = 0;
-        ssize_t        size       = 0;
-        dict_t        *dict       = NULL;
+        svs_inode_t   *inode_ctx        = NULL;
+        int32_t        op_ret           = -1;
+        int32_t        op_errno         = EINVAL;
+        glfs_t        *fs               = NULL;
+        glfs_object_t *object           = NULL;
+        char          *value            = 0;
+        ssize_t        size             = 0;
+        dict_t        *dict             = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", frame, out);
@@ -1654,8 +1709,11 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 goto out;
         }
 
-        /* Fake success is sent if the getxattr is on entry point directory
-           or the inode is SNAP_VIEW_ENTRY_POINT_INODE
+        /* EINVAL is sent if the getxattr is on entry point directory
+           or the inode is SNAP_VIEW_ENTRY_POINT_INODE. Entry point is
+           a virtual directory on which setxattr operations are not
+           allowed. If getxattr has to be faked as success, then a value
+           for the name of the xattr has to be sent which we dont have.
         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_ret = -1;
@@ -1664,19 +1722,30 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
                 fs = inode_ctx->fs;
                 object = inode_ctx->object;
+                dict = dict_new ();
+                if (!dict) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "allocate dict");
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
                 size = glfs_h_getxattrs (fs, object, name, NULL, 0);
                 if (size == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "getxattr on %s "
-                                "failed (key: %s)", loc->name, name);
+                        gf_log (this->name, GF_LOG_ERROR, "getxattr "
+                                "on %s failed (key: %s)", loc->name,
+                                name);
                         op_ret = -1;
                         op_errno = errno;
                         goto out;
                 }
-                value = GF_CALLOC (size + 1, sizeof (char), gf_common_mt_char);
+                value = GF_CALLOC (size + 1, sizeof (char),
+                                   gf_common_mt_char);
                 if (!value) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
-                                "memory for getxattr on %s (key: %s)",
-                                loc->name, name);
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "allocate memory for getxattr on %s "
+                                "(key: %s)", loc->name, name);
                         op_ret = -1;
                         op_errno = ENOMEM;
                         goto out;
@@ -1684,35 +1753,38 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 
                 size = glfs_h_getxattrs (fs, object, name, value, size);
                 if (size == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to get the "
-                                "xattr %s for entry %s", name, loc->name);
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "get the xattr %s for entry %s", name,
+                                loc->name);
                         op_ret = -1;
                         op_errno = errno;
                         goto out;
                 }
                 value[size] = '\0';
 
-                dict = dict_new ();
-                if (!dict) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
-                                "dict");
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto out;
-                }
-
-                op_ret = dict_set_dynptr (dict, (char *)name, value, size);
-                if (op_ret < 0) {
-                        op_errno = -op_ret;
-                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
-                                "for %s for the key %s failed.", loc->path,
-                                name);
+                if (name) {
+                        op_ret = dict_set_dynptr (dict, (char *)name, value,
+                                                  size);
+                        if (op_ret < 0) {
+                                op_errno = -op_ret;
+                                gf_log (this->name, GF_LOG_ERROR, "dict set "
+                                        "operation for %s for the key %s "
+                                        "failed.", loc->path, name);
+                                GF_FREE (value);
+                                value = NULL;
+                                goto out;
+                        }
+                } else {
+                        op_ret = svs_add_xattrs_to_dict (this, dict, value,
+                                                         size);
+                        if (op_ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "add the xattrs from the list to dict");
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
                         GF_FREE (value);
-                        goto out;
                 }
-
-                op_ret = 0;
-                op_errno = 0;
         }
 
 out:
@@ -1720,6 +1792,9 @@ out:
                 GF_FREE (value);
 
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, NULL);
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }
@@ -1761,8 +1836,11 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         }
 
         glfd = sfd->fd;
-        /* Fake success is sent if the getxattr is on entry point directory
-           or the inode is SNAP_VIEW_ENTRY_POINT_INODE
+        /* EINVAL is sent if the getxattr is on entry point directory
+           or the inode is SNAP_VIEW_ENTRY_POINT_INODE. Entry point is
+           a virtual directory on which setxattr operations are not
+           allowed. If getxattr has to be faked as success, then a value
+           for the name of the xattr has to be sent which we dont have.
         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_ret = -1;
@@ -1771,53 +1849,98 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         }
 
         if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
-                size = glfs_fgetxattr (glfd, name, NULL, 0);
-                if (size == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "getxattr on %s "
-                                "failed (key: %s)", uuid_utoa (fd->inode->gfid),
-                                name);
-                        op_ret = -1;
-                        op_errno = errno;
-                        goto out;
-                }
-                value = GF_CALLOC (size + 1, sizeof (char), gf_common_mt_char);
-                if (!value) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
-                                "memory for getxattr on %s (key: %s)",
-                                uuid_utoa (fd->inode->gfid), name);
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto out;
-                }
-
-                size = glfs_fgetxattr (glfd, name, value, size);
-                if (size == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to get the "
-                                "xattr %s for inode %s", name,
-                                uuid_utoa (fd->inode->gfid));
-                        op_ret = -1;
-                        op_errno = errno;
-                        goto out;
-                }
-                value[size] = '\0';
-
                 dict = dict_new ();
                 if (!dict) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
-                                "dict");
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "allocate  dict");
                         op_ret = -1;
                         op_errno = ENOMEM;
                         goto out;
                 }
 
-                op_ret = dict_set_dynptr (dict, (char *)name, value, size);
-                if (op_ret < 0) {
-                        op_errno = -op_ret;
-                        gf_log (this->name, GF_LOG_ERROR, "dict set operation "
-                                "for gfid %s for the key %s failed.",
-                                uuid_utoa (fd->inode->gfid), name);
+                if (name) {
+                        size = glfs_fgetxattr (glfd, name, NULL, 0);
+                        if (size == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "getxattr on "
+                                        "%s failed (key: %s)",
+                                        uuid_utoa (fd->inode->gfid), name);
+                                op_ret = -1;
+                                op_errno = errno;
+                                goto out;
+                        }
+                        value = GF_CALLOC (size + 1, sizeof (char),
+                                           gf_common_mt_char);
+                        if (!value) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "allocate memory for getxattr on %s "
+                                        "(key: %s)",
+                                        uuid_utoa (fd->inode->gfid), name);
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
+
+                        size = glfs_fgetxattr (glfd, name, value, size);
+                        if (size == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "get the xattr %s for inode %s", name,
+                                        uuid_utoa (fd->inode->gfid));
+                                op_ret = -1;
+                                op_errno = errno;
+                                goto out;
+                        }
+                        value[size] = '\0';
+
+                        op_ret = dict_set_dynptr (dict, (char *)name, value,
+                                                  size);
+                        if (op_ret < 0) {
+                                op_errno = -op_ret;
+                                gf_log (this->name, GF_LOG_ERROR, "dict set "
+                                        "operation for gfid %s for the key %s "
+                                        "failed.",
+                                        uuid_utoa (fd->inode->gfid), name);
+                                GF_FREE (value);
+                                goto out;
+                        }
+                } else {
+                        size = glfs_flistxattr (glfd, NULL, 0);
+                        if (size == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "listxattr "
+                                        "on %s failed",
+                                        uuid_utoa (fd->inode->gfid));
+                                goto out;
+                        }
+
+                        value = GF_CALLOC (size + 1, sizeof (char),
+                                           gf_common_mt_char);
+                        if (!value) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "allocate buffer for xattr list (%s)",
+                                        uuid_utoa (fd->inode->gfid));
+                                goto out;
+                        }
+
+                        size = glfs_flistxattr (glfd, value, size);
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_log (this->name, GF_LOG_ERROR, "listxattr "
+                                        "on %s failed",
+                                        uuid_utoa (fd->inode->gfid));
+                                goto out;
+                        }
+
+                        op_ret = svs_add_xattrs_to_dict (this, dict, value,
+                                                         size);
+                        if (op_ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "add the xattrs from the list to dict");
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
                         GF_FREE (value);
-                        goto out;
                 }
 
                 op_ret = 0;
@@ -1829,6 +1952,9 @@ out:
                 GF_FREE (value);
 
         STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict, NULL);
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }

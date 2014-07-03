@@ -101,27 +101,27 @@ TEST fd_close $fd3
 # test 44
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
-TEST ls $N0/.snaps;
+TEST ls -l $N0/.snaps;
 
 NUM_SNAPS=$(ls $N0/.snaps | wc -l);
 
 TEST [ $NUM_SNAPS == 4 ];
 
-TEST ls $N0/.snaps/snap1;
-TEST ls $N0/.snaps/snap2;
-TEST ls $N0/.snaps/snap3;
-TEST ls $N0/.snaps/snap4;
+TEST ls -l $N0/.snaps/snap1;
+TEST ls -l $N0/.snaps/snap2;
+TEST ls -l $N0/.snaps/snap3;
+TEST ls -l $N0/.snaps/snap4;
 
-TEST ls $N0/.snaps/snap3/dir1;
-TEST ls $N0/.snaps/snap3/dir2;
+TEST ls -l $N0/.snaps/snap3/dir1;
+TEST ls -l $N0/.snaps/snap3/dir2;
 
-TEST ls $N0/.snaps/snap4/dir1;
-TEST ls $N0/.snaps/snap4/dir2;
+TEST ls -l $N0/.snaps/snap4/dir1;
+TEST ls -l $N0/.snaps/snap4/dir2;
 
-TEST ! ls $N0/dir1/.snaps/snap1;
-TEST ! ls $N0/dir2/.snaps/snap2;
-TEST   ls $N0/dir1/.snaps/snap3;
-TEST   ls $N0/dir2/.snaps/snap4;
+TEST ! ls -l $N0/dir1/.snaps/snap1;
+TEST ! ls -l $N0/dir2/.snaps/snap2;
+TEST   ls -l $N0/dir1/.snaps/snap3;
+TEST   ls -l $N0/dir2/.snaps/snap4;
 
 TEST fd1=`fd_available`
 TEST fd_open $fd1 'r' $N0/.snaps/snap1/file1;
@@ -205,21 +205,21 @@ NUM_SNAPS=$(ls $N0/.history | wc -l);
 
 TEST [ $NUM_SNAPS == 4 ];
 
-TEST ls $N0/.history/snap1;
-TEST ls $N0/.history/snap2;
-TEST ls $N0/.history/snap3;
-TEST ls $N0/.history/snap4;
+TEST ls -l $N0/.history/snap1;
+TEST ls -l $N0/.history/snap2;
+TEST ls -l $N0/.history/snap3;
+TEST ls -l $N0/.history/snap4;
 
-TEST ls $N0/.history/snap3/dir1;
-TEST ls $N0/.history/snap3/dir2;
+TEST ls -l $N0/.history/snap3/dir1;
+TEST ls -l $N0/.history/snap3/dir2;
 
-TEST ls $N0/.history/snap4/dir1;
-TEST ls $N0/.history/snap4/dir2;
+TEST ls -l $N0/.history/snap4/dir1;
+TEST ls -l $N0/.history/snap4/dir2;
 
-TEST ! ls $N0/dir1/.history/snap1;
-TEST ! ls $N0/dir2/.history/snap2;
-TEST   ls $N0/dir1/.history/snap3;
-TEST   ls $N0/dir2/.history/snap4;
+TEST ! ls -l $N0/dir1/.history/snap1;
+TEST ! ls -l $N0/dir2/.history/snap2;
+TEST   ls -l $N0/dir1/.history/snap3;
+TEST   ls -l $N0/dir2/.history/snap4;
 
 TEST fd1=`fd_available`
 TEST fd_open $fd1 'r' $N0/.history/snap1/file1;
