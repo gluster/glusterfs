@@ -36,6 +36,24 @@ TEST chmod 0777 $M0/.gfid/$a_gfid_str
 EXPECT "777" stat -c "%a" $M0/a
 EXPECT "777" stat -c "%a" $M0/.gfid/$a_gfid_str
 
+#Entry operations on directory
+#Test that virtual directories are not allowed to be deleted.
+TEST ! mkdir $M0/.gfid
+TEST ! rmdir $M0/.gfid
+TEST ! touch $M0/.gfid
+TEST ! rm -f $M0/.gfid
+TEST ! mv $M0/.gfid $M0/dont-rename
+TEST ! ln -s $M0/symlink $M0/.gfid
+TEST ! ln $M0/.gfid $M0/hlink
+TEST ! mknod $M0/.gfid b 0 0
+
+#Test that first level directory/file creations inside .gfid are not allowed.
+TEST ! mkdir $M0/.gfid/a
+TEST ! touch $M0/.gfid/a
+TEST ! mv /etc/passwd $M0/.gfid
+TEST ! mv $M0/a $M0/.gfid
+TEST ! mknod $M0/.gfid/b b 0 0
+
 #Operations on File
 TEST setfattr -n trusted.abc -v abc $M0/b
 EXPECT "abc" echo $(getfattr -n trusted.abc $M0/b)
