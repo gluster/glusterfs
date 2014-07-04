@@ -31,21 +31,26 @@
 struct snap_config_opt_vals_ snap_confopt_vals[] = {
         {.op_name        = "snap-max-hard-limit",
          .question       = "Changing snapshot-max-hard-limit "
-                           "will lead to deletion of snapshots "
+                           "will limit the creation of new snapshots "
                            "if they exceed the new limit.\n"
                            "Do you want to continue?"
         },
         {.op_name        = "snap-max-soft-limit",
-         .question       = "Changing snapshot-max-soft-limit "
-                           "will lead to deletion of snapshots "
-                           "if they exceed the new limit.\n"
-                           "Do you want to continue?"
+         .question       = "If Auto-delete is enabled, snap-max-soft-limit will"
+                           " trigger deletion of oldest snapshot, on the "
+                           "creation of new snapshot, when the "
+                           "snap-max-soft-limit is reached.\n"
+                           "Do you want to change the snap-max-soft-limit?"
         },
         {.op_name        = "both",
-        .question        = "Changing snapshot-max-hard-limit & "
-                           "snapshot-max-soft-limit will lead to "
-                           "deletion of snapshots if they exceed "
-                           "the new limit.\nDo you want to continue?"
+        .question        = "Changing snapshot-max-hard-limit "
+                           "will limit the creation of new snapshots "
+                           "if they exceed the new snapshot-max-hard-limit.\n"
+                           "If Auto-delete is enabled, snap-max-soft-limit will"
+                           " trigger deletion of oldest snapshot, on the "
+                           "creation of new snapshot, when the "
+                           "snap-max-soft-limit is reached.\n"
+                           "Do you want to continue?"
         },
         {.op_name        = NULL,
         }
