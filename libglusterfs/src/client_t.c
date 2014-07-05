@@ -171,6 +171,11 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
 # define DECREMENT_ATOMIC(lk,op) ({ LOCK (&lk); --op; UNLOCK (&lk); op; })
 #endif
 
+/*
+ * Increments ref.bind if the client is already present or creates a new
+ * client with ref.bind = 1,ref.count = 1 it signifies that
+ * as long as ref.bind is > 0 client should be alive.
+ */
 client_t *
 gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
 {
@@ -206,13 +211,10 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                                                 client->auth.len) == 0))) {
                                 INCREMENT_ATOMIC (client->ref.lock,
                                                   client->ref.bind);
-                                break;
+                                goto unlock;
                         }
                 }
-                if (client) {
-                        gf_client_ref (client);
-                        goto unlock;
-                }
+
                 client = GF_CALLOC (1, sizeof(client_t), gf_common_mt_client_t);
                 if (client == NULL) {
                         errno = ENOMEM;
@@ -285,11 +287,13 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 cliententry->client = client;
                 clienttable->first_free = cliententry->next_free;
                 cliententry->next_free = GF_CLIENTENTRY_ALLOCATED;
-                gf_client_ref (client);
         }
 unlock:
         UNLOCK (&clienttable->lock);
 
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d",
+                          client->client_uid, client->ref.bind,
+                          client->ref.count);
         return client;
 }
 
@@ -306,9 +310,10 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         if (bind_ref == 0)
                 unref = _gf_true;
 
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d,"
+                          " unref: %d", client->client_uid, client->ref.bind,
+                          client->ref.count, unref);
         if (unref) {
-                gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
-                        client->client_uid);
                 if (detached)
                         *detached = _gf_true;
                 gf_client_unref (client);
@@ -324,6 +329,8 @@ gf_client_ref (client_t *client)
         }
 
         INCREMENT_ATOMIC (client->ref.lock, client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
+                          client->client_uid, client->ref.count);
         return client;
 }
 
@@ -403,7 +410,11 @@ gf_client_unref (client_t *client)
         }
 
         refcount = DECREMENT_ATOMIC (client->ref.lock, client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
+                          client->client_uid, (int)client->ref.count);
         if (refcount == 0) {
+                gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
+                        client->client_uid);
                 client_destroy (client);
         }
 }
