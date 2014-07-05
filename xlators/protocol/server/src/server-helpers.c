@@ -242,7 +242,6 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
         client_t  *client = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", cookie, out);
         GF_VALIDATE_OR_GOTO ("server", frame, out);
 
         fd = frame->local;
@@ -298,9 +297,9 @@ do_fd_cleanup (xlator_t *this, client_t* client, fdentry_t *fdentries, int fd_co
                         }
 
                         tmp_frame->local = fd;
-
                         tmp_frame->root->pid = 0;
                         gf_client_ref (client);
+                        tmp_frame->root->client = client;
                         memset (&tmp_frame->root->lk_owner, 0,
                                 sizeof (gf_lkowner_t));
 
@@ -1098,6 +1097,7 @@ server_ctx_get (client_t *client, xlator_t *xlator)
 
         if (client_ctx_set (client, xlator, ctx) != 0) {
               LOCK_DESTROY (&ctx->fdtable_lock);
+              GF_FREE (ctx->fdtable);
               GF_FREE (ctx);
               ctx = NULL;
         }

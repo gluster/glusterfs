@@ -757,12 +757,13 @@ server_set_lk_version (rpcsvc_request_t *req)
         }
 
         serv_ctx->lk_version = args.lk_ver;
-        gf_client_put (client, NULL);
-
         rsp.lk_ver   = args.lk_ver;
 
         op_ret = 0;
 fail:
+        if (client)
+                gf_client_put (client, NULL);
+
         rsp.op_ret   = op_ret;
         rsp.op_errno = op_errno;
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
