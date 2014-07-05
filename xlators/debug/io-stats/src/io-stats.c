@@ -37,6 +37,7 @@
 #include "defaults.h"
 #include "logging.h"
 #include "cli1-xdr.h"
+#include "statedump.h"
 
 #define MAX_LIST_MEMBERS 100
 
@@ -86,9 +87,10 @@ struct ios_stat_head {
 };
 
 struct ios_lat {
-        double  min;
-        double  max;
-        double  avg;
+        double      min;
+        double      max;
+        double      avg;
+        uint64_t    total;
 };
 
 struct ios_global_stats {
@@ -1051,6 +1053,8 @@ update_ios_latency_stats (struct ios_global_stats   *stats, double elapsed,
         double avg;
 
         GF_ASSERT (stats);
+
+        stats->latency[op].total += elapsed;
 
         if (!stats->latency[op].min)
                 stats->latency[op].min = elapsed;
@@ -2661,6 +2665,69 @@ io_stats_clear (struct ios_conf *conf)
         return ret;
 }
 
+int32_t
+io_priv (xlator_t *this)
+{
+        int                 i;
+        char                key[GF_DUMP_MAX_BUF_LEN];
+        char                key_prefix_cumulative[GF_DUMP_MAX_BUF_LEN];
+        char                key_prefix_incremental[GF_DUMP_MAX_BUF_LEN];
+        double              min, max, avg;
+        uint64_t            count, total;
+        struct ios_conf    *conf = NULL;
+
+        conf = this->private;
+        if (!conf)
+                return -1;
+
+        if(!conf->count_fop_hits || !conf->measure_latency)
+                return -1;
+
+        gf_proc_dump_write("cumulative.data_read", "%"PRIu64,
+                                                conf->cumulative.data_read);
+        gf_proc_dump_write("cumulative.data_written", "%"PRIu64,
+                                                conf->cumulative.data_written);
+
+        gf_proc_dump_write("incremental.data_read", "%"PRIu64,
+                                                conf->incremental.data_read);
+        gf_proc_dump_write("incremental.data_written", "%"PRIu64,
+                                                conf->incremental.data_written);
+
+        snprintf (key_prefix_cumulative, GF_DUMP_MAX_BUF_LEN, "%s.cumulative",
+                                                                    this->name);
+        snprintf (key_prefix_incremental, GF_DUMP_MAX_BUF_LEN, "%s.incremental",
+                                                                    this->name);
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                count = conf->cumulative.fop_hits[i];
+                total = conf->cumulative.latency[i].total;
+                min = conf->cumulative.latency[i].min;
+                max = conf->cumulative.latency[i].max;
+                avg = conf->cumulative.latency[i].avg;
+
+                gf_proc_dump_build_key (key, key_prefix_cumulative,
+                                        (char *)gf_fop_list[i]);
+
+                gf_proc_dump_write (key,"%"PRId64",%"PRId64",%.03f,%.03f,%.03f",
+                                    count, total, min, max, avg);
+
+                count = conf->incremental.fop_hits[i];
+                total = conf->incremental.latency[i].total;
+                min = conf->incremental.latency[i].min;
+                max = conf->incremental.latency[i].max;
+                avg = conf->incremental.latency[i].avg;
+
+                gf_proc_dump_build_key (key, key_prefix_incremental,
+                                        (char *)gf_fop_list[i]);
+
+                gf_proc_dump_write (key,"%"PRId64",%"PRId64",%.03f,%.03f,%.03f",
+                                    count, total, min, max, avg);
+
+        }
+
+        return 0;
+}
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -2992,6 +3059,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 out:
         return ret;
 }
+
+struct xlator_dumpops dumpops = {
+        .priv    = io_priv
+};
 
 struct xlator_fops fops = {
         .stat        = io_stats_stat,
