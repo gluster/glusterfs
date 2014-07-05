@@ -243,6 +243,18 @@ function cleanup()
                 umount $m
         done
 
+        # unregister nfs and related services from portmapper/rpcbind
+        ## nfs
+        rpcinfo -d 100003 3
+        ## mountd
+        rpcinfo -d 100005 1
+        rpcinfo -d 100005 3
+        ## nlockmgr
+        rpcinfo -d 100021 1
+        rpcinfo -d 100021 4
+        ## nfs_acl
+        rpcinfo -d 100227 3
+
         type cleanup_lvm &>/dev/null && cleanup_lvm
 
         LOOPDEVICES=`losetup -a | grep "$B0/" | awk '{print $1}' | tr -d :`
