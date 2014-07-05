@@ -236,9 +236,9 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
                               sizeof (struct mem_acct))))
                         continue;
 
-                gf_proc_dump_add_section ("%s.%s - usage-type %d memusage",
-                                          xl->type, xl->name, i);
-		gf_proc_dump_write ("type", "%s", xl->mem_acct.rec[i].typestr);
+                gf_proc_dump_add_section ("%s.%s - usage-type %s memusage",
+                                          xl->type, xl->name,
+                                          xl->mem_acct.rec[i].typestr);
                 gf_proc_dump_write ("size", "%u", xl->mem_acct.rec[i].size);
                 gf_proc_dump_write ("num_allocs", "%u",
                                     xl->mem_acct.rec[i].num_allocs);
