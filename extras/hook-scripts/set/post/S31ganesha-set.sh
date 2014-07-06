@@ -5,7 +5,8 @@ VOL=
 declare -i EXPORT_ID
 GANESHA_DIR="/var/lib/glusterfs-ganesha"
 CONF1="$GANESHA_DIR/nfs-ganesha.conf"
-LOG="/tmp/ganesha.log"
+GANESHA_LOG_DIR="/var/log/nfs-ganesha/"
+LOG="$GANESHA_LOG_DIR/ganesha.nfsd.log"
 gnfs="enabled"
 enable_ganesha=""
 host_name="none"
@@ -227,6 +228,12 @@ function check_ganesha_dir()
                 mkdir $GANESHA_DIR/exports
                 check_cmd_status `echo $?`
         fi
+        if [ ! -d "$GANESHA_LOG_DIR" ] ;
+                then
+                mkdir $GANESHA_LOG_DIR
+                check_cmd_status `echo $?`
+        fi
+
 
 
 }
