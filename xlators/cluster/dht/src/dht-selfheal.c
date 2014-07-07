@@ -575,7 +575,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret) {
 
                 uuid_unparse(local->loc.gfid, gfid);
-                gf_msg (this->name, ((op_errno == EEXIST) ? 0 :
+                gf_msg (this->name, ((op_errno == EEXIST) ? GF_LOG_DEBUG :
                                      GF_LOG_WARNING),
                         op_errno, DHT_MSG_DIR_SELFHEAL_FAILED,
                         "Directory selfheal failed: path = %s, gfid = %s",
