@@ -3884,6 +3884,7 @@ glusterd_update_fstype (char *orig_brick_path,
 
         ret = 0;
 out:
+        GF_FREE (mnt_pt);
         return ret;
 }
 
