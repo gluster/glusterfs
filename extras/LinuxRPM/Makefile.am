@@ -6,15 +6,22 @@ GFS_TAR = ../../glusterfs-$(VERSION).tar.gz
 all:
 	@echo "To build RPMS run 'make glusterrpms'"
 
-.PHONY: glusterrpms prep srcrpm testsrpm clean
+.PHONY: glusterrpms glusterrpms_without_autogen
+.PHONY: autogen prep srcrpm testsrpm clean
 
-glusterrpms: prep srcrpm rpms
+glusterrpms: autogen glusterrpms_without_autogen
+
+glusterrpms_without_autogen: prep srcrpm rpms
 	-rm -rf rpmbuild
 
+autogen:
+	cd /../.. \
+	&& rm -rf autom4te.cache \
+	&&  ./autogen.sh \
+	&&  ./configure --with-previous-options
+
 prep:
-	if [ ! -e $(GFS_TAR) ]; then \
-		$(MAKE) -C ../.. dist; \
-	fi
+	$(MAKE) -C ../.. dist;
 	-mkdir -p rpmbuild/BUILD
 	-mkdir -p rpmbuild/SPECS
 	-mkdir -p rpmbuild/RPMS
