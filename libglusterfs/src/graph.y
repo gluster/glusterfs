@@ -129,7 +129,7 @@ new_volume (char *name)
 
         if (curr) {
                 gf_log ("parser", GF_LOG_ERROR,
-                        "new volume (%s) defintion in line %d unexpected",
+                        "new volume (%s) definition in line %d unexpected",
                         name, graphyylineno);
                 ret = -1;
                 goto out;

@@ -38,7 +38,7 @@ gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
         for (i = startidx; i < (endcount - 1); i++)
                 entries[i].next_free = i + 1;
 
-        /* i has already been incremented upto the last entry. */
+        /* i has already been incremented up to the last entry. */
         entries[i].next_free = GF_CLIENTTABLE_END;
 
         return 0;
