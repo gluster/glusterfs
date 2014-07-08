@@ -346,7 +346,7 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         }
 
-        /* Everytime in stripe lookup, all child nodes
+        /* Every time in stripe lookup, all child nodes
            should be looked up */
         local->call_count = priv->child_count;
         while (trav) {
@@ -1707,7 +1707,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 local->umask = umask;
                 local->rdev = rdev;
 
-                /* Everytime in stripe lookup, all child nodes should
+                /* Every time in stripe lookup, all child nodes should
                    be looked up */
                 local->call_count = priv->child_count;
 
@@ -1918,7 +1918,7 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         loc_copy (&local->loc, loc);
         frame->local = local;
 
-        /* Everytime in stripe lookup, all child nodes should be looked up */
+        /* Every time in stripe lookup, all child nodes should be looked up */
         STACK_WIND (frame, stripe_first_mkdir_cbk, trav->xlator,
                     trav->xlator->fops->mkdir, loc, mode, umask, xdata);
 
@@ -2051,7 +2051,7 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc, 
         frame->local = local;
         local->call_count = priv->child_count;
 
-        /* Everytime in stripe lookup, all child
+        /* Every time in stripe lookup, all child
            nodes should be looked up */
         while (trav) {
                 STACK_WIND (frame, stripe_link_cbk,
@@ -4423,7 +4423,7 @@ stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
 
                 /**
                  * We overwrite ->op_* values here for subsequent faliure
-                 * conditions, hence we propogate the last errno down the
+                 * conditions, hence we propagate the last errno down the
                  * stack.
                  */
                 if (op_ret < 0) {
