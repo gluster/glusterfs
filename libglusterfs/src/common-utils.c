@@ -1834,7 +1834,7 @@ out:
 }
 
 /*  Matches all ipv4 address, if wildcard_acc is true  '*' wildcard pattern for*
-  subnets is considerd as valid strings as well                               */
+  subnets is considered as valid strings as well                               */
 char
 valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
 {

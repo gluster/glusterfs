@@ -327,7 +327,7 @@ syncop_create_frame (xlator_t *this)
 }
 
 int synclock_init (synclock_t *lock);
-int synclock_destory (synclock_t *lock);
+int synclock_destroy (synclock_t *lock);
 int synclock_lock (synclock_t *lock);
 int synclock_trylock (synclock_t *lock);
 int synclock_unlock (synclock_t *lock);

@@ -160,7 +160,7 @@
 #define DEFAULT_GLUSTERFSD_MISC_DIRETORY DATADIR "/lib/misc/glusterfsd"
 #define GF_REPLICATE_TRASH_DIR           ".landfill"
 
-/* GlusterFS's maximum supported Auxilary GIDs */
+/* GlusterFS's maximum supported Auxiliary GIDs */
 /* TODO: Keeping it to 200, so that we can fit in 2KB buffer for auth data
  * in RPC server code, if there is ever need for having more aux-gids, then
  * we have to add aux-gid in payload of actors */

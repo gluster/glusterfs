@@ -311,7 +311,7 @@ _fd_lk_sub_locks (struct _values *v,
                                              v->locks[2]->fl_end);
         } else if (small->fl_start == big->fl_start) {
                 /* One of the ends co-incide, break the
-                   locks into two seperate parts */
+                   locks into two separate parts */
                 v->locks[0] = fd_lk_ctx_node_new (small->cmd, NULL);
                 if (!v->locks[0])
                         goto out;
@@ -327,7 +327,7 @@ _fd_lk_sub_locks (struct _values *v,
                 v->locks[1]->user_flock.l_start = small->fl_end + 1;
         } else if (small->fl_end == big->fl_end) {
                 /* One of the ends co-incide, break the
-                   locks into two seperate parts */
+                   locks into two separate parts */
                 v->locks[0] = fd_lk_ctx_node_new (small->cmd, NULL);
                 if (!v->locks[0])
                         goto out;
