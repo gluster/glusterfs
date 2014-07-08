@@ -141,18 +141,18 @@ inline int
 changelog_write (int fd, char *buffer, size_t len)
 {
         ssize_t size = 0;
-        size_t writen = 0;
+        size_t written = 0;
 
-        while (writen < len) {
+        while (written < len) {
                 size = write (fd,
-                              buffer + writen, len - writen);
+                              buffer + written, len - written);
                 if (size <= 0)
                         break;
 
-                writen += size;
+                written += size;
         }
 
-        return (writen != len);
+        return (written != len);
 }
 
 int
