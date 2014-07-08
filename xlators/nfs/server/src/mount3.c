@@ -477,7 +477,7 @@ free_sh:
  * to unmount cleanly. In this case, a duplicate entry would be added to the
  * ms->mountlist, which is wrong and we should prevent.
  *
- * It is fully acceptible that the ms->mountlist is not 100% correct, this is a
+ * It is fully acceptable that the ms->mountlist is not 100% correct, this is a
  * common issue for all(?) NFS-servers.
  */
 int
@@ -2009,7 +2009,7 @@ mount3udp_delete_mountlist (char *hostname, dirpath *expname)
 }
 
 /**
- * This function will parse the hostip (IP addres, IP range, or hostname)
+ * This function will parse the hostip (IP address, IP range, or hostname)
  * and fill the host_auth_spec structure.
  *
  * @param hostspec - struct host_auth_spec

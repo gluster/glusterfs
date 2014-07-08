@@ -1532,10 +1532,10 @@ struct xlator_dumpops dumpops = {
 };
 
 /* TODO: If needed, per-volume options below can be extended to be export
-+ * specific also because after export-dir is introduced, a volume is not
-+ * neccessarily an export whereas different subdirectories within that volume
-+ * can be and may need these options to be specified separately.
-+ */
+ * specific also because after export-dir is introduced, a volume is not
+ * necessarily an export whereas different subdirectories within that volume
+ * can be and may need these options to be specified separately.
+*/
 struct volume_options options[] = {
         { .key  = {"nfs3.read-size"},
           .type = GF_OPTION_TYPE_SIZET,
