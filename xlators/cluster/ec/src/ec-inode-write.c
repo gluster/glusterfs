@@ -1932,18 +1932,10 @@ void ec_wind_writev(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    struct iovec vector[fop->int32];
-    struct iobuf_pool * pool = NULL;
+    struct iovec vector[1];
     struct iobref * iobref = NULL;
     struct iobuf * iobuf = NULL;
-    uint8_t * ptr = NULL;
-    ssize_t size = 0, slice = 0, pagesize = 0, maxsize = 0;
-    int32_t count = 0;
-
-    pool = fop->xl->ctx->iobuf_pool;
-
-    pagesize = iobpool_default_pagesize(pool);
-    maxsize = pagesize * ec->fragments;
+    ssize_t size = 0, bufsize = 0;
 
     iobref = iobref_new();
     if (iobref == NULL)
@@ -1951,43 +1943,30 @@ void ec_wind_writev(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
         goto out;
     }
 
-    ptr = fop->vector[0].iov_base;
     size = fop->vector[0].iov_len;
+    bufsize = size / ec->fragments;
 
-    count = 0;
-    while (size > 0)
+    iobuf = iobuf_get2(fop->xl->ctx->iobuf_pool, bufsize);
+    if (iobuf == NULL)
     {
-        iobuf = iobuf_get(pool);
-        if (iobuf == NULL)
-        {
-            goto out;
-        }
-        if (iobref_add(iobref, iobuf) != 0)
-        {
-            goto out;
-        }
-
-        slice = size;
-        if (slice > maxsize)
-        {
-            slice = maxsize;
-        }
-
-        ec_method_encode(slice, ec->fragments, idx, ptr, iobuf->ptr);
-        ptr += slice;
-
-        vector[count].iov_base = iobuf->ptr;
-        vector[count].iov_len = slice / ec->fragments;
-        count++;
-
-        iobuf_unref(iobuf);
-
-        size -= slice;
+        goto out;
     }
+    if (iobref_add(iobref, iobuf) != 0)
+    {
+        goto out;
+    }
+
+    ec_method_encode(size, ec->fragments, idx, fop->vector[0].iov_base,
+                     iobuf->ptr);
+
+    vector[0].iov_base = iobuf->ptr;
+    vector[0].iov_len = bufsize;
+
+    iobuf_unref(iobuf);
 
     STACK_WIND_COOKIE(fop->frame, ec_writev_cbk, (void *)(uintptr_t)idx,
                       ec->xl_list[idx], ec->xl_list[idx]->fops->writev,
-                      fop->fd, vector, count, fop->offset / ec->fragments,
+                      fop->fd, vector, 1, fop->offset / ec->fragments,
                       fop->uint32, iobref, fop->xdata);
 
     iobref_unref(iobref);
