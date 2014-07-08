@@ -313,8 +313,10 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         new_loc->parent = inode_ref (parent);
 
         new_loc->inode = inode_grep (parent->table, parent, bname);
-        if (!new_loc->inode)
+        if (!new_loc->inode) {
                 new_loc->inode = inode_new (parent->table);
+                uuid_copy (new_loc->inode->gfid, gfid);
+        }
 
         loc_path (new_loc, bname);
         if (new_loc->path) {
@@ -433,6 +435,10 @@ ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct iatt temp_stat = {0,};
 
         local = frame->local;
+
+        /* no need to proceed if things don't look good here */
+        if (op_ret == -1)
+                goto done;
 
         if (!local->uid && !local->gid)
                 goto done;
