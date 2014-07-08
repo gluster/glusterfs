@@ -35,6 +35,9 @@ struct rpc_clnt_program clnt_ping_prog = {
         .procnames = clnt_ping_procs,
 };
 
+static void
+rpc_clnt_start_ping (void *rpc_ptr);
+
 void
 rpc_clnt_ping_timer_expired (void *rpc_ptr)
 {
@@ -88,6 +91,7 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
                         if (conn->ping_timer == NULL) {
                                 gf_log (trans->name, GF_LOG_WARNING,
                                         "unable to setup ping timer");
+                                conn->ping_started = 0;
                                 rpc_clnt_unref (rpc);
                         }
                 } else {
@@ -154,10 +158,6 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto unlock;
                 }
 
-                /*This allows other RPCs to be able to start the ping timer
-                 * if they come by before the following start ping routine
-                 * is executed by the timer thread.*/
-                conn->ping_started = 0;
                 gf_timer_call_cancel (this->ctx,
                                       conn->ping_timer);
 
@@ -171,6 +171,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 if (conn->ping_timer == NULL) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "failed to set the ping timer");
+                        conn->ping_started = 0;
                         rpc_clnt_unref (rpc);
                 }
 
@@ -214,7 +215,7 @@ fail:
 
 }
 
-void
+static void
 rpc_clnt_start_ping (void *rpc_ptr)
 {
         struct rpc_clnt         *rpc         = NULL;
@@ -233,14 +234,10 @@ rpc_clnt_start_ping (void *rpc_ptr)
 
         pthread_mutex_lock (&conn->lock);
         {
-                if (conn->ping_started) {
-                        pthread_mutex_unlock (&conn->lock);
-                        return;
-                }
-
                 if (conn->ping_timer) {
                         gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
                         conn->ping_timer = NULL;
+                        conn->ping_started = 0;
                         rpc_clnt_unref (rpc);
                 }
 
@@ -283,4 +280,22 @@ rpc_clnt_start_ping (void *rpc_ptr)
         pthread_mutex_unlock (&conn->lock);
 
         rpc_clnt_ping(rpc);
+}
+
+void
+rpc_clnt_check_and_start_ping (struct rpc_clnt *rpc)
+{
+        char start_ping = 0;
+
+        pthread_mutex_lock (&rpc->conn.lock);
+        {
+                if (!rpc->conn.ping_started)
+                        start_ping = 1;
+        }
+        pthread_mutex_unlock (&rpc->conn.lock);
+
+        if (start_ping)
+                rpc_clnt_start_ping ((void *)rpc);
+
+        return;
 }
