@@ -2640,7 +2640,7 @@ mnt3svc_init (xlator_t *nfsx)
         }
 
         if (nfs->mount_udp) {
-                pthread_create (&udp_thread, NULL, mount3udp_thread, NULL);
+                pthread_create (&udp_thread, NULL, mount3udp_thread, nfsx);
         }
         return &mnt3prog;
 err:

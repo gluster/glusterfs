@@ -253,6 +253,11 @@ function dht_get_layout {
 	getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
 }
 
+function force_umount {
+        umount -f $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
+}
+
 function afr_get_specific_changelog_xattr ()
 {
         local path=$1
