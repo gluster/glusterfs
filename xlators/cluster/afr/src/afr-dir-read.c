@@ -322,6 +322,8 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         AFR_STACK_UNWIND (readdir, frame, op_ret, op_errno, &entries, xdata);
 
+        gf_dirent_free (&entries);
+
         return 0;
 }
 
