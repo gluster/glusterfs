@@ -2441,7 +2441,7 @@ nlm4svc_init(xlator_t *nfsx)
                         GF_SM_NOTIFY_PIDFILE, errno);
                 goto err;
         }
-        /* temporary work around to restart statd, not distro/OS independant.
+        /* temporary work around to restart statd, not distro/OS independent.
          * Need to figure out a more graceful way
          * killall will cause problems on solaris.
          */

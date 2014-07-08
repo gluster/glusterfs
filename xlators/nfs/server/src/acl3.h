@@ -29,7 +29,7 @@
 
 /*
  * NFSv3, identifies the default ACL by NFS_ACL_DEFAULT. Gluster
- * NFS needs to mask it OFF before sending it upto POSIX layer
+ * NFS needs to mask it OFF before sending it up to POSIX layer
  * or File system layer.
  */
 #define NFS_ACL_DEFAULT             0x1000
