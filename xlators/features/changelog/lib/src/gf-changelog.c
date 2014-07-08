@@ -272,7 +272,7 @@ gf_changelog_done (char *file)
 
 /**
  * @API
- *  for a set of changelogs, start from the begining
+ *  for a set of changelogs, start from the beginning
  */
 int
 gf_changelog_start_fresh ()

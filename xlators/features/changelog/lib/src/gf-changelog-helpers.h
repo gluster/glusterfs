@@ -57,7 +57,7 @@ typedef struct gf_changelog {
 
         char gfc_brickpath[PATH_MAX];
 
-        /* socket for recieving notifications */
+        /* socket for receiving notifications */
         int gfc_sockfd;
 
         char *gfc_working_dir;
