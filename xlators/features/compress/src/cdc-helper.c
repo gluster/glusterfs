@@ -161,8 +161,8 @@ cdc_dump_iovec_to_disk (xlator_t *this, cdc_info_t *ci, const char *file)
 {
         int    i      = 0;
         int    fd     = 0;
-        size_t writen = 0;
-        size_t total_writen = 0;
+        size_t written = 0;
+        size_t total_written = 0;
 
         fd = open (file, O_WRONLY|O_CREAT|O_TRUNC, 0777 );
         if (fd < 0) {
@@ -171,15 +171,15 @@ cdc_dump_iovec_to_disk (xlator_t *this, cdc_info_t *ci, const char *file)
                 return;
         }
 
-        writen = write (fd, (char *) gzip_header, 10);
-        total_writen += writen;
+        written = write (fd, (char *) gzip_header, 10);
+        total_written += written;
         for (i = 0; i < ci->ncount; i++) {
-                writen = write (fd, (char *) ci->vec[i].iov_base, ci->vec[i].iov_len);
-                total_writen += writen;
+                written = write (fd, (char *) ci->vec[i].iov_base, ci->vec[i].iov_len);
+                total_written += written;
         }
 
         gf_log (this->name, GF_LOG_DEBUG,
-                        "dump'd %zu bytes to %s", total_writen, GF_CDC_DEBUG_DUMP_FILE );
+                        "dump'd %zu bytes to %s", total_written, GF_CDC_DEBUG_DUMP_FILE );
 
         close (fd);
 }
@@ -502,7 +502,7 @@ cdc_decompress (xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci,
                 goto passthrough_out;
 
         /* do we need to do this? can we assume that one iovec
-         * will hold per request data everytime?
+         * will hold per request data every time?
          *
          * server/client protocol seems to deal with a single
          * iovec even if op_ret > 1M. So, it looks ok to
