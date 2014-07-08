@@ -181,36 +181,26 @@ function _EXPECT_WITHIN()
         test_header "$@"
 
         e=$1;
+        a="";
         shift;
 
         local endtime=$(( ${timeout}+`date +%s` ))
 
-        local success=0
         while [ `date +%s` -lt $endtime ]; do
-                ("$@") | tail -1 | egrep -q "^${e}\$"
-
-                local pipestatus=(${PIPESTATUS[@]})
-
+                a=$("$@" | tail -1 ; exit ${PIPESTATUS[0]})
                 ## Check command success
-                if [ ${pipestatus[0]} -ne 0 ]; then
+                if [ $? -ne 0 ]; then
                         break;
                 fi
 
                 ## Check match success
-                if [ ${pipestatus[2]} -eq 0 ]; then
-                        success=1;
+                if [[ "$a" =~ "$e" ]]; then
                         break;
                 fi
                 sleep 1;
         done
 
-        if [ $success -eq 1 ]; then
-                true;
-        else
-                false;
-        fi
-
-        test_footer;
+        test_expect_footer "$e" "$a";
 }
 
 
