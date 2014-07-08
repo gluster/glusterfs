@@ -210,3 +210,9 @@ function dht_get_layout {
 	local my_xa=trusted.glusterfs.dht
 	getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
 }
+
+function force_umount {
+        umount -f $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
+}
+
