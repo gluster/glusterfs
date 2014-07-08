@@ -244,6 +244,20 @@ case $host_os in
     ;;
 esac
 
+AC_ARG_WITH([previous-options],
+        [AS_HELP_STRING([--with-previous-options],
+                        [read config.status for configure options])
+        ],
+        [ if test -r ./config.status && \
+             args=$(grep 'ac_cs_config=' config.status | \
+                    sed -e 's/.*"\(.*\)".*/\1/'| sed -e "s/'//g") ; then
+            echo "###"
+            echo "### Rerunning as '$0 $args'"
+            echo "###"
+            exec $0 $args
+          fi
+        ])
+
 AC_ARG_WITH(pkgconfigdir,
             [  --with-pkgconfigdir=DIR      pkgconfig file in DIR @<:@LIBDIR/pkgconfig@:>@],
             [pkgconfigdir=$withval],
