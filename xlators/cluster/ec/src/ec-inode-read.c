@@ -973,11 +973,10 @@ out:
 int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 {
     ec_cbk_data_t * ans = NULL;
-    struct iobuf_pool * pool = NULL;
     struct iobref * iobref = NULL;
     struct iobuf * iobuf = NULL;
     uint8_t * ptr = NULL, * buff = NULL;
-    size_t fsize = 0, size = 0, max = 0, slice = 0;
+    size_t fsize = 0, size = 0, max = 0;
     int32_t i = 0;
 
     if (cbk->op_ret < 0)
@@ -989,7 +988,7 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
     if (cbk->op_ret > 0)
     {
-        struct iovec vector[cbk->int32 * cbk->count];
+        struct iovec vector[1];
         uint8_t * blocks[cbk->count];
         uint32_t values[cbk->count];
 
@@ -1001,13 +1000,6 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
             goto out;
         }
         buff = GF_ALIGN_BUF(ptr, EC_BUFFER_ALIGN_SIZE);
-
-        iobref = iobref_new();
-        if (iobref == NULL)
-        {
-            goto out;
-        }
-
         for (i = 0, ans = cbk; ans != NULL; i++, ans = ans->next)
         {
             values[i] = ans->idx;
@@ -1015,36 +1007,26 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
             buff += ec_iov_copy_to(buff, ans->vector, ans->int32, 0, fsize);
         }
 
-        pool = fop->xl->ctx->iobuf_pool;
-        max = iobpool_default_pagesize(pool) / ec->stripe_size;
-        max *= ec->fragment_size;
-        i = 0;
-        do
+        iobref = iobref_new();
+        if (iobref == NULL)
         {
-            iobuf = iobuf_get(pool);
-            if (iobuf == NULL)
-            {
-                goto out;
-            }
-            if (iobref_add(iobref, iobuf) != 0)
-            {
-                goto out;
-            }
+            goto out;
+        }
+        iobuf = iobuf_get2(fop->xl->ctx->iobuf_pool, size);
+        if (iobuf == NULL)
+        {
+            goto out;
+        }
+        if (iobref_add(iobref, iobuf) != 0)
+        {
+            goto out;
+        }
 
-            slice = fsize;
-            if (slice > max)
-            {
-                slice = max;
-            }
-            fsize -= slice;
+        vector[0].iov_base = iobuf->ptr;
+        vector[0].iov_len = ec_method_decode(fsize, ec->fragments, values,
+                                             blocks, iobuf->ptr);
 
-            vector[i].iov_base = iobuf->ptr;
-            vector[i].iov_len = ec_method_decode(slice, ec->fragments, values,
-                                                 blocks, iobuf->ptr);
-            i++;
-
-            iobuf_unref(iobuf);
-        } while (fsize > 0);
+        iobuf_unref(iobuf);
 
         GF_FREE(ptr);
         ptr = NULL;
@@ -1063,27 +1045,20 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
             max = fop->user_size;
         }
         size -= fop->head;
-        while (size > max)
+        if (size > max)
         {
-            if (size - max >= vector[i - 1].iov_len)
-            {
-                size -= vector[--i].iov_len;
-            }
-            else
-            {
-                vector[i - 1].iov_len -= size - max;
-                size = max;
-            }
+            vector[0].iov_len -= size - max;
+            size = max;
         }
 
         cbk->op_ret = size;
-        cbk->int32 = i;
+        cbk->int32 = 1;
 
         iobref_unref(cbk->buffers);
         cbk->buffers = iobref;
 
         GF_FREE(cbk->vector);
-        cbk->vector = iov_dup(vector, i);
+        cbk->vector = iov_dup(vector, 1);
         if (cbk->vector == NULL)
         {
             cbk->op_ret = -1;
