@@ -235,12 +235,12 @@ glusterd_submit_request_unlocked (struct rpc_clnt *rpc, void *req,
                                   xlator_t *this, fop_cbk_fn_t cbkfn,
                                   xdrproc_t xdrproc)
 {
+        char                    new_iobref  = 0;
         int                     ret         = -1;
-        struct iobuf            *iobuf      = NULL;
-        int                     count      = 0;
-        char                    new_iobref = 0, start_ping = 0;
-        struct iovec            iov         = {0, };
+        int                     count       = 0;
         ssize_t                 req_size    = 0;
+        struct iobuf           *iobuf       = NULL;
+        struct iovec            iov         = {0, };
 
         GF_ASSERT (rpc);
         GF_ASSERT (this);
@@ -279,21 +279,6 @@ glusterd_submit_request_unlocked (struct rpc_clnt *rpc, void *req,
         ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
                                &iov, count,
                                NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
-
-        if (ret == 0) {
-                pthread_mutex_lock (&rpc->conn.lock);
-                {
-                        if (!rpc->conn.ping_started) {
-                                start_ping = 1;
-                        }
-                }
-                pthread_mutex_unlock (&rpc->conn.lock);
-        }
-
-        if (start_ping)
-                //client_start_ping ((void *) this);
-
-        ret = 0;
 out:
         if (new_iobref) {
                 iobref_unref (iobref);

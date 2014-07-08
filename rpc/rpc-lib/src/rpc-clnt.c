@@ -1579,7 +1579,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 goto out;
         }
 
-        rpc_clnt_start_ping (rpc);
+        rpc_clnt_check_and_start_ping (rpc);
         ret = 0;
 
 out:
