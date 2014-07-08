@@ -531,6 +531,11 @@ ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
     ec_fd_t * ctx = NULL;
     uint64_t value = 0;
 
+    if (fd->anonymous)
+    {
+        return NULL;
+    }
+
     if ((__fd_ctx_get(fd, xl, &value) != 0) || (value == 0))
     {
         ctx = GF_MALLOC(sizeof(*ctx), ec_mt_ec_fd_t);
@@ -559,11 +564,14 @@ ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl)
 {
     ec_fd_t * ctx = NULL;
 
-    LOCK(&fd->lock);
+    if (!fd->anonymous)
+    {
+        LOCK(&fd->lock);
 
-    ctx = __ec_fd_get(fd, xl);
+        ctx = __ec_fd_get(fd, xl);
 
-    UNLOCK(&fd->lock);
+        UNLOCK(&fd->lock);
+    }
 
     return ctx;
 }
