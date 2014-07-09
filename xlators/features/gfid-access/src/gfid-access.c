@@ -15,6 +15,7 @@
 #include "gfid-access.h"
 #include "inode.h"
 #include "byte-order.h"
+#include "statedump.h"
 
 
 int
@@ -1381,6 +1382,25 @@ fini (xlator_t *this)
         return;
 }
 
+int32_t
+ga_dump_inodectx (xlator_t *this, inode_t *inode)
+{
+        int       ret = -1;
+        uint64_t  value = 0;
+        inode_t  *tmp_inode = NULL;
+        char      key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+
+        ret = inode_ctx_get (inode, this, &value);
+        if (ret == 0) {
+                tmp_inode = (void*) value;
+                gf_proc_dump_build_key (key_prefix, this->name, "inode");
+                gf_proc_dump_add_section (key_prefix);
+                gf_proc_dump_write ("real-gfid", "%s",
+                                    uuid_utoa (tmp_inode->gfid));
+        }
+
+        return 0;
+}
 
 struct xlator_fops fops = {
         .lookup = ga_lookup,
@@ -1408,6 +1428,10 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .forget = ga_forget,
+};
+
+struct xlator_dumpops dumpops = {
+        .inodectx       = ga_dump_inodectx,
 };
 
 struct volume_options options[] = {
