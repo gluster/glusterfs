@@ -235,27 +235,18 @@ resolve_entry_simple (call_frame_t *frame)
         server_resolve_t   *resolve = NULL;
         inode_t            *parent = NULL;
         inode_t            *inode = NULL;
-        int                 missing_gfid_estale = 0;
         int                 ret = 0;
 
         state = CALL_STATE (frame);
         this  = frame->this;
         resolve = state->resolve_now;
 
-        if (dict_get_int32 (state->xdata, "missing-gfid-ESTALE",
-                              &missing_gfid_estale))
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "missing-gfid-ESTALE key not present in dict");
-
         parent = inode_find (state->itable, resolve->pargfid);
         if (!parent) {
                 /* simple resolution is indecisive. need to perform
                    deep resolution */
                 resolve->op_ret   = -1;
-                if (missing_gfid_estale)
-                        resolve->op_errno = ESTALE;
-                else
-                        resolve->op_errno = ENOENT;
+                resolve->op_errno = ESTALE;
                 ret = 1;
                 goto out;
         }
@@ -341,28 +332,17 @@ int
 resolve_inode_simple (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this  = NULL;
         server_resolve_t   *resolve = NULL;
         inode_t            *inode = NULL;
-        int                 missing_gfid_estale = 0;
         int                 ret = 0;
 
         state = CALL_STATE (frame);
-        this = frame->this;
         resolve = state->resolve_now;
-        if (dict_get_int32 (state->xdata, "missing-gfid-ESTALE",
-                            &missing_gfid_estale))
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "missing-gfid-ESTALE key not present in dict");
-
         inode = inode_find (state->itable, resolve->gfid);
 
         if (!inode) {
                 resolve->op_ret   = -1;
-                if (missing_gfid_estale)
-                        resolve->op_errno = ESTALE;
-                else
-                        resolve->op_errno = ENOENT;
+                resolve->op_errno = ESTALE;
                 ret = 1;
                 goto out;
         }

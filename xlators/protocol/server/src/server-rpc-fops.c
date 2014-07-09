@@ -3013,8 +3013,15 @@ int
 server_lookup_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t    *state = NULL;
+        xlator_t *this = NULL;
+        int missing_gfid_estale = 0;
 
         state = CALL_STATE (frame);
+        this = frame->this;
+        if (dict_get_int32 (state->xdata, "missing-gfid-ESTALE",
+                            &missing_gfid_estale))
+                 gf_log (this->name, GF_LOG_DEBUG,
+                         "missing-gfid-ESTALE key not present in dict");
 
         if (state->resolve.op_ret != 0)
                 goto err;
@@ -3030,6 +3037,9 @@ server_lookup_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         return 0;
 err:
+
+        if ((state->resolve.op_errno == ESTALE) && !missing_gfid_estale)
+                state->resolve.op_errno = ENOENT;
         server_lookup_cbk (frame, NULL, frame->this, state->resolve.op_ret,
                            state->resolve.op_errno, NULL, NULL, NULL, NULL);
 
