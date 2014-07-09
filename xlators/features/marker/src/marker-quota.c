@@ -173,6 +173,12 @@ mq_loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
         newloc->parent = inode_ref (oldloc->inode);
         uuid_copy (newloc->pargfid, oldloc->inode->gfid);
 
+        if (!oldloc->path) {
+                ret = loc_path (oldloc, NULL);
+                if (ret == -1)
+                        goto out;
+        }
+
         len = strlen (oldloc->path);
 
         if (oldloc->path [len - 1] == '/')
@@ -608,8 +614,14 @@ mq_readdir_cbk (call_frame_t *frame,
 
                 ret = mq_loc_fill_from_name (this, &loc, &local->loc,
                                              entry->d_ino, entry->d_name);
-                if (ret < 0)
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING, "Couldn't build "
+                                "loc for %s/%s, returning from updation of "
+                                "quota attributes",
+                                uuid_utoa (local->loc.inode->gfid),
+                                entry->d_name);
                         goto out;
+                }
 
                 ret = 0;
 
