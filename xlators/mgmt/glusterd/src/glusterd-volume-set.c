@@ -3038,6 +3038,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.halo-failover-enabled",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "cluster.halo-shd-max-latency",
           .voltype    = "cluster/replicate",
           .op_version = 2,

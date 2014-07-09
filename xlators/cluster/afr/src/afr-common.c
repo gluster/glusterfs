@@ -4238,7 +4238,7 @@ find_worst_up_child (xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 if (priv->child_up[i] &&
                     priv->child_latency[i] >= 0 &&
-                    priv->child_latency[i] > worst_latency) {
+                    priv->child_latency[i] >= worst_latency) {
                         worst_child = i;
                         worst_latency = priv->child_latency[i];
                 }
@@ -4275,7 +4275,8 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
             priv->child_up[idx] == 1 &&
             up_children > priv->halo_min_replicas) {
                 if ((up_children - 1) <
-                    priv->halo_min_replicas) {
+                    priv->halo_min_replicas &&
+                    priv->halo_failover_enabled) {
                         gf_log (child_xlator->name, GF_LOG_INFO,
                                "Overriding halo threshold, "
                                "min replicas: %d",
@@ -4318,6 +4319,7 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
         int             i                   = -1;
         int             up_children         = 0;
         int             worst_up_child      = -1;
+        gf_boolean_t    was_down            = _gf_false;
 
         priv = this->private;
 
@@ -4328,6 +4330,11 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
          * explanation.
          */
         if (priv->child_up[idx] != 1) {
+                /*
+                 * Track the fact we did this, we may need to repeal this
+                 * if we later decide to mark this brick down.
+                 */
+                was_down = _gf_true;
                 priv->event_generation++;
         }
         priv->child_up[idx] = 1;
@@ -4351,6 +4358,11 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
                 if (worst_up_child >= 0 &&
                     priv->child_latency[worst_up_child] >
                     halo_max_latency_msec) {
+                        if (was_down == _gf_true)
+                                priv->event_generation--;
+                        *call_psh = 0;
+                        priv->child_up[worst_up_child] = 0;
+                        up_children--;
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Marking child %d down, "
                                 "doesn't meet halo threshold "
@@ -4359,28 +4371,31 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
                                 worst_up_child,
                                 halo_max_latency_msec,
                                 priv->halo_min_replicas);
-                        priv->child_up[worst_up_child] = 0;
-                        up_children--;
+                        goto out;
                 }
         }
         if (priv->halo_enabled == _gf_true &&
                         up_children > priv->halo_max_replicas &&
             !priv->shd.iamshd) {
+                if (was_down == _gf_true)
+                        priv->event_generation--;
+                *call_psh = 0;
                 worst_up_child = find_worst_up_child (this);
                 if (worst_up_child < 0) {
                         worst_up_child = idx;
                 }
                 priv->child_up[worst_up_child] = 0;
                 up_children--;
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "Marking child %d down, "
                         "up_children (%d) > "
                         "halo_max_replicas (%d)",
                         worst_up_child,
                         up_children,
                         priv->halo_max_replicas);
+                goto out;
         }
-
+out:
         if (up_children == 1) {
                 gf_log (this->name, GF_LOG_INFO,
                         "Subvolume '%s' came back up; "
@@ -4445,10 +4460,11 @@ _afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
          * begin using it synchronously.
          */
         if (priv->halo_enabled == _gf_true &&
-                        up_children < priv->halo_min_replicas) {
+            up_children < priv->halo_min_replicas &&
+            priv->halo_failover_enabled == _gf_true) {
                 best_down_child = find_best_down_child (this);
                 if (best_down_child >= 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "Swapping out child %d for "
                                 "child %d to satisfy "
                                 "halo_min_replicas (%d).",

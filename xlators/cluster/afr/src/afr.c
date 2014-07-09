@@ -180,6 +180,10 @@ reconfigure (xlator_t *this, dict_t *options)
                           priv->halo_enabled, options, bool,
                           out);
 
+        GF_OPTION_RECONF ("halo-failover-enabled",
+                          priv->halo_failover_enabled, options, bool,
+                          out);
+
         GF_OPTION_RECONF ("halo-shd-max-latency",
                           priv->shd.halo_max_latency_msec, options, uint32,
                           out);
@@ -420,9 +424,11 @@ init (xlator_t *this)
         GF_OPTION_INIT ("halo-enabled",
                         priv->halo_enabled, bool, out);
 
+        GF_OPTION_INIT ("halo-failover-enabled",
+                        priv->halo_failover_enabled, bool, out);
+
         GF_OPTION_INIT ("halo-shd-max-latency", priv->shd.halo_max_latency_msec,
                         uint32, out);
-
         GF_OPTION_INIT ("halo-max-latency", priv->halo_max_latency_msec,
                         uint32, out);
         GF_OPTION_INIT ("halo-max-replicas", priv->halo_max_replicas, uint32,
@@ -718,6 +724,13 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "False",
            .description = "Enable Halo (geo) replication mode."
+        },
+        { .key   = {"halo-failover-enabled"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "False",
+           .description = "Enable x-halo failover: will allow failover "
+                          "to bricks outside the client or daemons' halo "
+                          "in an attempt to satisfy halo-min-replicas."
         },
         { .key   = {"halo-nfsd-max-latency"},
           .type  = GF_OPTION_TYPE_INT,
