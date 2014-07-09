@@ -86,7 +86,7 @@ loc_wipe:
 }
 
 int
-marker_inode_loc_fill (inode_t *inode, loc_t *loc)
+marker_inode_loc_fill (inode_t *inode, char *name, loc_t *loc)
 {
         char            *resolvedpath = NULL;
         int              ret          = -1;
@@ -97,7 +97,7 @@ marker_inode_loc_fill (inode_t *inode, loc_t *loc)
 
 	parent = inode_parent (inode, NULL, NULL);
 
-        ret = inode_path (inode, NULL, &resolvedpath);
+        ret = inode_path (inode, name, &resolvedpath);
         if (ret < 0)
                 goto err;
 
@@ -129,7 +129,7 @@ marker_trav_parent (marker_local_t *local)
         } else
                 parent = local->loc.parent;
 
-        ret = marker_inode_loc_fill (parent, &loc);
+        ret = marker_inode_loc_fill (parent, NULL, &loc);
 
         if (ret < 0) {
                 ret = -1;
@@ -764,7 +764,7 @@ marker_writev (call_frame_t *frame,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -1699,7 +1699,7 @@ marker_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -1916,7 +1916,7 @@ marker_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -1985,7 +1985,7 @@ marker_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -2052,7 +2052,7 @@ marker_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -2381,7 +2381,7 @@ marker_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -2447,7 +2447,7 @@ marker_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = marker_inode_loc_fill (fd->inode, &local->loc);
+        ret = marker_inode_loc_fill (fd->inode, NULL, &local->loc);
 
         if (ret == -1)
                 goto err;
@@ -2679,6 +2679,7 @@ marker_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_dirent_t *entry = NULL;
         loc_t        loc    = {0, };
         inode_t     *parent = NULL;
+        int          ret    = -1;
 
         if ((op_ret <= 0) || (entries == NULL)) {
                 goto out;
@@ -2687,19 +2688,19 @@ marker_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         list_for_each_entry (entry, &entries->list, list) {
                 if (entry->inode == entry->inode->table->root) {
-                        loc.path = gf_strdup ("/");
                         inode_unref (parent);
                         parent = NULL;
                 }
 
-                loc.inode = inode_ref (entry->inode);
-
-                if (parent != NULL) {
-                        loc.parent = inode_ref (parent);
-                        uuid_copy (loc.pargfid, parent->gfid);
+                ret = marker_inode_loc_fill (entry->inode,
+                                             entry->d_name, &loc);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Couldn't build "
+                                "loc for %s/%s",
+                                parent? uuid_utoa (parent->gfid): NULL,
+                                entry->d_name);
+                        continue;
                 }
-
-                uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
 
                 mq_xattr_state (this, &loc, entry->dict, entry->d_stat);
 
@@ -2725,6 +2726,7 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_conf_t  *priv  = NULL;
         marker_local_t *local = NULL;
         loc_t           loc   = {0, };
+        int             ret   = -1;
 
         if (op_ret <= 0)
                 goto unwind;
@@ -2741,11 +2743,15 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     (strcmp (entry->d_name, "..") == 0))
                         continue;
 
-                loc.inode = inode_ref (entry->inode);
-                loc.parent = inode_ref (local->loc.inode);
-
-                uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
-                uuid_copy (loc.pargfid, loc.parent->gfid);
+                ret = marker_inode_loc_fill (entry->inode,
+                                             entry->d_name, &loc);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING, "Couln't build "
+                                "loc for %s/%s",
+                                uuid_utoa (local->loc.inode->gfid),
+                                entry->d_name);
+                        continue;
+                }
 
                 mq_xattr_state (this, &loc, entry->dict, entry->d_stat);
 
