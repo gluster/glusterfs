@@ -199,6 +199,7 @@ struct dht_local {
         xlator_t        *first_up_subvol;
 
         gf_boolean_t     quota_deem_statfs;
+        gf_boolean_t     added_link;
 };
 typedef struct dht_local dht_local_t;
 
