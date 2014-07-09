@@ -3926,17 +3926,22 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 goto out;
         }
 
-        /* Update the backend file-system type of snap brick in
-         * snap volinfo. */
-        ret = glusterd_update_fstype (original_brickinfo->path, snap_brickinfo,
-                                      original_brickinfo->fstype,
-                                      sizeof(original_brickinfo->fstype));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
-                        "file-system type for %s brick",
-                        snap_brickinfo->path);
-                /* We should not fail snapshot operation if we fail to get
-                 * the file-system type */
+        /* Update fstype for the local bricks only */
+        if (!uuid_compare (original_brickinfo->uuid, MY_UUID)) {
+                /* Update the backend file-system type of snap brick in
+                 * snap volinfo. */
+                ret = glusterd_update_fstype
+                                          (original_brickinfo->path,
+                                           snap_brickinfo,
+                                           original_brickinfo->fstype,
+                                           sizeof(original_brickinfo->fstype));
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                                "file-system type for %s brick",
+                                snap_brickinfo->path);
+                        /* We should not fail snapshot operation if we fail to
+                         * get the file-system type */
+                }
         }
 
         snprintf (key, sizeof(key) - 1, "vol%"PRId64".brickdir%d", volcount,
@@ -6400,6 +6405,7 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_WARNING, "cleanup "
                                         "operation failed");
+                                goto out;
                         }
                 }
                 /* Irrespective of status of cleanup its better
@@ -6407,6 +6413,7 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                  * following this block is not required to be
                  * executed in case of failure scenario.
                  */
+                ret = 0;
                 goto out;
         }
 
