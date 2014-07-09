@@ -1578,12 +1578,27 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
                 local->inode = inode_ref (loc->inode);
 
-                /* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
-                 *       revalidates directly go to the cached-subvolume.
-                 */
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->xattr_name, 4 * 4);
-
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s for "
+                                "path %s", conf->xattr_name, loc->path);
+                        goto err;
+                }
+                /* need it in case file is not found on cached file
+                 * on revalidate path and we may encounter linkto files on
+                 * with dht_lookup_everywhere*/
+                ret = dict_set_uint32 (local->xattr_req,
+                                       conf->link_xattr_name, 256);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s for "
+                                "path %s", conf->link_xattr_name, loc->path);
+                        goto err;
+                }
                 if (IA_ISDIR (local->inode->ia_type)) {
                         local->call_cnt = call_cnt = conf->subvolume_cnt;
                         for (i = 0; i < call_cnt; i++) {
@@ -1601,7 +1616,13 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                    'in-migration' state */
                 ret = dict_set_uint32 (local->xattr_req,
                                        GLUSTERFS_OPEN_FD_COUNT, 4);
-
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s for "
+                                "path %s", GLUSTERFS_OPEN_FD_COUNT, loc->path);
+                        goto err;
+                }
                 /* need it for dir self-heal */
                 dht_check_and_set_acl_xattr_req (loc->inode, local->xattr_req);
 
@@ -1618,15 +1639,34 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 /* TODO: remove the hard-coding */
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->xattr_name, 4 * 4);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s for "
+                                "path %s", conf->xattr_name, loc->path);
+                        goto err;
+                }
 
                 ret = dict_set_uint32 (local->xattr_req,
                                        conf->link_xattr_name, 256);
-
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s for "
+                                "path %s", conf->link_xattr_name, loc->path);
+                        goto err;
+                }
                 /* need it for self-healing linkfiles which is
                    'in-migration' state */
                 ret = dict_set_uint32 (local->xattr_req,
                                        GLUSTERFS_OPEN_FD_COUNT, 4);
-
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value:key = %s for "
+                                "path %s", GLUSTERFS_OPEN_FD_COUNT, loc->path);
+                        goto err;
+                }
                 /* need it for dir self-heal */
                 dht_check_and_set_acl_xattr_req (loc->inode, local->xattr_req);
 
