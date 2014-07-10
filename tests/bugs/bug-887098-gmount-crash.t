@@ -16,18 +16,12 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2,3,4};
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 
-function pidgrep()
-{
-    ps ax | grep "$1" | grep -v grep | awk '{print $1}' | head -1
-}
-
-
 ## Start volume and verify
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 TEST glusterfs -s $H0 --volfile-id=$V0 --acl $M0
-MOUNT_PID=`ps ax |grep "glusterfs -s $H0 --volfile-id=$V0 --acl $M0" | grep -v grep | awk '{print $1}' | head -1`
+MOUNT_PID=$(get_mount_process_pid $V0)
 
 for i in {1..25};
 do
@@ -35,7 +29,7 @@ do
     cp -RPp $M0/tmp_$i $M0/newtmp_$i && cat /etc/hosts > $M0/newtmp_$i/newfile
 done
 
-EXPECT "$MOUNT_PID" pidgrep $MOUNT_PID
+EXPECT "$MOUNT_PID" get_mount_process_pid $V0
 TEST rm -rf $M0/*
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
