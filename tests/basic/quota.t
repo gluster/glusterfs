@@ -70,19 +70,19 @@ TEST $CLI volume quota $V0 hard-timeout 0
 ## Verify quota enforcement
 ## -----------------------------
 
-TEST ! dd if=/dev/urandom of=$M0/test_dir/1.txt bs=1M count=12
+TEST ! dd if=/dev/urandom of=$M0/test_dir/1.txt bs=1024k count=12
 TEST rm $M0/test_dir/1.txt
 
 # wait for marker's accounting to complete
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 
-TEST dd if=/dev/urandom of=$M0/test_dir/2.txt bs=1M count=8
+TEST dd if=/dev/urandom of=$M0/test_dir/2.txt bs=1024k count=8
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test_dir"
 TEST rm $M0/test_dir/2.txt
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 
 ## rename tests
-TEST dd if=/dev/urandom of=$M0/test_dir/2 bs=1M count=8
+TEST dd if=/dev/urandom of=$M0/test_dir/2 bs=1024k count=8
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test_dir"
 TEST mv $M0/test_dir/2 $M0/test_dir/0
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test_dir"
@@ -137,7 +137,7 @@ done
 #53-62
 for i in `seq 1 9`; do
         TEST_IN_LOOP dd if=/dev/urandom of="$M0/$TESTDIR/dir1/10MBfile$i" \
-                        bs=1M count=10;
+                        bs=1024k count=10;
 done
 
 # 63-64
@@ -159,7 +159,7 @@ done
 ## <Try creating data beyond limit>
 ## --------------------------------
 for i in `seq 1 200`; do
-        dd if=/dev/urandom of="$M0/$TESTDIR/dir1/1MBfile$i" bs=1M count=1 \
+        dd if=/dev/urandom of="$M0/$TESTDIR/dir1/1MBfile$i" bs=1024k count=1 \
            &>/dev/null
 done
 

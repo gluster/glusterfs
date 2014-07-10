@@ -36,13 +36,13 @@ inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {
 
 TEST [ -z $inodelk_max_latency ]
 
-TEST dd of=$M0/a if=/dev/urandom bs=1M count=10 conv=fsync
+TEST dd of=$M0/a if=/dev/urandom bs=1024k count=10 conv=fsync
 #Check for no trace of pending changelog. Flush should make sure of it.
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_0/a trusted.afr.dirty
 EXPECT "0x000000000000000000000000" afr_get_changelog_xattr $B0/r2_1/a trusted.afr.dirty
 
 
-dd of=$M0/a if=/dev/urandom bs=1M count=1024 2>/dev/null &
+dd of=$M0/a if=/dev/urandom bs=1024k count=1024 2>/dev/null &
 p=$!
 #trigger graph switches, tests for fsync not leaving any pending flags
 TEST $CLI volume set $V0 performance.quick-read off

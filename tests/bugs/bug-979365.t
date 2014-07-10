@@ -20,7 +20,7 @@ TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd of=$M0/a if=/dev/zero bs=1M count=10
+TEST dd of=$M0/a if=/dev/zero bs=1024k count=10
 #fsyncs take a while to complete.
 sleep 5
 
@@ -39,7 +39,7 @@ TEST $CLI volume start $V0
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST $CLI volume profile $V0 start
-TEST dd of=$M0/a if=/dev/zero bs=1M count=10
+TEST dd of=$M0/a if=/dev/zero bs=1024k count=10
 #fsyncs take a while to complete.
 sleep 5
 TEST [[ $(num_fsyncs) -eq 0 ]]

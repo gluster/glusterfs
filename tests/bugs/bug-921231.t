@@ -8,7 +8,7 @@
 cleanup;
 
 function write_to_file {
-        dd of=$M0/1 if=/dev/zero bs=1M count=128 oflag=append 2>&1 >/dev/null
+        dd of=$M0/1 if=/dev/zero bs=1024k count=128 oflag=append 2>&1 >/dev/null
 }
 
 TEST glusterd

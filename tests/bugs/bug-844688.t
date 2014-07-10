@@ -16,7 +16,7 @@ mount_pid=$(get_mount_process_pid $V0);
 kill -USR2 $mount_pid;
 
 TEST touch $M0/touchfile;
-(dd if=/dev/urandom of=$M0/file bs=5K 2>/dev/null 1>/dev/null)&
+(dd if=/dev/urandom of=$M0/file bs=5k 2>/dev/null 1>/dev/null)&
 back_pid=$!;
 statedump_file=$(generate_mount_statedump $V0);
 grep "callstack-creation-time" $statedump_file 2>/dev/null 1>/dev/null;

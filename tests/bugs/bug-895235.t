@@ -15,7 +15,7 @@ TEST $CLI volume start $V0
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id=$V0 $M0 --direct-io-mode=enable
 
 TEST gluster volume profile $V0 start
-TEST dd of=$M0/a if=/dev/zero bs=1M count=1 oflag=append
+TEST dd of=$M0/a if=/dev/zero bs=1024k count=1 oflag=append
 finodelk_max_latency=$($CLI volume profile $V0 info | grep FINODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
 
 TEST [ -z $finodelk_max_latency ]
