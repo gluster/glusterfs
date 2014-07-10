@@ -25,9 +25,9 @@ TEST $CLI volume quota $V0 hard-timeout 0
 TEST $CLI volume quota $V0 soft-timeout 0
 
 #The corresponding write(3) should fail with EDQUOT ("Disk quota exceeded")
-TEST ! dd if=/dev/urandom of=$M0/1/2/file bs=1M count=102;
+TEST ! dd if=/dev/urandom of=$M0/1/2/file bs=1024k count=102;
 TEST mkdir $M0/1/3 -p;
-TEST dd if=/dev/urandom of=$M0/1/3/file bs=1M count=102;
+TEST dd if=/dev/urandom of=$M0/1/3/file bs=1024k count=102;
 
 #The corresponding rename(3) should fail with EDQUOT ("Disk quota exceeded")
 TEST ! mv $M0/1/3/ $M0/1/2/3_mvd;

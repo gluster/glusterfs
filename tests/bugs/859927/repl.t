@@ -11,7 +11,7 @@ TEST pidof glusterd
 function create_setup_for_self_heal {
         file=$1
         kill_brick $V0 $H0 $B0/${V0}1
-        dd of=$file if=/dev/urandom bs=1M count=1 2>&1 > /dev/null
+        dd of=$file if=/dev/urandom bs=1024k count=1 2>&1 > /dev/null
         $CLI volume start $V0 force
 }
 

@@ -19,7 +19,7 @@ cd $M0
 HEAL_FILES=0
 for i in {1..10}
 do
-        dd if=/dev/urandom of=f bs=1M count=10 2>/dev/null
+        dd if=/dev/urandom of=f bs=1024k count=10 2>/dev/null
         HEAL_FILES=$(($HEAL_FILES+1))
         mkdir a; cd a;
         HEAL_FILES=$(($HEAL_FILES+3)) #As many times as distribute subvols

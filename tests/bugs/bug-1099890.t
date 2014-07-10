@@ -49,14 +49,14 @@ EXPECT "150M" echo `df -h $M0 -P | tail -1 | awk {'print $2'}`
 
 # Create a new file 'foo' under the root of the volume, which hashes to subvol-0
 # of DHT, that consumes 40M
-TEST   dd if=/dev/zero of=$M0/foo bs=5M count=8
+TEST   dd if=/dev/zero of=$M0/foo bs=5120k count=8
 
 TEST   stat $B0/${V0}1/foo
 TEST ! stat $B0/${V0}2/foo
 
 # Create a new file 'bar' under the root of the volume, which hashes to subvol-1
 # of DHT, that consumes 40M
-TEST   dd if=/dev/zero of=$M0/bar bs=5M count=8
+TEST   dd if=/dev/zero of=$M0/bar bs=5120k count=8
 
 TEST ! stat $B0/${V0}1/bar
 TEST   stat $B0/${V0}2/bar
@@ -84,7 +84,7 @@ TEST   touch $M0/empty1;
 # If this bug is fixed, then DHT should be routing the creation to subvol-1 only
 # as it has more than min-free-disk space available.
 
-TEST   dd if=/dev/zero of=$M0/file bs=1K count=1
+TEST   dd if=/dev/zero of=$M0/file bs=1k count=1
 sleep 1;
 TEST ! stat $B0/${V0}1/file
 TEST   stat $B0/${V0}2/file
@@ -96,7 +96,7 @@ TEST touch $M0/empty2;
 
 # Now I create a new file that hashes to subvol-0, at the end of which, there
 # will be less than min-free-disk space available on it.
-TEST   dd if=/dev/zero of=$M0/fil bs=5M count=4
+TEST   dd if=/dev/zero of=$M0/fil bs=5120k count=4
 sleep 1;
 TEST   stat $B0/${V0}1/fil
 TEST ! stat $B0/${V0}2/fil
@@ -108,7 +108,7 @@ TEST   touch $M0/empty3;
 # Now I create a file that hashes to subvol-0 but since it has less than
 # min-free-disk space available, its data will be cached on subvol-1.
 
-TEST   dd if=/dev/zero of=$M0/zz bs=5M count=1
+TEST   dd if=/dev/zero of=$M0/zz bs=5120k count=1
 
 TEST   stat $B0/${V0}1/zz
 TEST   stat $B0/${V0}2/zz

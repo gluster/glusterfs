@@ -51,11 +51,11 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $
 ####################
 
 ## Create a 1K file locally and find the md5sum
-TEST dd if=/dev/zero of=/tmp/cdc-orig count=1 bs=1K 2>/dev/null
+TEST dd if=/dev/zero of=/tmp/cdc-orig count=1 bs=1k 2>/dev/null
 checksum[original-file]=`md5sum /tmp/cdc-orig | cut -d' ' -f1`
 
 ## Copy the file to mountpoint and find its md5sum on brick
-TEST dd if=/tmp/cdc-orig of=$M0/cdc-server count=1 bs=1K 2>/dev/null
+TEST dd if=/tmp/cdc-orig of=$M0/cdc-server count=1 bs=1k 2>/dev/null
 checksum[brick-file]=`md5sum $B0/${V0}1/cdc-server | cut -d' ' -f1`
 
 ## Uncompress the gzip dump file and find its md5sum
@@ -75,7 +75,7 @@ TEST rm -f /tmp/cdcdump.gz
 ###################
 
 ## Copy file from mount point to client and find checksum
-TEST dd if=$M0/cdc-server of=/tmp/cdc-client count=1 bs=1K 2>/dev/null
+TEST dd if=$M0/cdc-server of=/tmp/cdc-client count=1 bs=1k 2>/dev/null
 checksum[client-file]=`md5sum /tmp/cdc-client | cut -d' ' -f1`
 
 ## Uncompress the gzip dump file and find its md5sum

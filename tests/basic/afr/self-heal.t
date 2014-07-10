@@ -21,10 +21,10 @@ TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0 --entry-timeout=0 --att
 
 #Test
 TEST mkdir -p $M0/abc/def $M0/abc/ghi
-TEST dd if=/dev/urandom of=$M0/abc/file_abc.txt bs=1M count=2 2>/dev/null
-TEST dd if=/dev/urandom of=$M0/abc/def/file_abc_def_1.txt bs=1M count=2 2>/dev/null
-TEST dd if=/dev/urandom of=$M0/abc/def/file_abc_def_2.txt bs=1M count=3 2>/dev/null
-TEST dd if=/dev/urandom of=$M0/abc/ghi/file_abc_ghi.txt bs=1M count=4 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/abc/file_abc.txt bs=1024k count=2 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/abc/def/file_abc_def_1.txt bs=1024k count=2 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/abc/def/file_abc_def_2.txt bs=1024k count=3 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/abc/ghi/file_abc_ghi.txt bs=1024k count=4 2>/dev/null
 
 TEST kill_brick $V0 $H0 $B0/brick0
 TEST truncate -s 0 $M0/abc/def/file_abc_def_1.txt
@@ -33,9 +33,9 @@ NEW_GID=36
 TEST chown  $NEW_UID:$NEW_GID $M0/abc/def/file_abc_def_2.txt
 TEST rm -rf $M0/abc/ghi
 TEST mkdir -p $M0/def/ghi $M0/jkl/mno
-TEST dd if=/dev/urandom of=$M0/def/ghi/file1.txt bs=1M count=2 2>/dev/null
-TEST dd if=/dev/urandom of=$M0/def/ghi/file2.txt bs=1M count=3 2>/dev/null
-TEST dd if=/dev/urandom of=$M0/jkl/mno/file.txt bs=1M count=4 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/def/ghi/file1.txt bs=1024k count=2 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/def/ghi/file2.txt bs=1024k count=3 2>/dev/null
+TEST dd if=/dev/urandom of=$M0/jkl/mno/file.txt bs=1024k count=4 2>/dev/null
 TEST chown  $NEW_UID:$NEW_GID $M0/def/ghi/file2.txt
 
 TEST $CLI volume start $V0 force

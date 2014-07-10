@@ -20,9 +20,9 @@ TEST $CLI volume set $V0 cluster.read-subvolume $V0-client-1
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
-TEST dd if=/dev/urandom of=$M0/afr_success_5.txt bs=1M count=1
+TEST dd if=/dev/urandom of=$M0/afr_success_5.txt bs=1024k count=1
 TEST kill_brick $V0 $H0 $B0/brick0
-TEST dd if=/dev/urandom of=$M0/afr_success_5.txt bs=1M count=10
+TEST dd if=/dev/urandom of=$M0/afr_success_5.txt bs=1024k count=10
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "10485760" echo `ls -l $M0/afr_success_5.txt | awk '{ print $5}'`
 

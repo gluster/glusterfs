@@ -59,12 +59,12 @@ TEST $CLI volume quota $V0 limit-usage /test_dir 10MB 50
 EXPECT "10.0MB" hard_limit "/test_dir";
 EXPECT "50%" soft_limit "/test_dir";
 
-TEST dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1M count=4
+TEST dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=4
 EXPECT "4.0MB" usage "/test_dir";
 EXPECT 'No' sl_exceeded "/test_dir";
 EXPECT 'No' hl_exceeded "/test_dir";
 
-TEST dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1M count=6
+TEST dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=6
 EXPECT "6.0MB" usage "/test_dir";
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'No' hl_exceeded "/test_dir";
@@ -73,7 +73,7 @@ EXPECT 'No' hl_exceeded "/test_dir";
 TEST $CLI volume set $V0 features.hard-timeout 0
 TEST $CLI volume set $V0 features.soft-timeout 0
 
-TEST ! dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1M count=15
+TEST ! dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=15
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'Yes' hl_exceeded "/test_dir";
 

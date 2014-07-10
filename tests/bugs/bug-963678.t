@@ -42,7 +42,7 @@ TEST [ $(($blksz * $nblks)) -lt $((917504 + 16384)) ]
 TEST unlink $M0/file
 
 # write some data, punch a hole and verify the file content changes
-TEST dd if=/dev/urandom of=$M0/file bs=1M count=1
+TEST dd if=/dev/urandom of=$M0/file bs=1024k count=1
 TEST cp $M0/file $M0/file.copy.pre
 TEST fallocate -p -o 512k -l 128k $M0/file
 TEST cp $M0/file $M0/file.copy.post
