@@ -44,25 +44,25 @@ TEST $CLI snapshot create snap4 $V0;
 
 TEST $CLI volume set $V0 features.uss enable;
 
-SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
+SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 
 TEST $CLI volume set $V0 features.uss disable;
 
-SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
+SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST ! [ $SNAPD_PID -gt 0 ];
 
 TEST $CLI volume set $V0 features.uss enable;
 
-SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
+SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 
 TEST $CLI volume stop $V0;
 
-SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
+SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST ! [ $SNAPD_PID -gt 0 ];
 

@@ -43,12 +43,12 @@ function remove_brick_status_completed_field {
 
 function get_mount_process_pid {
         local vol=$1
-        ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
+        ps auxww | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
 }
 
 function get_nfs_pid ()
 {
-        ps aux | grep "volfile-id\ gluster\/nfs" | awk '{print $2}' | head -1
+        ps auxww | grep "volfile-id\ gluster\/nfs" | awk '{print $2}' | head -1
 }
 
 function read_nfs_pidfile ()
@@ -112,7 +112,7 @@ function afr_child_up_status {
 
 function get_shd_process_pid {
         local vol=$1
-        ps aux | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
+        ps auxww | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
 }
 
 function generate_shd_statedump {
