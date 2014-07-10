@@ -20,6 +20,16 @@ Regression tests framework for GlusterFS
 ## Usage
 - Execute `/usr/share/glusterfs/run-tests.sh` as root.
 
+- If you want to run individual tests located in `/usr/share/glusterfs/tests`
+  as opposed to the full test-suite, invoke it as
+  `/usr/share/glusterfs/run-tests.sh [pattern]*`, where pattern can be:
+    - the trailing parts of the full path of a test,
+      e.g. `tests/basic/mount.t`
+    - the name of a file or directory, e.g `self-heal.t` or `basic/`
+    - bug number, which will match against numbered bugs in the
+      `tests/bugs/` directory.
+    - a glob pattern (see `man 7 glob` for mor info on globs)
+
 - If some test cases fail, report to GlusterFS community at
   `gluster-devel@gluster.org`.
 
