@@ -49,7 +49,7 @@ TEST $CLI volume set $V0 features.uss enable;
 #let snapd get started properly and client connect to snapd
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" snap_client_connected_status $V0
 
-SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
+SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 

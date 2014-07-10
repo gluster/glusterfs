@@ -25,7 +25,7 @@ TEST $CLI volume set $V0 features.uss enable;
 
 EXPECT "1" is_snapd_running $V0
 
-SNAPD_PID=$(ps aux | grep snapd | grep -v grep | awk '{print $2}');
+SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
 
 TEST [ $SNAPD_PID -gt 0 ];
 
