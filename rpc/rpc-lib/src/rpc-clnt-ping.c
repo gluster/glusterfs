@@ -189,7 +189,9 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
 {
         call_frame_t *frame = NULL;
         int32_t       ret   = -1;
+        rpc_clnt_connection_t *conn = NULL;
 
+        conn = &rpc->conn;
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto fail;
@@ -202,6 +204,13 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to start ping timer");
+        }
+        else {
+                /* ping successfully queued in list of saved frames
+                 * for the connection*/
+                pthread_mutex_lock (&conn->lock);
+                conn->pingcnt++;
+                pthread_mutex_unlock (&conn->lock);
         }
 
         return ret;

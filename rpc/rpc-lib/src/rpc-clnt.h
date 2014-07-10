@@ -146,6 +146,8 @@ struct rpc_clnt_connection {
 	int32_t                  ping_started;
         char                    *name;
 	int32_t                  ping_timeout;
+        uint64_t                 pingcnt;
+        uint64_t                 msgcnt;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 

@@ -2764,6 +2764,10 @@ client_priv_dump (xlator_t *this)
 
                 gf_proc_dump_write("total_bytes_written", "%"PRIu64,
                                    conf->rpc->conn.trans->total_bytes_write);
+                gf_proc_dump_write("ping_msgs_sent", "%"PRIu64,
+                                    conf->rpc->conn.pingcnt);
+                gf_proc_dump_write("msgs_sent", "%"PRIu64,
+                                    conf->rpc->conn.msgcnt);
         }
         pthread_mutex_unlock(&conf->lock);
 
