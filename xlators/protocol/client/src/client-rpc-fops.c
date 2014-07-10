@@ -3489,6 +3489,7 @@ client3_3_unlink (call_frame_t *frame, xlator_t *this,
                                        !uuid_is_null (*((uuid_t*)req.pargfid)),
                                        unwind, op_errno, EINVAL);
         req.bname = (char *)args->loc->name;
+        req.xflags = args->flags;
         conf = this->private;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
