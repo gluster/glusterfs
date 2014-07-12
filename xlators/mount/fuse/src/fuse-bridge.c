@@ -1365,13 +1365,10 @@ fuse_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      uuid_utoa (state->loc.gfid));
 
         if (op_ret > 0) {
-                ((char *)linkname)[op_ret] = '\0';
-
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s => %s", frame->root->unique,
-                        state->loc.path, linkname);
-
-                send_fuse_data (this, finh, (void *)linkname, op_ret + 1);
+                        "%"PRIu64": %s => %s (size:%d)", frame->root->unique,
+                        state->loc.path, linkname, op_ret);
+                send_fuse_data (this, finh, (void *)linkname, op_ret);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": %s => -1 (%s)", frame->root->unique,
