@@ -264,9 +264,16 @@ glusterd_submit_request_unlocked (struct rpc_clnt *rpc, void *req,
         }
 
         /* Send the msg */
-        ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
-                               &iov, count,
-                               NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
+        rpc_clnt_submit (rpc, prog, procnum, cbkfn, &iov, count, NULL, 0,
+                         iobref, frame, NULL, 0, NULL, 0, NULL);
+
+        /* Unconditionally set ret to 0 here. This is to guard against a double
+         * STACK_DESTROY in case of a failure in rpc_clnt_submit AFTER the
+         * request is sent over the wire: once in the callback function of the
+         * request and once in the error codepath of some of the callers of
+         * glusterd_submit_request().
+         */
+        ret = 0;
 out:
         if (new_iobref) {
                 iobref_unref (iobref);
