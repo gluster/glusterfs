@@ -503,6 +503,9 @@ ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
 
                 return NULL;
             }
+
+            INIT_LIST_HEAD(&ctx->entry_locks);
+            INIT_LIST_HEAD(&ctx->inode_locks);
         }
     }
     else

@@ -158,7 +158,6 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     fop->minimum = minimum;
     fop->mask = target;
 
-    INIT_LIST_HEAD(&fop->lock_list);
     INIT_LIST_HEAD(&fop->cbk_list);
     INIT_LIST_HEAD(&fop->answer_list);
 

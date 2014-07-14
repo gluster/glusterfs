@@ -37,6 +37,9 @@ typedef union _ec_cbk ec_cbk_t;
 struct _ec_lock;
 typedef struct _ec_lock ec_lock_t;
 
+struct _ec_lock_link;
+typedef struct _ec_lock_link ec_lock_link_t;
+
 struct _ec_fop_data;
 typedef struct _ec_fop_data ec_fop_data_t;
 
@@ -60,8 +63,10 @@ struct _ec_fd
 
 struct _ec_inode
 {
-    uintptr_t   bad;
-    ec_heal_t * heal;
+    uintptr_t        bad;
+    struct list_head entry_locks;
+    struct list_head inode_locks;
+    ec_heal_t *      heal;
 };
 
 typedef int32_t (* fop_heal_cbk_t)(call_frame_t *, void * cookie, xlator_t *,
@@ -124,8 +129,18 @@ union _ec_cbk
 struct _ec_lock
 {
     struct list_head     list;
+    struct list_head     waiting;
     uintptr_t            mask;
+    uintptr_t            good_mask;
     int32_t              kind;
+    int32_t              refs;
+    int32_t              acquired;
+    int32_t              have_size;
+    size_t               size;
+    size_t               size_delta;
+    uint64_t             version;
+    uint64_t             version_delta;
+    ec_fop_data_t *      owner;
     loc_t                loc;
     union
     {
@@ -136,6 +151,13 @@ struct _ec_lock
         };
         struct gf_flock  flock;
     };
+};
+
+struct _ec_lock_link
+{
+    ec_lock_t *      lock;
+    ec_fop_data_t *  fop;
+    struct list_head wait_list;
 };
 
 struct _ec_fop_data
@@ -152,10 +174,13 @@ struct _ec_fop_data
     xlator_t *         xl;
     call_frame_t *     req_frame;   // frame of the calling xlator
     call_frame_t *     frame;       // frame used by this fop
-    struct list_head   lock_list;   // list locks held by this fop
     struct list_head   cbk_list;    // sorted list of groups of answers
     struct list_head   answer_list; // list of answers
     ec_cbk_data_t *    answer;      // accepted answer
+    int32_t            lock_count;
+    int32_t            locked;
+    ec_lock_link_t     locks[2];
+    int32_t            have_size;
     size_t             pre_size;
     size_t             post_size;
     gf_lock_t          lock;

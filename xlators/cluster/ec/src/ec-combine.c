@@ -735,7 +735,7 @@ void ec_combine(ec_cbk_data_t * cbk, ec_combine_f combine)
     ec_fop_data_t * fop = cbk->fop;
     ec_cbk_data_t * ans = NULL, * tmp = NULL;
     struct list_head * item = NULL;
-    int32_t needed = 0, report = 0;
+    int32_t needed = 0, resume = 0;
     char str[32];
 
     LOCK(&fop->lock);
@@ -776,7 +776,7 @@ void ec_combine(ec_cbk_data_t * cbk, ec_combine_f combine)
 
         ec_update_bad(fop, cbk->mask);
 
-        report = 1;
+        resume = 1;
     }
 
     ans = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
@@ -788,8 +788,8 @@ void ec_combine(ec_cbk_data_t * cbk, ec_combine_f combine)
     {
         ec_dispatch_next(fop, cbk->idx);
     }
-    else if (report)
+    else if (resume)
     {
-        ec_report(fop, 0);
+        ec_resume(fop, 0);
     }
 }

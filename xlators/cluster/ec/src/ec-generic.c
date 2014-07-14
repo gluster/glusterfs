@@ -91,11 +91,17 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock(fop);
 
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
+            ec_flush_size_version(fop);
+
+            return EC_STATE_DELAYED_START;
+
+        case EC_STATE_DELAYED_START:
             ec_dispatch_all(fop);
 
             return EC_STATE_PREPARE_ANSWER;
@@ -135,7 +141,7 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
                                 cbk->op_errno, cbk->xdata);
             }
 
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
@@ -148,6 +154,12 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
                 fop->cbks.flush(fop->req_frame, fop, fop->xl, -1, fop->error,
                                 NULL);
             }
+
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 0);
 
             return EC_STATE_UNLOCK;
 
@@ -313,7 +325,8 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
 
@@ -323,6 +336,11 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
+            ec_flush_size_version(fop);
+
+            return EC_STATE_DELAYED_START;
+
+        case EC_STATE_DELAYED_START:
             ec_dispatch_all(fop);
 
             return EC_STATE_PREPARE_ANSWER;
@@ -371,7 +389,7 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
                                 cbk->xdata);
             }
 
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
@@ -385,6 +403,12 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
                 fop->cbks.fsync(fop->req_frame, fop, fop->xl, -1, fop->error,
                                 NULL, NULL, NULL);
             }
+
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 0);
 
             return EC_STATE_UNLOCK;
 
@@ -526,11 +550,17 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock(fop);
 
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
+            ec_flush_size_version(fop);
+
+            return EC_STATE_DELAYED_START;
+
+        case EC_STATE_DELAYED_START:
             ec_dispatch_all(fop);
 
             return EC_STATE_PREPARE_ANSWER;
@@ -570,7 +600,7 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
                                    cbk->op_errno, cbk->xdata);
             }
 
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
@@ -583,6 +613,12 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
                 fop->cbks.fsyncdir(fop->req_frame, fop, fop->xl, -1,
                                    fop->error, NULL);
             }
+
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 0);
 
             return EC_STATE_UNLOCK;
 
@@ -665,10 +701,12 @@ out:
 void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 {
     ec_cbk_data_t * ans = NULL;
+    ec_inode_t * ctx = NULL;
+    ec_lock_t * lock = NULL;
     data_t * data = NULL;
     uint8_t * buff = NULL;
     size_t size = 0;
-    int32_t i = 0;
+    int32_t i = 0, have_size = 0;
 
     if (cbk->op_ret < 0)
     {
@@ -679,6 +717,22 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
     ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode, &cbk->iatt[0]);
 
+    LOCK(&cbk->inode->lock);
+
+    ctx = __ec_inode_get(cbk->inode, fop->xl);
+    if ((ctx != NULL) && !list_empty(&ctx->inode_locks))
+    {
+        lock = list_entry(ctx->inode_locks.next, ec_lock_t, list);
+        cbk->version = lock->version;
+        if (lock->have_size)
+        {
+            size = lock->size;
+            have_size = 1;
+        }
+    }
+
+    UNLOCK(&cbk->inode->lock);
+
     if (cbk->iatt[0].ia_type == IA_IFREG)
     {
         uint8_t * blocks[cbk->count];
@@ -686,6 +740,10 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
         cbk->size = cbk->iatt[0].ia_size;
         ec_dict_del_number(cbk->xdata, EC_XATTR_SIZE, &cbk->iatt[0].ia_size);
+        if (have_size)
+        {
+            cbk->iatt[0].ia_size = size;
+        }
 
         size = SIZE_MAX;
         for (i = 0, ans = cbk; (ans != NULL) && (i < ec->fragments);
@@ -1314,7 +1372,15 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_inode(fop, &fop->loc[0]);
+            if (fop->fd == NULL)
+            {
+                ec_lock_prepare_inode(fop, &fop->loc[0]);
+            }
+            else
+            {
+                ec_lock_prepare_fd(fop, fop->fd);
+            }
+            ec_lock(fop);
 
             return EC_STATE_DISPATCH;
 
@@ -1373,11 +1439,7 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            if (cbk->op_ret >= 0)
-            {
-                return EC_STATE_UPDATE_SIZE_AND_VERSION;
-            }
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
@@ -1402,14 +1464,14 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 1);
+
             return EC_STATE_UNLOCK;
 
-        case EC_STATE_UPDATE_SIZE_AND_VERSION:
-            ec_update_size_version(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UPDATE_SIZE_AND_VERSION:
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
             ec_unlock(fop);
