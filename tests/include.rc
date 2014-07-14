@@ -299,3 +299,14 @@ alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
+
+ostype=$(uname -s)
+if [ x"$ostype" = x"Linux" ]; then
+	alias dd="dd status=none"
+elif [ x"$ostype" = x"NetBSD" ]; then
+	alias dd="dd msgfmt=quiet"
+fi
+# MacOS doesn't seem to support either option.  Doing nothing at all is
+# probably the safest option there and on anything we don't recognize, but
+# if you want to reduce the noise level and know the correct option for
+# your favorite platform please feel free to add it here.

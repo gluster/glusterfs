@@ -160,7 +160,7 @@ done
 ## --------------------------------
 for i in `seq 1 200`; do
         dd if=/dev/urandom of="$M0/$TESTDIR/dir1/1MBfile$i" bs=1024k count=1 \
-           &>/dev/null
+           2>&1 | grep -v "No space left"
 done
 
 # 65
