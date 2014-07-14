@@ -518,10 +518,8 @@ out:
         if (newfd)
                 close (newfd);
         ret = unlink (filename);
-        if (ret < 0) {
+        if (ret < 0)
                 fprintf (stderr, "unlink failed : %s\n", strerror (errno));
-                goto out;
-        }
 
         return ret;
 }

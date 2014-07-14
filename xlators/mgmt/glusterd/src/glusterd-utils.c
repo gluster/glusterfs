@@ -3923,14 +3923,19 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
 out:
         if (!ret) {
                 ret = glusterd_compute_cksum (new_volinfo, _gf_true);
-                if (ret)
-                        goto out;
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to compute checksum");
+                        goto clear_quota_conf;
+                }
 
                 ret = glusterd_store_save_quota_version_and_cksum (new_volinfo);
                 if (ret)
-                        goto out;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to save quota version and checksum");
         }
 
+clear_quota_conf:
         if (ret && (fd > 0)) {
                 gf_store_unlink_tmppath (new_volinfo->quota_conf_shandle);
                 (void) gf_store_handle_destroy
@@ -6724,6 +6729,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         char                         buf[1024]          = "faulty";
         int                 uuid_len                    = 0;
         int                 ret                         = 0;
+        int                 op_ret                      = 0;
         int                 ret_status                  = 0;
         char                         uuid_str[64]       = {0};
         glusterd_volinfo_t *volinfo                     = NULL;
@@ -6849,15 +6855,14 @@ out:
                 GF_FREE (statefile);
 
         if (is_template_in_use) {
-                ret = glusterd_create_status_file (volinfo->volname, slave,
-                                                   slave_host, slave_vol,
-                                                   "Config Corrupted");
-               if (ret) {
+               op_ret = glusterd_create_status_file (volinfo->volname, slave,
+                                                     slave_host, slave_vol,
+                                                     "Config Corrupted");
+               if (op_ret) {
                         gf_log ("", GF_LOG_ERROR,
                                 "Unable to create status file"
                                 ". Error : %s", strerror (errno));
-                        ret = -1;
-                        goto out;
+                        ret = op_ret;
                }
         }
 
