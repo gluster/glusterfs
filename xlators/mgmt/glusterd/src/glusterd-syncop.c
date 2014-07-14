@@ -1186,7 +1186,8 @@ out:
                 ret = glusterd_validate_and_set_gfid (op_ctx, req_dict,
                                                       op_errstr);
                 if (ret)
-                        goto out;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to validate and set gfid");
         }
 
         if (rsp_dict)
