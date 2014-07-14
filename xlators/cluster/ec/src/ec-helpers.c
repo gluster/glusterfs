@@ -37,6 +37,10 @@
 #define TOP_BIT (ONE << (PRESENT_D_OFF_BITS - 1))
 #define SHIFT_BITS (max(0, (BACKEND_D_OFF_BITS - PRESENT_D_OFF_BITS + 1)))
 
+#ifndef ffsll
+#define ffsll(x) __builtin_ffsll(x)
+#endif
+
 static const char * ec_fop_list[] =
 {
     [-EC_FOP_HEAL] = "HEAL"
