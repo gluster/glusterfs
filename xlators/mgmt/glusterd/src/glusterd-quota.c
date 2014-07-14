@@ -755,16 +755,14 @@ out:
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                         "compute cksum for quota conf file");
-                                goto out;
+                                return ret;
                         }
 
                         ret = glusterd_store_save_quota_version_and_cksum
                                                                       (volinfo);
-                        if (ret) {
+                        if (ret)
                                 gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                         "store quota version and cksum");
-                                goto out;
-                        }
                 }
         }
 
