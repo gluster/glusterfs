@@ -514,7 +514,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 if (!client)
                         break;
 
-                gf_log (this->name, GF_LOG_INFO, "disconnecting connection"
+                gf_log (this->name, GF_LOG_INFO, "disconnecting connection "
                         "from %s", client->client_uid);
 
                 /* If lock self heal is off, then destroy the
