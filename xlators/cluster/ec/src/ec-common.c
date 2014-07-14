@@ -316,20 +316,10 @@ void ec_resume_parent(ec_fop_data_t * fop, int32_t error)
     }
 }
 
-void ec_report(ec_fop_data_t * fop, int32_t error)
-{
-    if (!list_empty(&fop->lock_list))
-    {
-        ec_owner_set(fop->frame, fop->frame->root);
-    }
-
-    ec_resume(fop, error);
-}
-
 void ec_complete(ec_fop_data_t * fop)
 {
     ec_cbk_data_t * cbk = NULL;
-    int32_t ready = 0, report = 0;
+    int32_t resume = 0;
 
     LOCK(&fop->lock);
 
@@ -351,21 +341,17 @@ void ec_complete(ec_fop_data_t * fop)
                 }
             }
 
-            report = 1;
+            resume = 1;
         }
         else if ((fop->flags & EC_FLAG_WAITING_WINDS) != 0)
         {
-            ready = 1;
+            resume = 1;
         }
     }
 
     UNLOCK(&fop->lock);
 
-    if (report)
-    {
-        ec_report(fop, 0);
-    }
-    if (ready)
+    if (resume)
     {
         ec_resume(fop, 0);
     }
@@ -518,7 +504,7 @@ void ec_dispatch_start(ec_fop_data_t * fop)
 
     INIT_LIST_HEAD(&fop->cbk_list);
 
-    if (!list_empty(&fop->lock_list))
+    if (fop->lock_count > 0)
     {
         ec_owner_copy(fop->frame, &fop->req_frame->root->lk_owner);
     }
@@ -602,6 +588,7 @@ void ec_dispatch_min(ec_fop_data_t * fop)
 
 ec_lock_t * ec_lock_allocate(xlator_t * xl, int32_t kind, loc_t * loc)
 {
+    ec_t * ec = xl->private;
     ec_lock_t * lock;
 
     if ((loc->inode == NULL) ||
@@ -613,15 +600,15 @@ ec_lock_t * ec_lock_allocate(xlator_t * xl, int32_t kind, loc_t * loc)
         return NULL;
     }
 
-    lock = GF_MALLOC(sizeof(*lock), ec_mt_ec_lock_t);
+    lock = mem_get0(ec->lock_pool);
     if (lock != NULL)
     {
-        memset(lock, 0, sizeof(*lock));
-
         lock->kind = kind;
+        lock->good_mask = -1ULL;
+        INIT_LIST_HEAD(&lock->waiting);
         if (!ec_loc_from_loc(xl, &lock->loc, loc))
         {
-            GF_FREE(lock);
+            mem_put(lock);
             lock = NULL;
         }
     }
@@ -634,34 +621,55 @@ void ec_lock_destroy(ec_lock_t * lock)
     GF_FREE(lock->basename);
     loc_wipe(&lock->loc);
 
-    GF_FREE(lock);
+    mem_put(lock);
 }
 
-int32_t ec_locked(call_frame_t * frame, void * cookie, xlator_t * this,
-                  int32_t op_ret, int32_t op_errno, dict_t * xdata)
+int32_t ec_lock_compare(ec_lock_t * lock1, ec_lock_t * lock2)
 {
-    ec_fop_data_t * fop = cookie;
-    ec_lock_t * lock = NULL;
+    int32_t res;
 
-    if (op_ret >= 0)
+    res = uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
+    if (res != 0)
     {
-        lock = fop->data;
-        lock->mask = fop->good;
-        fop->parent->mask &= fop->good;
-
-        ec_trace("LOCKED", fop->parent, "lock=%p", lock);
+        return res;
     }
-    else
+    if (lock1->basename == NULL)
     {
-        gf_log(this->name, GF_LOG_WARNING, "Failed to complete preop lock");
+        if (lock2->basename == NULL)
+        {
+            return 0;
+        }
+        return 1;
     }
-
-    return 0;
+    if (lock2->basename == NULL)
+    {
+        return -1;
+    }
+    return strcmp(lock1->basename, lock2->basename);
 }
 
-void ec_lock_entry(ec_fop_data_t * fop, loc_t * loc)
+void ec_lock_insert(ec_fop_data_t * fop, ec_lock_t * lock)
+{
+    ec_lock_t * tmp;
+
+    if ((fop->lock_count > 0) &&
+        (ec_lock_compare(fop->locks[0].lock, lock) > 0))
+    {
+        tmp = fop->locks[0].lock;
+        fop->locks[0].lock = lock;
+        lock = tmp;
+    }
+    fop->locks[fop->lock_count].lock = lock;
+    fop->locks[fop->lock_count].fop = fop;
+    fop->lock_count++;
+
+    lock->refs++;
+}
+
+void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc)
 {
     ec_lock_t * lock = NULL;
+    ec_inode_t * ctx = NULL;
     char * name = NULL;
     loc_t tmp;
     int32_t error;
@@ -679,116 +687,106 @@ void ec_lock_entry(ec_fop_data_t * fop, loc_t * loc)
         return;
     }
 
-    LOCK(&fop->lock);
+    LOCK(&tmp.inode->lock);
 
-    list_for_each_entry(lock, &fop->lock_list, list)
+    ctx = __ec_inode_get(tmp.inode, fop->xl);
+    if (ctx == NULL)
     {
-        if ((lock->kind == EC_LOCK_ENTRY) &&
-            (lock->loc.inode == tmp.inode) &&
-            (strcmp(lock->basename, name) == 0))
+        __ec_fop_set_error(fop, EIO);
+
+        goto unlock;
+    }
+
+    list_for_each_entry(lock, &ctx->entry_locks, list)
+    {
+        if (strcmp(lock->basename, name) == 0)
         {
-            ec_trace("LOCK_ENTRYLK", fop, "lock=%p, parent=%p, path=%s, "
+            ec_trace("LOCK_ENTRYLK", fop, "lock=%p, inode=%p, path=%s, "
                                           "name=%s. Lock already acquired",
-                     lock, loc->parent, loc->path, name);
+                     lock, tmp.inode, tmp.path, name);
 
-            lock = NULL;
-
-            goto unlock;
+            goto insert;
         }
     }
 
     lock = ec_lock_allocate(fop->xl, EC_LOCK_ENTRY, &tmp);
-    if (lock != NULL)
-    {
-        lock->type = ENTRYLK_WRLCK;
-        lock->basename = name;
-
-        if (list_empty(&fop->lock_list))
-        {
-            ec_owner_set(fop->frame, fop->frame->root);
-        }
-        list_add_tail(&lock->list, &fop->lock_list);
-    }
-    else
+    if (lock == NULL)
     {
         __ec_fop_set_error(fop, EIO);
+
+        goto unlock;
     }
+
+    ec_trace("LOCK_CREATE", fop, "lock=%p", lock);
+
+    lock->type = ENTRYLK_WRLCK;
+    lock->basename = name;
+    name = NULL;
+
+    list_add_tail(&lock->list, &ctx->entry_locks);
+
+insert:
+    ec_lock_insert(fop, lock);
 
 unlock:
-    UNLOCK(&fop->lock);
+    UNLOCK(&tmp.inode->lock);
 
     loc_wipe(&tmp);
-
-    if (lock != NULL)
-    {
-        ec_trace("LOCK_ENTRYLK", fop, "lock=%p, parent=%p, path=%s, "
-                                      "basename=%s", lock, lock->loc.inode,
-                 lock->loc.path, lock->basename);
-
-        ec_entrylk(fop->frame, fop->xl, -1, EC_MINIMUM_ALL, ec_locked, lock,
-                   fop->xl->name, &lock->loc, lock->basename, ENTRYLK_LOCK,
-                   lock->type, NULL);
-    }
-    else
-    {
-        GF_FREE(name);
-    }
+    GF_FREE(name);
 }
 
-void ec_lock_inode(ec_fop_data_t * fop, loc_t * loc)
+void ec_lock_prepare_inode(ec_fop_data_t * fop, loc_t * loc)
 {
     ec_lock_t * lock;
+    ec_inode_t * ctx;
 
     if ((fop->parent != NULL) || (fop->error != 0) || (loc->inode == NULL))
     {
         return;
     }
 
-    LOCK(&fop->lock);
+    LOCK(&loc->inode->lock);
 
-    list_for_each_entry(lock, &fop->lock_list, list)
+    ctx = __ec_inode_get(loc->inode, fop->xl);
+    if (ctx == NULL)
     {
-        if ((lock->kind == EC_LOCK_INODE) && (lock->loc.inode == loc->inode))
-        {
-            UNLOCK(&fop->lock);
+        __ec_fop_set_error(fop, EIO);
 
-            ec_trace("LOCK_INODELK", fop, "lock=%p, inode=%p. Lock already "
-                                          "acquired", lock, loc->inode);
+        goto unlock;
+    }
 
-            return;
-        }
+    if (!list_empty(&ctx->inode_locks))
+    {
+        lock = list_entry(ctx->inode_locks.next, ec_lock_t, list);
+        ec_trace("LOCK_INODELK", fop, "lock=%p, inode=%p. Lock already "
+                                      "acquired", lock, loc->inode);
+
+        goto insert;
     }
 
     lock = ec_lock_allocate(fop->xl, EC_LOCK_INODE, loc);
-    if (lock != NULL)
-    {
-        lock->flock.l_type = F_WRLCK;
-        lock->flock.l_whence = SEEK_SET;
-
-        if (list_empty(&fop->lock_list))
-        {
-            ec_owner_set(fop->frame, fop->frame->root);
-        }
-        list_add_tail(&lock->list, &fop->lock_list);
-    }
-    else
+    if (lock == NULL)
     {
         __ec_fop_set_error(fop, EIO);
+
+        goto unlock;
     }
 
-    UNLOCK(&fop->lock);
+    ec_trace("LOCK_CREATE", fop, "lock=%p", lock);
 
-    if (lock != NULL)
-    {
-        ec_trace("LOCK_INODELK", fop, "lock=%p, inode=%p, owner=%p", lock,
-                 lock->loc.inode, fop->frame->root);
+    lock->flock.l_type = F_WRLCK;
+    lock->flock.l_whence = SEEK_SET;
 
-        ec_inodelk(fop->frame, fop->xl, -1, EC_MINIMUM_ALL, ec_locked, lock,
-                   fop->xl->name, &lock->loc, F_SETLKW, &lock->flock, NULL);
-    }
+    list_add_tail(&lock->list, &ctx->inode_locks);
+
+insert:
+    ec_lock_insert(fop, lock);
+
+unlock:
+    UNLOCK(&loc->inode->lock);
 }
 
-void ec_lock_fd(ec_fop_data_t * fop, fd_t * fd)
+void ec_lock_prepare_fd(ec_fop_data_t * fop, fd_t * fd)
 {
     loc_t loc;
 
@@ -799,13 +797,107 @@ void ec_lock_fd(ec_fop_data_t * fop, fd_t * fd)
 
     if (ec_loc_from_fd(fop->xl, &loc, fd))
     {
-        ec_lock_inode(fop, &loc);
+        ec_lock_prepare_inode(fop, &loc);
 
         loc_wipe(&loc);
     }
     else
     {
         ec_fop_set_error(fop, EIO);
+    }
+}
+
+int32_t ec_locked(call_frame_t * frame, void * cookie, xlator_t * this,
+                  int32_t op_ret, int32_t op_errno, dict_t * xdata)
+{
+    ec_fop_data_t * fop = cookie;
+    ec_lock_t * lock = NULL;
+
+    if (op_ret >= 0)
+    {
+        lock = fop->data;
+        lock->mask = fop->good;
+        lock->acquired = 1;
+
+        fop->parent->mask &= fop->good;
+        fop->parent->locked++;
+
+        ec_trace("LOCKED", fop->parent, "lock=%p", lock);
+
+        ec_lock(fop->parent);
+    }
+    else
+    {
+        gf_log(this->name, GF_LOG_WARNING, "Failed to complete preop lock");
+    }
+
+    return 0;
+}
+
+void ec_lock(ec_fop_data_t * fop)
+{
+    ec_lock_t * lock;
+
+    while (fop->locked < fop->lock_count)
+    {
+        lock = fop->locks[fop->locked].lock;
+
+        LOCK(&lock->loc.inode->lock);
+
+        if (lock->owner != NULL)
+        {
+            ec_trace("LOCK_WAIT", fop, "lock=%p", lock);
+
+            list_add_tail(&fop->locks[fop->locked].wait_list, &lock->waiting);
+
+            fop->jobs++;
+            fop->refs++;
+
+            UNLOCK(&lock->loc.inode->lock);
+
+            break;
+        }
+        lock->owner = fop;
+
+        UNLOCK(&lock->loc.inode->lock);
+
+        if (!lock->acquired)
+        {
+            ec_owner_set(fop->frame, lock);
+
+            if (lock->kind == EC_LOCK_ENTRY)
+            {
+                ec_trace("LOCK_ACQUIRE", fop, "lock=%p, inode=%p, path=%s, "
+                         "name=%s", lock, lock->loc.inode, lock->loc.path,
+                         lock->basename);
+
+                ec_entrylk(fop->frame, fop->xl, -1, EC_MINIMUM_ALL, ec_locked,
+                           lock, fop->xl->name, &lock->loc, lock->basename,
+                           ENTRYLK_LOCK, lock->type, NULL);
+            }
+            else
+            {
+                ec_trace("LOCK_ACQUIRE", fop, "lock=%p, inode=%p", lock,
+                         lock->loc.inode);
+
+                ec_inodelk(fop->frame, fop->xl, -1, EC_MINIMUM_ALL, ec_locked,
+                           lock, fop->xl->name, &lock->loc, F_SETLKW,
+                           &lock->flock, NULL);
+            }
+
+            break;
+        }
+
+        ec_trace("LOCK_REUSE", fop, "lock=%p", lock);
+
+        if (lock->have_size)
+        {
+            fop->pre_size = fop->post_size = lock->size;
+            fop->have_size = 1;
+        }
+        fop->mask &= lock->good_mask;
+
+        fop->locked++;
     }
 }
 
@@ -829,50 +921,68 @@ int32_t ec_unlocked(call_frame_t * frame, void * cookie, xlator_t * this,
 
 void ec_unlock(ec_fop_data_t * fop)
 {
-    ec_lock_t * lock, * item;
+    ec_lock_t * lock;
+    int32_t i, refs;
 
-    ec_trace("UNLOCK", fop, "");
-
-    list_for_each_entry_safe(lock, item, &fop->lock_list, list)
+    for (i = 0; i < fop->lock_count; i++)
     {
-        list_del(&lock->list);
+        lock = fop->locks[i].lock;
 
-        if (lock->mask != 0)
+        LOCK(&lock->loc.inode->lock);
+
+        ec_trace("UNLOCK", fop, "lock=%p", lock);
+
+        refs = --lock->refs;
+        if (refs == 0)
         {
-            switch (lock->kind)
-            {
-                case EC_LOCK_ENTRY:
-                    ec_trace("UNLOCK_ENTRYLK", fop, "lock=%p, parent=%p, "
-                                                    "path=%s, basename=%s",
-                             lock, lock->loc.inode, lock->loc.path,
-                             lock->basename);
-
-                    ec_entrylk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ALL,
-                               ec_unlocked, lock, fop->xl->name, &lock->loc,
-                               lock->basename, ENTRYLK_UNLOCK, lock->type,
-                               NULL);
-
-                    break;
-
-                case EC_LOCK_INODE:
-                    lock->flock.l_type = F_UNLCK;
-                    ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p", lock,
-                             lock->loc.inode);
-
-                    ec_inodelk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ALL,
-                               ec_unlocked, lock, fop->xl->name, &lock->loc,
-                               F_SETLK, &lock->flock, NULL);
-
-                    break;
-
-                default:
-                    gf_log(fop->xl->name, GF_LOG_ERROR, "Invalid lock type");
-            }
+            list_del_init(&lock->list);
         }
 
-        loc_wipe(&lock->loc);
+        UNLOCK(&lock->loc.inode->lock);
 
-        GF_FREE(lock);
+        if (refs == 0)
+        {
+            if (lock->mask != 0)
+            {
+                ec_owner_set(fop->frame, lock);
+
+                switch (lock->kind)
+                {
+                    case EC_LOCK_ENTRY:
+                        ec_trace("UNLOCK_ENTRYLK", fop, "lock=%p, inode=%p, "
+                                                        "path=%s, basename=%s",
+                                 lock, lock->loc.inode, lock->loc.path,
+                                 lock->basename);
+
+                        ec_entrylk(fop->frame, fop->xl, lock->mask,
+                                   EC_MINIMUM_ALL, ec_unlocked, lock,
+                                   fop->xl->name, &lock->loc, lock->basename,
+                                   ENTRYLK_UNLOCK, lock->type, NULL);
+
+                        break;
+
+                    case EC_LOCK_INODE:
+                        lock->flock.l_type = F_UNLCK;
+                        ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p",
+                                 lock, lock->loc.inode);
+
+                        ec_inodelk(fop->frame, fop->xl, lock->mask,
+                                   EC_MINIMUM_ALL, ec_unlocked, lock,
+                                   fop->xl->name, &lock->loc, F_SETLK,
+                                   &lock->flock, NULL);
+
+                        break;
+
+                    default:
+                        gf_log(fop->xl->name, GF_LOG_ERROR, "Invalid lock "
+                                                            "type");
+                }
+            }
+
+            ec_trace("LOCK_DESTROY", fop, "lock=%p", lock);
+
+            ec_lock_destroy(lock);
+        }
     }
 }
 
@@ -883,11 +993,36 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
                                 struct iatt * postparent)
 {
     ec_fop_data_t * fop = cookie;
+    ec_inode_t * ctx;
+    ec_lock_t * lock;
 
     if (op_ret >= 0)
     {
-        fop->parent->mask &= fop->good;
+        LOCK(&inode->lock);
+
+        ctx = __ec_inode_get(inode, this);
+        if ((ctx != NULL) && !list_empty(&ctx->inode_locks))
+        {
+            lock = list_entry(ctx->inode_locks.next, ec_lock_t, list);
+
+            lock->have_size = 1;
+            lock->size = buf->ia_size;
+            lock->version = fop->answer->version;
+        }
+
+        UNLOCK(&inode->lock);
+
+        if (lock != NULL)
+        {
+            // Only update parent mask if the lookup has been made with
+            // inode locked.
+            fop->parent->mask &= fop->good;
+        }
+
         fop->parent->pre_size = fop->parent->post_size = buf->ia_size;
+
+        fop->parent->have_size = 1;
+
     }
     else
     {
@@ -907,10 +1042,17 @@ void ec_get_size_version(ec_fop_data_t * fop)
     gid_t gid;
     int32_t error = ENOMEM;
 
-    if (fop->parent != NULL)
+    if (fop->have_size)
+    {
+        return;
+    }
+
+    if ((fop->parent != NULL) && fop->parent->have_size)
     {
         fop->pre_size = fop->parent->pre_size;
         fop->post_size = fop->parent->post_size;
+
+        fop->have_size = 1;
 
         return;
     }
@@ -998,10 +1140,10 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-void ec_update_size_version(ec_fop_data_t * fop)
+void ec_update_size_version(ec_fop_data_t * fop, uint64_t version,
+                            size_t size)
 {
     dict_t * dict;
-    size_t size;
     uid_t uid;
     gid_t gid;
 
@@ -1012,20 +1154,20 @@ void ec_update_size_version(ec_fop_data_t * fop)
         return;
     }
 
+    ec_trace("UPDATE", fop, "version=%ld, size=%ld", version, size);
+
     dict = dict_new();
     if (dict == NULL)
     {
         goto out;
     }
 
-    if (ec_dict_set_number(dict, EC_XATTR_VERSION, 1) != 0)
+    if (ec_dict_set_number(dict, EC_XATTR_VERSION, version) != 0)
     {
         goto out;
     }
-    size = fop->post_size;
-    if (fop->pre_size != size)
+    if (size != 0)
     {
-        size -= fop->pre_size;
         if (ec_dict_set_number(dict, EC_XATTR_SIZE, size) != 0)
         {
             goto out;
@@ -1067,6 +1209,113 @@ out:
     ec_fop_set_error(fop, EIO);
 
     gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to update version and size");
+}
+
+void ec_flush_size_version(ec_fop_data_t * fop)
+{
+    ec_lock_t * lock;
+    uint64_t version;
+    size_t delta;
+
+    GF_ASSERT(fop->lock_count == 1);
+
+    lock = fop->locks[0].lock;
+
+    GF_ASSERT(lock->kind == EC_LOCK_INODE);
+
+    LOCK(&lock->loc.inode->lock);
+
+    GF_ASSERT(lock->owner == fop);
+
+    version = lock->version_delta;
+    delta = lock->size_delta;
+    lock->version_delta = 0;
+    lock->size_delta = 0;
+
+    UNLOCK(&lock->loc.inode->lock);
+
+    if (version > 0)
+    {
+        ec_update_size_version(fop, version, delta);
+    }
+}
+
+void ec_lock_reuse(ec_fop_data_t * fop, int32_t update)
+{
+    ec_fop_data_t * wait_fop;
+    ec_lock_t * lock;
+    ec_lock_link_t * link;
+    size_t delta = 0;
+    uint64_t version = 0;
+    int32_t refs = 0;
+    int32_t i;
+
+    for (i = 0; i < fop->lock_count; i++)
+    {
+        wait_fop = NULL;
+
+        lock = fop->locks[i].lock;
+
+        LOCK(&lock->loc.inode->lock);
+
+        ec_trace("LOCK_DONE", fop, "lock=%p", lock);
+
+        GF_ASSERT(lock->owner == fop);
+        lock->owner = NULL;
+
+        if (lock->kind == EC_LOCK_INODE)
+        {
+            if (update && (fop->error == 0))
+            {
+                lock->version_delta++;
+                lock->size_delta += fop->post_size - fop->pre_size;
+            }
+            version = lock->version_delta;
+            delta = lock->size_delta;
+            refs = lock->refs;
+            if (refs == 1)
+            {
+                lock->version_delta = 0;
+                lock->size_delta = 0;
+            }
+
+            if (fop->have_size)
+            {
+                lock->size = fop->post_size;
+                lock->have_size = 1;
+            }
+        }
+        lock->good_mask &= fop->mask;
+
+        if (!list_empty(&lock->waiting))
+        {
+            link = list_entry(lock->waiting.next, ec_lock_link_t, wait_list);
+            list_del_init(&link->wait_list);
+
+            wait_fop = link->fop;
+
+            if (lock->kind == EC_LOCK_INODE)
+            {
+                wait_fop->pre_size = wait_fop->post_size = fop->post_size;
+                wait_fop->have_size = fop->have_size;
+            }
+            wait_fop->mask &= fop->mask;
+        }
+
+        UNLOCK(&lock->loc.inode->lock);
+
+        if (wait_fop != NULL)
+        {
+            ec_lock(wait_fop);
+
+            ec_resume(wait_fop, 0);
+        }
+    }
+
+    if ((refs == 1) && (version > 0))
+    {
+        ec_update_size_version(fop, version, delta);
+    }
 }
 
 void __ec_manager(ec_fop_data_t * fop, int32_t error)

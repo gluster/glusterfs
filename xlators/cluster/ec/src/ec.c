@@ -151,6 +151,11 @@ void __ec_destroy_private(xlator_t * this)
             mem_pool_destroy(ec->cbk_pool);
         }
 
+        if (ec->lock_pool != NULL)
+        {
+            mem_pool_destroy(ec->lock_pool);
+        }
+
         LOCK_DESTROY(&ec->lock);
 
         GF_FREE(ec);
@@ -350,7 +355,9 @@ int32_t init(xlator_t * this)
 
     ec->fop_pool = mem_pool_new(ec_fop_data_t, 1024);
     ec->cbk_pool = mem_pool_new(ec_cbk_data_t, 4096);
-    if ((ec->fop_pool == NULL) || (ec->cbk_pool == NULL))
+    ec->lock_pool = mem_pool_new(ec_lock_t, 1024);
+    if ((ec->fop_pool == NULL) || (ec->cbk_pool == NULL) ||
+        (ec->lock_pool == NULL))
     {
         gf_log(this->name, GF_LOG_ERROR, "Failed to create memory pools.");
 

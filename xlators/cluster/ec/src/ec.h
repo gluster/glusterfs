@@ -49,6 +49,7 @@ struct _ec
     gf_timer_t *      timer;
     struct mem_pool * fop_pool;
     struct mem_pool * cbk_pool;
+    struct mem_pool * lock_pool;
 };
 
 #endif /* __EC_H__ */

@@ -92,7 +92,15 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_inode(fop, &fop->loc[0]);
+            if (fop->fd == NULL)
+            {
+                ec_lock_prepare_inode(fop, &fop->loc[0]);
+            }
+            else
+            {
+                ec_lock_prepare_fd(fop, fop->fd);
+            }
+            ec_lock(fop);
 
             return EC_STATE_DISPATCH;
 
@@ -149,11 +157,7 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            if (cbk->op_ret >= 0)
-            {
-                return EC_STATE_UPDATE_SIZE_AND_VERSION;
-            }
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
@@ -178,14 +182,14 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 1);
+
             return EC_STATE_UNLOCK;
 
-        case EC_STATE_UPDATE_SIZE_AND_VERSION:
-            ec_update_size_version(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UPDATE_SIZE_AND_VERSION:
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
             ec_unlock(fop);
@@ -484,7 +488,15 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_inode(fop, &fop->loc[0]);
+            if (fop->fd == NULL)
+            {
+                ec_lock_prepare_inode(fop, &fop->loc[0]);
+            }
+            else
+            {
+                ec_lock_prepare_fd(fop, fop->fd);
+            }
+            ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
 
@@ -556,11 +568,7 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            if (cbk->op_ret >= 0)
-            {
-                return EC_STATE_UPDATE_SIZE_AND_VERSION;
-            }
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
@@ -586,14 +594,14 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 1);
+
             return EC_STATE_UNLOCK;
 
-        case EC_STATE_UPDATE_SIZE_AND_VERSION:
-            ec_update_size_version(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UPDATE_SIZE_AND_VERSION:
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
             ec_unlock(fop);
@@ -870,7 +878,15 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_inode(fop, &fop->loc[0]);
+            if (fop->fd == NULL)
+            {
+                ec_lock_prepare_inode(fop, &fop->loc[0]);
+            }
+            else
+            {
+                ec_lock_prepare_fd(fop, fop->fd);
+            }
+            ec_lock(fop);
 
             return EC_STATE_DISPATCH;
 
@@ -926,11 +942,7 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            if (cbk->op_ret >= 0)
-            {
-                return EC_STATE_UPDATE_SIZE_AND_VERSION;
-            }
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
@@ -955,14 +967,14 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 1);
+
             return EC_STATE_UNLOCK;
 
-        case EC_STATE_UPDATE_SIZE_AND_VERSION:
-            ec_update_size_version(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UPDATE_SIZE_AND_VERSION:
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
             ec_unlock(fop);
@@ -1366,7 +1378,15 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_inode(fop, &fop->loc[0]);
+            if (fop->fd == NULL)
+            {
+                ec_lock_prepare_inode(fop, &fop->loc[0]);
+            }
+            else
+            {
+                ec_lock_prepare_fd(fop, fop->fd);
+            }
+            ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
 
@@ -1447,11 +1467,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            if (cbk->op_ret >= 0)
-            {
-                return EC_STATE_UPDATE_SIZE_AND_VERSION;
-            }
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
@@ -1477,14 +1493,14 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 1);
+
             return EC_STATE_UNLOCK;
 
-        case EC_STATE_UPDATE_SIZE_AND_VERSION:
-            ec_update_size_version(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UPDATE_SIZE_AND_VERSION:
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
             ec_unlock(fop);
@@ -2003,7 +2019,8 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
 
@@ -2015,9 +2032,9 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_DISPATCH:
             ec_writev_start(fop);
 
-            return EC_STATE_WRITE_START;
+            return EC_STATE_DELAYED_START;
 
-        case EC_STATE_WRITE_START:
+        case EC_STATE_DELAYED_START:
             ec_dispatch_all(fop);
 
             return EC_STATE_PREPARE_ANSWER;
@@ -2089,11 +2106,7 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
                                  cbk->xdata);
             }
 
-            if (cbk->op_ret >= 0)
-            {
-                return EC_STATE_UPDATE_SIZE_AND_VERSION;
-            }
-            return EC_STATE_UNLOCK;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
@@ -2108,14 +2121,14 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
                                  NULL, NULL, NULL);
             }
 
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop, 1);
+
             return EC_STATE_UNLOCK;
 
-        case EC_STATE_UPDATE_SIZE_AND_VERSION:
-            ec_update_size_version(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UPDATE_SIZE_AND_VERSION:
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
             ec_unlock(fop);
