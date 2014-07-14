@@ -47,10 +47,10 @@
 #define EC_STATE_DISPATCH                     4
 #define EC_STATE_PREPARE_ANSWER               5
 #define EC_STATE_REPORT                       6
-#define EC_STATE_UPDATE_SIZE_AND_VERSION      7
+#define EC_STATE_LOCK_REUSE                   7
 #define EC_STATE_UNLOCK                       8
 
-#define EC_STATE_WRITE_START                100
+#define EC_STATE_DELAYED_START              100
 
 #define EC_STATE_HEAL_ENTRY_LOOKUP          200
 #define EC_STATE_HEAL_ENTRY_PREPARE         201
@@ -81,14 +81,15 @@ void ec_update_bad(ec_fop_data_t * fop, uintptr_t good);
 
 void ec_fop_set_error(ec_fop_data_t * fop, int32_t error);
 
-void ec_lock_inode(ec_fop_data_t * fop, loc_t * loc);
-void ec_lock_entry(ec_fop_data_t * fop, loc_t * loc);
-void ec_lock_fd(ec_fop_data_t * fop, fd_t * fd);
-
+void ec_lock_prepare_inode(ec_fop_data_t * fop, loc_t * loc);
+void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc);
+void ec_lock_prepare_fd(ec_fop_data_t * fop, fd_t * fd);
+void ec_lock(ec_fop_data_t * fop);
+void ec_lock_reuse(ec_fop_data_t * fop, int32_t update);
 void ec_unlock(ec_fop_data_t * fop);
 
 void ec_get_size_version(ec_fop_data_t * fop);
-void ec_update_size_version(ec_fop_data_t * fop);
+void ec_flush_size_version(ec_fop_data_t * fop);
 
 void ec_dispatch_all(ec_fop_data_t * fop);
 void ec_dispatch_inc(ec_fop_data_t * fop);
@@ -97,8 +98,8 @@ void ec_dispatch_one(ec_fop_data_t * fop);
 
 void ec_wait_winds(ec_fop_data_t * fop);
 
+void ec_resume(ec_fop_data_t * fop, int32_t error);
 void ec_resume_parent(ec_fop_data_t * fop, int32_t error);
-void ec_report(ec_fop_data_t * fop, int32_t error);
 
 void ec_manager(ec_fop_data_t * fop, int32_t error);
 
