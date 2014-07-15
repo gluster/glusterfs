@@ -850,6 +850,80 @@ out:
         return ret;
 }
 
+int
+dht_lookup_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno,
+                       struct iatt *preparent, struct iatt *postparent,
+                       dict_t *xdata)
+{
+        int  this_call_cnt = 0;
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                dht_lookup_everywhere_done (frame, this);
+        }
+
+        return 0;
+}
+
+int
+dht_lookup_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
+                                    xlator_t *this, int op_ret, int op_errno,
+                                    struct iatt *preparent,
+                                    struct iatt *postparent, dict_t *xdata)
+{
+
+        /* NOTE:
+         * If stale file unlink fails either there is an open-fd or is not an
+         * dht-linkto-file then posix_unlink returns EBUSY, which is overwritten
+         *  to ENOENT
+         */
+
+        DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
+                          NULL);
+
+        return 0;
+}
+
+/* Rebalance is performed from cached_node to hashed_node. Initial cached_node
+ * contains a non-linkto file. After migration it is converted to linkto and
+ * then unlinked. And at hashed_subvolume, first a linkto file is present,
+ * then after migration it is converted to a non-linkto file.
+ *
+ * Lets assume a file is present on cached subvolume and a new brick is added
+ * and new brick is the new_hashed subvolume. So fresh lookup on newly added
+ * hashed subvolume will fail and dht_lookup_everywhere gets called.  If just
+ * before sending the dht_lookup_everywhere request rebalance is in progress,
+ *
+ * from cached subvolume it may see: Nonlinkto or linkto or No file
+ * from hashed subvolume it may see: No file or linkto file or non-linkto file
+ *
+ * So this boils down to 9 cases:
+ *   at cached_subvol            at hashed_subvol
+ *   ----------------           -----------------
+ *
+ *a)   No file                     No file
+ *    [request reached after    [Request reached before
+ *       migration]                Migration]
+ *
+ *b)   No file                     Linkto File
+ *
+ *c)   No file                     Non-Linkto File
+ *
+ *d)   Linkto                      No-File
+ *
+ *e)   Linkto                      Linkto
+ *
+ *f)   Linkto                      Non-Linkto
+ *
+ *g)   NonLinkto                   No-File
+ *
+ *h)   NonLinkto                   Linkto
+ *
+ *i)   NonLinkto                   NonLinkto
+ *
+ * dht_lookup_everywhere_done takes decision based on any of the above case
+ */
 
 int
 dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
@@ -860,6 +934,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
         xlator_t     *cached_subvol = NULL;
         dht_layout_t *layout = NULL;
         char gfid[GF_UUID_BUF_SIZE] = {0};
+        gf_boolean_t  found_non_linkto_on_hashed = _gf_false;
 
         local = frame->local;
         hashed_subvol = local->hashed_subvol;
@@ -884,19 +959,167 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
+
         if (!cached_subvol) {
-                DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
-                                  NULL);
+
+                if (local->skip_unlink.handle_valid_link && hashed_subvol) {
+
+                        /*Purpose of "unlink-only-if-dht-linkto-file":
+                         * If this lookup is performed by rebalance and this
+                         * rebalance process detected hashed file and by
+                         * the time it sends the lookup request to cached node,
+                         * file got migrated and now at intial hashed_node,
+                         * final migrated file is present. With current logic,
+                         * because this process fails to find the cached_node,
+                         * it will unlink the file at initial hashed_node.
+                         *
+                         * So we avoid this by setting key, and checking at the
+                         * posix_unlink that unlink the file only if file is a
+                         * linkto file and not a migrated_file.
+                         */
+
+                        ret = dict_set_int32 (local->xattr_req,
+                                              "unlink-only-if-dht-linkto-file",
+                                              1);
+
+                        if (ret)
+                                goto dict_err;
+
+                        /*Later other consumers can also use this key to avoid
+                         * unlinking in case of open_fd
+                         */
+
+                        ret = dict_set_int32 (local->xattr_req,
+                                              "dont-unlink-for-open-fd", 1);
+
+dict_err:
+                        if (ret) {
+                                /* If for some reason, setting key in the dict
+                                 * fails, return with ENOENT, as with respect to
+                                 * this process, it detected only a stale link
+                                 * file.
+                                 *
+                                 * Next lookup will delete it.
+                                 *
+                                 * Performing deletion of stale link file when
+                                 * setting key in dict fails, may cause the data
+                                 * loss becase of the above mentioned race.
+                                 */
+
+
+                                DHT_STACK_UNWIND (lookup, frame, -1, ENOENT,
+                                                  NULL, NULL, NULL, NULL);
+                        } else {
+                               local->skip_unlink.handle_valid_link = _gf_false;
+                                STACK_WIND (frame,
+                                            dht_lookup_unlink_stale_linkto_cbk,
+                                            hashed_subvol,
+                                            hashed_subvol->fops->unlink,
+                                            &local->loc, 0, local->xattr_req);
+                        }
+
+                } else  {
+
+                        DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL,
+                                          NULL, NULL);
+                }
                 return 0;
         }
 
-        if (local->need_lookup_everywhere) {
-                if (uuid_compare (local->gfid, local->inode->gfid)) {
-                        /* GFID different, return error */
-                        DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL,
-                                          NULL, NULL, NULL);
-                        return 0;
+        /* At the time of dht_lookup, no file was found on hashed and that is
+         * why dht_lookup_everywhere is called, but by the time
+         * dht_lookup_everywhere
+         * reached to server, file might have already migrated. In that case we
+         * will find a migrated file at the hashed_node. In this case store the
+         * layout in context and return successfully.
+         */
+
+        if (hashed_subvol || local->need_lookup_everywhere) {
+
+                if (local->need_lookup_everywhere) {
+
+                        found_non_linkto_on_hashed = _gf_true;
+
+                } else if ((local->file_count == 1) &&
+                            (hashed_subvol == cached_subvol)) {
+
+                        found_non_linkto_on_hashed = _gf_true;
                 }
+
+                if (found_non_linkto_on_hashed)
+                        goto preset_layout;
+
+        }
+
+
+        if (hashed_subvol) {
+                if (local->skip_unlink.handle_valid_link == _gf_true) {
+                        if (cached_subvol == local->skip_unlink.hash_links_to) {
+
+                             if (uuid_compare (local->skip_unlink.cached_gfid,
+                                               local->skip_unlink.hashed_gfid)){
+
+                                        /*GFID different, return error*/
+                                     DHT_STACK_UNWIND (lookup, frame, -1,
+                                                       ESTALE, NULL, NULL, NULL,
+                                                       NULL);
+
+
+                                }
+
+                                ret = dht_layout_preset (this, cached_subvol,
+                                                         local->loc.inode);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_INFO,
+                                                "Could not set pre-set layout "
+                                                "for subvolume %s",
+                                                cached_subvol->name);
+                                }
+
+                                local->op_ret = (ret == 0) ? ret : -1;
+                                local->op_errno = (ret == 0) ? ret : EINVAL;
+
+                                /* Presence of local->cached_subvol validates
+                                 * that lookup from cached node is successful
+                                 */
+
+                                if (!local->op_ret && local->loc.parent) {
+                                        dht_inode_ctx_time_update
+                                                (local->loc.parent, this,
+                                                 &local->postparent, 1);
+                                }
+                                goto unwind_hashed_and_cached;
+                        } else {
+
+                               local->skip_unlink.handle_valid_link = _gf_false;
+                                if (local->skip_unlink.opend_fd_count == 0) {
+                                        local->call_cnt = 1;
+                                        STACK_WIND (frame, dht_lookup_unlink_cbk,
+                                                    hashed_subvol,
+                                                    hashed_subvol->fops->unlink,
+                                                    &local->loc, 0, NULL);
+                                        return 0;
+
+                                }
+                        }
+
+                }
+        }
+
+
+preset_layout:
+
+        if (found_non_linkto_on_hashed) {
+
+                if (local->need_lookup_everywhere) {
+                        if (uuid_compare (local->gfid, local->inode->gfid)) {
+                                /* GFID different, return error */
+                                DHT_STACK_UNWIND (lookup, frame, -1, ENOENT,
+                                                  NULL, NULL, NULL, NULL);
+                                return 0;
+                        }
+                }
+
                 local->op_ret = 0;
                 local->op_errno = 0;
                 layout = dht_layout_for_subvol (this, cached_subvol);
@@ -977,25 +1200,14 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                    cached_subvol, hashed_subvol, &local->loc);
 
         return ret;
-}
 
-
-int
-dht_lookup_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno,
-                       struct iatt *preparent, struct iatt *postparent,
-                       dict_t *xdata)
-{
-        int  this_call_cnt = 0;
-
-        this_call_cnt = dht_frame_return (frame);
-        if (is_last_call (this_call_cnt)) {
-                dht_lookup_everywhere_done (frame, this);
-        }
-
+unwind_hashed_and_cached:
+        DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+        DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
+                          local->loc.inode, &local->stbuf, local->xattr,
+                          &local->postparent);
         return 0;
 }
-
 
 int
 dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1089,6 +1301,9 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                                 dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
+
+                                uuid_copy (local->skip_unlink.cached_gfid,
+                                           buf->ia_gfid);
                         } else {
                                 /* This is where we need 'rename' both entries logic */
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -1106,9 +1321,27 @@ unlock:
 
         if (is_linkfile) {
                 ret = dict_get_int32 (xattr, GLUSTERFS_OPEN_FD_COUNT, &fd_count);
-                /* Delete the linkfile only if there are no open fds on it.
-                   if there is a open-fd, it may be in migration */
-                if (!ret && (fd_count == 0)) {
+
+                /*  Any linkto file found on the non-hashed subvolume should
+                 *  be unlinked (performed in the "else if" block below)
+                 *
+                 *  But if a linkto file is found on hashed subvolume, it may be
+                 *  pointing to vaild cached node. So unlinking of linkto
+                 *  file on hashed subvolume is skipped and inside
+                 *  dht_lookup_everywhere_done, checks are performed. If this
+                 *  linkto file is found as stale linkto file, it is deleted
+                 *  otherwise unlink is skipped.
+                 */
+
+                if (local->hashed_subvol && local->hashed_subvol == subvol) {
+
+                        local->skip_unlink.handle_valid_link = _gf_true;
+                        local->skip_unlink.opend_fd_count = fd_count;
+                        local->skip_unlink.hash_links_to = link_subvol;
+                        uuid_copy (local->skip_unlink.hashed_gfid,
+                                   buf->ia_gfid);
+
+                } else if (!ret && (fd_count == 0)) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "deleting stale linkfile %s on %s",
                                 loc->path, subvol->name);
