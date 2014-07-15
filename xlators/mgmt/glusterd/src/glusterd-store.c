@@ -2126,6 +2126,25 @@ glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
+        /*
+         * This is needed for upgrade situations. Say a volume is created with
+         * older version of glusterfs and upgraded to a glusterfs version equal
+         * to or greater than GD_OP_VERSION_3_6_0. The older glusterd would not
+         * have created the snapd.info file related to snapshot daemon for user
+         * serviceable snapshots. So as part of upgrade when the new glusterd
+         * starts, as part of restore (restoring the volume to be precise), it
+         * tries to snapd related info from snapd.info file. But since there was
+         * no such file till now, the restore operation fails. Thus, to prevent
+         * it from happening check whether user serviceable snapshots features
+         * is enabled before restoring snapd. If its disbaled, then simply
+         * exit by returning success (without even checking for the snapd.info).
+         */
+
+        if (!dict_get_str_boolean (volinfo->dict, "features.uss", _gf_false)) {
+                ret = 0;
+                goto out;
+        }
+
         GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, conf);
 
         snprintf (path, sizeof (path), "%s/%s", volpath,
