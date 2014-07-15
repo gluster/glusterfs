@@ -3199,3 +3199,36 @@ gf_check_logger (const char *value)
 
         return logger;
 }
+
+/* gf_compare_sockaddr compares the given addresses @addr1 and @addr2 for
+ * equality, ie. if they both refer to the same address.
+ *
+ * This was inspired by sock_addr_cmp_addr() from
+ * https://www.opensource.apple.com/source/postfix/postfix-197/postfix/src/util/sock_addr.c
+ */
+gf_boolean_t
+gf_compare_sockaddr (const struct sockaddr *addr1,
+                     const struct sockaddr *addr2)
+{
+        GF_ASSERT (addr1 != NULL);
+        GF_ASSERT (addr2 != NULL);
+
+        /* Obviously, the addresses don't match if their families are different
+         */
+        if (addr1->sa_family != addr2->sa_family)
+                return _gf_false;
+
+
+        if (AF_INET == addr1->sa_family) {
+                if (((struct sockaddr_in *)addr1)->sin_addr.s_addr ==
+                       ((struct sockaddr_in *)addr2)->sin_addr.s_addr)
+                        return _gf_true;
+
+        } else if (AF_INET6 == addr1->sa_family) {
+                if (memcmp ((char *)&((struct sockaddr_in6 *)addr1)->sin6_addr,
+                            (char *)&((struct sockaddr_in6 *)addr2)->sin6_addr,
+                            sizeof (struct in6_addr)) == 0)
+                        return _gf_true;
+        }
+        return _gf_false;
+}

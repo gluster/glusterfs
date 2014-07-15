@@ -521,8 +521,9 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         if (!gf_is_local_addr (host)) {
-                ret = glusterd_friend_find (NULL, host, &peerinfo);
-                if (ret) {
+                peerinfo = glusterd_peerinfo_find (NULL, host);
+                if (peerinfo == NULL) {
+                        ret = -1;
                         snprintf (msg, sizeof (msg), "%s, is not a friend",
                                   host);
                         *op_errstr = gf_strdup (msg);

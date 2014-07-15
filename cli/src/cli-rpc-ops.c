@@ -215,6 +215,31 @@ out:
 }
 
 int
+gf_cli_output_peer_hostnames (dict_t *dict, int count, char *prefix)
+{
+        int ret = -1;
+        char key[256] = {0,};
+        int i = 0;
+        char *hostname = NULL;
+
+        cli_out ("Other names:");
+        /* Starting from friend.hostname1, as friend.hostname0 will be the same
+         * as friend.hostname
+         */
+        for (i = 1; i < count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.hostname%d", prefix, i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        break;
+                cli_out ("%s", hostname);
+                hostname = NULL;
+        }
+
+        return ret;
+}
+
+int
 gf_cli_output_peer_status (dict_t *dict, int count)
 {
         int                        ret   = -1;
@@ -225,6 +250,7 @@ gf_cli_output_peer_status (dict_t *dict, int count)
         char                       *state = NULL;
         int32_t                    connected = 0;
         char                       *connected_str = NULL;
+        int                        hostname_count = 0;
 
         cli_out ("Number of Peers: %d", count);
         i = 1;
@@ -256,6 +282,19 @@ gf_cli_output_peer_status (dict_t *dict, int count)
 
                 cli_out ("\nHostname: %s\nUuid: %s\nState: %s (%s)",
                          hostname_buf, uuid_buf, state, connected_str);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "friend%d.hostname_count", i);
+                ret = dict_get_int32 (dict, key, &hostname_count);
+                /* Print other addresses only if there are more than 1.
+                 */
+                if ((ret == 0) && (hostname_count > 1)) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "friend%d", i);
+                        ret = gf_cli_output_peer_hostnames (dict,
+                                                            hostname_count,
+                                                            key);
+                }
                 i++;
         }
 

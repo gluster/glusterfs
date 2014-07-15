@@ -313,8 +313,8 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
 
         GF_ASSERT (conf);
 
-        ret = glusterd_friend_find (NULL, probe_ctx->hostname, &peerinfo);
-        if (ret) {
+        peerinfo = glusterd_peerinfo_find (NULL, probe_ctx->hostname);
+        if (peerinfo == NULL) {
                 //We should not reach this state ideally
                 GF_ASSERT (0);
                 goto out;
@@ -456,7 +456,6 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_conf_t              *priv              = NULL;
         dict_t                       *friends           = NULL;
         char                          key[100]          = {0,};
-        char                         *dup_buf           = NULL;
         int32_t                       count             = 0;
 
         GF_ASSERT (event);
@@ -483,17 +482,12 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                         continue;
 
                 count++;
-                snprintf (key, sizeof (key), "friend%d.uuid", count);
-                dup_buf = gf_strdup (uuid_utoa (peerinfo->uuid));
-                ret = dict_set_dynstr (friends, key, dup_buf);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "friend%d", count);
+                ret = gd_add_friend_to_dict (peerinfo, friends, key);
                 if (ret)
                         goto out;
-                snprintf (key, sizeof (key), "friend%d.hostname", count);
-                ret = dict_set_str (friends, key, peerinfo->hostname);
-                if (ret)
-                        goto out;
-                gf_log ("", GF_LOG_INFO, "Added uuid: %s, host: %s",
-                        dup_buf, peerinfo->hostname);
         }
 
         ret = dict_set_int32 (friends, "count", count);
@@ -622,7 +616,7 @@ glusterd_ac_friend_remove (glusterd_friend_sm_event_t *event, void *ctx)
                 gf_msg (THIS->name, GF_LOG_WARNING, 0, GD_MSG_VOL_CLEANUP_FAIL,
                         "Volumes cleanup failed");
 
-        ret = glusterd_friend_cleanup (event->peerinfo);
+        ret = glusterd_peerinfo_cleanup (event->peerinfo);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Cleanup returned: %d", ret);
         }

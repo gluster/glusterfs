@@ -82,18 +82,6 @@
 
 static glusterd_lock_t lock;
 
-char*
-gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo)
-{
-        if ((peerinfo == NULL) || uuid_is_null (peerinfo->uuid))
-                return NULL;
-
-        if (peerinfo->uuid_str[0] == '\0')
-                uuid_utoa_r (peerinfo->uuid, peerinfo->uuid_str);
-
-        return peerinfo->uuid_str;
-}
-
 
 int32_t
 glusterd_get_lock_owner (uuid_t *uuid)
@@ -1403,38 +1391,6 @@ out:
         return decommissioned;
 }
 
-int32_t
-glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
-{
-        GF_ASSERT (peerinfo);
-        glusterd_peerctx_t      *peerctx = NULL;
-        gf_boolean_t            quorum_action = _gf_false;
-        glusterd_conf_t         *priv = THIS->private;
-
-        if (peerinfo->quorum_contrib != QUORUM_NONE)
-                quorum_action = _gf_true;
-        if (peerinfo->rpc) {
-                /* cleanup the saved-frames before last unref */
-                synclock_unlock (&priv->big_lock);
-                rpc_clnt_connection_cleanup (&peerinfo->rpc->conn);
-                synclock_lock (&priv->big_lock);
-
-                peerctx = peerinfo->rpc->mydata;
-                peerinfo->rpc->mydata = NULL;
-                peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
-                peerinfo->rpc = NULL;
-                if (peerctx) {
-                        GF_FREE (peerctx->errstr);
-                        GF_FREE (peerctx);
-                }
-        }
-        glusterd_peer_destroy (peerinfo);
-
-        if (quorum_action)
-                glusterd_do_quorum_action ();
-        return 0;
-}
-
 int
 glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volinfo)
 {
@@ -1983,32 +1939,6 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         if (del_brick)
                 glusterd_delete_brick (volinfo, brickinfo);
 
-        return ret;
-}
-
-int32_t
-glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name)
-{
-        glusterd_peer_hostname_t        *peer_hostname = NULL;
-        int32_t                         ret = -1;
-
-        GF_ASSERT (hostname);
-        GF_ASSERT (name);
-
-        peer_hostname = GF_CALLOC (1, sizeof (*peer_hostname),
-                                   gf_gld_mt_peer_hostname_t);
-
-        if (!peer_hostname)
-                goto out;
-
-        peer_hostname->hostname = gf_strdup (hostname);
-        INIT_LIST_HEAD (&peer_hostname->hostname_list);
-
-        *name = peer_hostname;
-        ret = 0;
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -7671,163 +7601,6 @@ out:
         return ret;
 }
 
-int
-glusterd_friend_find_by_uuid (uuid_t uuid,
-                              glusterd_peerinfo_t  **peerinfo)
-{
-        int                     ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_peerinfo_t     *entry = NULL;
-        xlator_t                *this = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        GF_ASSERT (peerinfo);
-
-        *peerinfo = NULL;
-        priv    = this->private;
-
-        GF_ASSERT (priv);
-
-        if (uuid_is_null (uuid))
-                return -1;
-
-        list_for_each_entry (entry, &priv->peers, uuid_list) {
-                if (!uuid_compare (entry->uuid, uuid)) {
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                 "Friend found... state: %s",
-                        glusterd_friend_sm_state_name_get (entry->state.state));
-                        *peerinfo = entry;
-                        return 0;
-                }
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG, "Friend with uuid: %s, not found",
-                uuid_utoa (uuid));
-        return ret;
-}
-
-
-int
-glusterd_friend_find_by_hostname (const char *hoststr,
-                                  glusterd_peerinfo_t  **peerinfo)
-{
-        int                     ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_peerinfo_t     *entry = NULL;
-        struct addrinfo         *addr = NULL;
-        struct addrinfo         *p = NULL;
-        char                    *host = NULL;
-        struct sockaddr_in6     *s6 = NULL;
-        struct sockaddr_in      *s4 = NULL;
-        struct in_addr          *in_addr = NULL;
-        char                    hname[1024] = {0,};
-        xlator_t                *this  = NULL;
-
-
-        this = THIS;
-        GF_ASSERT (hoststr);
-        GF_ASSERT (peerinfo);
-
-        *peerinfo = NULL;
-        priv    = this->private;
-
-        GF_ASSERT (priv);
-
-        list_for_each_entry (entry, &priv->peers, uuid_list) {
-                if (!strncasecmp (entry->hostname, hoststr,
-                                  1024)) {
-
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                 "Friend %s found.. state: %d", hoststr,
-                                  entry->state.state);
-                        *peerinfo = entry;
-                        return 0;
-                }
-        }
-
-        ret = getaddrinfo (hoststr, NULL, NULL, &addr);
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "error in getaddrinfo: %s\n",
-                        gai_strerror(ret));
-                goto out;
-        }
-
-        for (p = addr; p != NULL; p = p->ai_next) {
-                switch (p->ai_family) {
-                        case AF_INET:
-                                s4 = (struct sockaddr_in *) p->ai_addr;
-                                in_addr = &s4->sin_addr;
-                                break;
-                        case AF_INET6:
-                                s6 = (struct sockaddr_in6 *) p->ai_addr;
-                                in_addr =(struct in_addr *) &s6->sin6_addr;
-                                break;
-                       default: ret = -1;
-                                goto out;
-                }
-                host = inet_ntoa(*in_addr);
-
-                ret = getnameinfo (p->ai_addr, p->ai_addrlen, hname,
-                                   1024, NULL, 0, 0);
-                if (ret)
-                        goto out;
-
-                list_for_each_entry (entry, &priv->peers, uuid_list) {
-                        if (!strncasecmp (entry->hostname, host,
-                            1024) || !strncasecmp (entry->hostname,hname,
-                            1024)) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Friend %s found.. state: %d",
-                                        hoststr, entry->state.state);
-                                *peerinfo = entry;
-                                freeaddrinfo (addr);
-                                return 0;
-                        }
-                }
-        }
-
-out:
-        gf_log (this->name, GF_LOG_DEBUG, "Unable to find friend: %s", hoststr);
-        if (addr)
-                freeaddrinfo (addr);
-        return -1;
-}
-
-int
-glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
-{
-        GF_ASSERT (hostname);
-        GF_ASSERT (uuid);
-
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        glusterd_conf_t         *priv = NULL;
-        int                     ret = -1;
-        xlator_t                *this = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        ret = glusterd_friend_find_by_hostname (hostname, &peerinfo);
-        if (ret) {
-                if (gf_is_local_addr (hostname)) {
-                        uuid_copy (uuid, MY_UUID);
-                        ret = 0;
-                } else {
-                        goto out;
-                }
-        } else {
-                uuid_copy (uuid, peerinfo->uuid);
-        }
-
-out:
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
-        return ret;
-}
 
 int
 glusterd_brick_stop (glusterd_volinfo_t *volinfo,
@@ -7946,9 +7719,9 @@ glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                 }
 
         } else {
-                ret = glusterd_friend_find_by_uuid (newbrickinfo->uuid,
-                                                    &peerinfo);
-                if (ret) {
+                peerinfo = glusterd_peerinfo_find_by_uuid (newbrickinfo->uuid);
+                if (peerinfo == NULL) {
+                        ret = -1;
                         snprintf (op_errstr, len, "Failed to find host %s",
                                   newbrickinfo->hostname);
                         goto out;
@@ -8375,76 +8148,6 @@ out:
 }
 
 int
-glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
-                       glusterd_friend_sm_state_t state, uuid_t *uuid,
-                       const char *hostname, int port)
-{
-        glusterd_peerinfo_t      *new_peer = NULL;
-        int                      ret = -1;
-
-        GF_ASSERT (peerinfo);
-        if (!peerinfo)
-                goto out;
-
-        new_peer = GF_CALLOC (1, sizeof (*new_peer), gf_gld_mt_peerinfo_t);
-        if (!new_peer)
-                goto out;
-
-        new_peer->state.state = state;
-        if (hostname)
-                new_peer->hostname = gf_strdup (hostname);
-
-        INIT_LIST_HEAD (&new_peer->uuid_list);
-
-        if (uuid) {
-                uuid_copy (new_peer->uuid, *uuid);
-        }
-
-        ret = glusterd_sm_tr_log_init (&new_peer->sm_log,
-                                       glusterd_friend_sm_state_name_get,
-                                       glusterd_friend_sm_event_name_get,
-                                       GLUSTERD_TR_LOG_SIZE);
-        if (ret)
-                goto out;
-
-        if (new_peer->state.state == GD_FRIEND_STATE_BEFRIENDED)
-                new_peer->quorum_contrib = QUORUM_WAITING;
-        new_peer->port = port;
-        *peerinfo = new_peer;
-out:
-        if (ret && new_peer)
-                glusterd_friend_cleanup (new_peer);
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
-        return ret;
-}
-
-int32_t
-glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
-{
-        int32_t                         ret = -1;
-
-        if (!peerinfo)
-                goto out;
-
-        ret = glusterd_store_delete_peerinfo (peerinfo);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Deleting peer info failed");
-        }
-
-        list_del_init (&peerinfo->uuid_list);
-        GF_FREE (peerinfo->hostname);
-        glusterd_sm_tr_log_delete (&peerinfo->sm_log);
-        GF_FREE (peerinfo);
-        peerinfo = NULL;
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-int
 glusterd_remove_pending_entry (struct list_head *list, void *elem)
 {
         glusterd_pending_node_t *pending_node = NULL;
@@ -8477,16 +8180,6 @@ glusterd_clear_pending_nodes (struct list_head *list)
         }
 
         return 0;
-}
-
-gf_boolean_t
-glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo)
-{
-        GF_ASSERT (peerinfo);
-
-        if (uuid_is_null (peerinfo->uuid))
-                return _gf_true;
-        return _gf_false;
 }
 
 int32_t
@@ -9149,36 +8842,6 @@ out:
         return ret;
 }
 
-/* Check if the all peers are connected and befriended, except the peer
- * specified (the peer being detached)
- */
-gf_boolean_t
-glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
-{
-        gf_boolean_t            ret = _gf_true;
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        glusterd_conf_t         *priv = NULL;
-
-        priv= THIS->private;
-        GF_ASSERT (priv);
-
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-
-                if (!uuid_is_null (skip_uuid) && !uuid_compare (skip_uuid,
-                                                           peerinfo->uuid))
-                        continue;
-
-                if ((GD_FRIEND_STATE_BEFRIENDED != peerinfo->state.state)
-                    || !(peerinfo->connected)) {
-                        ret = _gf_false;
-                        break;
-                }
-        }
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %s",
-                (ret?"TRUE":"FALSE"));
-        return ret;
-}
-
 void
 glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
                               gf_transport_type type)
@@ -9301,34 +8964,6 @@ glusterd_volinfo_reset_defrag_stats (glusterd_volinfo_t *volinfo)
         rebal->rebalance_time = 0;
         rebal->skipped_files = 0;
 
-}
-
-/* Return hostname for given uuid if it exists
- * else return NULL
- */
-char *
-glusterd_uuid_to_hostname (uuid_t uuid)
-{
-        char                    *hostname = NULL;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_peerinfo_t     *entry = NULL;
-
-        priv = THIS->private;
-        GF_ASSERT (priv);
-
-        if (!uuid_compare (MY_UUID, uuid)) {
-                hostname = gf_strdup ("localhost");
-        }
-        if (!list_empty (&priv->peers)) {
-                list_for_each_entry (entry, &priv->peers, uuid_list) {
-                        if (!uuid_compare (entry->uuid, uuid)) {
-                                hostname = gf_strdup (entry->hostname);
-                                break;
-                        }
-                }
-        }
-
-        return hostname;
 }
 
 gf_boolean_t
@@ -11784,42 +11419,6 @@ gd_is_remove_brick_committed (glusterd_volinfo_t *volinfo)
                         return _gf_false;
 
         return _gf_true;
-}
-
-gf_boolean_t
-glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
-                               struct list_head *peers,
-                               char **down_peerstr)
-{
-        glusterd_peerinfo_t   *peerinfo  = NULL;
-        glusterd_brickinfo_t  *brickinfo = NULL;
-        gf_boolean_t           ret       = _gf_false;
-
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (!uuid_compare (brickinfo->uuid, MY_UUID))
-                        continue;
-
-                list_for_each_entry (peerinfo, peers, uuid_list) {
-                        if (uuid_compare (peerinfo->uuid, brickinfo->uuid))
-                                continue;
-
-                        /*Found peer who owns the brick, return false
-                         * if peer is not connected or not friend */
-                        if (!(peerinfo->connected) ||
-                           (peerinfo->state.state !=
-                             GD_FRIEND_STATE_BEFRIENDED)) {
-                                *down_peerstr = gf_strdup (peerinfo->hostname);
-                                gf_log ("", GF_LOG_DEBUG, "Peer %s is down. ",
-                                        peerinfo->hostname);
-                                goto out;
-                        }
-                }
-       }
-
-        ret = _gf_true;
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
 }
 
 gf_boolean_t
