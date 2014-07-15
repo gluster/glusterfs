@@ -3853,7 +3853,7 @@ glusterd_store_create_peer_shandle (glusterd_peerinfo_t *peerinfo)
 
         GF_ASSERT (peerinfo);
 
-        if (glusterd_peerinfo_is_uuid_unknown (peerinfo)) {
+        if (uuid_is_null (peerinfo->uuid)) {
                 ret = glusterd_store_peerinfo_hostname_shandle_create (peerinfo);
         } else {
                 ret = glusterd_peerinfo_hostname_shandle_check_destroy (peerinfo);
@@ -3865,8 +3865,11 @@ glusterd_store_create_peer_shandle (glusterd_peerinfo_t *peerinfo)
 int32_t
 glusterd_store_peer_write (int fd, glusterd_peerinfo_t *peerinfo)
 {
-        char                    buf[50] = {0};
-        int32_t                 ret = 0;
+        char                      buf[50] = {0};
+        int32_t                   ret = 0;
+        int32_t                   i = 1;
+        glusterd_peer_hostname_t *hostname = NULL;
+        char                     *key = NULL;
 
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_PEER_UUID,
                                    uuid_utoa (peerinfo->uuid));
@@ -3878,10 +3881,18 @@ glusterd_store_peer_write (int fd, glusterd_peerinfo_t *peerinfo)
         if (ret)
                 goto out;
 
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_PEER_HOSTNAME "1",
-                                   peerinfo->hostname);
-        if (ret)
-                goto out;
+        list_for_each_entry (hostname, &peerinfo->hostnames, hostname_list) {
+                ret = gf_asprintf (&key, GLUSTERD_STORE_KEY_PEER_HOSTNAME"%d",
+                                   i);
+                if (ret < 0)
+                        goto out;
+                ret = gf_store_save_value (fd, key, hostname->hostname);
+                if (ret)
+                        goto out;
+                GF_FREE (key);
+                key = NULL;
+                i++;
+        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -3938,22 +3949,21 @@ out:
 int32_t
 glusterd_store_retrieve_peers (xlator_t *this)
 {
-        int32_t                 ret = 0;
-        glusterd_conf_t         *priv = NULL;
-        DIR                     *dir = NULL;
-        struct dirent           *entry = NULL;
-        char                    path[PATH_MAX] = {0,};
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        uuid_t                  uuid = {0,};
-        char                    *hostname = NULL;
-        int32_t                 state = 0;
-        gf_store_handle_t       *shandle = NULL;
-        char                    filepath[PATH_MAX] = {0,};
-        gf_store_iter_t         *iter = NULL;
-        char                    *key = NULL;
-        char                    *value = NULL;
-        glusterd_peerctx_args_t args = {0};
-        gf_store_op_errno_t     op_errno = GD_STORE_SUCCESS;
+        int32_t                   ret                = 0;
+        glusterd_conf_t          *priv               = NULL;
+        DIR                      *dir                = NULL;
+        struct dirent            *entry              = NULL;
+        char                      path[PATH_MAX]     = {0,};
+        glusterd_peerinfo_t      *peerinfo           = NULL;
+        char                     *hostname           = NULL;
+        gf_store_handle_t        *shandle            = NULL;
+        char                      filepath[PATH_MAX] = {0,};
+        gf_store_iter_t          *iter               = NULL;
+        char                     *key                = NULL;
+        char                     *value              = NULL;
+        glusterd_peerctx_args_t   args               = {0};
+        gf_store_op_errno_t       op_errno           = GD_STORE_SUCCESS;
+        glusterd_peer_hostname_t *address            = NULL;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -3987,20 +3997,30 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 if (ret)
                         goto out;
 
+                /* Create an empty peerinfo object before reading in the
+                 * details
+                 */
+                peerinfo = glusterd_peerinfo_new (GD_FRIEND_STATE_DEFAULT, NULL,
+                                                  NULL, 0);
+                if (peerinfo == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+
                 while (!ret) {
 
                         if (!strncmp (GLUSTERD_STORE_KEY_PEER_UUID, key,
                                       strlen (GLUSTERD_STORE_KEY_PEER_UUID))) {
                                 if (value)
-                                        uuid_parse (value, uuid);
+                                        uuid_parse (value, peerinfo->uuid);
                         } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_STATE,
                                     key,
                                     strlen (GLUSTERD_STORE_KEY_PEER_STATE))) {
-                                state = atoi (value);
+                                peerinfo->state.state = atoi (value);
                         } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_HOSTNAME,
                                    key,
                                    strlen (GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
-                                hostname = gf_strdup (value);
+                                ret = gd_add_address_to_peer (peerinfo, value);
                         } else {
                                 gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
@@ -4021,14 +4041,23 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 (void) gf_store_iter_destroy (iter);
 
-                ret = glusterd_friend_add (hostname, 0, state, &uuid,
-                                           &peerinfo, 1, NULL);
+                /* Set first hostname from peerinfo->hostnames to
+                 * peerinfo->hostname
+                 */
+                address = list_entry (peerinfo->hostnames.next,
+                                      glusterd_peer_hostname_t, hostname_list);
+                if (!address) {
+                        ret = -1;
+                        goto out;
+                }
+                peerinfo->hostname = gf_strdup (address->hostname);
 
-                GF_FREE (hostname);
+                ret = glusterd_friend_add_from_peerinfo (peerinfo, 1, NULL);
                 if (ret)
                         goto out;
 
                 peerinfo->shandle = shandle;
+                peerinfo = NULL;
                 glusterd_for_each_entry (entry, dir);
         }
 
@@ -4038,8 +4067,12 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 if (ret)
                         goto out;
         }
+        peerinfo = NULL;
 
 out:
+        if (peerinfo)
+                glusterd_peerinfo_cleanup (peerinfo);
+
         if (dir)
                 closedir (dir);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);

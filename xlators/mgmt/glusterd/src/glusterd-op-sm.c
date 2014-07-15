@@ -1200,8 +1200,9 @@ glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
                         ret = 0;
                 }
          } else {
-                ret = glusterd_friend_find (NULL, hostname, &peerinfo);
-                if (ret) {
+                peerinfo = glusterd_peerinfo_find (NULL, hostname);
+                if (peerinfo == NULL) {
+                        ret = -1;
                         snprintf (msg, sizeof (msg), "%s, is not a friend",
                                   hostname);
                         *op_errstr = gf_strdup (msg);

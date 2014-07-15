@@ -651,15 +651,15 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *myhostname,
                                int32_t op_errno);
 
 int
-glusterd_friend_find (uuid_t uuid, char *hostname,
-                      glusterd_peerinfo_t **peerinfo);
-
-int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid, glusterd_peerinfo_t **friend,
                      gf_boolean_t restore, glusterd_peerctx_args_t *args);
 
+int
+glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
+                                   gf_boolean_t restore,
+                                   glusterd_peerctx_args_t *args);
 int
 glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                             glusterd_peerctx_args_t *args);

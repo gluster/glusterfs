@@ -3018,6 +3018,41 @@ out:
 #endif
 }
 
+#if (HAVE_LIB_XML)
+static int
+cli_xml_output_peer_hostnames (xmlTextWriterPtr writer, dict_t *dict,
+                               const char *prefix, int count)
+{
+        int   ret       = -1;
+        int   i         = 0;
+        char *hostname  = NULL;
+        char  key[1024] = {0,};
+
+        /* <hostnames> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"hostnames");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        for (i = 0; i < count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.hostname%d", prefix, i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement
+                        (writer, (xmlChar *)"hostname", "%s", hostname);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+                hostname = NULL;
+        }
+
+        /* </hostnames> */
+        ret = xmlTextWriterEndElement (writer);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+#endif
+
 int
 cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                             char *op_errstr)
@@ -3032,6 +3067,7 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
         int                     connected = 0;
         int                     state_id = 0;
         char                    *state_str = NULL;
+        int                     hostname_count = 0;
         int                     i = 1;
         char                    key[1024] = {0,};
 
@@ -3080,6 +3116,17 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                                                        (xmlChar *)"hostname",
                                                        "%s", hostname);
                 XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "friend%d.hostname_count", i);
+                ret = dict_get_int32 (dict, key, &hostname_count);
+                if ((ret == 0) && (hostname_count > 0)) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "friend%d", i);
+                        ret = cli_xml_output_peer_hostnames (writer, dict, key,
+                                                             hostname_count);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.connected", i);

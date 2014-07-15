@@ -29,6 +29,7 @@
 #include "protocol-common.h"
 
 #include "glusterfs3-xdr.h"
+#include "glusterd-peer-utils.h"
 
 #define GLUSTERD_SOCK_DIR "/var/run"
 #define GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid) do {\
@@ -123,15 +124,6 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo);
 
 int32_t
 glusterd_brickinfo_new_from_brick (char *brick, glusterd_brickinfo_t **brickinfo);
-
-int32_t
-glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo);
-
-int32_t
-glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo);
-
-int32_t
-glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name);
 
 int32_t
 glusterd_snap_volinfo_find (char *volname, glusterd_snap_t *snap,
@@ -312,12 +304,6 @@ gf_boolean_t
 glusterd_is_brick_started (glusterd_brickinfo_t  *brickinfo);
 
 int
-glusterd_friend_find_by_hostname (const char *hoststr,
-                                  glusterd_peerinfo_t  **peerinfo);
-int
-glusterd_hostname_to_uuid (char *hostname, uuid_t uuid);
-
-int
 glusterd_friend_brick_belongs (glusterd_volinfo_t *volinfo,
                                glusterd_brickinfo_t *brickinfo, void *uuid);
 int
@@ -338,9 +324,6 @@ glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);
 int32_t
 glusterd_volinfo_bricks_delete (glusterd_volinfo_t *volinfo);
 
-int
-glusterd_friend_find_by_uuid (uuid_t uuid,
-                              glusterd_peerinfo_t  **peerinfo);
 int
 glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                              char *op_errstr, size_t len);
@@ -385,10 +368,6 @@ glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
                                            int old_state, int new_state,
                                            int event);
 int
-glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
-                       glusterd_friend_sm_state_t state, uuid_t *uuid,
-                       const char *hostname, int port);
-int
 glusterd_sm_tr_log_init (glusterd_sm_tr_log_t *log,
                          char * (*state_name_get) (int),
                          char * (*event_name_get) (int),
@@ -403,8 +382,6 @@ int
 glusterd_remove_pending_entry (struct list_head *list, void *elem);
 int
 glusterd_clear_pending_nodes (struct list_head *list);
-gf_boolean_t
-glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo);
 int32_t
 glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                         glusterd_brickinfo_t  *brickinfo, char *socketpath);
@@ -481,9 +458,6 @@ glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
 int
 glusterd_friend_remove_cleanup_vols (uuid_t uuid);
 
-gf_boolean_t
-glusterd_chk_peers_connected_befriended (uuid_t skip_uuid);
-
 void
 glusterd_get_client_filepath (char *filepath,
                               glusterd_volinfo_t *volinfo,
@@ -502,9 +476,6 @@ glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
 int
 glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                            dict_t *vol_opts);
-
-char *
-glusterd_uuid_to_hostname (uuid_t uuid);
 
 int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo);
@@ -577,11 +548,6 @@ glusterd_profile_volume_brick_rsp (void *pending_entry,
                                    dict_t *rsp_dict, dict_t *op_ctx,
                                    char **op_errstr, gd_node_type type);
 
-gf_boolean_t
-glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
-                               struct list_head *peers,
-                               char **down_peerstr);
-
 int32_t
 glusterd_set_originator_uuid (dict_t *dict);
 
@@ -632,16 +598,8 @@ gd_update_volume_op_versions (glusterd_volinfo_t *volinfo);
 int
 op_version_check (xlator_t *this, int min_op_version, char *msg, int msglen);
 
-char*
-gd_peer_uuid_str (glusterd_peerinfo_t *peerinfo);
-
 gf_boolean_t
 gd_is_remove_brick_committed (glusterd_volinfo_t *volinfo);
-
-gf_boolean_t
-glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
-                               struct list_head *peers,
-                               char **down_peerstr);
 
 int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo,

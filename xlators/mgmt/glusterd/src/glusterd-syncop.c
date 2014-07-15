@@ -673,8 +673,9 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
-        if (ret) {
+        peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
+        if (peerinfo == NULL) {
+                ret = -1;
                 gf_log (this->name, GF_LOG_CRITICAL, "Staging response "
                         "for 'Volume %s' received from unknown "
                         "peer: %s", gd_op_list[rsp.op],
@@ -929,8 +930,9 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
-        if (ret) {
+        peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
+        if (peerinfo == NULL) {
+                ret = -1;
                 gf_log (this->name, GF_LOG_CRITICAL, "Commit response "
                         "for 'Volume %s' received from unknown "
                         "peer: %s", gd_op_list[rsp.op],
