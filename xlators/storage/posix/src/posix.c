@@ -1343,17 +1343,22 @@ int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int xflag, dict_t *xdata)
 {
-        int32_t               op_ret          = -1;
-        int32_t               op_errno        = 0;
-        char                 *real_path       = NULL;
-        char                 *par_path        = NULL;
-        int32_t               fd              = -1;
-        struct iatt           stbuf           = {0,};
-        struct posix_private *priv            = NULL;
-        struct iatt           preparent       = {0,};
-        struct iatt           postparent      = {0,};
-        char                 *pgfid_xattr_key = NULL;
-        int32_t               nlink_samepgfid = 0;
+        int32_t                op_ret             = -1;
+        int32_t                op_errno           = 0;
+        char                   *real_path         = NULL;
+        char                   *par_path          = NULL;
+        int32_t                fd                 = -1;
+        struct iatt            stbuf              = {0,};
+        struct posix_private  *priv               = NULL;
+        struct iatt            preparent          = {0,};
+        struct iatt            postparent         = {0,};
+        char                  *pgfid_xattr_key    = NULL;
+        int32_t                nlink_samepgfid    = 0;
+        int32_t                unlink_if_linkto   = 0;
+        int32_t                check_open_fd      = 0;
+        int32_t                skip_unlink        = 0;
+        ssize_t                xattr_size         = -1;
+        int32_t                is_dht_linkto_file = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1377,6 +1382,55 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 posix_handle_unset (this, stbuf.ia_gfid, NULL);
 
         priv = this->private;
+
+        op_ret = dict_get_int32 (xdata, "dont-unlink-for-open-fd",
+                                 &check_open_fd);
+
+        if (!op_ret && check_open_fd) {
+
+                LOCK (&loc->inode->lock);
+
+                if (loc->inode->fd_count) {
+                        skip_unlink = 1;
+                }
+
+                UNLOCK (&loc->inode->lock);
+
+                if (skip_unlink) {
+                        op_ret = -1;
+                        op_errno = EBUSY;
+                        goto out;
+                }
+        }
+
+
+        op_ret = dict_get_int32 (xdata, "unlink-only-if-dht-linkto-file",
+                                 &unlink_if_linkto);
+
+        if (!op_ret && unlink_if_linkto) {
+
+                LOCK (&loc->inode->lock);
+
+                xattr_size = sys_lgetxattr (real_path, LINKTO, NULL, 0);
+
+                if (xattr_size <= 0) {
+                        skip_unlink = 1;
+                } else {
+                       is_dht_linkto_file =  IS_DHT_LINKFILE_MODE (&stbuf);
+                       if (!is_dht_linkto_file)
+                               skip_unlink = 1;
+                }
+
+                UNLOCK (&loc->inode->lock);
+
+                if (skip_unlink) {
+                        op_ret = -1;
+                        op_errno = EBUSY;
+                        goto out;
+                }
+        }
+
+
         if (priv->background_unlink) {
                 if (IA_ISREG (loc->inode->ia_type)) {
                         fd = open (real_path, O_RDONLY);
