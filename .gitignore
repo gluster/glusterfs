@@ -30,13 +30,12 @@ log
 *.vol
 
 # Generated files
+*.py[co]
 tests/env.rc
-tests/utils/libcxattr.pyc
 dht_layout_unittest
 mem_pool_unittest
 tests/utils/arequal-checksum
 api/examples/__init__.py
-api/examples/__init__.py?
 api/examples/setup.py
 xlators/features/glupy/src/__init__.py
 contrib/argp-standalone/libargp.a
