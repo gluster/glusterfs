@@ -49,7 +49,7 @@ for idx in `seq 0 $LAST_BRICK`; do
 done
 
 cd $M0
-EXPECT "2" echo $(ls -a1 | wc -l)
+TEST stat .
 TEST mkdir dir1
 TEST [ -d dir1 ]
 TEST touch file1
