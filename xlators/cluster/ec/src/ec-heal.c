@@ -1183,6 +1183,14 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_HEAL_PRE_INODELK_LOCK;
 
         case EC_STATE_HEAL_PRE_INODELK_LOCK:
+            // Only heal data/metadata if enough information is supplied.
+            if (uuid_is_null(heal->loc.gfid))
+            {
+                ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
+
+                return EC_STATE_HEAL_DISPATCH;
+            }
+
             ec_heal_inodelk(heal, F_WRLCK, 0, 0, 0);
 
             return EC_STATE_HEAL_PRE_INODE_LOOKUP;
