@@ -733,7 +733,7 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         snap = glusterd_find_snap_by_name (snapname);
         if (NULL == snap) {
-                ret = gf_asprintf (op_errstr, "Snap (%s) not found",
+                ret = gf_asprintf (op_errstr, "Snapshot (%s) does not exist",
                                    snapname);
                 if (ret < 0) {
                         goto out;
@@ -871,7 +871,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (NULL == snap) {
-                ret = gf_asprintf (op_errstr, "Snap (%s) not found",
+                ret = gf_asprintf (op_errstr, "Snapshot (%s) does not exist",
                                 snapname);
                 if (ret < 0) {
                         goto out;
@@ -884,7 +884,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
         snap_restored = snap->snap_restored;
 
         if (snap_restored) {
-                ret = gf_asprintf (op_errstr, "Snap (%s) is already "
+                ret = gf_asprintf (op_errstr, "Snapshot (%s) is already "
                                   "restored", snapname);
                 if (ret < 0) {
                         goto out;
@@ -921,8 +921,8 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
 
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
-                        ret = gf_asprintf (op_errstr, "Volume (%s) not found",
-                                           volname);
+                        ret = gf_asprintf (op_errstr, "Volume (%s) "
+                                           "does not exist", volname);
                         if (ret < 0) {
                                 goto out;
                         }
@@ -1139,7 +1139,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
                         snprintf (err_str, sizeof (err_str),
-                                  "Volume %s does not exist.", volname);
+                                  "Volume (%s) does not exist.", volname);
                         goto out;
                 }
         }
@@ -1753,8 +1753,8 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
 
         if (glusterd_find_snap_by_name (snapname)) {
                 ret = -1;
-                snprintf (err_str, sizeof (err_str), "Snap %s already exists",
-                          snapname);
+                snprintf (err_str, sizeof (err_str), "Snapshot %s already "
+                          "exists", snapname);
                 goto out;
         }
 
@@ -2033,7 +2033,7 @@ glusterd_list_add_snapvol (glusterd_volinfo_t *origin_vol,
         }
         UNLOCK (&origin_vol->lock);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Snap %s added to the list",
+        gf_log (THIS->name, GF_LOG_DEBUG, "Snapshot %s added to the list",
                 snap->snapname);
         ret = 0;
  out:
@@ -3072,7 +3072,8 @@ glusterd_handle_snapshot_info (rpcsvc_request_t *req, glusterd_op_t op,
                         snap = glusterd_find_snap_by_name (snapname);
                         if (!snap) {
                                 snprintf (err_str, len,
-                                         "Snap (%s) does not exist", snapname);
+                                          "Snapshot (%s) does not exist",
+                                          snapname);
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "%s", err_str);
                                 ret = -1;
@@ -3522,7 +3523,8 @@ glusterd_handle_snapshot_restore (rpcsvc_request_t *req, glusterd_op_t op,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                snprintf (err_str, len, "Snap (%s) does not exist", snapname);
+                snprintf (err_str, len, "Snapshot (%s) does not exist",
+                          snapname);
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 ret = -1;
                 goto out;
@@ -3648,7 +3650,7 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
                 snap->description = gf_strdup (description);
                 if (snap->description == NULL) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "Saving the Snap Description Failed");
+                                "Saving the Snapshot Description Failed");
                         ret = -1;
                         goto out;
                  }
@@ -3664,7 +3666,7 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
         list_add_order (&snap->snap_list, &priv->snapshots,
                         glusterd_compare_snap_time);
 
-        gf_log (this->name, GF_LOG_TRACE, "Snap %s added to the list",
+        gf_log (this->name, GF_LOG_TRACE, "Snapshot %s added to the list",
                 snap->snapname);
 
         ret = 0;
@@ -4479,8 +4481,8 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                snprintf (err_str, sizeof (err_str), "Snap %s does not exist.",
-                        snapname);
+                snprintf (err_str, sizeof (err_str), "Snapshot (%s) does not "
+                          "exist.", snapname);
                 ret = -1;
                 goto out;
         }
@@ -4523,12 +4525,13 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
                          * back the brick processes that are down*/
                         if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
                                 snprintf (err_str, sizeof (err_str),
-                                     "Snap %s is already activated.", snapname);
+                                          "Snapshot %s is already activated.",
+                                          snapname);
                                 ret = -1;
                         }
                 } else {
                         snprintf (err_str, sizeof (err_str),
-                                "Snap %s is already deactivated.", snapname);
+                               "Snapshot %s is already deactivated.", snapname);
                         ret = -1;
                 }
                 goto out;
@@ -4666,7 +4669,8 @@ glusterd_handle_snapshot_delete_type_snap (rpcsvc_request_t *req,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                snprintf (err_str, len, "Snap (%s) does not exist", snapname);
+                snprintf (err_str, len, "Snapshot (%s) does not exist",
+                          snapname);
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s", err_str);
                 ret = -1;
@@ -4820,8 +4824,8 @@ glusterd_snapshot_remove_prevalidate (dict_t *dict, char **op_errstr,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                gf_log (this->name, GF_LOG_ERROR, "Snap %s does not exist",
-                        snapname);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Snapshot (%s) does not exist", snapname);
                 ret = -1;
                 goto out;
         }
@@ -4885,14 +4889,15 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                         }
 
                         if (!glusterd_find_snap_by_name (snapname)) {
-                                ret = gf_asprintf (op_errstr, "Snap (%s) "
-                                                  "not found", snapname);
+                                ret = gf_asprintf (op_errstr, "Snapshot (%s) "
+                                                  "does not exist", snapname);
                                 if (ret < 0) {
                                         goto out;
                                 }
                                 ret = -1;
-                                gf_log (this->name, GF_LOG_ERROR, "Snap (%s) "
-                                        "not found", snapname);
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Snapshot (%s) does not exist",
+                                        snapname);
                                 goto out;
                         }
                         break;
@@ -4909,7 +4914,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                         ret = glusterd_volinfo_find (volname, &volinfo);
                         if (ret) {
                                 ret = gf_asprintf (op_errstr, "Volume (%s) "
-                                                  "not found", volname);
+                                                  "does not exist", volname);
                                 if (ret < 0) {
                                         goto out;
                                 }
@@ -4970,8 +4975,8 @@ glusterd_snapshot_activate_commit (dict_t *dict, char **op_errstr,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                gf_log (this->name, GF_LOG_ERROR, "Snap %s does not exist",
-                        snapname);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Snapshot (%s) does not exist", snapname);
                 ret = -1;
                 goto out;
         }
@@ -5041,8 +5046,8 @@ glusterd_snapshot_deactivate_commit (dict_t *dict, char **op_errstr,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                gf_log (this->name, GF_LOG_ERROR, "Snap %s does not exist",
-                        snapname);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Snapshot (%s) does not exist", snapname);
                 ret = -1;
                 goto out;
         }
@@ -5115,8 +5120,8 @@ glusterd_snapshot_remove_commit (dict_t *dict, char **op_errstr,
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                gf_log (this->name, GF_LOG_ERROR, "Snap %s does not exist",
-                        snapname);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Snapshot (%s) does not exist", snapname);
                 ret = -1;
                 goto out;
         }
@@ -5229,7 +5234,8 @@ glusterd_do_snap_cleanup (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         */
         snap = glusterd_find_snap_by_name (name);
         if (!snap) {
-                gf_log (this->name, GF_LOG_INFO, "snap %s is not found", name);
+                gf_log (this->name, GF_LOG_INFO, "Snapshot (%s) does not exist",
+                        name);
                 ret = 0;
                 goto out;
         }
@@ -6470,8 +6476,8 @@ glusterd_snapshot_status_commit (dict_t *dict, char **op_errstr,
 
                         snap = glusterd_find_snap_by_name (snapname);
                         if (!snap) {
-                                ret = gf_asprintf (op_errstr, "Snap (%s) "
-                                                  "not found", snapname);
+                                ret = gf_asprintf (op_errstr, "Snapshot (%s) "
+                                                  "does not exist", snapname);
                                 if (ret < 0) {
                                         goto out;
                                 }
@@ -7271,7 +7277,8 @@ glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
 
         snap = glusterd_find_snap_by_name (name);
         if (!snap) {
-                gf_log (this->name, GF_LOG_ERROR, "snap %s is not found", name);
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Snapshot (%s) does not exist", name);
                 ret = -1;
                 goto out;
         }
