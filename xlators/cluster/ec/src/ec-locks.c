@@ -215,6 +215,8 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
                 fop->entrylk_cmd = ENTRYLK_LOCK_NB;
             }
 
+        /* Fall through */
+
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
 
@@ -645,6 +647,8 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                 fop->uint32 = EC_LOCK_MODE_ALL;
                 fop->int32 = F_SETLK;
             }
+
+        /* Fall through */
 
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
@@ -1130,6 +1134,8 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                 fop->uint32 = EC_LOCK_MODE_ALL;
                 fop->int32 = F_SETLK;
             }
+
+        /* Fall through */
 
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);

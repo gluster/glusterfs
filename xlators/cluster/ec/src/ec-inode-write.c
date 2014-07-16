@@ -1363,6 +1363,8 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
             fop->user_size = fop->offset;
             fop->offset = ec_adjust_size(fop->xl->private, fop->offset, 1);
 
+        /* Fall through */
+
         case EC_STATE_LOCK:
             ec_lock_inode(fop, &fop->loc[0]);
 
@@ -2018,6 +2020,8 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
             {
                 return EC_STATE_REPORT;
             }
+
+        /* Fall through */
 
         case EC_STATE_LOCK:
             ec_lock_fd(fop, fop->fd);
