@@ -455,7 +455,7 @@ sys_fremovexattr (int filedes, const char *name)
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_remove_fd (filedes, EXTATTR_NAMESPACE_USER, name);
+        return extattr_delete_fd (filedes, EXTATTR_NAMESPACE_USER, name);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
