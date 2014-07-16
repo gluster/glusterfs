@@ -1149,10 +1149,13 @@ client3_3_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOTSUP) ?
-                                     GF_LOG_DEBUG : GF_LOG_WARNING),
-                        "remote operation failed: %s",
-                        strerror (op_errno));
+                gf_log (this->name, (((op_errno == ENOTSUP) ||
+                                      (op_errno == ERANGE)  ||
+                                      (op_errno == ENODATA) ||
+                                      (op_errno == ENOENT)) ?
+                                      GF_LOG_DEBUG : GF_LOG_WARNING),
+                                      "remote operation failed: %s",
+                                      strerror (op_errno));
         }
 
         CLIENT_STACK_UNWIND (fgetxattr, frame, rsp.op_ret, op_errno, dict, xdata);
