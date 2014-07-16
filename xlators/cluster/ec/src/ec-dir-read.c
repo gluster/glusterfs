@@ -363,6 +363,8 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
                 fop->mask &= 1ULL << idx;
             }
 
+        /* Fall through */
+
         case EC_STATE_DISPATCH:
             ec_dispatch_one(fop);
 

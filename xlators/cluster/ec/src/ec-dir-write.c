@@ -178,6 +178,8 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             fop->int32 &= ~O_ACCMODE;
             fop->int32 |= O_RDWR;
 
+        /* Fall through */
+
         case EC_STATE_LOCK:
             ec_lock_entry(fop, &fop->loc[0]);
 

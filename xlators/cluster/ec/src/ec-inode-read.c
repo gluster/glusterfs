@@ -668,6 +668,8 @@ int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
                 fop->int32 |= O_RDWR;
             }
 
+        /* Fall through */
+
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
 
@@ -1235,6 +1237,8 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
             fop->head = ec_adjust_offset(fop->xl->private, &fop->offset, 1);
             fop->size = ec_adjust_size(fop->xl->private, fop->size + fop->head,
                                        1);
+
+        /* Fall through */
 
         case EC_STATE_LOCK:
             ec_lock_fd(fop, fop->fd);
