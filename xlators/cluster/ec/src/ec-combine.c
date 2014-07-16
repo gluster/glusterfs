@@ -366,18 +366,26 @@ int32_t ec_dict_data_merge(ec_cbk_data_t * cbk, int32_t which, char * key)
         return -1;
     }
 
-    if (dict_unserialize(data[0]->data, data[0]->len, &lockinfo) != 0)
+    lockinfo = dict_new();
+    if (lockinfo == NULL)
     {
         return -1;
     }
 
+    if (dict_unserialize(data[0]->data, data[0]->len, &lockinfo) != 0)
+    {
+        goto out;
+    }
+
     for (i = 1; i < num; i++)
     {
-        if (dict_unserialize(data[i]->data, data[i]->len, &tmp) != 0)
+        tmp = dict_new();
+        if (tmp == NULL)
         {
             goto out;
         }
-        if (dict_copy(tmp, lockinfo) == NULL)
+        if ((dict_unserialize(data[i]->data, data[i]->len, &tmp) != 0) ||
+            (dict_copy(tmp, lockinfo) == NULL))
         {
             dict_unref(tmp);
 

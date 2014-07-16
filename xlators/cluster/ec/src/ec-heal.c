@@ -90,6 +90,10 @@ void ec_heal_lookup_resume(ec_fop_data_t * fop)
         }
     }
 
+    /* Heal lookups are not executed concurrently with anything else. So, when
+     * a lookup finishes, it's safe to access heal->good and heal->bad without
+     * acquiring any lock.
+     */
     heal->good = good;
     heal->bad = bad;
 
@@ -455,42 +459,19 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
         return ENODATA;
     }
 
-    LOCK(&inode->lock);
-
-    ctx = __ec_inode_get(inode, fop->xl);
-    if (ctx == NULL)
-    {
-        error = EIO;
-
-        goto out;
-    }
-
-    if (ctx->heal != NULL)
-    {
-        error = EEXIST;
-
-        goto out;
-    }
-
     heal = GF_MALLOC(sizeof(ec_heal_t), ec_mt_ec_heal_t);
     if (heal == NULL)
     {
-        error = ENOMEM;
-
-        goto out;
+        return ENOMEM;
     }
 
     memset(heal, 0, sizeof(ec_heal_t));
 
-    if (loc_copy(&heal->loc, &fop->loc[0]) != 0)
+    if (!ec_loc_from_loc(fop->xl, &heal->loc, &fop->loc[0]))
     {
         error = ENOMEM;
 
         goto out;
-    }
-    if (uuid_is_null(heal->loc.gfid))
-    {
-        uuid_copy(heal->loc.gfid, heal->loc.inode->gfid);
     }
 
     LOCK_INIT(&heal->lock);
@@ -500,14 +481,31 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
     pool = fop->xl->ctx->iobuf_pool;
     heal->size = iobpool_default_pagesize(pool) * ec->fragments;
 
+    LOCK(&inode->lock);
+
+    ctx = __ec_inode_get(inode, fop->xl);
+    if (ctx == NULL)
+    {
+        error = EIO;
+
+        goto unlock;
+    }
+
+    if (ctx->heal != NULL)
+    {
+        error = EEXIST;
+
+        goto unlock;
+    }
+
     fop->data = heal;
 
     ctx->heal = heal;
     heal = NULL;
 
-out:
+unlock:
     UNLOCK(&inode->lock);
-
+out:
     GF_FREE(heal);
 
     return error;
@@ -942,6 +940,10 @@ int32_t ec_heal_needs_data_rebuild(ec_heal_t * heal)
         }
     }
 
+    /* This function can only be called concurrently with entrylk, which do
+     * not modify heal structure, so it's safe to access heal->bad without
+     * acquiring any lock.
+     */
     heal->bad = bad;
 
     return (bad != 0);
@@ -1121,7 +1123,7 @@ void ec_heal_dispatch(ec_heal_t * heal)
 
     GF_FREE(heal);
 
-    ec_fop_set_error(heal->fop, error);
+    ec_fop_set_error(fop, error);
 }
 
 void ec_wind_heal(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -1160,6 +1162,8 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
             {
                 return EC_STATE_REPORT;
             }
+
+        /* Fall through */
 
         case EC_STATE_DISPATCH:
             ec_heal_entrylk(fop->data, ENTRYLK_LOCK);
@@ -1220,6 +1224,8 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_HEAL_UNLOCK:
         case EC_STATE_HEAL_UNLOCK:
             ec_heal_inodelk(heal, F_UNLCK, 0, 0, 0);
+
+        /* Fall through */
 
         case -EC_STATE_HEAL_ENTRY_PREPARE:
         case -EC_STATE_HEAL_PRE_INODELK_LOCK:

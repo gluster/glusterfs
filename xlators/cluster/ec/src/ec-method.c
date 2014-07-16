@@ -96,7 +96,7 @@ size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
                         uint8_t ** in, uint8_t * out)
 {
     uint32_t i, j, k;
-    uint32_t f, off, mask;
+    uint32_t f, off;
     uint8_t inv[EC_METHOD_MAX_FRAGMENTS][EC_METHOD_MAX_FRAGMENTS + 1];
     uint8_t mtx[EC_METHOD_MAX_FRAGMENTS][EC_METHOD_MAX_FRAGMENTS];
     uint8_t * p[EC_METHOD_MAX_FRAGMENTS];
@@ -105,7 +105,6 @@ size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
 
     memset(inv, 0, sizeof(inv));
     memset(mtx, 0, sizeof(mtx));
-    mask = 0;
     for (i = 0; i < columns; i++)
     {
         inv[i][i] = 1;
@@ -114,11 +113,6 @@ size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
     k = 0;
     for (i = 0; i < columns; i++)
     {
-        while ((mask & 1) != 0)
-        {
-            k++;
-            mask >>= 1;
-        }
         mtx[k][columns - 1] = 1;
         for (j = columns - 1; j > 0; j--)
         {
@@ -126,7 +120,6 @@ size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
         }
         p[k] = in[i];
         k++;
-        mask >>= 1;
     }
 
     for (i = 0; i < columns; i++)

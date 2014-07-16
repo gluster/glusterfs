@@ -908,6 +908,8 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
+        /* Fall through */
+
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
 
