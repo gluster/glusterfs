@@ -180,13 +180,8 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0) {
-                if (local->xattr_req) {
-                        dict_unref (local->xattr_req);
-                        local->xattr_req = NULL;
-                }
+        if (call_count == 0)
                 afr_sh_metadata_erase_pending (frame, this);
-        }
 
         return 0;
 }
@@ -220,6 +215,7 @@ afr_sh_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int            i     = 0;
         afr_private_t *priv  = NULL;
         afr_local_t   *local = NULL;
+        afr_self_heal_t *sh  = NULL;
 
         priv = this->private;
         local = frame->local;
@@ -231,12 +227,13 @@ afr_sh_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         i = (long) cookie;
+        sh = &local->self_heal;
 
         STACK_WIND_COOKIE (frame, afr_sh_metadata_xattr_cbk,
                            (void *) (long) i,
                            priv->children[i],
                            priv->children[i]->fops->setxattr,
-                           &local->loc, local->xattr_req, 0, NULL);
+                           &local->loc, sh->heal_xattr, 0, NULL);
 
  out:
         return 0;
@@ -319,7 +316,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
          */
         if (xattr) {
                 call_count = active_sinks * 2;
-                local->xattr_req = dict_ref (xattr);
+                sh->heal_xattr = dict_ref (xattr);
         } else
                 call_count = active_sinks;
 

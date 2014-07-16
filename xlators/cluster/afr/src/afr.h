@@ -254,6 +254,7 @@ struct afr_self_heal_ {
         /* array of xattr's, one for each child */
         dict_t **xattr;
 
+        dict_t *heal_xattr;
         /* array containing if the lookups succeeded in the order of response
          */
         int32_t *success_children;

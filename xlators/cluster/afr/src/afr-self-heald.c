@@ -1498,6 +1498,9 @@ out:
         if (ret)
                 *pos = AFR_POS_UNKNOWN;
         loc_wipe (&loc);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
+
         return ret;
 }
 

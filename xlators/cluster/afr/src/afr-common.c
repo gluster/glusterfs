@@ -833,6 +833,9 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
         GF_FREE (sh->write_needed);
         if (sh->healing_fd)
                 fd_unref (sh->healing_fd);
+
+        if (sh->heal_xattr)
+                dict_unref (sh->heal_xattr);
 }
 
 

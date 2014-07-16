@@ -918,6 +918,9 @@ afr_set_data_sh_info_str (afr_local_t *local, afr_self_heal_t *sh, xlator_t *thi
 
         if (sizes_str && strcmp (sizes_str, ""))
                 GF_FREE (sizes_str);
+
+        if (sinks_str && strcmp (sinks_str, ""))
+                GF_FREE (sinks_str);
 }
 
 void
