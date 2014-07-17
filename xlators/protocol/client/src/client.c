@@ -2724,12 +2724,13 @@ client_fd_lk_ctx_dump (xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
 int
 client_priv_dump (xlator_t *this)
 {
-        clnt_conf_t    *conf = NULL;
-        int             ret   = -1;
-        clnt_fd_ctx_t  *tmp = NULL;
-        int             i = 0;
-        char            key[GF_DUMP_MAX_BUF_LEN];
-        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+        clnt_conf_t             *conf = NULL;
+        int                     ret   = -1;
+        clnt_fd_ctx_t           *tmp = NULL;
+        int                     i = 0;
+        char                    key[GF_DUMP_MAX_BUF_LEN];
+        char                    key_prefix[GF_DUMP_MAX_BUF_LEN];
+        rpc_clnt_connection_t  *conn = NULL;
 
         if (!this)
                 return -1;
@@ -2759,15 +2760,17 @@ client_priv_dump (xlator_t *this)
         gf_proc_dump_write ("connected", "%d", conf->connected);
 
         if (conf->rpc) {
+                conn = &conf->rpc->conn;
                 gf_proc_dump_write("total_bytes_read", "%"PRIu64,
-                                   conf->rpc->conn.trans->total_bytes_read);
-
+                                   conn->trans->total_bytes_read);
+                gf_proc_dump_write("ping_timeout", "%"PRIu32,
+                                   conn->ping_timeout);
                 gf_proc_dump_write("total_bytes_written", "%"PRIu64,
-                                   conf->rpc->conn.trans->total_bytes_write);
+                                   conn->trans->total_bytes_write);
                 gf_proc_dump_write("ping_msgs_sent", "%"PRIu64,
-                                    conf->rpc->conn.pingcnt);
+                                    conn->pingcnt);
                 gf_proc_dump_write("msgs_sent", "%"PRIu64,
-                                    conf->rpc->conn.msgcnt);
+                                    conn->msgcnt);
         }
         pthread_mutex_unlock(&conf->lock);
 
