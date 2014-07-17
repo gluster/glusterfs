@@ -1819,23 +1819,21 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 }
 
 #ifdef HAVE_BD_XLATOR
-                if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
-                        if (brickinfo->vg[0]) {
-                                ret = glusterd_is_valid_vg (brickinfo, 0, msg);
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR, "%s",
-                                                msg);
-                                        goto out;
-                                }
+                if (!uuid_compare (brickinfo->uuid, MY_UUID)
+                    && brickinfo->vg[0]) {
+                        ret = glusterd_is_valid_vg (brickinfo, 0, msg);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                                goto out;
+                        }
 
-                                /* if anyone of the brick does not have thin
-                                   support, disable it for entire volume */
-                                caps &= brickinfo->caps;
-
-
-                        } else
+                        /* if anyone of the brick does not have thin
+                           support, disable it for entire volume */
+                        caps &= brickinfo->caps;
+                } else {
                                 caps = 0;
                 }
+
 #endif
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
