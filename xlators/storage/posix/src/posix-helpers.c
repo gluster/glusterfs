@@ -654,6 +654,24 @@ out:
         return xattr;
 }
 
+void
+posix_gfid_unset (xlator_t *this, dict_t *xdata)
+{
+        uuid_t uuid = {0, };
+        int    ret  = 0;
+
+        if (xdata == NULL)
+                goto out;
+
+        ret = dict_get_ptr (xdata, "gfid-req", (void **)&uuid);
+        if (ret) {
+                goto out;
+        }
+
+        posix_handle_unset (this, uuid, NULL);
+out:
+        return;
+}
 
 int
 posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
