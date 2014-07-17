@@ -575,8 +575,10 @@ svs_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 op_errno = 0;
                 goto out;
         } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
-                fs = inode_ctx->fs;
-                object = inode_ctx->object;
+
+                SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                                       op_errno, out);
+
                 glfd = glfs_h_opendir (fs, object);
                 if (!glfd) {
                         op_ret = -1;
@@ -701,8 +703,10 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 op_errno = EINVAL;
                 goto out;
         } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
-                fs = inode_ctx->fs;
-                object = inode_ctx->object;
+
+                SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                                       op_errno, out);
+
                 dict = dict_new ();
                 if (!dict) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to "
@@ -1439,6 +1443,118 @@ unwind:
         return 0;
 }
 
+/*
+ * This function is mainly helpful for NFS. Till now NFS server was not linking
+ * the inodes in readdirp, which caused problems when below operations were
+ * performed.
+ *
+ * 1) ls -l in one of the snaopshots (snapview-server would generate gfids for
+ *    each entry on the fly and link the inodes associated with those entries)
+ * 2) NFS server upon getting readdirp reply would not link the inodes of the
+ *    entries. But it used to generate filehandles for each entry and associate
+ *    the gfid of that entry with the filehandle and send it as part of the
+ *    reply to nfs client.
+ * 3) NFS client would send the filehandle of one of those entries when some
+ *    activity is done on it.
+ * 4) NFS server would not be able to find the inode for the gfid present in the
+ *    filehandle (as the inode was not linked) and would go for hard resolution
+ *    by sending a lookup on the gfid by creating a new inode.
+ * 5) snapview-client will not able to identify whether the inode is a real
+ *    inode existing in the main volume or a virtual inode existing in the
+ *    snapshots as there would not be any inode context.
+ * 6) Since the gfid upon which lookup is sent is a virtual gfid which is not
+ *    present in the disk, lookup would fail and the application would get an
+ *    error.
+ *
+ * The above problem is fixed by the below commit which makes snapview server
+ * more compatible with nfs server (1dea949cb60c3814c9206df6ba8dddec8d471a94).
+ * But now because NFS server does inode linking in readdirp has introduced
+ * the below issue.
+ * In readdirp though snapview-server allocates inode contexts it does not
+ * actually perform lookup on each entry it obtained in readdirp (as doing
+ * a lookup via gfapi over the network for each entry would be costly).
+ *
+ * Till now it was not a problem with NFS server, as NFS was sending a lookup on
+ * the gfid it got from NFS client, for which it was not able to find the right
+ * inode. So snapview-server was able to get the fs instance (glfs_t) of the
+ * snapshot volume to which the entry belongs to, and the handle for the entry
+ * from the corresponding snapshot volume and fill those informations in the
+ * inode context.
+ *
+ * But now, since NFS server is able to find the inode from the inode table for
+ * the gfid it got from the NFS client, it wont send lookup. Rather it directly
+ * sends the fop it received from the client. Now this causes problems for
+ * snapview-server. Because for each fop snapview-server assumes that lookup has
+ * been performed on that entry and the entry's inode context contains the
+ * pointers for the fs instance and the handle to the entry in that fs. When NFS
+ * server sends the fop and snapview-server finds that the fs instance and the
+ * handle within the inode context are NULL it unwinds with EINVAL.
+ *
+ * So to handle this, if fs instance or handle within the inode context are
+ * NULL, then do a lookup based on parent inode context's fs instance. And
+ * unwind the results obtained as part of lookup
+ */
+
+int32_t
+svs_get_handle (xlator_t *this, loc_t *loc, svs_inode_t *inode_ctx,
+                int32_t *op_errno)
+{
+        svs_inode_t   *parent_ctx   = NULL;
+        int            ret          = -1;
+        inode_t       *parent       = NULL;
+        struct iatt    postparent   = {0, };
+        struct iatt    buf          = {0, };
+        char           uuid1[64];
+
+        GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        if (loc->path) {
+                if (!loc->name || (loc->name && !strcmp (loc->name, ""))) {
+                        loc->name = strrchr (loc->path, '/');
+                        if (loc->name)
+                                loc->name++;
+                }
+        }
+
+        if (loc->parent)
+                parent = inode_ref (loc->parent);
+        else {
+                parent = inode_find (loc->inode->table, loc->pargfid);
+                if (!parent)
+                        parent = inode_parent (loc->inode, NULL, NULL);
+        }
+
+        if (parent)
+                parent_ctx = svs_inode_ctx_get (this, parent);
+
+        if (!parent_ctx) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to get the parent "
+                        "context for %s (%s)", loc->path,
+                        uuid_utoa_r (loc->inode->gfid, uuid1));
+                *op_errno = EINVAL;
+                goto out;
+        }
+
+        if (parent_ctx) {
+                if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE)
+                        ret = svs_lookup_snapshot (this, loc, &buf,
+                                                   &postparent, parent,
+                                                   parent_ctx, op_errno);
+                else
+                        ret = svs_lookup_entry (this, loc, &buf,
+                                                &postparent, parent,
+                                                parent_ctx, op_errno);
+        }
+
+out:
+        if (parent)
+                inode_unref (parent);
+
+        return ret;
+}
+
 int32_t
 svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
@@ -1477,8 +1593,10 @@ svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 svs_iatt_fill (loc->inode->gfid, &buf);
                 op_ret = 0;
         } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
-                fs = inode_ctx->fs;
-                object = inode_ctx->object;
+
+                SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                                       op_errno, out);
+
                 ret = glfs_h_stat (fs, object, &stat);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "glfs_h_stat on %s "
@@ -1599,8 +1717,8 @@ svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE)
                 GF_ASSERT (0); // on entry point it should always be opendir
 
-        fs = inode_ctx->fs;
-        object = inode_ctx->object;
+        SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                               op_errno, out);
 
         glfd = glfs_h_open (fs, object, flags);
         if (!glfd) {
@@ -1749,25 +1867,8 @@ svs_readlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        fs = inode_ctx->fs;
-        if (!fs) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the fs "
-                        "instance for %s (gfid: %s)", loc->name,
-                        uuid_utoa (loc->inode->gfid));
-                op_ret = -1;
-                op_errno = ESTALE;
-                goto out;
-        }
-
-        object = inode_ctx->object;
-        if (!object) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the object "
-                        "for %s (gfid: %s)", loc->name,
-                        uuid_utoa (loc->inode->gfid));
-                op_ret = -1;
-                op_errno = ESTALE;
-                goto out;
-        }
+        SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                               op_errno, out);
 
         ret = glfs_h_stat (fs, object, &stat);
         if (ret) {
@@ -1850,8 +1951,9 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
                 goto out;
         }
 
-        fs = inode_ctx->fs;
-        object = inode_ctx->object;
+
+        SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                               op_errno, out);
 
         /* The actual posix_acl xlator does acl checks differently for
            fuse and nfs. So set frame->root->pid as fspid of the syncop

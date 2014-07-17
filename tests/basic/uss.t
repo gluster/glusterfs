@@ -101,20 +101,31 @@ TEST fd_close $fd3
 # test 44
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
-TEST ls -l $N0/.snaps;
-
 NUM_SNAPS=$(ls $N0/.snaps | wc -l);
 
 TEST [ $NUM_SNAPS == 4 ];
 
+TEST stat $N0/.snaps/snap1;
+TEST stat $N0/.snaps/snap2;
+
+TEST ls -l $N0/.snaps;
+
+# readdir + lookup on each entry
 TEST ls -l $N0/.snaps/snap1;
 TEST ls -l $N0/.snaps/snap2;
-TEST ls -l $N0/.snaps/snap3;
-TEST ls -l $N0/.snaps/snap4;
+
+# readdir + access each entry by doing stat. If snapview-server has not
+# filled the fs instance and handle in the inode context of the entry as
+# part of readdirp, then when stat comes (i.e fop comes directly without
+# a previous lookup), snapview-server should do a lookup of the entry via
+# gfapi call and fill in the fs instance + handle information in the inode
+# context
+TEST ls $N0/.snaps/snap3/;
+TEST stat $N0/.snaps/snap3/dir1;
+TEST stat $N0/.snaps/snap3/dir2;
 
 TEST ls -l $N0/.snaps/snap3/dir1;
 TEST ls -l $N0/.snaps/snap3/dir2;
-
 TEST ls -l $N0/.snaps/snap4/dir1;
 TEST ls -l $N0/.snaps/snap4/dir2;
 
@@ -122,6 +133,7 @@ TEST ! ls -l $N0/dir1/.snaps/snap1;
 TEST ! ls -l $N0/dir2/.snaps/snap2;
 TEST   ls -l $N0/dir1/.snaps/snap3;
 TEST   ls -l $N0/dir2/.snaps/snap4;
+
 
 TEST fd1=`fd_available`
 TEST fd_open $fd1 'r' $N0/.snaps/snap1/file1;
