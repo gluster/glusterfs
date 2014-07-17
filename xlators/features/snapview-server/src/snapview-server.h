@@ -53,6 +53,31 @@
                 STACK_DESTROY (((call_frame_t *)_frame)->root);     \
         } while (0)
 
+#define SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, ret,   \
+                               op_errno, label)                         \
+        do {                                                            \
+                fs = inode_ctx->fs;                                     \
+                object = inode_ctx->object;                             \
+                if (!fs || !object) {                                   \
+                        int32_t tmp = -1;                               \
+                        char    tmp_uuid[64];                           \
+                                                                        \
+                        tmp = svs_get_handle (this, loc, inode_ctx,     \
+                                              &op_errno);               \
+                        if (tmp) {                                      \
+                                gf_log (this->name, GF_LOG_ERROR,       \
+                                        "failed to get the handle for %s " \
+                                        "(gfid: %s)", loc->path,        \
+                                        uuid_utoa_r (loc->inode->gfid,  \
+                                                     tmp_uuid));        \
+                                ret = -1;                               \
+                                goto label;                             \
+                        }                                               \
+                                                                        \
+                        fs = inode_ctx->fs;                             \
+                        object = inode_ctx->object;                     \
+                }                                                       \
+        } while(0);
 
 int
 svs_mgmt_submit_request (void *req, call_frame_t *frame,
@@ -167,5 +192,9 @@ svs_get_snap_dirent (xlator_t *this, const char *name);
 
 int
 svs_mgmt_init (xlator_t *this);
+
+int32_t
+svs_get_handle (xlator_t *this, loc_t *loc, svs_inode_t *inode_ctx,
+                int32_t *op_errno);
 
 #endif /* __SNAP_VIEW_H__ */
