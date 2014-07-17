@@ -228,4 +228,8 @@ int
 posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
                     gf_dirent_t *head, char **path, int type, int32_t *op_errno,
                     dict_t *xdata);
+
+void
+posix_gfid_unset (xlator_t *this, dict_t *xdata);
+
 #endif /* _POSIX_H */

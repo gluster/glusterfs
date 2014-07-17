@@ -801,7 +801,7 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
 }
 
 
-static int
+int
 posix_handle_unset_gfid (xlator_t *this, uuid_t gfid)
 {
         char        *path = NULL;
