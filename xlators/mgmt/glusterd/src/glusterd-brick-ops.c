@@ -2004,6 +2004,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         if (GF_OP_CMD_START == cmd)
                 volinfo->rebal.dict = dict_ref (bricks_dict);
 
+        volinfo->subvol_count = (volinfo->brick_count /
+                                 volinfo->dist_leaf_count);
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (!ret) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -2013,8 +2015,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 volinfo->replica_count = replica_count;
                 volinfo->sub_count = replica_count;
                 volinfo->dist_leaf_count = glusterd_get_dist_leaf_count (volinfo);
-                volinfo->subvol_count = (volinfo->brick_count /
-                                         volinfo->dist_leaf_count);
 
                 if (replica_count == 1) {
                         if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
