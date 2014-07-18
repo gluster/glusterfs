@@ -347,11 +347,11 @@ CFLAGS  = -fPIC -Wall -O0 -g \
       -DHAVE_CONFIG_H -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
       -D$(HOST_OS) -I$(GLFS_SRC) -I$(GLFS_SRC)/contrib/uuid \
       -I$(GLFS_SRC)/libglusterfs/src
-LDFLAGS = -shared -nostartfiles -L$(GLFS_LIB) -lglusterfs \
-      -lpthread
+LDFLAGS = -shared -nostartfiles -L$(GLFS_LIB)
+LIBS = -lglusterfs -lpthread
 
 $(TARGET): $(OBJECTS)
-    $(CC) $(OBJECTS) $(LDFLAGS) -o $(TARGET)
+    $(CC) $(OBJECTS) $(LDFLAGS) -o $(TARGET) $(OBJECTS) $(LIBS)
 ```
 
 Yes, it's still Linux-specific. Mea culpa. As you can see, we're sticking with
