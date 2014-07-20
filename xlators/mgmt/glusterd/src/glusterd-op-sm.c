@@ -3827,6 +3827,39 @@ out:
 
 }
 
+/* This function is used to verify if op_ctx indeed
+   requires modification. This is necessary since the
+   dictionary for certain commands might not have the
+   necessary keys required for the op_ctx modification
+   to succeed.
+
+   Special Cases:
+   - volume status all
+   - volume status
+
+   Regular Cases:
+   - volume status <volname> <brick>
+   - volume status <volname> mem
+   - volume status <volname> clients
+   - volume status <volname> inode
+   - volume status <volname> fd
+   - volume status <volname> callpool
+   - volume status <volname> tasks
+*/
+
+static gf_boolean_t
+glusterd_is_volume_status_modify_op_ctx (uint32_t cmd)
+{
+        if ((cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE) {
+                if (cmd & GF_CLI_STATUS_BRICK)
+                        return _gf_false;
+                if (cmd & GF_CLI_STATUS_ALL)
+                        return _gf_false;
+                return _gf_true;
+        }
+        return _gf_false;
+}
+
 /* This function is used to modify the op_ctx dict before sending it back
  * to cli. This is useful in situations like changing the peer uuids to
  * hostnames etc.
@@ -3864,8 +3897,8 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                 "Failed to get status cmd");
                         goto out;
                 }
-                if (!(cmd & GF_CLI_STATUS_NFS || cmd & GF_CLI_STATUS_SHD ||
-                    (cmd & GF_CLI_STATUS_MASK) == GF_CLI_STATUS_NONE)) {
+
+                if (!glusterd_is_volume_status_modify_op_ctx (cmd)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "op_ctx modification not required for status "
                                 "operation being performed");
