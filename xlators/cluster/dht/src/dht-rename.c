@@ -375,8 +375,10 @@ dht_rename_cleanup (call_frame_t *frame)
         if (src_cached == dst_cached)
                 goto nolinks;
 
-        if (dst_hashed != src_hashed && dst_hashed != src_cached)
+        if (local->linked && (dst_hashed != src_hashed )&&
+                (dst_hashed != src_cached)) {
                 call_cnt++;
+        }
 
         if (local->added_link && (src_cached != dst_hashed)) {
                 call_cnt++;
@@ -387,10 +389,13 @@ dht_rename_cleanup (call_frame_t *frame)
         if (!call_cnt)
                 goto nolinks;
 
-        if (dst_hashed != src_hashed && dst_hashed != src_cached) {
+        if (local->linked && (dst_hashed != src_hashed) &&
+                        (dst_hashed != src_cached)) {
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "unlinking linkfile %s @ %s => %s",
                         local->loc.path, dst_hashed->name, src_cached->name);
+
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             dst_hashed, dst_hashed->fops->unlink,
                             &local->loc, 0, NULL);
