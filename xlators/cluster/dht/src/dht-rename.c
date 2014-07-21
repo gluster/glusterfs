@@ -439,8 +439,10 @@ dht_rename_cleanup (call_frame_t *frame)
         if (src_cached == dst_cached)
                 goto nolinks;
 
-        if (dst_hashed != src_hashed && dst_hashed != src_cached)
+        if (local->linked && (dst_hashed != src_hashed )&&
+                (dst_hashed != src_cached)) {
                 call_cnt++;
+        }
 
         if (local->added_link && (src_cached != dst_hashed)) {
                 call_cnt++;
@@ -455,7 +457,8 @@ dht_rename_cleanup (call_frame_t *frame)
 
         uuid_unparse(local->loc.inode->gfid, gfid);
 
-        if (dst_hashed != src_hashed && dst_hashed != src_cached) {
+        if (local->linked && (dst_hashed != src_hashed) &&
+                        (dst_hashed != src_cached)) {
                 dict_t *xattr_new = NULL;
 
                 gf_msg_trace (this->name, 0,
