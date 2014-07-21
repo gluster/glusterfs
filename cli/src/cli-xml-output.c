@@ -3744,6 +3744,161 @@ out:
 
 #if (HAVE_LIB_XML)
 int
+_output_gsync_config (FILE *fp, xmlTextWriterPtr writer, char *op_name)
+{
+        char  resbuf[256 + PATH_MAX] = {0,};
+        char *ptr                    = NULL;
+        char *v                      = NULL;
+        int   blen                   = sizeof(resbuf);
+        int   ret                    = 0;
+
+        for (;;) {
+                ptr = fgets (resbuf, blen, fp);
+                if (!ptr)
+                        break;
+
+                v = resbuf + strlen (resbuf) - 1;
+                while (isspace (*v)) {
+                        /* strip trailing space */
+                        *v-- = '\0';
+                }
+                if (v == resbuf) {
+                        /* skip empty line */
+                        continue;
+                }
+
+                if (op_name!= NULL){
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                                        (xmlChar *)op_name,
+                                                        "%s", resbuf);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                        goto out;
+                }
+
+                v = strchr (resbuf, ':');
+                if (!v) {
+                        ret = -1;
+                        goto out;
+                }
+                *v++ = '\0';
+                while (isspace (*v))
+                        v++;
+                v = gf_strdup (v);
+                if (!v) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)resbuf,
+                                                       "%s", v);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+#endif
+
+#if (HAVE_LIB_XML)
+int
+get_gsync_config (runner_t *runner,
+                  int (*op_conf)(FILE *fp,
+                              xmlTextWriterPtr writer,
+                              char *op_name),
+                  xmlTextWriterPtr writer, char *op_name)
+{
+        int ret = 0;
+
+        runner_redir (runner, STDOUT_FILENO, RUN_PIPE);
+        if (runner_start (runner) != 0) {
+                gf_log ("cli", GF_LOG_ERROR, "spawning child failed");
+                return -1;
+        }
+
+        ret = op_conf (runner_chio (runner, STDOUT_FILENO), writer, op_name);
+
+        ret |= runner_end (runner);
+        if (ret)
+                gf_log ("cli", GF_LOG_ERROR, "reading data from child failed");
+
+        return ret ? -1 : 0;
+}
+#endif
+
+#if (HAVE_LIB_XML)
+int
+cli_xml_generate_gsync_config (dict_t *dict, xmlTextWriterPtr writer)
+{
+        runner_t runner           = {0,};
+        char *subop               = NULL;
+        char *gwd                 = NULL;
+        char *slave               = NULL;
+        char *confpath            = NULL;
+        char *master              = NULL;
+        char *op_name             = NULL;
+        int   ret                 = -1;
+        char  conf_path[PATH_MAX] = "";
+
+        if (dict_get_str (dict, "subop", &subop) != 0) {
+                ret = -1;
+                goto out;
+        }
+
+        if (strcmp (subop, "get") != 0 && strcmp (subop, "get-all") != 0) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                 (xmlChar *)"message",
+                                 "%s",GEOREP" config updated successfully" );
+                XML_RET_CHECK_AND_GOTO (ret, out);
+                ret = 0;
+                goto out;
+        }
+
+        if (dict_get_str (dict, "glusterd_workdir", &gwd) != 0 ||
+            dict_get_str (dict, "slave", &slave) != 0) {
+                ret = -1;
+                goto out;
+        }
+
+        if (dict_get_str (dict, "master", &master) != 0)
+                master = NULL;
+
+        if (dict_get_str (dict, "op_name", &op_name) != 0)
+                op_name = NULL;
+
+        ret = dict_get_str (dict, "conf_path", &confpath);
+        if (!confpath) {
+                ret = snprintf (conf_path, sizeof (conf_path) - 1,
+                                "%s/"GEOREP"/gsyncd_template.conf", gwd);
+                conf_path[ret] = '\0';
+                confpath = conf_path;
+        }
+
+        runinit (&runner);
+        runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s", confpath);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
+
+        if (master)
+                runner_argprintf (&runner, ":%s", master);
+
+        runner_add_arg (&runner, slave);
+        runner_argprintf (&runner, "--config-%s", subop);
+
+        if (op_name)
+                runner_add_arg (&runner, op_name);
+
+        ret =  get_gsync_config (&runner, _output_gsync_config,
+                                 writer, op_name);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+#endif
+
+#if (HAVE_LIB_XML)
+int
 cli_xml_output_vol_gsync_status (dict_t *dict, xmlTextWriterPtr writer)
 {
         char                    master_key[PATH_MAX] = "";
@@ -3852,15 +4007,13 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
                 goto out;
         }
 
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"type",
-                                               "%d", type);
-        XML_RET_CHECK_AND_GOTO (ret, out);
-
         switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
         case GF_GSYNC_OPTION_TYPE_STOP:
         case GF_GSYNC_OPTION_TYPE_PAUSE:
         case GF_GSYNC_OPTION_TYPE_RESUME:
+        case GF_GSYNC_OPTION_TYPE_CREATE:
+        case GF_GSYNC_OPTION_TYPE_DELETE:
                 if (dict_get_str (dict, "master", &master) != 0)
                         master = "???";
                 if (dict_get_str (dict, "slave", &slave) != 0)
@@ -3879,6 +4032,16 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
                 break;
 
         case GF_GSYNC_OPTION_TYPE_CONFIG:
+                ret = xmlTextWriterStartElement (writer, (xmlChar *)"config");
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                ret = cli_xml_generate_gsync_config (dict, writer);
+                if (ret)
+                        goto out;
+
+                ret = xmlTextWriterEndElement (writer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
                 break;
         case GF_GSYNC_OPTION_TYPE_STATUS:
                 ret = cli_xml_output_vol_gsync_status(dict, writer);
