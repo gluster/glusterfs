@@ -4270,7 +4270,8 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
                 if (priv->child_up[i] == 1)
                         up_children++;
 
-        if (*child_latency_msec > halo_max_latency_msec &&
+        if (priv->halo_enabled &&
+            *child_latency_msec > halo_max_latency_msec &&
             priv->child_up[idx] == 1 &&
             up_children > priv->halo_min_replicas) {
                 if ((up_children - 1) <
@@ -4288,13 +4289,14 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
                                 halo_max_latency_msec);
                         *event = GF_EVENT_CHILD_DOWN;
                 }
-        } else if (*child_latency_msec < halo_max_latency_msec &&
+        } else if ((priv->halo_enabled == _gf_false ||
+                    *child_latency_msec < halo_max_latency_msec) &&
                    priv->child_up[idx] == 0) {
                 if (up_children < priv->halo_max_replicas) {
                         gf_log (child_xlator->name, GF_LOG_INFO,
                                 "Child latency (%ld ms) "
-                                "below halo threshold (%ld), "
-                                "marking child up.",
+                                "below halo threshold (%ld) or halo is "
+                                "disabled, marking child up.",
                                 *child_latency_msec,
                                 halo_max_latency_msec);
                         *event = GF_EVENT_CHILD_UP;
@@ -4343,7 +4345,8 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
          * halo_min_replicas even though it's latency exceeds
          * halo_max_latency_msec.
          */
-        if (up_children > priv->halo_min_replicas) {
+        if (priv->halo_enabled == _gf_true &&
+                        up_children > priv->halo_min_replicas) {
                 worst_up_child = find_worst_up_child (this);
                 if (worst_up_child >= 0 &&
                     priv->child_latency[worst_up_child] >
@@ -4360,7 +4363,8 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
                         up_children--;
                 }
         }
-        if (up_children > priv->halo_max_replicas &&
+        if (priv->halo_enabled == _gf_true &&
+                        up_children > priv->halo_max_replicas &&
             !priv->shd.iamshd) {
                 worst_up_child = find_worst_up_child (this);
                 if (worst_up_child < 0) {
@@ -4440,7 +4444,8 @@ _afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
          * as we want it to be up to date if we are going to
          * begin using it synchronously.
          */
-        if (up_children < priv->halo_min_replicas) {
+        if (priv->halo_enabled == _gf_true &&
+                        up_children < priv->halo_min_replicas) {
                 best_down_child = find_best_down_child (this);
                 if (best_down_child >= 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -4546,7 +4551,11 @@ afr_notify (xlator_t *this, int32_t event,
         had_quorum = priv->quorum_count && afr_has_quorum (priv->child_up,
                                                            this);
 
-        halo_max_latency_msec = _afr_get_halo_latency (this);
+        if (!priv->halo_enabled) {
+                halo_max_latency_msec = INT64_MAX;
+        } else {
+                halo_max_latency_msec = _afr_get_halo_latency (this);
+        }
 
         if (event == GF_EVENT_CHILD_PING) {
                 /* Calculates the child latency and sets event
