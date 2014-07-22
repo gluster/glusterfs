@@ -3471,6 +3471,10 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         char                   *statefile                  = NULL;
         char                   *socketfile                 = NULL;
         dict_t                 *confd                      = NULL;
+        char                   *slavekey                   = NULL;
+        char                   *slaveentry                 = NULL;
+        char                   *brick_host_uuid            = NULL;
+        int                     brick_host_uuid_length     = 0;
         int                     gsync_count                = 0;
         int                     i                          = 0;
         int                     ret                        = 0;
@@ -3676,8 +3680,33 @@ store_status:
                 sts_val->node[strlen(node)] = '\0';
                 memcpy (sts_val->brick, brickinfo->path, strlen(brickinfo->path));
                 sts_val->brick[strlen(brickinfo->path)] = '\0';
+
+                ret = glusterd_get_slave (volinfo, slave, &slavekey);
+                if (ret < 0) {
+                        GF_FREE (sts_val);
+                        goto out;
+                }
+                memcpy (sts_val->slavekey, slavekey, strlen(slavekey));
+                sts_val->slavekey[strlen(slavekey)] = '\0';
+
+                brick_host_uuid = uuid_utoa(brickinfo->uuid);
+                brick_host_uuid_length = strlen (brick_host_uuid);
+                memcpy (sts_val->brick_host_uuid, brick_host_uuid,
+                        brick_host_uuid_length);
+                sts_val->brick_host_uuid[brick_host_uuid_length] = '\0';
+
                 memcpy (sts_val->master, master, strlen(master));
                 sts_val->master[strlen(master)] = '\0';
+
+                ret = dict_get_str (volinfo->gsync_slaves, slavekey,
+                                    &slaveentry);
+                if (ret < 0) {
+                        GF_FREE (sts_val);
+                        goto out;
+                }
+                memcpy (sts_val->session_slave, slaveentry,
+                        strlen(slaveentry));
+                sts_val->session_slave[strlen(slaveentry)] = '\0';
 
                 snprintf (sts_val_name, sizeof (sts_val_name), "status_value%d", gsync_count);
                 ret = dict_set_bin (dict, sts_val_name, sts_val, sizeof(gf_gsync_status_t));

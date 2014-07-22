@@ -4018,6 +4018,9 @@ get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
         case 9:  return (sts_val->bytes_remaining);
         case 10: return (sts_val->purges_remaining);
         case 11: return (sts_val->total_files_skipped);
+        case 12: return (sts_val->brick_host_uuid);
+        case 13: return (sts_val->slavekey);
+        case 14: return (sts_val->session_slave);
         default:
                  goto out;
         }
