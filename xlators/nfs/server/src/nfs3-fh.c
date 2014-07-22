@@ -182,7 +182,7 @@ nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,
 
 
 uint32_t
-nfs3_fh_compute_size (struct nfs3_fh *fh)
+nfs3_fh_compute_size ()
 {
         return GF_NFSFH_STATIC_SIZE;
 }

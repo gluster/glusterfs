@@ -2366,34 +2366,24 @@ rpcsvc_combine_allow_reject_volume_check (int allow, int reject)
 }
 
 int
-rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
-                   rpc_transport_t *trans)
+rpcsvc_auth_check (rpcsvc_t *svc, char *volname, char *ipaddr)
 {
         int     ret                            = RPCSVC_AUTH_REJECT;
         int     accept                         = RPCSVC_AUTH_REJECT;
         int     reject                         = RPCSVC_AUTH_REJECT;
         char   *hostname                       = NULL;
-        char   *ip                             = NULL;
-        char    client_ip[RPCSVC_PEER_STRLEN]  = {0};
         char   *allow_str                      = NULL;
         char   *reject_str                     = NULL;
         char   *srchstr                        = NULL;
         dict_t *options                        = NULL;
 
-        if (!svc || !volname || !trans)
+        if (!svc || !volname || !ipaddr)
                 return ret;
 
         /* Fetch the options from svc struct and validate */
         options = svc->options;
         if (!options)
                 return ret;
-
-        ret = rpcsvc_transport_peername (trans, client_ip, RPCSVC_PEER_STRLEN);
-        if (ret != 0) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get remote addr: "
-                        "%s", gai_strerror (ret));
-                return RPCSVC_AUTH_REJECT;
-        }
 
         /* Accept if its the default case: Allow all, Reject none
          * The default volfile always contains a 'allow *' rule
@@ -2435,13 +2425,9 @@ rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
                         return RPCSVC_AUTH_ACCEPT;
         }
 
-        /* Non-default rule, authenticate */
-        if (!get_host_name (client_ip, &ip))
-                ip = client_ip;
-
         /* addr-namelookup check */
         if (svc->addr_namelookup == _gf_true) {
-                ret = gf_get_hostname_from_ip (ip, &hostname);
+                ret = gf_get_hostname_from_ip (ipaddr, &hostname);
                 if (ret) {
                         if (hostname)
                                 GF_FREE (hostname);
@@ -2454,10 +2440,10 @@ rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
         }
 
         accept = rpcsvc_transport_peer_check_allow (options, volname,
-                                                    ip, hostname);
+                                                    ipaddr, hostname);
 
         reject = rpcsvc_transport_peer_check_reject (options, volname,
-                                                     ip, hostname);
+                                                     ipaddr, hostname);
 
         if (hostname)
                 GF_FREE (hostname);
@@ -2465,32 +2451,16 @@ rpcsvc_auth_check (rpcsvc_t *svc, char *volname,
 }
 
 int
-rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
-                                 rpc_transport_t *trans)
+rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname, uint16_t port)
 {
-        union gf_sock_union     sock_union;
         int                     ret = RPCSVC_AUTH_REJECT;
-        socklen_t               sinsize = sizeof (&sock_union.sin);
         char                    *srchstr = NULL;
         char                    *valstr = NULL;
-        uint16_t                port = 0;
         gf_boolean_t            insecure = _gf_false;
 
-        memset (&sock_union, 0, sizeof (sock_union));
-
-        if ((!svc) || (!volname) || (!trans))
+        if ((!svc) || (!volname))
                 return ret;
 
-        ret = rpcsvc_transport_peeraddr (trans, NULL, 0, &sock_union.storage,
-                                         sinsize);
-        if (ret != 0) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get peer addr: %s",
-                        gai_strerror (ret));
-                ret = RPCSVC_AUTH_REJECT;
-                goto err;
-        }
-
-        port = ntohs (sock_union.sin.sin_port);
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Client port: %d", (int)port);
         /* If the port is already a privileged one, dont bother with checking
          * options.

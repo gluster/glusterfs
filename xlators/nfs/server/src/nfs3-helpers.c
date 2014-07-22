@@ -424,7 +424,7 @@ nfs3_fill_lookup3res_success (lookup3res *res, nfsstat3 stat,
         res->status = stat;
         if (fh) {
                 res->lookup3res_u.resok.object.data.data_val = (void *)fh;
-                fhlen = nfs3_fh_compute_size (fh);
+                fhlen = nfs3_fh_compute_size ();
                 res->lookup3res_u.resok.object.data.data_len = fhlen;
         }
 
@@ -721,7 +721,7 @@ nfs3_fill_post_op_fh3 (struct nfs3_fh *fh, post_op_fh3 *pfh)
                 return;
 
         pfh->handle_follows = 1;
-        fhlen = nfs3_fh_compute_size (fh);
+        fhlen = nfs3_fh_compute_size ();
         pfh->post_op_fh3_u.handle.data.data_val = (void *)fh;
         pfh->post_op_fh3_u.handle.data.data_len = fhlen;
 }

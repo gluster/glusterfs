@@ -554,6 +554,43 @@ glfs_new (const char *volname)
 }
 
 
+struct glfs *
+glfs_new_from_ctx (glusterfs_ctx_t *ctx)
+{
+        struct glfs    *fs = NULL;
+
+        if (!ctx)
+                return NULL;
+
+        fs = GF_CALLOC (1, sizeof (*fs), glfs_mt_glfs_t);
+        if (!fs)
+                return NULL;
+        fs->ctx = ctx;
+
+        (void) pthread_cond_init (&fs->cond, NULL);
+
+        (void) pthread_mutex_init (&fs->mutex, NULL);
+
+        INIT_LIST_HEAD (&fs->openfds);
+
+        return fs;
+}
+
+
+void
+glfs_free_from_ctx (struct glfs *fs)
+{
+        if (!fs)
+                return;
+
+        (void) pthread_cond_destroy (&fs->cond);
+
+        (void) pthread_mutex_destroy (&fs->mutex);
+
+        GF_FREE (fs);
+}
+
+
 int
 glfs_set_volfile (struct glfs *fs, const char *volfile)
 {
