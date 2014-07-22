@@ -20,6 +20,7 @@
 
 #include "xlator.h"
 #include "defaults.h"
+#include "compat-errno.h"
 
 #include "ec-helpers.h"
 #include "ec-common.h"
