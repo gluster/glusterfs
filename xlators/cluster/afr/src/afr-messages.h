@@ -45,7 +45,7 @@
  */
 
 #define GLFS_COMP_BASE_AFR GLFS_MSGID_COMP_AFR
-#define GLFS_NUM_MESSAGES 9
+#define GLFS_NUM_MESSAGES 10
 #define GLFS_MSGID_END (GLFS_COMP_BASE_AFR + GLFS_NUM_MESSAGES + 1)
 
 #define glfs_msg_start_x GLFS_COMP_BASE_AFR, "Invalid: Start of messages"
@@ -131,6 +131,15 @@
  * failed. Also observe brick logs for more information.
  */
 #define AFR_MSG_OPEN_FAIL               (GLFS_COMP_BASE_AFR + 9)
+
+
+/*!
+ * @messageid 108010
+ * @diagnosis Inode unlocks failed on a brick.
+ * @recommendedaction Error number in the log should give the reason why it
+ * failed. Also observe brick logs for more information.
+*/
+#define AFR_MSG_INODE_UNLOCK_FAIL       (GLFS_COMP_BASE_AFR + 10)
 
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
