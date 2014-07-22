@@ -23,18 +23,26 @@
 #include <netinet/in.h>
 
 
-extern struct nfs3_fh* nfs3_rootfh (char *dp);
-extern mountres3 mnt3svc_set_mountres3 (mountstat3 stat, struct nfs3_fh *fh,
-                                        int *authflavor, u_int aflen);
+extern struct nfs3_fh*
+nfs3_rootfh (struct svc_req *req, xlator_t *nfsx, char *dp, char *expname);
+
+extern mountres3
+mnt3svc_set_mountres3 (mountstat3 stat, struct nfs3_fh *fh,
+                       int *authflavor, u_int aflen);
 extern int
-mount3udp_add_mountlist (char *host, dirpath *expname);
+mount3udp_add_mountlist (xlator_t *nfsx, char *host, char *expname);
 
 extern int
-mount3udp_delete_mountlist (char *host, dirpath *expname);
+mount3udp_delete_mountlist (xlator_t *nfsx, char *host, char *expname);
+
+extern mountstat3
+mnt3svc_errno_to_mnterr (int32_t errnum);
 
 
 /* only this thread will use this, no locking needed */
 char mnthost[INET_ADDRSTRLEN+1];
+
+#define MNT3UDP_AUTH_LEN 1 /* Only AUTH_UNIX for now */
 
 mountres3 *
 mountudpproc3_mnt_3_svc(dirpath **dpp, struct svc_req *req)
@@ -42,30 +50,46 @@ mountudpproc3_mnt_3_svc(dirpath **dpp, struct svc_req *req)
         struct mountres3        *res = NULL;
         int                     *autharr = NULL;
         struct nfs3_fh          *fh = NULL;
-        char                    *tmp = NULL;
+        char                    *mpath = NULL;
+        xlator_t                *nfsx = THIS;
+        char                    expname[PATH_MAX] = {0, };
+        mountstat3              stat = MNT3ERR_SERVERFAULT;
 
-        tmp = (char *)*dpp;
-        while (*tmp == '/')
-                tmp++;
-        fh = nfs3_rootfh (tmp);
-        if (fh == NULL) {
-                gf_log (GF_MNT, GF_LOG_DEBUG, "unable to get fh for %s", tmp);
-                goto err;
-        }
+        errno = 0; /* RESET errno */
+
+        mpath = (char *)*dpp;
+        while (*mpath == '/')
+                mpath++;
 
         res = GF_CALLOC (1, sizeof(*res), gf_nfs_mt_mountres3);
         if (res == NULL) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "unable to allocate memory");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to allocate memory");
                 goto err;
         }
-        autharr = GF_CALLOC (1, sizeof(*autharr), gf_nfs_mt_int);
+        autharr = GF_CALLOC (MNT3UDP_AUTH_LEN, sizeof(int), gf_nfs_mt_int);
         if (autharr == NULL) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "unable to allocate memory");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to allocate memory");
                 goto err;
         }
+
         autharr[0] = AUTH_UNIX;
-        *res = mnt3svc_set_mountres3 (MNT3_OK, fh, autharr, 1);
-        mount3udp_add_mountlist (mnthost, *dpp);
+
+        fh = nfs3_rootfh (req, nfsx, mpath, (char *)expname);
+
+        /* FAILURE: No FH */
+        if (fh == NULL) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to get fh for %s", mpath);
+                if (errno)
+                        stat = mnt3svc_errno_to_mnterr (errno);
+                *res = mnt3svc_set_mountres3 (stat, NULL /* fh */,
+                                              autharr, MNT3UDP_AUTH_LEN);
+                return res;
+        }
+
+        /* SUCCESS */
+        stat = MNT3_OK;
+        *res = mnt3svc_set_mountres3 (stat, fh, autharr, MNT3UDP_AUTH_LEN);
+        (void) mount3udp_add_mountlist (nfsx, mnthost, (char *) expname);
         return res;
 
  err:
@@ -79,14 +103,16 @@ mountstat3 *
 mountudpproc3_umnt_3_svc(dirpath **dp, struct svc_req *req)
 {
         mountstat3 *stat = NULL;
+        char       *mpath = (char *) *dp;
+        xlator_t   *nfsx = THIS;
 
         stat = GF_CALLOC (1, sizeof(mountstat3), gf_nfs_mt_mountstat3);
         if (stat == NULL) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "unable to allocate memory");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to allocate memory");
                 return NULL;
         }
         *stat = MNT3_OK;
-        mount3udp_delete_mountlist (mnthost, *dp);
+        (void) mount3udp_delete_mountlist (nfsx, mnthost, mpath);
         return stat;
 }
 
@@ -147,7 +173,7 @@ mountudp_program_3(struct svc_req *rqstp, register SVCXPRT *transp)
         }
         if (!svc_freeargs (transp, (xdrproc_t) _xdr_argument,
                            (caddr_t) &argument)) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "unable to free arguments");
+                gf_log (GF_MNT, GF_LOG_ERROR, "Unable to free arguments");
         }
         if (result == NULL)
                 return;
@@ -176,8 +202,8 @@ mount3udp_thread (void *argv)
         GF_ASSERT (nfsx);
 
         if (glusterfs_this_set(nfsx)) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "failed to set xlator, "
-                        "nfs.mount-udp will not work");
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Failed to set xlator, nfs.mount-udp will not work");
                 return NULL;
         }
 

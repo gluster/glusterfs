@@ -66,7 +66,7 @@ struct nfs3_fh {
 #define GF_NFS3FH_STATIC_INITIALIZER    {{0},}
 
 extern uint32_t
-nfs3_fh_compute_size (struct nfs3_fh *fh);
+nfs3_fh_compute_size ();
 
 extern uint16_t
 nfs3_fh_hash_entry (uuid_t gfid);

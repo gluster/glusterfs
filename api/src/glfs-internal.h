@@ -226,4 +226,55 @@ int glfs_getxattr_process (void *value, size_t size, dict_t *xattr,
 /* Sends RPC call to glusterd to fetch required volume info */
 int glfs_get_volume_info (struct glfs *fs);
 
+/*
+  SYNOPSIS
+
+       glfs_new_from_ctx: Creates a virtual mount object by taking a
+       glusterfs_ctx_t object.
+
+  DESCRIPTION
+
+       glfs_new_from_ctx() is not same as glfs_new(). It takes the
+       glusterfs_ctx_t object instead of creating one by glusterfs_ctx_new().
+       Again the usage is restricted to NFS MOUNT over UDP i.e. in
+       glfs_resolve_at() which would take fs object as input but never use
+       (purpose is not to change the ABI of glfs_resolve_at()).
+
+  PARAMETERS
+
+       @ctx: glusterfs_ctx_t object
+
+  RETURN VALUES
+
+       fs     : Pointer to the newly created glfs_t object.
+       NULL   : Otherwise.
+*/
+
+struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx);
+
+/*
+  SYNOPSIS
+
+       glfs_free_from_ctx: Free up the memory occupied by glfs_t object
+       created by glfs_new_from_ctx().
+
+  DESCRIPTION
+
+       The glfs_t object allocated by glfs_new_from_ctx() must be released
+       by the caller using this routine. The usage is restricted to NFS
+       MOUNT over UDP i.e.
+       __mnt3udp_get_export_subdir_inode ()
+                                => glfs_resolve_at().
+
+  PARAMETERS
+
+       @fs: The glfs_t object to be deallocated.
+
+  RETURN VALUES
+
+       void
+*/
+
+void glfs_free_from_ctx (struct glfs *fs);
+
 #endif /* !_GLFS_INTERNAL_H */
