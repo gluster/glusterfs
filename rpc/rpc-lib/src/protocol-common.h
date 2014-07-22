@@ -244,6 +244,9 @@ struct gf_gsync_detailed_status_ {
         char bytes_remaining[NAME_MAX];
         char purges_remaining[NAME_MAX];
         char total_files_skipped[NAME_MAX];
+        char brick_host_uuid[NAME_MAX];
+        char slavekey[NAME_MAX];
+        char session_slave[NAME_MAX];
 };
 
 enum glusterd_mgmt_v3_procnum {

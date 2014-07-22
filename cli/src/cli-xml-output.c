@@ -3899,76 +3899,219 @@ out:
 
 #if (HAVE_LIB_XML)
 int
-cli_xml_output_vol_gsync_status (dict_t *dict, xmlTextWriterPtr writer)
+gf_gsync_status_t_comparator (const void *p, const void *q)
 {
-        char                    master_key[PATH_MAX] = "";
-        char                    slave_key[PATH_MAX] = "";
-        char                    status_key[PATH_MAX] = "";
-        char                    node_key[PATH_MAX] = "";
-        char                    *master = NULL;
-        char                    *slave = NULL;
-        char                    *status = NULL;
-        char                    *node = NULL;
-        int                     ret = -1;
-        int                     gsync_count = 0;
-        int                     i = 1;
+        char *master1 = NULL;
+        char *master2 = NULL;
 
-        ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
+        master1 = get_struct_variable (1, (*(gf_gsync_status_t **)p));
+        master2 = get_struct_variable (1, (*(gf_gsync_status_t **)q));
+        if (!master1 || !master2) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "struct member empty.");
+                return 0;
+        }
+
+        return strcmp (master1,master2);
+}
+#endif
+
+#if (HAVE_LIB_XML)
+int
+cli_xml_output_vol_gsync_status (dict_t *dict,
+                                 xmlTextWriterPtr writer)
+{
+        int                  ret                         = -1;
+        int                  i                           = 1;
+        int                  j                           = 0;
+        int                  count                       = 0;
+        const int            number_of_fields            = 12;
+        const int            number_of_basic_fields      = 7;
+        int                  closed                      = 1;
+        int                  session_closed              = 1;
+        gf_gsync_status_t  **status_values               = NULL;
+        gf_boolean_t         status_detail               = _gf_false;
+        char                 status_value_name[PATH_MAX] = "";
+        char                *tmp                         = NULL;
+        char                *volume                      = NULL;
+        char                *volume_next                 = NULL;
+        char                *slave                       = NULL;
+        char                *slave_next                  = NULL;
+        char                *title_values[]              = {"master_node",
+                                                            "master_node_uuid",
+                                                            "master_brick",
+                                                            "slave",
+                                                            "status",
+                                                            "checkpoint_status",
+                                                            "crawl_status",
+                                                            "files_syncd",
+                                                            "files_pending",
+                                                            "bytes_pending",
+                                                            "deletes_pending",
+                                                            "files_skipped"};
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_int32 (dict, "gsync-count", &count);
         if (ret)
                 goto out;
 
-        for (i=1; i <= gsync_count; i++) {
-                snprintf (node_key, sizeof(node_key), "node%d", i);
-                snprintf (master_key, sizeof(master_key), "master%d", i);
-                snprintf (slave_key, sizeof(slave_key), "slave%d", i);
-                snprintf (status_key, sizeof(status_key), "status%d", i);
+        status_detail = dict_get_str_boolean (dict, "status-detail",
+                                              _gf_false);
 
-                ret = dict_get_str (dict, node_key, &node);
-                if (ret)
+        status_values = GF_CALLOC (count, sizeof (gf_gsync_status_t *),
+                              gf_common_mt_char);
+        if (!status_values) {
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; i < count; i++) {
+                status_values[i] = GF_CALLOC (1, sizeof (gf_gsync_status_t),
+                                         gf_common_mt_char);
+                if (!status_values[i]) {
+                        ret = -1;
                         goto out;
+                }
 
-                ret = dict_get_str (dict, master_key, &master);
-                if (ret)
+                snprintf (status_value_name, sizeof (status_value_name),
+                          "status_value%d", i);
+
+                ret = dict_get_bin (dict, status_value_name,
+                                    (void **)&(status_values[i]));
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "struct member empty.");
                         goto out;
+                }
+        }
 
-                ret = dict_get_str (dict, slave_key, &slave);
-                if (ret)
-                        goto out;
+        qsort(status_values, count, sizeof (gf_gsync_status_t *),
+              gf_gsync_status_t_comparator);
 
-                ret = dict_get_str (dict, status_key, &status);
-                if (ret)
-                        goto out;
+        for (i = 0; i < count; i++) {
+                if (closed) {
+                        ret = xmlTextWriterStartElement (writer,
+                                                         (xmlChar *)"volume");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
 
-                /* <pair> */
+                        tmp = get_struct_variable (1, status_values[i]);
+                        if (!tmp) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "struct member empty.");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                                        (xmlChar *)"name",
+                                                        "%s",tmp);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        ret = xmlTextWriterStartElement (writer,
+                                                    (xmlChar *)"sessions");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        closed = 0;
+                }
+
+                if (session_closed) {
+                        ret = xmlTextWriterStartElement (writer,
+                                                         (xmlChar *)"session");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        session_closed = 0;
+
+                        tmp = get_struct_variable (14, status_values[i]);
+                        if (!tmp) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "struct member empty.");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = xmlTextWriterWriteFormatElement
+                                (writer, (xmlChar *)"session_slave", "%s", tmp);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
+
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"pair");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"node",
-                                                       "%s", node);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                for (j = 0; j < number_of_fields; j++) {
+                  // if detail option is not set and field is not under
+                  // basic fields or if field is volume then skip
+                        if(!status_detail && j >= number_of_basic_fields)
+                                continue;
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"master",
-                                                       "%s", master);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                        // Displaying the master_node uuid as second field
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"slave",
-                                                       "%s", slave);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                        if (j == 1)
+                                tmp = get_struct_variable (12,
+                                                           status_values[i]);
+                        else
+                                tmp = get_struct_variable (j, status_values[i]);
+                        if (!tmp) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "struct member empty.");
+                                ret = -1;
+                                goto out;
+                        }
 
-                ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"status",
-                                                       "%s", status);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                        ret = xmlTextWriterWriteFormatElement (writer,
+                                                  (xmlChar *)title_values[j],
+                                                  "%s", tmp);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
 
-                /* </pair> */
                 ret = xmlTextWriterEndElement (writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-        }
+                if (i+1 < count) {
+                        slave = get_struct_variable (13, status_values[i]);
+                        slave_next = get_struct_variable (13,
+                                                          status_values[i+1]);
+                        volume = get_struct_variable (1, status_values[i]);
+                        volume_next = get_struct_variable (1,
+                                                           status_values[i+1]);
+                        if (!slave || !slave_next || !volume || !volume_next) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "struct member empty.");
+                                ret = -1;
+                                goto out;
+                        }
 
+                        if (strcmp (volume, volume_next)!=0) {
+                                closed = 1;
+                                session_closed = 1;
+
+                                ret = xmlTextWriterEndElement (writer);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                                ret = xmlTextWriterEndElement (writer);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                                ret = xmlTextWriterEndElement (writer);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+                        } else if (strcmp (slave, slave_next)!=0) {
+
+                                session_closed = 1;
+
+                                ret = xmlTextWriterEndElement (writer);
+                                XML_RET_CHECK_AND_GOTO (ret, out);
+                        }
+                } else {
+
+                        ret = xmlTextWriterEndElement (writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        ret = xmlTextWriterEndElement (writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+
+                        ret = xmlTextWriterEndElement (writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
+        }
 out:
         gf_log ("cli",GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -4032,19 +4175,21 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
                 break;
 
         case GF_GSYNC_OPTION_TYPE_CONFIG:
-                ret = xmlTextWriterStartElement (writer, (xmlChar *)"config");
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                if (op_ret == 0) {
+                        ret = xmlTextWriterStartElement (writer, (xmlChar *)"config");
+                        XML_RET_CHECK_AND_GOTO (ret, out);
 
-                ret = cli_xml_generate_gsync_config (dict, writer);
-                if (ret)
-                        goto out;
+                        ret = cli_xml_generate_gsync_config (dict, writer);
+                        if (ret)
+                                goto out;
 
-                ret = xmlTextWriterEndElement (writer);
-                XML_RET_CHECK_AND_GOTO (ret, out);
+                        ret = xmlTextWriterEndElement (writer);
+                        XML_RET_CHECK_AND_GOTO (ret, out);
+                }
 
                 break;
         case GF_GSYNC_OPTION_TYPE_STATUS:
-                ret = cli_xml_output_vol_gsync_status(dict, writer);
+                ret = cli_xml_output_vol_gsync_status (dict, writer);
                 break;
         default:
                 ret = 0;
