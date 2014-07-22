@@ -393,9 +393,9 @@ out:
 }
 
 struct cli_cmd cli_system_cmds[] = {
-        { "system:: getspec <VOLID>",
+        { "system:: getspec <VOLNAME>",
           cli_cmd_getspec_cbk,
-          "fetch spec for volume <VOLID>"},
+          "fetch the volume file for the volume <VOLNAME>"},
 
         { "system:: portmap brick2port <BRICK>",
           cli_cmd_pmap_b2p_cbk,
