@@ -654,10 +654,11 @@ afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
-                gf_msg (this->name, GF_LOG_INFO, op_errno,
-                        AFR_MSG_ENTRY_UNLOCK_FAIL,
-                        "%s: unlock failed on subvolume %s "
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        AFR_MSG_INODE_UNLOCK_FAIL,
+                        "path=%s gfid=%s: unlock failed on subvolume %s "
                         "with lock owner %s", local->loc.path,
+                        loc_gfid_utoa (&(local->loc)),
                         priv->children[child_index]->name,
                         lkowner_utoa (&frame->root->lk_owner));
         }
@@ -807,9 +808,10 @@ afr_unlock_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                op_errno, (int) ((long)cookie));
 
         if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: unlock failed on %d, reason: %s",
-                        local->loc.path, child_index, strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        AFR_MSG_ENTRY_UNLOCK_FAIL,
+                        "%s: unlock failed on %s", local->loc.path,
+                        priv->children[child_index]->name);
         }
 
         int_lock->lockee[lockee_no].locked_nodes[child_index] &= LOCKED_NO;
