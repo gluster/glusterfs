@@ -246,7 +246,8 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
 out:
         if (ret) {
                 GF_FREE (new_event);
-                GF_FREE (new_ev_ctx->hostname);
+                if (new_ev_ctx)
+                        GF_FREE (new_ev_ctx->hostname);
                 GF_FREE (new_ev_ctx);
         }
         gf_log ("", GF_LOG_DEBUG, "returning with %d", ret);
