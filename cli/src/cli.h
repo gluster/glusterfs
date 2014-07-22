@@ -181,6 +181,8 @@ extern struct cli_state *global_state; /* use only in readline callback */
 
 typedef const char *(*cli_selector_t) (void *wcon);
 
+char *get_struct_variable (int mem_num, gf_gsync_status_t *sts_val);
+
 void *cli_getunamb (const char *tok, void **choices, cli_selector_t sel);
 
 int cli_cmd_register (struct cli_cmd_tree *tree, struct cli_cmd *cmd);
