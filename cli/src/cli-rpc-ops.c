@@ -8568,9 +8568,7 @@ cli_snapshot_status (dict_t *dict, gf_cli_rsp *rsp,
         }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_snapshot_status_per_snap (local->writer,
-                                                        local->doc,
-                                                        dict, key);
+                ret = cli_xml_snapshot_status_single_snap (local, dict, key);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to create "
                                 "xml output for snapshot status");
