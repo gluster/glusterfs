@@ -105,6 +105,53 @@ Display the status of peers.
 .TP
 \fB\ peer help \fR
 Display help for the peer command.
+.SS "Snapshot Commands"
+.PP
+.TP
+\fB\ snapshot create <snapname> <volname> [description <description>] [force] \fR
+Creates a snapshot of a GlusterFS volume. User can provide a snap-name and a description to identify the snap. The description cannot be more than 1024 characters. To be able to take a snapshot, volume should be present and it should be in started state.
+.TP
+\fB\ snapshot restore <snapname> \fR
+Restores an already taken snapshot of a GlusterFS volume. Snapshot restore is an offline activity therefore if the volume is online (in started state) then the restore operation will fail. Once the snapshot is restored it will not be available in the list of snapshots.
+.TP
+\fB\ snapshot delete <snapname> \fR
+Deletes the specified snapshot.
+.TP
+\fB\ snapshot list [volname] \fR
+Lists all snapshots taken. If volname is provided, then only the snapshots belonging to that particular volume is listed.
+.TP
+\fB\ snapshot info [snapname | (volume <volname>)] \fR
+This command gives information such as snapshot name, snapshot UUID, time at which snapshot was created, and it lists down the snap-volume-name, number of snapshots already taken and number of snapshots still available for that particular volume, and the state of the snapshot.
+.TP
+\fB\ snapshot status [snapname | (volume <volname>)] \fR
+This command gives status of the snapshot. The details included are snapshot brick path, volume group(LVM details), status of the snapshot bricks, PID of the bricks, data percentage filled for that particular volume group to which the snapshots belong to, and total size of the logical volume.
+
+If snapname is specified then status of the mentioned snapshot is displayed. If volname is specified then status of all snapshots belonging to that volume is displayed. If both snapname and volname is not specified then status of all the snapshots present in the system are displayed.
+.TP
+\fB\ snapshot config [volname] ([snap-max-hard-limit <count>] [snap-max-soft-limit <percent>]) | ([auto-delete <enable|disable>])
+Displays and sets the snapshot config values.
+
+snapshot config without any keywords displays the snapshot config values of all volumes in the system. If volname is provided, then the snapshot config values of that volume is displayed.
+
+Snapshot config command along with keywords can be used to change the existing config values. If volname is provided then config value of that volume is changed, else it will set/change the system limit.
+
+snap-max-soft-limit and auto-delete are global options, that will be inherited by all volumes in the system and cannot be set to individual volumes.
+
+The system limit takes precedence over the volume specific limit.
+
+When auto-delete feature is enabled, then upon reaching the soft-limit, with every successful snapshot creation, the oldest snapshot will be deleted.
+
+When auto-delete feature is disabled, then upon reaching the soft-limit, the user gets a warning with every successful snapshot creation.
+
+Upon reaching the hard-limit, further snapshot creations will not be allowed.
+.TP
+\fB\ snapshot activate <snapname> \fR
+Activates the mentioned snapshot.
+
+Note : By default the snapshot is activated during snapshot creation.
+.TP
+\fB\ snapshot deactivate <snapname> \fR
+Deactivates the mentioned snapshot.
 .SS "Other Commands"
 .TP
 \fB\ help \fR
