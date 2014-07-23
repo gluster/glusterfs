@@ -394,11 +394,11 @@ cli_xml_output_snap_status_begin (cli_local_t *local, int op_ret, int op_errno,
 int
 cli_xml_output_snap_status_end (cli_local_t *local);
 int
-cli_xml_snapshot_status_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
-                                  dict_t *dict, const char *keyprefix);
-int
 cli_xml_output_snapshot (int cmd_type, dict_t *dict, int op_ret,
                          int op_errno, char *op_errstr);
+int
+cli_xml_snapshot_status_single_snap (cli_local_t *local, dict_t *dict,
+                                     char *key);
 char *
 is_server_debug_xlator (void *myframe);
 

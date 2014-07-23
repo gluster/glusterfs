@@ -4820,7 +4820,7 @@ out:
  *
  * @return 0 on success and -1 on failure
  */
-int
+static int
 cli_xml_snapshot_status_per_snap (xmlTextWriterPtr writer, xmlDocPtr doc,
                                   dict_t *dict, const char *keyprefix)
 {
@@ -5527,3 +5527,24 @@ out:
         return 0;
 #endif /* HAVE_LIB_XML */
 }
+
+int
+cli_xml_snapshot_status_single_snap (cli_local_t *local, dict_t *dict,
+                                     char *key)
+{
+#if (HAVE_LIB_XML)
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("cli", (local != NULL), out);
+        GF_VALIDATE_OR_GOTO ("cli", (dict != NULL), out);
+        GF_VALIDATE_OR_GOTO ("cli", (key != NULL), out);
+
+        ret = cli_xml_snapshot_status_per_snap (local->writer, local->doc, dict,
+                                                key);
+out:
+        return ret;
+#else
+        return 0;
+#endif /* HAVE_LIB_XML */
+}
+
