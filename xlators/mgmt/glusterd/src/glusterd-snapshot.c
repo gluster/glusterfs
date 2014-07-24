@@ -7275,6 +7275,16 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                snprintf (err_str, sizeof (err_str), "Cluster operating version"
+                          " is lesser than the supported version "
+                          "for a snapshot");
+                gf_log (this->name, GF_LOG_ERROR, "%s (%d < %d)", err_str,
+                        conf->op_version, GD_OP_VERSION_3_6_0);
+                ret = -1;
+                goto out;
+        }
+
         ret = dict_get_int32 (dict, "type", &type);
         if (ret < 0) {
                 snprintf (err_str, sizeof (err_str), "Command type not found");
