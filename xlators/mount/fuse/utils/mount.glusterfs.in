@@ -555,11 +555,14 @@ main ()
         ## `mount` specifies options as a last argument
         shift 2;
     fi
-    while getopts "Vo:h" opt; do
+    while getopts "Vo:hn" opt; do
         case "${opt}" in
             o)
                 parse_options ${OPTARG};
 		shift 2;
+                ;;
+            n)
+		shift 1;
                 ;;
             V)
                 ${cmd_line} -V;
