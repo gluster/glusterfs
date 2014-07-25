@@ -832,4 +832,6 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 int
 dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this);
 
+int
+dht_fill_dict_to_avoid_unlink_of_migrating_file (dict_t *dict);
 #endif/* _DHT_H */

@@ -189,6 +189,9 @@
                                      == DHT_LINKFILE_MODE)
 #define DHT_LINKFILE_STR "linkto"
 
+#define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
+#define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
+
 #define GF_LOG_LRU_BUFSIZE_DEFAULT 5
 #define GF_LOG_LRU_BUFSIZE_MIN 0
 #define GF_LOG_LRU_BUFSIZE_MAX 20

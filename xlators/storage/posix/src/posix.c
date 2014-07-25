@@ -1399,7 +1399,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        op_ret = dict_get_int32 (xdata, "dont-unlink-for-open-fd",
+        op_ret = dict_get_int32 (xdata, DHT_SKIP_OPEN_FD_UNLINK,
                                  &check_open_fd);
 
         if (!op_ret && check_open_fd) {
@@ -1420,7 +1420,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         }
 
 
-        op_ret = dict_get_int32 (xdata, "unlink-only-if-dht-linkto-file",
+        op_ret = dict_get_int32 (xdata, DHT_SKIP_NON_LINKTO_UNLINK,
                                  &unlink_if_linkto);
 
         if (!op_ret && unlink_if_linkto) {
