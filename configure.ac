@@ -315,7 +315,20 @@ AC_CHECK_LIB([crypto], [MD5], , AC_MSG_ERROR([OpenSSL crypto library is required
 
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
 
-AC_CHECK_LIB([cmockery], [mock_assert], , AC_MSG_ERROR([cmockery2 library is required to build glusterfs]))
+
+PKG_CHECK_MODULES([UNITTEST], [cmockery2], [
+    UNITTEST_CPPFLAGS=`${PKG_CONFIG} --print-errors --cflags-only-I "cmockery2"`
+    UNITTEST_CFLAGS=`${PKG_CONFIG} --print-errors --cflags-only-other "cmockery2"`
+    UNITTEST_LDFLAGS=`${PKG_CONFIG} --print-errors --libs-only-L "cmockery2"`
+    UNITTEST_LIBS=`${PKG_CONFIG} --print-errors --libs-only-l "cmockery2"`
+],[
+  AC_CHECK_LIB([cmockery], [mock_assert], [
+    UNITTEST_LDFLAGS="-lcmockery -lgcov"
+    UNITTEST_CFLAGS="-Wall -Werror -DUNIT_TESTING=1"
+  ], [
+    AC_MSG_ERROR([cmockery2 library is required to build glusterfs])
+  ])
+])
 
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
@@ -688,8 +701,18 @@ dnl check for Monotonic clock
 AC_CHECK_FUNC([clock_gettime], [has_monotonic_clock=yes], AC_CHECK_LIB([rt], [clock_gettime], , AC_MSG_WARN([System doesn't have monotonic clock using contrib])))
 
 dnl Add cmockery2 for unit tests
-UNITTEST_CFLAGS='-g -Wall -DUNIT_TESTING=1 -DDEBUG -Werror -O0 --coverage'
-UNITTEST_LDFLAGS='-lcmockery -lgcov'
+case $host_os in
+  freebsd*)
+    dnl remove --coverage on FreeBSD due to a known llvm packaging bug
+    UNITTEST_CFLAGS="${UNITTEST_CPPFLAGS} ${UNITTEST_CFLAGS} -g -DDEBUG -O0"
+    UNITTEST_LDFLAGS="${UNITTEST_LIBS} ${UNITTEST_LDFLAGS}"
+    ;;
+  *)
+    UNITTEST_CFLAGS="${UNITTEST_CPPFLAGS} ${UNITTEST_CFLAGS} -g -DDEBUG -O0 --coverage"
+    UNITTEST_LDFLAGS="${UNITTEST_LIBS} ${UNITTEST_LDFLAGS}"
+    ;;
+esac
+
 AC_SUBST(UNITTEST_CFLAGS)
 AC_SUBST(UNITTEST_LDFLAGS)
 
@@ -1024,6 +1047,9 @@ fi
 
 AC_SUBST(CFLAGS)
 # end enable debug section
+
+dnl Required if cmockery2 headers are not in standar paths
+GF_CFLAGS="${GF_CFLAGS} ${UNITTEST_CPPFLAGS}"
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST([GF_GLUSTERFS_LIBS])
