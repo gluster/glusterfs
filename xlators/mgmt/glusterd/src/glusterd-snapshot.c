@@ -1629,6 +1629,73 @@ out:
         return ret;
 }
 
+/* This function will check whether the given device
+ * is a thinly provisioned LV or not.
+ *
+ * @param device        LV device path
+ *
+ * @return              _gf_true if LV is thin else _gf_false
+ */
+gf_boolean_t
+glusterd_is_thinp_brick (char *device)
+{
+        int             ret                     = -1;
+        char            msg [1024]              = "";
+        char            pool_name [PATH_MAX]    = "";
+        char           *ptr                     = NULL;
+        xlator_t       *this                    = NULL;
+        runner_t        runner                  = {0,};
+        gf_boolean_t    is_thin                 = _gf_false;
+
+        this = THIS;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, device, out);
+
+        snprintf (msg, sizeof (msg), "Get thin pool name for device %s",
+                  device);
+
+        runinit (&runner);
+
+        runner_add_args (&runner, "/sbin/lvs", "--noheadings", "-o", "pool_lv",
+                         device, NULL);
+        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
+        runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
+
+        ret = runner_start (&runner);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get thin pool "
+                        "name for device %s", device);
+                runner_end (&runner);
+                goto out;
+        }
+
+        ptr = fgets(pool_name, sizeof(pool_name),
+                    runner_chio (&runner, STDOUT_FILENO));
+        if (!ptr || !strlen(pool_name)) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get pool name "
+                        "for device %s", device);
+                runner_end (&runner);
+                ret = -1;
+                goto out;
+        }
+
+        runner_end (&runner);
+
+        /* Trim all the whitespaces. */
+        ptr = gf_trim (pool_name);
+
+        /* If the LV has thin pool associated with this
+         * then it is a thinly provisioned LV else it is
+         * regular LV */
+        if (0 != ptr [0]) {
+                is_thin = _gf_true;
+        }
+
+out:
+        return is_thin;
+}
+
 int
 glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                       dict_t *rsp_dict)
@@ -1812,6 +1879,16 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                           "getting device name for the brick "
                                           "%s:%s failed", brickinfo->hostname,
                                           brickinfo->path);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        if (!glusterd_is_thinp_brick (device)) {
+                                snprintf (err_str, sizeof (err_str),
+                                          "Snapshot is supported only for "
+                                          "thin provisioned LV. Ensure that "
+                                          "all bricks of %s are thinly "
+                                          "provisioned LV.", volinfo->volname);
                                 ret = -1;
                                 goto out;
                         }
