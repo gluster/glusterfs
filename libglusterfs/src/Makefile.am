@@ -4,7 +4,7 @@ libglusterfs_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
 libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
-	-I$(CONTRIBDIR)/libexecinfo
+	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS}
 
 libglusterfs_la_LIBADD = @LEXLIB@
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
