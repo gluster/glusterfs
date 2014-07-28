@@ -53,10 +53,13 @@ list of snapshots.
 **Deleting snaps**
 
 Syntax :
-*gluster snapshot delete <snapname\>*
+*gluster snapshot delete \(all | <snapname\> | volume <volname\>\)*
 
 Details :
-Deletes the specified snapshot.
+If snapname is specified then mentioned snapshot is deleted.
+If volname is specified then all snapshots belonging to that particular
+volume is deleted. If keyword *all* is used then all snapshots belonging
+to the system is deleted.
 
 --------------------------------------------------------------------------
 
