@@ -114,8 +114,8 @@ Creates a snapshot of a GlusterFS volume. User can provide a snap-name and a des
 \fB\ snapshot restore <snapname> \fR
 Restores an already taken snapshot of a GlusterFS volume. Snapshot restore is an offline activity therefore if the volume is online (in started state) then the restore operation will fail. Once the snapshot is restored it will not be available in the list of snapshots.
 .TP
-\fB\ snapshot delete <snapname> \fR
-Deletes the specified snapshot.
+\fB\ snapshot delete ( all | <snapname> | volume <volname> ) \fR
+If snapname is specified then mentioned snapshot is deleted. If volname is specified then all snapshots belonging to that particular volume is deleted. If keyword *all* is used then all snapshots belonging to the system is deleted.
 .TP
 \fB\ snapshot list [volname] \fR
 Lists all snapshots taken. If volname is provided, then only the snapshots belonging to that particular volume is listed.
