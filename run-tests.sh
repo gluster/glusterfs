@@ -53,9 +53,15 @@ function check_dependencies()
         MISSING="$MISSING attr"
     fi
 
+    # Check for pidof
+    pidof init > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        MISSING="$MISSING pidof"
+    fi
+
     ## If dependencies are missing, warn the user and abort
     if [ "x$MISSING" != "x" ]; then
-        echo "Aborting."
+        test "x${force}" != "xyes" && echo "Aborting."
         echo
         echo "The following required tools are missing:"
         echo
@@ -63,6 +69,7 @@ function check_dependencies()
             echo "  * $pkg"
         done
         echo
+        test "x${force}" = "xyes" && return
         echo "Please install them and try again."
         echo
         exit 2
@@ -184,6 +191,9 @@ function main()
 echo
 echo ... GlusterFS Test Framework ...
 echo
+
+force=no
+test "x$1" = "x-f" && { force="yes"; shift; }
 
 # Make sure we're running as the root user
 check_user
