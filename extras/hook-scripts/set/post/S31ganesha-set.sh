@@ -147,7 +147,7 @@ grep Export_Id | cut -d " " -f3`
         check_cmd_status `echo $?`
         dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
-org.ganesha.nfsd.exportmgr.RemoveExport int32:$removed_id
+org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
         check_cmd_status `echo $?`
 
 }
