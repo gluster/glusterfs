@@ -817,7 +817,8 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
 
 done:
         ret = syncop_setattr (to, loc, buf,
-                              (GF_SET_ATTR_UID | GF_SET_ATTR_GID |
+                              (GF_SET_ATTR_MTIME |
+                               GF_SET_ATTR_UID | GF_SET_ATTR_GID |
                                GF_SET_ATTR_MODE), NULL, NULL);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
