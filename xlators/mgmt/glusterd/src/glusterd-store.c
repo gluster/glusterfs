@@ -336,6 +336,17 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
                 }
         }
 
+        if (strlen (brickinfo->mnt_opts) > 0) {
+                snprintf (value, sizeof (value), "%s", brickinfo->mnt_opts);
+                ret = gf_store_save_value (fd,
+                                GLUSTERD_STORE_KEY_BRICK_MNTOPTS, value);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to save "
+                                "brick mnt opts of brick %s", brickinfo->path);
+                        goto out;
+                }
+        }
+
         memset (value, 0, sizeof (value));
         snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
@@ -2318,6 +2329,10 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                              strlen (GLUSTERD_STORE_KEY_BRICK_FSTYPE))) {
                                 strncpy (brickinfo->fstype, value,
                                          sizeof (brickinfo->fstype));
+                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_MNTOPTS,
+                                             strlen (GLUSTERD_STORE_KEY_BRICK_MNTOPTS))) {
+                                strncpy (brickinfo->mnt_opts, value,
+                                         sizeof (brickinfo->mnt_opts));
                         } else if (!strncmp (key,
                                     GLUSTERD_STORE_KEY_BRICK_VGNAME,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
@@ -3143,8 +3158,8 @@ out:
  * at the brick_mount_path
  */
 int32_t
-glusterd_mount_brick_paths (char *brick_mount_path, char *device_path,
-                            const char *fstype)
+glusterd_mount_brick_paths (char *brick_mount_path,
+                            glusterd_brickinfo_t *brickinfo)
 {
         int32_t                  ret                 = -1;
         runner_t                 runner              = {0, };
@@ -3157,7 +3172,7 @@ glusterd_mount_brick_paths (char *brick_mount_path, char *device_path,
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (brick_mount_path);
-        GF_ASSERT (device_path);
+        GF_ASSERT (brickinfo);
 
         priv = this->private;
         GF_ASSERT (priv);
@@ -3179,21 +3194,20 @@ glusterd_mount_brick_paths (char *brick_mount_path, char *device_path,
          */
         /* Activate the snapshot */
         runinit (&runner);
-        runner_add_args (&runner, "lvchange", "-ay", device_path,
+        runner_add_args (&runner, "lvchange", "-ay", brickinfo->device_path,
                          NULL);
         ret = runner_run (&runner);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to activate %s. Error: %s",
-                        device_path, strerror(errno));
+                        brickinfo->device_path, strerror(errno));
                 goto out;
         } else
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Activating %s successful", device_path);
+                        "Activating %s successful", brickinfo->device_path);
 
         /* Mount the snapshot */
-        ret = glusterd_mount_lvm_snapshot (device_path, brick_mount_path,
-                                           fstype);
+        ret = glusterd_mount_lvm_snapshot (brickinfo, brick_mount_path);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to mount lvm snapshot.");
@@ -3266,8 +3280,7 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
 
                 /* Check if brick_mount_path is already mounted.
                  * If not, mount the device_path at the brick_mount_path */
-                ret = glusterd_mount_brick_paths (brick_mount_path,
-                                brickinfo->device_path, brickinfo->fstype);
+                ret = glusterd_mount_brick_paths (brick_mount_path, brickinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to mount brick_mount_path");
