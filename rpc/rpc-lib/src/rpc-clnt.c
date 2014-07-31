@@ -1623,14 +1623,16 @@ rpc_clnt_ref (struct rpc_clnt *rpc)
 static void
 rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
 {
-        rpc_clnt_connection_t *conn = NULL;
+        rpc_clnt_connection_t  *conn  = NULL;
+        rpc_transport_t        *trans = NULL;
 
         if (!rpc)
                 return;
 
         conn = &rpc->conn;
+        trans = conn->trans;
         rpc_clnt_disable (rpc);
-        rpc_transport_unref (conn->trans);
+        rpc_transport_unref (trans);
 }
 
 static void
