@@ -349,7 +349,6 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                              glusterd_snap_op_t *snap_opinfo)
 {
         char                        *device           = NULL;
-        char                         fstype[NAME_MAX] = "";
         glusterd_conf_t             *priv             = NULL;
         glusterd_snap_t             *snap             = NULL;
         glusterd_volinfo_t          *snap_vol         = NULL;
@@ -435,12 +434,10 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
 
         /* Update the backend file-system type of snap brick in
          * snap volinfo. */
-        ret = glusterd_update_fstype (snap_opinfo->brick_path, brickinfo,
-                                      fstype, sizeof(fstype));
+        ret = glusterd_update_mntopts (snap_opinfo->brick_path, brickinfo);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to update "
-                        "file-system type for %s brick",
-                        brickinfo->path);
+                        "mount options for %s brick", brickinfo->path);
                 /* We should not fail snapshot operation if we fail to get
                  * the file-system type */
         }

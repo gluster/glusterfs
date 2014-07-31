@@ -595,6 +595,7 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
         strcpy (dup_brickinfo->path, brickinfo->path);
         strcpy (dup_brickinfo->device_path, brickinfo->device_path);
         strcpy (dup_brickinfo->fstype, brickinfo->fstype);
+        strcpy (dup_brickinfo->mnt_opts, brickinfo->mnt_opts);
         ret = gf_canonicalize_path (dup_brickinfo->path);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to canonicalize "
@@ -699,6 +700,13 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                 if (!ret)
                         strncpy (new_brickinfo->fstype, value,
                                  sizeof(new_brickinfo->fstype));
+
+                snprintf (key, sizeof (key), "snap%d.brick%d.mnt_opts",
+                          volcount, brick_count);
+                ret = dict_get_str (dict, key, &value);
+                if (!ret)
+                        strncpy (new_brickinfo->mnt_opts, value,
+                                 sizeof(new_brickinfo->mnt_opts));
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
@@ -2304,6 +2312,15 @@ gd_add_brick_snap_details_to_dict (dict_t *dict, char *prefix,
                 goto out;
         }
 
+        snprintf (key, sizeof (key), "%s.mnt_opts", prefix);
+        ret = dict_set_str (dict, key, brickinfo->mnt_opts);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set mnt_opts for %s:%s",
+                         brickinfo->hostname, brickinfo->path);
+                goto out;
+        }
+
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
         ret = dict_set_str (dict, key, brickinfo->mount_dir);
@@ -3657,6 +3674,7 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
         char             key[512]    = {0,};
         char            *snap_device = NULL;
         char            *fs_type     = NULL;
+        char            *mnt_opts    = NULL;
         char            *mount_dir   = NULL;
 
         this = THIS;
@@ -3696,6 +3714,14 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                 goto out;
         }
         strcpy (brickinfo->fstype, fs_type);
+
+        snprintf (key, sizeof (key), "%s.mnt_opts", prefix);
+        ret = dict_get_str (dict, key, &mnt_opts);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "%s missing in payload", key);
+                goto out;
+        }
+        strcpy (brickinfo->mnt_opts, mnt_opts);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
@@ -11901,34 +11927,44 @@ glusterd_compare_volume_name(struct list_head *list1, struct list_head *list2)
 }
 
 int32_t
-glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path,
-                             const char *fstype)
+glusterd_mount_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
+                             char *brick_mount_path)
 {
-        char               msg[NAME_MAX] = "";
-        int32_t            ret           = -1;
-        runner_t           runner        = {0, };
-        xlator_t          *this          = NULL;
+        char               msg[NAME_MAX]  = "";
+        char               mnt_opts[1024] = "";
+        int32_t            ret            = -1;
+        runner_t           runner         = {0, };
+        xlator_t          *this           = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (brick_mount_path);
-        GF_ASSERT (device_path);
+        GF_ASSERT (brickinfo);
 
 
         runinit (&runner);
         snprintf (msg, sizeof (msg), "mount %s %s",
-                  device_path, brick_mount_path);
+                  brickinfo->device_path, brick_mount_path);
+
+        strcpy (mnt_opts, brickinfo->mnt_opts);
 
         /* XFS file-system does not allow to mount file-system with duplicate
          * UUID. File-system UUID of snapshot and its origin volume is same.
          * Therefore to mount such a snapshot in XFS we need to pass nouuid
          * option
          */
-        if (!strcmp (fstype, "xfs")) {
-                runner_add_args (&runner, "mount", "-o", "nouuid",
-                                 device_path, brick_mount_path, NULL);
+        if (!strcmp (brickinfo->fstype, "xfs")) {
+                if ( strlen (mnt_opts) > 0 )
+                        strcat (mnt_opts, ",");
+                strcat (mnt_opts, "nouuid");
+        }
+
+
+        if ( strlen (mnt_opts) > 0 ) {
+                runner_add_args (&runner, "mount", "-o", mnt_opts,
+                                brickinfo->device_path, brick_mount_path, NULL);
         } else {
-                runner_add_args (&runner, "mount", device_path,
+                runner_add_args (&runner, "mount", brickinfo->device_path,
                                  brick_mount_path, NULL);
         }
 
@@ -11936,12 +11972,12 @@ glusterd_mount_lvm_snapshot (char *device_path, char *brick_mount_path,
         ret = runner_run (&runner);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "mounting the snapshot "
-                        "logical device %s failed (error: %s)", device_path,
-                        strerror (errno));
+                        "logical device %s failed (error: %s)",
+                        brickinfo->device_path, strerror (errno));
                 goto out;
         } else
                 gf_log (this->name, GF_LOG_DEBUG, "mounting the snapshot "
-                        "logical device %s successful", device_path);
+                        "logical device %s successful", brickinfo->device_path);
 
 out:
         gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
@@ -13397,4 +13433,56 @@ gd_get_snap_conf_values_if_present (dict_t *dict, uint64_t *sys_hard_limit,
                         "dictionary",
                         GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
         }
+}
+
+/* This function will update the backend file-system
+ * type and the mount options in origin and snap brickinfo.
+ * This will be later used to perform file-system specific operation
+ * during LVM snapshot.
+ *
+ * @param brick_path       brickpath for which fstype to be found
+ * @param brickinfo        brickinfo of snap/origin volume
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
+{
+        int32_t               ret               = -1;
+        char                 *mnt_pt            = NULL;
+        char                  buff [PATH_MAX]   = "";
+        char                  msg [PATH_MAX]    = "";
+        char                 *cmd               = NULL;
+        struct mntent        *entry             = NULL;
+        struct mntent         save_entry        = {0,};
+        runner_t              runner            = {0,};
+        xlator_t             *this              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (brick_path);
+        GF_ASSERT (brickinfo);
+
+        ret = glusterd_get_brick_root (brick_path, &mnt_pt);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "getting the root "
+                        "of the brick (%s) failed ", brick_path);
+                goto out;
+        }
+
+        entry = glusterd_get_mnt_entry_info (mnt_pt, buff, sizeof (buff),
+                                             &save_entry);
+        if (!entry) {
+                gf_log (this->name, GF_LOG_ERROR, "getting the mount entry for "
+                        "the brick (%s) failed", brick_path);
+                ret = -1;
+                goto out;
+        }
+
+        strcpy (brickinfo->fstype, entry->mnt_type);
+        strcpy (brickinfo->mnt_opts, entry->mnt_opts);
+
+        ret = 0;
+out:
+        GF_FREE (mnt_pt);
+        return ret;
 }

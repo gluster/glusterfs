@@ -995,6 +995,17 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                                         "Failed to set %s", key);
                                 goto out;
                         }
+
+                        snprintf (key, sizeof (key),
+                                  "snap%d.brick%d.mnt_opts",
+                                  volcount, brick_count);
+                        ret = dict_set_str (rsp_dict, key,
+                                            brickinfo->mnt_opts);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
                 }
 
                 snprintf (key, sizeof (key), "snap%d.brick_count", volcount);
@@ -1311,6 +1322,7 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
         char                  *snap_brick_dir        = NULL;
         char                  *snap_device           = NULL;
         char                   key[PATH_MAX]         = "";
+        char                  *value                 = "";
         char                   snapbrckcnt[PATH_MAX] = "";
         char                   snapbrckord[PATH_MAX] = "";
         int                    ret                   = -1;
@@ -1372,6 +1384,44 @@ glusterd_snap_create_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
                                   brick_order);
                         ret = dict_set_dynstr_with_alloc (dst, key,
                                                           snap_brick_dir);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key) - 1,
+                                  "vol%"PRId64".fstype%"PRId64, i+1, j);
+                        ret = dict_get_str (src, key, &value);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Unable to fetch %s", key);
+                                continue;
+                        }
+
+                        snprintf (key, sizeof(key) - 1,
+                                  "vol%"PRId64".fstype%"PRId64, i+1,
+                                  brick_order);
+                        ret = dict_set_dynstr_with_alloc (dst, key, value);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key) - 1,
+                                  "vol%"PRId64".mnt_opts%"PRId64, i+1, j);
+                        ret = dict_get_str (src, key, &value);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Unable to fetch %s", key);
+                                continue;
+                        }
+
+                        snprintf (key, sizeof(key) - 1,
+                                  "vol%"PRId64".mnt_opts%"PRId64, i+1,
+                                  brick_order);
+                        ret = dict_set_dynstr_with_alloc (dst, key, value);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to set %s", key);
@@ -1515,6 +1565,21 @@ glusterd_snap_restore_use_rsp_dict (dict_t *dst, dict_t *src)
 
                         snprintf (key, sizeof (key),
                                   "snap%d.brick%d.fs_type", i, j);
+                        ret = dict_get_str (src, key, &strvalue);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to get %s", key);
+                                goto out;
+                        }
+                        ret = dict_set_dynstr_with_alloc (dst, key, strvalue);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof (key),
+                                  "snap%d.brick%d.mnt_opts", i, j);
                         ret = dict_get_str (src, key, &strvalue);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -1917,6 +1982,34 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                 goto out;
                         }
                         device = NULL;
+
+                        ret = glusterd_update_mntopts (brickinfo->path,
+                                                       brickinfo);
+                        if (ret) {
+                                 gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                         "update mount options for %s brick",
+                                         brickinfo->path);
+                        }
+
+                        snprintf (key, sizeof(key), "vol%"PRId64".fstype%"
+                                  PRId64, i, brick_count);
+                        ret = dict_set_dynstr_with_alloc (rsp_dict, key,
+                                                          brickinfo->fstype);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
+
+                        snprintf (key, sizeof(key), "vol%"PRId64".mnt_opts%"
+                                  PRId64, i, brick_count);
+                        ret = dict_set_dynstr_with_alloc (rsp_dict, key,
+                                                          brickinfo->mnt_opts);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set %s", key);
+                                goto out;
+                        }
 
                         snprintf (key, sizeof(key), "vol%"PRId64".brickdir%"PRId64, i,
                                   brick_count);
@@ -3868,9 +3961,7 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
                         MS_MGC_VAL, "nouuid");
            But for now, mounting using runner apis.
         */
-        ret = glusterd_mount_lvm_snapshot (brickinfo->device_path,
-                                           snap_brick_mount_path,
-                                           brickinfo->fstype);
+        ret = glusterd_mount_lvm_snapshot (brickinfo, snap_brick_mount_path);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Failed to mount lvm snapshot.");
@@ -3910,74 +4001,6 @@ out:
         return ret;
 }
 
-/* This function will update the backend file-system
- * type in origin and snap brickinfo. This will be later
- * used to perform file-system specific operation during
- * LVM snapshot.
- *
- * @param orig_brickinfo        brickinfo of origin volume
- * @param snap_brickinfo        brickinfo of snap volume
- *
- * @return 0 on success and -1 on failure
- */
-int
-glusterd_update_fstype (char *orig_brick_path,
-                        glusterd_brickinfo_t *snap_brickinfo,
-                        char *fstype, size_t fslen)
-{
-        int32_t               ret               = -1;
-        char                 *mnt_pt            = NULL;
-        char                  buff [PATH_MAX]   = "";
-        char                  msg [PATH_MAX]    = "";
-        char                 *cmd               = NULL;
-        struct mntent        *entry             = NULL;
-        struct mntent         save_entry        = {0,};
-        runner_t              runner            = {0,};
-        xlator_t             *this              = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        GF_ASSERT (orig_brick_path);
-        GF_ASSERT (snap_brickinfo);
-        GF_ASSERT (fstype);
-
-        /* If the file-system type is not set then set the file-system type
-         * in origin brickinfo */
-        if (0 == fstype [0]) {
-                ret = glusterd_get_brick_root (orig_brick_path, &mnt_pt);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "getting the root "
-                                "of the brick (%s) failed ",
-                                orig_brick_path);
-                        goto out;
-                }
-
-                entry = glusterd_get_mnt_entry_info (mnt_pt, buff,
-                                                sizeof (buff), &save_entry);
-                if (!entry) {
-                        gf_log (this->name, GF_LOG_ERROR, "getting the mount "
-                                "entry for the brick (%s) failed",
-                                orig_brick_path);
-                        ret = -1;
-                        goto out;
-                }
-
-                /* Update the origin brickinfo with the backend file-system
-                 * type */
-                snprintf (fstype, fslen, "%s",
-                          entry->mnt_type);
-        }
-
-        /* Update the file-system type for snap brickinfo */
-        snprintf (snap_brickinfo->fstype, sizeof (snap_brickinfo->fstype),
-                  "%s", fstype);
-
-        ret = 0;
-out:
-        GF_FREE (mnt_pt);
-        return ret;
-}
-
 static int32_t
 glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                                     glusterd_volinfo_t  *snap_vol,
@@ -3985,6 +4008,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                                     int64_t volcount, int32_t brick_count)
 {
         char                    key[PATH_MAX]                   = "";
+        char                   *value                           = NULL;
         char                   *snap_brick_dir                  = NULL;
         char                    snap_brick_path[PATH_MAX]       = "";
         char                   *snap_device                     = NULL;
@@ -4017,22 +4041,28 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 goto out;
         }
 
-        /* Update fstype for the local bricks only */
-        if (!uuid_compare (original_brickinfo->uuid, MY_UUID)) {
-                /* Update the backend file-system type of snap brick in
-                 * snap volinfo. */
-                ret = glusterd_update_fstype
-                                          (original_brickinfo->path,
-                                           snap_brickinfo,
-                                           original_brickinfo->fstype,
-                                           sizeof(original_brickinfo->fstype));
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to update "
-                                "file-system type for %s brick",
-                                snap_brickinfo->path);
-                        /* We should not fail snapshot operation if we fail to
-                         * get the file-system type */
-                }
+        snprintf (key, sizeof(key) - 1, "vol%"PRId64".fstype%d", volcount,
+                  brick_count);
+        ret = dict_get_str (dict, key, &value);
+        if (!ret) {
+                /* Update the fstype in original brickinfo as well */
+                strcpy (original_brickinfo->fstype, value);
+                strcpy (snap_brickinfo->fstype, value);
+        } else {
+                if (is_origin_glusterd (dict) == _gf_true)
+                        add_missed_snap = _gf_true;
+        }
+
+        snprintf (key, sizeof(key) - 1, "vol%"PRId64".mnt_opts%d", volcount,
+                  brick_count);
+        ret = dict_get_str (dict, key, &value);
+        if (!ret) {
+                /* Update the mnt_opts in original brickinfo as well */
+                strcpy (original_brickinfo->mnt_opts, value);
+                strcpy (snap_brickinfo->mnt_opts, value);
+        } else {
+                if (is_origin_glusterd (dict) == _gf_true)
+                        add_missed_snap = _gf_true;
         }
 
         snprintf (key, sizeof(key) - 1, "vol%"PRId64".brickdir%d", volcount,

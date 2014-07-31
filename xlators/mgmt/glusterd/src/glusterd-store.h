@@ -85,6 +85,7 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR      "mount_dir"
 #define GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS    "snap-status"
 #define GLUSTERD_STORE_KEY_BRICK_FSTYPE         "fs-type"
+#define GLUSTERD_STORE_KEY_BRICK_MNTOPTS        "mnt-opts"
 #define GLUSTERD_STORE_KEY_BRICK_ID             "brick-id"
 
 #define GLUSTERD_STORE_KEY_PEER_UUID            "uuid"
