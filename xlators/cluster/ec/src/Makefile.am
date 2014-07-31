@@ -38,7 +38,7 @@ AM_CPPFLAGS  = $(GF_CPPFLAGS)
 AM_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
 
-AM_CFLAGS = -Wall $(GF_CFLAGS)
+AM_CFLAGS = -Wall -msse2 $(GF_CFLAGS)
 
 CLEANFILES =
 
