@@ -3232,3 +3232,46 @@ gf_compare_sockaddr (const struct sockaddr *addr1,
         }
         return _gf_false;
 }
+
+/*
+ * gf_set_timestamp:
+ *      It sets the mtime and atime of 'dest' file as of 'src'.
+ */
+
+int
+gf_set_timestamp  (const char *src, const char* dest)
+{
+        struct stat    sb             = {0, };
+        struct timeval new_time[2]    = {{0, },{0,}};
+        int            ret            = 0;
+        xlator_t       *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (src);
+        GF_ASSERT (dest);
+
+        ret = stat (src, &sb);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "stat on %s failed: %s",
+                        src, strerror(errno));
+                goto out;
+        }
+        new_time[0].tv_sec = sb.st_atime;
+        new_time[0].tv_usec = ST_ATIM_NSEC (&sb)/1000;
+
+        new_time[1].tv_sec = sb.st_mtime;
+        new_time[1].tv_usec = ST_MTIM_NSEC (&sb)/1000;
+
+        /* The granularity is micro seconds as per the current
+         * requiremnt. Hence using 'utimes'. This can be updated
+         * to 'utimensat' if we need timestamp in nanoseconds.
+         */
+        ret = utimes (dest, new_time);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "utimes on %s failed: %s",
+                        dest, strerror(errno));
+        }
+out:
+        return ret;
+}

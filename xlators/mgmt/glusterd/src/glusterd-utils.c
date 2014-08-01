@@ -621,6 +621,62 @@ out:
         return ret;
 }
 
+/*
+ * glusterd_snap_geo_rep_restore:
+ *      This function restores the atime and mtime of marker.tstamp
+ *      if present from snapped marker.tstamp file.
+ */
+static int
+glusterd_snap_geo_rep_restore (glusterd_volinfo_t *snap_volinfo,
+                               glusterd_volinfo_t *new_volinfo)
+{
+        char                    vol_tstamp_file[PATH_MAX]  = {0,};
+        char                    snap_tstamp_file[PATH_MAX] = {0,};
+        glusterd_conf_t         *priv                      = NULL;
+        xlator_t                *this                      = NULL;
+        int                     geo_rep_indexing_on        = 0;
+        int                     ret                        = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (snap_volinfo);
+        GF_ASSERT (new_volinfo);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Check if geo-rep indexing is enabled, if yes, we need restore
+         * back the mtime of 'marker.tstamp' file.
+         */
+        geo_rep_indexing_on = glusterd_volinfo_get_boolean (new_volinfo,
+                                                            VKEY_MARKER_XTIME);
+        if (geo_rep_indexing_on == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed"
+                        " to check whether geo-rep-indexing enabled or not");
+                ret = 0;
+                goto out;
+        }
+
+        if (geo_rep_indexing_on == 1) {
+                GLUSTERD_GET_VOLUME_DIR (vol_tstamp_file, new_volinfo, priv);
+                strncat (vol_tstamp_file, "/marker.tstamp",
+                         PATH_MAX - strlen(vol_tstamp_file) - 1);
+                GLUSTERD_GET_VOLUME_DIR (snap_tstamp_file, snap_volinfo, priv);
+                strncat (snap_tstamp_file, "/marker.tstamp",
+                         PATH_MAX - strlen(snap_tstamp_file) - 1);
+                ret = gf_set_timestamp (snap_tstamp_file, vol_tstamp_file);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to set atime and mtime of %s as of %s",
+                                vol_tstamp_file, snap_tstamp_file);
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
 /* This function will copy snap volinfo to the new
  * passed volinfo and regenerate backend store files
  * for the restored snap.
@@ -760,6 +816,19 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
 
         /* Regenerate all volfiles */
         ret = glusterd_create_volfiles_and_notify_services (new_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to regenerate volfiles");
+                goto out;
+        }
+
+        /* Restore geo-rep marker.tstamp's timestamp */
+        ret = glusterd_snap_geo_rep_restore (snap_volinfo, new_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Geo-rep: marker.tstamp's timestamp restoration failed");
+                goto out;
+        }
 
 out:
         if (ret && (NULL != new_brickinfo)) {

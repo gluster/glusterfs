@@ -16,6 +16,7 @@
 #include <fnmatch.h>
 #include <sys/wait.h>
 #include <dlfcn.h>
+#include <utime.h>
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
@@ -3824,12 +3825,34 @@ get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
                  PATH_MAX - strlen(filename) - 1);
 }
 
+static void
+get_parent_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
+{
+        glusterd_conf_t *priv  = NULL;
+        xlator_t        *this  = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        snprintf (filename, PATH_MAX, "%s/vols/%s", priv->workdir,
+                  volinfo->parent_volname);
+        strncat (filename, "/marker.tstamp",
+                 PATH_MAX - strlen(filename) - 1);
+}
+
 int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 {
-        glusterd_brickinfo_t    *brickinfo = NULL;
-        char                     tstamp_file[PATH_MAX] = {0,};
-        int                      ret = -1;
+        glusterd_brickinfo_t    *brickinfo                    = NULL;
+        char                     tstamp_file[PATH_MAX]        = {0,};
+        char                     parent_tstamp_file[PATH_MAX] = {0,};
+        int                      ret                          = -1;
+        xlator_t                *this                         = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_MARKER_XTIME);
         if (ret == -1)
@@ -3840,29 +3863,49 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         if (ret) {
                 ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0600);
                 if (ret == -1 && errno == EEXIST) {
-                        gf_log ("", GF_LOG_DEBUG, "timestamp file exist");
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "timestamp file exist");
                         ret = -2;
                 }
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR, "failed to create %s (%s)",
-                                tstamp_file, strerror (errno));
+                        gf_log (this->name, GF_LOG_ERROR, "failed to create "
+                                "%s (%s)", tstamp_file, strerror (errno));
                         return -1;
                 }
-                if (ret >= 0)
+                if (ret >= 0) {
                         close (ret);
+                        /* If snap_volume, retain timestamp for marker.tstamp
+                         * from parent. Geo-replication depends on mtime of
+                         * 'marker.tstamp' to decide the volume-mark, i.e.,
+                         * geo-rep start time just after session is created.
+                         */
+                        if (volinfo->is_snap_volume) {
+                                get_parent_vol_tstamp_file (parent_tstamp_file,
+                                                            volinfo);
+                                ret = gf_set_timestamp (parent_tstamp_file,
+                                                        tstamp_file);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Unable to set atime and mtime"
+                                                " of %s as of %s", tstamp_file,
+                                                parent_tstamp_file);
+                                        goto out;
+                                }
+                        }
+                }
         } else {
                 ret = unlink (tstamp_file);
                 if (ret == -1 && errno == ENOENT)
                         ret = 0;
                 if (ret == -1) {
-                        gf_log ("", GF_LOG_ERROR, "failed to unlink %s (%s)",
-                                tstamp_file, strerror (errno));
+                        gf_log (this->name, GF_LOG_ERROR, "failed to unlink "
+                                "%s (%s)", tstamp_file, strerror (errno));
                         return -1;
                 }
         }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Found a brick - %s:%s", brickinfo->hostname,
                         brickinfo->path);
 
@@ -3875,7 +3918,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 

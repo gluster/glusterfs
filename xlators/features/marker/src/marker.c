@@ -216,8 +216,8 @@ stat_stampfile (xlator_t *this, marker_conf_t *priv,
 
         if (stat (priv->timestamp_file, &buf) != -1) {
                 vol_mark->retval = 0;
-                vol_mark->sec = htonl (buf.st_ctime);
-                vol_mark->usec = htonl (ST_CTIM_NSEC (&buf)/1000);
+                vol_mark->sec = htonl (buf.st_mtime);
+                vol_mark->usec = htonl (ST_MTIM_NSEC (&buf)/1000);
         } else
                 vol_mark->retval = 1;
 
