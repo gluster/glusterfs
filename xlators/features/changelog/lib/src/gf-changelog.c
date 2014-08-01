@@ -440,12 +440,13 @@ int
 gf_changelog_register (char *brick_path, char *scratch_dir,
                        char *log_file, int log_level, int max_reconnects)
 {
-        int             i    = 0;
-        int             ret  = -1;
-        int             errn = 0;
-        xlator_t       *this = NULL;
-        gf_changelog_t *gfc  = NULL;
-        char hist_scratch_dir[PATH_MAX] = {0,};
+        int             i                          = 0;
+        int             ret                        = -1;
+        int             errn                       = 0;
+        xlator_t       *this                       = NULL;
+        gf_changelog_t *gfc                        = NULL;
+        char            hist_scratch_dir[PATH_MAX] = {0,};
+        struct stat     buf                        = {0,};
 
         this = THIS;
         if (!this->ctx)
@@ -462,6 +463,14 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
 
         gfc->gfc_dir = NULL;
         gfc->gfc_fd = gfc->gfc_sockfd = -1;
+
+        if (stat (scratch_dir, &buf) && errno == ENOENT) {
+                ret = mkdir_p (scratch_dir, 0600, _gf_false);
+                if (ret) {
+                        errn = errno;
+                        goto cleanup;
+                }
+        }
 
         gfc->gfc_working_dir = realpath (scratch_dir, NULL);
         if (!gfc->gfc_working_dir) {
