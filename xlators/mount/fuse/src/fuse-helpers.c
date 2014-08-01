@@ -30,8 +30,6 @@ fuse_resolve_wipe (fuse_resolve_t *resolve)
 
         GF_FREE ((void *)resolve->bname);
 
-        GF_FREE ((void *)resolve->resolved);
-
         if (resolve->fd)
                 fd_unref (resolve->fd);
 
