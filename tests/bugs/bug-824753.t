@@ -30,7 +30,7 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 touch $M0/file1;
 
-TEST gcc -g $(dirname $0)/bug-824753-file-locker.c -o $(dirname $0)/file-locker
+TEST $CC -g $(dirname $0)/bug-824753-file-locker.c -o $(dirname $0)/file-locker
 
 TEST $(dirname $0)/file-locker $V0 $H0 $B0 $M0 file1
 

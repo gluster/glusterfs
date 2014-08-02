@@ -16,7 +16,7 @@ TEST $CLI volume start $V0;
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
 
 # compile the test program and run it
-gcc $(dirname $0)/bug-1058663.c -o $(dirname $0)/bug-1058663;
+$CC $(dirname $0)/bug-1058663.c -o $(dirname $0)/bug-1058663;
 TEST $(dirname $0)/bug-1058663 $M0/bug-1058663.bin;
 rm -f $(dirname $0)/M0/bug-1058663.bin;
 
@@ -26,4 +26,3 @@ TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
 
 cleanup;
-

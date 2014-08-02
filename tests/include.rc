@@ -6,6 +6,7 @@ N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
 V0=${V0:=patchy};             # volume name to use in tests
 V1=${V1:=patchy1};            # volume name to use in tests
 B0=${B0:=/d/backends};        # top level of brick directories
+CC=cc
 case `uname -s` in
 Linux)
   H0=${H0:=`hostname --fqdn`}; # hostname
@@ -322,7 +323,9 @@ function build_tester ()
     local fname=$(basename "$cfile")
     local ext="${fname##*.}"
     local execname="${fname%.*}"
-    gcc -g -o $(dirname $cfile)/$execname $cfile
+    shift
+    local cflags=$*
+    $CC -g -o $(dirname $cfile)/$execname $cfile $cflags
 }
 
 function process_leak_count ()
