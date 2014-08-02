@@ -7,7 +7,13 @@ cleanup;
 
 #Init
 AREQUAL_PATH=$(dirname $0)/../../utils
-build_tester $AREQUAL_PATH/arequal-checksum.c
+CFLAGS=""
+test "`uname -s`" != "Linux" && {
+    CFLAGS="$CFLAGS -I$(dirname $0)/../../../contrib/argp-standalone ";
+    CFLAGS="$CFLAGS -L$(dirname $0)/../../../contrib/argp-standalone -largp ";
+    CFLAGS="$CFLAGS -lintl";
+}
+build_tester $AREQUAL_PATH/arequal-checksum.c $CFLAGS
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/brick{0,1}
