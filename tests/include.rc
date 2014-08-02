@@ -226,13 +226,20 @@ function _TEST_IN_LOOP()
 	_TEST $@
 }
 
+which killall > /dev/null || {
+        killall() {
+                pkill $@
+        }
+}
 
 function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+	test "x`uname -s` = "xNetBSD" && pkill -15 perfused || true
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
 	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
+	test "x`uname -s` = "xNetBSD" && pkill -9 perfused || true
 
         MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
         for m in $MOUNTPOINTS;
@@ -254,11 +261,36 @@ function cleanup()
 
         type cleanup_lvm &>/dev/null && cleanup_lvm
 
-        LOOPDEVICES=`losetup -a | grep "$B0/" | awk '{print $1}' | tr -d :`
-        for l in $LOOPDEVICES;
-        do
-                losetup -d $l
-        done
+	case `uname -s` in
+	Linux)
+        	LOOPDEVICES=`losetup -a | grep "$B0/" | \
+			     awk '{print $1}' | tr -d :`
+		for l in $LOOPDEVICES;
+		do
+			losetup -d $l
+		done
+		;;
+	NetBSD)
+		vnd=`vnconfig -l | \
+		     awk '!/not in use/{printf("%s%s:%d ", $1, $2, $5);}'`
+		for l in ${vnd} ; do
+			dev=${l%%:*}
+			tmp=${l#*:}
+			fs=${tmp%%:*}
+			inode=${tmp#*:}
+			file=`find -x ${fs} -inum ${inode} -print -exit`
+			echo ${file} | grep "$B0/" && \
+			    LOOPDEVICES="${LOOPDEVICES} $dev"
+		done
+		for l in $LOOPDEVICES;
+		do
+			vnconfig -u $l
+		done
+		;;
+	*)
+		echo "`uname -s` loopback device supportmissing"
+		;;
+	esac
 
 
 	rm -rf /var/lib/glusterd/* $B0/* /etc/glusterd/*;
