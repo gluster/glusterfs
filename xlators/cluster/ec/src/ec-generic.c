@@ -666,7 +666,7 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 {
     ec_cbk_data_t * ans = NULL;
     data_t * data = NULL;
-    uint8_t * ptr = NULL, * buff = NULL, * tmp = NULL;
+    uint8_t * buff = NULL;
     size_t size = 0;
     int32_t i = 0;
 
@@ -682,7 +682,6 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     if (cbk->iatt[0].ia_type == IA_IFREG)
     {
         uint8_t * blocks[cbk->count];
-        uint8_t * ptrs[cbk->count];
         uint32_t values[cbk->count];
 
         cbk->size = cbk->iatt[0].ia_size;
@@ -696,38 +695,23 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
             if (data != NULL)
             {
                 values[i] = ans->idx;
-                ptrs[i] = GF_MALLOC(data->len + EC_BUFFER_ALIGN_SIZE - 1,
-                                    gf_common_mt_char);
-                if (ptrs[i] == NULL)
-                {
-                    continue;
-                }
-
+                blocks[i] = (uint8_t *)data->data;
                 if (size > data->len)
                 {
                     size = data->len;
                 }
-                blocks[i] = GF_ALIGN_BUF(ptrs[i], EC_BUFFER_ALIGN_SIZE);
-                memcpy(blocks[i], data->data, size);
-
                 i++;
             }
         }
-
-        dict_del(cbk->xdata, GF_CONTENT_KEY);
 
         if (i >= ec->fragments)
         {
             size -= size % ec->fragment_size;
             if (size > 0)
             {
-                ptr = GF_MALLOC(size * ec->fragments +
-                                    EC_BUFFER_ALIGN_SIZE - 1,
-                                gf_common_mt_char);
-                if (ptr != NULL)
+                buff = GF_MALLOC(size * ec->fragments, gf_common_mt_char);
+                if (buff != NULL)
                 {
-                    buff = GF_ALIGN_BUF(ptr, EC_BUFFER_ALIGN_SIZE);
-
                     size = ec_method_decode(size, ec->fragments, values,
                                             blocks, buff);
                     if (size > fop->size)
@@ -739,22 +723,15 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
                         size = cbk->iatt[0].ia_size;
                     }
 
-                    tmp = GF_MALLOC(size, gf_common_mt_char);
-                    if (tmp != NULL)
+                    if (dict_set_bin(cbk->xdata, GF_CONTENT_KEY, buff,
+                                     size) != 0)
                     {
-                        memcpy(tmp, buff, size);
-                        if (dict_set_bin(cbk->xdata, GF_CONTENT_KEY, tmp,
-                                         size) != 0)
-                        {
-                            GF_FREE(tmp);
-
-                            gf_log(fop->xl->name, GF_LOG_WARNING, "Lookup "
-                                                                  "read-ahead "
-                                                                  "failed");
-                        }
+                        GF_FREE(buff);
+                        buff = NULL;
+                        gf_log(fop->xl->name, GF_LOG_WARNING, "Lookup "
+                                                              "read-ahead "
+                                                              "failed");
                     }
-
-                    GF_FREE(ptr);
                 }
                 else
                 {
@@ -763,9 +740,10 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
                 }
             }
         }
-        while (--i > 0)
+
+        if (buff == NULL)
         {
-            GF_FREE(ptrs[i]);
+            dict_del(cbk->xdata, GF_CONTENT_KEY);
         }
     }
 }

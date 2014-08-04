@@ -975,7 +975,7 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     ec_cbk_data_t * ans = NULL;
     struct iobref * iobref = NULL;
     struct iobuf * iobuf = NULL;
-    uint8_t * ptr = NULL, * buff = NULL;
+    uint8_t * buff = NULL, * ptr;
     size_t fsize = 0, size = 0, max = 0;
     int32_t i = 0;
 
@@ -994,17 +994,17 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
         fsize = cbk->op_ret;
         size = fsize * ec->fragments;
-        ptr = GF_MALLOC(size + EC_BUFFER_ALIGN_SIZE - 1, gf_common_mt_char);
-        if (ptr == NULL)
+        buff = GF_MALLOC(size, gf_common_mt_char);
+        if (buff == NULL)
         {
             goto out;
         }
-        buff = GF_ALIGN_BUF(ptr, EC_BUFFER_ALIGN_SIZE);
+        ptr = buff;
         for (i = 0, ans = cbk; ans != NULL; i++, ans = ans->next)
         {
             values[i] = ans->idx;
-            blocks[i] = buff;
-            buff += ec_iov_copy_to(buff, ans->vector, ans->int32, 0, fsize);
+            blocks[i] = ptr;
+            ptr += ec_iov_copy_to(ptr, ans->vector, ans->int32, 0, fsize);
         }
 
         iobref = iobref_new();
@@ -1028,8 +1028,8 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
         iobuf_unref(iobuf);
 
-        GF_FREE(ptr);
-        ptr = NULL;
+        GF_FREE(buff);
+        buff = NULL;
 
         vector[0].iov_base += fop->head;
         vector[0].iov_len -= fop->head;
@@ -1079,7 +1079,7 @@ out:
     {
         iobref_unref(iobref);
     }
-    GF_FREE(ptr);
+    GF_FREE(buff);
 
     return 0;
 }

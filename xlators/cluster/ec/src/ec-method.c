@@ -21,28 +21,27 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "ec-gf.h"
 #include "ec-method.h"
 
-#define EC_METHOD_WORD_SIZE 16
-
-static uint32_t GfPow[EC_METHOD_SIZE << 1];
-static uint32_t GfLog[EC_METHOD_SIZE << 1];
+static uint32_t GfPow[EC_GF_SIZE << 1];
+static uint32_t GfLog[EC_GF_SIZE << 1];
 
 void ec_method_initialize(void)
 {
     uint32_t i;
 
     GfPow[0] = 1;
-    GfLog[0] = EC_METHOD_SIZE;
-    for (i = 1; i < EC_METHOD_SIZE; i++)
+    GfLog[0] = EC_GF_SIZE;
+    for (i = 1; i < EC_GF_SIZE; i++)
     {
         GfPow[i] = GfPow[i - 1] << 1;
-        if (GfPow[i] >= EC_METHOD_SIZE)
+        if (GfPow[i] >= EC_GF_SIZE)
         {
             GfPow[i] ^= EC_GF_MOD;
         }
-        GfPow[i + EC_METHOD_SIZE - 1] = GfPow[i];
-        GfLog[GfPow[i] + EC_METHOD_SIZE - 1] = GfLog[GfPow[i]] = i;
+        GfPow[i + EC_GF_SIZE - 1] = GfPow[i];
+        GfLog[GfPow[i] + EC_GF_SIZE - 1] = GfLog[GfPow[i]] = i;
     }
 }
 
@@ -61,11 +60,11 @@ static uint32_t ec_method_div(uint32_t a, uint32_t b)
     {
         if (a)
         {
-            return GfPow[EC_METHOD_SIZE - 1 + GfLog[a] - GfLog[b]];
+            return GfPow[EC_GF_SIZE - 1 + GfLog[a] - GfLog[b]];
         }
         return 0;
     }
-    return EC_METHOD_SIZE;
+    return EC_GF_SIZE;
 }
 
 size_t ec_method_encode(size_t size, uint32_t columns, uint32_t row,
@@ -77,15 +76,13 @@ size_t ec_method_encode(size_t size, uint32_t columns, uint32_t row,
     row++;
     for (j = 0; j < size; j++)
     {
-        ec_gf_load(in);
+        ec_gf_muladd[0](out, in, EC_METHOD_WIDTH);
         in += EC_METHOD_CHUNK_SIZE;
         for (i = 1; i < columns; i++)
         {
-            ec_gf_mul_table[row]();
-            ec_gf_xor(in);
+            ec_gf_muladd[row](out, in, EC_METHOD_WIDTH);
             in += EC_METHOD_CHUNK_SIZE;
         }
-        ec_gf_store(out);
         out += EC_METHOD_CHUNK_SIZE;
     }
 
@@ -95,31 +92,29 @@ size_t ec_method_encode(size_t size, uint32_t columns, uint32_t row,
 size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
                         uint8_t ** in, uint8_t * out)
 {
-    uint32_t i, j, k;
-    uint32_t f, off;
+    uint32_t i, j, k, off, last, value;
+    uint32_t f;
     uint8_t inv[EC_METHOD_MAX_FRAGMENTS][EC_METHOD_MAX_FRAGMENTS + 1];
     uint8_t mtx[EC_METHOD_MAX_FRAGMENTS][EC_METHOD_MAX_FRAGMENTS];
-    uint8_t * p[EC_METHOD_MAX_FRAGMENTS];
+    uint8_t dummy[EC_METHOD_CHUNK_SIZE];
 
     size /= EC_METHOD_CHUNK_SIZE;
 
     memset(inv, 0, sizeof(inv));
     memset(mtx, 0, sizeof(mtx));
+    memset(dummy, 0, sizeof(dummy));
     for (i = 0; i < columns; i++)
     {
         inv[i][i] = 1;
         inv[i][columns] = 1;
     }
-    k = 0;
     for (i = 0; i < columns; i++)
     {
-        mtx[k][columns - 1] = 1;
+        mtx[i][columns - 1] = 1;
         for (j = columns - 1; j > 0; j--)
         {
-            mtx[k][j - 1] = ec_method_mul(mtx[k][j], rows[i] + 1);
+            mtx[i][j - 1] = ec_method_mul(mtx[i][j], rows[i] + 1);
         }
-        p[k] = in[i];
-        k++;
     }
 
     for (i = 0; i < columns; i++)
@@ -148,25 +143,24 @@ size_t ec_method_decode(size_t size, uint32_t columns, uint32_t * rows,
     {
         for (i = 0; i < columns; i++)
         {
-            ec_gf_load(p[0] + off);
+            last = 0;
             j = 0;
-            while (j < columns)
+            do
             {
-                k = j + 1;
-                while (inv[i][k] == 0)
+                while (inv[i][j] == 0)
                 {
-                    k++;
+                    j++;
                 }
-                ec_gf_mul_table[ec_method_div(inv[i][j], inv[i][k])]();
-                if (k < columns)
+                if (j < columns)
                 {
-                    ec_gf_xor(p[k] + off);
+                    value = ec_method_div(last, inv[i][j]);
+                    last = inv[i][j];
+                    ec_gf_muladd[value](out, in[j] + off, EC_METHOD_WIDTH);
+                    j++;
                 }
-                j = k;
-            }
-            ec_gf_store(out);
+            } while (j < columns);
+            ec_gf_muladd[last](out, dummy, EC_METHOD_WIDTH);
             out += EC_METHOD_CHUNK_SIZE;
-            in[i] += EC_METHOD_CHUNK_SIZE;
         }
         off += EC_METHOD_CHUNK_SIZE;
     }
