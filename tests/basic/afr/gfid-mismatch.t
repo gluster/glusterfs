@@ -18,7 +18,8 @@ TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0 --entry-timeout=0 --att
 #Test
 TEST touch $M0/file
 TEST setfattr -n trusted.gfid -v 0sBfz5vAdHTEK1GZ99qjqTIg== $B0/brick0/file
-TEST ! "find $M0/file | xargs stat"
+TEST ! "find $M0/file"
+TEST ! "stat $M0/file"
 
 #Cleanup
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0

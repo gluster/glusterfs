@@ -37,6 +37,7 @@ TEST `ln -s $M0/Dir $M0/Link2`
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
+TEST `find $M0/ 2>/dev/null 1>/dev/null`
 TEST `find $M0/ | xargs stat 2>/dev/null 1>/dev/null`
 
 TEST stat $B0/${V0}-0/Link1
