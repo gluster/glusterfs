@@ -465,7 +465,7 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
         gfc->gfc_fd = gfc->gfc_sockfd = -1;
 
         if (stat (scratch_dir, &buf) && errno == ENOENT) {
-                ret = mkdir_p (scratch_dir, 0600, _gf_false);
+                ret = mkdir_p (scratch_dir, 0600, _gf_true);
                 if (ret) {
                         errn = errno;
                         goto cleanup;
