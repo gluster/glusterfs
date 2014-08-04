@@ -289,7 +289,10 @@ runner_start (runner_t *runner)
                                 closedir (d);
                         } else
                                 ret = -1;
-#else
+#else /* !GF_LINUX_HOST_OS */
+#ifdef F_CLOSEM /* NetBSD */
+			(void)fcntl(3, F_CLOSEM);
+#else /* !F_CLOSEM */
                         struct rlimit rl;
                         ret = getrlimit (RLIMIT_NOFILE, &rl);
                         GF_ASSERT (ret == 0);
@@ -298,7 +301,8 @@ runner_start (runner_t *runner)
                                 if (i != xpi[1])
                                         close (i);
                         }
-#endif
+#endif /* !F_CLOSEM */
+#endif /* !GF_LINUX_HOST_OS */
                 }
 
                 if (ret != -1) {
