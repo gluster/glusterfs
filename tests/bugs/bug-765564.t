@@ -77,6 +77,7 @@ TEST mv $M0/h $M0/1;
 TEST $CLI volume start $V0 force;
 
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1;
+find $M0 2>/dev/null 1>/dev/null;
 find $M0 | xargs stat 2>/dev/null 1>/dev/null;
 
 TEST rm_mv_correctness;
