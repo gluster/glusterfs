@@ -18,10103 +18,11628 @@
   <http://www.gnu.org/licenses/>.
 */
 
-/*
- * File automatically generated on Thu Jan 26 12:08:19 2012
- *
- * DO NOT MODIFY
- *
- * Multiplications in a GF(2^8) with modulus 0x11D using XOR's
- *
- * 7994 total xor's
- * 31.3 average xor's per number
- * 0 xor's for the best case (01)
- * 43 xor's for the worst case (F4)
- *
- *  0 xor's: 01
- * 10 xor's: 03
- * 12 xor's: F5
- * 16 xor's: 04 05
- * 17 xor's: 9C A6
- * 18 xor's: 02 73
- * 19 xor's: 10 39
- * 20 xor's: 0B
- * 21 xor's: 0D 59 D2 E9 EC
- * 22 xor's: 12 28 61
- * 23 xor's: 08 09 44
- * 24 xor's: 0A 1D 25 55 B4
- * 25 xor's: 07 11 21 51 63 C4
- * 26 xor's: 0C 0F 13 45 54 5E 64 BD F2
- * 27 xor's: 06 1F 22 41 6B B9 C7 D1 F7
- * 28 xor's: 19 31 8C 95 B5 C1 F3
- * 29 xor's: 26 30 42 4A 4B 50 6A 88 90 A3 D8 E0 E8 F0 FD
- * 30 xor's: 14 15 20 2E 34 5D 89 99 A2 A9 B0 E5 F9
- * 31 xor's: 16 17 18 1A 1B 24 29 2B 2D 3B 57 84 85 87 8F 97 A5 EB F1 FB
- * 32 xor's: 33 36 43 47 65 67 72 75 78 79 81 83 8D 9B A8 AF B8 BB C5 CB CC CE E6 ED
- * 33 xor's: 0E 35 3D 49 4C 4D 6E 70 94 98 A0 AB B1 B2 B6 C8 C9 CD D0 D6 DC DD E3 EA F8
- * 34 xor's: 1C 1E 23 27 2C 32 40 46 5C 60 68 6F 71 7F 8A 9A AA AC B3 C2 D3 FC FF
- * 35 xor's: 3A 53 58 6D 74 7C 7D 8B 91 93 96 A1 AE C0 CA D5 DB E4 F6
- * 36 xor's: 2A 2F 38 48 4F 5B 66 6C 82 86 92 9F AD BC CF D4 DA DE E2 FA FE
- * 37 xor's: 37 3E 52 69 7B 9D B7 BE C3 C6 EE
- * 38 xor's: 3C 5A 7E 80 9E A7 BA BF D7 E7 EF
- * 39 xor's: 3F 4E 77 8E A4 D9 E1
- * 40 xor's: 76 7A
- * 41 xor's: 62
- * 42 xor's: 56 5F DF
- * 43 xor's: F4
- *
- */
-
-#include <xmmintrin.h>
+#include <inttypes.h>
+#include <string.h>
 
 #include "ec-gf.h"
 
-static void gf8mul_00000000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm0, %xmm0\n"
-        "\tpxor    %xmm1, %xmm1\n"
-        "\tpxor    %xmm2, %xmm2\n"
-        "\tpxor    %xmm3, %xmm3\n"
-        "\tpxor    %xmm4, %xmm4\n"
-        "\tpxor    %xmm5, %xmm5\n"
-        "\tpxor    %xmm6, %xmm6\n"
-        "\tpxor    %xmm7, %xmm7\n"
-    );
-}
-
-static void gf8mul_00000001(void)
-{
-}
-
-static void gf8mul_00000010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00000011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00000100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00000101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00000110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00000111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00001000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_00001001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_00001010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00001011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00001100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00001101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00001110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00001111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00010000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_00010001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_00010010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00010011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00010100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00010101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00010110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00010111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00011000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_00011001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_00011010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00011011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00011100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00011101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00011110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00011111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00100000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm5, %xmm0\n"
-    );
-}
-
-static void gf8mul_00100001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-    );
-}
-
-static void gf8mul_00100010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00100011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00100100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00100101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00100110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00100111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00101000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_00101001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00101010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00101011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00101100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00101101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00101110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00101111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00110000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00110001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_00110010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00110011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00110100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00110101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00110110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00110111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00111000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_00111001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_00111010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_00111011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_00111100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_00111101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_00111110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-    );
-}
-
-static void gf8mul_00111111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01000000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm6, %xmm0\n"
-    );
-}
-
-static void gf8mul_01000001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-    );
-}
-
-static void gf8mul_01000010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01000011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01000100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01000101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01000110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01000111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01001000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_01001001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_01001010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01001011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01001100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01001101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01001110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01001111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01010000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_01010001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_01010010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01010011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01010100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01010101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01010110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01010111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01011000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_01011001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_01011010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01011011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01011100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01011101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01011110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01011111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01100000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm5, %xmm0\n"
-    );
-}
-
-static void gf8mul_01100001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-    );
-}
-
-static void gf8mul_01100010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01100011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01100100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01100101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01100110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01100111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01101000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_01101001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_01101010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01101011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01101100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01101101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01101110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_01101111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01110000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_01110001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_01110010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01110011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01110100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01110101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01110110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01110111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_01111000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_01111001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_01111010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01111011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01111100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_01111101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_01111110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_01111111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10000000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm7, %xmm0\n"
-    );
-}
-
-static void gf8mul_10000001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-    );
-}
-
-static void gf8mul_10000010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10000011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10000100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10000101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10000110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10000111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10001000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_10001001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_10001010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10001011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10001100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10001101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10001110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10001111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10010000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_10010001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_10010010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10010011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10010100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10010101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10010110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10010111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10011000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_10011001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_10011010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10011011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10011100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10011101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10011110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10011111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10100000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm5, %xmm0\n"
-    );
-}
-
-static void gf8mul_10100001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-    );
-}
-
-static void gf8mul_10100010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10100011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10100100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10100101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10100110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10100111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10101000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_10101001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10101010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10101011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10101100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10101101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10101110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10101111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10110000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_10110001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_10110010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10110011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10110100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10110101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10110110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10110111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10111000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_10111001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10111010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10111011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_10111100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_10111101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_10111110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_10111111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_11000000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm6, %xmm0\n"
-    );
-}
-
-static void gf8mul_11000001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-    );
-}
-
-static void gf8mul_11000010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11000011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11000100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11000101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11000110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11000111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11001000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_11001001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_11001010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11001011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11001100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11001101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11001110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11001111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11010000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_11010001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_11010010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11010011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11010100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11010101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11010110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11010111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11011000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_11011001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_11011010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11011011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11011100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11011101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11011110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11011111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11100000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm5, %xmm0\n"
-    );
-}
-
-static void gf8mul_11100001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11100010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11100011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11100100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11100101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11100110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11100111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11101000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11101001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_11101010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11101011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11101100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11101101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11101110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11101111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11110000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm4, %xmm0\n"
-    );
-}
-
-static void gf8mul_11110001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-    );
-}
-
-static void gf8mul_11110010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11110011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11110100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11110101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11110110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11110111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11111000(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm3, %xmm0\n"
-    );
-}
-
-static void gf8mul_11111001(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-    );
-}
-
-static void gf8mul_11111010(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11111011(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm5, %xmm2\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-static void gf8mul_11111100(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm3, %xmm7\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm3, %xmm0\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm6\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm2, %xmm0\n"
-    );
-}
-
-static void gf8mul_11111101(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm2\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm4\n"
-        "\tpxor    %xmm5, %xmm0\n"
-        "\tpxor    %xmm6, %xmm5\n"
-        "\tpxor    %xmm4, %xmm7\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm3\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm5\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-    );
-}
-
-static void gf8mul_11111110(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm6\n"
-        "\tpxor    %xmm7, %xmm5\n"
-        "\tpxor    %xmm7, %xmm4\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm5, %xmm1\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm1\n"
-        "\tpxor    %xmm4, %xmm0\n"
-        "\tpxor    %xmm6, %xmm4\n"
-        "\tpxor    %xmm3, %xmm6\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm2\n"
-        "\tpxor    %xmm2, %xmm7\n"
-        "\tpxor    %xmm2, %xmm6\n"
-        "\tpxor    %xmm2, %xmm1\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm1, %xmm4\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm1, %xmm0\n"
-        "\tpxor    %xmm0, %xmm7\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm5\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm3\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-        "\tpxor    %xmm1, %xmm0\n"
-    );
-}
-
-static void gf8mul_11111111(void)
-{
-    __asm__ __volatile__
-    (
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm6, %xmm3\n"
-        "\tpxor    %xmm6, %xmm2\n"
-        "\tpxor    %xmm6, %xmm1\n"
-        "\tpxor    %xmm6, %xmm0\n"
-        "\tpxor    %xmm5, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm5, %xmm3\n"
-        "\tpxor    %xmm4, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm4, %xmm2\n"
-        "\tpxor    %xmm3, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm3, %xmm1\n"
-        "\tpxor    %xmm2, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm2, %xmm0\n"
-        "\tpxor    %xmm1, %xmm7\n"
-        "\tpxor    %xmm1, %xmm5\n"
-        "\tpxor    %xmm1, %xmm3\n"
-        "\tpxor    %xmm0, %xmm6\n"
-        "\tpxor    %xmm0, %xmm4\n"
-        "\tpxor    %xmm0, %xmm2\n"
-        "\tpxor    %xmm7, %xmm3\n"
-        "\tpxor    %xmm7, %xmm1\n"
-        "\tpxor    %xmm7, %xmm0\n"
-        "\tpxor    %xmm6, %xmm7\n"
-        "\tpxor    %xmm5, %xmm6\n"
-        "\tpxor    %xmm4, %xmm5\n"
-        "\tpxor    %xmm3, %xmm4\n"
-        "\tpxor    %xmm2, %xmm3\n"
-        "\tpxor    %xmm1, %xmm2\n"
-        "\tpxor    %xmm0, %xmm1\n"
-    );
-}
-
-void (* ec_gf_mul_table[256])(void) =
-{
-    gf8mul_00000000,
-    gf8mul_00000001,
-    gf8mul_00000010,
-    gf8mul_00000011,
-    gf8mul_00000100,
-    gf8mul_00000101,
-    gf8mul_00000110,
-    gf8mul_00000111,
-    gf8mul_00001000,
-    gf8mul_00001001,
-    gf8mul_00001010,
-    gf8mul_00001011,
-    gf8mul_00001100,
-    gf8mul_00001101,
-    gf8mul_00001110,
-    gf8mul_00001111,
-    gf8mul_00010000,
-    gf8mul_00010001,
-    gf8mul_00010010,
-    gf8mul_00010011,
-    gf8mul_00010100,
-    gf8mul_00010101,
-    gf8mul_00010110,
-    gf8mul_00010111,
-    gf8mul_00011000,
-    gf8mul_00011001,
-    gf8mul_00011010,
-    gf8mul_00011011,
-    gf8mul_00011100,
-    gf8mul_00011101,
-    gf8mul_00011110,
-    gf8mul_00011111,
-    gf8mul_00100000,
-    gf8mul_00100001,
-    gf8mul_00100010,
-    gf8mul_00100011,
-    gf8mul_00100100,
-    gf8mul_00100101,
-    gf8mul_00100110,
-    gf8mul_00100111,
-    gf8mul_00101000,
-    gf8mul_00101001,
-    gf8mul_00101010,
-    gf8mul_00101011,
-    gf8mul_00101100,
-    gf8mul_00101101,
-    gf8mul_00101110,
-    gf8mul_00101111,
-    gf8mul_00110000,
-    gf8mul_00110001,
-    gf8mul_00110010,
-    gf8mul_00110011,
-    gf8mul_00110100,
-    gf8mul_00110101,
-    gf8mul_00110110,
-    gf8mul_00110111,
-    gf8mul_00111000,
-    gf8mul_00111001,
-    gf8mul_00111010,
-    gf8mul_00111011,
-    gf8mul_00111100,
-    gf8mul_00111101,
-    gf8mul_00111110,
-    gf8mul_00111111,
-    gf8mul_01000000,
-    gf8mul_01000001,
-    gf8mul_01000010,
-    gf8mul_01000011,
-    gf8mul_01000100,
-    gf8mul_01000101,
-    gf8mul_01000110,
-    gf8mul_01000111,
-    gf8mul_01001000,
-    gf8mul_01001001,
-    gf8mul_01001010,
-    gf8mul_01001011,
-    gf8mul_01001100,
-    gf8mul_01001101,
-    gf8mul_01001110,
-    gf8mul_01001111,
-    gf8mul_01010000,
-    gf8mul_01010001,
-    gf8mul_01010010,
-    gf8mul_01010011,
-    gf8mul_01010100,
-    gf8mul_01010101,
-    gf8mul_01010110,
-    gf8mul_01010111,
-    gf8mul_01011000,
-    gf8mul_01011001,
-    gf8mul_01011010,
-    gf8mul_01011011,
-    gf8mul_01011100,
-    gf8mul_01011101,
-    gf8mul_01011110,
-    gf8mul_01011111,
-    gf8mul_01100000,
-    gf8mul_01100001,
-    gf8mul_01100010,
-    gf8mul_01100011,
-    gf8mul_01100100,
-    gf8mul_01100101,
-    gf8mul_01100110,
-    gf8mul_01100111,
-    gf8mul_01101000,
-    gf8mul_01101001,
-    gf8mul_01101010,
-    gf8mul_01101011,
-    gf8mul_01101100,
-    gf8mul_01101101,
-    gf8mul_01101110,
-    gf8mul_01101111,
-    gf8mul_01110000,
-    gf8mul_01110001,
-    gf8mul_01110010,
-    gf8mul_01110011,
-    gf8mul_01110100,
-    gf8mul_01110101,
-    gf8mul_01110110,
-    gf8mul_01110111,
-    gf8mul_01111000,
-    gf8mul_01111001,
-    gf8mul_01111010,
-    gf8mul_01111011,
-    gf8mul_01111100,
-    gf8mul_01111101,
-    gf8mul_01111110,
-    gf8mul_01111111,
-    gf8mul_10000000,
-    gf8mul_10000001,
-    gf8mul_10000010,
-    gf8mul_10000011,
-    gf8mul_10000100,
-    gf8mul_10000101,
-    gf8mul_10000110,
-    gf8mul_10000111,
-    gf8mul_10001000,
-    gf8mul_10001001,
-    gf8mul_10001010,
-    gf8mul_10001011,
-    gf8mul_10001100,
-    gf8mul_10001101,
-    gf8mul_10001110,
-    gf8mul_10001111,
-    gf8mul_10010000,
-    gf8mul_10010001,
-    gf8mul_10010010,
-    gf8mul_10010011,
-    gf8mul_10010100,
-    gf8mul_10010101,
-    gf8mul_10010110,
-    gf8mul_10010111,
-    gf8mul_10011000,
-    gf8mul_10011001,
-    gf8mul_10011010,
-    gf8mul_10011011,
-    gf8mul_10011100,
-    gf8mul_10011101,
-    gf8mul_10011110,
-    gf8mul_10011111,
-    gf8mul_10100000,
-    gf8mul_10100001,
-    gf8mul_10100010,
-    gf8mul_10100011,
-    gf8mul_10100100,
-    gf8mul_10100101,
-    gf8mul_10100110,
-    gf8mul_10100111,
-    gf8mul_10101000,
-    gf8mul_10101001,
-    gf8mul_10101010,
-    gf8mul_10101011,
-    gf8mul_10101100,
-    gf8mul_10101101,
-    gf8mul_10101110,
-    gf8mul_10101111,
-    gf8mul_10110000,
-    gf8mul_10110001,
-    gf8mul_10110010,
-    gf8mul_10110011,
-    gf8mul_10110100,
-    gf8mul_10110101,
-    gf8mul_10110110,
-    gf8mul_10110111,
-    gf8mul_10111000,
-    gf8mul_10111001,
-    gf8mul_10111010,
-    gf8mul_10111011,
-    gf8mul_10111100,
-    gf8mul_10111101,
-    gf8mul_10111110,
-    gf8mul_10111111,
-    gf8mul_11000000,
-    gf8mul_11000001,
-    gf8mul_11000010,
-    gf8mul_11000011,
-    gf8mul_11000100,
-    gf8mul_11000101,
-    gf8mul_11000110,
-    gf8mul_11000111,
-    gf8mul_11001000,
-    gf8mul_11001001,
-    gf8mul_11001010,
-    gf8mul_11001011,
-    gf8mul_11001100,
-    gf8mul_11001101,
-    gf8mul_11001110,
-    gf8mul_11001111,
-    gf8mul_11010000,
-    gf8mul_11010001,
-    gf8mul_11010010,
-    gf8mul_11010011,
-    gf8mul_11010100,
-    gf8mul_11010101,
-    gf8mul_11010110,
-    gf8mul_11010111,
-    gf8mul_11011000,
-    gf8mul_11011001,
-    gf8mul_11011010,
-    gf8mul_11011011,
-    gf8mul_11011100,
-    gf8mul_11011101,
-    gf8mul_11011110,
-    gf8mul_11011111,
-    gf8mul_11100000,
-    gf8mul_11100001,
-    gf8mul_11100010,
-    gf8mul_11100011,
-    gf8mul_11100100,
-    gf8mul_11100101,
-    gf8mul_11100110,
-    gf8mul_11100111,
-    gf8mul_11101000,
-    gf8mul_11101001,
-    gf8mul_11101010,
-    gf8mul_11101011,
-    gf8mul_11101100,
-    gf8mul_11101101,
-    gf8mul_11101110,
-    gf8mul_11101111,
-    gf8mul_11110000,
-    gf8mul_11110001,
-    gf8mul_11110010,
-    gf8mul_11110011,
-    gf8mul_11110100,
-    gf8mul_11110101,
-    gf8mul_11110110,
-    gf8mul_11110111,
-    gf8mul_11111000,
-    gf8mul_11111001,
-    gf8mul_11111010,
-    gf8mul_11111011,
-    gf8mul_11111100,
-    gf8mul_11111101,
-    gf8mul_11111110,
-    gf8mul_11111111
+static void gf8_muladd_00(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    memcpy(out, in, sizeof(uint64_t) * 8 * width);
+}
+
+static void gf8_muladd_01(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        out_ptr[0] ^= in_ptr[0];
+        out_ptr[width] ^= in_ptr[width];
+        out_ptr[width * 2] ^= in_ptr[width * 2];
+        out_ptr[width * 3] ^= in_ptr[width * 3];
+        out_ptr[width * 4] ^= in_ptr[width * 4];
+        out_ptr[width * 5] ^= in_ptr[width * 5];
+        out_ptr[width * 6] ^= in_ptr[width * 6];
+        out_ptr[width * 7] ^= in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_02(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in7;
+        out1 = in0;
+        out7 = in6;
+        out5 = in4;
+        out6 = in5;
+        out3 = in2 ^ in7;
+        out4 = in3 ^ in7;
+        out2 = in1 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_03(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in0 ^ in7;
+        tmp0 = in2 ^ in7;
+        out1 = in0 ^ in1;
+        out7 = in6 ^ in7;
+        out5 = in4 ^ in5;
+        out6 = in5 ^ in6;
+        out4 = in3 ^ in4 ^ in7;
+        out2 = tmp0 ^ in1;
+        out3 = tmp0 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_04(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in6;
+        out1 = in7;
+        out7 = in5;
+        out6 = in4;
+        tmp0 = in6 ^ in7;
+        out2 = in0 ^ in6;
+        out5 = in3 ^ in7;
+        out3 = tmp0 ^ in1;
+        out4 = tmp0 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_05(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in0 ^ in6;
+        out1 = in1 ^ in7;
+        out7 = in5 ^ in7;
+        out6 = in4 ^ in6;
+        out2 = out0 ^ in2;
+        out3 = out1 ^ in3 ^ in6;
+        out5 = out7 ^ in3;
+        out4 = out6 ^ in2 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_06(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in6 ^ in7;
+        tmp0 = in1 ^ in6;
+        out1 = in0 ^ in7;
+        out7 = in5 ^ in6;
+        out6 = in4 ^ in5;
+        out4 = in2 ^ in3 ^ in6;
+        out5 = in3 ^ in4 ^ in7;
+        out3 = tmp0 ^ in2;
+        out2 = tmp0 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_07(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in6;
+        tmp1 = in5 ^ in6;
+        tmp2 = in0 ^ in7;
+        tmp3 = tmp0 ^ in3;
+        out6 = tmp1 ^ in4;
+        out7 = tmp1 ^ in7;
+        out0 = tmp2 ^ in6;
+        out1 = tmp2 ^ in1;
+        out3 = tmp3 ^ in1;
+        out4 = tmp3 ^ in4;
+        out5 = out4 ^ out7 ^ in2;
+        out2 = tmp0 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_08(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in5;
+        out1 = in6;
+        out7 = in4;
+        out6 = in3 ^ in7;
+        out3 = in0 ^ in5 ^ in6;
+        out5 = in2 ^ in6 ^ in7;
+        out2 = in5 ^ in7;
+        out4 = out2 ^ in1 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_09(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in0 ^ in5;
+        tmp0 = in3 ^ in6;
+        out1 = in1 ^ in6;
+        out7 = in4 ^ in7;
+        out2 = in2 ^ in5 ^ in7;
+        out3 = tmp0 ^ out0;
+        out6 = tmp0 ^ in7;
+        out4 = out1 ^ out7 ^ in5;
+        out5 = out2 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_0A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in5 ^ in7;
+        out1 = in0 ^ in6;
+        out7 = in4 ^ in6;
+        out2 = in1 ^ in5;
+        out6 = out0 ^ in3;
+        out3 = out0 ^ out1 ^ in2;
+        out5 = out7 ^ in2 ^ in7;
+        out4 = out2 ^ in3 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_0B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        tmp1 = in0 ^ in6;
+        tmp2 = in4 ^ in7;
+        out0 = in0 ^ in5 ^ in7;
+        out2 = tmp0 ^ in1;
+        out1 = tmp1 ^ in1;
+        out6 = tmp1 ^ out0 ^ in3;
+        out7 = tmp2 ^ in6;
+        out4 = tmp2 ^ out6 ^ in1;
+        out3 = out6 ^ in0 ^ in2;
+        out5 = tmp0 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_0C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in5 ^ in6;
+        out1 = in6 ^ in7;
+        out7 = in4 ^ in5;
+        tmp0 = in1 ^ in5;
+        tmp1 = in0 ^ in7;
+        out5 = in2 ^ in3 ^ in6;
+        out6 = in3 ^ in4 ^ in7;
+        out2 = tmp1 ^ out0;
+        out4 = tmp0 ^ in2;
+        out3 = tmp0 ^ tmp1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_0D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in5;
+        tmp1 = in5 ^ in6;
+        out1 = in1 ^ in6 ^ in7;
+        out7 = tmp0 ^ in7;
+        out4 = tmp0 ^ in1 ^ in2;
+        out0 = tmp1 ^ in0;
+        tmp2 = tmp1 ^ in3;
+        out6 = tmp2 ^ out7;
+        out2 = out0 ^ in2 ^ in7;
+        out3 = out0 ^ out1 ^ in3;
+        out5 = tmp2 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_0E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in2 ^ in5;
+        tmp2 = in5 ^ in6;
+        out1 = in0 ^ in6 ^ in7;
+        out3 = tmp0 ^ tmp1;
+        out2 = tmp0 ^ tmp2;
+        tmp3 = tmp1 ^ in3;
+        out7 = tmp2 ^ in4;
+        out0 = tmp2 ^ in7;
+        out4 = tmp3 ^ in1 ^ in7;
+        out5 = tmp3 ^ out7;
+        out6 = out0 ^ out5 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_0F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in6 ^ in7;
+        tmp1 = tmp0 ^ in1;
+        tmp2 = tmp0 ^ in5;
+        out1 = tmp1 ^ in0;
+        out7 = tmp2 ^ in4;
+        out0 = tmp2 ^ in0;
+        out6 = out7 ^ in3;
+        out5 = out6 ^ in2 ^ in7;
+        tmp3 = tmp1 ^ out0 ^ in2;
+        out4 = tmp1 ^ out5;
+        out2 = tmp3 ^ in6;
+        out3 = tmp3 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_10(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in4;
+        out1 = in5;
+        out7 = in3 ^ in7;
+        tmp0 = in6 ^ in7;
+        out2 = in4 ^ in6;
+        tmp1 = out2 ^ in5;
+        out6 = tmp0 ^ in2;
+        out3 = tmp0 ^ tmp1;
+        out5 = out2 ^ out3 ^ in1;
+        out4 = tmp1 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_11(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out7 = in3;
+        out0 = in0 ^ in4;
+        out1 = in1 ^ in5;
+        out6 = in2 ^ in7;
+        out4 = in0 ^ in5 ^ in6;
+        out5 = in1 ^ in6 ^ in7;
+        out2 = in2 ^ in4 ^ in6;
+        out3 = in3 ^ in4 ^ in5 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_12(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in4 ^ in7;
+        out1 = in0 ^ in5;
+        out3 = in2 ^ in4 ^ in5;
+        tmp0 = out0 ^ in6;
+        out2 = tmp0 ^ in1;
+        tmp1 = tmp0 ^ in3;
+        out6 = tmp0 ^ out3;
+        out5 = out2 ^ in5;
+        out7 = tmp1 ^ in4;
+        out4 = tmp1 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_13(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out7 = in3 ^ in6;
+        tmp0 = in0 ^ in5;
+        tmp1 = in4 ^ in7;
+        out6 = in2 ^ in5 ^ in7;
+        out4 = tmp0 ^ out7 ^ in7;
+        out1 = tmp0 ^ in1;
+        out0 = tmp1 ^ in0;
+        out5 = tmp1 ^ in1 ^ in6;
+        out3 = tmp1 ^ out6 ^ in3;
+        out2 = out5 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_14(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in4 ^ in6;
+        out1 = in5 ^ in7;
+        out2 = in0 ^ in4;
+        tmp0 = out0 ^ in5;
+        out7 = out1 ^ in3;
+        tmp1 = out1 ^ in2;
+        out3 = tmp0 ^ in1;
+        out6 = tmp0 ^ tmp1;
+        out4 = tmp1 ^ out2;
+        out5 = out3 ^ in3 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_15(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out7 = in3 ^ in5;
+        tmp0 = in0 ^ in4;
+        out1 = in1 ^ in5 ^ in7;
+        out5 = in1 ^ in3 ^ in6;
+        out0 = tmp0 ^ in6;
+        out2 = tmp0 ^ in2;
+        out3 = out5 ^ in4 ^ in5;
+        out6 = out2 ^ in0 ^ in7;
+        out4 = tmp0 ^ out6 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_16(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in5;
+        tmp1 = in4 ^ in7;
+        tmp2 = in2 ^ in3 ^ in4;
+        out1 = tmp0 ^ in7;
+        out4 = tmp0 ^ tmp2;
+        out0 = tmp1 ^ in6;
+        tmp3 = tmp1 ^ in1;
+        out6 = out0 ^ in2 ^ in5;
+        out2 = tmp3 ^ in0;
+        out3 = out6 ^ in1;
+        out7 = tmp2 ^ out6;
+        out5 = tmp3 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_17(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        tmp1 = in3 ^ in6;
+        tmp2 = tmp0 ^ in4;
+        out4 = tmp0 ^ in0 ^ in3;
+        out7 = tmp1 ^ in5;
+        tmp3 = tmp1 ^ in1;
+        out6 = tmp2 ^ in7;
+        out5 = tmp3 ^ in4;
+        out3 = tmp3 ^ out6;
+        out0 = out3 ^ out4 ^ in1;
+        out2 = out3 ^ out7 ^ in0;
+        out1 = tmp2 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_18(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in4 ^ in5;
+        out1 = in5 ^ in6;
+        tmp0 = in4 ^ in7;
+        out5 = in1 ^ in2 ^ in5;
+        out6 = in2 ^ in3 ^ in6;
+        out2 = tmp0 ^ out1;
+        out7 = tmp0 ^ in3;
+        tmp1 = tmp0 ^ in0;
+        out3 = tmp1 ^ in6;
+        out4 = tmp1 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_19(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in1 ^ in2;
+        out7 = in3 ^ in4;
+        tmp0 = in0 ^ in7;
+        out6 = in2 ^ in3;
+        out1 = in1 ^ in5 ^ in6;
+        out0 = in0 ^ in4 ^ in5;
+        out4 = tmp0 ^ in1;
+        tmp1 = tmp0 ^ in6;
+        out2 = tmp1 ^ out0 ^ in2;
+        out3 = tmp1 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_1A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in5;
+        tmp1 = in5 ^ in6;
+        tmp2 = tmp0 ^ in1;
+        out0 = tmp0 ^ in7;
+        out1 = tmp1 ^ in0;
+        tmp3 = tmp1 ^ in3;
+        out5 = tmp2 ^ in2;
+        out2 = tmp2 ^ in6;
+        out7 = tmp3 ^ out0;
+        out6 = tmp3 ^ in2;
+        out4 = tmp3 ^ out2 ^ in0;
+        out3 = tmp0 ^ out1 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_1B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in4;
+        tmp1 = in2 ^ in5;
+        tmp2 = in3 ^ in6;
+        out5 = tmp0 ^ in1;
+        tmp3 = tmp0 ^ in0;
+        out6 = tmp1 ^ in3;
+        out0 = tmp1 ^ tmp3 ^ in7;
+        out7 = tmp2 ^ in4;
+        tmp4 = out5 ^ in6;
+        out3 = tmp2 ^ tmp3;
+        out2 = tmp4 ^ in5;
+        out4 = tmp4 ^ out3;
+        out1 = tmp3 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_1C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        tmp1 = in4 ^ in6;
+        tmp2 = in5 ^ in7;
+        out6 = tmp0 ^ tmp1;
+        out0 = tmp1 ^ in5;
+        out1 = tmp2 ^ in6;
+        tmp3 = tmp2 ^ in1;
+        tmp4 = tmp2 ^ in4;
+        out2 = tmp4 ^ in0;
+        out7 = tmp4 ^ in3;
+        out5 = tmp0 ^ tmp3;
+        out3 = tmp3 ^ out2;
+        out4 = out3 ^ in2 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_1D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in3;
+        tmp1 = in0 ^ in4;
+        tmp2 = in3 ^ in4;
+        tmp3 = in2 ^ in7;
+        out3 = tmp0 ^ tmp1;
+        out5 = tmp0 ^ tmp3;
+        tmp4 = tmp1 ^ in5;
+        out6 = tmp2 ^ in2;
+        out7 = tmp2 ^ in5;
+        out2 = tmp3 ^ tmp4;
+        out4 = out3 ^ out6 ^ in6;
+        out0 = tmp4 ^ in6;
+        out1 = out2 ^ out4 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_1E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in4;
+        tmp1 = in2 ^ in7;
+        tmp2 = tmp0 ^ in1;
+        out3 = tmp1 ^ tmp2;
+        out2 = tmp2 ^ in5;
+        out4 = out3 ^ in3 ^ in6;
+        tmp3 = out4 ^ in7;
+        out6 = tmp3 ^ out2 ^ in4;
+        out7 = tmp1 ^ out6;
+        out0 = out7 ^ in3;
+        out1 = tmp0 ^ out0;
+        out5 = tmp3 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_1F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in6;
+        tmp1 = tmp0 ^ in5;
+        out7 = tmp1 ^ in3;
+        out0 = tmp1 ^ in0 ^ in7;
+        out6 = out7 ^ in2 ^ in6;
+        out1 = out0 ^ in1 ^ in4;
+        out4 = out0 ^ out6 ^ in1;
+        out3 = tmp0 ^ out4;
+        out2 = out4 ^ out7 ^ in7;
+        out5 = out3 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_20(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in4;
+        out0 = in3 ^ in7;
+        tmp0 = in3 ^ in4;
+        tmp1 = in6 ^ in7;
+        out2 = out0 ^ in5;
+        out4 = tmp0 ^ in5;
+        out3 = tmp0 ^ tmp1;
+        out7 = tmp1 ^ in2;
+        out6 = tmp1 ^ in1 ^ in5;
+        out5 = out2 ^ out3 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_21(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in1 ^ in4;
+        tmp0 = in4 ^ in6;
+        out4 = in3 ^ in5;
+        out7 = in2 ^ in6;
+        out0 = in0 ^ in3 ^ in7;
+        out6 = in1 ^ in5 ^ in7;
+        out3 = tmp0 ^ in7;
+        out5 = tmp0 ^ in0;
+        out2 = out4 ^ in2 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_22(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in3;
+        out1 = in0 ^ in4;
+        out7 = in2 ^ in7;
+        out4 = in4 ^ in5 ^ in7;
+        out5 = in0 ^ in5 ^ in6;
+        out6 = in1 ^ in6 ^ in7;
+        out3 = in2 ^ in3 ^ in4 ^ in6;
+        out2 = in1 ^ in3 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_23(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out7 = in2;
+        out0 = in0 ^ in3;
+        out4 = in5 ^ in7;
+        out5 = in0 ^ in6;
+        out6 = in1 ^ in7;
+        out3 = in2 ^ in4 ^ in6;
+        out1 = in0 ^ in1 ^ in4;
+        out2 = out4 ^ out6 ^ in2 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_24(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in4 ^ in7;
+        tmp0 = in3 ^ in4;
+        out0 = in3 ^ in6 ^ in7;
+        out3 = tmp0 ^ in1;
+        tmp1 = out0 ^ in5;
+        out6 = tmp1 ^ out3;
+        out2 = tmp1 ^ in0;
+        out7 = tmp1 ^ in2 ^ in3;
+        out5 = out2 ^ in4;
+        out4 = tmp0 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_25(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in1 ^ in4;
+        tmp0 = in2 ^ in5;
+        out1 = out3 ^ in7;
+        out7 = tmp0 ^ in6;
+        out6 = out1 ^ in5;
+        out4 = out7 ^ in3 ^ in7;
+        out2 = out4 ^ in0;
+        out0 = tmp0 ^ out2;
+        out5 = out0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_26(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in3 ^ in6;
+        tmp0 = in4 ^ in7;
+        out7 = in2 ^ in5 ^ in7;
+        tmp1 = out0 ^ in0 ^ in5;
+        out1 = tmp0 ^ in0;
+        tmp2 = tmp0 ^ in6;
+        out2 = tmp1 ^ in1;
+        out5 = tmp1 ^ in7;
+        out6 = tmp2 ^ in1;
+        out4 = tmp2 ^ out7;
+        out3 = out0 ^ out6 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_27(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out7 = in2 ^ in5;
+        out0 = in0 ^ in3 ^ in6;
+        out6 = in1 ^ in4 ^ in7;
+        out4 = out7 ^ in6;
+        out2 = out0 ^ out7 ^ in1;
+        out5 = out0 ^ in7;
+        out1 = out6 ^ in0;
+        out3 = out6 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_28(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in3;
+        out1 = in4 ^ in6;
+        out0 = in3 ^ in5 ^ in7;
+        tmp0 = out1 ^ in7;
+        tmp1 = out0 ^ in4;
+        out7 = tmp0 ^ in2;
+        tmp2 = tmp0 ^ in1;
+        out3 = tmp1 ^ in0;
+        out6 = tmp1 ^ tmp2;
+        out4 = tmp2 ^ in3;
+        out5 = out3 ^ in2 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_29(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in2 ^ in3;
+        tmp0 = in1 ^ in3;
+        tmp1 = in4 ^ in6;
+        tmp2 = in0 ^ in4 ^ in7;
+        out6 = tmp0 ^ in5;
+        out4 = tmp0 ^ in6 ^ in7;
+        out1 = tmp1 ^ in1;
+        out7 = tmp1 ^ in2;
+        out3 = tmp2 ^ in5;
+        out5 = tmp2 ^ in2;
+        out0 = out3 ^ in3 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_2A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in3 ^ in5;
+        tmp0 = in1 ^ in3;
+        tmp1 = in0 ^ in4;
+        out7 = in2 ^ in4 ^ in7;
+        out3 = tmp1 ^ out0 ^ in2;
+        out2 = tmp0 ^ in7;
+        out6 = tmp0 ^ in6;
+        out1 = tmp1 ^ in6;
+        out5 = tmp1 ^ out7 ^ in5;
+        out4 = out1 ^ in0 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_2B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in1 ^ in6;
+        out7 = in2 ^ in4;
+        tmp0 = in0 ^ in5;
+        tmp1 = in2 ^ in7;
+        out6 = in1 ^ in3;
+        out1 = out4 ^ in0 ^ in4;
+        out3 = tmp0 ^ out7;
+        out0 = tmp0 ^ in3;
+        out5 = tmp1 ^ in0;
+        out2 = tmp1 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_2C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        tmp1 = in2 ^ in3 ^ in4;
+        tmp2 = tmp0 ^ in6;
+        out4 = tmp1 ^ in1;
+        out5 = tmp1 ^ in0 ^ in5;
+        tmp3 = tmp2 ^ in4;
+        out6 = tmp2 ^ out4;
+        out7 = tmp3 ^ in7;
+        out2 = tmp3 ^ out5;
+        out3 = out6 ^ in0;
+        out0 = tmp1 ^ out7;
+        out1 = tmp0 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_2D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        out4 = tmp0 ^ in1;
+        tmp1 = tmp0 ^ in0;
+        out2 = tmp1 ^ in6;
+        out5 = tmp1 ^ in4;
+        tmp2 = out2 ^ in2;
+        tmp3 = tmp2 ^ in5;
+        out0 = tmp3 ^ in7;
+        out7 = tmp3 ^ out5;
+        out6 = out4 ^ out7 ^ in6;
+        out3 = tmp2 ^ out6;
+        out1 = out0 ^ out6 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_2E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in7;
+        out0 = in3 ^ in5 ^ in6;
+        tmp1 = tmp0 ^ in0;
+        tmp2 = tmp0 ^ in2;
+        out1 = tmp1 ^ in6;
+        out4 = tmp2 ^ in1;
+        out7 = tmp2 ^ in5;
+        out3 = out0 ^ out4 ^ in0;
+        out2 = out3 ^ out7 ^ in7;
+        out6 = tmp1 ^ out2;
+        out5 = tmp1 ^ out7 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_2F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = in2 ^ in5;
+        out4 = in1 ^ in2 ^ in7;
+        out6 = in1 ^ in3 ^ in4;
+        out5 = tmp0 ^ in2;
+        tmp2 = tmp0 ^ in6;
+        out7 = tmp1 ^ in4;
+        out0 = tmp2 ^ in5;
+        out2 = tmp2 ^ out4;
+        out1 = tmp2 ^ out6 ^ in7;
+        out3 = tmp1 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_30(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in4 ^ in5;
+        tmp0 = in3 ^ in6;
+        tmp1 = in4 ^ in7;
+        out6 = in1 ^ in2 ^ in5;
+        out3 = tmp0 ^ in5;
+        out4 = tmp0 ^ in0;
+        out7 = tmp0 ^ in2;
+        out0 = tmp1 ^ in3;
+        out2 = tmp1 ^ out3;
+        out5 = tmp1 ^ in0 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_31(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in5 ^ in6;
+        tmp0 = in4 ^ in5;
+        tmp1 = in0 ^ in3 ^ in4;
+        tmp2 = out3 ^ in2;
+        out1 = tmp0 ^ in1;
+        out0 = tmp1 ^ in7;
+        out4 = tmp1 ^ in6;
+        out6 = tmp2 ^ in1;
+        out2 = tmp2 ^ out0 ^ in0;
+        out5 = out1 ^ in0 ^ in7;
+        out7 = tmp0 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_32(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in3 ^ in4;
+        out7 = in2 ^ in3;
+        tmp0 = in5 ^ in6;
+        tmp1 = in0 ^ in7;
+        out6 = in1 ^ in2;
+        out1 = in0 ^ in4 ^ in5;
+        out2 = tmp0 ^ out0 ^ in1;
+        out3 = tmp0 ^ out7 ^ in7;
+        out4 = tmp1 ^ in6;
+        out5 = tmp1 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_33(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        tmp1 = in0 ^ in4;
+        tmp2 = in1 ^ in5;
+        out6 = in1 ^ in2 ^ in6;
+        out7 = tmp0 ^ in7;
+        out0 = tmp1 ^ in3;
+        out1 = tmp1 ^ tmp2;
+        tmp3 = tmp2 ^ in7;
+        tmp4 = tmp2 ^ in4 ^ in6;
+        out5 = tmp3 ^ in0;
+        out3 = tmp3 ^ out6;
+        out4 = tmp4 ^ out5;
+        out2 = tmp0 ^ tmp4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_34(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in4;
+        tmp1 = in4 ^ in5;
+        tmp2 = tmp0 ^ in1;
+        tmp3 = tmp0 ^ in6;
+        out1 = tmp1 ^ in7;
+        tmp4 = tmp1 ^ in2;
+        out5 = tmp2 ^ in0;
+        out3 = tmp2 ^ out1;
+        out0 = tmp3 ^ in7;
+        out7 = tmp3 ^ tmp4;
+        out6 = tmp4 ^ in1;
+        out2 = out3 ^ out5 ^ in3;
+        out4 = tmp4 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_35(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in6;
+        tmp1 = in5 ^ in7;
+        out7 = tmp0 ^ tmp1 ^ in3;
+        out3 = tmp1 ^ in1;
+        out1 = out3 ^ in4;
+        tmp2 = out1 ^ in7;
+        out5 = tmp2 ^ in0 ^ in3;
+        out6 = tmp0 ^ tmp2;
+        out0 = out3 ^ out5 ^ in6;
+        out4 = tmp0 ^ out0;
+        out2 = out4 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_36(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in0 ^ in2;
+        tmp0 = in1 ^ in3;
+        out0 = in3 ^ in4 ^ in6;
+        out6 = in1 ^ in2 ^ in4;
+        out5 = tmp0 ^ in0;
+        tmp1 = out5 ^ in5;
+        out2 = tmp1 ^ in4;
+        out3 = tmp1 ^ out4;
+        out1 = tmp0 ^ out2 ^ in7;
+        out7 = out3 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_37(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = in2 ^ in4;
+        tmp2 = tmp0 ^ in6;
+        out3 = tmp0 ^ in5;
+        out4 = tmp1 ^ in0;
+        out6 = tmp2 ^ in4;
+        out1 = out3 ^ out4 ^ in7;
+        tmp3 = out4 ^ in1 ^ in3;
+        out7 = tmp3 ^ out1;
+        out2 = tmp3 ^ in5;
+        out5 = tmp1 ^ out2;
+        out0 = tmp2 ^ tmp3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_38(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0 ^ in3;
+        tmp0 = in3 ^ in4;
+        tmp1 = in5 ^ in7;
+        tmp2 = out3 ^ in1;
+        out2 = tmp0 ^ in6;
+        out0 = tmp0 ^ tmp1;
+        out4 = tmp1 ^ tmp2;
+        out7 = out2 ^ in2;
+        out1 = out2 ^ in3 ^ in5;
+        out6 = out4 ^ in0 ^ in2;
+        out5 = tmp2 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_39(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0;
+        tmp0 = in1 ^ in5;
+        tmp1 = tmp0 ^ in4;
+        out1 = tmp1 ^ in6;
+        out5 = out1 ^ in0 ^ in2;
+        tmp2 = tmp0 ^ out5;
+        out2 = tmp2 ^ in0 ^ in3;
+        out7 = out2 ^ in7;
+        out6 = tmp1 ^ out7;
+        out4 = tmp2 ^ out6;
+        out0 = out4 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_3A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4, tmp5;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in0 ^ in2;
+        tmp2 = in3 ^ in4;
+        tmp3 = in1 ^ in6;
+        tmp4 = in3 ^ in7;
+        out4 = tmp0 ^ in5;
+        out5 = tmp1 ^ tmp3;
+        out3 = tmp1 ^ tmp4;
+        out0 = tmp2 ^ in5;
+        out7 = tmp2 ^ in2;
+        tmp5 = tmp3 ^ in4;
+        out2 = tmp4 ^ tmp5;
+        out1 = tmp5 ^ out4;
+        out6 = tmp0 ^ out3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_3B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in6;
+        tmp1 = in2 ^ in7;
+        tmp2 = tmp0 ^ in3;
+        out3 = tmp1 ^ in0;
+        out6 = tmp1 ^ tmp2;
+        out2 = out6 ^ in4;
+        out7 = tmp0 ^ out2;
+        out0 = out3 ^ out7 ^ in5;
+        out5 = out0 ^ out2 ^ in7;
+        out1 = tmp2 ^ out0;
+        out4 = out1 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_3C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = in2 ^ in7;
+        tmp2 = in1 ^ in6 ^ in7;
+        out2 = tmp0 ^ in4;
+        out3 = tmp0 ^ tmp2;
+        out4 = tmp1 ^ out3 ^ in5;
+        out5 = tmp2 ^ out2 ^ in2;
+        out1 = out4 ^ out5 ^ in6;
+        out0 = out1 ^ in3;
+        out7 = tmp1 ^ out0;
+        out6 = tmp2 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_3D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in2;
+        tmp1 = tmp0 ^ in3;
+        out2 = tmp1 ^ in4;
+        tmp2 = out2 ^ in5;
+        out4 = tmp2 ^ in1 ^ in6;
+        out5 = out4 ^ in7;
+        out6 = out5 ^ in0;
+        out7 = out6 ^ in1;
+        out0 = tmp0 ^ out7;
+        out1 = tmp1 ^ out5;
+        out3 = tmp2 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_3E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in5;
+        tmp1 = tmp0 ^ in4;
+        out0 = tmp1 ^ in6;
+        out7 = tmp1 ^ in2;
+        out6 = out7 ^ in1 ^ in5 ^ in7;
+        out2 = out6 ^ in0 ^ in2;
+        out4 = out0 ^ out6 ^ in0;
+        out5 = tmp0 ^ out4;
+        out3 = out5 ^ in7;
+        out1 = out3 ^ out6 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_3F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        out3 = tmp0 ^ in2 ^ in6;
+        tmp1 = out3 ^ in5 ^ in7;
+        out4 = tmp1 ^ in4;
+        out5 = tmp1 ^ in3;
+        out1 = out4 ^ in2;
+        out7 = out1 ^ out3 ^ in3;
+        out2 = tmp0 ^ out7 ^ in5;
+        tmp2 = out2 ^ in0;
+        out6 = tmp2 ^ in6;
+        out0 = tmp1 ^ tmp2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_40(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in3 ^ in7;
+        tmp0 = in3 ^ in4;
+        tmp1 = in6 ^ in7;
+        out4 = tmp0 ^ in2;
+        out5 = tmp0 ^ in5;
+        out0 = tmp1 ^ in2;
+        out7 = tmp1 ^ in1 ^ in5;
+        out2 = out0 ^ in4;
+        out3 = out2 ^ out5 ^ in7;
+        out6 = out3 ^ out4 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_41(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in2 ^ in3;
+        tmp0 = in5 ^ in6;
+        tmp1 = in6 ^ in7;
+        out5 = in3 ^ in4;
+        out1 = in1 ^ in3 ^ in7;
+        out6 = in0 ^ in4 ^ in5;
+        out3 = tmp0 ^ in2;
+        out7 = tmp0 ^ in1;
+        out2 = tmp1 ^ in4;
+        out0 = tmp1 ^ in0 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_42(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in2 ^ in6;
+        out5 = in3 ^ in5;
+        out1 = in0 ^ in3 ^ in7;
+        out7 = in1 ^ in5 ^ in7;
+        out4 = in2 ^ in4 ^ in7;
+        out6 = in0 ^ in4 ^ in6;
+        out2 = out0 ^ in1 ^ in4;
+        out3 = out5 ^ in6 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_43(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in3;
+        out7 = in1 ^ in5;
+        out4 = in2 ^ in7;
+        out6 = in0 ^ in4;
+        out0 = in0 ^ in2 ^ in6;
+        out3 = in5 ^ in6 ^ in7;
+        out2 = in1 ^ in4 ^ in6;
+        out1 = in0 ^ in1 ^ in3 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_44(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in3;
+        out0 = in2 ^ in7;
+        tmp0 = in4 ^ in7;
+        out7 = in1 ^ in6 ^ in7;
+        out6 = in0 ^ in5 ^ in6;
+        out4 = tmp0 ^ in3 ^ in6;
+        out3 = out0 ^ in1 ^ in3 ^ in5;
+        out2 = out0 ^ in0 ^ in4;
+        out5 = tmp0 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_45(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in1 ^ in3;
+        out7 = in1 ^ in6;
+        out5 = in4 ^ in7;
+        out6 = in0 ^ in5;
+        out0 = in0 ^ in2 ^ in7;
+        out4 = in3 ^ in6 ^ in7;
+        out2 = out5 ^ in0;
+        out3 = out0 ^ out6 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_46(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in2;
+        out1 = in0 ^ in3;
+        out7 = in1 ^ in7;
+        out4 = in4 ^ in6;
+        out5 = in5 ^ in7;
+        out6 = in0 ^ in6;
+        out3 = in1 ^ in3 ^ in5;
+        out2 = out4 ^ out6 ^ in1 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_47(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in6;
+        out7 = in1;
+        out5 = in7;
+        out6 = in0;
+        tmp0 = in0 ^ in1;
+        out3 = in1 ^ in5;
+        out0 = in0 ^ in2;
+        out1 = tmp0 ^ in3;
+        out2 = tmp0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_48(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        out1 = in3 ^ in6 ^ in7;
+        out3 = tmp0 ^ in0;
+        out0 = tmp0 ^ out1 ^ in5;
+        tmp1 = out0 ^ in4;
+        out2 = tmp1 ^ in7;
+        out5 = tmp1 ^ in3;
+        out4 = out5 ^ in1;
+        out7 = tmp0 ^ out4;
+        out6 = tmp1 ^ out3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_49(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0 ^ in2;
+        tmp0 = in2 ^ in5;
+        out2 = in4 ^ in5 ^ in6;
+        tmp1 = tmp0 ^ out2 ^ in3;
+        out7 = out2 ^ in1;
+        out5 = tmp1 ^ in7;
+        out4 = out5 ^ out7 ^ in6;
+        out1 = tmp0 ^ out4;
+        out6 = out1 ^ out7 ^ in0;
+        out0 = tmp1 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_4A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in6;
+        tmp1 = in3 ^ in7;
+        out0 = tmp0 ^ in5;
+        out3 = tmp1 ^ in0;
+        out5 = tmp1 ^ out0;
+        out4 = out0 ^ in1 ^ in4;
+        out1 = out3 ^ in6;
+        out2 = out4 ^ in7;
+        out6 = out1 ^ in4;
+        out7 = tmp0 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_4B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0 ^ in7;
+        tmp0 = in1 ^ in5;
+        tmp1 = in2 ^ in6;
+        tmp2 = out3 ^ in3;
+        out7 = tmp0 ^ in4;
+        out4 = tmp0 ^ tmp1;
+        tmp3 = tmp1 ^ in0;
+        out6 = tmp2 ^ in4;
+        out5 = tmp2 ^ tmp3;
+        out1 = tmp2 ^ in1 ^ in6;
+        out2 = out7 ^ in6 ^ in7;
+        out0 = tmp3 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_4C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in3 ^ in6;
+        tmp0 = in2 ^ in5;
+        tmp1 = out1 ^ in5 ^ in7;
+        out0 = tmp0 ^ in7;
+        tmp2 = tmp0 ^ in4;
+        out6 = tmp1 ^ in0;
+        out2 = tmp2 ^ in0;
+        out5 = tmp2 ^ in6;
+        out3 = tmp0 ^ out6 ^ in1;
+        out7 = out0 ^ out5 ^ in1;
+        out4 = tmp1 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_4D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in5;
+        tmp1 = in1 ^ in6;
+        out4 = in1 ^ in3 ^ in5;
+        tmp2 = tmp0 ^ in7;
+        out2 = tmp0 ^ in4;
+        out1 = tmp1 ^ in3;
+        out7 = tmp1 ^ in4;
+        out0 = tmp2 ^ in2;
+        out6 = tmp2 ^ in3;
+        out5 = out7 ^ in1 ^ in2;
+        out3 = tmp1 ^ out0 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_4E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in2 ^ in5;
+        out7 = in1 ^ in4 ^ in7;
+        out1 = in0 ^ in3 ^ in6;
+        out5 = out0 ^ in6;
+        out4 = out7 ^ in5;
+        out3 = out1 ^ in1;
+        out6 = out1 ^ in7;
+        out2 = out4 ^ in0 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_4F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in2 ^ in6;
+        out7 = in1 ^ in4;
+        out3 = in0 ^ in1 ^ in6;
+        out4 = in1 ^ in5 ^ in7;
+        out0 = in0 ^ in2 ^ in5;
+        out6 = in0 ^ in3 ^ in7;
+        out1 = out3 ^ in3;
+        out2 = out4 ^ in0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_50(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in2 ^ in7;
+        tmp0 = in3 ^ in5;
+        out0 = out2 ^ in4 ^ in6;
+        out1 = tmp0 ^ in7;
+        tmp1 = tmp0 ^ in6;
+        out3 = out0 ^ in3;
+        out7 = tmp1 ^ in1;
+        tmp2 = tmp1 ^ in0;
+        out5 = out3 ^ in1 ^ in2;
+        out4 = tmp2 ^ in2;
+        out6 = tmp2 ^ out3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_51(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in7;
+        out3 = in2 ^ in4 ^ in6 ^ in7;
+        out0 = out3 ^ in0;
+        out6 = out0 ^ in5;
+        out4 = out6 ^ in3 ^ in7;
+        out1 = out0 ^ out4 ^ in1;
+        out7 = out1 ^ in6;
+        out5 = out7 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_52(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in1 ^ in2;
+        tmp0 = in2 ^ in4;
+        tmp1 = in3 ^ in5;
+        tmp2 = in3 ^ in6;
+        tmp3 = in0 ^ in7;
+        out0 = tmp0 ^ in6;
+        out6 = tmp0 ^ tmp3;
+        out7 = tmp1 ^ in1;
+        out1 = tmp1 ^ tmp3;
+        out3 = tmp2 ^ in4;
+        out5 = tmp2 ^ in1 ^ in7;
+        out4 = tmp2 ^ out1 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_53(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in1;
+        out3 = in4 ^ in6;
+        out0 = out3 ^ in0 ^ in2;
+        out6 = out0 ^ in7;
+        out4 = out6 ^ in5;
+        out7 = out0 ^ out4 ^ in1 ^ in3;
+        out1 = out7 ^ in0;
+        out5 = out7 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_54(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in3 ^ in5;
+        tmp0 = in1 ^ in3;
+        tmp1 = in2 ^ in4;
+        tmp2 = in0 ^ in7;
+        out5 = in1 ^ in4 ^ in6;
+        out4 = tmp2 ^ out1;
+        out7 = tmp0 ^ in6;
+        out3 = tmp0 ^ tmp1;
+        out0 = tmp1 ^ in7;
+        tmp3 = tmp2 ^ in2;
+        out2 = tmp3 ^ in6;
+        out6 = tmp3 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_55(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in3;
+        tmp1 = in1 ^ in4;
+        tmp2 = in6 ^ in7;
+        out7 = tmp0 ^ tmp2;
+        out1 = tmp0 ^ in5;
+        out3 = tmp1 ^ in2;
+        out5 = tmp1 ^ in5 ^ in6;
+        out2 = tmp2 ^ in0;
+        out4 = out5 ^ out7 ^ in0;
+        out6 = out2 ^ in2 ^ in5;
+        out0 = out5 ^ out6 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_56(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in2 ^ in4;
+        tmp0 = in0 ^ in2;
+        out4 = in0 ^ in5;
+        out7 = in1 ^ in3;
+        out5 = in1 ^ in6;
+        out6 = tmp0 ^ in7;
+        out2 = tmp0 ^ out5;
+        out1 = out4 ^ in3;
+        out3 = out7 ^ in4 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_57(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in5;
+        tmp1 = in1 ^ in7;
+        out0 = in0 ^ in2 ^ in4;
+        out5 = in1 ^ in5 ^ in6;
+        out4 = tmp0 ^ in4;
+        out1 = tmp0 ^ in1 ^ in3;
+        out2 = tmp0 ^ out5;
+        out3 = tmp1 ^ in4;
+        out7 = tmp1 ^ in3;
+        out6 = tmp1 ^ out2 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_58(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in2 ^ in5;
+        tmp0 = in2 ^ in3 ^ in4;
+        out5 = tmp0 ^ in1;
+        out6 = tmp0 ^ in0 ^ in5;
+        out3 = out6 ^ in7;
+        tmp1 = out2 ^ out5;
+        out7 = tmp1 ^ in6;
+        out4 = tmp1 ^ out3 ^ in3;
+        out0 = out4 ^ out7 ^ in0;
+        out1 = tmp0 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_59(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in5;
+        tmp0 = in0 ^ in5 ^ in7;
+        out3 = tmp0 ^ in2 ^ in4;
+        out0 = out3 ^ in6;
+        tmp1 = out0 ^ in7;
+        out6 = tmp1 ^ in3;
+        out5 = out6 ^ in0 ^ in1 ^ in6;
+        out4 = tmp0 ^ out5;
+        out1 = tmp1 ^ out4;
+        out7 = out1 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_5A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = in2 ^ in5;
+        out5 = tmp0 ^ in3;
+        out4 = tmp0 ^ in0;
+        tmp2 = tmp1 ^ in4;
+        out2 = tmp1 ^ in1 ^ in7;
+        out7 = tmp2 ^ out5;
+        out6 = out4 ^ out7 ^ in5;
+        out0 = tmp2 ^ in6;
+        out1 = out0 ^ out6 ^ in7;
+        out3 = tmp1 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_5B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        tmp1 = in0 ^ in4;
+        tmp2 = in1 ^ in5;
+        out5 = tmp0 ^ tmp2;
+        tmp3 = tmp1 ^ in6;
+        out3 = tmp1 ^ in5;
+        out2 = tmp2 ^ in7;
+        tmp4 = out3 ^ in2;
+        out7 = out2 ^ in3 ^ in4;
+        out0 = tmp4 ^ in6;
+        out6 = tmp0 ^ tmp3;
+        out4 = tmp2 ^ tmp4;
+        out1 = tmp3 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_5C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in6;
+        tmp1 = in0 ^ in2 ^ in5;
+        out1 = tmp0 ^ in5;
+        tmp2 = tmp0 ^ in1;
+        out2 = tmp1 ^ in6;
+        out6 = tmp1 ^ in3;
+        out4 = tmp2 ^ in0;
+        out7 = tmp2 ^ in4;
+        out3 = tmp1 ^ out7;
+        out0 = out3 ^ out4 ^ in7;
+        out5 = out0 ^ in1 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_5D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in0 ^ in6;
+        out2 = tmp1 ^ in5;
+        tmp2 = out2 ^ in3;
+        out6 = tmp2 ^ in2;
+        out1 = tmp0 ^ tmp2;
+        tmp3 = out1 ^ in4 ^ in5;
+        out4 = tmp3 ^ in0;
+        out7 = tmp3 ^ in7;
+        tmp4 = out4 ^ out6;
+        out5 = tmp4 ^ in7;
+        out0 = tmp0 ^ out5;
+        out3 = tmp1 ^ tmp4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_5E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        tmp1 = in3 ^ in5;
+        tmp2 = in1 ^ in7;
+        out7 = in1 ^ in3 ^ in4;
+        out0 = tmp0 ^ in4;
+        tmp3 = tmp1 ^ in0;
+        out5 = tmp2 ^ in2;
+        out1 = tmp3 ^ in6;
+        out6 = tmp0 ^ tmp3;
+        tmp4 = tmp2 ^ out1;
+        out3 = tmp4 ^ in4;
+        out4 = tmp1 ^ tmp4;
+        out2 = tmp0 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_5F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in5;
+        tmp1 = in0 ^ in6;
+        tmp2 = tmp0 ^ in7;
+        tmp3 = tmp1 ^ in3;
+        out2 = tmp1 ^ tmp2;
+        out5 = tmp2 ^ in2;
+        out6 = tmp3 ^ in2;
+        out3 = out2 ^ in4;
+        out4 = out3 ^ in5;
+        out1 = tmp0 ^ tmp3;
+        out7 = tmp3 ^ out4;
+        out0 = out4 ^ out5 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_60(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in2 ^ in5;
+        tmp0 = in3 ^ in6;
+        out1 = in3 ^ in4 ^ in7;
+        out7 = out4 ^ in1;
+        tmp1 = out4 ^ in4;
+        out0 = tmp0 ^ in2;
+        out5 = tmp0 ^ in0;
+        out2 = tmp0 ^ tmp1;
+        out3 = tmp1 ^ in7;
+        out6 = out3 ^ out7 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_61(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        out4 = tmp0 ^ in4;
+        tmp1 = out4 ^ in3;
+        out3 = tmp1 ^ in7;
+        out2 = tmp1 ^ in2 ^ in6;
+        out1 = tmp0 ^ out3 ^ in1;
+        out0 = out2 ^ out4 ^ in0;
+        out7 = tmp1 ^ out1;
+        out6 = out0 ^ out1 ^ in2;
+        out5 = tmp0 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_62(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in4 ^ in5;
+        tmp0 = in0 ^ in3 ^ in4;
+        out1 = tmp0 ^ in7;
+        out5 = tmp0 ^ in6;
+        tmp1 = out1 ^ in0;
+        tmp2 = tmp1 ^ out3;
+        out4 = tmp2 ^ in2;
+        tmp3 = tmp2 ^ in1;
+        out0 = out4 ^ in5 ^ in6;
+        out7 = tmp3 ^ out0;
+        out6 = tmp0 ^ tmp3;
+        out2 = tmp1 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_63(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in4;
+        tmp1 = in1 ^ in7;
+        out3 = tmp0 ^ in5;
+        tmp2 = out3 ^ in6;
+        out4 = out3 ^ in2 ^ in7;
+        out5 = tmp2 ^ in0;
+        tmp3 = out5 ^ in3;
+        out0 = tmp3 ^ out4;
+        out2 = tmp1 ^ tmp2;
+        out6 = tmp1 ^ tmp3;
+        tmp4 = tmp0 ^ out2;
+        out1 = tmp4 ^ out5;
+        out7 = tmp4 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_64(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in2 ^ in3;
+        out1 = in3 ^ in4;
+        out7 = in1 ^ in2;
+        tmp0 = in4 ^ in5;
+        tmp1 = in0 ^ in7;
+        out4 = in5 ^ in6 ^ in7;
+        out2 = tmp0 ^ out0 ^ in0;
+        out3 = tmp0 ^ out7 ^ in6;
+        out5 = tmp1 ^ in6;
+        out6 = tmp1 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_65(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = in4 ^ in5;
+        tmp2 = in6 ^ in7;
+        out7 = in1 ^ in2 ^ in7;
+        out1 = in1 ^ in3 ^ in4;
+        out0 = tmp0 ^ in2;
+        out2 = tmp0 ^ tmp1;
+        out4 = tmp1 ^ tmp2;
+        tmp3 = tmp2 ^ in0;
+        out3 = out4 ^ out7 ^ in3;
+        out5 = tmp3 ^ in5;
+        out6 = tmp3 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_66(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = in2 ^ in3;
+        tmp2 = in0 ^ in4;
+        out7 = tmp0 ^ in6;
+        out0 = tmp1 ^ in7;
+        out1 = tmp2 ^ in3;
+        tmp3 = tmp2 ^ in6;
+        tmp4 = out1 ^ in5;
+        out5 = tmp3 ^ in7;
+        out4 = tmp3 ^ tmp4;
+        out2 = tmp0 ^ tmp4 ^ in7;
+        out6 = tmp1 ^ out2 ^ in4;
+        out3 = tmp3 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_67(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = tmp0 ^ in1;
+        tmp2 = tmp0 ^ in7;
+        out1 = tmp1 ^ in4;
+        out0 = tmp2 ^ in2;
+        tmp3 = out1 ^ in7;
+        out2 = tmp3 ^ in5;
+        out3 = out2 ^ in0 ^ in6;
+        out7 = tmp1 ^ out0 ^ in6;
+        out5 = tmp1 ^ out3;
+        out4 = tmp2 ^ out5;
+        out6 = tmp3 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_68(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in4;
+        tmp1 = in2 ^ in3 ^ in5;
+        tmp2 = tmp0 ^ in1;
+        tmp3 = tmp0 ^ in6;
+        out0 = tmp1 ^ in6;
+        out6 = tmp2 ^ in0;
+        out7 = tmp1 ^ tmp2;
+        out1 = tmp3 ^ in7;
+        out2 = out1 ^ in2;
+        out4 = tmp2 ^ out2;
+        out3 = out4 ^ out6 ^ in3;
+        out5 = tmp3 ^ out3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_69(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in6 ^ in7;
+        out2 = tmp0 ^ in3 ^ in4;
+        out1 = out2 ^ in1;
+        out3 = out2 ^ in0 ^ in2;
+        out4 = out1 ^ in2 ^ in3;
+        out6 = out1 ^ in0 ^ in7;
+        out7 = out4 ^ in5 ^ in6;
+        out5 = out4 ^ out6 ^ in5;
+        out0 = tmp0 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_6A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in6;
+        out3 = in0 ^ in4 ^ in6;
+        tmp1 = tmp0 ^ in3;
+        out4 = tmp1 ^ in1;
+        tmp2 = tmp1 ^ in7;
+        out2 = out4 ^ in4;
+        out0 = tmp2 ^ in5;
+        out5 = tmp2 ^ out3;
+        out7 = out2 ^ in3 ^ in5;
+        out1 = tmp0 ^ out5;
+        out6 = tmp1 ^ out7 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_6B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in6;
+        out2 = tmp0 ^ in1 ^ in3;
+        out4 = out2 ^ in2;
+        tmp1 = out2 ^ in0;
+        out7 = out4 ^ in3 ^ in5 ^ in7;
+        out1 = tmp1 ^ in7;
+        out3 = tmp1 ^ in1;
+        out6 = tmp1 ^ in5;
+        out0 = tmp1 ^ out7 ^ in6;
+        out5 = tmp0 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_6C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in1;
+        tmp0 = in2 ^ in3;
+        out5 = in0 ^ in2;
+        out1 = in3 ^ in4 ^ in6;
+        tmp1 = out5 ^ in1;
+        out0 = tmp0 ^ in5;
+        out6 = tmp0 ^ tmp1;
+        out3 = tmp1 ^ in4;
+        out7 = out3 ^ in0;
+        out2 = out6 ^ out7 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_6D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in1 ^ in4;
+        tmp0 = in0 ^ in2;
+        tmp1 = out4 ^ in3;
+        out7 = out4 ^ in2 ^ in7;
+        out5 = tmp0 ^ in5;
+        out3 = tmp0 ^ tmp1;
+        out1 = tmp1 ^ in6;
+        out0 = out5 ^ in3;
+        out2 = out3 ^ out7 ^ in4;
+        out6 = out1 ^ in0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_6E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in3;
+        tmp1 = in0 ^ in4;
+        out4 = tmp0 ^ in7;
+        out6 = tmp0 ^ in0 ^ in5;
+        out5 = tmp1 ^ in2;
+        tmp2 = tmp1 ^ in3;
+        out3 = tmp2 ^ out4;
+        out1 = tmp2 ^ in6;
+        out2 = tmp0 ^ out5;
+        out0 = out2 ^ out3 ^ in5;
+        out7 = out1 ^ out2 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_6F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in7;
+        tmp1 = tmp0 ^ in4;
+        tmp2 = tmp0 ^ in0 ^ in2;
+        out4 = tmp1 ^ in1;
+        out0 = tmp2 ^ in5;
+        out3 = out4 ^ in0;
+        out2 = out3 ^ in7;
+        out1 = out2 ^ in6;
+        out6 = out1 ^ in4 ^ in5;
+        out7 = tmp2 ^ out1;
+        out5 = tmp1 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_70(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in2;
+        tmp0 = in2 ^ in4;
+        out2 = in2 ^ in3 ^ in5;
+        tmp1 = tmp0 ^ in6;
+        tmp2 = out2 ^ in7;
+        out0 = tmp1 ^ in3;
+        out4 = tmp1 ^ in0;
+        out7 = tmp2 ^ in1;
+        out6 = out4 ^ in1;
+        out5 = out7 ^ in0 ^ in2;
+        out1 = tmp0 ^ tmp2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_71(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in3 ^ in5;
+        out3 = in2 ^ in3;
+        tmp0 = in0 ^ in2;
+        tmp1 = out2 ^ in1;
+        out4 = tmp0 ^ in6;
+        tmp2 = tmp0 ^ in1;
+        out7 = tmp1 ^ in2;
+        out1 = tmp1 ^ in4 ^ in7;
+        out0 = out4 ^ in3 ^ in4;
+        out6 = tmp2 ^ in4;
+        out5 = tmp2 ^ out3 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_72(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in7;
+        tmp0 = in0 ^ in4;
+        tmp1 = tmp0 ^ in3 ^ in7;
+        out1 = tmp1 ^ in5;
+        out5 = out1 ^ in1;
+        tmp2 = tmp0 ^ out5;
+        out2 = tmp2 ^ in2;
+        out7 = out2 ^ in6;
+        out6 = tmp1 ^ out7;
+        out4 = tmp2 ^ out6;
+        out0 = out4 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_73(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in3 ^ in7;
+        out2 = out3 ^ in1 ^ in5;
+        out1 = out2 ^ in0 ^ in4;
+        out5 = out1 ^ in5;
+        out6 = out1 ^ out3 ^ in2;
+        out0 = out2 ^ out6 ^ in6;
+        out7 = out0 ^ out1 ^ in3;
+        out4 = out0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_74(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in4;
+        tmp1 = in1 ^ in2 ^ in6;
+        out4 = in0 ^ in4 ^ in7;
+        out5 = in0 ^ in1 ^ in5;
+        out0 = tmp0 ^ in2;
+        out1 = tmp0 ^ in5;
+        out3 = tmp1 ^ in7;
+        out6 = tmp1 ^ in0;
+        out2 = tmp1 ^ out5 ^ in3;
+        out7 = out3 ^ in3 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_75(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in0 ^ in7;
+        tmp0 = in1 ^ in3;
+        out5 = in0 ^ in1;
+        out7 = tmp0 ^ in2;
+        tmp1 = tmp0 ^ in4;
+        out6 = out5 ^ in2;
+        tmp2 = out7 ^ in6;
+        out1 = tmp1 ^ in5;
+        out0 = tmp1 ^ out6;
+        out3 = tmp2 ^ in7;
+        out2 = tmp2 ^ out6 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_76(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in1 ^ in6;
+        tmp0 = in0 ^ in5;
+        tmp1 = in3 ^ in7;
+        tmp2 = tmp0 ^ in4;
+        tmp3 = tmp1 ^ in2;
+        out5 = tmp2 ^ in1;
+        out1 = tmp2 ^ in3;
+        out0 = tmp3 ^ in4;
+        out4 = out1 ^ in5;
+        out7 = tmp3 ^ out3;
+        out2 = tmp0 ^ out7;
+        out6 = tmp1 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_77(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in0 ^ in3;
+        tmp0 = in1 ^ in4;
+        tmp1 = in1 ^ in6;
+        tmp2 = out4 ^ in5;
+        out5 = tmp0 ^ in0;
+        out1 = tmp0 ^ tmp2;
+        out3 = tmp1 ^ in3;
+        out2 = tmp1 ^ tmp2 ^ in7;
+        out7 = out3 ^ in2;
+        tmp3 = out7 ^ in6;
+        out6 = tmp2 ^ tmp3;
+        out0 = tmp3 ^ out5 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_78(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = in2 ^ in7;
+        tmp2 = in0 ^ in5 ^ in6;
+        out2 = tmp1 ^ in3;
+        out3 = tmp2 ^ in2;
+        out5 = out3 ^ in1 ^ in3;
+        out0 = tmp0 ^ out3 ^ in4;
+        out1 = tmp1 ^ out0;
+        out4 = out1 ^ out5 ^ in5;
+        out7 = tmp0 ^ out4;
+        out6 = tmp2 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_79(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in3 ^ in7;
+        tmp0 = in3 ^ in4;
+        tmp1 = in1 ^ in5;
+        tmp2 = tmp1 ^ in2;
+        out4 = tmp2 ^ in0 ^ in7;
+        tmp3 = out4 ^ in5;
+        out5 = tmp3 ^ out2 ^ in6;
+        out7 = tmp0 ^ tmp2;
+        out6 = tmp0 ^ tmp3;
+        out3 = tmp1 ^ out5;
+        out0 = out3 ^ in4;
+        out1 = tmp3 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_7A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        out2 = tmp0 ^ in3;
+        tmp1 = out2 ^ in4;
+        out4 = tmp1 ^ in0 ^ in5;
+        out5 = out4 ^ in6;
+        out6 = out5 ^ in7;
+        out7 = out6 ^ in0;
+        out0 = out7 ^ in1;
+        out1 = tmp0 ^ out6;
+        out3 = tmp1 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_7B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in1 ^ in3;
+        tmp0 = in0 ^ in5;
+        out4 = tmp0 ^ out2 ^ in2;
+        tmp1 = out4 ^ in4;
+        out6 = tmp1 ^ in7;
+        out5 = tmp1 ^ in5 ^ in6;
+        out0 = out6 ^ in1 ^ in6;
+        tmp2 = out0 ^ in2;
+        out1 = tmp2 ^ in1;
+        out3 = tmp2 ^ in4;
+        out7 = tmp0 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_7C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in5;
+        tmp1 = tmp0 ^ in4;
+        out0 = tmp1 ^ in2;
+        out1 = tmp1 ^ in6;
+        out7 = out0 ^ in1 ^ in5 ^ in7;
+        out5 = out1 ^ out7 ^ in0;
+        out3 = out5 ^ in6;
+        out6 = tmp0 ^ out5;
+        out2 = out6 ^ in1;
+        out4 = out2 ^ out7 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_7D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = tmp0 ^ in3;
+        tmp2 = tmp0 ^ in6;
+        out7 = tmp1 ^ in4;
+        tmp3 = tmp2 ^ in0;
+        out5 = tmp3 ^ in7;
+        out4 = tmp3 ^ in2 ^ in5;
+        out2 = tmp1 ^ out5;
+        out6 = tmp2 ^ out2;
+        out0 = out4 ^ out7 ^ in6;
+        out1 = tmp3 ^ out0;
+        out3 = out6 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_7E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in4;
+        tmp1 = in0 ^ in5;
+        out1 = tmp0 ^ tmp1 ^ in6;
+        out3 = tmp1 ^ in1;
+        out4 = out1 ^ in1 ^ in7;
+        tmp2 = out4 ^ in3;
+        out5 = tmp2 ^ in2;
+        out6 = tmp0 ^ out5;
+        out7 = tmp1 ^ out4 ^ in2;
+        out2 = out6 ^ in5 ^ in7;
+        out0 = tmp2 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_7F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in7;
+        tmp1 = tmp0 ^ in3 ^ in5;
+        tmp2 = tmp1 ^ in0;
+        out0 = tmp2 ^ in4;
+        out6 = tmp2 ^ in1;
+        out3 = tmp0 ^ out6;
+        tmp3 = out3 ^ in6;
+        out1 = tmp3 ^ in4;
+        out2 = tmp3 ^ in5;
+        out4 = tmp3 ^ in7;
+        out5 = tmp1 ^ out1;
+        out7 = out0 ^ out4 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_80(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        tmp1 = in4 ^ in5;
+        out1 = in2 ^ in6 ^ in7;
+        out5 = tmp0 ^ in4;
+        tmp2 = tmp0 ^ in1;
+        out6 = tmp1 ^ in3;
+        out7 = tmp1 ^ in0 ^ in6;
+        out4 = tmp2 ^ in7;
+        out3 = tmp2 ^ out6;
+        out2 = out3 ^ out5 ^ in6;
+        out0 = out2 ^ in3 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_81(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in6;
+        tmp1 = tmp0 ^ in3;
+        out6 = tmp1 ^ in5;
+        out5 = out6 ^ in2 ^ in6;
+        out3 = out5 ^ in1;
+        out2 = tmp0 ^ out3;
+        out1 = out3 ^ out6 ^ in7;
+        out4 = tmp1 ^ out1;
+        out7 = out2 ^ out4 ^ in0;
+        out0 = out7 ^ in1 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_82(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in1 ^ in2;
+        tmp0 = in6 ^ in7;
+        out5 = in2 ^ in3;
+        out6 = in3 ^ in4;
+        out7 = in0 ^ in4 ^ in5;
+        out0 = in1 ^ in5 ^ in6;
+        out1 = tmp0 ^ in0 ^ in2;
+        out2 = tmp0 ^ in3 ^ in5;
+        out3 = tmp0 ^ out0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_83(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in2 ^ in5;
+        tmp2 = in3 ^ in6;
+        out4 = in1 ^ in2 ^ in4;
+        out0 = tmp0 ^ in5 ^ in6;
+        out5 = tmp1 ^ in3;
+        tmp3 = tmp1 ^ in7;
+        out6 = tmp2 ^ in4;
+        out2 = tmp2 ^ tmp3;
+        tmp4 = tmp3 ^ out4;
+        out1 = tmp3 ^ out0;
+        out3 = tmp4 ^ in3;
+        out7 = tmp0 ^ tmp4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_84(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in2 ^ in6;
+        out6 = in3 ^ in5;
+        out0 = in1 ^ in5 ^ in7;
+        out7 = in0 ^ in4 ^ in6;
+        out4 = in1 ^ in3 ^ in6;
+        out5 = in2 ^ in4 ^ in7;
+        out2 = out6 ^ in0 ^ in1;
+        out3 = out5 ^ in5 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_85(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in6;
+        tmp1 = in3 ^ in6;
+        tmp2 = tmp0 ^ in4;
+        out1 = tmp0 ^ in2;
+        out6 = tmp1 ^ in5;
+        out4 = tmp2 ^ in3;
+        tmp3 = out1 ^ out6;
+        out2 = tmp3 ^ in0;
+        out3 = tmp2 ^ tmp3 ^ in7;
+        out7 = out2 ^ out3 ^ in1;
+        out5 = tmp1 ^ out3;
+        out0 = tmp2 ^ out7 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_86(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out6 = in3;
+        out7 = in0 ^ in4;
+        out0 = in1 ^ in5;
+        out5 = in2 ^ in7;
+        out3 = in4 ^ in5 ^ in6;
+        out1 = in0 ^ in2 ^ in6;
+        out4 = in1 ^ in6 ^ in7;
+        out2 = in0 ^ in3 ^ in5 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_87(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out6 = in3 ^ in6;
+        tmp0 = in0 ^ in1;
+        out7 = in0 ^ in4 ^ in7;
+        out5 = in2 ^ in5 ^ in7;
+        out3 = out6 ^ in4 ^ in5;
+        out0 = tmp0 ^ in5;
+        tmp1 = tmp0 ^ in6;
+        out2 = out5 ^ in0 ^ in3;
+        out1 = tmp1 ^ in2;
+        out4 = tmp1 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_88(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in2 ^ in7;
+        tmp0 = in5 ^ in6;
+        out0 = in1 ^ in6 ^ in7;
+        out6 = in4 ^ in5 ^ in7;
+        out3 = out0 ^ out1 ^ in0 ^ in4;
+        out7 = tmp0 ^ in0;
+        tmp1 = tmp0 ^ in3;
+        out2 = out0 ^ in3;
+        out4 = tmp1 ^ in2;
+        out5 = tmp1 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_89(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in7;
+        tmp1 = in2 ^ in7;
+        tmp2 = tmp0 ^ in6;
+        out1 = tmp1 ^ in1;
+        out7 = tmp2 ^ in5;
+        out0 = tmp2 ^ in1;
+        out2 = out1 ^ in3 ^ in6;
+        out6 = out7 ^ in0 ^ in4;
+        out5 = out6 ^ in3;
+        out3 = tmp0 ^ out2 ^ in4;
+        out4 = tmp1 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_8A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in1 ^ in6;
+        out7 = in0 ^ in5;
+        out2 = in3 ^ in6;
+        out6 = in4 ^ in7;
+        out1 = in0 ^ in2 ^ in7;
+        out3 = out0 ^ out6 ^ in0;
+        out4 = out1 ^ out7 ^ in6;
+        out5 = out2 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_8B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in3 ^ in6;
+        tmp2 = in5 ^ in7;
+        tmp3 = tmp0 ^ in7;
+        out0 = tmp0 ^ in6;
+        out2 = tmp1 ^ in2;
+        out5 = tmp1 ^ tmp2;
+        out7 = tmp2 ^ in0;
+        tmp4 = tmp3 ^ in4;
+        out1 = tmp3 ^ in2;
+        out6 = tmp4 ^ out0;
+        out4 = out6 ^ in2 ^ in5;
+        out3 = tmp1 ^ tmp4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_8C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in2;
+        out0 = in1 ^ in7;
+        out7 = in0 ^ in6;
+        out5 = in4 ^ in6;
+        out6 = in5 ^ in7;
+        out2 = out0 ^ in0 ^ in3;
+        out3 = out5 ^ out7 ^ in2 ^ in7;
+        out4 = out6 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_8D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in1 ^ in2;
+        tmp0 = in6 ^ in7;
+        out0 = in0 ^ in1 ^ in7;
+        out5 = in4 ^ in5 ^ in6;
+        out6 = tmp0 ^ in5;
+        out7 = tmp0 ^ in0;
+        out4 = tmp0 ^ out5 ^ in3;
+        out2 = out0 ^ in2 ^ in3;
+        out3 = out2 ^ in1 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_8E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in1;
+        out4 = in5;
+        out7 = in0;
+        out5 = in6;
+        out6 = in7;
+        out3 = in0 ^ in4;
+        out1 = in0 ^ in2;
+        out2 = in0 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_8F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in0 ^ in1;
+        tmp0 = in0 ^ in3;
+        out4 = in4 ^ in5;
+        out7 = in0 ^ in7;
+        out5 = in5 ^ in6;
+        out6 = in6 ^ in7;
+        out1 = out0 ^ in2;
+        out2 = tmp0 ^ in2;
+        out3 = tmp0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_90(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = in2 ^ in6 ^ in7;
+        out3 = tmp0 ^ in7;
+        out1 = tmp1 ^ in5;
+        tmp2 = out1 ^ in4;
+        out6 = tmp2 ^ in3;
+        out5 = out6 ^ in1;
+        out4 = out5 ^ in0;
+        out0 = tmp0 ^ tmp2;
+        out7 = tmp0 ^ out4;
+        out2 = tmp1 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_91(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in4;
+        tmp1 = tmp0 ^ in3 ^ in5;
+        out2 = tmp1 ^ in1;
+        out6 = tmp1 ^ in7;
+        tmp2 = out2 ^ in5 ^ in7;
+        out3 = tmp2 ^ in4;
+        out5 = tmp2 ^ in6;
+        out1 = tmp1 ^ out5 ^ in2;
+        tmp3 = out1 ^ in0;
+        out4 = tmp3 ^ in3;
+        out0 = tmp0 ^ tmp3;
+        out7 = tmp2 ^ tmp3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_92(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in1;
+        tmp0 = in4 ^ in5;
+        tmp1 = tmp0 ^ in1;
+        out2 = tmp0 ^ in3 ^ in7;
+        out0 = tmp1 ^ in6;
+        out7 = out2 ^ in0;
+        out4 = out0 ^ in0 ^ in2;
+        out5 = out4 ^ out7 ^ in5;
+        out6 = tmp1 ^ out5;
+        out1 = out6 ^ out7 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_93(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in1 ^ in3;
+        tmp0 = in2 ^ in7;
+        tmp1 = out3 ^ in6;
+        tmp2 = tmp0 ^ in4;
+        out5 = tmp0 ^ tmp1;
+        out6 = tmp2 ^ in3;
+        out2 = out6 ^ in5;
+        out0 = out2 ^ out5 ^ in0;
+        out7 = tmp1 ^ out0;
+        out1 = tmp2 ^ out0;
+        out4 = out1 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_94(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in2 ^ in6;
+        tmp0 = in1 ^ in4 ^ in5;
+        out1 = out3 ^ in5;
+        out5 = tmp0 ^ out3;
+        out0 = tmp0 ^ in7;
+        out4 = tmp0 ^ in0 ^ in3;
+        out6 = out1 ^ in3 ^ in7;
+        out2 = out4 ^ in6;
+        out7 = out0 ^ out2 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_95(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4, tmp5;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        out3 = tmp0 ^ in6;
+        tmp1 = tmp0 ^ in7;
+        tmp2 = out3 ^ in0;
+        out6 = tmp1 ^ in5;
+        tmp3 = tmp2 ^ in4;
+        out7 = tmp3 ^ in2;
+        tmp4 = tmp3 ^ in5;
+        out2 = tmp4 ^ in1;
+        tmp5 = out2 ^ in6;
+        out0 = tmp1 ^ tmp5;
+        out1 = tmp5 ^ out7;
+        out4 = tmp2 ^ out1;
+        out5 = tmp4 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_96(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in6 ^ in7;
+        tmp0 = in1 ^ in5;
+        tmp1 = in5 ^ in6;
+        out6 = out3 ^ in2 ^ in3;
+        out0 = tmp0 ^ in4;
+        tmp2 = tmp1 ^ in2;
+        out4 = out0 ^ in0 ^ in7;
+        out1 = tmp2 ^ in0;
+        out5 = tmp2 ^ in1;
+        out7 = tmp0 ^ out4 ^ in3;
+        out2 = tmp1 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_97(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in4;
+        tmp1 = in2 ^ in6;
+        out3 = in3 ^ in6 ^ in7;
+        out7 = tmp0 ^ in3;
+        tmp2 = tmp0 ^ in5;
+        out5 = tmp1 ^ in1;
+        out6 = tmp1 ^ out3;
+        out0 = tmp2 ^ in1;
+        out2 = tmp2 ^ out3 ^ in2;
+        tmp3 = out0 ^ in4;
+        out4 = tmp3 ^ in7;
+        out1 = tmp1 ^ tmp3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_98(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in5 ^ in7;
+        tmp1 = in1 ^ in4 ^ in7;
+        out1 = tmp0 ^ in2;
+        out0 = tmp1 ^ in6;
+        out2 = tmp1 ^ in3;
+        out6 = out0 ^ out1 ^ in1;
+        out5 = tmp0 ^ out2;
+        out3 = tmp1 ^ out6 ^ in0;
+        out7 = out0 ^ out5 ^ in0;
+        out4 = out6 ^ out7 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_99(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        out5 = in1 ^ in3 ^ in4;
+        out6 = in2 ^ in4 ^ in5;
+        out4 = tmp0 ^ in2;
+        tmp1 = tmp0 ^ in6;
+        tmp2 = out5 ^ in7;
+        out7 = tmp1 ^ in5;
+        out0 = tmp1 ^ tmp2;
+        out2 = tmp2 ^ in2;
+        out3 = out0 ^ out6 ^ in3;
+        out1 = tmp1 ^ out3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_9A(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in3 ^ in4;
+        tmp0 = in0 ^ in5;
+        tmp1 = in1 ^ in6;
+        out5 = in1 ^ in3 ^ in5;
+        tmp2 = tmp0 ^ in7;
+        out3 = tmp0 ^ tmp1;
+        out0 = tmp1 ^ in4;
+        out7 = tmp2 ^ in3;
+        out1 = tmp2 ^ in2;
+        out6 = out0 ^ in1 ^ in2;
+        out4 = out1 ^ in4 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_9B(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in1 ^ in3;
+        tmp0 = in3 ^ in5;
+        out6 = in2 ^ in4;
+        out4 = in0 ^ in2 ^ in7;
+        out7 = tmp0 ^ in0;
+        out2 = out6 ^ in3;
+        out1 = out4 ^ in1 ^ in5;
+        out3 = out7 ^ in1 ^ in6;
+        out0 = tmp0 ^ out3 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_9C(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out1 = in2 ^ in5;
+        tmp0 = in0 ^ in3 ^ in6;
+        out3 = out1 ^ in0;
+        out6 = out1 ^ in6;
+        out7 = tmp0 ^ in7;
+        out4 = out7 ^ in4;
+        out2 = out4 ^ in1;
+        out0 = tmp0 ^ out2;
+        out5 = out0 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_9D(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out6 = in2 ^ in5;
+        tmp0 = in0 ^ in3;
+        out5 = in1 ^ in4 ^ in7;
+        out1 = out6 ^ in1;
+        out3 = tmp0 ^ out6;
+        out7 = tmp0 ^ in6;
+        out0 = out5 ^ in0;
+        out4 = out7 ^ in7;
+        out2 = out5 ^ out7 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_9E(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in1 ^ in4;
+        tmp0 = in0 ^ in5;
+        out6 = in2 ^ in6;
+        out7 = in0 ^ in3 ^ in7;
+        out4 = in0 ^ in4 ^ in6;
+        out5 = in1 ^ in5 ^ in7;
+        out1 = tmp0 ^ in2;
+        out3 = tmp0 ^ in7;
+        out2 = out4 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_9F(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out6 = in2;
+        out7 = in0 ^ in3;
+        tmp0 = in0 ^ in1;
+        out4 = in0 ^ in6;
+        out5 = in1 ^ in7;
+        out1 = tmp0 ^ in2 ^ in5;
+        out2 = out7 ^ in2 ^ in4 ^ in6;
+        out3 = out7 ^ in5 ^ in7;
+        out0 = tmp0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A0(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in6;
+        out2 = tmp0 ^ in7;
+        tmp1 = tmp0 ^ in5;
+        out6 = out2 ^ in3 ^ in4;
+        out0 = tmp1 ^ in3;
+        tmp2 = out0 ^ in2;
+        out3 = tmp2 ^ in7;
+        tmp3 = tmp2 ^ in1;
+        out5 = tmp3 ^ in0;
+        out4 = tmp3 ^ out6;
+        out7 = out5 ^ out6 ^ in1;
+        out1 = tmp1 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A1(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        tmp1 = tmp0 ^ in1;
+        tmp2 = tmp0 ^ in4;
+        out4 = tmp1 ^ in7;
+        out7 = tmp2 ^ in0;
+        out6 = tmp2 ^ out4 ^ in3;
+        out3 = out4 ^ in6;
+        out2 = out3 ^ in5;
+        out1 = out2 ^ in4;
+        out5 = out1 ^ out6 ^ in0;
+        out0 = tmp1 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A2(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in6;
+        tmp0 = in1 ^ in3 ^ in5;
+        out3 = tmp0 ^ in6;
+        out4 = tmp0 ^ in2 ^ in4;
+        out0 = out3 ^ in7;
+        out6 = out0 ^ in4;
+        out1 = out0 ^ out4 ^ in0;
+        out7 = out1 ^ in5;
+        out5 = out7 ^ in3 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A3(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in2 ^ in6;
+        out3 = in1 ^ in5 ^ in6;
+        tmp0 = out2 ^ in0;
+        out4 = out2 ^ out3 ^ in3;
+        tmp1 = tmp0 ^ in4;
+        out0 = tmp0 ^ out4 ^ in7;
+        out5 = tmp1 ^ in3;
+        out7 = tmp1 ^ in5;
+        out1 = tmp1 ^ in1 ^ in7;
+        out6 = tmp1 ^ out0 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A4(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in3;
+        tmp1 = in2 ^ in4;
+        tmp2 = in2 ^ in5;
+        tmp3 = in0 ^ in7;
+        out0 = tmp0 ^ in5;
+        out6 = tmp0 ^ in6 ^ in7;
+        out1 = tmp1 ^ in6;
+        out7 = tmp1 ^ tmp3;
+        out3 = tmp2 ^ in3;
+        tmp4 = tmp2 ^ out1;
+        out2 = tmp3 ^ in1;
+        out5 = tmp4 ^ out7;
+        out4 = tmp4 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A5(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in2 ^ in5;
+        tmp0 = in1 ^ in6;
+        tmp1 = in0 ^ in1;
+        tmp2 = in2 ^ in4;
+        out6 = in1 ^ in3 ^ in7;
+        out4 = tmp0 ^ in5;
+        out1 = tmp0 ^ tmp2;
+        out0 = tmp1 ^ in3 ^ in5;
+        out2 = tmp1 ^ in2 ^ in7;
+        out7 = tmp2 ^ in0;
+        out5 = tmp0 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A6(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0;
+        out3 = in3 ^ in5 ^ in7;
+        out1 = in0 ^ in2 ^ in4 ^ in6;
+        out0 = out3 ^ in1;
+        out7 = out1 ^ in7;
+        out6 = out0 ^ in6;
+        out5 = out7 ^ in5;
+        out4 = out6 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A7(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0 ^ in2;
+        out3 = in5 ^ in7;
+        out7 = out2 ^ in4 ^ in6;
+        out6 = out3 ^ in1 ^ in3;
+        out1 = out7 ^ in1;
+        out5 = out7 ^ in7;
+        out0 = out6 ^ in0;
+        out4 = out6 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A8(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in4;
+        tmp1 = in1 ^ in6;
+        tmp2 = in0 ^ in2 ^ in7;
+        out1 = tmp0 ^ in7;
+        out4 = tmp0 ^ in6;
+        out0 = tmp1 ^ in3;
+        out2 = tmp1 ^ in5;
+        out6 = tmp1 ^ in4;
+        out7 = tmp2 ^ in5;
+        out3 = tmp2 ^ out0 ^ in6;
+        out5 = out7 ^ in2 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_A9(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in2 ^ in6;
+        out6 = in1 ^ in4;
+        out7 = in0 ^ in2 ^ in5;
+        out5 = in0 ^ in3 ^ in7;
+        out2 = out4 ^ in1 ^ in5;
+        out1 = out6 ^ in2 ^ in7;
+        out0 = out2 ^ out7 ^ in3;
+        out3 = out1 ^ in0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_AA(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in2;
+        tmp1 = in1 ^ in3;
+        tmp2 = in6 ^ in7;
+        out1 = tmp0 ^ in4 ^ in7;
+        out3 = tmp1 ^ in0;
+        out0 = tmp1 ^ tmp2;
+        out2 = tmp2 ^ in5;
+        out7 = tmp0 ^ out2;
+        out6 = out1 ^ out7 ^ in1;
+        out5 = out0 ^ out6 ^ in0;
+        out4 = out5 ^ out7 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_AB(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0 ^ in1;
+        tmp0 = in1 ^ in4;
+        tmp1 = in0 ^ in7;
+        out6 = tmp0 ^ in5;
+        out1 = tmp0 ^ tmp1 ^ in2;
+        out5 = tmp1 ^ in3 ^ in4;
+        out0 = tmp0 ^ out5 ^ in6;
+        out4 = out0 ^ out3 ^ in2;
+        out2 = out4 ^ in3 ^ in5;
+        out7 = tmp1 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_AC(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in1 ^ in3;
+        out1 = in2 ^ in4;
+        tmp0 = in0 ^ in2;
+        out4 = in4 ^ in7;
+        out5 = in0 ^ in5;
+        out6 = in1 ^ in6;
+        out7 = tmp0 ^ in7;
+        out3 = tmp0 ^ in3 ^ in6;
+        out2 = out5 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_AD(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in7;
+        out5 = in0;
+        out6 = in1;
+        out7 = in0 ^ in2;
+        out0 = in0 ^ in1 ^ in3;
+        out2 = out7 ^ in1 ^ in5;
+        out1 = in1 ^ in2 ^ in4;
+        out3 = out7 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_AE(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in3 ^ in4;
+        tmp0 = in0 ^ in4;
+        tmp1 = in0 ^ in7;
+        out0 = in1 ^ in3 ^ in7;
+        out1 = tmp0 ^ in2;
+        out5 = tmp0 ^ in5;
+        tmp2 = tmp1 ^ in6;
+        out2 = tmp1 ^ in5;
+        out3 = tmp2 ^ in3;
+        out7 = tmp2 ^ in2;
+        out6 = tmp2 ^ out2 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_AF(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in3;
+        tmp0 = in0 ^ in7;
+        out5 = in0 ^ in4;
+        out6 = in1 ^ in5;
+        out7 = in0 ^ in2 ^ in6;
+        out0 = tmp0 ^ in1 ^ in3;
+        out3 = tmp0 ^ in6;
+        out2 = tmp0 ^ in2 ^ in5;
+        out1 = out5 ^ in1 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B0(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in4;
+        tmp1 = in3 ^ in6;
+        out2 = tmp0 ^ in7;
+        tmp2 = tmp0 ^ tmp1;
+        out0 = tmp2 ^ in5;
+        out3 = tmp2 ^ in2;
+        out6 = out3 ^ in6;
+        tmp3 = out6 ^ in0 ^ in1;
+        out7 = tmp3 ^ in5;
+        out5 = tmp3 ^ out2;
+        out1 = out0 ^ out5 ^ in0;
+        out4 = tmp1 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B1(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in4;
+        out2 = tmp0 ^ in2 ^ in7;
+        tmp1 = out2 ^ in6;
+        out1 = tmp1 ^ in5;
+        out3 = tmp1 ^ in7;
+        out4 = tmp1 ^ in0;
+        out6 = out3 ^ in3;
+        out0 = out6 ^ in0 ^ in2 ^ in5;
+        out5 = tmp1 ^ out0 ^ in1;
+        out7 = tmp0 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B2(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in4;
+        tmp0 = in4 ^ in7;
+        tmp1 = in1 ^ in3 ^ in6;
+        out3 = tmp0 ^ tmp1;
+        tmp2 = tmp1 ^ in0;
+        out0 = out3 ^ in5;
+        out4 = tmp2 ^ in2;
+        tmp3 = out4 ^ in6;
+        out5 = tmp0 ^ tmp3;
+        out1 = tmp3 ^ out0;
+        tmp4 = out1 ^ in7;
+        out7 = tmp4 ^ in3;
+        out6 = tmp2 ^ tmp4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B3(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in2 ^ in4;
+        tmp0 = in0 ^ in5;
+        tmp1 = in1 ^ in6;
+        out3 = tmp1 ^ in4 ^ in7;
+        tmp2 = tmp0 ^ out3;
+        out0 = tmp2 ^ in3;
+        out1 = tmp2 ^ in2;
+        out5 = out0 ^ in2 ^ in6;
+        out7 = tmp1 ^ out5;
+        out4 = out7 ^ in1 ^ in5 ^ in7;
+        out6 = tmp0 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B4(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in0 ^ in1;
+        out5 = out4 ^ in2;
+        tmp0 = out4 ^ in4;
+        out6 = out5 ^ in0 ^ in3;
+        out7 = tmp0 ^ out6;
+        out2 = tmp0 ^ in6 ^ in7;
+        out3 = out7 ^ in0 ^ in7;
+        out0 = out5 ^ out7 ^ in5;
+        out1 = out0 ^ out6 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B5(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in2 ^ in4;
+        out4 = tmp0 ^ in4;
+        out3 = tmp1 ^ in7;
+        tmp2 = out4 ^ in5;
+        out7 = out3 ^ in0 ^ in3;
+        out0 = tmp2 ^ in3;
+        out2 = tmp0 ^ out3 ^ in6;
+        out5 = tmp1 ^ tmp2;
+        out6 = out2 ^ out7 ^ in2;
+        out1 = tmp0 ^ out0 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B6(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in3 ^ in4;
+        tmp0 = in1 ^ in2;
+        tmp1 = in0 ^ in4;
+        tmp2 = in3 ^ in5;
+        tmp3 = out3 ^ in1 ^ in7;
+        out5 = tmp0 ^ tmp1;
+        out6 = tmp0 ^ tmp2;
+        out2 = tmp1 ^ in6;
+        out4 = tmp1 ^ tmp3;
+        out0 = tmp3 ^ in5;
+        out1 = out2 ^ in2 ^ in5;
+        out7 = tmp2 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B7(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in4;
+        tmp0 = in0 ^ in4;
+        out2 = tmp0 ^ in2 ^ in6;
+        tmp1 = out2 ^ in7;
+        out1 = out2 ^ in1 ^ in5;
+        out7 = tmp1 ^ in3;
+        out5 = out1 ^ in6;
+        out6 = tmp0 ^ out1 ^ in3;
+        out0 = tmp1 ^ out6;
+        out4 = out0 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B8(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in4;
+        tmp1 = in2 ^ in5;
+        out2 = tmp0 ^ in5;
+        out4 = tmp1 ^ in0;
+        tmp2 = tmp1 ^ in7;
+        out6 = tmp2 ^ out2;
+        out7 = out4 ^ in3;
+        out1 = tmp2 ^ in4;
+        out3 = tmp0 ^ out7;
+        out0 = out3 ^ out4 ^ in6;
+        out5 = out0 ^ in0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_B9(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in2;
+        tmp1 = in4 ^ in5;
+        out4 = tmp0 ^ tmp1;
+        tmp2 = tmp0 ^ in3 ^ in7;
+        out3 = out4 ^ in1;
+        out7 = tmp2 ^ in5;
+        out2 = out3 ^ in0;
+        out1 = out2 ^ in7;
+        out6 = out1 ^ in5 ^ in6;
+        out0 = tmp2 ^ out6;
+        out5 = tmp1 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_BA(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in5 ^ in7;
+        out2 = tmp0 ^ in4;
+        tmp1 = out2 ^ in2;
+        out1 = tmp1 ^ in0;
+        out6 = tmp1 ^ in1;
+        out4 = out1 ^ in3 ^ in4;
+        tmp2 = out4 ^ out6;
+        out7 = out4 ^ in6 ^ in7;
+        out5 = tmp2 ^ in6;
+        out3 = tmp0 ^ tmp2;
+        out0 = out6 ^ out7 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_BB(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in2 ^ in4 ^ in5 ^ in7;
+        tmp0 = out2 ^ in1;
+        out4 = out2 ^ in0 ^ in3;
+        out1 = tmp0 ^ in0;
+        out6 = tmp0 ^ in6;
+        out3 = out1 ^ in2;
+        tmp1 = out4 ^ out6 ^ in4;
+        out0 = tmp1 ^ in7;
+        out5 = tmp1 ^ in5;
+        out7 = tmp0 ^ tmp1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_BC(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in2;
+        tmp1 = in2 ^ in4;
+        out0 = in1 ^ in3 ^ in4;
+        out6 = in1 ^ in2 ^ in7;
+        out7 = tmp0 ^ in3;
+        out5 = tmp0 ^ out6 ^ in6;
+        out1 = tmp1 ^ in5;
+        tmp2 = out1 ^ out5 ^ in1;
+        out3 = tmp2 ^ in3;
+        out4 = tmp1 ^ tmp2;
+        out2 = tmp2 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_BD(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = in1 ^ in4;
+        out0 = tmp0 ^ tmp1;
+        out7 = tmp0 ^ in2 ^ in7;
+        out1 = tmp1 ^ in2 ^ in5;
+        tmp2 = out1 ^ in0;
+        out2 = tmp2 ^ in6;
+        out3 = out2 ^ in1 ^ in7;
+        out4 = out3 ^ in2;
+        out5 = tmp1 ^ out4;
+        out6 = tmp2 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_BE(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3 ^ in6;
+        out4 = tmp0 ^ in5;
+        out7 = tmp0 ^ in2;
+        out3 = out4 ^ in4;
+        out1 = out3 ^ out7 ^ in0;
+        out2 = out3 ^ in3 ^ in7;
+        out0 = out2 ^ out4 ^ in1;
+        out5 = tmp0 ^ out0;
+        out6 = out1 ^ out5 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_BF(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in4;
+        out3 = tmp0 ^ in5 ^ in6;
+        out4 = out3 ^ in3;
+        tmp1 = out3 ^ in7;
+        out2 = tmp1 ^ in2;
+        out5 = tmp1 ^ in1;
+        tmp2 = out2 ^ in5;
+        out7 = tmp2 ^ in3 ^ in4;
+        tmp3 = tmp0 ^ out5;
+        out0 = tmp3 ^ out4;
+        out1 = tmp2 ^ tmp3;
+        out6 = tmp3 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C0(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in2 ^ in5;
+        tmp0 = in1 ^ in4;
+        tmp1 = in3 ^ in6;
+        out0 = out5 ^ in1;
+        out4 = tmp0 ^ in7;
+        out3 = tmp0 ^ tmp1;
+        out1 = tmp1 ^ in2;
+        out6 = tmp1 ^ in0;
+        out7 = out4 ^ in0;
+        out2 = out4 ^ out5 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C1(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in2;
+        tmp0 = in0 ^ in1;
+        out4 = in1 ^ in7;
+        out6 = in0 ^ in3;
+        out3 = in1 ^ in4 ^ in6;
+        tmp1 = tmp0 ^ in2;
+        out7 = tmp0 ^ in4;
+        out0 = tmp1 ^ in5;
+        out1 = tmp1 ^ out6 ^ in6;
+        out2 = out6 ^ out7 ^ in5 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C2(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in1 ^ in3 ^ in4;
+        tmp0 = in0 ^ in3 ^ in6;
+        out5 = in2 ^ in4 ^ in5;
+        tmp1 = out4 ^ in7;
+        out1 = tmp0 ^ in2;
+        out6 = tmp0 ^ in5;
+        out2 = out5 ^ in3;
+        out7 = tmp0 ^ tmp1;
+        out3 = tmp1 ^ in2 ^ in6;
+        out0 = tmp1 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C3(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in1 ^ in3;
+        tmp0 = in0 ^ in2;
+        tmp1 = in3 ^ in5;
+        out5 = in2 ^ in4;
+        tmp2 = tmp0 ^ out4;
+        out2 = tmp1 ^ in4;
+        out6 = tmp1 ^ in0;
+        out0 = tmp1 ^ tmp2 ^ in7;
+        out1 = tmp2 ^ in6;
+        out7 = out1 ^ out5 ^ in3;
+        out3 = tmp0 ^ out7 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C4(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in7;
+        out3 = tmp0 ^ in4;
+        tmp1 = tmp0 ^ in2;
+        out1 = tmp1 ^ in6;
+        out5 = tmp1 ^ in5;
+        out4 = out1 ^ out3 ^ in1;
+        out0 = out4 ^ in4 ^ in5;
+        out2 = out0 ^ out3 ^ in0;
+        out7 = out1 ^ out2 ^ in7;
+        out6 = tmp1 ^ out0 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C5(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in4 ^ in7;
+        tmp0 = in3 ^ in7;
+        out4 = in1 ^ in2 ^ in6;
+        out6 = in0 ^ in3 ^ in4;
+        out5 = tmp0 ^ in2;
+        out1 = tmp0 ^ out4;
+        out0 = out4 ^ in0 ^ in5;
+        out2 = out0 ^ out5 ^ in4;
+        out7 = tmp0 ^ out2 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C6(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4, tmp5;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in5 ^ in6;
+        tmp1 = in1 ^ in7;
+        tmp2 = tmp0 ^ in0;
+        tmp3 = tmp0 ^ tmp1;
+        tmp4 = tmp2 ^ in4;
+        out0 = tmp3 ^ in2;
+        out6 = tmp4 ^ in3;
+        out2 = out6 ^ in2;
+        out7 = tmp1 ^ tmp4;
+        out3 = tmp2 ^ out2;
+        tmp5 = out3 ^ in5;
+        out5 = tmp5 ^ in7;
+        out4 = tmp3 ^ tmp5;
+        out1 = tmp4 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C7(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in2 ^ in4;
+        tmp0 = in3 ^ in5;
+        tmp1 = out3 ^ in7;
+        out6 = tmp0 ^ in0 ^ in4;
+        out5 = tmp1 ^ in3;
+        out2 = out6 ^ in6;
+        out7 = out2 ^ in1 ^ in3;
+        out0 = tmp1 ^ out7;
+        out1 = tmp0 ^ out0;
+        out4 = out1 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C8(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out0 = in1 ^ in2;
+        out1 = in2 ^ in3;
+        tmp0 = in5 ^ in6;
+        tmp1 = in0 ^ in7;
+        out2 = out1 ^ in1 ^ in4;
+        out4 = tmp0 ^ in4;
+        out5 = tmp0 ^ in7;
+        out6 = tmp1 ^ in6;
+        out7 = tmp1 ^ in1;
+        out3 = out2 ^ in0 ^ in2 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_C9(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in5 ^ in6;
+        out7 = in0 ^ in1;
+        tmp0 = in1 ^ in3;
+        out5 = in6 ^ in7;
+        out6 = in0 ^ in7;
+        out0 = out7 ^ in2;
+        out3 = out7 ^ in4 ^ in5;
+        out1 = tmp0 ^ in2;
+        out2 = tmp0 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_CA(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in7;
+        tmp1 = in2 ^ in7;
+        tmp2 = tmp0 ^ in6;
+        out0 = tmp1 ^ in1;
+        tmp3 = tmp1 ^ in3;
+        out6 = tmp2 ^ in5;
+        out7 = tmp2 ^ in1;
+        out2 = tmp3 ^ in4;
+        out5 = out6 ^ in0 ^ in4;
+        out4 = out5 ^ in3;
+        out1 = tmp0 ^ tmp3;
+        out3 = tmp3 ^ out5 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_CB(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in7;
+        tmp1 = in5 ^ in7;
+        out7 = in0 ^ in1 ^ in6;
+        out5 = tmp0 ^ in6;
+        out2 = tmp0 ^ in3;
+        out6 = tmp1 ^ in0;
+        out4 = tmp1 ^ in3 ^ in6;
+        tmp2 = out5 ^ out7 ^ in2;
+        out1 = tmp2 ^ out2;
+        out0 = tmp2 ^ in4;
+        out3 = tmp2 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_CC(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in5;
+        tmp1 = in1 ^ in6;
+        out1 = in2 ^ in3 ^ in7;
+        out5 = tmp0 ^ in6;
+        out0 = tmp1 ^ in2;
+        tmp2 = out5 ^ in0 ^ in7;
+        out3 = tmp2 ^ in4;
+        out6 = tmp0 ^ out3;
+        out7 = tmp1 ^ tmp2 ^ in3;
+        tmp3 = out1 ^ out6;
+        out4 = tmp2 ^ tmp3;
+        out2 = tmp3 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_CD(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in3 ^ in6;
+        tmp0 = in0 ^ in1;
+        tmp1 = in2 ^ in7;
+        out6 = in0 ^ in4 ^ in7;
+        out2 = tmp0 ^ out5 ^ in4;
+        out7 = tmp0 ^ in5;
+        out0 = tmp0 ^ in2 ^ in6;
+        out4 = tmp1 ^ in5;
+        out1 = tmp1 ^ in1 ^ in3;
+        out3 = out6 ^ in5 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_CE(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in5;
+        tmp1 = tmp0 ^ in3;
+        out4 = tmp1 ^ in4;
+        tmp2 = out4 ^ in6;
+        out3 = tmp2 ^ in0;
+        out5 = tmp2 ^ in2;
+        out2 = out3 ^ in5 ^ in7;
+        out6 = tmp1 ^ out2;
+        out7 = out2 ^ out4 ^ in1;
+        out1 = tmp2 ^ out6;
+        out0 = tmp0 ^ out7 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_CF(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in6;
+        tmp1 = in0 ^ in1 ^ in5;
+        out4 = in2 ^ in3 ^ in5;
+        out5 = tmp0 ^ in4;
+        out7 = tmp1 ^ in6;
+        out1 = tmp1 ^ out4 ^ in7;
+        tmp2 = out5 ^ in0;
+        out2 = tmp2 ^ in7;
+        out3 = tmp2 ^ out4;
+        out6 = tmp0 ^ out2 ^ in5;
+        out0 = tmp0 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D0(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        tmp1 = in1 ^ in4;
+        tmp2 = in2 ^ in5;
+        out7 = tmp0 ^ tmp1;
+        out0 = tmp1 ^ tmp2;
+        tmp3 = tmp2 ^ in3;
+        out1 = tmp3 ^ in6;
+        tmp4 = out1 ^ in1;
+        out2 = tmp4 ^ in7;
+        out3 = out2 ^ in2;
+        out4 = tmp0 ^ out3;
+        out5 = tmp3 ^ out3;
+        out6 = tmp4 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D1(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in5 ^ in6;
+        tmp1 = tmp0 ^ in1;
+        out1 = tmp1 ^ in2;
+        out2 = tmp1 ^ in7;
+        out3 = out2 ^ in3;
+        out5 = out3 ^ in2;
+        tmp2 = out3 ^ in0;
+        out4 = tmp2 ^ in4;
+        out7 = tmp0 ^ out4;
+        out6 = tmp2 ^ out1 ^ in6;
+        out0 = out2 ^ out6 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D2(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in5 ^ in6;
+        out2 = tmp0 ^ in2 ^ in3;
+        out1 = out2 ^ in0;
+        out3 = out2 ^ in1;
+        out4 = out1 ^ in1 ^ in2;
+        out6 = out1 ^ in6 ^ in7;
+        out7 = out4 ^ in4 ^ in5;
+        out5 = out4 ^ out6 ^ in4;
+        out0 = tmp0 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D3(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in3 ^ in5 ^ in6;
+        tmp0 = out2 ^ in2;
+        tmp1 = tmp0 ^ in1;
+        out1 = tmp1 ^ in0;
+        out3 = tmp1 ^ in3;
+        out4 = out1 ^ in2 ^ in4;
+        tmp2 = out4 ^ in5;
+        out7 = tmp2 ^ in7;
+        out0 = tmp0 ^ out7;
+        tmp3 = out0 ^ in0;
+        out5 = tmp3 ^ in6;
+        out6 = tmp2 ^ tmp3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D4(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in3 ^ in5;
+        tmp0 = in1 ^ in5;
+        tmp1 = tmp0 ^ in2;
+        out4 = tmp1 ^ in0;
+        tmp2 = tmp1 ^ in6;
+        out2 = out4 ^ in3 ^ in7;
+        out0 = tmp2 ^ in4;
+        out5 = tmp2 ^ out3;
+        out1 = tmp0 ^ out5 ^ in7;
+        out6 = tmp0 ^ out2 ^ in4;
+        out7 = tmp1 ^ out6 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D5(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in5;
+        tmp0 = in0 ^ in4;
+        tmp1 = tmp0 ^ in1 ^ in5;
+        out4 = tmp1 ^ in2;
+        out0 = out4 ^ in6;
+        tmp2 = tmp0 ^ out0;
+        out5 = tmp2 ^ in3;
+        out1 = out5 ^ in7;
+        out6 = tmp1 ^ out1;
+        out7 = tmp2 ^ out6;
+        out2 = out7 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D6(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2 ^ in4 ^ in6;
+        out5 = tmp0 ^ in3;
+        out0 = tmp0 ^ in5 ^ in7;
+        out3 = out0 ^ out5 ^ in2;
+        tmp1 = out3 ^ in0;
+        out1 = tmp1 ^ in6;
+        out2 = tmp1 ^ in7;
+        out4 = tmp1 ^ in1;
+        out6 = tmp1 ^ in4;
+        out7 = tmp0 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D7(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in3;
+        out3 = in2 ^ in5 ^ in7;
+        out2 = tmp0 ^ in5;
+        tmp1 = tmp0 ^ out3 ^ in1;
+        out1 = tmp1 ^ in6;
+        out4 = tmp1 ^ in4;
+        tmp2 = out1 ^ in4;
+        out6 = tmp2 ^ in1;
+        out7 = tmp2 ^ in2;
+        out0 = tmp2 ^ in3;
+        out5 = tmp2 ^ in0 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D8(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in0;
+        out5 = in1;
+        tmp0 = in1 ^ in2;
+        out6 = in0 ^ in2;
+        out0 = tmp0 ^ in4;
+        tmp1 = tmp0 ^ in3;
+        out7 = tmp1 ^ out6;
+        out2 = tmp1 ^ in6;
+        out3 = out7 ^ in7;
+        out1 = tmp1 ^ in1 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_D9(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in0 ^ in4;
+        out5 = in1 ^ in5;
+        out2 = in1 ^ in3 ^ in6;
+        out3 = in0 ^ in1 ^ in7;
+        out6 = in0 ^ in2 ^ in6;
+        out0 = out4 ^ in1 ^ in2;
+        out1 = out5 ^ in2 ^ in3;
+        out7 = out3 ^ in3;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_DA(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out5 = in1 ^ in4;
+        tmp0 = in2 ^ in7;
+        tmp1 = in0 ^ in2 ^ in3;
+        out0 = tmp0 ^ out5;
+        out4 = tmp0 ^ tmp1;
+        out2 = tmp0 ^ in3 ^ in6;
+        out1 = tmp1 ^ in5;
+        out3 = tmp1 ^ in1;
+        out6 = out1 ^ in3;
+        out7 = out3 ^ in2 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_DB(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in1 ^ in5;
+        tmp2 = in3 ^ in7;
+        out3 = tmp0 ^ in2;
+        out5 = tmp1 ^ in4;
+        out6 = tmp1 ^ out3 ^ in6;
+        out2 = tmp2 ^ in6;
+        tmp3 = tmp2 ^ in4;
+        tmp4 = out3 ^ in3;
+        out4 = tmp3 ^ in0;
+        out1 = tmp4 ^ in5;
+        out0 = tmp3 ^ tmp4;
+        out7 = tmp0 ^ out2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_DC(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in2;
+        tmp1 = in0 ^ in3;
+        out6 = tmp0 ^ in4;
+        tmp2 = tmp0 ^ in7;
+        out3 = tmp1 ^ in6;
+        tmp3 = tmp1 ^ in1;
+        out1 = tmp1 ^ tmp2 ^ in5;
+        out4 = tmp2 ^ in6;
+        out2 = tmp3 ^ in2;
+        out7 = tmp3 ^ in5;
+        out5 = tmp2 ^ out2;
+        out0 = out2 ^ out3 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_DD(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0 ^ in6;
+        out2 = in0 ^ in1 ^ in3;
+        out6 = out3 ^ in2 ^ in4;
+        out7 = out2 ^ in5 ^ in7;
+        out0 = out6 ^ in1;
+        out4 = out6 ^ in7;
+        out5 = out7 ^ in0;
+        out1 = out5 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_DE(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3 ^ in6;
+        tmp1 = in3 ^ in4 ^ in7;
+        out4 = tmp0 ^ in0;
+        out5 = tmp1 ^ in1;
+        out3 = out4 ^ in7;
+        out2 = out3 ^ in6;
+        out1 = out2 ^ in5;
+        out6 = tmp1 ^ out1;
+        out0 = tmp0 ^ out5;
+        out7 = out0 ^ out1 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_DF(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0 ^ in3 ^ in7;
+        tmp0 = out2 ^ in1 ^ in5;
+        out1 = tmp0 ^ in2;
+        out7 = tmp0 ^ in6;
+        out5 = tmp0 ^ in0 ^ in4;
+        tmp1 = out1 ^ out5 ^ in6;
+        out4 = tmp1 ^ in3;
+        out6 = tmp1 ^ in5;
+        tmp2 = tmp1 ^ in7;
+        out0 = tmp2 ^ in1;
+        out3 = tmp2 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E0(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in1 ^ in7;
+        tmp0 = in2 ^ in4;
+        out4 = out3 ^ in3 ^ in5;
+        out2 = tmp0 ^ in1;
+        tmp1 = tmp0 ^ in6;
+        out0 = out4 ^ in2;
+        out6 = out4 ^ in0;
+        out1 = tmp1 ^ in3;
+        out5 = tmp1 ^ in0;
+        out7 = out5 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E1(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in1 ^ in4;
+        tmp0 = in1 ^ in7;
+        out3 = tmp0 ^ in3;
+        tmp1 = out3 ^ in5;
+        out4 = tmp1 ^ in4;
+        tmp2 = tmp1 ^ in0;
+        out0 = tmp2 ^ in2;
+        out6 = tmp2 ^ in6;
+        tmp3 = out0 ^ out4 ^ in6;
+        out5 = tmp3 ^ in5;
+        out7 = tmp0 ^ tmp3;
+        out1 = tmp2 ^ out5 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E2(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in1 ^ in2;
+        out4 = in1 ^ in5;
+        out2 = in2 ^ in4 ^ in7;
+        out5 = in0 ^ in2 ^ in6;
+        out0 = out3 ^ in3 ^ in5;
+        out7 = out3 ^ in0 ^ in4;
+        out6 = out2 ^ out7 ^ in3;
+        out1 = out5 ^ in3 ^ in4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E3(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in4 ^ in7;
+        tmp0 = in1 ^ in3;
+        out3 = tmp0 ^ in2;
+        tmp1 = out3 ^ in0;
+        out0 = tmp1 ^ in5;
+        tmp2 = tmp1 ^ in4;
+        out1 = tmp2 ^ in6;
+        tmp3 = tmp2 ^ in3;
+        out7 = tmp3 ^ in7;
+        out6 = out1 ^ out2 ^ in2;
+        tmp4 = tmp0 ^ out0;
+        out5 = tmp4 ^ in6;
+        out4 = tmp3 ^ tmp4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E4(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in6;
+        tmp0 = in0 ^ in4;
+        tmp1 = tmp0 ^ in2 ^ in6;
+        out2 = tmp1 ^ in1;
+        out7 = out2 ^ in5;
+        tmp2 = tmp0 ^ out7;
+        out4 = tmp2 ^ in3;
+        out0 = out4 ^ in7;
+        out6 = tmp1 ^ out0;
+        out5 = tmp2 ^ out6;
+        out1 = out5 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E5(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in3 ^ in6;
+        tmp0 = in0 ^ in1;
+        tmp1 = in5 ^ in7;
+        out2 = tmp0 ^ in4 ^ in6;
+        tmp2 = tmp1 ^ out2;
+        out6 = tmp2 ^ in3;
+        out7 = tmp2 ^ in2;
+        out0 = out6 ^ in2 ^ in4;
+        out5 = out6 ^ in1 ^ in2;
+        out1 = tmp0 ^ out5 ^ in5;
+        out4 = tmp1 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E6(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in2 ^ in6 ^ in7;
+        out2 = out3 ^ in0 ^ in4;
+        out4 = out3 ^ in1 ^ in5;
+        out1 = out2 ^ in3;
+        out7 = out2 ^ out4 ^ in2;
+        out0 = out4 ^ in3 ^ in7;
+        out5 = out1 ^ in4;
+        out6 = out0 ^ out2 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E7(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in3;
+        out3 = tmp0 ^ in6 ^ in7;
+        tmp1 = out3 ^ in0;
+        out5 = tmp1 ^ in5;
+        tmp2 = tmp1 ^ in4;
+        tmp3 = out5 ^ in7;
+        out1 = tmp2 ^ in1;
+        out0 = tmp3 ^ in1;
+        out6 = out1 ^ in2;
+        out2 = tmp0 ^ tmp2;
+        tmp4 = tmp3 ^ out6;
+        out4 = tmp4 ^ in6;
+        out7 = tmp4 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E8(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in3 ^ in6;
+        tmp0 = in4 ^ in7;
+        out1 = in2 ^ in3 ^ in4;
+        out5 = tmp0 ^ in0;
+        tmp1 = tmp0 ^ in1;
+        tmp2 = tmp1 ^ in5;
+        out0 = tmp1 ^ out1;
+        out2 = tmp2 ^ in2;
+        out6 = tmp2 ^ out5;
+        tmp3 = out6 ^ in6;
+        out3 = tmp3 ^ in7;
+        out7 = tmp3 ^ in2 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_E9(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = in3 ^ in6;
+        tmp2 = tmp0 ^ in6;
+        out4 = tmp1 ^ in4;
+        out6 = tmp2 ^ in5;
+        out7 = tmp2 ^ in2 ^ in7;
+        out3 = out6 ^ in3 ^ in7;
+        out0 = tmp1 ^ out7;
+        out2 = out3 ^ out4 ^ in0;
+        out5 = tmp0 ^ out2;
+        out1 = out0 ^ out5 ^ in5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_EA(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in6 ^ in7;
+        out5 = in0 ^ in7;
+        out6 = in0 ^ in1;
+        out0 = in1 ^ in2 ^ in3;
+        out2 = in2 ^ in4 ^ in5;
+        out7 = out6 ^ in2;
+        out1 = out0 ^ out6 ^ in4;
+        out3 = out7 ^ in5 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_EB(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in4 ^ in5;
+        tmp0 = in0 ^ in1;
+        out4 = in4 ^ in6 ^ in7;
+        out5 = in0 ^ in5 ^ in7;
+        out6 = tmp0 ^ in6;
+        tmp1 = tmp0 ^ in2;
+        out0 = tmp1 ^ in3;
+        out7 = tmp1 ^ in7;
+        out1 = out0 ^ in4;
+        out3 = out0 ^ in5 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_EC(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out3 = in0 ^ in5;
+        out4 = in2 ^ in3 ^ in7;
+        out5 = in0 ^ in3 ^ in4;
+        out6 = out3 ^ in1 ^ in4;
+        out1 = out4 ^ in4;
+        out0 = out4 ^ in1 ^ in6;
+        out2 = out0 ^ out5 ^ in5;
+        out7 = out2 ^ in4 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_ED(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in2 ^ in4;
+        tmp1 = in3 ^ in5;
+        out4 = tmp0 ^ in3 ^ in7;
+        out3 = tmp1 ^ in0;
+        out1 = out4 ^ in1;
+        out5 = out3 ^ in4;
+        out7 = out1 ^ out5 ^ in6;
+        out2 = tmp0 ^ out7;
+        out0 = tmp1 ^ out7;
+        out6 = out2 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_EE(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in2;
+        tmp0 = in0 ^ in1;
+        out5 = in0 ^ in3;
+        tmp1 = tmp0 ^ in2;
+        out6 = tmp0 ^ in4;
+        tmp2 = tmp1 ^ out5;
+        out7 = tmp1 ^ in5;
+        out1 = tmp2 ^ out6 ^ in7;
+        out0 = tmp2 ^ in6;
+        tmp3 = out7 ^ in1;
+        out3 = tmp3 ^ in7;
+        out2 = tmp3 ^ in4 ^ in6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_EF(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out4 = in2 ^ in4;
+        tmp0 = in0 ^ in5;
+        tmp1 = in4 ^ in6;
+        out5 = tmp0 ^ in3;
+        out2 = tmp0 ^ tmp1;
+        out6 = tmp1 ^ in0 ^ in1;
+        out3 = out5 ^ in2 ^ in7;
+        out7 = out3 ^ in1 ^ in3;
+        out0 = out4 ^ out6 ^ in3;
+        out1 = tmp1 ^ out0 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F0(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = in4 ^ in5;
+        out2 = tmp0 ^ in6;
+        out3 = tmp1 ^ in1;
+        tmp2 = tmp1 ^ in7;
+        out1 = out2 ^ out3 ^ in3;
+        tmp3 = tmp0 ^ tmp2;
+        out0 = tmp3 ^ in3;
+        out5 = tmp3 ^ in0;
+        out4 = out1 ^ out5 ^ in4;
+        out7 = out4 ^ in2;
+        out6 = tmp2 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F1(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in1 ^ in6;
+        tmp0 = in3 ^ in5;
+        out3 = tmp0 ^ in1 ^ in4;
+        tmp1 = out3 ^ in2;
+        out1 = tmp1 ^ in6;
+        tmp2 = tmp1 ^ in0;
+        tmp3 = out1 ^ in5;
+        out0 = tmp2 ^ in7;
+        out6 = tmp2 ^ in4;
+        out7 = tmp3 ^ in0;
+        out5 = tmp0 ^ out0;
+        out4 = tmp3 ^ out5 ^ in1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F2(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in4 ^ in5;
+        out2 = in2 ^ in6 ^ in7;
+        tmp1 = tmp0 ^ in1;
+        tmp2 = tmp1 ^ in2;
+        out0 = tmp2 ^ in3;
+        out3 = tmp2 ^ in7;
+        out5 = out3 ^ in0 ^ in4;
+        tmp3 = tmp0 ^ out5;
+        out7 = tmp3 ^ in3;
+        out4 = tmp3 ^ out2;
+        out1 = out0 ^ out4 ^ in4;
+        out6 = tmp1 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F3(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in6 ^ in7;
+        tmp0 = in0 ^ in1;
+        out4 = tmp0 ^ in6;
+        tmp1 = tmp0 ^ in2;
+        out5 = tmp1 ^ in7;
+        out6 = tmp1 ^ in3;
+        out7 = out6 ^ in4;
+        out0 = out7 ^ in5;
+        out1 = out0 ^ in6;
+        out3 = out0 ^ in0 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F4(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0 ^ in1 ^ in2;
+        tmp0 = out2 ^ in3;
+        out4 = tmp0 ^ in4;
+        out5 = out4 ^ in5;
+        out6 = out5 ^ in6;
+        out7 = out6 ^ in7;
+        out0 = out7 ^ in0;
+        out1 = out0 ^ in1;
+        out3 = tmp0 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F5(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0 ^ in1;
+        tmp0 = out2 ^ in2;
+        out4 = tmp0 ^ in3;
+        out5 = out4 ^ in4;
+        out6 = out5 ^ in5;
+        out7 = out6 ^ in6;
+        out0 = out7 ^ in7;
+        out1 = out0 ^ in0;
+        out3 = tmp0 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F6(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in7;
+        out2 = tmp0 ^ in2;
+        out4 = out2 ^ in1 ^ in4;
+        out7 = out4 ^ in3 ^ in5;
+        out5 = out7 ^ in4 ^ in7;
+        out0 = tmp0 ^ out7 ^ in6;
+        tmp1 = out0 ^ in1;
+        out6 = out0 ^ in0 ^ in5;
+        out3 = tmp1 ^ in3;
+        out1 = tmp0 ^ tmp1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F7(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0 ^ in7;
+        tmp0 = out2 ^ in1;
+        out4 = tmp0 ^ in2;
+        out5 = out4 ^ in3 ^ in7;
+        out6 = out5 ^ in4;
+        out7 = out6 ^ in5;
+        out0 = out7 ^ in6;
+        out1 = out0 ^ in7;
+        out3 = tmp0 ^ out1;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F8(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in4;
+        tmp1 = in3 ^ in5;
+        tmp2 = tmp0 ^ in6;
+        out4 = tmp0 ^ tmp1;
+        out1 = tmp1 ^ in2 ^ in4;
+        out3 = tmp2 ^ in1;
+        out5 = out3 ^ in5;
+        out7 = out1 ^ out5 ^ in7;
+        out6 = tmp1 ^ out7;
+        out0 = tmp2 ^ out7;
+        out2 = out6 ^ in0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_F9(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in3 ^ in5;
+        tmp1 = in0 ^ in6;
+        out4 = tmp0 ^ in0;
+        tmp2 = tmp1 ^ in4;
+        tmp3 = tmp1 ^ in2;
+        out5 = tmp2 ^ in1;
+        out3 = out5 ^ in3;
+        tmp4 = tmp3 ^ out3;
+        out1 = tmp4 ^ in5;
+        out0 = tmp4 ^ in0 ^ in7;
+        out6 = tmp0 ^ out0 ^ in4;
+        out7 = tmp2 ^ tmp4;
+        out2 = tmp3 ^ out6;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_FA(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in1;
+        tmp1 = tmp0 ^ in2;
+        tmp2 = tmp0 ^ in5;
+        tmp3 = tmp1 ^ in7;
+        out5 = tmp2 ^ in6;
+        out6 = tmp3 ^ in6;
+        out7 = tmp3 ^ in3;
+        out3 = out6 ^ in4;
+        out2 = tmp1 ^ out5;
+        out4 = out2 ^ out3 ^ in1;
+        out0 = out4 ^ out7 ^ in5;
+        out1 = tmp2 ^ out0;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_FB(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in5 ^ in6;
+        tmp0 = in0 ^ in1;
+        out4 = in0 ^ in5 ^ in7;
+        out5 = tmp0 ^ in6;
+        tmp1 = tmp0 ^ in2;
+        out6 = tmp1 ^ in7;
+        out7 = tmp1 ^ in3;
+        out0 = out7 ^ in4;
+        out1 = out0 ^ in5;
+        out3 = out0 ^ in6 ^ in7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_FC(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in1 ^ in2;
+        tmp1 = in0 ^ in7;
+        out2 = tmp0 ^ tmp1 ^ in5;
+        out3 = tmp1 ^ in4;
+        tmp2 = out2 ^ in6;
+        out6 = tmp2 ^ in4;
+        out7 = tmp2 ^ in3;
+        out4 = out6 ^ in1 ^ in3;
+        tmp3 = out4 ^ in0;
+        out1 = tmp3 ^ in6;
+        out0 = tmp3 ^ in1 ^ in5;
+        out5 = tmp0 ^ out4;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_FD(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in5;
+        tmp1 = in1 ^ in7;
+        out2 = tmp0 ^ tmp1;
+        out6 = out2 ^ in2 ^ in4;
+        tmp2 = out6 ^ in0;
+        out1 = tmp2 ^ in3;
+        out0 = tmp0 ^ out1 ^ in6;
+        out5 = out0 ^ in2;
+        tmp3 = out5 ^ in1;
+        out3 = tmp3 ^ in6;
+        out7 = tmp2 ^ tmp3;
+        out4 = tmp1 ^ out7;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_FE(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3, tmp4;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        tmp0 = in0 ^ in2;
+        out2 = tmp0 ^ in5;
+        out3 = tmp0 ^ in4;
+        tmp1 = out3 ^ in6;
+        out4 = tmp1 ^ in5;
+        tmp2 = tmp1 ^ in1;
+        out6 = tmp2 ^ in7;
+        tmp3 = tmp2 ^ in0;
+        out0 = tmp3 ^ in3;
+        tmp4 = out0 ^ out4 ^ in7;
+        out5 = tmp4 ^ in6;
+        out7 = tmp4 ^ in2;
+        out1 = tmp3 ^ out5;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+static void gf8_muladd_FF(uint8_t * out, uint8_t * in, unsigned int width)
+{
+    unsigned int i;
+    uint64_t * in_ptr = (uint64_t *)in;
+    uint64_t * out_ptr = (uint64_t *)out;
+
+    for (i = 0; i < width; i++)
+    {
+        uint64_t out0, out1, out2, out3, out4, out5, out6, out7;
+        uint64_t tmp0, tmp1, tmp2, tmp3;
+
+        uint64_t in0 = out_ptr[0];
+        uint64_t in1 = out_ptr[width];
+        uint64_t in2 = out_ptr[width * 2];
+        uint64_t in3 = out_ptr[width * 3];
+        uint64_t in4 = out_ptr[width * 4];
+        uint64_t in5 = out_ptr[width * 5];
+        uint64_t in6 = out_ptr[width * 6];
+        uint64_t in7 = out_ptr[width * 7];
+
+        out2 = in0 ^ in5;
+        tmp0 = in4 ^ in7;
+        tmp1 = out2 ^ in2;
+        out4 = tmp1 ^ in6;
+        out7 = tmp1 ^ in1 ^ in3;
+        out1 = tmp0 ^ out7;
+        tmp2 = out1 ^ in5;
+        out6 = tmp2 ^ in3;
+        tmp3 = tmp2 ^ in7;
+        out0 = tmp3 ^ in6;
+        out3 = tmp3 ^ in1;
+        out5 = tmp0 ^ out0 ^ in2;
+
+        out_ptr[0] = out0 ^ in_ptr[0];
+        out_ptr[width] = out1 ^ in_ptr[width];
+        out_ptr[width * 2] = out2 ^ in_ptr[width * 2];
+        out_ptr[width * 3] = out3 ^ in_ptr[width * 3];
+        out_ptr[width * 4] = out4 ^ in_ptr[width * 4];
+        out_ptr[width * 5] = out5 ^ in_ptr[width * 5];
+        out_ptr[width * 6] = out6 ^ in_ptr[width * 6];
+        out_ptr[width * 7] = out7 ^ in_ptr[width * 7];
+
+        in_ptr++;
+        out_ptr++;
+    }
+}
+
+void (* ec_gf_muladd[])(uint8_t * out, uint8_t * in, unsigned int width) =
+{
+    gf8_muladd_00, gf8_muladd_01, gf8_muladd_02, gf8_muladd_03,
+    gf8_muladd_04, gf8_muladd_05, gf8_muladd_06, gf8_muladd_07,
+    gf8_muladd_08, gf8_muladd_09, gf8_muladd_0A, gf8_muladd_0B,
+    gf8_muladd_0C, gf8_muladd_0D, gf8_muladd_0E, gf8_muladd_0F,
+    gf8_muladd_10, gf8_muladd_11, gf8_muladd_12, gf8_muladd_13,
+    gf8_muladd_14, gf8_muladd_15, gf8_muladd_16, gf8_muladd_17,
+    gf8_muladd_18, gf8_muladd_19, gf8_muladd_1A, gf8_muladd_1B,
+    gf8_muladd_1C, gf8_muladd_1D, gf8_muladd_1E, gf8_muladd_1F,
+    gf8_muladd_20, gf8_muladd_21, gf8_muladd_22, gf8_muladd_23,
+    gf8_muladd_24, gf8_muladd_25, gf8_muladd_26, gf8_muladd_27,
+    gf8_muladd_28, gf8_muladd_29, gf8_muladd_2A, gf8_muladd_2B,
+    gf8_muladd_2C, gf8_muladd_2D, gf8_muladd_2E, gf8_muladd_2F,
+    gf8_muladd_30, gf8_muladd_31, gf8_muladd_32, gf8_muladd_33,
+    gf8_muladd_34, gf8_muladd_35, gf8_muladd_36, gf8_muladd_37,
+    gf8_muladd_38, gf8_muladd_39, gf8_muladd_3A, gf8_muladd_3B,
+    gf8_muladd_3C, gf8_muladd_3D, gf8_muladd_3E, gf8_muladd_3F,
+    gf8_muladd_40, gf8_muladd_41, gf8_muladd_42, gf8_muladd_43,
+    gf8_muladd_44, gf8_muladd_45, gf8_muladd_46, gf8_muladd_47,
+    gf8_muladd_48, gf8_muladd_49, gf8_muladd_4A, gf8_muladd_4B,
+    gf8_muladd_4C, gf8_muladd_4D, gf8_muladd_4E, gf8_muladd_4F,
+    gf8_muladd_50, gf8_muladd_51, gf8_muladd_52, gf8_muladd_53,
+    gf8_muladd_54, gf8_muladd_55, gf8_muladd_56, gf8_muladd_57,
+    gf8_muladd_58, gf8_muladd_59, gf8_muladd_5A, gf8_muladd_5B,
+    gf8_muladd_5C, gf8_muladd_5D, gf8_muladd_5E, gf8_muladd_5F,
+    gf8_muladd_60, gf8_muladd_61, gf8_muladd_62, gf8_muladd_63,
+    gf8_muladd_64, gf8_muladd_65, gf8_muladd_66, gf8_muladd_67,
+    gf8_muladd_68, gf8_muladd_69, gf8_muladd_6A, gf8_muladd_6B,
+    gf8_muladd_6C, gf8_muladd_6D, gf8_muladd_6E, gf8_muladd_6F,
+    gf8_muladd_70, gf8_muladd_71, gf8_muladd_72, gf8_muladd_73,
+    gf8_muladd_74, gf8_muladd_75, gf8_muladd_76, gf8_muladd_77,
+    gf8_muladd_78, gf8_muladd_79, gf8_muladd_7A, gf8_muladd_7B,
+    gf8_muladd_7C, gf8_muladd_7D, gf8_muladd_7E, gf8_muladd_7F,
+    gf8_muladd_80, gf8_muladd_81, gf8_muladd_82, gf8_muladd_83,
+    gf8_muladd_84, gf8_muladd_85, gf8_muladd_86, gf8_muladd_87,
+    gf8_muladd_88, gf8_muladd_89, gf8_muladd_8A, gf8_muladd_8B,
+    gf8_muladd_8C, gf8_muladd_8D, gf8_muladd_8E, gf8_muladd_8F,
+    gf8_muladd_90, gf8_muladd_91, gf8_muladd_92, gf8_muladd_93,
+    gf8_muladd_94, gf8_muladd_95, gf8_muladd_96, gf8_muladd_97,
+    gf8_muladd_98, gf8_muladd_99, gf8_muladd_9A, gf8_muladd_9B,
+    gf8_muladd_9C, gf8_muladd_9D, gf8_muladd_9E, gf8_muladd_9F,
+    gf8_muladd_A0, gf8_muladd_A1, gf8_muladd_A2, gf8_muladd_A3,
+    gf8_muladd_A4, gf8_muladd_A5, gf8_muladd_A6, gf8_muladd_A7,
+    gf8_muladd_A8, gf8_muladd_A9, gf8_muladd_AA, gf8_muladd_AB,
+    gf8_muladd_AC, gf8_muladd_AD, gf8_muladd_AE, gf8_muladd_AF,
+    gf8_muladd_B0, gf8_muladd_B1, gf8_muladd_B2, gf8_muladd_B3,
+    gf8_muladd_B4, gf8_muladd_B5, gf8_muladd_B6, gf8_muladd_B7,
+    gf8_muladd_B8, gf8_muladd_B9, gf8_muladd_BA, gf8_muladd_BB,
+    gf8_muladd_BC, gf8_muladd_BD, gf8_muladd_BE, gf8_muladd_BF,
+    gf8_muladd_C0, gf8_muladd_C1, gf8_muladd_C2, gf8_muladd_C3,
+    gf8_muladd_C4, gf8_muladd_C5, gf8_muladd_C6, gf8_muladd_C7,
+    gf8_muladd_C8, gf8_muladd_C9, gf8_muladd_CA, gf8_muladd_CB,
+    gf8_muladd_CC, gf8_muladd_CD, gf8_muladd_CE, gf8_muladd_CF,
+    gf8_muladd_D0, gf8_muladd_D1, gf8_muladd_D2, gf8_muladd_D3,
+    gf8_muladd_D4, gf8_muladd_D5, gf8_muladd_D6, gf8_muladd_D7,
+    gf8_muladd_D8, gf8_muladd_D9, gf8_muladd_DA, gf8_muladd_DB,
+    gf8_muladd_DC, gf8_muladd_DD, gf8_muladd_DE, gf8_muladd_DF,
+    gf8_muladd_E0, gf8_muladd_E1, gf8_muladd_E2, gf8_muladd_E3,
+    gf8_muladd_E4, gf8_muladd_E5, gf8_muladd_E6, gf8_muladd_E7,
+    gf8_muladd_E8, gf8_muladd_E9, gf8_muladd_EA, gf8_muladd_EB,
+    gf8_muladd_EC, gf8_muladd_ED, gf8_muladd_EE, gf8_muladd_EF,
+    gf8_muladd_F0, gf8_muladd_F1, gf8_muladd_F2, gf8_muladd_F3,
+    gf8_muladd_F4, gf8_muladd_F5, gf8_muladd_F6, gf8_muladd_F7,
+    gf8_muladd_F8, gf8_muladd_F9, gf8_muladd_FA, gf8_muladd_FB,
+    gf8_muladd_FC, gf8_muladd_FD, gf8_muladd_FE, gf8_muladd_FF
 };

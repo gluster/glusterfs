@@ -2,10 +2,12 @@ SIZE_LIST="1048576 1000 12345 0"
 
 LAST_BRICK=$(($DISPERSE - 1))
 
+CHUNK_SIZE=512
+
 function fragment_size
 {
     local fragments=$(($DISPERSE - $REDUNDANCY))
-    local block_size=$((128 * $fragments))
+    local block_size=$(($CHUNK_SIZE * $fragments))
     local size=$(($1 + $block_size - 1))
 
     echo $((( $size - ( $size ) % $block_size ) / $fragments))
