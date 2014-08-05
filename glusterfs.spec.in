@@ -96,9 +96,6 @@ URL:              http://www.gluster.org/docs/index.php/GlusterFS
 Source0:          http://bits.gluster.org/pub/gluster/glusterfs/src/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
 Source2:          glusterfsd.sysconfig
-Source3:          glusterfs-fuse.logrotate
-Source4:          glusterd.logrotate
-Source5:          glusterfsd.logrotate
 Source6:          rhel5-load-fuse-modules
 Source11:         glusterfsd.service
 Source13:         glusterfsd.init
@@ -588,21 +585,8 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %_init_install %{glusterfsd_service} glusterfsd
 %endif
 
-%if ( 0%{_for_fedora_koji_builds} )
-# Client logrotate entry
-install -D -p -m 0644 %{SOURCE3} \
-    %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs-fuse
-
-# Server logrotate entry
-install -D -p -m 0644 %{SOURCE4} \
-    %{buildroot}%{_sysconfdir}/logrotate.d/glusterd
-# Legacy server logrotate entry
-install -D -p -m 0644 %{SOURCE5} \
-    %{buildroot}%{_sysconfdir}/logrotate.d/glusterfsd
-%else
 install -D -p -m 0644 extras/glusterfs-logrotate \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs
-%endif
 
 %if ( 0%{!?_without_georeplication:1} )
 # geo-rep ghosts
@@ -695,7 +679,7 @@ rm -rf %{buildroot}
 
 %files
 %doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
-%config(noreplace) %{_sysconfdir}/logrotate.d/*
+%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
@@ -754,7 +738,7 @@ if [ $1 -ge 1 ]; then
 fi
 
 %files geo-replication
-%{_sysconfdir}/logrotate.d/glusterfs-georep
+%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-georep
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
@@ -791,14 +775,10 @@ fi
 
 %files server
 %doc extras/clear_xattrs.sh
-%if ( 0%{_for_fedora_koji_builds} )
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterd
-%endif
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %config(noreplace) %{_sysconfdir}/glusterfs
 # Legacy configs
 %if ( 0%{_for_fedora_koji_builds} )
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfsd
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
 %endif
 # init files
@@ -971,6 +951,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Sun Dec 14 2014 Niels de Vos <ndevos@redhat.com>
+- logrotate files (#1159968)
+
 * Thu Sep 25 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - smarter logic in %%post server (#1145000)
 
