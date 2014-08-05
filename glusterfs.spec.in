@@ -158,9 +158,6 @@ URL:              http://www.gluster.org/docs/index.php/GlusterFS
 Source0:          http://bits.gluster.org/pub/gluster/glusterfs/src/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
 Source2:          glusterfsd.sysconfig
-Source3:          glusterfs-fuse.logrotate
-Source4:          glusterd.logrotate
-Source5:          glusterfsd.logrotate
 Source6:          rhel5-load-fuse-modules
 Source7:          glusterfsd.service
 Source8:          glusterfsd.init
@@ -604,21 +601,8 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 %_init_install %{glusterfsd_service} glusterfsd
 %endif
 
-%if ( 0%{_for_fedora_koji_builds} )
-# Client logrotate entry
-install -D -p -m 0644 %{SOURCE3} \
-    %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs-fuse
-
-# Server logrotate entry
-install -D -p -m 0644 %{SOURCE4} \
-    %{buildroot}%{_sysconfdir}/logrotate.d/glusterd
-# Legacy server logrotate entry
-install -D -p -m 0644 %{SOURCE5} \
-    %{buildroot}%{_sysconfdir}/logrotate.d/glusterfsd
-%else
 install -D -p -m 0644 extras/glusterfs-logrotate \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs
-%endif
 
 %if ( 0%{!?_without_georeplication:1} )
 # geo-rep ghosts
@@ -834,7 +818,7 @@ fi
 ##
 %files
 %doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
-%config(noreplace) %{_sysconfdir}/logrotate.d/*
+%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
@@ -909,9 +893,6 @@ fi
 %endif
 
 %files fuse
-%if ( 0%{_for_fedora_koji_builds} )
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-fuse
-%endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
 /sbin/mount.glusterfs
 %if ( 0%{!?_without_fusermount:1} )
@@ -925,7 +906,7 @@ fi
 
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
-%{_sysconfdir}/logrotate.d/glusterfs-georep
+%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-georep
 %{_libexecdir}/glusterfs/gsyncd
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
@@ -967,16 +948,12 @@ fi
 
 %files server
 %doc extras/clear_xattrs.sh
-%if ( 0%{_for_fedora_koji_builds} )
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterd
-%endif
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %config(noreplace) %{_sysconfdir}/glusterfs
 %dir %{_sharedstatedir}/glusterd/groups
 %config(noreplace) %{_sharedstatedir}/glusterd/groups/virt
 # Legacy configs
 %if ( 0%{_for_fedora_koji_builds} )
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfsd
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
 %endif
 %config %{_sharedstatedir}/glusterd/hooks/1/add-brick/post/disabled-quota-root-xattr-heal.sh
@@ -1049,6 +1026,9 @@ fi
 
 * Fri Sep 5 2014 Lalatendu Mohanty <lmohanty@redhat.com>
 - Changed the description as "GlusterFS a distributed filesystem"
+
+* Tue Aug 5 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- logrotate files (#1126832)
 
 * Wed Jul 16 2014 Luis Pabon <lpabon@redhat.com>
 - Added cmockery2 dependency
