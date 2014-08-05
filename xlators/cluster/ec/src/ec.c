@@ -782,7 +782,21 @@ int32_t ec_gf_zerofill(call_frame_t * frame, xlator_t * this, fd_t * fd,
     return 0;
 }
 
-void __ec_gf_release_fd(xlator_t * this, fd_t * fd)
+int32_t ec_gf_forget(xlator_t * this, inode_t * inode)
+{
+    uint64_t value = 0;
+    ec_inode_t * ctx = NULL;
+
+    if ((inode_ctx_del(inode, this, &value) == 0) && (value != 0))
+    {
+        ctx = (ec_inode_t *)(uintptr_t)value;
+        GF_FREE(ctx);
+    }
+
+    return 0;
+}
+
+void ec_gf_release_fd(xlator_t * this, fd_t * fd)
 {
     uint64_t value = 0;
     ec_fd_t * ctx = NULL;
@@ -795,42 +809,16 @@ void __ec_gf_release_fd(xlator_t * this, fd_t * fd)
     }
 }
 
-void __ec_gf_release_inode(xlator_t * this, inode_t * inode)
-{
-    uint64_t value = 0;
-    ec_inode_t * ctx = NULL;
-
-    if ((inode_ctx_del(inode, this, &value) == 0) && (value != 0))
-    {
-        ctx = (ec_inode_t *)(uintptr_t)value;
-        GF_FREE(ctx);
-    }
-}
-
-int32_t ec_gf_forget(xlator_t * this, inode_t * inode)
-{
-    __ec_gf_release_inode(this, inode);
-
-    return 0;
-}
-
-int32_t ec_gf_invalidate(xlator_t * this, inode_t * inode)
-{
-    __ec_gf_release_inode(this, inode);
-
-    return 0;
-}
-
 int32_t ec_gf_release(xlator_t * this, fd_t * fd)
 {
-    __ec_gf_release_fd(this, fd);
+    ec_gf_release_fd(this, fd);
 
     return 0;
 }
 
 int32_t ec_gf_releasedir(xlator_t * this, fd_t * fd)
 {
-    __ec_gf_release_fd(this, fd);
+    ec_gf_release_fd(this, fd);
 
     return 0;
 }
@@ -886,10 +874,7 @@ struct xlator_cbks cbks =
 {
     .forget            = ec_gf_forget,
     .release           = ec_gf_release,
-    .releasedir        = ec_gf_releasedir,
-    .invalidate        = ec_gf_invalidate,
-    .client_destroy    = NULL,
-    .client_disconnect = NULL
+    .releasedir        = ec_gf_releasedir
 };
 
 struct volume_options options[] =
