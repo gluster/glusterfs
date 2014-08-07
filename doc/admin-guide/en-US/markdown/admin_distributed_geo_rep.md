@@ -1,15 +1,15 @@
 # Distributed Geo-Replication in glusterfs-3.5
 
-This is a admin how-to guide for new dustributed-geo-replication being released as part of glusterfs-3.5
+This is an admin how-to guide for the new distributed geo-replication released with glusterfs-3.5
 
 ##### Note:
-This article is targeted towards users/admins who want to try new geo-replication, without going much deeper into internals and technology used.
+This article is targeted towards users/admins who want to try the new geo-replication feature, without going too far into the internals and technology used.
 
 ### How is it different from earlier geo-replication?
 
-- Up until now, in geo-replication, only one of the nodes in master volume would participate in geo-replication. This meant that all the data syncing is taken care by only one node while other nodes in the cluster would sit idle (not participate in data syncing). With distributed-geo-replication, each node of the master volume takes the repsonsibility of syncing the data present in that node. In case of replicate configuration, one of them would 'Active'ly sync the data while other node of the replica pair would be 'Passive'. The 'Passive' node only becomes 'Active' when the 'Active' pair goes down. This way new geo-rep leverages all the nodes in the volume and remove the bottleneck of syncing from one single node. 
-- New change detection mechanism is the other thing which has been improved with new geo-rep. So far geo-rep used to crawl through glusterfs file system to figure out the files that need to synced. And because crawling filesystem can be an expensive operation, this used to be a major bottleneck for performance. With distributed geo-rep, all the files that need to be synced are identified through changelog xlator. Changelog xlator journals all the fops that modifes the file and these journals are then consumed by geo-rep to effectively identify the files that need to be synced.
-- A new syncing method tar+ssh, has been introduced to improve the performance of few specific data sets. You can switch between rsync and tar+ssh syncing method via CLI to suite your data set needs. This tar+ssh is better suited for data sets which have large number of small files.
+- Until now with geo-replication, only one of the nodes in the master volume could participate in geo-replication. This meant that all of the data syncing is taken care of by only one node, while other nodes in the cluster sit idly (not participating in syncing data). With distributed-geo-replication, each node of the master volume takes the repsonsibility of syncing the data present in that node. In the case of a replicated configuration, one of the nodes would actively sync the data while other node of the replica pair would be 'Passive'. The 'Passive' node only becomes 'Active' when the 'Active' node in the pair goes down. The new geo-replication feature leverages all of the nodes in the volume and removes the bottleneck of syncing from one single node. 
+- The detection mechanism is aspect which has been improved with the new implementation of geo-replication. So far geo-repication crawled through the glusterfs file system to figure out the files that needed to be synced. Crawling a filesystem can be an expensive operation, and can be a major bottleneck for performance. With distributed geo-replication, all the files that need to be synced are identified through a 'Changelog xlator'. A 'Changelog xlator' journals all the file operations that modify files. Then the journals are consumed by the geo-replication, effectively identifing the files that need to be synced.
+- A new syncing method of tar+ssh has been introduced to improve the performance of a few specific data sets. You can switch between the rsync and the tar+ssh syncing methods via CLI to fit your data set needs. This tar+ssh is better suited for data sets which have a large number of small files.
 
 
 ### Using Distributed geo-replication:
