@@ -876,6 +876,59 @@ dht_lookup_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
+dht_lookup_unlink_of_false_linkto_cbk (call_frame_t *frame, void *cookie,
+                                       xlator_t *this, int op_ret, int op_errno,
+                                       struct iatt *preparent,
+                                       struct iatt *postparent, dict_t *xdata)
+{
+        int             this_call_cnt = 0;
+        dht_local_t     *local = NULL;
+        const char      *path =  NULL;
+
+        local =  (dht_local_t*)frame->local;
+        path = local->loc.path;
+
+        gf_log (this->name, GF_LOG_INFO, "lookup_unlink returned with "
+                "op_ret -> %d and op-errno -> %d for %s", op_ret, op_errno,
+                ((path == NULL)? "null" : path ));
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+
+                if (op_ret == 0) {
+                        dht_lookup_everywhere_done (frame, this);
+                } else {
+                       /*When dht_lookup_everywhere is performed, one cached
+                         *and one hashed file was found and hashed file does
+                         *not point to the above mentioned cached node. So it
+                         *was considered as stale and an unlink was performed.
+                         *But unlink fails. So may be rebalance is in progress.
+                        *now ideally we have two data-files. One obtained during
+                         *lookup_everywhere and one where unlink-failed. So
+                         *at this point in time we cannot decide which one to
+                         *choose because there are chances of first cached
+                         *file is truncated after rebalance and if it is choosen
+                        *as cached node, application will fail. So return EIO.*/
+
+                        if (op_errno == EBUSY) {
+
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Could not unlink the linkto file as "
+                                        "either fd is open and/or linkto xattr "
+                                        "is set for %s",
+                                        ((path == NULL)? "null":path));
+
+                        }
+                        DHT_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL,
+                                          NULL, NULL);
+
+                }
+        }
+
+        return 0;
+}
+
+int
 dht_lookup_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
                                     xlator_t *this, int op_ret, int op_errno,
                                     struct iatt *preparent,
@@ -1112,12 +1165,27 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                         } else {
 
                                local->skip_unlink.handle_valid_link = _gf_false;
-                                if (local->skip_unlink.opend_fd_count == 0) {
-                                        local->call_cnt = 1;
-                                        STACK_WIND (frame, dht_lookup_unlink_cbk,
+                               if (local->skip_unlink.opend_fd_count == 0) {
+
+
+                          ret = dht_fill_dict_to_avoid_unlink_of_migrating_file
+                                  (local->xattr_req);
+
+
+                                        if (ret) {
+                                          DHT_STACK_UNWIND (lookup, frame, -1,
+                                                            EIO, NULL, NULL,
+                                                            NULL, NULL);
+                                        } else {
+                                                local->call_cnt = 1;
+                                                STACK_WIND (frame,
+                                          dht_lookup_unlink_of_false_linkto_cbk,
                                                     hashed_subvol,
                                                     hashed_subvol->fops->unlink,
-                                                    &local->loc, 0, NULL);
+                                                    &local->loc, 0,
+                                                    local->xattr_req);
+                                        }
+
                                         return 0;
 
                                 }
