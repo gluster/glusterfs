@@ -50,8 +50,8 @@ sleep 10;
 ls -l $M0/dir;
 
 # check if uid/gid is healed on backend brick which was taken down
-BACKEND_UID=`stat --printf=%u $B0/${V0}1/dir`;
-BACKEND_GID=`stat --printf=%g $B0/${V0}1/dir`;
+BACKEND_UID=`stat -c %u $B0/${V0}1/dir`;
+BACKEND_GID=`stat -c %g $B0/${V0}1/dir`;
 
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID

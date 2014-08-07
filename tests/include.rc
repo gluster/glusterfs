@@ -247,6 +247,54 @@ which killall > /dev/null || {
         }
 }
 
+stat -c %s /dev/null > /dev/null 2>&1 || {
+  stat() {
+    local format=""
+    local f=""
+
+    if [ "x$1" = "x-c" ] ; then
+      argc=3
+      format=$2
+      f=$3
+    else
+      argc=1
+      f=$1
+    fi
+
+    if [ $# -ne $argc ] ; then
+      echo 'Usage: stat [-c format] file'
+      exit 2;
+    fi
+
+    if [ "x${format}" = "x" ] ; then
+      `which stat` $f
+    else
+      echo ${format} | sed "
+        s/%u/`$( which stat ) -f %u $f`/g;
+        s/%g/`$( which stat ) -f %g $f`/g;
+        s/%a/`$( which stat ) -f %p $f |sed 's/^..//; s/^0//'`/g;
+        s/%A/`ls -l $f|awk '{print $1}'`/g;
+        s/%s/`$( which stat ) -f %z $f`/g;
+        s/%h/`$( which stat ) -f %l $f`/g;
+        s/%F/`$( which stat ) -f %HT $f | sed '
+          s/Directory/directory/;
+          s/Fifo file/fifo/;
+          s/Symbolic Link/symbolic link/;
+          s/Regular File/regular file/;
+          s/Block Device/block special file/;
+          s/Character Device/character special file/;
+        ' | sed \"$(
+          test -s $f && echo 's/regular file/regular empty file/g'
+        )\"`/g;
+        s|%n|`$( which stat ) -f %N $f`|g;
+        s/%Y/`$( which stat ) -f %m $f`/g;
+        s/%b/`$( which stat ) -f %b $f`/g;
+        s/%B/512/g;
+      "
+    fi
+  }
+}
+
 function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;

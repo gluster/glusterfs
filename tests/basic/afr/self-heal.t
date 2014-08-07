@@ -58,7 +58,7 @@ TEST ls $B0/brick0/def/ghi/file1.txt
 TEST ls $B0/brick0/def/ghi/file2.txt
 TEST ls $B0/brick0/jkl/mno/file.txt
 TEST ! ls $B0/brick0/abc/ghi
-EXPECT "$NEW_UID$NEW_GID" stat --printf=%u%g $B0/brick0/abc/def/file_abc_def_2.txt
+EXPECT "$NEW_UID$NEW_GID" stat -c %u%g $B0/brick0/abc/def/file_abc_def_2.txt
 TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
@@ -105,7 +105,7 @@ TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
-EXPECT "777" stat --printf=%a $B0/brick0/file
+EXPECT "777" stat -c %a $B0/brick0/file
 TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
@@ -129,7 +129,7 @@ TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
-EXPECT "$NEW_UID$NEW_GID" stat --printf=%u%g $B0/brick0/file
+EXPECT "$NEW_UID$NEW_GID" stat -c %u%g $B0/brick0/file
 TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
@@ -160,7 +160,7 @@ TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
-EXPECT 0 stat --printf=%s $B0/brick1/file
+EXPECT 0 stat -c %s $B0/brick1/file
 TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup

@@ -61,8 +61,8 @@ get_hashed_brick $i
 cached=$?
 
 # check if uid/gid on linkfile is created with correct uid/gid
-BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/$i`;
-BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/$i`;
+BACKEND_UID=`stat -c %u $B0/${V0}$cached/$i`;
+BACKEND_GID=`stat -c %g $B0/${V0}$cached/$i`;
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
 
@@ -79,8 +79,8 @@ TEST glusterfs --attribute-timeout=0 --entry-timeout=0 -s $H0 --volfile-id $V0 $
 lookup=`ls -l $M0/$i 2>/dev/null`
 
 # check if uid/gid on linkfile is created with correct uid/gid
-BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/$i`;
-BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/$i`;
+BACKEND_UID=`stat -c %u $B0/${V0}$cached/$i`;
+BACKEND_GID=`stat -c %g $B0/${V0}$cached/$i`;
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
 # create hardlinks. Make sure a linkfile gets created
@@ -117,8 +117,8 @@ get_hashed_brick link$i
 cached=$?
 
 # check if uid/gid on linkfile is created with correct uid/gid
-BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/link$i`;
-BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/link$i`;
+BACKEND_UID=`stat -c %u $B0/${V0}$cached/link$i`;
+BACKEND_GID=`stat -c %g $B0/${V0}$cached/link$i`;
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
 
@@ -166,8 +166,8 @@ get_hashed_brick user_file$i
 cached=$?
 
 # check if uid/gid on linkfile is created with correct uid/gid
-BACKEND_UID=`stat --printf=%u $B0/${V0}$cached/user_file$i`;
-BACKEND_GID=`stat --printf=%g $B0/${V0}$cached/user_file$i`;
+BACKEND_UID=`stat -c %u $B0/${V0}$cached/user_file$i`;
+BACKEND_GID=`stat -c %g $B0/${V0}$cached/user_file$i`;
 
 EXPECT "0" uid_gid_compare $NEW_UID $NEW_GID $BACKEND_UID $BACKEND_GID
 cleanup;
