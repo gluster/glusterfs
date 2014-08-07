@@ -45,7 +45,6 @@
  */
 #ifndef FTW_ACTIONRETVAL
 #define FTW_ACTIONRETVAL 0
-#define FTW_SKIP_SUBTREE 0
 #endif
 
 int debug = 0;
@@ -457,6 +456,20 @@ process_other (const char *path, const struct stat *sb)
         return 0;
 }
 
+static int
+ignore_entry(const char *bname, const char *dname)
+{
+        int i;
+
+	for (i  = 0; i < arequal_config.directories_ignored; i++) {
+		if (strcmp(bname, arequal_config.ignored_directory[i]) == 0 &&
+                    strncmp(arequal_config.test_directory, dname,
+                            strlen(arequal_config.test_directory)) == 0)
+                        return 1;
+        }
+
+        return 0;
+}
 
 int
 process_entry (const char *path, const struct stat *sb,
@@ -485,6 +498,21 @@ process_entry (const char *path, const struct stat *sb,
         */
 
         if (arequal_config.ignored_directory) {
+#ifndef FTW_SKIP_SUBTREE
+                char *cp;
+
+                name = strdup (path);
+                dname = dirname (name);
+
+                for (cp = strtok(name, "/"); cp; cp = strtok(NULL, "/")) {
+                        if (ignore_entry(cp, dname)) {
+                                DBG ("ignoring %s\n", path);
+                                if (name)
+                                        free (name);
+                                return 0;
+                        }
+                }
+#else /* FTW_SKIP_SUBTREE */
                 name = strdup (path);
 
                 name[strlen(name)] = '\0';
@@ -494,17 +522,14 @@ process_entry (const char *path, const struct stat *sb,
                         bname++;
 
                 dname = dirname (name);
-                for ( i = 0; i < arequal_config.directories_ignored; i++) {
-                        if ((strcmp (bname, arequal_config.ignored_directory[i])
-                             == 0) && (strcmp (arequal_config.test_directory,
-                                               dname) == 0)) {
+                if (ignore_entry(bname, dname)) {
                                 DBG ("ignoring %s\n", bname);
                                 ret = FTW_SKIP_SUBTREE;
                                 if (name)
                                         free (name);
                                 return ret;
-                        }
                 }
+#endif /* FTW_SKIP_SUBTREE */
         }
 
         DBG ("processing entry %s\n", path);
