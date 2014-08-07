@@ -19,7 +19,7 @@ make_files() {
 
 bug_1113050_workaround() {
     # Test if graph change has settled (bug-1113050?)
-    test=$(stat --printf "%n:%Y," $1 2>&1)
+    test=$(stat -c "%n:%Y" $1 2>&1 | tr '\n' ',')
     if [ $? -eq 0 ] ; then
 	echo RECONNECTED
     else
@@ -41,7 +41,7 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0
 TEST make_files $M0/subdir
 
 # Get mtime before migration
-BEFORE="$(stat --printf "%n:%Y," $M0/subdir/*)"
+BEFORE="$(stat -c %n:%Y $M0/subdir/* | tr '\n' ',')"
 
 # Migrate brick
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}1
@@ -51,7 +51,7 @@ TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}0 commit
 
 # Get mtime after migration
 EXPECT_WITHIN 5 RECONNECTED bug_1113050_workaround $M0/subdir/*
-AFTER="$(stat --printf "%n:%Y," $M0/subdir/*)"
+AFTER="$(stat -c %n:%Y $M0/subdir/* | tr '\n' ',')"
 
 # Check if mtime is unchanged
 TEST [ "$AFTER" == "$BEFORE" ]

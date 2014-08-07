@@ -25,8 +25,8 @@ require_fallocate -l 1m -n $M0/file && rm -f $M0/file
 
 # fallocate a file and verify blocks are allocated
 TEST fallocate -l 1m $M0/file
-blksz=`stat --printf=%b $M0/file`
-nblks=`stat --printf=%B $M0/file`
+blksz=`stat -c %b $M0/file`
+nblks=`stat -c %B $M0/file`
 TEST [ $(($blksz * $nblks)) -eq 1048576 ]
 
 TEST unlink $M0/file
@@ -35,9 +35,9 @@ TEST unlink $M0/file
 # change
 TEST truncate --size=1m $M0/file
 TEST fallocate -l 2m -n $M0/file
-blksz=`stat --printf=%b $M0/file`
-nblks=`stat --printf=%B $M0/file`
-sz=`stat --printf=%s $M0/file`
+blksz=`stat -c %b $M0/file`
+nblks=`stat -c %B $M0/file`
+sz=`stat -c %s $M0/file`
 TEST [ $sz -eq 1048576 ]
 # Note that gluster currently incorporates a hack to limit the number of blocks
 # reported as allocated to the file by the file size. We have allocated beyond the

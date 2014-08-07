@@ -31,12 +31,12 @@ require_fallocate -p -l 512k $M0/file && rm -f $M0/file
 
 # allocate some blocks, punch a hole and verify block allocation
 TEST fallocate -l 1m $M0/file
-blksz=`stat --printf=%B $M0/file`
-nblks=`stat --printf=%b $M0/file`
+blksz=`stat -c %B $M0/file`
+nblks=`stat -c %b $M0/file`
 TEST [ $(($blksz * $nblks)) -ge 1048576 ]
 TEST fallocate -p -o 512k -l 128k $M0/file
 
-nblks=`stat --printf=%b $M0/file`
+nblks=`stat -c %b $M0/file`
 # allow some room for xattr blocks
 TEST [ $(($blksz * $nblks)) -lt $((917504 + 16384)) ]
 TEST unlink $M0/file

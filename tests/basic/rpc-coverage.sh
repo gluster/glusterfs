@@ -71,7 +71,7 @@ function test_statfs()
 {
     local size;
 
-    size=$(stat -f -c '%s' $PFX/dir/file);
+    size=$(stat -c -c '%s' $PFX/dir/file);
     test "x$size" != "x0" || fail "statfs"
 }
 

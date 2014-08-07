@@ -313,7 +313,7 @@ function data_written_count {
 }
 
 function has_holes {
-        if [ $((`stat -c '%b*%B-%s' -- $1`)) -lt 0 ];
+        if [ $((`stat -c '%b*%B-%s' $1`)) -lt 0 ];
         then
                 echo "1"
         else
