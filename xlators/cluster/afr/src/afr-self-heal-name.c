@@ -263,23 +263,21 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 
 int
 __afr_selfheal_name_finalize_source (xlator_t *this, unsigned char *sources,
-				     unsigned char *sinks, unsigned char *locked_on,
+				     unsigned char *healed_sinks,
+                                     unsigned char *locked_on,
 				     struct afr_reply *replies)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
 	int source = -1;
-	int locked_count = 0;
 	int sources_count = 0;
-	int sinks_count = 0;
 
 	priv = this->private;
 
-	locked_count = AFR_COUNT (locked_on, priv->child_count);
 	sources_count = AFR_COUNT (sources, priv->child_count);
-	sinks_count = AFR_COUNT (sinks, priv->child_count);
 
-	if (locked_count == sinks_count || !sources_count) {
+	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
+            || !sources_count) {
 		return -1;
 	}
 
@@ -304,7 +302,6 @@ __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *paren
 	int ret = -1;
 	int source = -1;
 	afr_private_t *priv = NULL;
-	int i = 0;
 
 	priv = this->private;
 
@@ -318,24 +315,24 @@ __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *paren
 	if (ret)
 		return ret;
 
-	source = __afr_selfheal_name_finalize_source (this, sources, sinks,
+        /* Initialize the healed_sinks[] array optimistically to
+           the intersection of to-be-healed (i.e sinks[]) and
+           the list of servers which are up (i.e locked_on[]).
+
+           As we encounter failures in the healing process, we
+           will unmark the respective servers in the healed_sinks[]
+           array.
+        */
+        AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
+
+	source = __afr_selfheal_name_finalize_source (this, sources,
+                                                      healed_sinks,
 						      locked_on, replies);
 	if (source < 0) {
 		/* If source is < 0 (typically split-brain), we perform a
 		   conservative merge of entries rather than erroring out */
 	}
 	*source_p = source;
-
-	for (i = 0; i < priv->child_count; i++)
-		/* Initialize the healed_sinks[] array optimistically to
-		   the intersection of to-be-healed (i.e sinks[]) and
-		   the list of servers which are up (i.e locked_on[]).
-
-		   As we encounter failures in the healing process, we
-		   will unmark the respective servers in the healed_sinks[]
-		   array.
-		*/
-		healed_sinks[i] = sinks[i] && locked_on[i];
 
 	return ret;
 }

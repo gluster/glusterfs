@@ -88,7 +88,7 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 static int
 __afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
-					 unsigned char *sinks,
+					 unsigned char *healed_sinks,
 					 unsigned char *locked_on,
 					 struct afr_reply *replies)
 {
@@ -96,26 +96,23 @@ __afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
 	afr_private_t *priv = NULL;
 	struct iatt first = {0, };
 	int source = -1;
-	int locked_count = 0;
 	int sources_count = 0;
-	int sinks_count = 0;
 
 	priv = this->private;
 
-	locked_count = AFR_COUNT (locked_on, priv->child_count);
 	sources_count = AFR_COUNT (sources, priv->child_count);
-	sinks_count = AFR_COUNT (sinks, priv->child_count);
 
-	if (locked_count == sinks_count || !sources_count) {
+	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
+            || !sources_count) {
 		if (!priv->metadata_splitbrain_forced_heal) {
 			return -EIO;
 		}
 		/* Metadata split brain, select one subvol
 		   arbitrarily */
 		for (i = 0; i < priv->child_count; i++) {
-			if (locked_on[i] && sinks[i]) {
+			if (locked_on[i] && healed_sinks[i]) {
 				sources[i] = 1;
-				sinks[i] = 0;
+				healed_sinks[i] = 0;
 				break;
 			}
 		}
@@ -138,7 +135,7 @@ __afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
 		    !IA_EQUAL (first, replies[i].poststat, gid) ||
 		    !IA_EQUAL (first, replies[i].poststat, prot)) {
 			sources[i] = 0;
-			sinks[i] = 1;
+			healed_sinks[i] = 1;
 		}
 	}
 
@@ -155,7 +152,6 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	int ret = -1;
 	int source = -1;
 	afr_private_t *priv = NULL;
-	int i = 0;
 
 	priv = this->private;
 
@@ -170,21 +166,21 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	if (ret)
 		return ret;
 
-	source = __afr_selfheal_metadata_finalize_source (this, sources, sinks,
+        /* Initialize the healed_sinks[] array optimistically to
+           the intersection of to-be-healed (i.e sinks[]) and
+           the list of servers which are up (i.e locked_on[]).
+
+           As we encounter failures in the healing process, we
+           will unmark the respective servers in the healed_sinks[]
+           array.
+        */
+        AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
+
+	source = __afr_selfheal_metadata_finalize_source (this, sources,
+                                                          healed_sinks,
 							  locked_on, replies);
 	if (source < 0)
 		return -EIO;
-
-	for (i = 0; i < priv->child_count; i++)
-		/* Initialize the healed_sinks[] array optimistically to
-		   the intersection of to-be-healed (i.e sinks[]) and
-		   the list of servers which are up (i.e locked_on[]).
-
-		   As we encounter failures in the healing process, we
-		   will unmark the respective servers in the healed_sinks[]
-		   array.
-		*/
-		healed_sinks[i] = sinks[i] && locked_on[i];
 
 	return source;
 }
