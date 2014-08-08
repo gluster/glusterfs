@@ -7,7 +7,7 @@
 
 cleanup
 
-tmp=`mktemp -d`
+tmp=`mktemp -d -t ${0##*/}.XXXXXX`
 if [ ! -d $tmp ]; then
     exit 1
 fi

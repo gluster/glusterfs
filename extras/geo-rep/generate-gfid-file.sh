@@ -18,7 +18,7 @@ function mount_client()
     GFID_CMD=$3;
     OUTPUT=$4;
 
-    T=$(mktemp -d);
+    T=$(mktemp -d -t ${0##*/}.XXXXXX);
 
     glusterfs -s $VOLFILE_SERVER --volfile-id $VOLUME $T;
 

@@ -24,7 +24,7 @@ function cmd_master()
     cmd_line=$(cat <<EOF
 function do_verify() {
 v=\$1;
-d=\$(mktemp -d 2>/dev/null);
+d=\$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
 glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id \$v -l $slave_log_file \$d;
 i=\$(stat -c "%i" \$d);
 if [[ "\$i" -ne "1" ]]; then
@@ -80,7 +80,7 @@ function slave_stats()
     local ver;
     local status;
 
-    d=$(mktemp -d 2>/dev/null);
+    d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
     glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
     i=$(stat -c "%i" $d);
     if [[ "$i" -ne "1" ]]; then

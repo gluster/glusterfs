@@ -12,7 +12,7 @@
 ##---------------------------------------------------------------------------
 
 QUOTA_CONFIG_XATTR="trusted.glusterfs.quota.limit-set";
-MOUNT_DIR=`mktemp --directory --tmpdir`;
+MOUNT_DIR=`mktemp -d -t ${0##*/}.XXXXXX`;
 OPTSPEC="volname:,version:,gd-workdir:,volume-op:"
 PROGNAME="Quota-xattr-heal-add-brick"
 VOL_NAME=

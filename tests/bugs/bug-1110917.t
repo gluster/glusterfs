@@ -17,7 +17,7 @@ TEST $CLI volume set $V0 changelog on
 TEST $CLI volume set $V0 changelog.fsync-interval 1
 
 # perform I/O on the background
-f=$(basename `mktemp`)
+f=$(basename `mktemp -t ${0##*/}.XXXXXX`)
 dd if=/dev/urandom of=$M0/$f count=100000 bs=4k &
 
 # this is the best we can do without inducing _error points_ in the code
