@@ -143,7 +143,7 @@ EXPECT 'Started' volinfo_field $V0 'Status'
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
 
 # Create local files for comparisons etc.
-tmpdir=$(mktemp -d)
+tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
 trap "rm -rf $tmpdir" EXIT
 TEST create_file $tmpdir/create-write 10
 TEST create_file $tmpdir/truncate 10

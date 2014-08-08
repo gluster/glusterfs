@@ -75,7 +75,7 @@ function mount_client()
     GFID_FILE=$3
     SYNC_CMD=$4
 
-    T=$(mktemp -d);
+    T=$(mktemp -d -t ${0##*/}.XXXXXX);
 
     glusterfs --aux-gfid-mount -s $1 --volfile-id $2 $T;
 
