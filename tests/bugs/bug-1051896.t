@@ -17,8 +17,8 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --acl -s $H0 --volfile-id
 
 TEST touch $M0/file1;
 
-$CC -lacl $(dirname $0)/bug-1051896.c -o $(dirname $0)/bug-1051896
+TEST $CC $(dirname $0)/bug-1051896.c -o $(dirname $0)/bug-1051896 -lacl
 TEST ! $(dirname $0)/bug-1051896 $M0/file1 m 'u::r,u::w,g::r--,o::r--'
-rm -f $(dirname $0)/bug-1051896
+TEST rm -f $(dirname $0)/bug-1051896
 
 cleanup

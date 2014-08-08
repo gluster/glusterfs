@@ -9,7 +9,8 @@ function check_dependencies()
     MISSING=""
 
     # Check for dbench
-    if [ ! -x /usr/bin/dbench ]; then
+    env dbench --usage > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
         MISSING="$MISSING dbench"
     fi
 
@@ -36,9 +37,9 @@ function check_dependencies()
         MISSING="$MISSING perl-Test-Harness"
     fi
 
-    # Check for YAJL
-    if [ ! -x /usr/bin/json_verify ]; then
-        MISSING="$MISSING yajl"
+    which json_verify > /dev/null
+    if [ $? -ne 0 ]; then
+        MISSING="$MISSING json_verify"
     fi
 
     # Check for XFS programs

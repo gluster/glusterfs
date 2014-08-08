@@ -7,7 +7,7 @@ cleanup;
 
 ## Start and create a volume
 TEST glusterd;
-TEST pidof glusterd
+TEST pidof glusterd;
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2 stripe 2 $H0:$B0/${V0}{1,2,3,4,5,6,7,8};
@@ -62,7 +62,7 @@ TEST kill -USR1 $mount_pid;
 sleep 2;
 for file_name in $(ls $dump_dir)
 do
-    TEST grep "xlator.mount.fuse.history" $dump_dir/$file_name;
+    TEST grep -q "xlator.mount.fuse.history" $dump_dir/$file_name;
 done
 
 ## Finish up
