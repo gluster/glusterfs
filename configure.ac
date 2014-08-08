@@ -614,13 +614,18 @@ AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
-# CDC xlator - check if libz is present if so enable HAVE_LIB_Z
-echo -n "checking if libz is present... "
-
-PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],
-                  [echo "yes (features requiring zlib enabled)"  AC_DEFINE(HAVE_LIB_Z, 1, [define if zlib is present])],
-                  [echo "no"] )
-
+# CDC xlator - check if libz is present if so enable HAVE_LIB_Z 
+BUILD_CDC=yes
+PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
+                  [AC_CHECK_LIB([z], [deflate], [LIBZ_LIBS="-lz"],
+                                [BUILD_CDC=no])])
+echo -n "features requiring zlib enabled: "
+if test "x$BUILD_CDC" = "xyes" ; then
+  echo "yes"
+  AC_DEFINE(HAVE_LIB_Z, 1, [define if zlib is present])
+else
+  echo "no"
+fi
 AC_SUBST(LIBZ_CFLAGS)
 AC_SUBST(LIBZ_LIBS)
 # end CDC xlator secion
