@@ -19,6 +19,7 @@
 #include "rpc-clnt.h"
 #include "xdr-generic.h"
 #include "protocol-common.h"
+#include "syscall.h"
 #include <pthread.h>
 
 static pthread_mutex_t  mutex   = PTHREAD_MUTEX_INITIALIZER;
