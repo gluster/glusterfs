@@ -369,6 +369,7 @@ struct glusterd_volinfo_ {
         char                     *logdir;
 
         dict_t                   *gsync_slaves;
+        dict_t                   *gsync_active_slaves;
 
         int                       decommission_in_progress;
         xlator_t                 *xl;

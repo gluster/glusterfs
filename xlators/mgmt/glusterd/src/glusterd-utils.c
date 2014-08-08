@@ -492,8 +492,16 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
         new_volinfo->gsync_slaves = dict_new ();
         if (!new_volinfo->gsync_slaves) {
+                dict_unref (new_volinfo->dict);
                 GF_FREE (new_volinfo);
+                goto out;
+        }
 
+        new_volinfo->gsync_active_slaves = dict_new ();
+        if (!new_volinfo->gsync_active_slaves) {
+                dict_unref (new_volinfo->dict);
+                dict_unref (new_volinfo->gsync_slaves);
+                GF_FREE (new_volinfo);
                 goto out;
         }
 
@@ -557,6 +565,8 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
 
         dict_copy (volinfo->dict, new_volinfo->dict);
         dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);
+        dict_copy (volinfo->gsync_active_slaves,
+                   new_volinfo->gsync_active_slaves);
         gd_update_volume_op_versions (new_volinfo);
 
         if (set_userauth) {
@@ -623,6 +633,29 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
         dup_brickinfo->snap_status = brickinfo->snap_status;
 out:
         return ret;
+}
+/*
+ * gd_vol_is_geo_rep_active:
+ *      This function checks for any running geo-rep session for
+ *      the volume given.
+ *
+ * Return Value:
+ *      _gf_true : If any running geo-rep session.
+ *      _gf_false: If no running geo-rep session.
+ */
+
+gf_boolean_t
+gd_vol_is_geo_rep_active (glusterd_volinfo_t *volinfo)
+{
+        gf_boolean_t     active = _gf_false;
+
+        GF_ASSERT (volinfo);
+
+        if (volinfo->gsync_active_slaves &&
+            volinfo->gsync_active_slaves->count > 0)
+                active = _gf_true;
+
+        return active;
 }
 
 /*
@@ -951,6 +984,8 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
                 dict_unref (volinfo->dict);
         if (volinfo->gsync_slaves)
                 dict_unref (volinfo->gsync_slaves);
+        if (volinfo->gsync_active_slaves)
+                dict_unref (volinfo->gsync_active_slaves);
         GF_FREE (volinfo->logdir);
         if (volinfo->rebal.dict)
                 dict_unref (volinfo->rebal.dict);
@@ -6832,21 +6867,24 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         char               *slave_vol                   = NULL;
         char               *slave_host                  = NULL;
         char               *statefile                   = NULL;
-        char                         buf[1024]          = "faulty";
+        char                buf[1024]                   = "faulty";
         int                 uuid_len                    = 0;
         int                 ret                         = 0;
         int                 op_ret                      = 0;
         int                 ret_status                  = 0;
-        char                         uuid_str[64]       = {0};
+        char                uuid_str[64]                = {0};
         glusterd_volinfo_t *volinfo                     = NULL;
-        char                         confpath[PATH_MAX] = "";
+        char                confpath[PATH_MAX]          = "";
         char               *op_errstr                   = NULL;
         glusterd_conf_t    *priv                        = NULL;
         gf_boolean_t        is_template_in_use          = _gf_false;
-        gf_boolean_t        is_paused                    = _gf_false;
+        gf_boolean_t        is_paused                   = _gf_false;
+        char               *key1                        = NULL;
+        xlator_t           *this1                       = NULL;
 
-        GF_ASSERT (THIS);
-        priv = THIS->private;
+        this1 = THIS;
+        GF_ASSERT (this1);
+        priv = this1->private;
         GF_ASSERT (priv);
         GF_ASSERT (data);
 
@@ -6867,7 +6905,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = glusterd_get_slave_info (slave, &slave_url, &slave_host,
                                        &slave_vol, &op_errstr);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_log (this1->name, GF_LOG_ERROR,
                         "Unable to fetch slave details.");
                 ret = -1;
                 goto out;
@@ -6885,10 +6923,10 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                                            &is_template_in_use);
         if (ret) {
                 if (!strstr(slave, "::"))
-                        gf_log ("", GF_LOG_INFO,
+                        gf_log (this1->name, GF_LOG_INFO,
                                 "%s is not a valid slave url.", slave);
                 else
-                        gf_log ("", GF_LOG_INFO, "Unable to get"
+                        gf_log (this1->name, GF_LOG_INFO, "Unable to get"
                                 " statefile's name");
                 goto out;
         }
@@ -6896,7 +6934,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         /* If state-file entry is missing from the config file,
          * do not start gsyncd on restart */
         if (is_template_in_use) {
-                gf_log ("", GF_LOG_INFO,
+                gf_log (this1->name, GF_LOG_INFO,
                         "state-file entry is missing in config file."
                         "Not Restarting");
                 goto out;
@@ -6907,14 +6945,14 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = gsync_status (volinfo->volname, slave, confpath,
                             &ret_status, &is_template_in_use);
         if (ret == -1) {
-                gf_log ("", GF_LOG_INFO,
+                gf_log (this1->name, GF_LOG_INFO,
                         GEOREP" start option validation failed ");
                 ret = 0;
                 goto out;
         }
 
         if (is_template_in_use == _gf_true) {
-                gf_log ("", GF_LOG_INFO,
+                gf_log (this1->name, GF_LOG_INFO,
                         "pid-file entry is missing in config file."
                         "Not Restarting");
                 ret = 0;
@@ -6923,16 +6961,20 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 
         ret = glusterd_gsync_read_frm_status (statefile, buf, sizeof (buf));
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read the status");
+                gf_log (this1->name, GF_LOG_ERROR, "Unable to read the status");
                 goto out;
         }
+
+        /* Move the pointer two characters ahead to surpass '//' */
+        if ((key1 = strchr (slave, '/')))
+                key1 = key1 + 2;
 
         /* Looks for the last status, to find if the sessiom was running
          * when the node went down. If the session was not started or
          * not started, do not restart the geo-rep session */
         if ((!strcmp (buf, "Not Started")) ||
             (!strcmp (buf, "Stopped"))) {
-                gf_log ("", GF_LOG_INFO,
+                gf_log (this1->name, GF_LOG_INFO,
                         "Geo-Rep Session was not started between "
                         "%s and %s::%s. Not Restarting", volinfo->volname,
                         slave_url, slave_vol);
@@ -6940,7 +6982,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         } else if (strstr(buf, "Paused")) {
                 is_paused = _gf_true;
         } else if ((!strcmp (buf, "Config Corrupted"))) {
-                gf_log ("", GF_LOG_INFO,
+                gf_log (this1->name, GF_LOG_INFO,
                         "Recovering from a corrupted config. "
                         "Not Restarting. Use start (force) to "
                         "start the session between %s and %s::%s.",
@@ -6949,12 +6991,24 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 goto out;
         }
 
-        if (is_paused)
+        if (is_paused) {
                 glusterd_start_gsync (volinfo, slave, path_list, confpath,
                                       uuid_str, NULL, _gf_true);
-        else
-                glusterd_start_gsync (volinfo, slave, path_list, confpath,
+        }
+        else {
+               /* Add slave to the dict indicating geo-rep session is running*/
+               ret = dict_set_dynstr_with_alloc (volinfo->gsync_active_slaves,
+                                                 key1, "running");
+               if (ret) {
+                       gf_log (this1->name, GF_LOG_ERROR, "Unable to set key:%s"
+                               " value:running in the dict", key1);
+                       goto out;
+               }
+               ret = glusterd_start_gsync (volinfo, slave, path_list, confpath,
                                       uuid_str, NULL, _gf_false);
+               if (ret)
+                       dict_del (volinfo->gsync_active_slaves, key1);
+        }
 
 out:
         if (statefile)
@@ -6965,7 +7019,7 @@ out:
                                                      slave_host, slave_vol,
                                                      "Config Corrupted");
                if (op_ret) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this1->name, GF_LOG_ERROR,
                                 "Unable to create status file"
                                 ". Error : %s", strerror (errno));
                         ret = op_ret;
