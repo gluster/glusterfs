@@ -763,6 +763,9 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
 int32_t
 glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
 
+gf_boolean_t
+gd_vol_is_geo_rep_active (glusterd_volinfo_t *volinfo);
+
 int32_t
 glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
                            glusterd_volinfo_t *dest_vol);

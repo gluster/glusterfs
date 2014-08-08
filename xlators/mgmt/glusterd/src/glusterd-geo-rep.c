@@ -3735,18 +3735,22 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
                                       char *conf_path, gf_boolean_t is_force)
 {
 
-        int                    ret = 0;
-        glusterd_conf_t        *priv = NULL;
-        char                   *status_msg = NULL;
-        gf_boolean_t           is_running = _gf_false;
-        char                   *op_errstr = NULL;
+        int                    ret              = 0;
+        glusterd_conf_t        *priv            = NULL;
+        char                   *status_msg      = NULL;
+        gf_boolean_t           is_running       = _gf_false;
+        char                   *op_errstr       = NULL;
+        char                   *key             = NULL;
+        xlator_t               *this            = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
-        GF_ASSERT (THIS);
-        GF_ASSERT (THIS->private);
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
 
-        priv = THIS->private;
+        key  = slave;
 
         ret = glusterd_check_gsync_running_local (volinfo->volname,
                                                   slave, conf_path,
@@ -3761,13 +3765,28 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
         if (ret == 0 && status_msg)
                 ret = dict_set_str (resp_dict, "gsync-status",
                                     status_msg);
-        if (ret == 0)
+        if (ret == 0) {
+                dict_del (volinfo->gsync_active_slaves, key);
                 ret = glusterd_start_gsync (volinfo, slave, path_list,
                                             conf_path, uuid_utoa(MY_UUID),
                                             NULL, _gf_false);
+                if (!ret) {
+                        /* Add slave to the dict indicating geo-rep session is
+                         * running.*/
+                        ret = dict_set_dynstr_with_alloc (
+                                              volinfo->gsync_active_slaves,
+                                              key, "running");
+                        if (ret) {
+                              gf_log (this->name, GF_LOG_ERROR, "Unable to set "
+                                      "key:%s value:running in dict. But the "
+                                      "config succeeded.", key);
+                              goto out;
+                        }
+                }
+        }
 
  out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -4422,30 +4441,32 @@ out:
 int
 glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
-        int32_t             ret     = -1;
-        int32_t             type    = -1;
-        char               *host_uuid = NULL;
-        char               *slave  = NULL;
-        char               *slave_url = NULL;
-        char               *slave_vol = NULL;
-        char               *slave_host = NULL;
-        char               *volname = NULL;
-        char               *path_list = NULL;
-        glusterd_volinfo_t *volinfo = NULL;
-        glusterd_conf_t    *priv = NULL;
-        gf_boolean_t        is_force = _gf_false;
-        char               *status_msg = NULL;
-        gf_boolean_t        is_running = _gf_false;
-        char               *conf_path = NULL;
-        char               errmsg[PATH_MAX] = "";
+        int32_t             ret                 = -1;
+        int32_t             type                = -1;
+        char               *host_uuid           = NULL;
+        char               *slave               = NULL;
+        char               *slave_url           = NULL;
+        char               *slave_vol           = NULL;
+        char               *slave_host          = NULL;
+        char               *volname             = NULL;
+        char               *path_list           = NULL;
+        glusterd_volinfo_t *volinfo             = NULL;
+        glusterd_conf_t    *priv                = NULL;
+        gf_boolean_t        is_force            = _gf_false;
+        char               *status_msg          = NULL;
+        gf_boolean_t        is_running          = _gf_false;
+        char               *conf_path           = NULL;
+        char                errmsg[PATH_MAX]    = "";
+        char               *key                 = NULL;
+        xlator_t           *this                = NULL;
 
-        GF_ASSERT (THIS);
-        GF_ASSERT (THIS->private);
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
         GF_ASSERT (rsp_dict);
-
-        priv = THIS->private;
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret < 0)
@@ -4464,27 +4485,31 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret < 0)
                 goto out;
 
+        key = slave;
+
         ret = dict_get_str (dict, "slave_url", &slave_url);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave url.");
+                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch slave url.");
                 goto out;
         }
 
         ret = dict_get_str (dict, "slave_host", &slave_host);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave hostname.");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to fetch slave hostname.");
                 goto out;
         }
 
         ret = dict_get_str (dict, "slave_vol", &slave_vol);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave volume name.");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to fetch slave volume name.");
                 goto out;
         }
 
         ret = dict_get_str (dict, "conf_path", &conf_path);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Unable to fetch conf file path.");
                 goto out;
         }
@@ -4492,8 +4517,8 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (dict_get_str (dict, "master", &volname) == 0) {
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_WARNING, "Volinfo for %s (master)"
-                                " not found", volname);
+                        gf_log (this->name, GF_LOG_WARNING, "Volinfo for"
+                                " %s (master) not found", volname);
                         goto out;
                 }
 
@@ -4506,7 +4531,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (!ret) {
                         ret = dict_set_str (rsp_dict, "conf_path", conf_path);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR,
+                                gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to store conf_file_path.");
                                 goto out;
                         }
@@ -4536,17 +4561,30 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 ret = glusterd_set_gsync_confs (volinfo);
                 if (ret != 0) {
-                        gf_log ("", GF_LOG_WARNING, "marker/changelog"
+                        gf_log (this->name, GF_LOG_WARNING, "marker/changelog"
                                 " start failed");
                         *op_errstr = gf_strdup ("Index initialization failed");
                         ret = -1;
                         goto out;
                 }
 
+                /* Add slave to the dict indicating geo-rep session is running*/
+                ret = dict_set_dynstr_with_alloc (volinfo->gsync_active_slaves,
+                                                  key, "running");
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to set key:%s"
+                                " value:running in the dict", key);
+                        goto out;
+                }
+
                 ret = glusterd_start_gsync (volinfo, slave, path_list,
                                             conf_path, host_uuid, op_errstr,
                                             _gf_false);
-        }
+
+                /* Delete added slave in the dict if start fails*/
+                if (ret)
+                        dict_del (volinfo->gsync_active_slaves, key);
+       }
 
         if (type == GF_GSYNC_OPTION_TYPE_STOP ||
             type == GF_GSYNC_OPTION_TYPE_PAUSE ||
@@ -4556,8 +4594,9 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                           &is_running);
                 if (!ret && !is_force && path_list &&
                     (_gf_true != is_running)) {
-                        gf_log ("", GF_LOG_WARNING, GEOREP" is not set up for"
-                                "%s(master) and %s(slave)", volname, slave);
+                        gf_log (this->name, GF_LOG_WARNING, GEOREP" is not set "
+                                "up for %s(master) and %s(slave)",
+                                volname, slave);
                         *op_errstr = strdup (GEOREP" is not set up");
                         goto out;
                 }
@@ -4568,17 +4607,35 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                         conf_path, op_errstr,
                                                         _gf_true);
                         if (ret)
-                                gf_log("", GF_LOG_ERROR, GEOREP
+                                gf_log(this->name, GF_LOG_ERROR, GEOREP
                                        " Pause Failed");
+                        else
+                                dict_del (volinfo->gsync_active_slaves, key);
+
                 } else if (type == GF_GSYNC_OPTION_TYPE_RESUME) {
+
+                        /* Add slave to the dict indicating geo-rep session is
+                         * running*/
+                        ret = dict_set_dynstr_with_alloc (
+                                              volinfo->gsync_active_slaves,
+                                              key, "running");
+                        if (ret) {
+                              gf_log (this->name, GF_LOG_ERROR, "Unable to set "
+                                      "key:%s value:running in dict", key);
+                              goto out;
+                        }
+
                         ret = gd_pause_or_resume_gsync (dict, volname, slave,
                                                         slave_host, slave_vol,
                                                         conf_path, op_errstr,
                                                         _gf_false);
-                        if (ret)
-                                gf_log("", GF_LOG_ERROR, GEOREP
+                        if (ret) {
+                                gf_log(this->name, GF_LOG_ERROR, GEOREP
                                        " Resume Failed");
+                                dict_del (volinfo->gsync_active_slaves, key);
+                        }
                 } else {
+
                         ret = stop_gsync (volname, slave, &status_msg,
                                           conf_path, op_errstr, is_force);
 
@@ -4591,10 +4648,11 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                            slave, slave_host,
                                                            slave_vol,"Stopped");
                                 if (ret) {
-                                        gf_log ("", GF_LOG_ERROR, "Unable to "
-                                                "update state_file. Error : %s",
-                                                strerror (errno));
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Unable to update state_file. "
+                                                "Error : %s", strerror (errno));
                                 }
+                                dict_del (volinfo->gsync_active_slaves, key);
                         }
                 }
         }
@@ -4605,7 +4663,7 @@ out:
                 path_list = NULL;
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
