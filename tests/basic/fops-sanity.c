@@ -27,6 +27,12 @@
 #include <string.h>
 #include <dirent.h>
 
+#ifndef linux
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#endif
+
 /* for fd based fops after unlink */
 int fd_based_fops_1 (char *filename);
 /* for fd based fops before unlink */
@@ -452,7 +458,11 @@ path_based_fops (char *filename)
         }
         unlink("bspecial");
 
+#ifdef linux
         ret = mknod ("fifo", S_IFIFO|S_IRWXU|S_IRWXG, 0);
+#else
+        ret = mkfifo ("fifo", 0);
+#endif
         if (ret < 0) {
                 fprintf (stderr, "fifo mknod failed: %s\n",
                          strerror(errno));
@@ -460,12 +470,31 @@ path_based_fops (char *filename)
         }
         unlink("fifo");
 
+#ifdef linux
         ret = mknod ("sock", S_IFSOCK|S_IRWXU|S_IRWXG, 0);
         if (ret < 0) {
                 fprintf (stderr, "sock mknod failed: %s\n",
                          strerror(errno));
                 result |= ret;
         }
+#else
+        {
+                int s;
+                const char *pathname = "sock";
+                struct sockaddr_un addr;
+
+                s = socket(PF_LOCAL, SOCK_STREAM, 0);
+                memset(&addr, 0, sizeof(addr));
+                strncpy(addr.sun_path, pathname, sizeof(addr.sun_path));
+                ret = bind(s, (const struct sockaddr *)&addr, SUN_LEN(&addr));
+                if (ret < 0) {
+                        fprintf (stderr, "fifo mknod failed: %s\n",
+                                 strerror(errno));
+                        result |= ret;
+                }
+                close(s);
+        }
+#endif
         unlink("sock");
 
         strcpy (newfilename, filename);
