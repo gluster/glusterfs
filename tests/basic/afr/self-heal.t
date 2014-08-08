@@ -174,7 +174,7 @@ TEST touch $M0/file
 TEST kill_brick $V0 $H0 $B0/brick0
 TEST rm -f $M0/file
 TEST touch $M0/file
-GFID=$(gf_get_gfid_xattr $B1/brick1/file)
+GFID=$(gf_get_gfid_xattr $B0/brick1/file)
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
