@@ -21,11 +21,11 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 # verify json validity
 
-TEST /usr/bin/json_verify < $M0/.meta/frames;
+TEST json_verify < $M0/.meta/frames;
 
-TEST /usr/bin/json_verify < $M0/.meta/cmdline;
+TEST json_verify < $M0/.meta/cmdline;
 
-TEST /usr/bin/json_verify < $M0/.meta/version;
+TEST json_verify < $M0/.meta/version;
 
 # default log level (INFO) is 7
 TEST grep -q 7 $M0/.meta/logging/loglevel;
