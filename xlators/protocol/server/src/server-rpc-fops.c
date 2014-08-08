@@ -4321,7 +4321,9 @@ server3_3_setxattr (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_setxattr_resume);
 
-        return ret;
+        /* 'dict' will be destroyed later when 'state' is not needed anymore */
+        dict = NULL;
+
 out:
         free (args.xdata.xdata_val);
 
@@ -4395,7 +4397,9 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fsetxattr_resume);
 
-        return ret;
+        /* 'dict' will be destroyed later when 'state' is not needed anymore */
+        dict = NULL;
+
 out:
         free (args.xdata.xdata_val);
 
@@ -4469,7 +4473,8 @@ server3_3_fxattrop (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_fxattrop_resume);
 
-        return ret;
+        /* 'dict' will be destroyed later when 'state' is not needed anymore */
+        dict = NULL;
 
 out:
         free (args.xdata.xdata_val);
@@ -4544,7 +4549,9 @@ server3_3_xattrop (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_xattrop_resume);
 
-        return ret;
+        /* 'dict' will be destroyed later when 'state' is not needed anymore */
+        dict = NULL;
+
 out:
         free (args.xdata.xdata_val);
 
@@ -6101,6 +6108,8 @@ server3_3_statfs (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_statfs_resume);
 out:
+        free (args.xdata.xdata_val);
+
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
 
