@@ -15,7 +15,7 @@ glusterrpms_without_autogen: prep srcrpm rpms
 	-rm -rf rpmbuild
 
 autogen:
-	cd /../.. \
+	cd ../.. \
 	&& rm -rf autom4te.cache \
 	&&  ./autogen.sh \
 	&&  ./configure --with-previous-options
