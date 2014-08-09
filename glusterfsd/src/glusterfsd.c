@@ -154,11 +154,8 @@ static struct argp_option gf_options[] = {
          "Enable SELinux label (extened attributes) support on inodes"},
         {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS, "0",
          OPTION_HIDDEN, "Maximum number of attempts to fetch the volfile"},
-
-#ifdef GF_LINUX_HOST_OS
         {"aux-gfid-mount", ARGP_AUX_GFID_MOUNT_KEY, 0, 0,
          "Enable access to filesystem through gfid directly"},
-#endif
         {"enable-ino32", ARGP_INODE32_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Use 32-bit inodes when mounting to workaround broken applications"
          "that don't support 64-bit inodes"},
