@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 
-branch="master";
+branch="dht-stale-layout-fixes";
 
 
 set_hooks_commit_msg()
