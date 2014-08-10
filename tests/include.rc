@@ -519,6 +519,14 @@ which md5sum > /dev/null || {
   }
 }
 
+which sha1sum > /dev/null || {
+  sha1sum() {
+    for f in $* ; do
+      sha1 $f | awk -F'[() ]' '{printf("%s  %s\n", $6, $3)}'
+    done
+  }
+}
+
 alias EXPECT='_EXPECT $LINENO'
 alias EXPECT_NOT='_EXPECT_NOT $LINENO'
 alias TEST='_TEST $LINENO'
