@@ -15,7 +15,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
-CLEANFILES = 
+CLEANFILES =
 
 $(top_builddir)/libglusterfs/src/libglusterfs.la:
 	$(MAKE) -C $(top_builddir)/libglusterfs/src/ all
