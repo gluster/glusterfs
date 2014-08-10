@@ -353,9 +353,6 @@ AC_CHECK_LIB([readline], [rl_do_undo], [RL_UNDO="yes"], [RL_UNDO="no"])
 
 AC_CHECK_LIB([intl], [gettext])
 
-dnl Erasure Code xlator requires MMX instruction set
-AC_CHECK_HEADERS([xmmintrin.h], [enable_ec_xlator=yes], [enable_ec_xlator=no])
-
 AC_CHECK_HEADERS([sys/xattr.h])
 
 AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sys/ioctl.h]))
@@ -481,14 +478,6 @@ fi
 
 AC_SUBST(FUSERMOUNT_SUBDIR)
 #end FUSERMOUNT section
-
-# Erasure Code xlator section
-BUILD_EC_XLATOR=no
-if test "x$enable_ec_xlator" = "xyes" ; then
-   EC_XLATOR_SUBDIR=ec
-   BUILD_EC_XLATOR="yes"
-fi
-AC_SUBST(EC_XLATOR_SUBDIR)
 
 # QEMU_BLOCK section
 
@@ -1153,5 +1142,4 @@ echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
-echo "Erasure Code xlator  : $BUILD_EC_XLATOR"
 echo
