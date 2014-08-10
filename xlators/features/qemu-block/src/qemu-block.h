@@ -40,7 +40,7 @@
 
 typedef struct qb_inode {
 	char fmt[QB_XATTR_VAL_MAX]; /* this is only the format, not "format:size" */
-	size_t size; /* virtual size in bytes */
+	uint64_t size; /* virtual size in bytes */
 	BlockDriverState *bs;
 	int refcnt;
 	uuid_t backing_gfid;
