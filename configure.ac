@@ -603,7 +603,7 @@ AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
-# CDC xlator - check if libz is present if so enable HAVE_LIB_Z 
+# CDC xlator - check if libz is present if so enable HAVE_LIB_Z
 BUILD_CDC=yes
 PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
                   [AC_CHECK_LIB([z], [deflate], [LIBZ_LIBS="-lz"],
@@ -716,7 +716,8 @@ fi
 AC_SUBST(HAVE_LINKAT)
 
 dnl check for Monotonic clock
-AC_CHECK_FUNC([clock_gettime], [has_monotonic_clock=yes], AC_CHECK_LIB([rt], [clock_gettime], , AC_MSG_WARN([System doesn't have monotonic clock using contrib])))
+AC_CHECK_LIB([rt], [clock_gettime], ,
+             AC_MSG_WARN([System doesn't have monotonic clock using contrib]))
 
 dnl Add cmockery2 for unit tests
 case $host_os in
@@ -924,7 +925,6 @@ case $host_os in
         GF_LDFLAGS=""
         GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
         BUILD_FUSERMOUNT="no"
-        BUILD_QEMU_BLOCK="no"
         FUSERMOUNT_SUBDIR=""
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
         ;;
