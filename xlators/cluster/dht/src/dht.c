@@ -213,6 +213,9 @@ fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
+                if (conf->lock_pool)
+                        mem_pool_destroy (conf->lock_pool);
+
                 GF_FREE (conf->subvolumes);
 
                 GF_FREE (conf->subvolume_status);
@@ -483,6 +486,14 @@ init (xlator_t *this)
                 goto err;
         }
 
+        conf->lock_pool = mem_pool_new (dht_lock_t, 512);
+        if (!conf->lock_pool) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to create lock mem_pool, failing "
+                                                "initialization");
+                goto err;
+        }
+
         this->private = conf;
 
         return 0;
@@ -503,6 +514,9 @@ err:
                 GF_FREE (conf->du_stats);
 
                 GF_FREE (conf->defrag);
+
+                if (conf->lock_pool)
+                        mem_pool_destroy (conf->lock_pool);
 
                 GF_FREE (conf);
         }
