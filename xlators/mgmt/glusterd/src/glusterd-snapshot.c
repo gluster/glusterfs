@@ -1845,6 +1845,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         loglevel = GF_LOG_WARNING;
                         goto out;
                 }
+
                 if (glusterd_is_defrag_on (volinfo)) {
                         snprintf (err_str, sizeof (err_str),
                                   "rebalance process is running for the "
@@ -1852,7 +1853,16 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         loglevel = GF_LOG_WARNING;
                         goto out;
                 }
-                /* TODO: Also check whether geo replication is running */
+
+                if (gd_vol_is_geo_rep_active (volinfo)) {
+                         snprintf (err_str, sizeof (err_str),
+                                   "geo-replication session is running for "
+                                   "the volume %s. Session needs to be "
+                                   "stopped before taking a snapshot.",
+                                   volname);
+                         loglevel = GF_LOG_WARNING;
+                         goto out;
+                }
 
                 if (volinfo->is_snap_volume == _gf_true) {
                         snprintf (err_str, sizeof (err_str),
