@@ -218,6 +218,9 @@ dht_fini (xlator_t *this)
 
                 GF_FREE (conf->subvolume_status);
 
+                if (conf->lock_pool)
+                        mem_pool_destroy (conf->lock_pool);
+
                 GF_FREE (conf);
         }
 out:
@@ -663,6 +666,14 @@ dht_init (xlator_t *this)
 
         GF_OPTION_INIT ("weighted-rebalance", conf->do_weighting, bool, err);
 
+        conf->lock_pool = mem_pool_new (dht_lock_t, 512);
+        if (!conf->lock_pool) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_INIT_FAILED,
+                        "failed to create lock mem_pool, failing "
+                        "initialization");
+                goto err;
+        }
+
         this->private = conf;
 
         return 0;
@@ -687,6 +698,9 @@ err:
                 GF_FREE (conf->xattr_name);
                 GF_FREE (conf->link_xattr_name);
                 GF_FREE (conf->wild_xattr_name);
+
+                if (conf->lock_pool)
+                        mem_pool_destroy (conf->lock_pool);
 
                 GF_FREE (conf);
         }
