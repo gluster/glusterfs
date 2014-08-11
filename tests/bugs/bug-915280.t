@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -22,17 +23,16 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-sleep 3
-
 MOUNTDIR=$N0;
-TEST mount -t nfs -o vers=3,nolock,soft,timeo=30,retrans=1 $H0:/$V0 $N0
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock,timeo=30,retrans=1
 TEST touch $N0/testfile
 
 TEST $CLI volume set $V0 debug.error-gen client
 TEST $CLI volume set $V0 debug.error-fops stat
 TEST $CLI volume set $V0 debug.error-failure 100
 
-sleep 1
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 pid_file=$(read_nfs_pidfile);
 
@@ -46,6 +46,6 @@ fi
 
 TEST [ $nfs_pid -eq $pid_file ]
 
-TEST   umount $MOUNTDIR -l
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 
 cleanup;

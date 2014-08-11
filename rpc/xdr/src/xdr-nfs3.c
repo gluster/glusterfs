@@ -8,16 +8,23 @@
   cases as published by the Free Software Foundation.
 */
 
+#if defined(__GNUC__)
+#if __GNUC__ >= 4
+#if !defined(__clang__)
+#if !defined(__NetBSD__)
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+#else
+#pragma clang diagnostic ignored "-Wunused-variable"
+#pragma clang diagnostic ignored "-Wunused-value"
+#endif
+#endif
+#endif
+
 #include "xdr-nfs3.h"
 #include "mem-pool.h"
 #include "xdr-common.h"
-
-#if GF_DARWIN_HOST_OS
-#define xdr_u_quad_t xdr_u_int64_t
-#define xdr_quad_t   xdr_int64_t
-#define xdr_uint32_t xdr_u_int32_t
-#define xdr_uint64_t xdr_u_int64_t
-#endif
 
 bool_t
 xdr_uint64 (XDR *xdrs, uint64 *objp)
@@ -1884,5 +1891,3 @@ xdr_free_write3args_nocopy (write3args *wa)
 
         FREE (wa->file.data.data_val);
 }
-
-

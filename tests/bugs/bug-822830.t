@@ -18,17 +18,37 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-## Setting nfs.rpc-auth-reject as 192.*..*
-TEST ! $CLI volume set $V0 nfs.rpc-auth-reject 192.*..*
+## Setting nfs.rpc-auth-reject as 192.{}.1.2
+TEST ! $CLI volume set $V0 nfs.rpc-auth-reject 192.{}.1.2
 EXPECT '' volinfo_field $V0 'nfs.rpc-auth-reject';
 
 # Setting nfs.rpc-auth-allow as a.a.
 TEST ! $CLI volume set $V0 nfs.rpc-auth-allow a.a.
 EXPECT '' volinfo_field $V0 'nfs.rpc-auth-allow';
 
+## Setting nfs.rpc-auth-reject as 192.*..*
+TEST $CLI volume set $V0 nfs.rpc-auth-reject 192.*..*
+EXPECT '192.*..*' volinfo_field $V0 'nfs.rpc-auth-reject';
+
 # Setting nfs.rpc-auth-allow as a.a
 TEST $CLI volume set $V0 nfs.rpc-auth-allow a.a
 EXPECT 'a.a' volinfo_field $V0 'nfs.rpc-auth-allow';
+
+# Setting nfs.rpc-auth-allow as *.redhat.com
+TEST $CLI volume set $V0 nfs.rpc-auth-allow *.redhat.com
+EXPECT '\*.redhat.com' volinfo_field $V0 'nfs.rpc-auth-allow';
+
+# Setting nfs.rpc-auth-allow as 192.168.10.[1-5]
+TEST $CLI volume set $V0 nfs.rpc-auth-allow 192.168.10.[1-5]
+EXPECT '192.168.10.\[1-5]' volinfo_field $V0 'nfs.rpc-auth-allow';
+
+# Setting nfs.rpc-auth-allow as 192.168.70.?
+TEST $CLI volume set $V0 nfs.rpc-auth-allow 192.168.70.?
+EXPECT '192.168.70.?' volinfo_field $V0 'nfs.rpc-auth-allow';
+
+# Setting nfs.rpc-auth-reject as 192.168.10.5/16
+TEST $CLI volume set $V0 nfs.rpc-auth-reject 192.168.10.5/16
+EXPECT '192.168.10.5/16' volinfo_field $V0 'nfs.rpc-auth-reject';
 
 ## Setting nfs.rpc-auth-reject as 192.*.*
 TEST $CLI volume set $V0 nfs.rpc-auth-reject 192.*.*

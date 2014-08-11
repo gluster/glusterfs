@@ -41,7 +41,7 @@ function verify_duplicate {
 }
 EXPECT 0 verify_duplicate
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;

@@ -45,7 +45,7 @@ gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
         for (i = startidx; i < (endcount - 1); i++)
                 entries[i].next_free = i + 1;
 
-        /* i has already been incremented upto the last entry. */
+        /* i has already been incremented up to the last entry. */
         entries[i].next_free = GF_FDTABLE_END;
 
         return 0;
@@ -59,7 +59,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
         uint32_t     oldmax_fds = -1;
         int          ret = -1;
 
-        if (fdtable == NULL || nr < 0) {
+        if (fdtable == NULL || nr > UINT32_MAX) {
                 gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;

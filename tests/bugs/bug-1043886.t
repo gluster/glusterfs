@@ -10,14 +10,13 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume start $V0
 
-sleep 2;
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 ## Mount volume as NFS export
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 # just a random uid/gid
 uid=22162
@@ -30,9 +29,7 @@ TEST $CLI volume set $V0 server.root-squash on;
 TEST $CLI volume set $V0 server.anonuid $uid;
 TEST $CLI volume set $V0 server.anongid $gid;
 
-sleep 2;
-
-EXPECT_WITHIN 20 "1" is_nfs_export_available;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 # create files and directories in the root of the glusterfs and nfs mount
 # which is owned by root and hence the right behavior is getting EACCESS

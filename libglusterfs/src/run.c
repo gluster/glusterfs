@@ -187,7 +187,7 @@ runner_log (runner_t *runner, const char *dom, gf_loglevel_t lvl,
         if (len > 0)
                 buf[len - 1] = '\0';
 
-        gf_log (dom, lvl, "%s: %s", msg, buf);
+        gf_log_callingfn (dom, lvl, "%s: %s", msg, buf);
 
         GF_FREE (buf);
 }

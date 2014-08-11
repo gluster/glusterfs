@@ -49,13 +49,15 @@ To install Gluster Native Client on RPM distribution-based systems
 
 2.  Ensure that TCP and UDP ports 24007 and 24008 are open on all
     Gluster servers. Apart from these ports, you need to open one port
-    for each brick starting from port 24009. For example: if you have
-    five bricks, you need to have ports 24009 to 24013 open.
+    for each brick starting from port 49152 (instead of 24009 onwards as
+    with previous releases). The brick ports assignment scheme is now
+    compliant with IANA guidelines. For example: if you have
+    five bricks, you need to have ports 49152 to 49156 open.
 
     You can use the following chains with iptables:
 
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT `
-    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT`
+    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 49152:49156 -j ACCEPT`
 
     > **Note**
     >
@@ -121,13 +123,15 @@ To install Gluster Native Client on Debian-based distributions
 
 6.  Ensure that TCP and UDP ports 24007 and 24008 are open on all
     Gluster servers. Apart from these ports, you need to open one port
-    for each brick starting from port 24009. For example: if you have
-    five bricks, you need to have ports 24009 to 24013 open.
+    for each brick starting from port 49152 (instead of 24009 onwards as
+    with previous releases). The brick ports assignment scheme is now
+    compliant with IANA guidelines. For example: if you have
+    five bricks, you need to have ports 49152 to 49156 open.
 
     You can use the following chains with iptables:
 
     `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24007:24008 -j ACCEPT `
-    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 24009:24014 -j ACCEPT`
+    `$ sudo iptables -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 49152:49156 -j ACCEPT`
 
     > **Note**
     >
@@ -235,19 +239,24 @@ transport=transport-type
 
 direct-io-mode=[enable|disable]
 
+use-readdirp=[yes|no]
+
 For example:
 
-`# mount -t glusterfs -o backupvolfile-server=volfile_server2 --volfile-max-fetch-attempts=2 log-level=WARNING,log-file=/var/log/gluster.log server1:/test-volume /mnt/glusterfs`
+`# mount -t glusterfs -o backupvolfile-server=volfile_server2,use-readdirp=no,volfile-max-fetch-attempts=2,log-level=WARNING,log-file=/var/log/gluster.log server1:/test-volume /mnt/glusterfs`
 
 If `backupvolfile-server` option is added while mounting fuse client,
 when the first volfile server fails, then the server specified in
 `backupvolfile-server` option is used as volfile server to mount the
 client.
 
-In `--volfile-max-fetch-attempts=X` option, specify the number of
+In `volfile-max-fetch-attempts=X` option, specify the number of
 attempts to fetch volume files while mounting a volume. This option is
 useful when you mount a server with multiple IP addresses or when
 round-robin DNS is configured for the server-name..
+
+If `use-readdirp` is set to ON, it forces the use of readdirp
+mode in fuse kernel module
 
 <a name="auto-mount" />
 ### Automatically Mounting Volumes
@@ -281,6 +290,8 @@ log-file=logfile
 transport=transport-type
 
 direct-io-mode=[enable|disable]
+
+use-readdirp=no
 
 For example:
 

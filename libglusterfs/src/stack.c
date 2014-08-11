@@ -101,6 +101,7 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
                 gf_proc_dump_write("frame-creation-time", "%s", timestr);
         }
 
+        gf_proc_dump_write("frame", "%p", call_frame);
         gf_proc_dump_write("ref_count", "%d", my_frame.ref_count);
         gf_proc_dump_write("translator", "%s", my_frame.this->name);
         gf_proc_dump_write("complete", "%d", my_frame.complete);
@@ -159,6 +160,7 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         gf_proc_dump_write("callstack-creation-time", "%s", timestr);
         }
 
+        gf_proc_dump_write("stack", "%p", call_stack);
         gf_proc_dump_write("uid", "%d", call_stack->uid);
         gf_proc_dump_write("gid", "%d", call_stack->gid);
         gf_proc_dump_write("pid", "%d", call_stack->pid);

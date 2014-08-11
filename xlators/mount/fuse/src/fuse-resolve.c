@@ -163,9 +163,9 @@ fuse_resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        loc_wipe (&resolve->resolve_loc);
-
         link_inode = inode_link (inode, NULL, NULL, buf);
+
+        loc_wipe (&resolve->resolve_loc);
 
         if (!link_inode)
                 goto out;

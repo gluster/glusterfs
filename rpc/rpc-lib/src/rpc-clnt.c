@@ -17,6 +17,7 @@
 #define RPC_CLNT_DEFAULT_REQUEST_COUNT 512
 
 #include "rpc-clnt.h"
+#include "rpc-clnt-ping.h"
 #include "byte-order.h"
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
@@ -108,30 +109,6 @@ out:
 	return saved_frame;
 }
 
-
-void
-saved_frames_delete (struct saved_frame *saved_frame,
-                     rpc_clnt_connection_t *conn)
-{
-        GF_VALIDATE_OR_GOTO ("rpc-clnt", saved_frame, out);
-        GF_VALIDATE_OR_GOTO ("rpc-clnt", conn, out);
-
-        pthread_mutex_lock (&conn->lock);
-        {
-                list_del_init (&saved_frame->list);
-                conn->saved_frames->count--;
-        }
-        pthread_mutex_unlock (&conn->lock);
-
-        if (saved_frame->rpcreq != NULL) {
-                rpc_clnt_reply_deinit (saved_frame->rpcreq,
-                                       conn->rpc_clnt->reqpool);
-        }
-
-        mem_put (saved_frame);
-out:
-        return;
-}
 
 
 static void
@@ -452,10 +429,6 @@ rpc_clnt_reconnect (void *conn_ptr)
         }
         pthread_mutex_unlock (&conn->lock);
 
-        if ((ret == -1) && (errno != EINPROGRESS) && (clnt->notifyfn)) {
-                clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT, NULL);
-        }
-
         return;
 }
 
@@ -552,7 +525,11 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
                         gf_timer_call_cancel (clnt->ctx, conn->ping_timer);
                         conn->ping_timer = NULL;
                         conn->ping_started = 0;
+                        rpc_clnt_unref (clnt);
                 }
+                /*reset rpc msgs stats*/
+                conn->pingcnt = 0;
+                conn->msgcnt = 0;
         }
         pthread_mutex_unlock (&conn->lock);
 
@@ -717,8 +694,9 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         }
 
         gf_log (clnt->conn.name, GF_LOG_TRACE,
-                "received rpc message (XID: 0x%lx, "
-                "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) "
+		"receivd rpc message (XID: 0x%" GF_PRI_RPC_XID ", "
+		"Ver: %" GF_PRI_RPC_VERSION ", Program: %" GF_PRI_RPC_PROG_ID ", "
+		"ProgVers: %" GF_PRI_RPC_PROG_VERS ", Proc: %" GF_PRI_RPC_PROC ") "
                 "from rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
                 rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
@@ -999,6 +977,19 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         }
         conn->rpc_clnt = clnt;
 
+        ret = dict_get_int32 (options, "ping-timeout",
+                              &conn->ping_timeout);
+        if (ret >= 0) {
+                gf_log (name, GF_LOG_DEBUG,
+                        "setting ping-timeout to %d", conn->ping_timeout);
+        } else {
+                /*TODO: Once the epoll thread model is fixed,
+                  change the default ping-timeout to 30sec */
+                gf_log (name, GF_LOG_DEBUG,
+                        "disable ping-timeout");
+                conn->ping_timeout = 0;
+        }
+
         trans = rpc_transport_load (ctx, options, name);
         if (!trans) {
                 gf_log (name, GF_LOG_WARNING, "loading of new rpc-transport"
@@ -1133,16 +1124,33 @@ rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
         return 0;
 }
 
+/* used for GF_LOG_OCCASIONALLY() */
+static int gf_auth_max_groups_log = 0;
+
 ssize_t
 xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
 {
         ssize_t ret = -1;
         XDR     xdr;
+        u_long  ngroups = 0;
+        int     max_groups = 0;
 
         if ((!dest) || (!au))
                 return -1;
 
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (au->lk_owner.lk_owner_len);
+
         xdrmem_create (&xdr, dest, GF_MAX_AUTH_BYTES, XDR_ENCODE);
+
+        if (au->groups.groups_len > max_groups) {
+                ngroups = au->groups.groups_len;
+                au->groups.groups_len = max_groups;
+
+                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log,
+                                     THIS->name, GF_LOG_WARNING,
+                                     "too many groups, reducing %ld -> %d",
+                                     ngroups, max_groups);
+        }
 
         if (!xdr_auth_glusterfs_parms_v2 (&xdr, au)) {
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -1154,6 +1162,9 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
         ret = (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base));
 
 ret:
+        if (ngroups)
+                au->groups.groups_len = ngroups;
+
         return ret;
 }
 
@@ -1319,6 +1330,8 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
         struct auth_glusterfs_parms_v2  au          = {0, };
         struct iobuf                   *request_iob = NULL;
         char                            owner[4] = {0,};
+        int                             max_groups = 0;
+        int                             max_lkowner_len = 0;
 
         if (!prog || !rpchdr || !call_frame) {
                 goto out;
@@ -1343,6 +1356,27 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
 
                 au.lk_owner.lk_owner_val = owner;
                 au.lk_owner.lk_owner_len = 4;
+        }
+
+        /* The number of groups and the size of lk_owner depend on oneother.
+         * We can truncate the groups, but should not touch the lk_owner. */
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (au.lk_owner.lk_owner_len);
+        if (au.groups.groups_len > max_groups) {
+                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log, clnt->conn.name,
+                                     GF_LOG_WARNING, "truncating grouplist "
+                                     "from %d to %d", au.groups.groups_len,
+                                     max_groups);
+
+                au.groups.groups_len = max_groups;
+        }
+
+        max_lkowner_len = GF_AUTH_GLUSTERFS_MAX_LKOWNER (au.groups.groups_len);
+        if (au.lk_owner.lk_owner_len > max_lkowner_len) {
+                gf_log (clnt->conn.name, GF_LOG_ERROR, "lkowner field is too "
+                        "big (%d), it does not fit in the rpc-header",
+                        au.lk_owner.lk_owner_len);
+                errno = E2BIG;
+                goto out;
         }
 
         gf_log (clnt->conn.name, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
@@ -1534,6 +1568,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 if ((ret >= 0) && frame) {
                         /* Save the frame in queue */
                         __save_frame (rpc, frame, rpcreq);
+                        conn->msgcnt++;
 
                         gf_log ("rpc-clnt", GF_LOG_TRACE, "submitted request "
                                 "(XID: 0x%x Program: %s, ProgVers: %d, "
@@ -1548,6 +1583,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 goto out;
         }
 
+        rpc_clnt_check_and_start_ping (rpc);
         ret = 0;
 
 out:
@@ -1587,14 +1623,16 @@ rpc_clnt_ref (struct rpc_clnt *rpc)
 static void
 rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
 {
-        rpc_clnt_connection_t *conn = NULL;
+        rpc_clnt_connection_t  *conn  = NULL;
+        rpc_transport_t        *trans = NULL;
 
         if (!rpc)
                 return;
 
         conn = &rpc->conn;
+        trans = conn->trans;
         rpc_clnt_disable (rpc);
-        rpc_transport_unref (conn->trans);
+        rpc_transport_unref (trans);
 }
 
 static void
@@ -1690,6 +1728,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                         gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
                         conn->ping_timer = NULL;
                         conn->ping_started = 0;
+                        rpc_clnt_unref (rpc);
                 }
                 trans = conn->trans;
                 conn->trans = NULL;

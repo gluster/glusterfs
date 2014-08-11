@@ -40,7 +40,7 @@ EXPECT "failed" remove_brick_start;
 #"volume remove-brick commit force: success"
 EXPECT "success" remove_brick
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;

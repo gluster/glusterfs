@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -10,13 +11,11 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2};
 TEST $CLI volume set $V0 performance.open-behind off;
 TEST $CLI volume start $V0
 
-sleep 1;
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
-sleep 1;
-
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 TEST mkdir $M0/dir;
 

@@ -38,6 +38,7 @@ typedef enum {
         GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
         GF_OPTION_TYPE_PRIORITY_LIST,
         GF_OPTION_TYPE_SIZE_LIST,
+        GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
         GF_OPTION_TYPE_MAX,
 } volume_option_type_t;
 
@@ -107,7 +108,8 @@ DECLARE_INIT_OPT(uint64_t, uint64);
 DECLARE_INIT_OPT(int64_t, int64);
 DECLARE_INIT_OPT(uint32_t, uint32);
 DECLARE_INIT_OPT(int32_t, int32);
-DECLARE_INIT_OPT(uint64_t, size);
+DECLARE_INIT_OPT(size_t, size);
+DECLARE_INIT_OPT(uint64_t, size_uint64);
 DECLARE_INIT_OPT(double, percent);
 DECLARE_INIT_OPT(double, percent_or_size);
 DECLARE_INIT_OPT(gf_boolean_t, bool);
@@ -162,8 +164,12 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
         THIS = this;                                                    \
         ret = conv (value, val_p);                                      \
         THIS = old_THIS;                                                \
-        if (ret)                                                        \
+        if (ret) {							\
+                gf_log (this->name, GF_LOG_INFO,                        \
+                        "option %s convertion failed value %s",         \
+                        key, value);                                    \
                 return ret;                                             \
+	}                                                               \
         ret = xlator_option_validate (this, key, value, opt, NULL);     \
         return ret;                                                     \
 }
@@ -188,7 +194,8 @@ DECLARE_RECONF_OPT(uint64_t, uint64);
 DECLARE_RECONF_OPT(int64_t, int64);
 DECLARE_RECONF_OPT(uint32_t, uint32);
 DECLARE_RECONF_OPT(int32_t, int32);
-DECLARE_RECONF_OPT(uint64_t, size);
+DECLARE_RECONF_OPT(size_t, size);
+DECLARE_RECONF_OPT(uint64_t, size_uint64);
 DECLARE_RECONF_OPT(double, percent);
 DECLARE_RECONF_OPT(double, percent_or_size);
 DECLARE_RECONF_OPT(gf_boolean_t, bool);

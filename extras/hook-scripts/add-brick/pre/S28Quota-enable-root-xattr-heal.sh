@@ -23,7 +23,7 @@
 OPTSPEC="volname:,version:,gd-workdir:,volume-op:"
 PROGNAME="Quota-xattr-heal-add-brick-pre"
 VOL_NAME=
-GLUSTERD_WORKING_DIR=
+GLUSTERD_WORKDIR=
 VOLUME_OP=
 VERSION=
 ENABLED_NAME="S28Quota-root-xattr-heal.sh"
@@ -42,35 +42,35 @@ eval set -- "$ARGS"
 
 while true;
 do
-        case $1 in
+    case $1 in
         --volname)
-                 shift
-                 VOL_NAME=$1
-                 ;;
+            shift
+            VOL_NAME=$1
+            ;;
         --gd-workdir)
-                 shift
-                 GLUSTERD_WORKING_DIR=$1
-                 ;;
+            shift
+            GLUSTERD_WORKDIR=$1
+            ;;
         --volume-op)
-                 shift
-                 VOLUME_OP=$1
-                 ;;
+            shift
+            VOLUME_OP=$1
+            ;;
         --version)
-                 shift
-                 VERSION=$1
-                 ;;
+            shift
+            VERSION=$1
+            ;;
         *)
-                 shift
-                 break
-                 ;;
-        esac
-        shift
+            shift
+            break
+            ;;
+    esac
+    shift
 done
 ##----------------------------------------
 
-DISABLED_STATE="$GLUSTERD_WORKING_DIR/hooks/$VERSION/add-brick/post/$DISABLED_NAME"
-ENABLED_STATE_START="$GLUSTERD_WORKING_DIR/hooks/$VERSION/start/post/$ENABLED_NAME"
-ENABLED_STATE_ADD_BRICK="$GLUSTERD_WORKING_DIR/hooks/$VERSION/add-brick/post/$ENABLED_NAME";
+DISABLED_STATE="$GLUSTERD_WORKDIR/hooks/$VERSION/add-brick/post/$DISABLED_NAME"
+ENABLED_STATE_START="$GLUSTERD_WORKDIR/hooks/$VERSION/start/post/$ENABLED_NAME"
+ENABLED_STATE_ADD_BRICK="$GLUSTERD_WORKDIR/hooks/$VERSION/add-brick/post/$ENABLED_NAME";
 
 ## Why to proceed if the required script itself is not present?
 ls $DISABLED_STATE;
@@ -80,7 +80,7 @@ then
 fi
 
 ## Is quota enabled?
-FLAG=`cat $GLUSTERD_WORKING_DIR/vols/$VOL_NAME/info | grep "^features.quota=" \
+FLAG=`cat $GLUSTERD_WORKDIR/vols/$VOL_NAME/info | grep "^features.quota=" \
       | awk -F'=' '{print $NF}'`;
 if [ "$FLAG" != "on" ]
 then
@@ -88,7 +88,7 @@ then
 fi
 
 ## Is volume started?
-FLAG=`cat $GLUSTERD_WORKING_DIR/vols/$VOL_NAME/info | grep "^status=" \
+FLAG=`cat $GLUSTERD_WORKDIR/vols/$VOL_NAME/info | grep "^status=" \
       | awk -F'=' '{print $NF}'`;
 if [ "$FLAG" != "1" ]
 then

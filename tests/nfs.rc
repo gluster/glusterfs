@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # Due to portmap registration NFS takes some time to
 # export all volumes. Therefore tests should start only
 # after exports are visible by showmount command. This
@@ -8,14 +7,21 @@
 #
 function is_nfs_export_available ()
 {
-        vol=$1
+        local vol=$1
 
         if [ "$vol" == "" ]; then
                 vol=$V0
         fi
 
-        exp=$(showmount -e 2> /dev/null | grep $vol | wc -l)
+        exp=$(showmount -e localhost 2> /dev/null | grep $vol | wc -l)
         echo "$exp"
 }
 
-
+function mount_nfs ()
+{
+        local e=$1
+        local m=$2
+        local opt=$3
+        if [ ! -z "$opt" ]; then opt=",$opt"; fi
+        mount -t nfs -o soft,intr,vers=3"$opt" $e $m
+}

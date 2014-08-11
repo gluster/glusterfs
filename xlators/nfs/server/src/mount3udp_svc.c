@@ -170,7 +170,16 @@ mountudp_program_3(struct svc_req *rqstp, register SVCXPRT *transp)
 void *
 mount3udp_thread (void *argv)
 {
+        xlator_t         *nfsx   = argv;
         register SVCXPRT *transp = NULL;
+
+        GF_ASSERT (nfsx);
+
+        if (glusterfs_this_set(nfsx)) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "failed to set xlator, "
+                        "nfs.mount-udp will not work");
+                return NULL;
+        }
 
         transp = svcudp_create(RPC_ANYSOCK);
         if (transp == NULL) {

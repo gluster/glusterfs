@@ -3,6 +3,7 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fileio.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 wait_check_status ()
@@ -31,7 +32,7 @@ addbr_rebal_till_layout_change()
         do
                 $CLI volume add-brick $V0 $H0:$B0/${V0}$l &>/dev/null
                 $CLI volume rebalance $V0 fix-layout start &>/dev/null
-                wait_check_status 15
+                wait_check_status $REBALANCE_TIMEOUT
                 if [ $? -eq 1 ]
                 then
                         break
@@ -82,7 +83,7 @@ done
 TEST [ $ret == 0 ];
 TEST fd_close $fd;
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 

@@ -7,6 +7,7 @@
 # said operations take a minimum amount of time according to the limit.
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -44,7 +45,7 @@ date2=`date +%s`
 optime=$(($date2 - $date1))
 TEST [ $optime -ge 3 ]
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

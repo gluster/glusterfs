@@ -17,12 +17,44 @@
 #include "defaults.h"
 #include "logging.h"
 #include "iobuf.h"
+#include "syscall.h"
 
 #include "changelog-helpers.h"
 #include "changelog-mem-types.h"
 
 #include "changelog-encoders.h"
 #include <pthread.h>
+
+static inline void
+__mask_cancellation (xlator_t *this)
+{
+        int ret = 0;
+
+        ret = pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to disable thread cancellation");
+}
+
+static inline void
+__unmask_cancellation (xlator_t *this)
+{
+        int ret = 0;
+
+        ret = pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to enable thread cancellation");
+}
+
+static void
+changelog_cleanup_free_mutex (void *arg_mutex)
+{
+    pthread_mutex_t *p_mutex = (pthread_mutex_t*) arg_mutex;
+
+    if (p_mutex)
+            pthread_mutex_unlock(p_mutex);
+}
 
 void
 changelog_thread_cleanup (xlator_t *this, pthread_t thr_id)
@@ -109,18 +141,62 @@ inline int
 changelog_write (int fd, char *buffer, size_t len)
 {
         ssize_t size = 0;
-        size_t writen = 0;
+        size_t written = 0;
 
-        while (writen < len) {
+        while (written < len) {
                 size = write (fd,
-                              buffer + writen, len - writen);
+                              buffer + written, len - written);
                 if (size <= 0)
                         break;
 
-                writen += size;
+                written += size;
         }
 
-        return (writen != len);
+        return (written != len);
+}
+
+int
+htime_update (xlator_t *this,
+              changelog_priv_t *priv, unsigned long ts,
+              char * buffer)
+{
+        char changelog_path[PATH_MAX+1]   = {0,};
+        int len                           = -1;
+        char x_value[25]                  = {0,};
+        /* time stamp(10) + : (1) + rolltime (12 ) + buffer (2) */
+        int ret                           = 0;
+
+        if (priv->htime_fd ==-1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime fd not available for updation");
+                ret = -1;
+                goto out;
+        }
+        strcpy (changelog_path, buffer);
+        len = strlen (changelog_path);
+        changelog_path[len] = '\0'; /* redundant */
+
+        if (changelog_write (priv->htime_fd, (void*) changelog_path, len+1 ) < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime file content write failed");
+                ret =-1;
+                goto out;
+        }
+
+        sprintf (x_value,"%lu:%d",ts, priv->rollover_count);
+
+        if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
+                       strlen (x_value),  XATTR_REPLACE)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime xattr updation failed, "
+                        "reason (%s)",strerror (errno));
+                goto out;
+        }
+
+        priv->rollover_count +=1;
+
+out:
+        return ret;
 }
 
 static int
@@ -134,6 +210,12 @@ changelog_rollover_changelog (xlator_t *this,
         char nfile[PATH_MAX] = {0,};
 
         if (priv->changelog_fd != -1) {
+                ret = fsync (priv->changelog_fd);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsync failed (reason: %s)",
+                                strerror (errno));
+                }
                 close (priv->changelog_fd);
                 priv->changelog_fd = -1;
         }
@@ -150,12 +232,22 @@ changelog_rollover_changelog (xlator_t *this,
 
         if (ret && (errno == ENOENT)) {
                 ret = 0;
+                goto out;
         }
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "error renaming %s -> %s (reason %s)",
                         ofile, nfile, strerror (errno));
+        }
+
+        if (!ret) {
+                ret = htime_update (this, priv, ts, nfile);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not update htime file");
+                        goto out;
+                }
         }
 
         if (notify) {
@@ -166,9 +258,82 @@ changelog_rollover_changelog (xlator_t *this,
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to send file name to notify thread"
                                 " (reason: %s)", strerror (errno));
+                } else {
+                        /* If this is explicit rollover initiated by snapshot,
+                         * wakeup reconfigure thread waiting for changelog to
+                         * rollover
+                         */
+                        if (priv->explicit_rollover) {
+                                priv->explicit_rollover = _gf_false;
+                                ret = pthread_mutex_lock (
+                                                   &priv->bn.bnotify_mutex);
+                                CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                                {
+                                         priv->bn.bnotify = _gf_false;
+                                         ret = pthread_cond_signal (
+                                                        &priv->bn.bnotify_cond);
+                                         CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret,
+                                                                           out);
+                                         gf_log (this->name, GF_LOG_INFO,
+                                                 "Changelog published: %s and"
+                                                 " signalled bnotify", bname);
+                                }
+                                ret = pthread_mutex_unlock (
+                                                       &priv->bn.bnotify_mutex);
+                                CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                        }
                 }
         }
 
+ out:
+        return ret;
+}
+
+/* Returns 0 on successful creation of htime file
+ * returns -1 on failure or error
+ */
+int
+htime_open (xlator_t *this,
+            changelog_priv_t * priv, unsigned long ts)
+{
+        int fd                          = -1;
+        int ret                         = 0;
+        char ht_dir_path[PATH_MAX]      = {0,};
+        char ht_file_path[PATH_MAX]     = {0,};
+        int flags                       = 0;
+
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
+
+        /* get the htime file name in ht_file_path */
+        (void) snprintf (ht_file_path,PATH_MAX,"%s/%s.%lu",ht_dir_path,
+                        HTIME_FILE_NAME, ts);
+
+        flags |= (O_CREAT | O_RDWR | O_SYNC);
+        fd = open (ht_file_path, flags,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unable to open/create htime file: %s"
+                        "(reason: %s)", ht_file_path, strerror (errno));
+                ret = -1;
+                goto out;
+
+        }
+
+        if (sys_fsetxattr (fd, HTIME_KEY, HTIME_INITIAL_VALUE,
+                       sizeof (HTIME_INITIAL_VALUE)-1,  0)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Htime xattr initialization failed");
+                ret = -1;
+                goto out;
+        }
+
+        /* save this htime_fd in priv->htime_fd */
+        priv->htime_fd = fd;
+        /* initialize rollover-number in priv to 1 */
+        priv->rollover_count = 1;
+
+out:
         return ret;
 }
 
@@ -271,7 +436,7 @@ changelog_handle_change (xlator_t *this,
         int ret = 0;
 
         if (CHANGELOG_TYPE_IS_ROLLOVER (cld->cld_type)) {
-                changelog_encode_change(priv);
+                changelog_encode_change (priv);
                 ret = changelog_start_next_change (this, priv,
                                                    cld->cld_roll_time,
                                                    cld->cld_finale);
@@ -378,6 +543,80 @@ changelog_inject_single_event (xlator_t *this,
         return priv->cd.dispatchfn (this, priv, priv->cd.cd_data, cld, NULL);
 }
 
+/* Wait till all the black fops are drained */
+void
+changelog_drain_black_fops (xlator_t *this, changelog_priv_t *priv)
+{
+        int ret = 0;
+
+        /* clean up framework of pthread_mutex is required here as
+         * 'reconfigure' terminates the changelog_rollover thread
+         * on graph change.
+         */
+        pthread_cleanup_push (changelog_cleanup_free_mutex,
+                                        &priv->dm.drain_black_mutex);
+        ret = pthread_mutex_lock (&priv->dm.drain_black_mutex);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "pthread error:"
+                        " Error:%d", ret);
+        while (priv->dm.black_fop_cnt > 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Condtional wait on black fops: %ld",
+                        priv->dm.black_fop_cnt);
+                priv->dm.drain_wait_black = _gf_true;
+                ret = pthread_cond_wait (&priv->dm.drain_black_cond,
+                                         &priv->dm.drain_black_mutex);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "pthread"
+                                " cond wait failed: Error:%d", ret);
+        }
+        priv->dm.drain_wait_black = _gf_false;
+        ret = pthread_mutex_unlock (&priv->dm.drain_black_mutex);
+        pthread_cleanup_pop (0);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "pthread error:"
+                        " Error:%d", ret);
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Woke up: Conditional wait on black fops");
+}
+
+/* Wait till all the white  fops are drained */
+void
+changelog_drain_white_fops (xlator_t *this, changelog_priv_t *priv)
+{
+        int ret = 0;
+
+        /* clean up framework of pthread_mutex is required here as
+         * 'reconfigure' terminates the changelog_rollover thread
+         * on graph change.
+         */
+        pthread_cleanup_push (changelog_cleanup_free_mutex,
+                                        &priv->dm.drain_white_mutex);
+        ret = pthread_mutex_lock (&priv->dm.drain_white_mutex);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "pthread error:"
+                        " Error:%d", ret);
+        while (priv->dm.white_fop_cnt > 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Condtional wait on white fops : %ld",
+                        priv->dm.white_fop_cnt);
+                priv->dm.drain_wait_white = _gf_true;
+                ret = pthread_cond_wait (&priv->dm.drain_white_cond,
+                                         &priv->dm.drain_white_mutex);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "pthread"
+                                " cond wait failed: Error:%d", ret);
+        }
+        priv->dm.drain_wait_white = _gf_false;
+        ret = pthread_mutex_unlock (&priv->dm.drain_white_mutex);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "pthread error:"
+                        " Error:%d", ret);
+        pthread_cleanup_pop (0);
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Woke up: Conditional wait on white fops");
+}
+
 /**
  * TODO: these threads have many thing in common (wake up after
  * a certain time etc..). move them into separate routine.
@@ -385,23 +624,106 @@ changelog_inject_single_event (xlator_t *this,
 void *
 changelog_rollover (void *data)
 {
-        int                     ret   = 0;
-        xlator_t               *this  = NULL;
-        struct timeval          tv    = {0,};
-        changelog_log_data_t    cld   = {0,};
-        changelog_time_slice_t *slice = NULL;
-        changelog_priv_t       *priv  = data;
+        int                     ret             = 0;
+        xlator_t               *this            = NULL;
+        struct timeval          tv              = {0,};
+        changelog_log_data_t    cld             = {0,};
+        changelog_time_slice_t *slice           = NULL;
+        changelog_priv_t       *priv            = data;
+        int                     max_fd          = 0;
+        char                    buf[1]          = {0};
+        int                     len             = 0;
+
+        fd_set                  rset;
 
         this = priv->cr.this;
         slice = &priv->slice;
 
         while (1) {
+                (void) pthread_testcancel();
+
                 tv.tv_sec  = priv->rollover_time;
                 tv.tv_usec = 0;
+                FD_ZERO(&rset);
+                FD_SET(priv->cr.rfd, &rset);
+                max_fd = priv->cr.rfd;
+                max_fd = max_fd + 1;
 
-                ret = select (0, NULL, NULL, NULL, &tv);
-                if (ret)
+               /* It seems there is a race between actual rollover and explicit
+                * rollover. But it is handled. If actual rollover is being
+                * done and the explicit rollover event comes, the event is
+                * not missed. The next select will immediately wakeup to
+                * handle explicit wakeup.
+                */
+
+                ret = select (max_fd, &rset, NULL, NULL, &tv);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "select failed: %s", strerror(errno));
                         continue;
+                } else if (ret && FD_ISSET(priv->cr.rfd, &rset)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Explicit wakeup of select on barrier notify");
+                        len = read(priv->cr.rfd, buf, 1);
+                        if (len == 0) {
+                                gf_log (this->name, GF_LOG_ERROR, "BUG: Got EOF"
+                                        " from reconfigure notification pipe");
+                                continue;
+                        }
+                        if (len < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to read wakeup data");
+                                continue;
+                        }
+                        /* Lock is not required as same thread is modifying.*/
+                        priv->explicit_rollover = _gf_true;
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "select wokeup on timeout");
+                }
+
+               /* Reading curent_color without lock is fine here
+                * as it is only modified here and is next to reading.
+                */
+                if (priv->current_color == FOP_COLOR_BLACK) {
+                        LOCK(&priv->lock);
+                                priv->current_color = FOP_COLOR_WHITE;
+                        UNLOCK(&priv->lock);
+                        gf_log (this->name, GF_LOG_DEBUG, "Black fops"
+                                " to be drained:%ld",priv->dm.black_fop_cnt);
+                        changelog_drain_black_fops (this, priv);
+                } else {
+                        LOCK(&priv->lock);
+                                priv->current_color = FOP_COLOR_BLACK;
+                        UNLOCK(&priv->lock);
+                        gf_log (this->name, GF_LOG_DEBUG, "White fops"
+                                " to be drained:%ld",priv->dm.white_fop_cnt);
+                        changelog_drain_white_fops (this, priv);
+                }
+
+                /* Adding delay of 1 second only during explicit rollover:
+                 *
+                 * Changelog rollover can happen either due to actual
+                 * or the explict rollover during snapshot. Actual
+                 * rollover is controlled by tuneable called 'rollover-time'.
+                 * The minimum granularity for rollover-time is 1 second.
+                 * Explicit rollover is asynchronous in nature and happens
+                 * during snapshot.
+                 *
+                 * Basically, rollover renames the current CHANGELOG file
+                 * to CHANGELOG.TIMESTAMP. Let's assume, at time 't1',
+                 * actual and explicit rollover raced against  each
+                 * other and actual rollover won the race renaming the
+                 * CHANGELOG file to CHANGELOG.t1 and opens a new
+                 * CHANGELOG file. There is high chance that, an immediate
+                 * explicit rollover at time 't1' can happen with in the same
+                 * second to rename CHANGELOG file to CHANGELOG.t1 resulting in
+                 * purging the earlier CHANGELOG.t1 file created by actual
+                 * rollover. So adding a delay of 1 second guarantees unique
+                 * CHANGELOG.TIMESTAMP during  explicit rollover.
+                 */
+                if (priv->explicit_rollover == _gf_true)
+                        sleep (1);
 
                 ret = changelog_fill_rollover_data (&cld, _gf_false);
                 if (ret) {
@@ -410,6 +732,8 @@ changelog_rollover (void *data)
                         continue;
                 }
 
+                __mask_cancellation (this);
+
                 LOCK (&priv->lock);
                 {
                         ret = changelog_inject_single_event (this, priv, &cld);
@@ -417,6 +741,8 @@ changelog_rollover (void *data)
                                 SLICE_VERSION_UPDATE (slice);
                 }
                 UNLOCK (&priv->lock);
+
+                __unmask_cancellation (this);
         }
 
         return NULL;
@@ -435,6 +761,8 @@ changelog_fsync_thread (void *data)
         cld.cld_type = CHANGELOG_TYPE_FSYNC;
 
         while (1) {
+                (void) pthread_testcancel();
+
                 tv.tv_sec  = priv->fsync_interval;
                 tv.tv_usec = 0;
 
@@ -442,10 +770,14 @@ changelog_fsync_thread (void *data)
                 if (ret)
                         continue;
 
+                __mask_cancellation (this);
+
                 ret = changelog_inject_single_event (this, priv, &cld);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to inject fsync event");
+
+                __unmask_cancellation (this);
         }
 
         return NULL;
@@ -694,3 +1026,158 @@ changelog_update (xlator_t *this, changelog_priv_t *priv,
 
         return;
 }
+
+/* Begin: Geo-rep snapshot dependency changes */
+
+/* changelog_color_fop_and_inc_cnt: Assign color and inc fop cnt.
+ *
+ * Assigning color and increment of corresponding fop count should happen
+ * in a lock (i.e., there should be no window between them). If it does not,
+ * we might miss draining those fops which are colored but not yet incremented
+ * the count. Let's assume black fops are draining. If the black fop count
+ * reaches zero, we say draining is completed but we miss black fops which are
+ * not incremented fop count but color is assigned black.
+ */
+
+inline void
+changelog_color_fop_and_inc_cnt (xlator_t *this, changelog_priv_t *priv,
+                                                 changelog_local_t *local)
+{
+        if (!priv || !local)
+                return;
+
+        LOCK (&priv->lock);
+        {
+                local->color = priv->current_color;
+                changelog_inc_fop_cnt (this, priv, local);
+        }
+        UNLOCK (&priv->lock);
+}
+
+/* Increments the respective fop counter based on the fop color */
+inline void
+changelog_inc_fop_cnt (xlator_t *this, changelog_priv_t *priv,
+                                       changelog_local_t *local)
+{
+        int ret = 0;
+
+        if (local) {
+                if (local->color == FOP_COLOR_BLACK) {
+                        ret = pthread_mutex_lock (&priv->dm.drain_black_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                        {
+                                priv->dm.black_fop_cnt++;
+                        }
+                        ret = pthread_mutex_unlock(&priv->dm.drain_black_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                } else {
+                        ret = pthread_mutex_lock (&priv->dm.drain_white_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                        {
+                                priv->dm.white_fop_cnt++;
+                        }
+                        ret = pthread_mutex_unlock(&priv->dm.drain_white_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                }
+        }
+ out:
+        return;
+}
+
+/* Decrements the respective fop counter based on the fop color */
+inline void
+changelog_dec_fop_cnt (xlator_t *this, changelog_priv_t *priv,
+                                       changelog_local_t *local)
+{
+        int ret = 0;
+
+        if (local) {
+                if (local->color == FOP_COLOR_BLACK) {
+                        ret = pthread_mutex_lock (&priv->dm.drain_black_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                        {
+                                priv->dm.black_fop_cnt--;
+                                if (priv->dm.black_fop_cnt == 0 &&
+                                    priv->dm.drain_wait_black == _gf_true) {
+                                        ret = pthread_cond_signal (
+                                                    &priv->dm.drain_black_cond);
+                                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret,
+                                                                           out);
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "Signalled draining of black");
+                                }
+                        }
+                        ret = pthread_mutex_unlock(&priv->dm.drain_black_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                } else {
+                        ret = pthread_mutex_lock (&priv->dm.drain_white_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                        {
+                                priv->dm.white_fop_cnt--;
+                                if (priv->dm.white_fop_cnt == 0 &&
+                                    priv->dm.drain_wait_white == _gf_true) {
+                                        ret = pthread_cond_signal (
+                                                    &priv->dm.drain_white_cond);
+                                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret,
+                                                                           out);
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "Signalled draining of white");
+                                }
+                        }
+                        ret = pthread_mutex_unlock(&priv->dm.drain_white_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+                }
+        }
+ out:
+        return;
+}
+
+/* Write to a pipe setup between changelog main thread and changelog
+ * rollover thread to initiate explicit rollover of changelog journal.
+ */
+inline int
+changelog_barrier_notify (changelog_priv_t *priv, char *buf)
+{
+        int ret = 0;
+
+        LOCK(&priv->lock);
+                ret = changelog_write (priv->cr_wfd, buf, 1);
+        UNLOCK(&priv->lock);
+        return ret;
+}
+
+/* Clean up flags set on barrier notification */
+inline void
+changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv,
+                                                struct list_head *queue)
+{
+        int ret = 0;
+
+        LOCK (&priv->bflags.lock);
+                priv->bflags.barrier_ext = _gf_false;
+        UNLOCK (&priv->bflags.lock);
+
+        ret = pthread_mutex_lock (&priv->bn.bnotify_mutex);
+        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+        {
+                priv->bn.bnotify = _gf_false;
+        }
+        ret = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
+        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
+
+        /* Disable changelog barrier and dequeue fops */
+        LOCK (&priv->lock);
+        {
+                if (priv->barrier_enabled == _gf_true)
+                        __chlog_barrier_disable (this, queue);
+                else
+                        ret = -1;
+        }
+        UNLOCK (&priv->lock);
+        if (ret == 0)
+                chlog_barrier_dequeue_all(this, queue);
+
+ out:
+        return;
+}
+/* End: Geo-Rep snapshot dependency changes */

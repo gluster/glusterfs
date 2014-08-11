@@ -146,9 +146,10 @@ switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 ret = dht_layout_preset (this, prev->this, inode);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "could not set pre-set layout for subvol %s",
-                                prev->this->name);
+                        gf_msg_debug (this->name, 0,
+                                      "could not set pre-set layout "
+                                      "for subvol %s",
+                                      prev->this->name);
                         op_ret   = -1;
                         op_errno = EINVAL;
                         goto err;
@@ -171,8 +172,8 @@ switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!local->layout) {
                         op_ret   = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "memory allocation failed :(");
+                        gf_msg_debug (this->name, 0,
+                                      "memory allocation failed :(");
                         goto err;
                 }
 
@@ -188,9 +189,9 @@ switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
 
                 if (!subvol) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "linkfile not having link subvolume. path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "linkfile has no link subvolume.path=%s",
+                                      loc->path);
                         dht_lookup_everywhere (frame, this, loc);
                         return 0;
                 }
@@ -204,9 +205,9 @@ switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         if (!local->hashed_subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        local->loc.path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              local->loc.path);
                 local->op_errno = ENOENT;
                 dht_lookup_everywhere (frame, this, loc);
                 return 0;
@@ -268,17 +269,17 @@ switch_lookup (call_frame_t *frame, xlator_t *this,
         if (is_revalidate (loc)) {
                 layout = local->layout;
                 if (!layout) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "revalidate without cache. path=%s",
-                                loc->path);
+                        gf_msg_debug(this->name, 0,
+                                     "revalidate lookup without cache. path=%s",
+                                     loc->path);
                         op_errno = EINVAL;
                         goto err;
                 }
 
                 if (layout->gen && (layout->gen < conf->gen)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "incomplete layout failure for path=%s",
-                                loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "incomplete layout failure for path=%s",
+                                      loc->path);
                         dht_layout_unref (this, local->layout);
                         goto do_fresh_lookup;
                 }
@@ -325,10 +326,10 @@ switch_lookup (call_frame_t *frame, xlator_t *this,
                                 conf->link_xattr_name);
 
                 if (!hashed_subvol) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "no subvolume in layout for path=%s, "
-                                "checking on all the subvols to see if "
-                                "it is a directory", loc->path);
+                        gf_msg_debug (this->name, 0,
+                                      "no subvolume in layout for path=%s, "
+                                      "checking on all the subvols to see if "
+                                      "it is a directory", loc->path);
                         call_cnt        = conf->subvolume_cnt;
                         local->call_cnt = call_cnt;
 
@@ -427,9 +428,9 @@ switch_create (call_frame_t *frame, xlator_t *this,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
@@ -452,8 +453,8 @@ switch_create (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "creating %s on %s", loc->path, subvol->name);
+        gf_msg_trace (this->name, 0,
+                      "creating %s on %s", loc->path, subvol->name);
 
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
@@ -526,9 +527,9 @@ switch_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         subvol = dht_subvol_get_hashed (this, loc);
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "no subvolume in layout for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              loc->path);
                 op_errno = ENOENT;
                 goto err;
         }
@@ -555,8 +556,8 @@ switch_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "creating %s on %s", loc->path, subvol->name);
+        gf_msg_trace (this->name, 0,
+                      "creating %s on %s", loc->path, subvol->name);
 
         STACK_WIND_COOKIE (frame, dht_newfile_cbk, (void *)subvol, subvol,
                            subvol->fops->mknod, loc, mode, rdev, umask,
@@ -701,13 +702,13 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                 for (index = 0; index < child_count; index++) {
                                         if (strcmp (switch_buf_array[index].xl->name,
                                                     child) == 0) {
-                                                gf_log ("switch", GF_LOG_DEBUG,
-                                                        "'%s' pattern will be "
-                                                        "scheduled to \"%s\"",
-                                                        switch_opt->path_pattern, child);
+                                                gf_msg_debug ("switch", 0,
+                                                              "'%s' pattern will be "
+                                                              "scheduled to \"%s\"",
+                                                              switch_opt->path_pattern, child);
                                                 /*
                                                   if (switch_buf_array[index-1].considered) {
-                                                  gf_log ("switch", GF_LOG_DEBUG,
+                                                  gf_msg_debug ("switch", 0,
                                                   "ambiguity found, exiting");
                                                   return -1;
                                                   }
@@ -777,10 +778,11 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                         /* check for considered flag */
                         if (switch_buf_array[index].considered)
                                 continue;
-                        gf_log ("switch", GF_LOG_DEBUG,
-                                "'%s' pattern will be scheduled to \"%s\"",
-                                switch_opt->path_pattern,
-                                switch_buf_array[index].xl->name);
+                        gf_msg_debug ("switch", 0, "'%s'"
+                                      " pattern will be scheduled to \"%s\"",
+                                      switch_opt->path_pattern,
+                                      switch_buf_array[index].xl->name);
+
                         switch_opt->array[flag].xl =
                                 switch_buf_array[index].xl;
                         switch_buf_array[index].considered = 1;

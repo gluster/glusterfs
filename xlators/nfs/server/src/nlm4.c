@@ -33,7 +33,6 @@
 #include "nfs-generics.h"
 #include "rpc-clnt.h"
 #include "nsm-xdr.h"
-#include "nlmcbk-xdr.h"
 #include "run.h"
 #include <unistd.h>
 #include <rpc/pmap_clnt.h>
@@ -157,9 +156,9 @@ nlm4_prep_nlm4_testargs (nlm4_testargs *args, struct nfs3_fh *fh,
                          nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -167,9 +166,9 @@ nlm4_prep_nlm4_lockargs (nlm4_lockargs *args, struct nfs3_fh *fh,
                          nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -177,9 +176,9 @@ nlm4_prep_nlm4_cancargs (nlm4_cancargs *args, struct nfs3_fh *fh,
                            nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -187,9 +186,9 @@ nlm4_prep_nlm4_unlockargs (nlm4_unlockargs *args, struct nfs3_fh *fh,
                            nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->alock.fh.n_bytes = (void *)fh;
-        args->alock.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->alock.fh.nlm4_netobj_val = (void *)fh;
+        args->alock.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -197,9 +196,9 @@ nlm4_prep_shareargs (nlm4_shareargs *args, struct nfs3_fh *fh,
                      nlm4_lkowner_t *oh, char *cookiebytes)
 {
         memset (args, 0, sizeof (*args));
-        args->share.fh.n_bytes = (void *)fh;
-        args->share.oh.n_bytes = (void *)oh;
-        args->cookie.n_bytes = (void *)cookiebytes;
+        args->share.fh.nlm4_netobj_val = (void *)fh;
+        args->share.oh.nlm4_netobj_val = (void *)oh;
+        args->cookie.nlm4_netobj_val = (void *)cookiebytes;
 }
 
 void
@@ -210,22 +209,22 @@ nlm4_prep_freeallargs (nlm4_freeallargs *args, nlm4_lkowner_t *oh)
 }
 
 void
-nlm_copy_lkowner (gf_lkowner_t *dst, netobj *src)
+nlm_copy_lkowner (gf_lkowner_t *dst, nlm4_netobj *src)
 {
-        dst->len = src->n_len;
-        memcpy (dst->data, src->n_bytes, dst->len);
+        dst->len = src->nlm4_netobj_len;
+        memcpy (dst->data, src->nlm4_netobj_val, dst->len);
 }
 
 int
-nlm_is_oh_same_lkowner (gf_lkowner_t *a, netobj *b)
+nlm_is_oh_same_lkowner (gf_lkowner_t *a, nlm4_netobj *b)
 {
         if (!a || !b) {
                 gf_log (GF_NLM, GF_LOG_ERROR, "invalid args");
                 return -1;
         }
 
-        return (a->len == b->n_len &&
-                !memcmp (a->data, b->n_bytes, a->len));
+        return (a->len == b->nlm4_netobj_len &&
+                !memcmp (a->data, b->nlm4_netobj_val, a->len));
 }
 
 nlm4_stats
@@ -653,7 +652,7 @@ err:
 }
 
 int
-nlm4_generic_reply (rpcsvc_request_t *req, netobj cookie, nlm4_stats stat)
+nlm4_generic_reply (rpcsvc_request_t *req, nlm4_netobj cookie, nlm4_stats stat)
 {
         nlm4_res res;
 
@@ -975,8 +974,10 @@ nlm4_establish_callback (void *csarg)
                              NLM_V4, IPPROTO_TCP);
 
         if (port == 0) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "Unable to get NLM port of the "
-                        "client. Is the firewall running on client?");
+                gf_log (GF_NLM, GF_LOG_ERROR,
+                        "Unable to get NLM port of the client."
+                        " Is the firewall running on client?"
+                        " OR Are RPC services running (rpcinfo -p)?");
                 goto err;
         }
 
@@ -2423,9 +2424,21 @@ nlm4svc_init(xlator_t *nfsx)
         /* unlink sm-notify.pid so that when we restart rpc.statd/sm-notify
          * it thinks that the machine has restarted and sends NOTIFY to clients.
          */
-        ret = unlink ("/var/run/sm-notify.pid");
+
+        /* TODO:
+           notify/rpc.statd is done differently on OSX
+
+           On OSX rpc.statd is controlled by rpc.lockd and are part for launchd
+           (unified service management framework)
+
+           A runcmd() should be invoking "launchctl start com.apple.lockd"
+           instead. This is still a theory but we need to thoroughly test it
+           out. Until then NLM support is non-existent on OSX.
+        */
+        ret = unlink (GF_SM_NOTIFY_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink sm-notify");
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink %s: %d",
+                        GF_SM_NOTIFY_PIDFILE, errno);
                 goto err;
         }
         /* temporary work around to restart statd, not distro/OS independant.
@@ -2433,37 +2446,43 @@ nlm4svc_init(xlator_t *nfsx)
          * killall will cause problems on solaris.
          */
 
-        pidfile = fopen ("/var/run/rpc.statd.pid", "r");
+        char *pid_file = GF_RPC_STATD_PIDFILE;
+        if (nfs->rpc_statd_pid_file)
+                pid_file = nfs->rpc_statd_pid_file;
+        pidfile = fopen (pid_file, "r");
         if (pidfile) {
                 ret = fscanf (pidfile, "%d", &pid);
                 if (ret <= 0) {
                         gf_log (GF_NLM, GF_LOG_WARNING, "unable to get pid of "
-                                "rpc.statd");
+                                "rpc.statd from %s ", GF_RPC_STATD_PIDFILE);
                         ret = runcmd ("killall", "-9", "rpc.statd", NULL);
                 } else
                         kill (pid, SIGKILL);
 
                 fclose (pidfile);
         } else {
-                gf_log (GF_NLM, GF_LOG_WARNING, "opening the pid file of "
-                        "rpc.statd failed (%s)", strerror (errno));
+                gf_log (GF_NLM, GF_LOG_WARNING, "opening %s of "
+                        "rpc.statd failed (%s)", pid_file, strerror (errno));
                 /* if ret == -1, do nothing - case either statd was not
                  * running or was running in valgrind mode
                  */
                 ret = runcmd ("killall", "-9", "rpc.statd", NULL);
         }
 
-        ret = unlink ("/var/run/rpc.statd.pid");
+        ret = unlink (GF_RPC_STATD_PIDFILE);
         if (ret == -1 && errno != ENOENT) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink rpc.statd");
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to unlink %s", pid_file);
                 goto err;
         }
 
-        ret = runcmd ("/sbin/rpc.statd", NULL);
+        ret = runcmd (nfs->rpc_statd, NULL);
         if (ret == -1) {
-                gf_log (GF_NLM, GF_LOG_ERROR, "unable to start rpc.statd");
+                gf_log (GF_NLM, GF_LOG_ERROR, "unable to start %s",
+                        nfs->rpc_statd);
                 goto err;
         }
+
+
         pthread_create (&thr, NULL, nsm_thread, (void*)NULL);
 
         timeout.tv_sec = nlm_grace_period;

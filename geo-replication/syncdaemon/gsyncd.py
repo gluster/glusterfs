@@ -32,6 +32,7 @@ from syncdutils import GsyncdError, select, set_term_handler
 from configinterface import GConffile, upgrade_config_file
 import resource
 from monitor import monitor
+from changelogagent import agent, Changelog
 
 
 class GLogger(Logger):
@@ -175,6 +176,7 @@ def main_i():
     - query/manipulate configuration
     - format gsyncd urls using gsyncd's url parsing engine
     - start service in following modes, in given stages:
+      - agent: startup(), ChangelogAgent()
       - monitor: startup(), monitor()
       - master: startup(), connect_remote(), connect(), service_loop()
       - slave: startup(), connect(), service_loop()
@@ -214,6 +216,10 @@ def main_i():
                   action='callback', callback=store_abs)
     op.add_option('-l', '--log-file', metavar='LOGF', type=str,
                   action='callback', callback=store_abs)
+    op.add_option('--iprefix',  metavar='LOGD',  type=str,
+                  action='callback', callback=store_abs)
+    op.add_option('--changelog-log-file',  metavar='LOGF',  type=str,
+                  action='callback', callback=store_abs)
     op.add_option('--log-file-mbr', metavar='LOGF', type=str,
                   action='callback', callback=store_abs)
     op.add_option('--state-file', metavar='STATF', type=str,
@@ -225,6 +231,7 @@ def main_i():
     op.add_option('--ignore-deletes', default=False, action='store_true')
     op.add_option('--isolated-slave', default=False, action='store_true')
     op.add_option('--use-rsync-xattrs', default=False, action='store_true')
+    op.add_option('--pause-on-start', default=False, action='store_true')
     op.add_option('-L', '--log-level', metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',
                   default=os.path.abspath(sys.argv[0]))
@@ -243,6 +250,8 @@ def main_i():
     op.add_option('--connection-timeout', metavar='SEC',
                   type=int, default=60, help=SUPPRESS_HELP)
     op.add_option('--sync-jobs', metavar='N', type=int, default=3)
+    op.add_option('--replica-failover-interval', metavar='N',
+                  type=int, default=1)
     op.add_option(
         '--turns', metavar='N', type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network', metavar='IPS', default='')
@@ -250,6 +259,7 @@ def main_i():
     op.add_option('--state-socket-unencoded', metavar='SOCKF',
                   type=str, action='callback', callback=store_abs)
     op.add_option('--checkpoint', metavar='LABEL', default='')
+
     # tunables for failover/failback mechanism:
     # None   - gsyncd behaves as normal
     # blind  - gsyncd works with xtime pairs to identify
@@ -275,12 +285,15 @@ def main_i():
     # duh. need to specify dest or value will be mapped to None :S
     op.add_option('--monitor', dest='monitor', action='callback',
                   callback=store_local_curry(True))
+    op.add_option('--agent', dest='agent', action='callback',
+                  callback=store_local_curry(True))
     op.add_option('--resource-local', dest='resource_local',
                   type=str, action='callback', callback=store_local)
     op.add_option('--resource-remote', dest='resource_remote',
                   type=str, action='callback', callback=store_local)
     op.add_option('--feedback-fd', dest='feedback_fd', type=int,
                   help=SUPPRESS_HELP, action='callback', callback=store_local)
+    op.add_option('--rpc-fd', dest='rpc_fd', type=str, help=SUPPRESS_HELP)
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,
                   action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",
@@ -296,7 +309,9 @@ def main_i():
                                        setattr(
                                            a[-1].values, 'log_file', '-'),
                                        setattr(a[-1].values, 'log_level',
-                                               'DEBUG'))),
+                                               'DEBUG'),
+                                       setattr(a[-1].values,
+                                               'changelog_log_file', '-')))
     op.add_option('--path', type=str, action='append')
 
     for a in ('check', 'get'):
@@ -586,6 +601,7 @@ def main_i():
 
     go_daemon = rconf['go_daemon']
     be_monitor = rconf.get('monitor')
+    be_agent = rconf.get('agent')
 
     rscs, local, remote = makersc(args)
     if not be_monitor and isinstance(remote, resource.SSH) and \
@@ -596,6 +612,8 @@ def main_i():
         log_file = gconf.log_file
     if be_monitor:
         label = 'monitor'
+    elif be_agent:
+        label = 'agent'
     elif remote:
         # master
         label = gconf.local_path
@@ -603,6 +621,11 @@ def main_i():
         label = 'slave'
     startup(go_daemon=go_daemon, log_file=log_file, label=label)
     resource.Popen.init_errhandler()
+
+    if be_agent:
+        os.setsid()
+        logging.debug('rpc_fd: %s' % repr(gconf.rpc_fd))
+        return agent(Changelog(), gconf.rpc_fd)
 
     if be_monitor:
         return monitor(*rscs)

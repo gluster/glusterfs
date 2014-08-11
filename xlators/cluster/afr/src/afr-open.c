@@ -131,10 +131,6 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         priv = this->private;
 
-        if (flags & (O_CREAT|O_TRUNC)) {
-                QUORUM_CHECK(open,out);
-        }
-
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
 		goto out;
@@ -190,8 +186,8 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "successfully on subvolume %s", local->loc.path,
                         priv->children[child_index]->name);
         } else {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open %s "
-                        "on subvolume %s", local->loc.path,
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, AFR_MSG_OPEN_FAIL,
+                        "Failed to open %s on subvolume %s", local->loc.path,
                         priv->children[child_index]->name);
         }
 

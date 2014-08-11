@@ -38,6 +38,8 @@
 #include "run.h"
 #include "protocol-common.h"
 #include "checksum.h"
+#include "syscall.h"
+#include "lvm-defaults.h"
 
 /*
  * Call back function for setxattr and removexattr.
@@ -719,9 +721,8 @@ bd_do_fsync (int fd, int datasync)
 {
         int   op_errno = 0;
 
-#ifdef HAVE_FDATASYNC
         if (datasync) {
-                if (fdatasync (fd)) {
+                if (sys_fdatasync (fd)) {
                         op_errno = errno;
                         gf_log (THIS->name, GF_LOG_ERROR,
                                 "fdatasync on fd=%d failed: %s",
@@ -729,9 +730,9 @@ bd_do_fsync (int fd, int datasync)
                 }
 
         } else
-#endif
+
         {
-                if (fsync (fd)) {
+                if (sys_fsync (fd)) {
                         op_errno = errno;
                         gf_log (THIS->name, GF_LOG_ERROR,
                                 "fsync on fd=%d failed: %s",

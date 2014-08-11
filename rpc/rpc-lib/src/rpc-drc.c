@@ -127,14 +127,14 @@ int
 drc_compare_reqs (const void *item, const void *rb_node_data, void *param)
 {
         int               ret      = -1;
-        rpcsvc_request_t *req      = NULL;
+        drc_cached_op_t  *req      = NULL;
         drc_cached_op_t  *reply    = NULL;
 
         GF_ASSERT (item);
         GF_ASSERT (rb_node_data);
         GF_ASSERT (param);
 
-        req = (rpcsvc_request_t *)item;
+        req = (drc_cached_op_t *)item;
         reply = (drc_cached_op_t *)rb_node_data;
 
         ret = req->xid - reply->xid;
@@ -143,43 +143,10 @@ drc_compare_reqs (const void *item, const void *rb_node_data, void *param)
 
         if (req->prognum == reply->prognum &&
             req->procnum == reply->procnum &&
-            req->progver == reply->progversion)
+            req->progversion == reply->progversion)
                 return 0;
 
         return 1;
-}
-
-/**
- * drc_rb_calloc - used by rbtree api to allocate memory for nodes
- *
- * @param allocator - the libavl_allocator structure used by rbtree
- * @param size - not needed by this function
- * @return pointer to new cached reply (node in rbtree)
- */
-static void *
-drc_rb_calloc (struct libavl_allocator *allocator, size_t size)
-{
-        rpcsvc_drc_globals_t *drc = NULL;
-
-        /* get the drc pointer by simple typecast, since allocator
-         * is the first member of rpcsvc_drc_globals_t
-         */
-        drc = (rpcsvc_drc_globals_t *)allocator;
-
-        return mem_get (drc->mempool);
-}
-
-/**
- * drc_rb_free - used by rbtree api to free a node
- *
- * @param a - the libavl_allocator structure used by rbtree api
- * @param block - node that needs to be freed
- * @return void
- */
-static void
-drc_rb_free (struct libavl_allocator *a, void *block)
-{
-        mem_put (block);
 }
 
 /**
@@ -195,11 +162,7 @@ drc_init_client_cache (rpcsvc_drc_globals_t *drc, drc_client_t *client)
         GF_ASSERT (drc);
         GF_ASSERT (client);
 
-        drc->allocator.libavl_malloc = drc_rb_calloc;
-        drc->allocator.libavl_free = drc_rb_free;
-
-        client->rbtree = rb_create (drc_compare_reqs, drc,
-                                    (struct libavl_allocator *)drc);
+        client->rbtree = rb_create (drc_compare_reqs, drc, NULL);
         if (!client->rbtree) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "rb tree creation failed");
                 return -1;
@@ -238,6 +201,7 @@ rpcsvc_get_drc_client (rpcsvc_drc_globals_t *drc,
         client->ref = 0;
         client->sock_union = (union gf_sock_union)*sockaddr;
         client->op_count = 0;
+        INIT_LIST_HEAD (&client->client_list);
 
         if (drc_init_client_cache (drc, client)) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG,
@@ -331,6 +295,12 @@ rpcsvc_drc_lookup (rpcsvc_request_t *req)
 {
         drc_client_t           *client = NULL;
         drc_cached_op_t        *reply  = NULL;
+        drc_cached_op_t        new = {
+                .xid            = req->xid,
+                .prognum        = req->prognum,
+                .progversion    = req->progver,
+                .procnum        = req->procnum,
+        };
 
         GF_ASSERT (req);
 
@@ -339,20 +309,19 @@ rpcsvc_drc_lookup (rpcsvc_request_t *req)
                                                 &req->trans->peerinfo.sockaddr);
                 if (!client)
                         goto out;
-                req->trans->drc_client = client;
+
+                req->trans->drc_client
+                        = rpcsvc_drc_client_ref (client);
         }
 
-        client = rpcsvc_drc_client_ref (req->trans->drc_client);
+        client = req->trans->drc_client;
 
         if (client->op_count == 0)
                 goto out;
 
-        reply = rb_find (client->rbtree, req);
+        reply = rb_find (client->rbtree, &new);
 
  out:
-        if (client)
-                rpcsvc_drc_client_unref (req->svc->drc, client);
-
         return reply;
 }
 
@@ -460,7 +429,7 @@ rpcsvc_vacate_drc_entries (rpcsvc_drc_globals_t *drc)
 
                 client = reply->client;
 
-                (void *)rb_delete (client->rbtree, reply);
+                rb_delete (client->rbtree, reply);
 
                 rpcsvc_drc_op_destroy (drc, reply);
                 rpcsvc_drc_client_unref (drc, client);
@@ -534,7 +503,7 @@ rpcsvc_cache_request (rpcsvc_request_t *req)
                 goto out;
         }
 
-        reply = mem_get (drc->mempool);
+        reply = mem_get0 (drc->mempool);
         if (!reply)
                 goto out;
 
@@ -545,6 +514,7 @@ rpcsvc_cache_request (rpcsvc_request_t *req)
         reply->procnum = req->procnum;
         reply->state = DRC_OP_IN_TRANSIT;
         req->reply = reply;
+        INIT_LIST_HEAD (&reply->global_list);
 
         ret = rpcsvc_add_op_to_cache (drc, reply);
         if (ret) {
@@ -663,32 +633,32 @@ rpcsvc_drc_notify (rpcsvc_t *svc, void *xl,
                 return 0;
 
         LOCK (&drc->lock);
+        {
+                trans = (rpc_transport_t *)data;
+                client = rpcsvc_get_drc_client (drc, &trans->peerinfo.sockaddr);
+                if (!client)
+                        goto unlock;
 
-        trans = (rpc_transport_t *)data;
-        client = rpcsvc_get_drc_client (drc, &trans->peerinfo.sockaddr);
-        if (!client)
-                goto out;
-
-        switch (event) {
-        case RPCSVC_EVENT_ACCEPT:
-                trans->drc_client = rpcsvc_drc_client_ref (client);
-                ret = 0;
-                break;
-
-        case RPCSVC_EVENT_DISCONNECT:
-                ret = 0;
-                if (list_empty (&drc->clients_head))
+                switch (event) {
+                case RPCSVC_EVENT_ACCEPT:
+                        trans->drc_client = rpcsvc_drc_client_ref (client);
+                        ret = 0;
                         break;
-                /* should be the last unref */
-                rpcsvc_drc_client_unref (drc, client);
-                trans->drc_client = NULL;
-                break;
 
-        default:
-                break;
+                case RPCSVC_EVENT_DISCONNECT:
+                        ret = 0;
+                        if (list_empty (&drc->clients_head))
+                                break;
+                        /* should be the last unref */
+                        trans->drc_client = NULL;
+                        rpcsvc_drc_client_unref (drc, client);
+                        break;
+
+                default:
+                        break;
+                }
         }
-
- out:
+unlock:
         UNLOCK (&drc->lock);
         return ret;
 }
@@ -713,12 +683,12 @@ rpcsvc_drc_init (rpcsvc_t *svc, dict_t *options)
         GF_ASSERT (options);
 
         /* Toggle DRC on/off, when more drc types(persistent/cluster)
-           are added, we shouldn't treat this as boolean */
-        ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
+         * are added, we shouldn't treat this as boolean. */
+        ret = dict_get_str_boolean (options, "nfs.drc", _gf_false);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_INFO,
                         "drc user options need second look");
-                ret = _gf_true;
+                ret = _gf_false;
         }
 
         gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is turned %s", (ret?"ON":"OFF"));
@@ -864,12 +834,12 @@ rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
          *     case 2: DRC is "OFF"
          *         ACTION: rpcsvc_drc_deinit()
          */
-        ret = dict_get_str_boolean (options, "nfs.drc", _gf_true);
-        if (ret < 0) {
-                enable_drc = _gf_true;
-        } else {
-                enable_drc = ret;
-        }
+        ret = dict_get_str_boolean (options, "nfs.drc", _gf_false);
+        if (ret < 0)
+                ret = _gf_false;
+
+        enable_drc = ret;
+        gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is turned %s", (ret?"ON":"OFF"));
 
         /* case 1: DRC is "ON"*/
         if (enable_drc) {
@@ -887,6 +857,5 @@ rpcsvc_drc_reconfigure (rpcsvc_t *svc, dict_t *options)
         }
 
         /* case 2: DRC is "OFF" */
-        gf_log (GF_RPCSVC, GF_LOG_INFO, "DRC is manually turned OFF");
         return rpcsvc_drc_deinit (svc);
 }

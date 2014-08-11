@@ -9,7 +9,7 @@
 */
 
 #ifndef _MARKER_QUOTA_HELPER_H
-#define _MARKER_QUOTA_HELPER
+#define _MARKER_QUOTA_HELPER_H
 
 #ifndef _CONFIG_H
 #define _CONFIG_H

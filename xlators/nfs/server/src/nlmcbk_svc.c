@@ -13,7 +13,6 @@
  * It was generated using rpcgen.
  */
 
-#include "nlmcbk-xdr.h"
 #include "nlm4.h"
 #include "logging.h"
 #include <stdio.h>

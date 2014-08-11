@@ -66,7 +66,7 @@ struct clienttable {
 };
 typedef struct clienttable clienttable_t;
 
-#define GF_CLIENTTABLE_INITIAL_SIZE 32
+#define GF_CLIENTTABLE_INITIAL_SIZE 128
 
 /* Signifies no more entries in the client table. */
 #define GF_CLIENTTABLE_END  -1

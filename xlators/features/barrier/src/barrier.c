@@ -125,7 +125,7 @@ barrier_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iovec *vector, int32_t count, off_t off, uint32_t flags,
                 struct iobref *iobref, dict_t *xdata)
 {
-        if (!(flags & O_SYNC)) {
+        if (!((flags | fd->flags) & (O_SYNC | O_DSYNC))) {
                 STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                                  FIRST_CHILD(this)->fops->writev,
                                  fd, vector, count, off, flags, iobref, xdata);
@@ -334,6 +334,80 @@ out:
 }
 
 int
+notify (xlator_t *this, int event, void *data, ...)
+{
+        barrier_priv_t  *priv                   = NULL;
+        dict_t          *dict                   = NULL;
+        gf_boolean_t     past                   = _gf_false;
+        int              ret                    = -1;
+        gf_boolean_t     barrier_enabled        = _gf_false;
+        struct list_head queue                  = {0,};
+
+        priv = this->private;
+        GF_ASSERT (priv);
+        INIT_LIST_HEAD (&queue);
+
+        switch (event) {
+        case GF_EVENT_TRANSLATOR_OP:
+        {
+                dict = data;
+                barrier_enabled = dict_get_str_boolean (dict, "barrier", -1);
+
+                if (barrier_enabled == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not fetch "
+                                " barrier key from the dictionary.");
+                        goto out;
+                }
+
+                LOCK (&priv->lock);
+                {
+                        past = priv->barrier_enabled;
+
+                        switch (past) {
+                        case _gf_false:
+                                if (barrier_enabled) {
+                                        ret = __barrier_enable (this,priv);
+                                        if (ret)
+                                                goto unlock;
+                                } else {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Already disabled.");
+                                        goto unlock;
+                                }
+                                break;
+
+                        case _gf_true:
+                                if (!barrier_enabled) {
+                                        __barrier_disable(this, &queue);
+                                } else {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Already enabled");
+                                        goto unlock;
+                                }
+                                break;
+                        }
+                        ret = 0;
+                }
+unlock:
+                UNLOCK (&priv->lock);
+
+                if (!list_empty (&queue))
+                        barrier_dequeue_all (this, &queue);
+
+                break;
+        }
+        default:
+        {
+                default_notify (this, event, data);
+                ret = 0;
+                goto out;
+        }
+        }
+out:
+        return ret;
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
         barrier_priv_t  *priv                   = NULL;
@@ -347,7 +421,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_ASSERT (priv);
 
         GF_OPTION_RECONF ("barrier", barrier_enabled, options, bool, out);
-        GF_OPTION_RECONF ("timeout", timeout, options, time, out);
+        GF_OPTION_RECONF ("barrier-timeout", timeout, options, time, out);
 
         INIT_LIST_HEAD (&queue);
 
@@ -359,13 +433,9 @@ reconfigure (xlator_t *this, dict_t *options)
                 case _gf_false:
                         if (barrier_enabled) {
                                 ret = __barrier_enable (this, priv);
-                                if (ret)
+                                if (ret) {
                                         goto unlock;
-
-                        } else {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Already disabled");
-                                goto unlock;
+                                }
                         }
                         break;
 
@@ -373,16 +443,10 @@ reconfigure (xlator_t *this, dict_t *options)
                         if (!barrier_enabled) {
                                 __barrier_disable (this, &queue);
 
-                        } else {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Already enabled");
-                                goto unlock;
                         }
                         break;
                 }
-
                 priv->timeout.tv_sec = timeout;
-
                 ret = 0;
         }
 unlock:
@@ -432,7 +496,7 @@ init (xlator_t *this)
         LOCK_INIT (&priv->lock);
 
         GF_OPTION_INIT ("barrier", priv->barrier_enabled, bool, out);
-        GF_OPTION_INIT ("timeout", timeout, time, out);
+        GF_OPTION_INIT ("barrier-timeout", timeout, time, out);
         priv->timeout.tv_sec = timeout;
 
         INIT_LIST_HEAD (&priv->queue);
@@ -588,9 +652,9 @@ struct volume_options options[] = {
                          "write (with O_SYNC), fsync. It is turned \"off\" by "
                          "default."
         },
-        { .key = {"timeout"},
+        { .key = {"barrier-timeout"},
           .type = GF_OPTION_TYPE_TIME,
-          .default_value = "120",
+          .default_value = BARRIER_TIMEOUT,
           .description = "After 'timeout' seconds since the time 'barrier' "
                          "option was set to \"on\", acknowledgements to file "
                          "operations are no longer blocked and previously "

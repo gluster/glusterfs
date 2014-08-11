@@ -85,7 +85,7 @@ void
 fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype)
 {
         if (priv->quorum_count && strcmp(qtype,"fixed")) {
-                gf_log(this->name,GF_LOG_WARNING,
+                gf_msg (this->name,GF_LOG_WARNING, 0, AFR_MSG_QUORUM_OVERRIDE,
                        "quorum-type %s overriding quorum-count %u",
                        qtype, priv->quorum_count);
         }
@@ -180,12 +180,16 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
         fix_quorum_options(this,priv,qtype);
+        if (priv->quorum_count && !afr_has_quorum (priv->child_up, this))
+                gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
+                        "Client-quorum is not met");
+
 
 	GF_OPTION_RECONF ("post-op-delay-secs", priv->post_op_delay_secs, options,
 			  uint32, out);
 
         GF_OPTION_RECONF (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size,
-                          options, size, out);
+                          options, size_uint64, out);
         /* Reset this so we re-discover in case the topology changed.  */
         GF_OPTION_RECONF ("ensure-durability", priv->ensure_durability, options,
                           bool, out);
@@ -331,7 +335,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("eager-lock", priv->eager_lock, bool, out);
         GF_OPTION_INIT ("quorum-type", qtype, str, out);
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
-        GF_OPTION_INIT (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size,
+        GF_OPTION_INIT (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size_uint64,
                         out);
         fix_quorum_options(this,priv,qtype);
 
@@ -436,7 +440,7 @@ fini (xlator_t *this)
         priv = this->private;
         this->private = NULL;
         afr_priv_destroy (priv);
-        if (this->itable);//I dont see any destroy func
+        //if (this->itable);//I dont see any destroy func
 
         return 0;
 }
@@ -456,9 +460,6 @@ struct xlator_fops fops = {
         .finodelk    = afr_finodelk,
         .entrylk     = afr_entrylk,
         .fentrylk    = afr_fentrylk,
-	.fallocate   = afr_fallocate,
-	.discard     = afr_discard,
-        .zerofill    = afr_zerofill,
 
         /* inode read */
         .access      = afr_access,
@@ -479,6 +480,9 @@ struct xlator_fops fops = {
         .fsetattr    = afr_fsetattr,
         .removexattr = afr_removexattr,
         .fremovexattr = afr_fremovexattr,
+        .fallocate   = afr_fallocate,
+        .discard     = afr_discard,
+        .zerofill    = afr_zerofill,
 
         /* dir read */
         .opendir     = afr_opendir,

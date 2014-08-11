@@ -21,6 +21,7 @@
 #include "statedump.h"
 #include "compat-errno.h"
 
+#include "xdr-rpc.h"
 #include "glusterfs3.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
@@ -28,7 +29,6 @@ extern rpc_clnt_prog_t clnt_dump_prog;
 extern struct rpcclnt_cb_program gluster_cbk_prog;
 
 int client_handshake (xlator_t *this, struct rpc_clnt *rpc);
-void client_start_ping (void *data);
 int client_init_rpc (xlator_t *this);
 int client_destroy_rpc (xlator_t *this);
 int client_mark_fd_bad (xlator_t *this);
@@ -155,10 +155,11 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         struct iovec    iov        = {0, };
         struct iobuf   *iobuf      = NULL;
         int             count      = 0;
-        char            start_ping = 0;
         struct iobref  *new_iobref = NULL;
         ssize_t         xdr_size   = 0;
         struct rpc_req  rpcreq     = {0, };
+        uint64_t        ngroups    = 0;
+        uint64_t        gid        = 0;
 
         GF_VALIDATE_OR_GOTO ("client", this, out);
         GF_VALIDATE_OR_GOTO (this->name, prog, out);
@@ -225,6 +226,18 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 count = 1;
         }
 
+        /* do not send all groups if they are resolved server-side */
+        if (!conf->send_gids) {
+                /* copy some values for restoring later */
+                ngroups = frame->root->ngrps;
+                frame->root->ngrps = 1;
+                if (ngroups <= SMALL_GROUP_COUNT) {
+                        gid = frame->root->groups_small[0];
+                        frame->root->groups_small[0] = frame->root->gid;
+                        frame->root->groups = frame->root->groups_small;
+                }
+        }
+
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
                                NULL, 0, new_iobref, frame, rsphdr, rsphdr_count,
@@ -234,18 +247,12 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 gf_log (this->name, GF_LOG_DEBUG, "rpc_clnt_submit failed");
         }
 
-        if (ret == 0) {
-                pthread_mutex_lock (&conf->rpc->conn.lock);
-                {
-                        if (!conf->rpc->conn.ping_started) {
-                                start_ping = 1;
-                        }
-                }
-                pthread_mutex_unlock (&conf->rpc->conn.lock);
+        if (!conf->send_gids) {
+                /* restore previous values */
+                frame->root->ngrps = ngroups;
+                if (ngroups <= SMALL_GROUP_COUNT)
+                        frame->root->groups_small[0] = gid;
         }
-
-        if (start_ping)
-                client_start_ping ((void *) this);
 
         ret = 0;
 
@@ -2303,6 +2310,37 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 }
 
 int
+client_check_remote_host (xlator_t *this, dict_t *options)
+{
+        char           *remote_host     = NULL;
+        int             ret             = -1;
+
+        ret = dict_get_str (options, "remote-host", &remote_host);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_INFO, "Remote host is not set. "
+                        "Assuming the volfile server as remote host.");
+
+                if (!this->ctx->cmd_args.volfile_server) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                                 "No remote host to connect.");
+                        goto out;
+                }
+
+                ret = dict_set_str (options, "remote-host",
+                                    this->ctx->cmd_args.volfile_server);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set the remote host");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int                     ret = -1;
@@ -2327,6 +2365,12 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
 
         GF_OPTION_INIT ("filter-O_DIRECT", conf->filter_o_direct,
                         bool, out);
+
+        GF_OPTION_INIT ("send-gids", conf->send_gids, bool, out);
+
+        ret = client_check_remote_host (this, this->options);
+        if (ret)
+                goto out;
 
         ret = 0;
 out:
@@ -2458,7 +2502,7 @@ client_init_grace_timer (xlator_t *this, dict_t *options,
         conf->grace_ts.tv_nsec  = 0;
 
         gf_log (this->name, GF_LOG_DEBUG, "Client grace timeout "
-                "value = %"PRIu64, conf->grace_ts.tv_sec);
+                "value = %"GF_PRI_SECOND, conf->grace_ts.tv_sec);
 
         ret = 0;
 out:
@@ -2483,6 +2527,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("ping-timeout", conf->opt.ping_timeout,
                           options, int32, out);
+
+        ret = client_check_remote_host (this, options);
+        if (ret)
+                goto out;
 
         subvol_ret = dict_get_str (this->options, "remote-host",
                                    &old_remote_host);
@@ -2514,6 +2562,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("filter-O_DIRECT", conf->filter_o_direct,
                           options, bool, out);
+
+        GF_OPTION_RECONF ("send-gids", conf->send_gids, options, bool, out);
 
         ret = client_init_grace_timer (this, options, conf);
         if (ret)
@@ -2706,12 +2756,18 @@ client_priv_dump (xlator_t *this)
 
         gf_proc_dump_write("connecting", "%d", conf->connecting);
 
+        gf_proc_dump_write ("connected", "%d", conf->connected);
+
         if (conf->rpc) {
                 gf_proc_dump_write("total_bytes_read", "%"PRIu64,
                                    conf->rpc->conn.trans->total_bytes_read);
 
                 gf_proc_dump_write("total_bytes_written", "%"PRIu64,
                                    conf->rpc->conn.trans->total_bytes_write);
+                gf_proc_dump_write("ping_msgs_sent", "%"PRIu64,
+                                    conf->rpc->conn.pingcnt);
+                gf_proc_dump_write("msgs_sent", "%"PRIu64,
+                                    conf->rpc->conn.msgcnt);
         }
         pthread_mutex_unlock(&conf->lock);
 
@@ -2830,7 +2886,7 @@ struct volume_options options[] = {
         },
         { .key   = {"ping-timeout"},
           .type  = GF_OPTION_TYPE_TIME,
-          .min   = 1,
+          .min   = 0,
           .max   = 1013,
           .default_value = "42",
           .description = "Time duration for which the client waits to "
@@ -2869,6 +2925,10 @@ struct volume_options options[] = {
           "flag will be filtered at the client protocol level so server will "
           "still continue to cache the file. This works similar to NFS's "
           "behavior of O_DIRECT",
+        },
+        { .key   = {"send-gids"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
         },
         { .key   = {NULL} },
 };

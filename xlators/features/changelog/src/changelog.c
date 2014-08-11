@@ -19,6 +19,7 @@
 #include "iobuf.h"
 
 #include "changelog-rt.h"
+#include "changelog-helpers.h"
 
 #include "changelog-encoders.h"
 #include "changelog-mem-types.h"
@@ -62,8 +63,25 @@ changelog_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (rmdir, frame, op_ret, op_errno,
                                 preparent, postparent, xdata);
+        return 0;
+}
+
+int32_t
+changelog_rmdir_resume (call_frame_t *frame, xlator_t *this,
+                        loc_t *loc, int xflags, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeue rmdir");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_rmdir_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->rmdir,
+                    loc, xflags, xdata);
         return 0;
 }
 
@@ -71,9 +89,14 @@ int32_t
 changelog_rmdir (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int xflags, dict_t *xdata)
 {
-        size_t            xtra_len = 0;
-        changelog_priv_t *priv     = NULL;
-        changelog_opt_t  *co       = NULL;
+        size_t                  xtra_len                = 0;
+        changelog_priv_t       *priv                    = NULL;
+        changelog_opt_t        *co                      = NULL;
+        call_stub_t            *stub                    = NULL;
+        struct list_head        queue                   = {0, };
+        gf_boolean_t            barrier_enabled         = _gf_false;
+
+        INIT_LIST_HEAD (&queue);
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
@@ -93,10 +116,49 @@ changelog_rmdir (call_frame_t *frame, xlator_t *this,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
+/* changelog barrier */
+        /* Color assignment and increment of fop_cnt for rmdir/unlink/rename
+         * should be made with in priv lock if changelog barrier is not enabled.
+         * Because if counter is not incremented yet, draining wakes up and
+         * publishes the changelog but later these fops might hit the disk and
+         * present in snapped volume but where as the intention is these fops
+         * should not be present in snapped volume.
+         */
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_rmdir_stub (frame, changelog_rmdir_resume,
+                                                loc, xflags, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueue rmdir");
+                goto out;
+        }
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: rmdir, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+
+/* changelog barrier */
+
  wind:
         STACK_WIND (frame, changelog_rmdir_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->rmdir,
                     loc, xflags, xdata);
+ out:
         return 0;
 }
 
@@ -118,8 +180,25 @@ changelog_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (unlink, frame, op_ret, op_errno,
                                 preparent, postparent, xdata);
+        return 0;
+}
+
+int32_t
+changelog_unlink_resume (call_frame_t *frame, xlator_t *this,
+                         loc_t *loc, int xflags, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeue unlink");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_unlink_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->unlink,
+                    loc, xflags, xdata);
         return 0;
 }
 
@@ -127,13 +206,18 @@ int32_t
 changelog_unlink (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, int xflags, dict_t *xdata)
 {
-        size_t            xtra_len = 0;
-        changelog_priv_t *priv     = NULL;
-        changelog_opt_t  *co       = NULL;
+        size_t                  xtra_len                = 0;
+        changelog_priv_t       *priv                    = NULL;
+        changelog_opt_t        *co                      = NULL;
+        call_stub_t            *stub                    = NULL;
+        struct list_head        queue                   = {0, };
+        gf_boolean_t            barrier_enabled         = _gf_false;
+
+        INIT_LIST_HEAD (&queue);
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
-        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (xdata, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, loc->inode->gfid, 2);
 
@@ -149,10 +233,42 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
+/* changelog barrier */
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_unlink_stub (frame, changelog_unlink_resume,
+                                                loc, xflags, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueue unlink");
+                goto out;
+        }
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: unlink, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+
+/* changelog barrier */
+
  wind:
         STACK_WIND (frame, changelog_unlink_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->unlink,
                     loc, xflags, xdata);
+ out:
         return 0;
 }
 
@@ -177,6 +293,7 @@ changelog_rename_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (rename, frame, op_ret, op_errno,
                                 buf, preoldparent, postoldparent,
                                 prenewparent, postnewparent, xdata);
@@ -185,12 +302,33 @@ changelog_rename_cbk (call_frame_t *frame,
 
 
 int32_t
+changelog_rename_resume (call_frame_t *frame, xlator_t *this,
+                         loc_t *oldloc, loc_t *newloc, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeue rename");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_rename_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->rename,
+                    oldloc, newloc, xdata);
+        return 0;
+}
+
+int32_t
 changelog_rename (call_frame_t *frame, xlator_t *this,
                   loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        size_t            xtra_len  = 0;
-        changelog_priv_t *priv      = NULL;
-        changelog_opt_t  *co        = NULL;
+        size_t                  xtra_len                = 0;
+        changelog_priv_t       *priv                    = NULL;
+        changelog_opt_t        *co                      = NULL;
+        call_stub_t            *stub                    = NULL;
+        struct list_head        queue                   = {0, };
+        gf_boolean_t            barrier_enabled         = _gf_false;
+
+        INIT_LIST_HEAD (&queue);
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
@@ -214,11 +352,41 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
                               entry_fn, entry_free_fn, xtra_len, wind);
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 3);
+/* changelog barrier */
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_rename_stub (frame, changelog_rename_resume,
+                                                oldloc, newloc, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueue rename");
+                goto out;
+        }
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: rename, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+/* changelog barrier */
 
  wind:
         STACK_WIND (frame, changelog_rename_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->rename,
                     oldloc, newloc, xdata);
+ out:
         return 0;
 }
 
@@ -242,6 +410,7 @@ changelog_link_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (link, frame, op_ret, op_errno,
                                 inode, buf, preparent, postparent, xdata);
         return 0;
@@ -259,7 +428,7 @@ changelog_link (call_frame_t *frame,
         priv = this->private;
 
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
-        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (xdata, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, oldloc->gfid, 2);
 
@@ -276,6 +445,7 @@ changelog_link (call_frame_t *frame,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_link_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->link,
                     oldloc, newloc, xdata);
@@ -302,6 +472,7 @@ changelog_mkdir_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
                                 inode, buf, preparent, postparent, xdata);
         return 0;
@@ -353,6 +524,7 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_mkdir_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mkdir,
                     loc, mode, umask, xdata);
@@ -379,6 +551,7 @@ changelog_symlink_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (symlink, frame, op_ret, op_errno,
                                 inode, buf, preparent, postparent, xdata);
         return 0;
@@ -422,6 +595,7 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_symlink_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->symlink,
                     linkname, loc, umask, xdata);
@@ -448,6 +622,7 @@ changelog_mknod_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (mknod, frame, op_ret, op_errno,
                                 inode, buf, preparent, postparent, xdata);
         return 0;
@@ -467,6 +642,7 @@ changelog_mknod (call_frame_t *frame,
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
@@ -500,6 +676,7 @@ changelog_mknod (call_frame_t *frame,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_mknod_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mknod,
                     loc, mode, dev, umask, xdata);
@@ -527,6 +704,7 @@ changelog_create_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (create, frame,
                                 op_ret, op_errno, fd, inode,
                                 buf, preparent, postparent, xdata);
@@ -583,6 +761,7 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, umask, fd, xdata);
@@ -615,6 +794,7 @@ changelog_fsetattr_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (fsetattr, frame, op_ret, op_errno,
                                 preop_stbuf, postop_stbuf, xdata);
 
@@ -649,6 +829,7 @@ changelog_fsetattr (call_frame_t *frame,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_fsetattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fsetattr,
                     fd, stbuf, valid, xdata);
@@ -674,6 +855,7 @@ changelog_setattr_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (setattr, frame, op_ret, op_errno,
                                 preop_stbuf, postop_stbuf, xdata);
 
@@ -706,6 +888,7 @@ changelog_setattr (call_frame_t *frame,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_setattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->setattr,
                     loc, stbuf, valid, xdata);
@@ -730,6 +913,7 @@ changelog_fremovexattr_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -758,6 +942,7 @@ changelog_fremovexattr (call_frame_t *frame, xlator_t *this,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_fremovexattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fremovexattr,
                     fd, name, xdata);
@@ -780,6 +965,7 @@ changelog_removexattr_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (removexattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -808,6 +994,7 @@ changelog_removexattr (call_frame_t *frame, xlator_t *this,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_removexattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->removexattr,
                     loc, name, xdata);
@@ -832,6 +1019,7 @@ changelog_setxattr_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -861,6 +1049,7 @@ changelog_setxattr (call_frame_t *frame,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_setxattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->setxattr,
                     loc, dict, flags, xdata);
@@ -883,6 +1072,7 @@ changelog_fsetxattr_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -912,6 +1102,7 @@ changelog_fsetxattr (call_frame_t *frame,
         changelog_set_usable_record_and_length (frame->local, xtra_len, 1);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_fsetxattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fsetxattr,
                     fd, dict, flags, xdata);
@@ -944,6 +1135,7 @@ changelog_truncate_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_DATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (truncate, frame,
                                 op_ret, op_errno, prebuf, postbuf, xdata);
         return 0;
@@ -962,6 +1154,7 @@ changelog_truncate (call_frame_t *frame,
                         loc->inode, loc->inode->gfid, 0);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_truncate_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
                     loc, offset, xdata);
@@ -985,6 +1178,7 @@ changelog_ftruncate_cbk (call_frame_t *frame,
         changelog_update (this, priv, local, CHANGELOG_TYPE_DATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (ftruncate, frame,
                                 op_ret, op_errno, prebuf, postbuf, xdata);
         return 0;
@@ -1003,6 +1197,7 @@ changelog_ftruncate (call_frame_t *frame,
                         fd->inode, fd->inode->gfid, 0);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_ftruncate_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->ftruncate,
                     fd, offset, xdata);
@@ -1028,6 +1223,7 @@ changelog_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         changelog_update (this, priv, local, CHANGELOG_TYPE_DATA);
 
  unwind:
+        changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (writev, frame,
                                 op_ret, op_errno, prebuf, postbuf, xdata);
         return 0;
@@ -1048,6 +1244,7 @@ changelog_writev (call_frame_t *frame,
                         fd->inode, fd->inode->gfid, 0);
 
  wind:
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_writev_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->writev, fd, vector,
                     count, offset, flags, iobref, xdata);
@@ -1085,13 +1282,30 @@ changelog_assign_encoding (changelog_priv_t *priv, char *enc)
         }
 }
 
+static void
+changelog_assign_barrier_timeout(changelog_priv_t *priv, uint32_t timeout)
+{
+       LOCK (&priv->lock);
+       {
+               priv->timeout.tv_sec = timeout;
+       }
+       UNLOCK (&priv->lock);
+}
+
 /* cleanup any helper threads that are running */
 static void
 changelog_cleanup_helper_threads (xlator_t *this, changelog_priv_t *priv)
 {
+        int ret = 0;
+
         if (priv->cr.rollover_th) {
                 changelog_thread_cleanup (this, priv->cr.rollover_th);
                 priv->cr.rollover_th = 0;
+                ret = close (priv->cr_wfd);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "error closing write end of rollover pipe"
+                                " (reason: %s)", strerror (errno));
         }
 
         if (priv->cf.fsync_th) {
@@ -1105,6 +1319,41 @@ static int
 changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
 {
         int ret = 0;
+        int flags = 0;
+        int pipe_fd[2] = {0, 0};
+
+        /* Geo-Rep snapshot dependency:
+         *
+         * To implement explicit rollover of changlog journal on barrier
+         * notification, a pipe is created to communicate between
+         * 'changelog_rollover' thread and changelog main thread. The select
+         * call used to wait till roll-over time in changelog_rollover thread
+         * is modified to wait on read end of the pipe. When barrier
+         * notification comes (i.e, in 'reconfigure'), select in
+         * changelog_rollover thread is woken up explicitly by writing into
+         * the write end of the pipe in 'reconfigure'.
+         */
+
+        ret = pipe (pipe_fd);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Cannot create pipe (reason: %s)", strerror (errno));
+                goto out;
+        }
+
+        /* writer is non-blocking */
+        flags = fcntl (pipe_fd[1], F_GETFL);
+        flags |= O_NONBLOCK;
+
+        ret = fcntl (pipe_fd[1], F_SETFL, flags);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to set O_NONBLOCK flag");
+                goto out;
+        }
+
+        priv->cr_wfd = pipe_fd[1];
+        priv->cr.rfd = pipe_fd[0];
 
         priv->cr.this = this;
         ret = gf_thread_create (&priv->cr.rollover_th,
@@ -1186,6 +1435,187 @@ changelog_spawn_notifier (xlator_t *this, changelog_priv_t *priv)
         return ret;
 }
 
+int
+notify (xlator_t *this, int event, void *data, ...)
+{
+        changelog_priv_t       *priv            = NULL;
+        dict_t                 *dict            = NULL;
+        char                    buf[1]          = {1};
+        int                     barrier         = DICT_DEFAULT;
+        gf_boolean_t            bclean_req      = _gf_false;
+        int                     ret             = 0;
+        struct list_head        queue           = {0, };
+
+        INIT_LIST_HEAD (&queue);
+
+        priv = this->private;
+        if (!priv)
+                goto out;
+
+        if (event == GF_EVENT_TRANSLATOR_OP) {
+
+                dict = data;
+
+                barrier = dict_get_str_boolean (dict, "barrier", DICT_DEFAULT);
+
+                switch (barrier) {
+                case DICT_ERROR:
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Barrier dict_get_str_boolean failed");
+                        ret = -1;
+                        goto out;
+
+                case BARRIER_OFF:
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Barrier off notification");
+
+                        CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
+
+                        LOCK (&priv->bflags.lock);
+                        {
+                                if (priv->bflags.barrier_ext == _gf_false)
+                                        ret = -1;
+                        }
+                        UNLOCK (&priv->bflags.lock);
+
+                        if (ret == -1 ) {
+                                gf_log (this->name, GF_LOG_ERROR, "Received"
+                                        " another barrier off notification"
+                                        " while already off");
+                                goto out;
+                        }
+
+                        /* Stop changelog barrier and dequeue all fops */
+                        LOCK (&priv->lock);
+                        {
+                                if (priv->barrier_enabled == _gf_true)
+                                        __chlog_barrier_disable (this, &queue);
+                                else
+                                        ret = -1;
+                        }
+                        UNLOCK (&priv->lock);
+                        /* If ret = -1, then changelog barrier is already
+                         * disabled because of error or timeout.
+                         */
+                        if (ret == 0) {
+                                chlog_barrier_dequeue_all(this, &queue);
+                                gf_log(this->name, GF_LOG_INFO,
+                                       "Disabled changelog barrier");
+                        } else {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Changelog barrier already disabled");
+                        }
+
+                        LOCK (&priv->bflags.lock);
+                        {
+                                priv->bflags.barrier_ext = _gf_false;
+                        }
+                        UNLOCK (&priv->bflags.lock);
+
+                        goto out;
+
+                case BARRIER_ON:
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Barrier on notification");
+
+                        CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
+
+                        LOCK (&priv->bflags.lock);
+                        {
+                                if (priv->bflags.barrier_ext == _gf_true)
+                                        ret = -1;
+                                else
+                                        priv->bflags.barrier_ext = _gf_true;
+                        }
+                        UNLOCK (&priv->bflags.lock);
+
+                        if (ret == -1 ) {
+                                gf_log (this->name, GF_LOG_ERROR, "Received"
+                                        " another barrier on notification when"
+                                        " last one is not served yet");
+                                goto out;
+                        }
+
+                        ret = pthread_mutex_lock (&priv->bn.bnotify_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret, out,
+                                                                    bclean_req);
+                        {
+                                priv->bn.bnotify = _gf_true;
+                        }
+                        ret = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret, out,
+                                                                    bclean_req);
+
+                        /* Start changelog barrier */
+                        LOCK (&priv->lock);
+                        {
+                                ret = __chlog_barrier_enable (this, priv);
+                        }
+                        UNLOCK (&priv->lock);
+                        if (ret == -1) {
+                                changelog_barrier_cleanup (this, priv, &queue);
+                                goto out;
+                        }
+
+                        gf_log(this->name, GF_LOG_INFO,
+                                           "Enabled changelog barrier");
+
+                        ret = changelog_barrier_notify(priv, buf);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Explicit roll over: write failed");
+                                changelog_barrier_cleanup (this, priv, &queue);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = pthread_mutex_lock (&priv->bn.bnotify_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret, out,
+                                                                    bclean_req);
+                        {
+                                /* The while condition check is required here to
+                                 * handle spurious wakeup of cond wait that can
+                                 * happen with pthreads. See man page */
+                                while (priv->bn.bnotify == _gf_true) {
+                                        ret = pthread_cond_wait (
+                                                       &priv->bn.bnotify_cond,
+                                                       &priv->bn.bnotify_mutex);
+                                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret,
+                                                                          out,
+                                                                    bclean_req);
+                                }
+                        }
+                        ret = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret, out, bclean_req);
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Woke up: bnotify conditional wait");
+
+                        ret = 0;
+                        goto out;
+
+                case DICT_DEFAULT:
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "barrier key not found");
+                        ret = -1;
+                        goto out;
+
+                default:
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Something went bad in dict_get_str_boolean");
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                ret = default_notify (this, event, data);
+        }
+
+ out:
+        if (bclean_req)
+                changelog_barrier_cleanup (this, priv, &queue);
+
+        return ret;
+}
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -1245,6 +1675,11 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
          * simple here.
          */
         ret = changelog_fill_rollover_data (&cld, _gf_false);
+        if(ret)
+                goto out;
+
+        ret = htime_open (this, priv, cld.cld_roll_time);
+        /* call htime open with cld's rollover_time */
         if (ret)
                 goto out;
 
@@ -1261,6 +1696,98 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
         return ret;
 }
 
+/* Init all pthread condition variables and locks in changelog*/
+static int
+changelog_pthread_init (xlator_t *this, changelog_priv_t *priv)
+{
+        gf_boolean_t    bn_mutex_init         = _gf_false;
+        gf_boolean_t    bn_cond_init          = _gf_false;
+        gf_boolean_t    dm_mutex_black_init   = _gf_false;
+        gf_boolean_t    dm_cond_black_init    = _gf_false;
+        gf_boolean_t    dm_mutex_white_init   = _gf_false;
+        gf_boolean_t    dm_cond_white_init    = _gf_false;
+        int             ret                   = 0;
+
+        if ((ret = pthread_mutex_init(&priv->bn.bnotify_mutex, NULL)) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "bnotify pthread_mutex_init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        bn_mutex_init = _gf_true;
+
+        if ((ret = pthread_cond_init(&priv->bn.bnotify_cond, NULL)) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "bnotify pthread_cond_init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        bn_cond_init = _gf_true;
+
+        if ((ret = pthread_mutex_init(&priv->dm.drain_black_mutex, NULL)) != 0)
+        {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "drain_black pthread_mutex_init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        dm_mutex_black_init = _gf_true;
+
+        if ((ret = pthread_cond_init(&priv->dm.drain_black_cond, NULL)) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "drain_black pthread_cond_init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        dm_cond_black_init = _gf_true;
+
+        if ((ret = pthread_mutex_init(&priv->dm.drain_white_mutex, NULL)) != 0)
+        {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "drain_white pthread_mutex_init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        dm_mutex_white_init = _gf_true;
+
+        if ((ret = pthread_cond_init(&priv->dm.drain_white_cond, NULL)) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "drain_white pthread_cond_init failed (%d)", ret);
+                ret = -1;
+                goto out;
+        }
+        dm_cond_white_init = _gf_true;
+ out:
+        if (ret) {
+                if (bn_mutex_init)
+                        pthread_mutex_destroy(&priv->bn.bnotify_mutex);
+                if (bn_cond_init)
+                        pthread_cond_destroy (&priv->bn.bnotify_cond);
+                if (dm_mutex_black_init)
+                        pthread_mutex_destroy(&priv->dm.drain_black_mutex);
+                if (dm_cond_black_init)
+                        pthread_cond_destroy (&priv->dm.drain_black_cond);
+                if (dm_mutex_white_init)
+                        pthread_mutex_destroy(&priv->dm.drain_white_mutex);
+                if (dm_cond_white_init)
+                        pthread_cond_destroy (&priv->dm.drain_white_cond);
+        }
+        return ret;
+}
+
+/* Destroy all pthread condition variables and locks in changelog */
+static inline void
+changelog_pthread_destroy (changelog_priv_t *priv)
+{
+        pthread_mutex_destroy (&priv->bn.bnotify_mutex);
+        pthread_cond_destroy (&priv->bn.bnotify_cond);
+        pthread_mutex_destroy (&priv->dm.drain_black_mutex);
+        pthread_cond_destroy (&priv->dm.drain_black_cond);
+        pthread_mutex_destroy (&priv->dm.drain_white_mutex);
+        pthread_cond_destroy (&priv->dm.drain_white_cond);
+        LOCK_DESTROY (&priv->bflags.lock);
+}
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -1271,6 +1798,9 @@ reconfigure (xlator_t *this, dict_t *options)
         gf_boolean_t            active_now     = _gf_true;
         changelog_time_slice_t *slice          = NULL;
         changelog_log_data_t    cld            = {0,};
+        char    htime_dir[PATH_MAX]            = {0,};
+        struct timeval          tv             = {0,};
+        uint32_t                timeout        = 0;
 
         priv = this->private;
         if (!priv)
@@ -1295,6 +1825,12 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
 
         ret = mkdir_p (priv->changelog_dir, 0600, _gf_true);
+
+        if (ret)
+                goto out;
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
+        ret = mkdir_p (htime_dir, 0600, _gf_true);
+
         if (ret)
                 goto out;
 
@@ -1319,6 +1855,9 @@ reconfigure (xlator_t *this, dict_t *options)
                           priv->rollover_time, options, int32, out);
         GF_OPTION_RECONF ("fsync-interval",
                           priv->fsync_interval, options, int32, out);
+        GF_OPTION_RECONF ("changelog-barrier-timeout",
+                          timeout, options, time, out);
+        changelog_assign_barrier_timeout (priv, timeout);
 
         if (active_now || active_earlier) {
                 ret = changelog_fill_rollover_data (&cld, !active_now);
@@ -1339,6 +1878,15 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto out;
 
                 if (active_now) {
+                        if (!active_earlier) {
+                                if (gettimeofday(&tv, NULL) ) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                 "unable to fetch htime");
+                                        ret = -1;
+                                        goto out;
+                                }
+                                htime_open(this, priv, tv.tv_sec);
+                        }
                         ret = changelog_spawn_notifier (this, priv);
                         if (!ret)
                                 ret = changelog_spawn_helper_threads (this,
@@ -1363,9 +1911,12 @@ reconfigure (xlator_t *this, dict_t *options)
 int32_t
 init (xlator_t *this)
 {
-        int               ret  = -1;
-        char             *tmp  = NULL;
-        changelog_priv_t *priv = NULL;
+        int                     ret                     = -1;
+        char                    *tmp                    = NULL;
+        changelog_priv_t        *priv                   = NULL;
+        gf_boolean_t            cond_lock_init          = _gf_false;
+        char                    htime_dir[PATH_MAX]     = {0,};
+        uint32_t                timeout                 = 0;
 
         GF_VALIDATE_OR_GOTO ("changelog", this, out);
 
@@ -1423,6 +1974,12 @@ init (xlator_t *this)
          * so that consumers can _look_ into it (finding nothing...)
          */
         ret = mkdir_p (priv->changelog_dir, 0600, _gf_true);
+
+        if (ret)
+                goto out;
+
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
+        ret = mkdir_p (htime_dir, 0600, _gf_true);
         if (ret)
                 goto out;
 
@@ -1439,6 +1996,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("rollover-time", priv->rollover_time, int32, out);
 
         GF_OPTION_INIT ("fsync-interval", priv->fsync_interval, int32, out);
+        GF_OPTION_INIT ("changelog-barrier-timeout", timeout, time, out);
+        priv->timeout.tv_sec = timeout;
 
         changelog_encode_change(priv);
 
@@ -1451,6 +2010,28 @@ init (xlator_t *this)
                 goto out;
 
         priv->changelog_fd = -1;
+
+        /* snap dependency changes */
+        priv->dm.black_fop_cnt = 0;
+        priv->dm.white_fop_cnt = 0;
+        priv->dm.drain_wait_black = _gf_false;
+        priv->dm.drain_wait_white = _gf_false;
+        priv->current_color = FOP_COLOR_BLACK;
+        priv->explicit_rollover = _gf_false;
+        /* Mutex is not needed as threads are not spawned yet */
+        priv->bn.bnotify = _gf_false;
+        ret = changelog_pthread_init (this, priv);
+        if (ret)
+                goto out;
+
+        LOCK_INIT (&priv->bflags.lock);
+        cond_lock_init = _gf_true;
+        priv->bflags.barrier_ext = _gf_false;
+
+        /* Changelog barrier init */
+        INIT_LIST_HEAD (&priv->queue);
+        priv->barrier_enabled = _gf_false;
+
         ret = changelog_init (this, priv);
         if (ret)
                 goto out;
@@ -1459,17 +2040,21 @@ init (xlator_t *this)
 
  out:
         if (ret) {
-                if (this->local_pool)
+                if (this && this->local_pool)
                         mem_pool_destroy (this->local_pool);
-                if (priv->cb) {
-                        ret = priv->cb->dtor (this, &priv->cd);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_ERROR,
+                if (priv) {
+                        if (priv->cb) {
+                                ret = priv->cb->dtor (this, &priv->cd);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
                                         "error in cleanup during init()");
+                        }
+                        GF_FREE (priv->changelog_brick);
+                        GF_FREE (priv->changelog_dir);
+                        if (cond_lock_init)
+                                changelog_pthread_destroy (priv);
+                        GF_FREE (priv);
                 }
-                GF_FREE (priv->changelog_brick);
-                GF_FREE (priv->changelog_dir);
-                GF_FREE (priv);
                 this->private = NULL;
         } else
                 this->private = priv;
@@ -1493,6 +2078,7 @@ fini (xlator_t *this)
                 mem_pool_destroy (this->local_pool);
                 GF_FREE (priv->changelog_brick);
                 GF_FREE (priv->changelog_dir);
+                changelog_pthread_destroy (priv);
                 GF_FREE (priv);
         }
 
@@ -1553,15 +2139,23 @@ struct volume_options options[] = {
          .description = "encoding type for changelogs"
         },
         {.key = {"rollover-time"},
-         .default_value = "60",
+         .default_value = "15",
          .type = GF_OPTION_TYPE_TIME,
          .description = "time to switch to a new changelog file (in seconds)"
         },
         {.key = {"fsync-interval"},
          .type = GF_OPTION_TYPE_TIME,
-         .default_value = "0",
+         .default_value = "5",
          .description = "do not open CHANGELOG file with O_SYNC mode."
                         " instead perform fsync() at specified intervals"
+        },
+        { .key = {"changelog-barrier-timeout"},
+          .type = GF_OPTION_TYPE_TIME,
+          .default_value = BARRIER_TIMEOUT,
+          .description = "After 'timeout' seconds since the time 'barrier' "
+                         "option was set to \"on\", unlink/rmdir/rename  "
+                         "operations are no longer blocked and previously "
+                         "blocked fops are allowed to go through"
         },
         {.key = {NULL}
         },

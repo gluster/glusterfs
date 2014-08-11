@@ -11,6 +11,7 @@
 #include "bd.h"
 #include "bd-mem-types.h"
 #include "run.h"
+#include "lvm-defaults.h"
 
 int
 bd_inode_ctx_set (inode_t *inode, xlator_t *this, bd_attr_t *ctx)
@@ -1018,4 +1019,3 @@ out:
 
         return ret;
 }
-

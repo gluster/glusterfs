@@ -166,6 +166,11 @@ struct cli_volume_status {
 #endif
 };
 
+struct snap_config_opt_vals_ {
+        char           *op_name;
+        char           *question;
+};
+
 typedef struct cli_volume_status cli_volume_status_t;
 
 typedef struct cli_local cli_local_t;
@@ -175,6 +180,8 @@ typedef ssize_t (*cli_serialize_t) (struct iovec outmsg, void *args);
 extern struct cli_state *global_state; /* use only in readline callback */
 
 typedef const char *(*cli_selector_t) (void *wcon);
+
+char *get_struct_variable (int mem_num, gf_gsync_status_t *sts_val);
 
 void *cli_getunamb (const char *tok, void **choices, cli_selector_t sel);
 
@@ -216,8 +223,8 @@ cli_submit_request (struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                     xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int32_t
-cli_cmd_volume_create_parse (const char **words, int wordcount,
-                             dict_t **options);
+cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
+                             int wordcount, dict_t **options);
 
 int32_t
 cli_cmd_volume_reset_parse (const char **words, int wordcount, dict_t **opt);
@@ -383,6 +390,22 @@ cli_xml_output_vol_gsync (dict_t *dict, int op_ret, int op_errno,
 int
 cli_xml_output_vol_status_tasks_detail (cli_local_t *local, dict_t *dict);
 
+int
+cli_xml_output_snap_status_begin (cli_local_t *local, int op_ret, int op_errno,
+                                  char *op_errstr);
+int
+cli_xml_output_snap_status_end (cli_local_t *local);
+int
+cli_xml_output_snapshot (int cmd_type, dict_t *dict, int op_ret,
+                         int op_errno, char *op_errstr);
+int
+cli_xml_snapshot_status_single_snap (cli_local_t *local, dict_t *dict,
+                                     char *key);
 char *
 is_server_debug_xlator (void *myframe);
+
+int32_t
+cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
+                        struct cli_state *state);
+
 #endif /* __CLI_H__ */

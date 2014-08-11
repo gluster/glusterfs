@@ -4099,6 +4099,10 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         stat = NFS3_OK;
+
+        /* do inode linking here */
+        gf_link_inodes_from_dirent (this, cs->fd->inode, &cs->entries);
+
 nfs3err:
         if (cs->maxcount == 0) {
                 nfs3_log_readdir_res (rpcsvc_request_xid (cs->req), stat,
@@ -5186,7 +5190,7 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &size64);
+                ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.read-size");
@@ -5209,7 +5213,7 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &size64);
+                ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.write-size");
@@ -5232,7 +5236,7 @@ nfs3_init_options (struct nfs3_state *nfs3, dict_t *options)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &size64);
+                ret = gf_string2uint64 (optstr, &size64);
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.readdir-size");

@@ -78,4 +78,21 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
 #define rpc_call_verf_flavour(call)     (rpc_opaque_auth_flavour ((&(call)->ru.RM_cmb.cb_verf)))
 #define rpc_call_verf_len(call)         (rpc_opaque_auth_len ((&(call)->ru.RM_cmb.cb_verf)))
 
+
+#ifdef GF_DARWIN_HOST_OS
+#define GF_PRI_RPC_XID          PRIu32
+#define GF_PRI_RPC_VERSION      PRIu32
+#define GF_PRI_RPC_PROG_ID      PRIu32
+#define GF_PRI_RPC_PROG_VERS    PRIu32
+#define GF_PRI_RPC_PROC         PRIu32
+#define GF_PRI_RPC_PROC_VERSION PRIu32
+#else
+#define GF_PRI_RPC_XID          PRIu64
+#define GF_PRI_RPC_VERSION      PRIu64
+#define GF_PRI_RPC_PROG_ID      PRIu64
+#define GF_PRI_RPC_PROG_VERS    PRIu64
+#define GF_PRI_RPC_PROC         PRIu64
+#define GF_PRI_RPC_PROC_VERSION PRIu64
+#endif
+
 #endif

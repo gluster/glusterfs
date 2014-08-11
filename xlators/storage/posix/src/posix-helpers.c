@@ -64,6 +64,12 @@ static char* posix_ignore_xattrs[] = {
         NULL
 };
 
+static char* list_xattr_ignore_xattrs[] = {
+        GF_SELINUX_XATTR_KEY,
+        GF_XATTR_VOL_ID_KEY,
+        GFID_XATTR_KEY,
+        NULL
+};
 gf_boolean_t
 posix_special_xattr (char **pattern, char *key)
 {
@@ -84,20 +90,30 @@ out:
 }
 
 static gf_boolean_t
+_is_in_array (char **str_array, char *str)
+{
+        int i = 0;
+
+        for (i = 0; str_array[i]; i++) {
+                if (strcmp (str, str_array[i]) == 0)
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
+static gf_boolean_t
 posix_xattr_ignorable (char *key, posix_xattr_filler_t *filler)
 {
-        int          i = 0;
         gf_boolean_t ignore = _gf_false;
 
         GF_ASSERT (key);
         if (!key)
                 goto out;
-        for (i = 0; posix_ignore_xattrs[i]; i++) {
-                if (!strcmp (key, posix_ignore_xattrs[i])) {
-                        ignore = _gf_true;
-                        goto out;
-                }
-        }
+
+        ignore = _is_in_array (posix_ignore_xattrs, key);
+        if (ignore)
+                goto out;
+
         if ((!strcmp (key, GF_CONTENT_KEY))
             && (!IA_ISREG (filler->stbuf->ia_type)))
                 ignore = _gf_true;
@@ -179,7 +195,7 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
                 goto out;
         }
 
-        list = alloca (size + 1);
+        list = alloca (size);
         if (!list) {
                 goto out;
         }
@@ -194,8 +210,6 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
         list_offset = 0;
 
         while (remaining_size > 0) {
-                if (*(list + list_offset) == '\0')
-                        break;
                 strcpy (key, list + list_offset);
                 if (fnmatch (marker_contri_key, key, 0) == 0) {
                         ret = _posix_xattr_get_set_from_backend (filler, key);
@@ -514,7 +528,7 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
 
         priv = this->private;
 
-        ret = lstat (path, &lstatbuf);
+        ret = sys_lstat (path, &lstatbuf);
 
         if (ret != 0) {
                 if (ret == -1) {
@@ -558,6 +572,55 @@ out:
         return ret;
 }
 
+static void
+_handle_list_xattr (dict_t *xattr_req, const char *real_path,
+                    posix_xattr_filler_t *filler)
+{
+        int                   ret                   = -1;
+        ssize_t               size                  = 0;
+        char                 *list                  = NULL;
+        int32_t               list_offset           = 0;
+        size_t                remaining_size        = 0;
+        char                  *key                  = NULL;
+
+        if (!real_path)
+                goto out;
+
+        size = sys_llistxattr (real_path, NULL, 0);
+        if (size <= 0)
+                goto out;
+
+        list = alloca (size);
+        if (!list)
+                goto out;
+
+        size = sys_llistxattr (real_path, list, size);
+        if (size <= 0)
+                goto out;
+
+        remaining_size = size;
+        list_offset = 0;
+        while (remaining_size > 0) {
+                key = list + list_offset;
+
+                if (_is_in_array (list_xattr_ignore_xattrs, key))
+                        goto next;
+
+                if (posix_special_xattr (marker_xattrs, key))
+                        goto next;
+
+                if (dict_get (filler->xattr, key))
+                        goto next;
+
+                ret = _posix_xattr_get_set_from_backend (filler, key);
+next:
+                remaining_size -= strlen (key) + 1;
+                list_offset += strlen (key) + 1;
+
+        } /* while (remaining_size > 0) */
+out:
+        return;
+}
 
 dict_t *
 posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
@@ -565,6 +628,12 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
 {
         dict_t     *xattr             = NULL;
         posix_xattr_filler_t filler   = {0, };
+        gf_boolean_t    list          = _gf_false;
+
+        if (dict_get (xattr_req, "list-xattr")) {
+                dict_del (xattr_req, "list-xattr");
+                list = _gf_true;
+        }
 
         xattr = get_new_dict();
         if (!xattr) {
@@ -578,10 +647,31 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
         filler.loc       = loc;
 
         dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
+        if (list)
+                _handle_list_xattr (xattr_req, real_path, &filler);
+
 out:
         return xattr;
 }
 
+void
+posix_gfid_unset (xlator_t *this, dict_t *xdata)
+{
+        uuid_t uuid = {0, };
+        int    ret  = 0;
+
+        if (xdata == NULL)
+                goto out;
+
+        ret = dict_get_ptr (xdata, "gfid-req", (void **)&uuid);
+        if (ret) {
+                goto out;
+        }
+
+        posix_handle_unset (this, uuid, NULL);
+out:
+        return;
+}
 
 int
 posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
@@ -614,7 +704,7 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         }
 
         ret = sys_lsetxattr (path, GFID_XATTR_KEY, uuid_req, 16, XATTR_CREATE);
-        if (ret != 0) {
+        if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "setting GFID on %s failed (%s)", path,
                         strerror (errno));
@@ -784,7 +874,26 @@ out:
         return op_ret;
 }
 
-static int gf_xattr_enotsup_log;
+#ifdef GF_DARWIN_HOST_OS
+static
+void posix_dump_buffer (xlator_t *this, const char *real_path, const char *key,
+                        data_t *value, int flags)
+{
+        char buffer[3*value->len+1];
+        int index = 0;
+        buffer[0] = 0;
+        gf_loglevel_t log_level = gf_log_get_loglevel ();
+        if (log_level == GF_LOG_TRACE) {
+                char *data = (char *) value->data;
+                for (index = 0; index < value->len; index++)
+                        sprintf(buffer+3*index, " %02x", data[index]);
+        }
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Dump %s: key:%s flags: %u length:%u data:%s ",
+                real_path, key, flags, value->len,
+                (log_level == GF_LOG_TRACE ? buffer : "<skipped in DEBUG>"));
+}
+#endif
 
 int
 posix_handle_pair (xlator_t *this, const char *real_path,
@@ -802,17 +911,12 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         } else {
                 sys_ret = sys_lsetxattr (real_path, key, value->data,
                                          value->len, flags);
-
+#ifdef GF_DARWIN_HOST_OS
+                posix_dump_buffer(this, real_path, key, value, flags);
+#endif
                 if (sys_ret < 0) {
                         ret = -errno;
-                        if (errno == ENOTSUP) {
-                                GF_LOG_OCCASIONALLY(gf_xattr_enotsup_log,
-                                                    this->name,GF_LOG_WARNING,
-                                                    "Extended attributes not "
-                                                    "supported (try remounting "
-                                                    "brick with 'user_xattr' "
-                                                    "flag)");
-                        } else if (errno == ENOENT) {
+                        if (errno == ENOENT) {
                                 if (!posix_special_xattr (marker_xattrs,
                                                           key)) {
                                         gf_log (this->name, GF_LOG_ERROR,
@@ -825,13 +929,13 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                 gf_log (this->name,
                                         ((errno == EINVAL) ?
                                          GF_LOG_DEBUG : GF_LOG_ERROR),
-                                        "%s: key:%s error:%s",
-                                        real_path, key,
+                                        "%s: key:%s flags: %u length:%d error:%s",
+                                        real_path, key, flags, value->len,
                                         strerror (errno));
 #else /* ! DARWIN */
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "%s: key:%s error:%s",
-                                        real_path, key,
+                                        "%s: key:%s flags: %u length:%d error:%s",
+                                        real_path, key, flags, value->len,
                                         strerror (errno));
 #endif /* DARWIN */
                         }
@@ -860,14 +964,7 @@ posix_fhandle_pair (xlator_t *this, int fd,
 
         if (sys_ret < 0) {
                 ret = -errno;
-                if (errno == ENOTSUP) {
-                        GF_LOG_OCCASIONALLY(gf_xattr_enotsup_log,
-                                            this->name,GF_LOG_WARNING,
-                                            "Extended attributes not "
-                                            "supported (try remounting "
-                                            "brick with 'user_xattr' "
-                                            "flag)");
-                } else if (errno == ENOENT) {
+                if (errno == ENOENT) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsetxattr on fd=%d failed: %s", fd,
                                 strerror (errno));
@@ -893,6 +990,67 @@ out:
         return ret;
 }
 
+static void
+del_stale_dir_handle (xlator_t *this, uuid_t gfid)
+{
+        char    newpath[PATH_MAX] = {0, };
+        uuid_t       gfid_curr = {0, };
+        ssize_t      size = -1;
+        gf_boolean_t stale = _gf_false;
+        char         *hpath = NULL;
+        struct stat  stbuf = {0, };
+        struct iatt  iabuf = {0, };
+
+        MAKE_HANDLE_GFID_PATH (hpath, this, gfid, NULL);
+
+        /* check that it is valid directory handle */
+        size = sys_lstat (hpath, &stbuf);
+        if (size < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Handle stat failed: "
+                        "%s", hpath, strerror (errno));
+                goto out;
+        }
+
+        iatt_from_stat (&iabuf, &stbuf);
+        if (iabuf.ia_nlink != 1 || !IA_ISLNK (iabuf.ia_type)) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Handle nlink %d %d",
+                        hpath, iabuf.ia_nlink, IA_ISLNK (iabuf.ia_type));
+                goto out;
+        }
+
+        size = posix_handle_path (this, gfid, NULL, newpath, sizeof (newpath));
+        if (size <= 0 && errno == ENOENT) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
+                        strerror (ENOENT));
+                stale = _gf_true;
+                goto out;
+        }
+
+        size = sys_lgetxattr (newpath, GFID_XATTR_KEY, gfid_curr, 16);
+        if (size < 0 && errno == ENOENT) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
+                        strerror (ENOENT));
+                stale = _gf_true;
+        } else if (size == 16 && uuid_compare (gfid, gfid_curr)) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: mismatching gfid: %s, "
+                        "at %s", hpath, uuid_utoa (gfid_curr), newpath);
+                stale = _gf_true;
+        }
+
+out:
+        if (stale) {
+                size = sys_unlink (hpath);
+                if (size < 0 && errno != ENOENT)
+                        gf_log (this->name, GF_LOG_ERROR, "%s: Failed to "
+                                "remove handle to %s (%s)", hpath, newpath,
+                                strerror (errno));
+        } else if (size == 16) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Fresh handle for "
+                        "%s with gfid %s", hpath, newpath,
+                        uuid_utoa (gfid_curr));
+        }
+        return;
+}
 
 static int
 janitor_walker (const char *fpath, const struct stat *sb,
@@ -923,7 +1081,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
                                 "removing directory %s", fpath);
 
                         rmdir (fpath);
-                        posix_handle_unset (this, stbuf.ia_gfid, NULL);
+                        del_stale_dir_handle (this, stbuf.ia_gfid);
                 }
                 break;
         }
@@ -1128,6 +1286,11 @@ posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
         if (data) {
                 ret = sys_lsetxattr (path, POSIX_ACL_ACCESS_XATTR,
                                      data->data, data->len, 0);
+#ifdef __FreeBSD__
+                if (ret != -1) {
+                        ret = 0;
+                }
+#endif /* __FreeBSD__ */
                 if (ret != 0)
                         goto out;
         }
@@ -1136,6 +1299,11 @@ posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req)
         if (data) {
                 ret = sys_lsetxattr (path, POSIX_ACL_DEFAULT_XATTR,
                                      data->data, data->len, 0);
+#ifdef __FreeBSD__
+                if (ret != -1) {
+                        ret = 0;
+                }
+#endif /* __FreeBSD__ */
                 if (ret != 0)
                         goto out;
         }
@@ -1430,12 +1598,10 @@ posix_fsyncer_process (xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
         }
 
         if (do_fsync) {
-#ifdef HAVE_FDATASYNC
                 if (stub->args.datasync)
-                        ret = fdatasync (pfd->fd);
+                        ret = sys_fdatasync (pfd->fd);
                 else
-#endif
-                        ret = fsync (pfd->fd);
+                        ret = sys_fsync (pfd->fd);
         } else {
                 ret = 0;
         }

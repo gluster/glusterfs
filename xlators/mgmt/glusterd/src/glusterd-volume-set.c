@@ -116,8 +116,8 @@ validate_cache_max_min_size (dict_t *dict, char *key, char *value,
                                       "performance.cache-max-file-size",
                                       &current_max_value);
                 if (current_max_value) {
-                        gf_string2bytesize (current_max_value, &max_value);
-                        gf_string2bytesize (value, &min_value);
+                        gf_string2bytesize_uint64 (current_max_value, &max_value);
+                        gf_string2bytesize_uint64 (value, &min_value);
                         current_min_value = value;
                 }
         } else  if ((!strcmp (key, "performance.cache-max-file-size")) ||
@@ -126,8 +126,8 @@ validate_cache_max_min_size (dict_t *dict, char *key, char *value,
                                       "performance.cache-min-file-size",
                                       &current_min_value);
                 if (current_min_value) {
-                        gf_string2bytesize (current_min_value, &min_value);
-                        gf_string2bytesize (value, &max_value);
+                        gf_string2bytesize_uint64 (current_min_value, &min_value);
+                        gf_string2bytesize_uint64 (value, &max_value);
                         current_max_value = value;
                 }
         }
@@ -398,7 +398,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-
+        { .key        = "cluster.randomize-hash-range-by-gfid",
+          .voltype    = "cluster/distribute",
+          .option     = "randomize-hash-range-by-gfid",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_6_0,
+          .flags      = OPT_FLAG_CLIENT_OPT,
+        },
         /* NUFA xlator options (Distribute special case) */
         { .key        = "cluster.nufa",
           .voltype    = "cluster/distribute",
@@ -413,6 +419,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type       = NO_DOC,
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.weighted-rebalance",
+          .voltype    = "cluster/distribute",
+          .op_version = GD_OP_VERSION_3_6_0,
         },
 
         /* Switch xlator options (Distribute special case) */
@@ -610,6 +620,50 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "diagnostics.brick-logger",
+          .voltype     = "debug/io-stats",
+          .option      = "!logger",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key        = "diagnostics.client-logger",
+          .voltype    = "debug/io-stats",
+          .option     = "!logger",
+          .op_version = GD_OP_VERSION_3_6_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "diagnostics.brick-log-format",
+          .voltype     = "debug/io-stats",
+          .option      = "!log-format",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key        = "diagnostics.client-log-format",
+          .voltype    = "debug/io-stats",
+          .option     = "!log-format",
+          .op_version = GD_OP_VERSION_3_6_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "diagnostics.brick-log-buf-size",
+          .voltype     = "debug/io-stats",
+          .option      = "!log-buf-size",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key        = "diagnostics.client-log-buf-size",
+          .voltype    = "debug/io-stats",
+          .option     = "!log-buf-size",
+          .op_version = GD_OP_VERSION_3_6_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "diagnostics.brick-log-flush-timeout",
+          .voltype     = "debug/io-stats",
+          .option      = "!log-flush-timeout",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key        = "diagnostics.client-log-flush-timeout",
+          .voltype    = "debug/io-stats",
+          .option     = "!log-flush-timeout",
+          .op_version = GD_OP_VERSION_3_6_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
         /* IO-cache xlator options */
         { .key         = "performance.cache-max-file-size",
@@ -687,7 +741,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.nfs.flush-behind",
+          .voltype    = "performance/write-behind",
+          .option     = "flush-behind",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.write-behind-window-size",
+          .voltype    = "performance/write-behind",
+          .option     = "cache-size",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.nfs.write-behind-window-size",
           .voltype    = "performance/write-behind",
           .option     = "cache-size",
           .op_version = 1,
@@ -699,7 +765,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.nfs.strict-o-direct",
+          .voltype    = "performance/write-behind",
+          .option     = "strict-O_DIRECT",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.strict-write-ordering",
+          .voltype    = "performance/write-behind",
+          .option     = "strict-write-ordering",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.nfs.strict-write-ordering",
           .voltype    = "performance/write-behind",
           .option     = "strict-write-ordering",
           .op_version = 2,
@@ -876,6 +954,37 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 2
         },
+        { .key         = "auth.ssl-allow",
+          .voltype     = "protocol/server",
+          .option      = "!ssl-allow",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "server.manage-gids",
+          .voltype     = "protocol/server",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "client.send-gids",
+          .voltype     = "protocol/client",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "server.gid-timeout",
+          .voltype     = "protocol/server",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+
+        /* Generic transport options */
+        { .key         = SSL_CERT_DEPTH_OPT,
+          .voltype     = "rpc-transport/socket",
+          .option      = "!ssl-cert-depth",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = SSL_CIPHER_LIST_OPT,
+          .voltype     = "rpc-transport/socket",
+          .option      = "!ssl-cipher-list",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
 
         /* Performance xlators enable/disbable options */
         { .key         = "performance.write-behind",
@@ -948,13 +1057,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "graph of volume.",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-        { .key        = "performance.nfs.write-behind",
-          .voltype    = "performance/write-behind",
-          .option     = "!nfsperf",
-          .value      = "on",
-          .type       = NO_DOC,
-          .op_version = 1,
-          .flags      = OPT_FLAG_XLATOR_OPT
+        { .key         = "performance.nfs.write-behind",
+          .voltype     = "performance/write-behind",
+          .option      = "!nfsperf",
+          .value       = "on",
+          .op_version  = 1,
+          .description = "enable/disable write-behind translator in the volume",
+          .flags       = OPT_FLAG_XLATOR_OPT
         },
         { .key        = "performance.nfs.read-ahead",
           .voltype    = "performance/read-ahead",
@@ -1012,6 +1121,23 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "enable/disable file-snapshot feature in the "
                          "volume.",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
+
+        { .key         = "features.uss",
+          .voltype     = "features/snapview-server",
+          .op_version  = GD_OP_VERSION_3_6_0,
+          .value       = "off",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
+          .description = "Enable/Disable User Servicable Snapshots on the "
+                         "volume."
+        },
+
+        { .key         = "features.snapshot-directory",
+          .voltype     = "features/snapview-client",
+          .op_version  = GD_OP_VERSION_3_6_0,
+          .value       = ".snaps",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
+          .description = "Entry point directory for entering snapshot world"
         },
 
 #ifdef HAVE_LIB_Z
@@ -1324,6 +1450,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!nfs-disable",
           .op_version  = 1
         },
+        { .key         = "nfs-ganesha.enable",
+          .voltype     = "nfs/server",
+          .option      = "!nfs-ganesha.enable",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "nfs-ganesha.host",
+          .voltype     = "nfs/server",
+          .option      = "!nfs-ganesha.host",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
         { .key         = "nfs.nlm",
           .voltype     = "nfs/server",
           .option      = "nfs.nlm",
@@ -1347,6 +1483,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "nfs.mount-rmtab",
           .type        = GLOBAL_DOC,
           .op_version  = 1
+        },
+        { .key         = "nfs.rpc-statd",
+          .voltype     = "nfs/server",
+          .option      = "nfs.rpc-statd",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "nfs.log-level",
+          .voltype     = "nfs/server",
+          .option      = "nfs.log-level",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_6_0,
         },
         { .key         = "nfs.server-aux-gids",
           .voltype     = "nfs/server",
@@ -1412,6 +1560,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "storage/posix",
           .op_version  = 3
         },
+        { .key         = "storage.xattr-user-namespace-mode",
+          .voltype     = "storage/posix",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
         { .key         = "storage.owner-uid",
           .voltype     = "storage/posix",
           .option      = "brick-uid",
@@ -1433,7 +1585,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .option      = "update-link-count-parent",
           .key         = "storage.build-pgfid",
           .voltype     = "storage/posix",
-          .op_version  = 4
+          .op_version  = GD_OP_VERSION_3_6_0,
         },
         { .key         = "storage.bd-aio",
           .voltype     = "storage/bd",
@@ -1485,6 +1637,25 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/changelog",
           .type        = NO_DOC,
           .op_version  = 3
+        },
+        { .key         = "changelog.changelog-barrier-timeout",
+          .voltype     = "features/changelog",
+          .value       = BARRIER_TIMEOUT,
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "features.barrier",
+          .voltype     = "features/barrier",
+          .value       = "disable",
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "features.barrier-timeout",
+          .voltype     = "features/barrier",
+          .value       = BARRIER_TIMEOUT,
+          .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "cluster.op-version",
+          .voltype     = "mgmt/glusterd",
+          .op_version  = GD_OP_VERSION_3_6_0,
         },
         { .key         = NULL
         }

@@ -997,7 +997,7 @@ gf_rdma_cm_handle_event_established (struct rdma_cm_event *event)
         }
 
         gf_log (this->name, GF_LOG_TRACE,
-                "recieved event RDMA_CM_EVENT_ESTABLISHED (me:%s peer:%s)",
+                "received event RDMA_CM_EVENT_ESTABLISHED (me:%s peer:%s)",
                 this->myinfo.identifier, this->peerinfo.identifier);
 
         return ret;
@@ -1085,7 +1085,7 @@ gf_rdma_cm_event_handler (void *data)
                         this = event->id->context;
 
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "recieved disconnect (me:%s peer:%s)\n",
+                                "received disconnect (me:%s peer:%s)\n",
                                 this->myinfo.identifier,
                                 this->peerinfo.identifier);
 
@@ -2027,7 +2027,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 __gf_rdma_register_local_mr_for_rdma (gf_rdma_peer_t *peer,
                                       struct iovec *vector, int count,
                                       gf_rdma_post_context_t *ctx)
@@ -3074,7 +3074,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 gf_rdma_decode_error_msg (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                           size_t bytes_in_post)
 {
@@ -3616,7 +3616,7 @@ out:
 }
 
 
-inline int32_t
+static inline int32_t
 gf_rdma_recv_request (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                       gf_rdma_read_chunk_t *readch)
 {
@@ -3775,12 +3775,12 @@ gf_rdma_async_event_thread (void *context)
                 switch (event.event_type) {
                 case IBV_EVENT_SRQ_LIMIT_REACHED:
                         gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
-                                "recieved srq_limit reached");
+                                "received srq_limit reached");
                         break;
 
                 default:
                         gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
-                                "event (%d) recieved", event.event_type);
+                                "event (%d) received", event.event_type);
                         break;
                 }
 

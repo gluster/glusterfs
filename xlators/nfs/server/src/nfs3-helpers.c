@@ -85,7 +85,7 @@ struct nfs3stat_strerror nfs3stat_strerror_table[] = {
         { NFS3ERR_SERVERFAULT,  "Error occurred on the server or IO Error" },
         { NFS3ERR_BADTYPE,      "Type not supported by the server"      },
         { NFS3ERR_JUKEBOX,      "Cannot complete server initiated request" },
-        { -1,                   "IO Error"                              },
+        { NFS3ERR_END_OF_LIST,  "IO Error"                              },
 
 };
 
@@ -543,7 +543,7 @@ char *
 nfsstat3_strerror(int stat)
 {
         int i;
-        for(i = 0; nfs3stat_strerror_table[i].stat != -1; i++) {
+        for(i = 0; nfs3stat_strerror_table[i].stat != NFS3ERR_END_OF_LIST ; i++) {
                 if (nfs3stat_strerror_table[i].stat == stat)
                         return nfs3stat_strerror_table[i].strerror;
         }

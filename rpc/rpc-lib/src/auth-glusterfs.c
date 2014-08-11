@@ -171,8 +171,10 @@ auth_glusterfs_v2_request_init (rpcsvc_request_t *req, void *priv)
 int auth_glusterfs_v2_authenticate (rpcsvc_request_t *req, void *priv)
 {
         struct auth_glusterfs_parms_v2  au = {0,};
-        int ret = RPCSVC_AUTH_REJECT;
-        int i   = 0;
+        int ret                            = RPCSVC_AUTH_REJECT;
+        int i                              = 0;
+        int max_groups                     = 0;
+        int max_lk_owner_len               = 0;
 
         if (!req)
                 return ret;
@@ -191,17 +193,23 @@ int auth_glusterfs_v2_authenticate (rpcsvc_request_t *req, void *priv)
         req->lk_owner.len = au.lk_owner.lk_owner_len;
         req->auxgidcount = au.groups.groups_len;
 
-        if (req->auxgidcount > GF_MAX_AUX_GROUPS) {
+        /* the number of groups and size of lk_owner depend on each other */
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (req->lk_owner.len);
+        max_lk_owner_len = GF_AUTH_GLUSTERFS_MAX_LKOWNER (req->auxgidcount);
+
+        if (req->auxgidcount > max_groups) {
                 gf_log ("", GF_LOG_WARNING,
                         "more than max aux gids found (%d) , truncating it "
                         "to %d and continuing", au.groups.groups_len,
-                        GF_MAX_AUX_GROUPS);
-                req->auxgidcount = GF_MAX_AUX_GROUPS;
+                        max_groups);
+                req->auxgidcount = max_groups;
         }
 
-        if (req->lk_owner.len > GF_MAX_LOCK_OWNER_LEN) {
+        if (req->lk_owner.len > max_lk_owner_len) {
                 gf_log ("", GF_LOG_WARNING,
-                        "lkowner field > 1k, failing authentication");
+                        "lkowner field to big (%d), depends on the number of "
+                        "groups (%d), failing authentication",
+                        req->lk_owner.len, req->auxgidcount);
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
         }

@@ -70,6 +70,7 @@
 #define FNM_EXTMATCH 0
 #endif
 
+#define GLUSTERD_MAX_SNAP_NAME  255
 #define ZR_MOUNTPOINT_OPT       "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
@@ -88,6 +89,7 @@
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
+#define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
 
 #define GF_READDIR_SKIP_DIRS       "readdir-filter-directories"
 
@@ -154,14 +156,20 @@
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
                                                ZR_FILE_CONTENT_STRLEN))
 
-#define DEFAULT_VAR_RUN_DIRECTORY    DATADIR "/run/gluster"
-#define GF_REPLICATE_TRASH_DIR          ".landfill"
+#define DEFAULT_VAR_RUN_DIRECTORY        DATADIR "/run/gluster"
+#define DEFAULT_GLUSTERFSD_MISC_DIRETORY DATADIR "/lib/misc/glusterfsd"
+#ifdef GF_LINUX_HOST_OS
+#define GLUSTERD_DEFAULT_WORKDIR DATADIR "/lib/glusterd"
+#else
+#define GLUSTERD_DEFAULT_WORKDIR DATADIR "/db/glusterd"
+#endif
+#define GF_REPLICATE_TRASH_DIR           ".landfill"
 
-/* GlusterFS's maximum supported Auxilary GIDs */
+/* GlusterFS's maximum supported Auxiliary GIDs */
 /* TODO: Keeping it to 200, so that we can fit in 2KB buffer for auth data
  * in RPC server code, if there is ever need for having more aux-gids, then
  * we have to add aux-gid in payload of actors */
-#define GF_MAX_AUX_GROUPS   65536
+#define GF_MAX_AUX_GROUPS   65535
 
 #define GF_UUID_BUF_SIZE 50
 
@@ -185,6 +193,22 @@
                                                        (iabuf)->ia_type) & ~S_IFMT)\
                                      == DHT_LINKFILE_MODE)
 #define DHT_LINKFILE_STR "linkto"
+
+#define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
+#define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
+
+#define GF_LOG_LRU_BUFSIZE_DEFAULT 5
+#define GF_LOG_LRU_BUFSIZE_MIN 0
+#define GF_LOG_LRU_BUFSIZE_MAX 20
+#define GF_LOG_LRU_BUFSIZE_MIN_STR "0"
+#define GF_LOG_LRU_BUFSIZE_MAX_STR "20"
+
+#define GF_LOG_FLUSH_TIMEOUT_DEFAULT 120
+#define GF_LOG_FLUSH_TIMEOUT_MIN 30
+#define GF_LOG_FLUSH_TIMEOUT_MAX 300
+#define GF_LOG_FLUSH_TIMEOUT_MIN_STR "30"
+#define GF_LOG_FLUSH_TIMEOUT_MAX_STR "300"
+
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
@@ -345,6 +369,10 @@ struct _cmd_args {
         gf_loglevel_t    log_level;
         char            *log_file;
         char            *log_ident;
+        gf_log_logger_t  logger;
+        gf_log_format_t  log_format;
+        uint32_t         log_buf_size;
+        uint32_t         log_flush_timeout;
         int32_t          max_connect_attempts;
         /* advanced options */
         uint32_t         volfile_server_port;
@@ -394,6 +422,9 @@ struct _cmd_args {
         int             brick_port;
         char           *brick_name;
         int             brick_port2;
+
+        /* Should management connections use SSL? */
+        int             secure_mgmt;
 };
 typedef struct _cmd_args cmd_args_t;
 
@@ -415,6 +446,13 @@ typedef struct _glusterfs_graph glusterfs_graph_t;
 
 typedef int32_t (*glusterfsd_mgmt_event_notify_fn_t) (int32_t event, void *data,
                                                       ...);
+
+typedef enum {
+        MGMT_SSL_NEVER = 0,
+        MGMT_SSL_COPY_IO,
+        MGMT_SSL_ALWAYS
+} mgmt_ssl_t;
+
 struct _glusterfs_ctx {
         cmd_args_t          cmd_args;
         char               *process_uuid;
@@ -425,6 +463,7 @@ struct _glusterfs_ctx {
         struct call_pool   *pool;
         void               *event_pool;
         void               *iobuf_pool;
+        void               *logbuf_pool;
         pthread_mutex_t     lock;
         size_t              page_size;
         struct list_head    graphs; /* double linked list of graphs - one per volfile parse */
@@ -434,6 +473,7 @@ struct _glusterfs_ctx {
         void               *listener; /* listener of the commands from glusterd */
         unsigned char       measure_latency; /* toggle switch for latency measurement */
         pthread_t           sigwaiter;
+	char               *cmdlinestr;
         struct mem_pool    *stub_mem_pool;
         unsigned char       cleanup_started;
         int                 graph_id; /* Incremented per graph, value should
@@ -461,6 +501,26 @@ struct _glusterfs_ctx {
         int                 daemon_pipe[2];
 
         struct clienttable *clienttable;
+
+        /*
+         * Should management connections use SSL?  This is the only place we
+         * can put it where both daemon-startup and socket code will see it.
+         *
+         * Why is it an int?  Because we're included before common-utils.h,
+         * which defines gf_boolean_t (what we really want).  It doesn't make
+         * any sense, but it's not worth turning the codebase upside-down to
+         * fix it.  Thus, an int.
+         */
+        int                 secure_mgmt;
+
+        /*
+         * Should *our* server/inbound connections use SSL?  This is only true
+         * if we're glusterd and secure_mgmt is set, or if we're glusterfsd
+         * and SSL is set on the I/O path.  It should never be set e.g. for
+         * NFS.
+         */
+        mgmt_ssl_t          secure_srvr;
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
@@ -484,6 +544,7 @@ typedef enum {
         GF_EVENT_AUTH_FAILED,
         GF_EVENT_VOLUME_DEFRAG,
         GF_EVENT_PARENT_DOWN,
+        GF_EVENT_VOLUME_BARRIER_OP,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
@@ -504,6 +565,25 @@ struct gf_flock {
  * suppress the "set but not used" warning that would otherwise occur.
  */
 #define GF_UNUSED __attribute__((unused))
+
+/*
+ * If present, this has the following effects:
+ *
+ *      glusterd enables privileged commands over TCP
+ *
+ *      all code enables SSL for outbound connections to management port
+ *
+ *      glusterd enables SSL for inbound connections
+ *
+ * Servers and clients enable/disable SSL among themselves by other means.
+ * Making secure management connections conditional on a file is a bit of a
+ * hack, but we don't have any other place for such global settings across
+ * all of the affected components.  Making it a compile-time option would
+ * reduce functionality, both for users and for testing (which can now be
+ * done using secure connections for all tests without change elsewhere).
+ *
+ */
+#define SECURE_ACCESS_FILE     GLUSTERD_DEFAULT_WORKDIR "/secure-access"
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);

@@ -15,8 +15,117 @@
 
 #include "server.h"
 #include "server-helpers.h"
+#include "gidcache.h"
 
 #include <fnmatch.h>
+#include <pwd.h>
+#include <grp.h>
+
+/* based on nfs_fix_aux_groups() */
+int
+gid_resolve (server_conf_t *conf, call_stack_t *root)
+{
+        int               ret = 0;
+        struct passwd     mypw;
+        char              mystrs[1024];
+        struct passwd    *result;
+        gid_t             mygroups[GF_MAX_AUX_GROUPS];
+        gid_list_t        gl;
+        const gid_list_t *agl;
+        int               ngroups, i;
+
+        agl = gid_cache_lookup (&conf->gid_cache, root->uid, 0, 0);
+        if (agl) {
+                root->ngrps = agl->gl_count;
+                goto fill_groups;
+        }
+
+        ret = getpwuid_r (root->uid, &mypw, mystrs, sizeof(mystrs), &result);
+        if (ret != 0) {
+                gf_log("gid-cache", GF_LOG_ERROR, "getpwuid_r(%u) failed",
+                       root->uid);
+                return -1;
+        }
+
+        if (!result) {
+                gf_log ("gid-cache", GF_LOG_ERROR, "getpwuid_r(%u) found "
+                        "nothing", root->uid);
+                return -1;
+        }
+
+        gf_log ("gid-cache", GF_LOG_TRACE, "mapped %u => %s", root->uid,
+                result->pw_name);
+
+        ngroups = GF_MAX_AUX_GROUPS;
+        ret = getgrouplist (result->pw_name, root->gid, mygroups, &ngroups);
+        if (ret == -1) {
+                gf_log ("gid-cache", GF_LOG_ERROR, "could not map %s to group "
+                        "list (%d gids)", result->pw_name, root->ngrps);
+                return -1;
+        }
+        root->ngrps = (uint16_t) ngroups;
+
+fill_groups:
+        if (agl) {
+                /* the gl is not complete, we only use gl.gl_list later on */
+                gl.gl_list = agl->gl_list;
+        } else {
+                /* setup a full gid_list_t to add it to the gid_cache */
+                gl.gl_id = root->uid;
+                gl.gl_uid = root->uid;
+                gl.gl_gid = root->gid;
+                gl.gl_count = root->ngrps;
+
+                gl.gl_list = GF_MALLOC (root->ngrps * sizeof(gid_t),
+                                        gf_common_mt_groups_t);
+                if (gl.gl_list)
+                        memcpy (gl.gl_list, mygroups,
+                                sizeof(gid_t) * root->ngrps);
+                else
+                        return -1;
+        }
+
+        if (root->ngrps == 0) {
+                ret = 0;
+                goto out;
+        }
+
+        if (call_stack_alloc_groups (root, root->ngrps) != 0) {
+                ret = -1;
+                goto out;
+        }
+
+        /* finally fill the groups from the */
+        for (i = 0; i < root->ngrps; ++i)
+                root->groups[i] = gl.gl_list[i];
+
+out:
+        if (agl) {
+                gid_cache_release (&conf->gid_cache, agl);
+        } else {
+                if (gid_cache_add (&conf->gid_cache, &gl) != 1)
+                        GF_FREE (gl.gl_list);
+        }
+
+        return ret;
+}
+
+int
+server_resolve_groups (call_frame_t *frame, rpcsvc_request_t *req)
+{
+        xlator_t      *this = NULL;
+        server_conf_t *conf = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        GF_VALIDATE_OR_GOTO ("server", req, out);
+
+        this = req->trans->xl;
+        conf = this->private;
+
+        return gid_resolve (conf, frame->root);
+out:
+        return -1;
+}
 
 int
 server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
@@ -33,6 +142,7 @@ server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
         if (frame->root->ngrps == 0)
                 return 0;
 
+	/* ngrps cannot be bigger than USHRT_MAX(65535) */
         if (frame->root->ngrps > GF_MAX_AUX_GROUPS)
                 return -1;
 
@@ -132,7 +242,6 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
         client_t  *client = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", this, out);
-        GF_VALIDATE_OR_GOTO ("server", cookie, out);
         GF_VALIDATE_OR_GOTO ("server", frame, out);
 
         fd = frame->local;
@@ -188,9 +297,9 @@ do_fd_cleanup (xlator_t *this, client_t* client, fdentry_t *fdentries, int fd_co
                         }
 
                         tmp_frame->local = fd;
-
                         tmp_frame->root->pid = 0;
                         gf_client_ref (client);
+                        tmp_frame->root->client = client;
                         memset (&tmp_frame->root->lk_owner, 0,
                                 sizeof (gf_lkowner_t));
 
@@ -357,7 +466,8 @@ get_frame_from_request (rpcsvc_request_t *req)
                         if (client->auth.username &&
                             req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
                             req->pid != GF_CLIENT_PID_GSYNCD &&
-                            req->pid != GF_CLIENT_PID_DEFRAG)
+                            req->pid != GF_CLIENT_PID_DEFRAG &&
+                            req->pid != GF_CLIENT_PID_QUOTA_MOUNT)
                                 RPC_AUTH_ROOT_SQUASH (req);
 
                         /* For nfs clients the server processes will be running
@@ -378,7 +488,10 @@ get_frame_from_request (rpcsvc_request_t *req)
         frame->root->client   = client;
         frame->root->lk_owner = req->lk_owner;
 
-        server_decode_groups (frame, req);
+        if (priv->server_manage_gids)
+            server_resolve_groups (frame, req);
+        else
+            server_decode_groups (frame, req);
 
         frame->local = req;
 out:
@@ -744,7 +857,7 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                 /* if 'dict' is present, pack it */
                 if (entry->dict) {
                         trav->dict.dict_len = dict_serialized_length (entry->dict);
-                        if (trav->dict.dict_len < 0) {
+                        if (trav->dict.dict_len > UINT_MAX) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "failed to get serialized length "
                                         "of reply dict");
@@ -984,6 +1097,7 @@ server_ctx_get (client_t *client, xlator_t *xlator)
 
         if (client_ctx_set (client, xlator, ctx) != 0) {
               LOCK_DESTROY (&ctx->fdtable_lock);
+              GF_FREE (ctx->fdtable);
               GF_FREE (ctx);
               ctx = NULL;
         }

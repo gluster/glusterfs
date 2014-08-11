@@ -15,8 +15,50 @@
 #include "gfid-access.h"
 #include "inode.h"
 #include "byte-order.h"
+#include "statedump.h"
 
 
+int
+ga_valid_inode_loc_copy (loc_t *dst, loc_t *src, xlator_t *this)
+{
+        int      ret        = 0;
+        uint64_t value      = 0;
+
+        /* if its an entry operation, on the virtual */
+        /* directory inode as parent, we need to handle */
+        /* it properly */
+        ret = loc_copy (dst, src);
+        if (ret < 0)
+                goto out;
+
+        /*
+         * Change ALL virtual inodes with real-inodes in loc
+         */
+        if (dst->parent) {
+                ret = inode_ctx_get (dst->parent, this, &value);
+                if (ret < 0) {
+                        ret = 0; //real-inode
+                        goto out;
+                }
+                inode_unref (dst->parent);
+                dst->parent = inode_ref ((inode_t*)value);
+                uuid_copy (dst->pargfid, dst->parent->gfid);
+        }
+
+        if (dst->inode) {
+                ret = inode_ctx_get (dst->inode, this, &value);
+                if (ret < 0) {
+                        ret = 0; //real-inode
+                        goto out;
+                }
+                inode_unref (dst->inode);
+                dst->inode = inode_ref ((inode_t*)value);
+                uuid_copy (dst->gfid, dst->inode->gfid);
+        }
+out:
+
+        return ret;
+}
 
 void
 ga_newfile_args_free (ga_newfile_args_t *args)
@@ -96,7 +138,6 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
         blob_len -= sizeof (uint32_t);
 
         len = strnlen (blob, blob_len);
-        if (len == blob_len)
         if (len == blob_len) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "gfid: %s. No null byte present.",
@@ -258,6 +299,7 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         int       ret    = -1;
         uint64_t  value  = 0;
         inode_t  *parent = NULL;
+        uuid_t *gfid_ptr = NULL;
 
         parent = loc->inode;
         ret = inode_ctx_get (loc->inode, this, &value);
@@ -272,23 +314,33 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         new_loc->parent = inode_ref (parent);
 
         new_loc->inode = inode_grep (parent->table, parent, bname);
-        if (!new_loc->inode)
+        if (!new_loc->inode) {
                 new_loc->inode = inode_new (parent->table);
+                uuid_copy (new_loc->inode->gfid, gfid);
+        }
 
         loc_path (new_loc, bname);
-        new_loc->name = basename (new_loc->path);
+        if (new_loc->path) {
+                new_loc->name = strrchr (new_loc->path, '/');
+                if (new_loc->name)
+                        new_loc->name++;
+        }
 
-        /* As GFID would not be set on the entry yet, lets not send entry
-           gfid in the request */
-        /*uuid_copy (new_loc->gfid, (const unsigned char *)gfid); */
-
-        ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
+        gfid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!gfid_ptr) {
+                ret = -1;
+                goto out;
+        }
+        uuid_copy (*gfid_ptr, gfid);
+        ret = dict_set_dynptr (xdata, "gfid-req", gfid_ptr, sizeof (uuid_t));
         if (ret < 0)
                 goto out;
 
         ret = 0;
 
 out:
+        if (ret && gfid_ptr)
+                GF_FREE (gfid_ptr);
         return ret;
 }
 
@@ -385,6 +437,10 @@ ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        /* no need to proceed if things don't look good here */
+        if (op_ret == -1)
+                goto done;
+
         if (!local->uid && !local->gid)
                 goto done;
 
@@ -433,8 +489,16 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         if (ret)
                 goto out;
 
-        if (!xdata)
+        if (!xdata) {
                 xdata = dict_new ();
+        } else {
+                xdata = dict_ref (xdata);
+        }
+
+        if (!xdata) {
+                ret = -1;
+                goto out;
+        }
 
         ret = ga_fill_tmp_loc (loc, this, gfid,
                                args->bname, xdata, &tmp_loc);
@@ -481,6 +545,11 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 out:
         ga_newfile_args_free (args);
 
+        if (xdata)
+                dict_unref (xdata);
+
+        loc_wipe (&tmp_loc);
+
         return ret;
 }
 
@@ -504,6 +573,13 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 
         if (!xdata)
                 xdata = dict_new ();
+        else
+                xdata = dict_ref (xdata);
+
+        if (!xdata) {
+                ret = -1;
+                goto out;
+        }
 
         ret = ga_fill_tmp_loc (loc, this, gfid, args->bname,
                                xdata, &tmp_loc);
@@ -513,6 +589,7 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         new_frame = copy_frame (frame);
         if (!new_frame)
                 goto out;
+
         new_frame->local = (void *)frame;
 
         STACK_WIND (new_frame, ga_heal_cbk, FIRST_CHILD (this),
@@ -523,6 +600,11 @@ ga_heal_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 out:
         if (args)
                 ga_heal_args_free (args);
+
+        loc_wipe (&tmp_loc);
+
+        if (xdata)
+                dict_unref (xdata);
 
         return ret;
 }
@@ -540,19 +622,12 @@ int32_t
 ga_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags, dict_t *xdata)
 {
-
         data_t  *data     = NULL;
         int      op_errno = ENOMEM;
         int      ret      = 0;
-        inode_t *unref    = NULL;
+        loc_t   ga_loc    = {0, };
 
-        if ((loc->name && !strcmp (GF_GFID_DIR, loc->name)) &&
-            ((loc->parent &&
-              __is_root_gfid (loc->parent->gfid)) ||
-             __is_root_gfid (loc->pargfid))) {
-                op_errno = EPERM;
-                goto err;
-        }
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
 
         data = dict_get (dict, GF_FUSE_AUX_GFID_NEWFILE);
         if (data) {
@@ -572,15 +647,15 @@ ga_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
         //If the inode is a virtual inode change the inode otherwise perform
         //the operation on same inode
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
 
-wind:
         STACK_WIND (frame, ga_setxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
+                    FIRST_CHILD(this)->fops->setxattr, &ga_loc, dict, flags,
                     xdata);
-        if (unref)
-                inode_unref (unref);
 
+        loc_wipe (&ga_loc);
         return 0;
 err:
         STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, xdata);
@@ -875,7 +950,7 @@ int
 ga_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           mode_t umask, dict_t *xdata)
 {
-        int op_errno = 0;
+        int op_errno = ENOMEM;
 
         GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
 
@@ -896,7 +971,7 @@ int
 ga_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
            mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        int op_errno = 0;
+        int op_errno = ENOMEM;
 
         GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
 
@@ -916,7 +991,7 @@ int
 ga_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
             loc_t *loc, mode_t umask, dict_t *xdata)
 {
-        int op_errno = 0;
+        int op_errno = ENOMEM;
 
         GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
 
@@ -935,7 +1010,7 @@ int
 ga_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           dev_t rdev, mode_t umask, dict_t *xdata)
 {
-        int op_errno = 0;
+        int op_errno = ENOMEM;
 
         GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
 
@@ -955,20 +1030,21 @@ int
 ga_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
           dict_t *xdata)
 {
-        int op_errno = 0;
-        inode_t *unref = NULL;
+        int   op_errno = ENOMEM;
+        int   ret      = -1;
+        loc_t ga_loc   = {0, };
 
         GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
 
-wind:
         STACK_WIND (frame, default_rmdir_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->rmdir,
-                    loc, flag, xdata);
-        if (unref)
-                inode_unref (unref);
+                    &ga_loc, flag, xdata);
 
+        loc_wipe (&ga_loc);
         return 0;
 err:
         STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL,
@@ -981,21 +1057,21 @@ int
 ga_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t xflag,
            dict_t *xdata)
 {
-        int op_errno = 0;
-        inode_t *unref = NULL;
+        int   op_errno = ENOMEM;
+        int   ret      = -1;
+        loc_t ga_loc   = {0, };
 
         GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
 
-wind:
         STACK_WIND (frame, default_unlink_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->unlink,
-                    loc, xflag, xdata);
+                    &ga_loc, xflag, xdata);
 
-        if (unref)
-                inode_unref (unref);
-
+        loc_wipe (&ga_loc);
         return 0;
 err:
         STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL,
@@ -1008,30 +1084,30 @@ int
 ga_rename (call_frame_t *frame, xlator_t *this,
            loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        int op_errno = 0;
-        inode_t *oldloc_unref = NULL;
-        inode_t *newloc_unref = NULL;
+        int   op_errno  = ENOMEM;
+        int   ret       = 0;
+        loc_t ga_oldloc = {0, };
+        loc_t ga_newloc = {0, };
 
         GFID_ACCESS_ENTRY_OP_CHECK (oldloc, op_errno, err);
         GFID_ACCESS_ENTRY_OP_CHECK (newloc, op_errno, err);
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, oldloc, oldloc_unref,
-                                         handle_newloc);
+        ret = ga_valid_inode_loc_copy (&ga_oldloc, oldloc, this);
+        if (ret < 0)
+                goto err;
 
-handle_newloc:
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, newloc, newloc_unref, wind);
+        ret = ga_valid_inode_loc_copy (&ga_newloc, newloc, this);
+        if (ret < 0) {
+                loc_wipe (&ga_oldloc);
+                goto err;
+        }
 
-wind:
         STACK_WIND (frame, default_rename_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->rename,
-                    oldloc, newloc, xdata);
+                    &ga_oldloc, &ga_newloc, xdata);
 
-        if (oldloc_unref)
-                inode_unref (oldloc_unref);
-
-        if (newloc_unref)
-                inode_unref (newloc_unref);
-
+        loc_wipe (&ga_newloc);
+        loc_wipe (&ga_oldloc);
         return 0;
 err:
         STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL,
@@ -1045,31 +1121,32 @@ int
 ga_link (call_frame_t *frame, xlator_t *this,
          loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        int op_errno = 0;
-        inode_t *oldloc_unref = NULL;
-        inode_t *newloc_unref = NULL;
+        int   op_errno  = ENOMEM;
+        int   ret       = 0;
+        loc_t ga_oldloc = {0, };
+        loc_t ga_newloc = {0, };
 
         GFID_ACCESS_ENTRY_OP_CHECK (oldloc, op_errno, err);
         GFID_ACCESS_ENTRY_OP_CHECK (newloc, op_errno, err);
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, oldloc, oldloc_unref,
-                                         handle_newloc);
+        ret = ga_valid_inode_loc_copy (&ga_oldloc, oldloc, this);
+        if (ret < 0)
+                goto err;
 
-handle_newloc:
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, newloc, newloc_unref, wind);
+        ret = ga_valid_inode_loc_copy (&ga_newloc, newloc, this);
+        if (ret < 0) {
+                loc_wipe (&ga_oldloc);
+                goto err;
+        }
 
-wind:
         STACK_WIND (frame, default_link_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->link,
-                    oldloc, newloc, xdata);
+                    &ga_oldloc, &ga_newloc, xdata);
 
-        if (oldloc_unref)
-                inode_unref (oldloc_unref);
-
-        if (newloc_unref)
-                inode_unref (newloc_unref);
-
+        loc_wipe (&ga_newloc);
+        loc_wipe (&ga_oldloc);
         return 0;
+
 err:
         STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL,
                              NULL, NULL, NULL, xdata);
@@ -1081,9 +1158,9 @@ int32_t
 ga_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
             fd_t *fd, dict_t *xdata)
 {
-        int op_errno = 0;
+        int op_errno = ENOMEM;
 
-        GFID_ACCESS_ENTRY_OP_CHECK (loc, op_errno, err);
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
 
         /* also check if the loc->inode itself is virtual
            inode, if yes, return with failure, mainly because we
@@ -1107,16 +1184,23 @@ int32_t
 ga_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              const char *name, dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        int   op_errno = ENOMEM;
+        int   ret      = -1;
+        loc_t ga_loc   = {0, };
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
 
-wind:
         STACK_WIND (frame, default_getxattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);
+                    FIRST_CHILD(this)->fops->getxattr, &ga_loc, name, xdata);
 
-        if (unref)
-                inode_unref (unref);
+        loc_wipe (&ga_loc);
+
+        return 0;
+err:
+        STACK_UNWIND_STRICT (getxattr, frame, -1, op_errno, NULL, xdata);
 
         return 0;
 }
@@ -1125,16 +1209,35 @@ int32_t
 ga_stat (call_frame_t *frame, xlator_t *this, loc_t *loc,
          dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        int          op_errno = ENOMEM;
+        int          ret      = -1;
+        loc_t        ga_loc   = {0, };
+        ga_private_t *priv    = NULL;
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        priv = this->private;
+        /* If stat is on ".gfid" itself, do not wind further,
+         * return fake stat and return success.
+         */
+        if (__is_gfid_access_dir(loc->gfid))
+                goto out;
 
-wind:
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
+
         STACK_WIND (frame, default_stat_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->stat, loc, xdata);
-        if (unref)
-                inode_unref (unref);
+                    FIRST_CHILD(this)->fops->stat, &ga_loc, xdata);
 
+        loc_wipe (&ga_loc);
+        return 0;
+
+err:
+        STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL, xdata);
+
+        return 0;
+
+out:
+        STACK_UNWIND_STRICT (stat, frame, 0, 0, &priv->gfiddir_stbuf, xdata);
         return 0;
 }
 
@@ -1143,16 +1246,23 @@ ga_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid,
             dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        int   op_errno = ENOMEM;
+        int   ret      = -1;
+        loc_t ga_loc   = {0, };
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
 
-wind:
         STACK_WIND (frame, default_setattr_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->setattr, loc, stbuf, valid,
+                    FIRST_CHILD (this)->fops->setattr, &ga_loc, stbuf, valid,
                     xdata);
-        if (unref)
-                inode_unref (unref);
+
+        loc_wipe (&ga_loc);
+        return 0;
+err:
+        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL, xdata);
 
         return 0;
 }
@@ -1161,16 +1271,24 @@ int32_t
 ga_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata)
 {
-        inode_t *unref = NULL;
+        int   op_errno = ENOMEM;
+        int   ret      = -1;
+        loc_t ga_loc   = {0, };
 
-        GFID_ACCESS_GET_VALID_DIR_INODE (this, loc, unref, wind);
+        GFID_ACCESS_INODE_OP_CHECK (loc, op_errno, err);
+        ret = ga_valid_inode_loc_copy (&ga_loc, loc, this);
+        if (ret < 0)
+                goto err;
 
-wind:
         STACK_WIND (frame, default_removexattr_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->removexattr, loc, name,
+                    FIRST_CHILD(this)->fops->removexattr, &ga_loc, name,
                     xdata);
-        if (unref)
-                inode_unref (unref);
+
+        loc_wipe (&ga_loc);
+        return 0;
+
+err:
+        STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno, xdata);
 
         return 0;
 }
@@ -1264,6 +1382,25 @@ fini (xlator_t *this)
         return;
 }
 
+int32_t
+ga_dump_inodectx (xlator_t *this, inode_t *inode)
+{
+        int       ret = -1;
+        uint64_t  value = 0;
+        inode_t  *tmp_inode = NULL;
+        char      key_prefix[GF_DUMP_MAX_BUF_LEN] = {0, };
+
+        ret = inode_ctx_get (inode, this, &value);
+        if (ret == 0) {
+                tmp_inode = (void*) value;
+                gf_proc_dump_build_key (key_prefix, this->name, "inode");
+                gf_proc_dump_add_section (key_prefix);
+                gf_proc_dump_write ("real-gfid", "%s",
+                                    uuid_utoa (tmp_inode->gfid));
+        }
+
+        return 0;
+}
 
 struct xlator_fops fops = {
         .lookup = ga_lookup,
@@ -1291,6 +1428,10 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .forget = ga_forget,
+};
+
+struct xlator_dumpops dumpops = {
+        .inodectx       = ga_dump_inodectx,
 };
 
 struct volume_options options[] = {

@@ -312,6 +312,14 @@ __glusterd_handle_gsync_set (rpcsvc_request_t *req)
                 strncpy (operation, "stop", sizeof (operation));
                 break;
 
+        case GF_GSYNC_OPTION_TYPE_PAUSE:
+                strncpy (operation, "pause", sizeof (operation));
+                break;
+
+        case GF_GSYNC_OPTION_TYPE_RESUME:
+                strncpy (operation, "resume", sizeof (operation));
+                break;
+
         case GF_GSYNC_OPTION_TYPE_CONFIG:
                 strncpy (operation, "config", sizeof (operation));
                 break;
@@ -644,6 +652,7 @@ glusterd_gsync_get_config (char *master, char *slave, char *conf_path, dict_t *d
         runinit (&runner);
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master);
         runner_add_args  (&runner, slave, "--config-get-all", NULL);
 
@@ -660,6 +669,7 @@ glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
         runinit (&runner);
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master);
         runner_add_args  (&runner, slave, "--config-get", NULL);
         runner_argprintf (&runner, "%s-file", param);
@@ -668,47 +678,72 @@ glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
 }
 
 static int
-gsyncd_getpidfile (char *master, char *slave, char *pidfile, char *conf_path)
+gsyncd_getpidfile (char *master, char *slave, char *pidfile,
+                   char *conf_path, gf_boolean_t *is_template_in_use)
 {
-        int                ret             = -1;
-        glusterd_conf_t    *priv  = NULL;
-        char               *confpath = NULL;
-        char                conf_buf[PATH_MAX] = "";
-        struct stat         stbuf = {0,};
-
+        char                temp_conf_path[PATH_MAX] = "";
+        char               *working_conf_path        = NULL;
+        glusterd_conf_t    *priv                     = NULL;
+        int                 ret                      = -1;
+        struct stat         stbuf                    = {0,};
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
+        GF_ASSERT (conf_path);
 
         priv = THIS->private;
 
         GF_VALIDATE_OR_GOTO ("gsync", master, out);
         GF_VALIDATE_OR_GOTO ("gsync", slave, out);
 
+        snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
+                  "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+
         ret = lstat (conf_path, &stbuf);
         if (!ret) {
                 gf_log ("", GF_LOG_DEBUG, "Using passed config template(%s).",
                         conf_path);
-                confpath = conf_path;
+                working_conf_path = conf_path;
         } else {
-                ret = snprintf (conf_buf, sizeof(conf_buf) - 1,
-                                "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
-                conf_buf[ret] = '\0';
-                confpath = conf_buf;
-                gf_log ("", GF_LOG_DEBUG, "Using default config template(%s).",
-                        confpath);
+                gf_log ("", GF_LOG_WARNING, "Config file (%s) missing. "
+                        "Looking for template config file (%s)",
+                        conf_path, temp_conf_path);
+                ret = lstat (temp_conf_path, &stbuf);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Template config file (%s) missing.",
+                                temp_conf_path);
+                        goto out;
+                }
+                gf_log ("", GF_LOG_INFO, "Using default config template(%s).",
+                        temp_conf_path);
+                working_conf_path = temp_conf_path;
+                *is_template_in_use = _gf_true;
         }
+
+fetch_data:
 
         ret = glusterd_gsync_get_param_file (pidfile, "pid", master,
-                                              slave, confpath);
-        if (ret == -1) {
-                ret = -2;
-                gf_log ("", GF_LOG_WARNING, "failed to create the pidfile string");
-                goto out;
+                                             slave, working_conf_path);
+        if ((ret == -1) || strlen(pidfile) == 0) {
+                if (*is_template_in_use == _gf_false) {
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to create the pidfile string. "
+                                "Trying default config template");
+                        working_conf_path = temp_conf_path;
+                        *is_template_in_use = _gf_true;
+                        goto fetch_data;
+                } else {
+                        ret = -2;
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to create the pidfile string from template config");
+                        goto out;
+                }
         }
 
-        ret = open (pidfile, O_RDWR);
+        gf_log ("", GF_LOG_DEBUG, "pidfile = %s", pidfile);
 
+        ret = open (pidfile, O_RDWR);
  out:
         return ret;
 }
@@ -730,12 +765,14 @@ gsync_status_byfd (int fd)
  * return -1 when not running
  */
 int
-gsync_status (char *master, char *slave, char *conf_path, int *status)
+gsync_status (char *master, char *slave, char *conf_path,
+              int *status, gf_boolean_t *is_template_in_use)
 {
         char pidfile[PATH_MAX] = {0,};
         int  fd                = -1;
 
-        fd = gsyncd_getpidfile (master, slave, pidfile, conf_path);
+        fd = gsyncd_getpidfile (master, slave, pidfile,
+                                conf_path, is_template_in_use);
         if (fd == -2)
                 return -1;
 
@@ -936,15 +973,16 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
 static int
 _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
 {
-        glusterd_gsync_status_temp_t  *param = NULL;
-        char                          *slave = NULL;
-        char                          *slave_buf = NULL;
-        char                          *slave_ip  = NULL;
-        char                          *slave_vol = NULL;
-        char                          *errmsg    = NULL;
+        glusterd_gsync_status_temp_t *param                = NULL;
+        char                         *slave                = NULL;
+        char                         *slave_buf            = NULL;
+        char                         *slave_url            = NULL;
+        char                         *slave_vol            = NULL;
+        char                         *slave_host           = NULL;
+        char                         *errmsg               = NULL;
         char                           conf_path[PATH_MAX] = "";
-        int                           ret = -1;
-        glusterd_conf_t              *priv = NULL;
+        int                           ret                  = -1;
+        glusterd_conf_t              *priv                 = NULL;
 
         param = (glusterd_gsync_status_temp_t *)data;
 
@@ -963,7 +1001,8 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
                 return 0;
         slave++;
 
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, &errmsg);
+        ret = glusterd_get_slave_info (slave, &slave_url,
+                                       &slave_host, &slave_vol, &errmsg);
         if (ret) {
                 if (errmsg)
                         gf_log ("", GF_LOG_ERROR, "Unable to fetch "
@@ -978,7 +1017,7 @@ _get_status_mst_slv (dict_t *this, char *key, data_t *value, void *data)
         ret = snprintf (conf_path, sizeof(conf_path) - 1,
                         "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
                         priv->workdir, param->volinfo->volname,
-                        slave_ip, slave_vol);
+                        slave_host, slave_vol);
         conf_path[ret] = '\0';
 
         ret = glusterd_get_gsync_status_mst_slv(param->volinfo,
@@ -1089,16 +1128,18 @@ glusterd_check_gsync_running_local (char *master, char *slave,
 {
         int                 ret    = -1;
         int                 ret_status = 0;
+        gf_boolean_t        is_template_in_use = _gf_false;
 
         GF_ASSERT (master);
         GF_ASSERT (slave);
         GF_ASSERT (is_run);
 
         *is_run = _gf_false;
-        ret = gsync_status (master, slave, conf_path, &ret_status);
-        if (ret == 0 && ret_status == 0) {
+        ret = gsync_status (master, slave, conf_path,
+                            &ret_status, &is_template_in_use);
+        if (ret == 0 && ret_status == 0)
                 *is_run = _gf_true;
-        } else if (ret == -1) {
+        else if (ret == -1) {
                 gf_log ("", GF_LOG_WARNING, GEOREP" validation "
                         " failed");
                 goto out;
@@ -1202,7 +1243,8 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                                         gf_boolean_t is_force)
 {
         int                     ret = -1;
-        gf_boolean_t            is_running = _gf_false;
+        int                     ret_status = 0;
+        gf_boolean_t            is_template_in_use = _gf_false;
         char                    msg[2048] = {0};
         uuid_t                  uuid = {0};
         glusterd_conf_t        *priv = NULL;
@@ -1246,31 +1288,34 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        if (is_force) {
-                ret = 0;
-                goto out;
-        }
-
         /*Check if the gsync is already started in cmd. inited host
          * If so initiate add it into the glusterd's priv*/
-        ret = glusterd_check_gsync_running_local (volinfo->volname,
-                                                  slave, conf_path,
-                                                  &is_running);
-        if (ret) {
+        ret = gsync_status (volinfo->volname, slave, conf_path,
+                            &ret_status, &is_template_in_use);
+        if (ret == 0) {
+                if ((ret_status == 0) && !is_force) {
+                        snprintf (msg, sizeof (msg), GEOREP " session between"
+                                  " %s & %s already started", volinfo->volname,
+                                  slave);
+                        ret = -1;
+                        goto out;
+                }
+        } else if (ret == -1) {
                 snprintf (msg, sizeof (msg), GEOREP" start option "
                           "validation failed ");
                 goto out;
         }
-        if (_gf_true == is_running) {
-                snprintf (msg, sizeof (msg), GEOREP " session between"
-                          " %s & %s already started", volinfo->volname,
-                          slave);
+
+        if (is_template_in_use == _gf_true) {
+                snprintf (msg, sizeof (msg), GEOREP" start "
+                          "failed : pid-file entry missing "
+                          "in config file.");
                 ret = -1;
                 goto out;
         }
 
         ret = glusterd_verify_gsyncd_spawn (volinfo->volname, slave);
-        if (ret) {
+        if (ret && !is_force) {
                 snprintf (msg, sizeof (msg), "Unable to spawn gsyncd");
                 gf_log ("", GF_LOG_ERROR, "%s", msg);
         }
@@ -1383,15 +1428,16 @@ out:
 int
 _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
 {
-        gsync_status_param_t          *param               = NULL;
-        char                          *slave               = NULL;
-        char                          *slave_ip            = NULL;
-        char                          *slave_vol           = NULL;
-        char                          *errmsg              = NULL;
+        gsync_status_param_t *param                        = NULL;
+        char                 *slave                        = NULL;
+        char                 *slave_url                    = NULL;
+        char                 *slave_vol                    = NULL;
+        char                 *slave_host                   = NULL;
+        char                 *errmsg                       = NULL;
         char                           conf_path[PATH_MAX] = "";
-        int                            ret                 = -1;
-        glusterd_conf_t               *priv                = NULL;
-        xlator_t                      *this                = NULL;
+        int                   ret                          = -1;
+        glusterd_conf_t      *priv                         = NULL;
+        xlator_t             *this                         = NULL;
 
         param = (gsync_status_param_t *)data;
 
@@ -1420,7 +1466,8 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
         }
         slave++;
 
-        ret = glusterd_get_slave_info (slave, &slave_ip, &slave_vol, &errmsg);
+        ret = glusterd_get_slave_info (slave, &slave_url,
+                                       &slave_host, &slave_vol, &errmsg);
         if (ret) {
                 if (errmsg)
                         gf_log ("", GF_LOG_ERROR, "Unable to fetch "
@@ -1435,7 +1482,7 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
         ret = snprintf (conf_path, sizeof(conf_path) - 1,
                         "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
                         priv->workdir, param->volinfo->volname,
-                        slave_ip, slave_vol);
+                        slave_host, slave_vol);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "Unable to assign conf_path.");
                 ret = -1;
@@ -1459,10 +1506,12 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
         int        ret               = -1;
         char       msg[2048]         = {0};
         char       pidfile[PATH_MAX] = {0,};
+        gf_boolean_t is_template_in_use = _gf_false;
 
         GF_ASSERT (THIS && THIS->private);
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
+        GF_ASSERT (conf_path);
         GF_ASSERT (op_errstr);
 
         if (GLUSTERD_STATUS_STARTED != volinfo->status) {
@@ -1472,7 +1521,8 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        pfd = gsyncd_getpidfile (volinfo->volname, slave, pidfile, conf_path);
+        pfd = gsyncd_getpidfile (volinfo->volname, slave, pidfile,
+                                 conf_path, &is_template_in_use);
         if (pfd == -2) {
                 gf_log ("", GF_LOG_ERROR, GEOREP" stop validation "
                         "failed for %s & %s", volinfo->volname, slave);
@@ -1485,6 +1535,14 @@ glusterd_op_verify_gsync_running (glusterd_volinfo_t *volinfo,
                 gf_log ("", GF_LOG_ERROR, "%s", msg);
                 ret = -1;
                 /* monitor gsyncd already dead */
+                goto out;
+        }
+
+        if (is_template_in_use) {
+                snprintf (msg, sizeof (msg), "pid-file entry missing in "
+                          "the config file(%s).", conf_path);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                ret = -1;
                 goto out;
         }
 
@@ -1503,16 +1561,17 @@ out:
 static int
 glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
 {
-        char               *slave  = NULL;
-        char               *volname = NULL;
+        char               *slave           = NULL;
+        char               *volname         = NULL;
         char               errmsg[PATH_MAX] = {0, };
-        gf_boolean_t       exists = _gf_false;
-        glusterd_volinfo_t *volinfo = NULL;
-        int                ret = 0;
-        char               *conf_path = NULL;
-        char               *slave_ip = NULL;
-        char               *slave_vol = NULL;
-        glusterd_conf_t    *priv = NULL;
+        gf_boolean_t        exists          = _gf_false;
+        glusterd_volinfo_t *volinfo         = NULL;
+        int                 ret             = 0;
+        char               *conf_path       = NULL;
+        char               *slave_url       = NULL;
+        char               *slave_host      = NULL;
+        char               *slave_vol       = NULL;
+        glusterd_conf_t    *priv            = NULL;
 
         if (THIS)
                 priv = THIS->private;
@@ -1545,9 +1604,9 @@ glusterd_verify_gsync_status_opts (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
-                                                   &slave_vol, &conf_path,
-                                                   op_errstr);
+        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_url,
+                                                   &slave_host, &slave_vol,
+                                                   &conf_path, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave  or confpath details.");
@@ -1739,20 +1798,23 @@ out:
 
 int
 glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
-                             char *conf_path, char **statefile)
+                             char *conf_path, char **statefile,
+                             gf_boolean_t *is_template_in_use)
 {
-        glusterd_conf_t *priv = NULL;
-        int              ret = -1;
-        char            *master    = NULL;
-        char            *buf       = NULL;
-        dict_t          *confd = NULL;
-        char            *confpath = NULL;
-        char             conf_buf[PATH_MAX] = "";
-        struct stat      stbuf = {0,};
+        char            *master                   = NULL;
+        char            *buf                      = NULL;
+        char            *working_conf_path        = NULL;
+        char             temp_conf_path[PATH_MAX] = "";
+        dict_t          *confd                    = NULL;
+        glusterd_conf_t *priv                     = NULL;
+        int              ret                      = -1;
+        struct stat      stbuf                    = {0,};
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
         GF_ASSERT (volinfo);
+        GF_ASSERT (conf_path);
+        GF_ASSERT (is_template_in_use);
 
         master = volinfo->volname;
 
@@ -1764,44 +1826,79 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
 
         priv = THIS->private;
 
+        snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
+                  "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+
         ret = lstat (conf_path, &stbuf);
         if (!ret) {
                 gf_log ("", GF_LOG_INFO, "Using passed config template(%s).",
                         conf_path);
-                confpath = conf_path;
+                working_conf_path = conf_path;
         } else {
-                ret = snprintf (conf_buf, sizeof(conf_buf) - 1,
-                                "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
-                conf_buf[ret] = '\0';
-                confpath = conf_buf;
+                gf_log ("", GF_LOG_WARNING, "Config file (%s) missing. "
+                        "Looking for template config file (%s)",
+                        conf_path, temp_conf_path);
+                ret = lstat (temp_conf_path, &stbuf);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Template config file (%s) missing.",
+                                temp_conf_path);
+                        goto out;
+                }
                 gf_log ("", GF_LOG_INFO, "Using default config template(%s).",
-                        confpath);
+                        temp_conf_path);
+                working_conf_path = temp_conf_path;
+                *is_template_in_use = _gf_true;
         }
 
-        ret = glusterd_gsync_get_config (master, slave, confpath,
+fetch_data:
+        ret = glusterd_gsync_get_config (master, slave, working_conf_path,
                                          confd);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get configuration data"
-                        "for %s(master), %s(slave)", master, slave);
-                goto out;
-
+                if (*is_template_in_use == _gf_false) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get configuration data "
+                                "for %s(master), %s(slave). "
+                                "Trying template config.",
+                                master, slave);
+                        working_conf_path = temp_conf_path;
+                        *is_template_in_use = _gf_true;
+                        goto fetch_data;
+                } else {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get configuration data "
+                                "for %s(master), %s(slave) from "
+                                "template config",
+                                master, slave);
+                        goto out;
+                }
         }
 
         ret = dict_get_param (confd, "state_file", &buf);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get state_file's name.");
-                goto out;
-        }
-
-        *statefile = gf_strdup(buf);
-        if (!*statefile) {
-                gf_log ("", GF_LOG_ERROR, "Unable to gf_strdup.");
-                ret = -1;
-                goto out;
+                if (*is_template_in_use == _gf_false) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get state_file's name. "
+                                "Trying template config.");
+                        working_conf_path = temp_conf_path;
+                        *is_template_in_use = _gf_true;
+                        goto fetch_data;
+                } else {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get state_file's "
+                                "name from template.");
+                        goto out;
+                }
         }
 
         ret = 0;
  out:
+        if (buf) {
+                *statefile = gf_strdup(buf);
+                if (!*statefile)
+                        ret = -1;
+        }
+
         if (confd)
                 dict_destroy (confd);
 
@@ -1809,8 +1906,8 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
         return ret;
 }
 
-static int
-glusterd_create_status_file (char *master, char *slave, char *slave_ip,
+int
+glusterd_create_status_file (char *master, char *slave, char *slave_host,
                              char *slave_vol, char *status)
 {
         int                ret    = -1;
@@ -1834,7 +1931,8 @@ glusterd_create_status_file (char *master, char *slave, char *slave_ip,
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "--create",
                          status, "-c", NULL);
         runner_argprintf (&runner, "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
-                          priv->workdir, master, slave_ip, slave_vol);
+                          priv->workdir, master, slave_host, slave_vol);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         runner_argprintf (&runner, ":%s", master);
         runner_add_args  (&runner, slave, NULL);
         synclock_unlock (&priv->big_lock);
@@ -1853,7 +1951,7 @@ out:
 }
 
 static int
-glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
+glusterd_verify_slave (char *volname, char *slave_url, char *slave_vol,
                        char **op_errstr, gf_boolean_t *is_force_blocker)
 {
         int32_t          ret                     = -1;
@@ -1861,17 +1959,38 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         char             log_file_path[PATH_MAX] = "";
         char             buf[PATH_MAX]           = "";
         char            *tmp                     = NULL;
+        char            *slave_url_buf           = NULL;
         char            *save_ptr                = NULL;
+        char            *slave_user              = NULL;
+        char            *slave_ip                = NULL;
         glusterd_conf_t *priv                    = NULL;
+        xlator_t        *this                    = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
         GF_ASSERT (volname);
-        GF_ASSERT (slave_ip);
-        GF_ASSERT (slave);
+        GF_ASSERT (slave_url);
+        GF_ASSERT (slave_vol);
 
-        if (THIS)
-                priv = THIS->private;
-        if (priv == NULL) {
-                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
+        /* Fetch the slave_user and slave_ip from the slave_url.
+         * If the slave_user is not present. Use "root"
+         */
+        if (strstr(slave_url, "@")) {
+                slave_url_buf = gf_strdup (slave_url);
+                if (!slave_url_buf)
+                        goto out;
+
+                slave_user = strtok_r (slave_url_buf, "@", &save_ptr);
+                slave_ip = strtok_r (NULL, "@", &save_ptr);
+        } else {
+                slave_user = "root";
+                slave_ip = slave_url;
+        }
+
+        if (!slave_user || !slave_ip) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid slave url.");
                 goto out;
         }
 
@@ -1881,8 +2000,9 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         runinit (&runner);
         runner_add_args  (&runner, GSYNCD_PREFIX"/gverify.sh", NULL);
         runner_argprintf (&runner, "%s", volname);
+        runner_argprintf (&runner, "%s", slave_user);
         runner_argprintf (&runner, "%s", slave_ip);
-        runner_argprintf (&runner, "%s", slave);
+        runner_argprintf (&runner, "%s", slave_vol);
         runner_argprintf (&runner, "%s", log_file_path);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         synclock_unlock (&priv->big_lock);
@@ -1922,28 +2042,40 @@ glusterd_verify_slave (char *volname, char *slave_ip, char *slave,
         }
         ret = 0;
 out:
+        GF_FREE (slave_url_buf);
         unlink (log_file_path);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
+/** @slave_ip remains unmodified */
 int
-glusterd_mountbroker_check (char **slave_ip, char **op_errstr)
+glusterd_geo_rep_parse_slave (char *slave_url,
+                              char **hostname, char **op_errstr)
 {
         int   ret             = -1;
         char *tmp             = NULL;
         char *save_ptr        = NULL;
-        char *username        = NULL;
         char *host            = NULL;
         char errmsg[PATH_MAX] = "";
+        char *saved_url       = NULL;
 
-        GF_ASSERT (slave_ip);
-        GF_ASSERT (*slave_ip);
+        GF_ASSERT (slave_url);
+        GF_ASSERT (*slave_url);
+
+        saved_url = gf_strdup (slave_url);
+        if (!saved_url)
+                goto out;
 
         /* Checking if hostname has user specified */
-        host = strstr (*slave_ip, "@");
-        if (!host) {
-                gf_log ("", GF_LOG_DEBUG, "No username provided.");
+        host = strstr (saved_url, "@");
+        if (!host) { /* no user specified */
+                if (hostname) {
+                        *hostname = gf_strdup (saved_url);
+                        if (!*hostname)
+                                goto out;
+                }
+
                 ret = 0;
                 goto out;
         } else {
@@ -1962,33 +2094,28 @@ glusterd_mountbroker_check (char **slave_ip, char **op_errstr)
                         goto out;
                 }
 
-                /* Fetching the username and hostname
-                 * and checking if the username is non-root */
-                username = strtok_r (*slave_ip, "@", &save_ptr);
-                tmp = strtok_r (NULL, "@", &save_ptr);
-                if (strcmp (username, "root")) {
-                        ret = snprintf (errmsg, sizeof(errmsg) - 1,
-                                        "Non-root username (%s@%s) not allowed.",
-                                        username, tmp);
-                        errmsg[ret] = '\0';
-                        if (op_errstr)
-                                *op_errstr = gf_strdup (errmsg);
-                        gf_log ("", GF_LOG_ERROR,
-                                "Non-Root username not allowed.");
-                        ret = -1;
-                        goto out;
-                }
+                ret = -1;
 
-                *slave_ip = gf_strdup (tmp);
-                if (!*slave_ip) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        ret = -1;
+                /**
+                 * preliminary check for valid slave format.
+                 */
+                tmp = strtok_r (saved_url, "@", &save_ptr);
+                tmp = strtok_r (NULL, "@", &save_ptr);
+                if (!tmp)
                         goto out;
+                if (hostname) {
+                        *hostname = gf_strdup (tmp);
+                        if (!*hostname)
+                                goto out;
                 }
         }
 
         ret = 0;
 out:
+        GF_FREE (saved_url);
+        if (ret)
+                if (hostname)
+                        GF_FREE (*hostname);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -2001,7 +2128,8 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char               *volname                   = NULL;
         char               *host_uuid                 = NULL;
         char               *statefile                 = NULL;
-        char               *slave_ip                  = NULL;
+        char               *slave_url                 = NULL;
+        char               *slave_host                = NULL;
         char               *slave_vol                 = NULL;
         char               *conf_path                 = NULL;
         char                errmsg[PATH_MAX]          = "";
@@ -2013,6 +2141,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         gf_boolean_t        is_force                  = -1;
         gf_boolean_t        is_force_blocker          = -1;
         gf_boolean_t        exists                    = _gf_false;
+        gf_boolean_t        is_template_in_use        = _gf_false;
         glusterd_conf_t    *conf                      = NULL;
         glusterd_volinfo_t *volinfo                   = NULL;
         struct stat         stbuf                     = {0,};
@@ -2051,9 +2180,9 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 return -1;
         }
 
-        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
-                                                   &slave_vol, &conf_path,
-                                                   op_errstr);
+        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_url,
+                                                   &slave_host, &slave_vol,
+                                                   &conf_path, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave or confpath details.");
@@ -2090,13 +2219,15 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                                 " geo-replication %s %s create push-pem"
                                 " force\"", down_peerstr, volinfo->volname,
                                 volinfo->volname, slave);
+                         GF_FREE (down_peerstr);
+                         down_peerstr = NULL;
                 }
 
                 /* Checking if slave host is pingable, has proper passwordless
                  * ssh login setup, slave volume is created, slave vol is empty,
                  * and if it has enough memory and bypass in case of force if
                  * the error is not a force blocker */
-                ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
+                ret = glusterd_verify_slave (volname, slave_url, slave_vol,
                                              op_errstr, &is_force_blocker);
                 if (ret) {
                         if (is_force && !is_force_blocker) {
@@ -2164,7 +2295,9 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 }
         }
 
-        ret = glusterd_get_statefile_name (volinfo, slave, conf_path, &statefile);
+        ret = glusterd_get_statefile_name (volinfo, slave,
+                                           conf_path, &statefile,
+                                           &is_template_in_use);
         if (ret) {
                 if (!strstr(slave, "::"))
                         snprintf (errmsg, sizeof (errmsg),
@@ -2214,32 +2347,85 @@ out:
         return ret;
 }
 
+/* pre-condition check for geo-rep pause/resume.
+ * Return: 0 on success
+ *        -1 on any check failed.
+ */
+static int
+gd_pause_resume_validation (int type, glusterd_volinfo_t *volinfo,
+                            char *slave, char *statefile, char **op_errstr)
+{
+        int        ret                        = 0;
+        char       errmsg[PATH_MAX]           = {0,};
+        char       monitor_status[NAME_MAX]   = {0,};
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (slave);
+        GF_ASSERT (statefile);
+        GF_ASSERT (op_errstr);
+
+        ret = glusterd_gsync_read_frm_status (statefile, monitor_status,
+                                               sizeof (monitor_status));
+        if (ret <= 0) {
+                snprintf (errmsg, sizeof(errmsg), "Pause check Failed:"
+                          " Geo-rep session is not setup");
+                ret = -1;
+                goto out;
+        }
+
+        if ( type == GF_GSYNC_OPTION_TYPE_PAUSE &&
+             strstr (monitor_status, "Paused")) {
+                snprintf (errmsg, sizeof(errmsg), "Geo-replication"
+                          " session between %s and %s already Paused.",
+                          volinfo->volname, slave);
+                ret = -1;
+                goto out;
+        }
+        if ( type == GF_GSYNC_OPTION_TYPE_RESUME &&
+             !strstr (monitor_status, "Paused")) {
+                snprintf (errmsg, sizeof(errmsg), "Geo-replication"
+                          " session between %s and %s is not Paused.",
+                          volinfo->volname, slave);
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        if (ret && (errmsg[0] != '\0')) {
+                *op_errstr = gf_strdup (errmsg);
+        }
+        return ret;
+}
+
 int
 glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 {
-        int                     ret     = 0;
-        int                     type    = 0;
-        char                    *volname = NULL;
-        char                    *slave   = NULL;
-        char                    *slave_ip = NULL;
-        char                    *slave_vol = NULL;
-        char                    *down_peerstr = NULL;
-        char                    *statefile    = NULL;
-        char                    *path_list    = NULL;
-        char                    *conf_path    = NULL;
-        gf_boolean_t            exists   = _gf_false;
-        glusterd_volinfo_t      *volinfo = NULL;
-        char                    errmsg[PATH_MAX] = {0,};
-        dict_t                  *ctx = NULL;
-        gf_boolean_t            is_force = 0;
-        gf_boolean_t            is_force_blocker = -1;
-        gf_boolean_t            is_running = _gf_false;
-        uuid_t                  uuid = {0};
-        char                    uuid_str [64] = {0};
-        char                    *host_uuid = NULL;
-        xlator_t                *this = NULL;
-        glusterd_conf_t         *conf = NULL;
-        struct stat             stbuf = {0,};
+        int                 ret                   = 0;
+        int                 type                  = 0;
+        int                 pfd                   = -1;
+        char               *volname               = NULL;
+        char               *slave                 = NULL;
+        char               *slave_url             = NULL;
+        char               *slave_host            = NULL;
+        char               *slave_vol             = NULL;
+        char               *down_peerstr          = NULL;
+        char               *statefile             = NULL;
+        char               *path_list             = NULL;
+        char               *conf_path             = NULL;
+        gf_boolean_t        exists                = _gf_false;
+        glusterd_volinfo_t *volinfo               = NULL;
+        char                    errmsg[PATH_MAX]  = {0,};
+        char                    pidfile[PATH_MAX] = {0,};
+        dict_t             *ctx                   = NULL;
+        gf_boolean_t        is_force              = 0;
+        gf_boolean_t        is_running            = _gf_false;
+        gf_boolean_t        is_template_in_use    = _gf_false;
+        uuid_t              uuid                  = {0};
+        char                    uuid_str [64]     = {0};
+        char               *host_uuid             = NULL;
+        xlator_t           *this                  = NULL;
+        glusterd_conf_t    *conf                  = NULL;
+        struct stat         stbuf                 = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -2266,10 +2452,8 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         uuid_utoa_r (MY_UUID, uuid_str);
 
         if (conf->op_version < 2) {
-                gf_log ("", GF_LOG_ERROR, "Op Version not supported.");
                 snprintf (errmsg, sizeof(errmsg), "One or more nodes do not"
                           " support the required op version.");
-               *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
         }
@@ -2277,17 +2461,15 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         exists = glusterd_check_volume_exists (volname);
         ret = glusterd_volinfo_find (volname, &volinfo);
         if ((ret) || (!exists)) {
-                gf_log ("", GF_LOG_WARNING, "volume name does not exist");
                 snprintf (errmsg, sizeof(errmsg), "Volume name %s does not"
                           " exist", volname);
-                *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
         }
 
-        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_ip,
-                                                   &slave_vol, &conf_path,
-                                                   op_errstr);
+        ret = glusterd_get_slave_details_confpath (volinfo, dict, &slave_url,
+                                                   &slave_host, &slave_vol,
+                                                   &conf_path, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave or confpath details.");
@@ -2295,45 +2477,48 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_get_statefile_name (volinfo, slave, conf_path, &statefile);
+        is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
+        ret = glusterd_get_statefile_name (volinfo, slave,
+                                           conf_path, &statefile,
+                                           &is_template_in_use);
         if (ret) {
-                /* Checking if slave host is pingable, has proper passwordless
-                 * ssh login setup */
-                ret = glusterd_verify_slave (volname, slave_ip, slave_vol,
-                                             op_errstr, &is_force_blocker);
+                if (!strstr(slave, "::")) {
+                        snprintf (errmsg, sizeof(errmsg),
+                                  "%s is not a valid slave url.", slave);
+                        ret = -1;
+                        goto out;
+                } else {
+                        gf_log ("", GF_LOG_ERROR,
+                                "state_file entry missing in config file (%s)",
+                                conf_path);
+
+                        if ((type == GF_GSYNC_OPTION_TYPE_STOP) && is_force) {
+                                gf_log ("", GF_LOG_WARNING, "Allowing stop "
+                                        "force to bypass missing statefile "
+                                        "entry in config file (%s), and "
+                                        "template file", conf_path);
+                                ret = 0;
+                        } else
+                                goto out;
+                }
+        } else {
+                ret = dict_set_str (dict, "statefile", statefile);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR,
-                                "%s is not a valid slave volume. Error: %s",
-                                slave, *op_errstr);
+                                "Unable to store statefile path");
                         goto out;
                 }
-
-                if (!strstr(slave, "::"))
-                        snprintf (errmsg, sizeof (errmsg),
-                                  "%s is not a valid slave url.", slave);
-                else
-                        snprintf (errmsg, sizeof (errmsg),
-                                  "Unable to get statefile's name");
-                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
-                ret = -1;
-                goto out;
         }
-
-        ret = dict_set_str (dict, "statefile", statefile);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Unable to store statefile path");
-                goto out;
-        }
-
-        is_force = dict_get_str_boolean (dict, "force", _gf_false);
 
         /* Allowing stop force to bypass the statefile check
          * as this command acts as a fail safe method to stop geo-rep
          * session. */
         if ((type == GF_GSYNC_OPTION_TYPE_CONFIG) ||
             ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
-            (type == GF_GSYNC_OPTION_TYPE_DELETE)) {
+            (type == GF_GSYNC_OPTION_TYPE_DELETE) ||
+            (type == GF_GSYNC_OPTION_TYPE_PAUSE) ||
+            (type == GF_GSYNC_OPTION_TYPE_RESUME)) {
                 ret = lstat (statefile, &stbuf);
                 if (ret) {
                         snprintf (errmsg, sizeof(errmsg), "Geo-replication"
@@ -2341,7 +2526,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                   volinfo->volname, slave);
                         gf_log ("", GF_LOG_ERROR, "%s. statefile = %s",
                                 errmsg, statefile);
-                        *op_errstr = gf_strdup (errmsg);
                         ret = -1;
                         goto out;
                 }
@@ -2349,7 +2533,9 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         /* Check if all peers that are a part of the volume are up or not */
         if ((type == GF_GSYNC_OPTION_TYPE_DELETE) ||
-            ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force)) {
+            ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
+            (type == GF_GSYNC_OPTION_TYPE_PAUSE) ||
+            (type == GF_GSYNC_OPTION_TYPE_RESUME)) {
                 if (!strcmp (uuid_str, host_uuid)) {
                         ret = glusterd_are_vol_all_peers_up (volinfo,
                                                              &conf->peers,
@@ -2360,7 +2546,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                           " down. Please bring up the peer and"
                                           " retry.", down_peerstr,
                                           volinfo->volname);
-                                *op_errstr = gf_strdup (errmsg);
                                 ret = -1;
                                 GF_FREE (down_peerstr);
                                 down_peerstr = NULL;
@@ -2371,18 +2556,26 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         switch (type) {
         case GF_GSYNC_OPTION_TYPE_START:
+                if (is_template_in_use) {
+                        snprintf (errmsg, sizeof(errmsg), "state-file entry "
+                                  "missing in the config file(%s).",
+                                  conf_path);
+                        ret = -1;
+                        goto out;
+                }
+
                 /* don't attempt to start gsync if replace-brick is
                  * in progress */
                 if (glusterd_is_rb_ongoing (volinfo)) {
                         snprintf (errmsg, sizeof(errmsg), "replace-brick is in"
                                    " progress, not starting geo-replication");
-                        *op_errstr = gf_strdup (errmsg);
                         ret = -1;
                         goto out;
                 }
 
                 ret = glusterd_op_verify_gsync_start_options (volinfo, slave,
-                                                              conf_path, statefile,
+                                                              conf_path,
+                                                              statefile,
                                                               op_errstr, is_force);
                 if (ret)
                         goto out;
@@ -2396,7 +2589,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                         "start failed", strerror (errno));
                                 snprintf (errmsg, sizeof(errmsg),
                                           "fuse unvailable");
-                                *op_errstr = gf_strdup (errmsg);
                                 ret = -1;
                                 goto out;
                         }
@@ -2405,6 +2597,14 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
         case GF_GSYNC_OPTION_TYPE_STOP:
                 if (!is_force) {
+                        if (is_template_in_use) {
+                                snprintf (errmsg, sizeof(errmsg),
+                                          "state-file entry missing in "
+                                          "the config file(%s).", conf_path);
+                                ret = -1;
+                                goto out;
+                        }
+
                         ret = glusterd_op_verify_gsync_running (volinfo, slave,
                                                                 conf_path,
                                                                 op_errstr);
@@ -2417,7 +2617,47 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 }
                 break;
 
+        case GF_GSYNC_OPTION_TYPE_PAUSE:
+        case GF_GSYNC_OPTION_TYPE_RESUME:
+                if (is_template_in_use) {
+                        snprintf (errmsg, sizeof(errmsg),
+                                  "state-file entry missing in "
+                                  "the config file(%s).", conf_path);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_op_verify_gsync_running (volinfo, slave,
+                                                        conf_path, op_errstr);
+                if (ret)
+                        goto out;
+                if (!is_force) {
+                        ret = gd_pause_resume_validation (type, volinfo, slave,
+                                                          statefile, op_errstr);
+                        if (ret)
+                                goto out;
+                }
+                break;
+
         case GF_GSYNC_OPTION_TYPE_CONFIG:
+                if (is_template_in_use) {
+                        snprintf (errmsg, sizeof(errmsg), "state-file entry "
+                                  "missing in the config file(%s).",
+                                  conf_path);
+                        ret = -1;
+                        goto out;
+                }
+
+                pfd = gsyncd_getpidfile (volname, slave, pidfile,
+                                         conf_path, &is_template_in_use);
+                if (is_template_in_use) {
+                        snprintf (errmsg, sizeof(errmsg), "pid-file entry "
+                                  "missing in the config file(%s).",
+                                  conf_path);
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = gsync_verify_config_options (dict, op_errstr, volname);
                 goto out;
                 break;
@@ -2425,13 +2665,19 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         case GF_GSYNC_OPTION_TYPE_DELETE:
                 /* Check if the gsync session is still running
                  * If so ask the user to stop geo-replication first.*/
+                if (is_template_in_use) {
+                        snprintf (errmsg, sizeof(errmsg), "state-file entry "
+                                  "missing in the config file(%s).",
+                                  conf_path);
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
                 if (ret) {
                         snprintf (errmsg, sizeof(errmsg), "Geo-replication"
                                   " session between %s and %s does not exist.",
                                   volinfo->volname, slave);
-                        gf_log ("", GF_LOG_ERROR, "%s", errmsg);
-                        *op_errstr = gf_strdup (errmsg);
                         ret = -1;
                         goto out;
                 } else {
@@ -2444,8 +2690,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                           "still active. Please stop the "
                                           "session and retry.",
                                           volinfo->volname, slave);
-                                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
-                                *op_errstr = gf_strdup (errmsg);
                                 ret = -1;
                                 goto out;
                         }
@@ -2455,36 +2699,192 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 if (ret) {
                         snprintf (errmsg, sizeof (errmsg),
                                   "Unable to spawn gsyncd");
-                        *op_errstr = gf_strdup (errmsg);
-                        gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                 }
 
                 break;
         }
 
 out:
+        if (path_list)
+                GF_FREE (path_list);
+
+        if (ret && errmsg[0] != '\0') {
+                gf_log (this->name, GF_LOG_ERROR, "%s", errmsg);
+                *op_errstr = gf_strdup (errmsg);
+        }
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
 static int
+gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
+                          char *slave_host, char *slave_vol, char *conf_path,
+                          char **op_errstr, gf_boolean_t is_pause)
+{
+        int32_t         ret                      = 0;
+        int             pfd                      = -1;
+        pid_t           pid                      = 0;
+        char            pidfile[PATH_MAX]        = {0,};
+        char            errmsg[PATH_MAX]         = "";
+        char            buf [1024]               = {0,};
+        int             i                        = 0;
+        gf_boolean_t    is_template_in_use       = _gf_false;
+        char            monitor_status[NAME_MAX] = {0,};
+        char            *statefile               = NULL;
+        char            *token                   = NULL;
+        xlator_t        *this                    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
+        GF_ASSERT (master);
+        GF_ASSERT (slave);
+        GF_ASSERT (slave_host);
+        GF_ASSERT (slave_vol);
+        GF_ASSERT (conf_path);
+
+        pfd = gsyncd_getpidfile (master, slave, pidfile,
+                                 conf_path, &is_template_in_use);
+        if (pfd == -2) {
+                snprintf (errmsg, sizeof(errmsg),
+                          "pid-file entry mising in config file and "
+                          "template config file.");
+                gf_log (this->name, GF_LOG_ERROR, "%s", errmsg);
+                *op_errstr = gf_strdup (errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        if (gsync_status_byfd (pfd) == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "gsyncd b/w %s & %s is not"
+                        " running", master, slave);
+                /* monitor gsyncd already dead */
+                goto out;
+        }
+
+        if (pfd < 0)
+                goto out;
+
+        /* Prepare to update status file*/
+        ret = dict_get_str (dict, "statefile", &statefile);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Pause/Resume Failed:"
+                        " Unable to fetch statefile path");
+                goto out;
+        }
+        ret = glusterd_gsync_read_frm_status (statefile, monitor_status,
+                                              sizeof (monitor_status));
+        if (ret <= 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Pause/Resume Failed: "
+                        "Unable to read status file for %s(master)"
+                        " %s(slave)", master, slave);
+                goto out;
+        }
+
+        ret = read (pfd, buf, 1024);
+        if (ret > 0) {
+                pid = strtol (buf, NULL, 10);
+                if (is_pause) {
+                        ret = kill (-pid, SIGSTOP);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed"
+                                        " to pause gsyncd. Error: %s",
+                                        strerror (errno));
+                                goto out;
+                        }
+                        /*On pause force, if status is already paused
+                          do not update status again*/
+                        if (strstr (monitor_status, "Paused"))
+                                goto out;
+                        (void) strcat (monitor_status, "(Paused)");
+                        ret = glusterd_create_status_file ( master, slave,
+                                                     slave_host, slave_vol,
+                                                     monitor_status);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable  to update state_file."
+                                        " Error : %s", strerror (errno));
+                                /* If status cannot be updated resume back */
+                                if (kill (-pid, SIGCONT)) {
+                                        snprintf (errmsg, sizeof(errmsg),
+                                                  "Pause successful but could "
+                                                  "not update status file. "
+                                                  "Please use 'resume force' to"
+                                                  " resume back and retry pause"
+                                                  " to reflect in status");
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Resume back Failed. Error: %s",
+                                                 strerror (errno));
+                                        *op_errstr = gf_strdup (errmsg);
+                                }
+                                goto out;
+                        }
+                } else {
+                        ret = kill (-pid, SIGCONT);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to resume gsyncd. Error: %s",
+                                         strerror (errno));
+                                goto out;
+                        }
+                        token = strtok (monitor_status, "(");
+                        ret = glusterd_create_status_file (master, slave,
+                                                           slave_host,
+                                                           slave_vol, token);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to update state_file."
+                                        " Error : %s", strerror (errno));
+                                /* If status cannot be updated pause back */
+                                if (kill (-pid, SIGSTOP)) {
+                                        snprintf (errmsg, sizeof(errmsg),
+                                                  "Resume successful but could "
+                                                  "not update status file."
+                                                  " Please use 'pause force' to"
+                                                  " pause back and retry resume"
+                                                  " to reflect in status");
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Pause back Failed. Error: %s",
+                                                 strerror (errno));
+                                        *op_errstr = gf_strdup (errmsg);
+                                }
+                                goto out;
+                        }
+                }
+        }
+        ret = 0;
+
+out:
+        sys_close (pfd);
+        return ret;
+}
+
+static int
 stop_gsync (char *master, char *slave, char **msg,
-            char *conf_path, gf_boolean_t is_force)
+            char *conf_path, char **op_errstr,
+            gf_boolean_t is_force)
 {
         int32_t         ret     = 0;
         int             pfd     = -1;
         pid_t           pid     = 0;
         char            pidfile[PATH_MAX] = {0,};
+        char            errmsg[PATH_MAX] = "";
         char            buf [1024] = {0,};
         int             i       = 0;
+        gf_boolean_t    is_template_in_use = _gf_false;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
 
-        pfd = gsyncd_getpidfile (master, slave, pidfile, conf_path);
-        if (pfd == -2 && !is_force) {
-                gf_log ("", GF_LOG_ERROR, GEOREP" stop validation "
-                        " failed for %s & %s", master, slave);
+        pfd = gsyncd_getpidfile (master, slave, pidfile,
+                                 conf_path, &is_template_in_use);
+        if (pfd == -2) {
+                snprintf (errmsg, sizeof(errmsg) - 1,
+                          "pid-file entry mising in config file and "
+                          "template config file.");
+                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                *op_errstr = gf_strdup (errmsg);
                 ret = -1;
                 goto out;
         }
@@ -2502,7 +2902,7 @@ stop_gsync (char *master, char *slave, char **msg,
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
                 ret = kill (-pid, SIGTERM);
-                if (ret) {
+                if (ret && !is_force) {
                         gf_log ("", GF_LOG_WARNING,
                                 "failed to kill gsyncd");
                         goto out;
@@ -2526,8 +2926,6 @@ stop_gsync (char *master, char *slave, char **msg,
 out:
         sys_close (pfd);
 
-        if (is_force)
-                ret = 0;
         return ret;
 }
 
@@ -2628,7 +3026,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         char            *subop  = NULL;
         char            *master = NULL;
         char            *conf_path = NULL;
-        char            *slave_ip  = NULL;
+        char            *slave_host = NULL;
         char            *slave_vol = NULL;
         struct stat      stbuf     = {0, };
         gf_boolean_t     restart_required = _gf_true;
@@ -2679,6 +3077,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         runinit (&runner);
         runner_add_args (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
         if (volinfo) {
                 master = volinfo->volname;
                 runner_argprintf (&runner, ":%s", master);
@@ -2689,7 +3088,7 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
         if (op_value)
                 runner_add_arg (&runner, op_value);
 
-        if ( strcmp(op_name,"checkpoint") != 0 ) {
+        if ( strcmp(op_name,"checkpoint") != 0 && strtail (subop, "set")) {
                 ret = glusterd_gsync_op_already_set(master,slave,conf_path,
                                                            op_name,op_value);
                 if (ret == -1) {
@@ -2724,10 +3123,10 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
 
                 ret = lstat (op_value, &stbuf);
                 if (ret) {
-                        ret = dict_get_str (dict, "slave_ip", &slave_ip);
+                        ret = dict_get_str (dict, "slave_host", &slave_host);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR,
-                                        "Unable to fetch slave IP.");
+                                        "Unable to fetch slave host.");
                                 goto out;
                         }
 
@@ -2738,9 +3137,11 @@ glusterd_gsync_configure (glusterd_volinfo_t *volinfo, char *slave,
                                 goto out;
                         }
 
-                        ret = glusterd_create_status_file (volinfo->volname, slave,
-                                                           slave_ip, slave_vol,
-                                                           "Switching Status File");
+                        ret = glusterd_create_status_file (volinfo->volname,
+                                                           slave, slave_host,
+                                                           slave_vol,
+                                                           "Switching Status "
+                                                           "File");
                         if (ret || lstat (op_value, &stbuf)) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to create %s"
                                         ". Error : %s", op_value,
@@ -2825,15 +3226,17 @@ dict_get_param (dict_t *dict, char *key, char **param)
                 return -1;
 
         s = strpbrk (dk, "-_");
-        if (!s)
-                return -1;
+        if (!s) {
+                ret = -1;
+                goto out;
+        }
         x = (*s == '-') ? '_' : '-';
         *s++ = x;
         while ((s = strpbrk (s, "-_")))
                 *s++ = x;
 
         ret = dict_get_str (dict, dk, param);
-
+out:
         GF_FREE (dk);
         return ret;
 }
@@ -2992,11 +3395,74 @@ out:
 }
 
 int
+glusterd_fetch_values_from_config (char *master, char *slave,
+                                   char *confpath, dict_t *confd,
+                                   char **statefile,
+                                   char **georep_session_wrkng_dir,
+                                   char **socketfile)
+{
+        int                     ret                        = 0;
+
+        ret = glusterd_gsync_get_config (master, slave, confpath,
+                                         confd);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get configuration data"
+                        "for %s(master), %s(slave)", master, slave);
+                goto out;
+        }
+
+        if (statefile) {
+                ret = dict_get_param (confd, "state_file", statefile);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get state_file's name "
+                                "for %s(master), %s(slave). "
+                                "Please check gsync config file.",
+                                master, slave);
+                        goto out;
+                }
+        }
+
+        if (georep_session_wrkng_dir) {
+                ret = dict_get_param (confd, "georep_session_working_dir",
+                                      georep_session_wrkng_dir);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get geo-rep session's "
+                                "working directory name for %s(master), "
+                                "%s(slave). Please check gsync config file.",
+                                master, slave);
+                        goto out;
+                }
+        }
+
+        if (socketfile) {
+                ret = dict_get_param (confd, "state_socket_unencoded",
+                                      socketfile);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to get socket file's name "
+                                "for %s(master), %s(slave). "
+                                "Please check gsync config file.",
+                                master, slave);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
                            char *conf_path, dict_t *dict, char *node)
 {
         char                    brick_state_file[PATH_MAX] = "";
         char                    brick_path[PATH_MAX]       = "";
+        char                    temp_conf_path[PATH_MAX]   = "";
+        char                   *working_conf_path          = NULL;
         char                   *georep_session_wrkng_dir   = NULL;
         char                   *master                     = NULL;
         char                    tmp[1024]                  = "";
@@ -3005,42 +3471,83 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         char                   *statefile                  = NULL;
         char                   *socketfile                 = NULL;
         dict_t                 *confd                      = NULL;
+        char                   *slavekey                   = NULL;
+        char                   *slaveentry                 = NULL;
+        char                   *brick_host_uuid            = NULL;
+        int                     brick_host_uuid_length     = 0;
         int                     gsync_count                = 0;
         int                     i                          = 0;
         int                     ret                        = 0;
         glusterd_brickinfo_t   *brickinfo                  = NULL;
         gf_gsync_status_t      *sts_val                    = NULL;
+        gf_boolean_t            is_template_in_use         = _gf_false;
         glusterd_conf_t        *priv                       = NULL;
+        struct stat             stbuf                      = {0,};
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
         GF_ASSERT (volinfo);
+        GF_ASSERT (conf_path);
 
         master = volinfo->volname;
 
         confd = dict_new ();
-        if (!dict) {
+        if (!confd) {
                 gf_log ("", GF_LOG_ERROR, "Not able to create dict.");
                 return -1;
         }
 
         priv = THIS->private;
 
-        ret = glusterd_gsync_get_config (master, slave, conf_path,
-                                         confd);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get configuration data"
-                        "for %s(master), %s(slave)", master, slave);
-                goto out;
+        snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
+                  "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
 
+        ret = lstat (conf_path, &stbuf);
+        if (!ret) {
+                gf_log ("", GF_LOG_INFO, "Using passed config template(%s).",
+                        conf_path);
+                working_conf_path = conf_path;
+        } else {
+                gf_log ("", GF_LOG_WARNING, "Config file (%s) missing. "
+                        "Looking for template config file (%s)",
+                        conf_path, temp_conf_path);
+                ret = lstat (temp_conf_path, &stbuf);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Template config file (%s) missing.",
+                                temp_conf_path);
+                        goto out;
+                }
+                gf_log ("", GF_LOG_INFO, "Using default config template(%s).",
+                        temp_conf_path);
+                working_conf_path = temp_conf_path;
+                is_template_in_use = _gf_true;
         }
 
-        ret = dict_get_param (confd, "state_file", &statefile);
+fetch_data:
+        ret = glusterd_fetch_values_from_config (master, slave,
+                                                 working_conf_path,
+                                                 confd,
+                                                 &statefile,
+                                                 &georep_session_wrkng_dir,
+                                                 &socketfile);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get state_file's name "
-                        "for %s(master), %s(slave). Please check gsync "
-                        "config file.", master, slave);
-                goto out;
+                if (is_template_in_use == _gf_false) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to fetch config values "
+                                "for %s(master), %s(slave). "
+                                "Trying default config template",
+                                master, slave);
+                        working_conf_path = temp_conf_path;
+                        is_template_in_use = _gf_true;
+                        goto fetch_data;
+                } else {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to fetch config values "
+                                "for %s(master), %s(slave)",
+                                master, slave);
+                        goto out;
+                }
         }
 
         ret = glusterd_gsync_read_frm_status (statefile, monitor_status,
@@ -3049,23 +3556,6 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
                 gf_log ("", GF_LOG_ERROR, "Unable to read the status"
                         "file for %s(master), %s(slave)", master, slave);
                 strncpy (monitor_status, "defunct", sizeof (monitor_status));
-        }
-
-        ret = dict_get_param (confd, "georep_session_working_dir",
-                              &georep_session_wrkng_dir);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get geo-rep session's "
-                        "working directory name for %s(master), %s(slave). "
-                        "Please check gsync config file.", master, slave);
-                goto out;
-        }
-
-        ret = dict_get_param (confd, "state_socket_unencoded", &socketfile);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get socket file's name "
-                        "for %s(master), %s(slave). Please check gsync "
-                        "config file.", master, slave);
-                goto out;
         }
 
         ret = dict_get_int32 (dict, "gsync-count", &gsync_count);
@@ -3167,6 +3657,13 @@ store_status:
                         sts_val->checkpoint_status[ret] = '\0';
                 }
 
+                if (is_template_in_use) {
+                        ret = snprintf (sts_val->worker_status,
+                                        sizeof(sts_val->worker_status),
+                                        "Config Corrupted");
+                        sts_val->worker_status[ret] = '\0';
+                }
+
                 if (strcmp (sts_val->worker_status, "Active")) {
                         ret = snprintf (sts_val->checkpoint_status, sizeof(sts_val->checkpoint_status), "N/A");
                         sts_val->checkpoint_status[ret] = '\0';
@@ -3183,8 +3680,33 @@ store_status:
                 sts_val->node[strlen(node)] = '\0';
                 memcpy (sts_val->brick, brickinfo->path, strlen(brickinfo->path));
                 sts_val->brick[strlen(brickinfo->path)] = '\0';
+
+                ret = glusterd_get_slave (volinfo, slave, &slavekey);
+                if (ret < 0) {
+                        GF_FREE (sts_val);
+                        goto out;
+                }
+                memcpy (sts_val->slavekey, slavekey, strlen(slavekey));
+                sts_val->slavekey[strlen(slavekey)] = '\0';
+
+                brick_host_uuid = uuid_utoa(brickinfo->uuid);
+                brick_host_uuid_length = strlen (brick_host_uuid);
+                memcpy (sts_val->brick_host_uuid, brick_host_uuid,
+                        brick_host_uuid_length);
+                sts_val->brick_host_uuid[brick_host_uuid_length] = '\0';
+
                 memcpy (sts_val->master, master, strlen(master));
                 sts_val->master[strlen(master)] = '\0';
+
+                ret = dict_get_str (volinfo->gsync_slaves, slavekey,
+                                    &slaveentry);
+                if (ret < 0) {
+                        GF_FREE (sts_val);
+                        goto out;
+                }
+                memcpy (sts_val->session_slave, slaveentry,
+                        strlen(slaveentry));
+                sts_val->session_slave[strlen(slaveentry)] = '\0';
 
                 snprintf (sts_val_name, sizeof (sts_val_name), "status_value%d", gsync_count);
                 ret = dict_set_bin (dict, sts_val_name, sts_val, sizeof(gf_gsync_status_t));
@@ -3202,7 +3724,7 @@ store_status:
                 goto out;
 
 out:
-        dict_destroy (confd);
+        dict_unref (confd);
 
         return 0;
 }
@@ -3217,6 +3739,7 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
         glusterd_conf_t        *priv = NULL;
         char                   *status_msg = NULL;
         gf_boolean_t           is_running = _gf_false;
+        char                   *op_errstr = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
@@ -3233,14 +3756,15 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
                 goto out;
 
         ret = stop_gsync (volinfo->volname, slave, &status_msg,
-                          conf_path, is_force);
+                          conf_path, &op_errstr,
+                          is_force);
         if (ret == 0 && status_msg)
                 ret = dict_set_str (resp_dict, "gsync-status",
                                     status_msg);
         if (ret == 0)
                 ret = glusterd_start_gsync (volinfo, slave, path_list,
                                             conf_path, uuid_utoa(MY_UUID),
-                                            NULL);
+                                            NULL, _gf_false);
 
  out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3276,7 +3800,6 @@ glusterd_set_gsync_knob (glusterd_volinfo_t *volinfo, char *key, int *vc)
 {
         int   ret          = -1;
         int   conf_enabled = _gf_false;
-        char *knob_on      = NULL;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -3291,14 +3814,8 @@ glusterd_set_gsync_knob (glusterd_volinfo_t *volinfo, char *key, int *vc)
         ret = 0;
         if (conf_enabled == _gf_false) {
                 *vc = 1;
-                knob_on = gf_strdup ("on");
-                if (knob_on == NULL) {
-                        ret = -1;
-                        goto out;
-                }
-
                 ret = glusterd_gsync_volinfo_dict_set (volinfo,
-                                                       key, knob_on);
+                                                       key, "on");
         }
 
  out:
@@ -3347,6 +3864,7 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
         uuid_t             uuid = {0, };
         glusterd_conf_t    *priv = NULL;
         int                ret = 0;
+        gf_boolean_t       is_template_in_use = _gf_false;
         struct stat        stbuf = {0, };
 
         GF_ASSERT (volinfo);
@@ -3362,7 +3880,8 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
                         "session is not active", volinfo->volname, slave);
 
                 ret = glusterd_get_statefile_name (volinfo, slave,
-                                                   conf_path, &statefile);
+                                                   conf_path, &statefile,
+                                                   &is_template_in_use);
                 if (ret) {
                         if (!strstr(slave, "::"))
                                 gf_log ("", GF_LOG_INFO,
@@ -3493,9 +4012,9 @@ glusterd_get_gsync_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 }
 
 static int
-glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave, char *slave_ip,
-                       char *slave_vol, char *path_list, dict_t *dict,
-                       dict_t *resp_dict, char **op_errstr)
+glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave,
+                       char *slave_host, char *slave_vol, char *path_list,
+                       dict_t *dict, dict_t *resp_dict, char **op_errstr)
 {
         int32_t         ret     = -1;
         runner_t        runner    = {0,};
@@ -3506,7 +4025,7 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave, char *slave_ip,
         char            *conf_path = NULL;
 
         GF_ASSERT (slave);
-        GF_ASSERT (slave_ip);
+        GF_ASSERT (slave_host);
         GF_ASSERT (slave_vol);
         GF_ASSERT (op_errstr);
         GF_ASSERT (dict);
@@ -3533,6 +4052,7 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave, char *slave_ip,
         runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd",
                           "--delete", "-c", NULL);
         runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
 
         if (volinfo) {
                 master = volinfo->volname;
@@ -3557,7 +4077,7 @@ glusterd_gsync_delete (glusterd_volinfo_t *volinfo, char *slave, char *slave_ip,
 
         ret = snprintf (geo_rep_dir, sizeof(geo_rep_dir) - 1,
                         "%s/"GEOREP"/%s_%s_%s", gl_workdir,
-                        volinfo->volname, slave_ip, slave_vol);
+                        volinfo->volname, slave_host, slave_vol);
         geo_rep_dir[ret] = '\0';
 
         ret = rmdir (geo_rep_dir);
@@ -3733,7 +4253,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
         int              file_mode              = -1;
         glusterd_conf_t *priv                   = NULL;
         struct stat      stbuf                  = {0,};
-
+        gf_boolean_t     free_contents          = _gf_true;
 
         if (THIS)
                 priv = THIS->private;
@@ -3834,7 +4354,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                         goto out;
                 }
-                close (fd);
+                free_contents = _gf_false;
         } else {
                 ret = dict_get_bin (dict, "common_pem_contents",
                                     (void **) &contents);
@@ -3845,7 +4365,6 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                         goto out;
                 }
-
                 ret = dict_get_int32 (dict, "contents_size", &contents_size);
                 if (ret) {
                         snprintf (errmsg, sizeof (errmsg), "Unable to set"
@@ -3886,11 +4405,16 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                 }
 
                 fchmod (fd, file_mode);
-                close (fd);
         }
 
         ret = 0;
 out:
+        if (fd != -1)
+                close (fd);
+
+        if (free_contents)
+                GF_FREE(contents);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -3902,8 +4426,9 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         int32_t             type    = -1;
         char               *host_uuid = NULL;
         char               *slave  = NULL;
-        char               *slave_ip  = NULL;
+        char               *slave_url = NULL;
         char               *slave_vol = NULL;
+        char               *slave_host = NULL;
         char               *volname = NULL;
         char               *path_list = NULL;
         glusterd_volinfo_t *volinfo = NULL;
@@ -3912,6 +4437,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char               *status_msg = NULL;
         gf_boolean_t        is_running = _gf_false;
         char               *conf_path = NULL;
+        char               errmsg[PATH_MAX] = "";
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -3938,9 +4464,15 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret < 0)
                 goto out;
 
-        ret = dict_get_str (dict, "slave_ip", &slave_ip);
+        ret = dict_get_str (dict, "slave_url", &slave_url);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave volume name.");
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave url.");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "slave_host", &slave_host);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch slave hostname.");
                 goto out;
         }
 
@@ -3987,7 +4519,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (ret && !is_force && path_list)
                         goto out;
 
-                ret = glusterd_gsync_delete (volinfo, slave, slave_ip,
+                ret = glusterd_gsync_delete (volinfo, slave, slave_host,
                                              slave_vol, path_list, dict,
                                              rsp_dict, op_errstr);
                 goto out;
@@ -4012,10 +4544,13 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 ret = glusterd_start_gsync (volinfo, slave, path_list,
-                                            conf_path, host_uuid, op_errstr);
+                                            conf_path, host_uuid, op_errstr,
+                                            _gf_false);
         }
 
-        if (type == GF_GSYNC_OPTION_TYPE_STOP) {
+        if (type == GF_GSYNC_OPTION_TYPE_STOP ||
+            type == GF_GSYNC_OPTION_TYPE_PAUSE ||
+            type == GF_GSYNC_OPTION_TYPE_RESUME) {
                 ret = glusterd_check_gsync_running_local (volinfo->volname,
                                                           slave, conf_path,
                                                           &is_running);
@@ -4027,22 +4562,39 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = stop_gsync (volname, slave, &status_msg,
-                                  conf_path, is_force);
-                if (ret == 0 && status_msg)
-                        ret = dict_set_str (rsp_dict, "gsync-status",
-                                            status_msg);
-                if (ret != 0 && !is_force && path_list)
-                        *op_errstr = gf_strdup ("internal error");
+                if (type == GF_GSYNC_OPTION_TYPE_PAUSE) {
+                        ret = gd_pause_or_resume_gsync (dict, volname, slave,
+                                                        slave_host, slave_vol,
+                                                        conf_path, op_errstr,
+                                                        _gf_true);
+                        if (ret)
+                                gf_log("", GF_LOG_ERROR, GEOREP
+                                       " Pause Failed");
+                } else if (type == GF_GSYNC_OPTION_TYPE_RESUME) {
+                        ret = gd_pause_or_resume_gsync (dict, volname, slave,
+                                                        slave_host, slave_vol,
+                                                        conf_path, op_errstr,
+                                                        _gf_false);
+                        if (ret)
+                                gf_log("", GF_LOG_ERROR, GEOREP
+                                       " Resume Failed");
+                } else {
+                        ret = stop_gsync (volname, slave, &status_msg,
+                                          conf_path, op_errstr, is_force);
 
-                if (!ret) {
-                        ret = glusterd_create_status_file (volinfo->volname,
-                                                           slave, slave_ip,
+                        if (ret == 0 && status_msg)
+                                ret = dict_set_str (rsp_dict, "gsync-status",
+                                                    status_msg);
+                        if (!ret) {
+                                ret = glusterd_create_status_file (
+                                                           volinfo->volname,
+                                                           slave, slave_host,
                                                            slave_vol,"Stopped");
-                        if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to update"
-                                        "state_file. Error : %s",
-                                        strerror (errno));
+                                if (ret) {
+                                        gf_log ("", GF_LOG_ERROR, "Unable to "
+                                                "update state_file. Error : %s",
+                                                strerror (errno));
+                                }
                         }
                 }
         }
@@ -4058,14 +4610,15 @@ out:
 }
 
 int
-glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
-                                     char **slave_ip, char **slave_vol,
+glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo,
+                                     dict_t *dict, char **slave_url,
+                                     char **slave_host, char **slave_vol,
                                      char **conf_path, char **op_errstr)
 {
-        int                ret                = -1;
+        int              ret                  = -1;
         char               confpath[PATH_MAX] = "";
-        glusterd_conf_t   *priv               = NULL;
-        char              *slave              = NULL;
+        glusterd_conf_t *priv                 = NULL;
+        char            *slave                = NULL;
 
         GF_ASSERT (THIS);
         priv = THIS->private;
@@ -4078,7 +4631,8 @@ glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        ret = glusterd_get_slave_info (slave, slave_ip, slave_vol, op_errstr);
+        ret = glusterd_get_slave_info (slave, slave_url,
+                                       slave_host, slave_vol, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to fetch slave details.");
@@ -4086,10 +4640,17 @@ glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_set_str (dict, "slave_ip", *slave_ip);
+        ret = dict_set_str (dict, "slave_url", *slave_url);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Unable to store slave IP.");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "slave_host", *slave_host);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to store slave hostname");
                 goto out;
         }
 
@@ -4103,7 +4664,7 @@ glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo, dict_t *dict,
         ret = snprintf (confpath, sizeof(confpath) - 1,
                         "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
                         priv->workdir, volinfo->volname,
-                        *slave_ip, *slave_vol);
+                        *slave_host, *slave_vol);
         confpath[ret] = '\0';
         *conf_path = gf_strdup (confpath);
         if (!(*conf_path)) {
@@ -4127,7 +4688,8 @@ out:
 }
 
 int
-glusterd_get_slave_info (char *slave, char **slave_ip,
+glusterd_get_slave_info (char *slave,
+                         char **slave_url, char **hostname,
                          char **slave_vol, char **op_errstr)
 {
         char     *tmp              = NULL;
@@ -4135,6 +4697,10 @@ glusterd_get_slave_info (char *slave, char **slave_ip,
         char    **linearr          = NULL;
         int32_t   ret              = -1;
         char      errmsg[PATH_MAX] = "";
+        xlator_t *this             = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = glusterd_urltransform_single (slave, "normalize",
                                             &linearr);
@@ -4143,7 +4709,7 @@ glusterd_get_slave_info (char *slave, char **slave_ip,
                                 "Invalid Url: %s", slave);
                 errmsg[ret] = '\0';
                 *op_errstr = gf_strdup (errmsg);
-                gf_log ("", GF_LOG_ERROR, "Failed to normalize url");
+                gf_log (this->name, GF_LOG_ERROR, "Failed to normalize url");
                 goto out;
         }
 
@@ -4151,24 +4717,25 @@ glusterd_get_slave_info (char *slave, char **slave_ip,
         tmp = strtok_r (NULL, "/", &save_ptr);
         slave = strtok_r (tmp, ":", &save_ptr);
         if (slave) {
-                ret = glusterd_mountbroker_check (&slave, op_errstr);
+                ret = glusterd_geo_rep_parse_slave (slave, hostname, op_errstr);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Invalid slave url: %s", *op_errstr);
                         goto out;
                 }
+                gf_log (this->name, GF_LOG_DEBUG, "Hostname : %s", *hostname);
 
-                *slave_ip = gf_strdup (slave);
-                if (!*slave_ip) {
-                        gf_log ("", GF_LOG_ERROR,
+                *slave_url = gf_strdup (slave);
+                if (!*slave_url) {
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to gf_strdup");
                         ret = -1;
                         goto out;
                 }
-                gf_log ("", GF_LOG_DEBUG, "Slave IP : %s", *slave_ip);
+                gf_log (this->name, GF_LOG_DEBUG, "Slave URL : %s", *slave_url);
                 ret = 0;
         } else {
-                gf_log ("", GF_LOG_ERROR, "Invalid slave name");
+                gf_log (this->name, GF_LOG_ERROR, "Invalid slave name");
                 goto out;
         }
 
@@ -4176,20 +4743,21 @@ glusterd_get_slave_info (char *slave, char **slave_ip,
         if (slave) {
                 *slave_vol = gf_strdup (slave);
                 if (!*slave_vol) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to gf_strdup");
                         ret = -1;
+                        GF_FREE (*slave_url);
                         goto out;
                 }
-                gf_log ("", GF_LOG_DEBUG, "Slave Vol : %s", *slave_vol);
+                gf_log (this->name, GF_LOG_DEBUG, "Slave Vol : %s", *slave_vol);
                 ret = 0;
         } else {
-                gf_log ("", GF_LOG_ERROR, "Invalid slave name");
+                gf_log (this->name, GF_LOG_ERROR, "Invalid slave name");
                 goto out;
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -4378,6 +4946,14 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
+        /* changelog-log-file */
+        runinit_gsyncd_setrx (&runner, conf_path);
+        runner_add_args (&runner,
+                         "changelog-log-file",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/${mastervol}/${eSlave}${local_id}-changes.log",
+                         ".", ".", NULL);
+        RUN_GSYNCD_CMD;
+
         /* gluster-log-file */
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_args (&runner,
@@ -4404,7 +4980,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_arg(&runner, "working-dir");
         runner_argprintf(&runner, "%s/${mastervol}/${eSlave}",
-                         DEFAULT_VAR_RUN_DIRECTORY);
+                         DEFAULT_GLUSTERFSD_MISC_DIRETORY);
         runner_add_args (&runner, ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -4455,7 +5031,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
 
 static int
 glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
-                                     char *slave, char *slave_ip,
+                                     char *slave, char *slave_host,
                                      char *slave_vol, char **op_errstr)
 {
         int                ret              = -1;
@@ -4486,7 +5062,7 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
         }
 
         ret = snprintf (buf, sizeof(buf) - 1, "%s/"GEOREP"/%s_%s_%s",
-                        conf->workdir, volinfo->volname, slave_ip, slave_vol);
+                        conf->workdir, volinfo->volname, slave_host, slave_vol);
         buf[ret] = '\0';
         ret = mkdir_p (buf, 0777, _gf_true);
         if (ret) {
@@ -4530,7 +5106,7 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         } else {
                 ret = glusterd_create_status_file (volinfo->volname, slave,
-                                                   slave_ip, slave_vol,
+                                                   slave_host, slave_vol,
                                                    "Not Started");
                 if (ret || lstat (statefile, &stbuf)) {
                         snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
@@ -4555,7 +5131,12 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                hooks_args[PATH_MAX]      = "";
         char                uuid_str [64]             = "";
         char               *host_uuid                 = NULL;
+        char               *slave_url                 = NULL;
+        char               *slave_url_buf             = NULL;
+        char               *slave_user                = NULL;
         char               *slave_ip                  = NULL;
+        char               *save_ptr                  = NULL;
+        char               *slave_host                = NULL;
         char               *slave_vol                 = NULL;
         char               *arg_buf                   = NULL;
         char               *volname                   = NULL;
@@ -4565,9 +5146,11 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         gf_boolean_t        is_force                  = -1;
         glusterd_conf_t    *conf                      = NULL;
         glusterd_volinfo_t *volinfo                   = NULL;
+        xlator_t           *this                      = NULL;
 
-        GF_ASSERT (THIS);
-        conf = THIS->private;
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
         GF_ASSERT (conf);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
@@ -4595,10 +5178,41 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "slave_ip", &slave_ip);
+        ret = dict_get_str (dict, "slave_url", &slave_url);
         if (ret) {
                 snprintf (errmsg, sizeof (errmsg),
                           "Unable to fetch slave IP.");
+                gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                ret = -1;
+                goto out;
+        }
+
+        /* Fetch the slave_user and slave_ip from the slave_url.
+         * If the slave_user is not present. Use "root"
+         */
+        if (strstr(slave_url, "@")) {
+                slave_url_buf = gf_strdup (slave_url);
+                if (!slave_url_buf) {
+                        ret = -1;
+                        goto out;
+                }
+                slave_user = strtok_r (slave_url, "@", &save_ptr);
+                slave_ip = strtok_r (NULL, "@", &save_ptr);
+        } else {
+                slave_user = "root";
+                slave_ip = slave_url;
+        }
+
+        if (!slave_user || !slave_ip) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid slave url.");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "slave_host", &slave_host);
+        if (ret) {
+                snprintf (errmsg, sizeof (errmsg),
+                          "Unable to fetch slave host");
                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
                 ret = -1;
                 goto out;
@@ -4617,8 +5231,8 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         is_pem_push = 0;
 
                 snprintf(hooks_args, sizeof(hooks_args),
-                         "is_push_pem=%d pub_file=%s slave_ip=%s",
-                         is_pem_push, common_pem_file, slave_ip);
+                         "is_push_pem=%d,pub_file=%s,slave_user=%s,slave_ip=%s",
+                         is_pem_push, common_pem_file, slave_user, slave_ip);
 
         } else
                 snprintf(hooks_args, sizeof(hooks_args),
@@ -4650,7 +5264,7 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 create_essentials:
 
         ret = glusterd_create_essential_dir_files (volinfo, dict, slave,
-                                                   slave_ip, slave_vol,
+                                                   slave_host, slave_vol,
                                                    op_errstr);
         if (ret)
                 goto out;
@@ -4666,6 +5280,7 @@ create_essentials:
         }
 
 out:
+        GF_FREE (slave_url_buf);
         gf_log ("", GF_LOG_DEBUG,"Returning %d", ret);
         return ret;
 }

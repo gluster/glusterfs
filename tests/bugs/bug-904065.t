@@ -21,6 +21,7 @@ function count_lines()
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 
 cleanup
 
@@ -34,30 +35,30 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status'
 
 # glusterfs/nfs needs some time to start up in the background
-EXPECT_WITHIN 20 1 is_nfs_export_available
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 # before mounting the rmtab should be empty
-EXPECT '0' count_lines /var/lib/glusterd/nfs/rmtab
+EXPECT '0' count_lines $GLUSTERD_WORKDIR/nfs/rmtab
 
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0
+TEST mount_nfs $H0:/$V0 $N0 nolock
 # the output would looks similar to:
 #
 #   hostname-0=172.31.122.104
 #   mountpoint-0=/ufo
 #
-EXPECT '2' count_lines /var/lib/glusterd/nfs/rmtab
+EXPECT '2' count_lines $GLUSTERD_WORKDIR/nfs/rmtab
 
 # duplicate mounts should not be recorded (client could have crashed)
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N1
-EXPECT '2' count_lines /var/lib/glusterd/nfs/rmtab
+TEST mount_nfs $H0:/$V0 $N1 nolock
+EXPECT '2' count_lines $GLUSTERD_WORKDIR/nfs/rmtab
 
 # removing a mount should (even if there are two) should remove the entry
-TEST umount $N1
-EXPECT '0' count_lines /var/lib/glusterd/nfs/rmtab
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N1
+EXPECT '0' count_lines $GLUSTERD_WORKDIR/nfs/rmtab
 
 # unmounting the other mount should work flawlessly
-TEST umount $N0
-EXPECT '0' count_lines /var/lib/glusterd/nfs/rmtab
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
+EXPECT '0' count_lines $GLUSTERD_WORKDIR/nfs/rmtab
 
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --volfile-server=$H0 --volfile-id=$V0 $M0
 
@@ -73,13 +74,13 @@ EXPECT '2' count_lines $M0/rmtab
 TEST gluster volume set $V0 nfs.mount-rmtab $M0/rmtab
 
 # glusterfs/nfs needs some time to restart
-EXPECT_WITHIN 20 1 is_nfs_export_available
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 # a new mount should be added to the rmtab, not overwrite exiting ones
-TEST mount -t nfs -o vers=3,nolock $H0:/$V0 $N0
+TEST mount_nfs $H0:/$V0 $N0 nolock
 EXPECT '4' count_lines $M0/rmtab
 
-TEST umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 EXPECT '2' count_lines $M0/rmtab
 
 # TODO: nfs/reconfigure() is never called and is therefor disabled. When the

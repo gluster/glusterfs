@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -21,7 +22,8 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-TEST mount -t nfs -o vers=3 $H0:/$V0 $N0;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0;
 
 ############################################################################
 #TEST-PLAN:
@@ -52,7 +54,7 @@ fi
 TEST rm -f $N0/DIR/file;
 TEST rmdir $N0/DIR;
 TEST $CLI volume remove-brick $V0 $H0:${HASHED} start;
-EXPECT_WITHIN 10 "completed" remove_brick_status_completed_field "$V0" \
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0" \
 "$H0:${HASHED}";
 
 TEST mkdir $N0/DIR;

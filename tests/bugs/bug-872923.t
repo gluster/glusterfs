@@ -1,6 +1,8 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -9,9 +11,9 @@ TEST pidof glusterd
 TEST $CLI volume info
 TEST $CLI volume create $V0 replica 2 $H0:$B0/brick0 $H0:$B0/brick1
 TEST $CLI volume start $V0
-sleep 5
 
-mount -t nfs -o vers=3,nolock `hostname`:/$V0 $N0
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock
 
 cd $N0
 mkdir test_hardlink_self_heal;
@@ -27,10 +29,7 @@ do
 done;
 
 cd ..
-kill  `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-brick0.pid`
-sleep 2
-
-
+TEST kill_brick $V0 $H0 $B0/brick0
 cd test_hardlink_self_heal;
 
 RET=0
@@ -50,7 +49,7 @@ do
 done;
 
 cd
-umount $N0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 EXPECT "0" echo $RET;
 

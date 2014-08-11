@@ -241,11 +241,15 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	uuid_copy (loc.pargfid, parent->gfid);
 
 
-	if (strcmp (component, ".") == 0)
+	if (strcmp (component, ".") == 0) {
 		loc.inode = inode_ref (parent);
-	else if (strcmp (component, "..") == 0)
-		loc.inode = inode_parent (parent, 0, 0);
-	else
+        } else if (strcmp (component, "..") == 0) {
+                if (__is_root_gfid (parent->gfid))
+                        /* ".." on root points to itself */
+                        loc.inode = inode_ref (parent);
+                else
+                        loc.inode = inode_parent (parent, 0, 0);
+        } else
 		loc.inode = inode_grep (parent->table, parent, component);
 
 	if (loc.inode) {
@@ -260,10 +264,24 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	} else {
 		uuid_generate (gfid);
 		loc.inode = inode_new (parent->table);
-	}
+                if (!loc.inode) {
+                        errno = ENOMEM;
+                        goto out;
+                }
 
-	if (!loc.inode)
-		goto out;
+                xattr_req = dict_new ();
+                if (!xattr_req) {
+                        errno = ENOMEM;
+                        goto out;
+                }
+
+                ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+                if (ret) {
+                        errno = ENOMEM;
+                        goto out;
+                }
+
+	}
 
 	glret = glfs_loc_touchup (&loc);
 	if (glret < 0) {
@@ -271,9 +289,15 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		goto out;
 	}
 
-	ret = syncop_lookup (subvol, &loc, NULL, &ciatt, NULL, NULL);
-        DECODE_SYNCOP_ERR (ret);
-	if (ret && reval) {
+        ret = syncop_lookup (subvol, &loc, xattr_req, &ciatt, NULL, NULL);
+        if (ret && reval) {
+                /*
+                 * A stale mapping might exist for a dentry/inode that has been
+                 * removed from another client.
+                 */
+                if (-ret == ENOENT)
+                        inode_unlink(loc.inode, loc.parent,
+                                     loc.name);
 		inode_unref (loc.inode);
 		loc.inode = inode_new (parent->table);
 		if (!loc.inode) {
@@ -297,8 +321,8 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 
 		ret = syncop_lookup (subvol, &loc, xattr_req, &ciatt,
 				     NULL, NULL);
-                DECODE_SYNCOP_ERR (ret);
 	}
+        DECODE_SYNCOP_ERR (ret);
 	if (ret)
 		goto out;
 

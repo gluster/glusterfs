@@ -122,7 +122,7 @@ void data_unref (data_t *data);
 
 int32_t dict_lookup  (dict_t *this, char *key, data_t **data);
 /*
-   TODO: provide converts for differnt byte sizes, signedness, and void *
+   TODO: provide converts for different byte sizes, signedness, and void *
  */
 data_t *int_to_data (int64_t value);
 data_t *str_to_data (char *value);
@@ -228,6 +228,7 @@ GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_
 GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynmstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 
 GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);

@@ -38,7 +38,7 @@ gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
         for (i = startidx; i < (endcount - 1); i++)
                 entries[i].next_free = i + 1;
 
-        /* i has already been incremented upto the last entry. */
+        /* i has already been incremented up to the last entry. */
         entries[i].next_free = GF_CLIENTTABLE_END;
 
         return 0;
@@ -52,18 +52,11 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         uint32_t         oldmax_clients = -1;
         int              ret            = -1;
 
-        if (clienttable == NULL || nr < 0) {
+        if (clienttable == NULL || nr <= clienttable->max_clients) {
                 gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;
         }
-
-        /* expand size by power-of-two...
-           this originally came from .../xlators/protocol/server/src/server.c
-           where it was not commented */
-        nr /= (1024 / sizeof (cliententry_t));
-        nr = gf_roundup_next_power_of_two (nr + 1);
-        nr *= (1024 / sizeof (cliententry_t));
 
         oldclients = clienttable->cliententries;
         oldmax_clients = clienttable->max_clients;
@@ -71,7 +64,8 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         clienttable->cliententries = GF_CALLOC (nr, sizeof (cliententry_t),
                                                 gf_common_mt_cliententry_t);
         if (!clienttable->cliententries) {
-                ret = ENOMEM;
+                clienttable->cliententries = oldclients;
+                ret = 0;
                 goto out;
         }
         clienttable->max_clients = nr;
@@ -101,6 +95,7 @@ clienttable_t *
 gf_clienttable_alloc (void)
 {
         clienttable_t *clienttable = NULL;
+        int            result = 0;
 
         clienttable =
                 GF_CALLOC (1, sizeof (clienttable_t), gf_common_mt_clienttable_t);
@@ -108,7 +103,16 @@ gf_clienttable_alloc (void)
                 return NULL;
 
         LOCK_INIT (&clienttable->lock);
-        gf_client_clienttable_expand (clienttable, GF_CLIENTTABLE_INITIAL_SIZE);
+
+        result = gf_client_clienttable_expand (clienttable,
+                                               GF_CLIENTTABLE_INITIAL_SIZE);
+        if (result != 0) {
+                gf_log ("client_t", GF_LOG_ERROR,
+                        "gf_client_clienttable_expand failed");
+                GF_FREE (clienttable);
+                return NULL;
+        }
+
         return clienttable;
 }
 
@@ -167,6 +171,11 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
 # define DECREMENT_ATOMIC(lk,op) ({ LOCK (&lk); --op; UNLOCK (&lk); op; })
 #endif
 
+/*
+ * Increments ref.bind if the client is already present or creates a new
+ * client with ref.bind = 1,ref.count = 1 it signifies that
+ * as long as ref.bind is > 0 client should be alive.
+ */
 client_t *
 gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
 {
@@ -180,8 +189,6 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 errno = EINVAL;
                 return NULL;
         }
-
-        gf_log (this->name, GF_LOG_INFO, "client_uid=%s", client_uid);
 
         clienttable = this->ctx->clienttable;
 
@@ -204,13 +211,10 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                                                 client->auth.len) == 0))) {
                                 INCREMENT_ATOMIC (client->ref.lock,
                                                   client->ref.bind);
-                                break;
+                                goto unlock;
                         }
                 }
-                if (client) {
-                        gf_client_ref (client);
-                        goto unlock;
-                }
+
                 client = GF_CALLOC (1, sizeof(client_t), gf_common_mt_client_t);
                 if (client == NULL) {
                         errno = ENOMEM;
@@ -264,15 +268,32 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 }
 
                 client->tbl_index = clienttable->first_free;
-                cliententry = &clienttable->cliententries[client->tbl_index];
+                cliententry = &clienttable->cliententries[clienttable->first_free];
+                if (cliententry->next_free == GF_CLIENTTABLE_END) {
+                        int result =
+                                gf_client_clienttable_expand (clienttable,
+                                        clienttable->max_clients +
+                                                GF_CLIENTTABLE_INITIAL_SIZE);
+                        if (result != 0) {
+                                GF_FREE (client->scratch_ctx.ctx);
+                                GF_FREE (client->client_uid);
+                                GF_FREE (client);
+                                client = NULL;
+                                errno = result;
+                                goto unlock;
+                        }
+                        cliententry->next_free = clienttable->first_free;
+                }
                 cliententry->client = client;
                 clienttable->first_free = cliententry->next_free;
                 cliententry->next_free = GF_CLIENTENTRY_ALLOCATED;
-                gf_client_ref (client);
         }
 unlock:
         UNLOCK (&clienttable->lock);
 
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d",
+                          client->client_uid, client->ref.bind,
+                          client->ref.count);
         return client;
 }
 
@@ -289,9 +310,10 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         if (bind_ref == 0)
                 unref = _gf_true;
 
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d,"
+                          " unref: %d", client->client_uid, client->ref.bind,
+                          client->ref.count, unref);
         if (unref) {
-                gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
-                        client->client_uid);
                 if (detached)
                         *detached = _gf_true;
                 gf_client_unref (client);
@@ -307,6 +329,8 @@ gf_client_ref (client_t *client)
         }
 
         INCREMENT_ATOMIC (client->ref.lock, client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
+                          client->client_uid, client->ref.count);
         return client;
 }
 
@@ -386,7 +410,11 @@ gf_client_unref (client_t *client)
         }
 
         refcount = DECREMENT_ATOMIC (client->ref.lock, client->ref.count);
+        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
+                          client->client_uid, (int)client->ref.count);
         if (refcount == 0) {
+                gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
+                        client->client_uid);
                 client_destroy (client);
         }
 }

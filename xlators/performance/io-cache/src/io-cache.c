@@ -41,6 +41,9 @@ ioc_hashfn (void *data, int len)
         return (offset >> ioc_log2_page_size);
 }
 
+/* TODO: This function is not used, uncomment when we find a
+         usage for this function.
+
 static inline ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 {
@@ -53,6 +56,7 @@ ioc_inode_reupdate (ioc_inode_t *ioc_inode)
 
         return ioc_inode;
 }
+
 
 static inline ioc_inode_t *
 ioc_get_inode (dict_t *dict, char *name)
@@ -77,6 +81,7 @@ ioc_get_inode (dict_t *dict, char *name)
 
         return ioc_inode;
 }
+*/
 
 int32_t
 ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
@@ -1663,12 +1668,12 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
 
                 GF_OPTION_RECONF ("max-file-size", table->max_file_size,
-                                  options, size, unlock);
+                                  options, size_uint64, unlock);
 
                 GF_OPTION_RECONF ("min-file-size", table->min_file_size,
-                                  options, size, unlock);
+                                  options, size_uint64, unlock);
 
-                if ((table->max_file_size >= 0) &&
+                if ((table->max_file_size <= UINT64_MAX) &&
                     (table->min_file_size > table->max_file_size)) {
                         gf_log (this->name, GF_LOG_ERROR, "minimum size (%"
                                 PRIu64") of a file that can be cached is "
@@ -1679,7 +1684,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
 
                 GF_OPTION_RECONF ("cache-size", cache_size_new,
-                                  options, size, unlock);
+                                  options, size_uint64, unlock);
                 if (!check_cache_size_ok (this, cache_size_new)) {
                         ret = -1;
                         gf_log (this->name, GF_LOG_ERROR,
@@ -1736,13 +1741,13 @@ init (xlator_t *this)
         table->xl = this;
         table->page_size = this->ctx->page_size;
 
-        GF_OPTION_INIT ("cache-size", table->cache_size, size, out);
+        GF_OPTION_INIT ("cache-size", table->cache_size, size_uint64, out);
 
         GF_OPTION_INIT ("cache-timeout", table->cache_timeout, int32, out);
 
-        GF_OPTION_INIT ("min-file-size", table->min_file_size, size, out);
+        GF_OPTION_INIT ("min-file-size", table->min_file_size, size_uint64, out);
 
-        GF_OPTION_INIT ("max-file-size", table->max_file_size, size, out);
+        GF_OPTION_INIT ("max-file-size", table->max_file_size, size_uint64, out);
 
         if  (!check_cache_size_ok (this, table->cache_size)) {
                 ret = -1;
@@ -1768,7 +1773,7 @@ init (xlator_t *this)
 
         INIT_LIST_HEAD (&table->inodes);
 
-        if ((table->max_file_size >= 0)
+        if ((table->max_file_size <= UINT64_MAX)
             && (table->min_file_size > table->max_file_size)) {
                 gf_log ("io-cache", GF_LOG_ERROR, "minimum size (%"
                         PRIu64") of a file that can be cached is "

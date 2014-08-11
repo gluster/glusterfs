@@ -1,3 +1,4 @@
+
 /*
   Copyright (c) 2012 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
@@ -13,6 +14,7 @@
 #include "glfs-mem-types.h"
 #include "syncop.h"
 #include "glfs.h"
+#include "compat-errno.h"
 #include <limits.h>
 
 #ifdef NAME_MAX
@@ -122,6 +124,7 @@ retry:
 		errno = ENOMEM;
 		goto out;
 	}
+        glfd->fd->flags = flags;
 
 	ret = syncop_open (subvol, &loc, flags, glfd->fd);
         DECODE_SYNCOP_ERR (ret);
@@ -134,7 +137,6 @@ out:
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->fd->flags = flags;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -392,6 +394,7 @@ retry:
 		errno = ENOMEM;
 		goto out;
 	}
+        glfd->fd->flags = flags;
 
 	if (ret == 0) {
 		ret = syncop_open (subvol, &loc, flags, glfd->fd);
@@ -416,7 +419,6 @@ out:
 		glfs_fd_destroy (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->fd->flags = flags;
 		fd_bind (glfd->fd);
 		glfs_fd_bind (glfd);
 	}
@@ -2295,15 +2297,22 @@ glfs_fchmod (struct glfs_fd *glfd, mode_t mode)
 int
 glfs_chown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 {
-	int              ret = -1;
+	int              ret = 0;
 	int              valid = 0;
 	struct iatt      iatt = {0, };
 
-	iatt.ia_uid = uid;
-	iatt.ia_gid = gid;
-	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+        if (uid != (uid_t) -1) {
+                iatt.ia_uid = uid;
+                valid = GF_SET_ATTR_UID;
+        }
 
-	ret = glfs_setattr (fs, path, &iatt, valid, 1);
+        if (gid != (uid_t) -1) {
+                iatt.ia_gid = gid;
+                valid = valid | GF_SET_ATTR_GID;
+        }
+
+        if (valid)
+	        ret = glfs_setattr (fs, path, &iatt, valid, 1);
 
 	return ret;
 }
@@ -2312,15 +2321,22 @@ glfs_chown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 int
 glfs_lchown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 {
-	int              ret = -1;
+	int              ret = 0;
 	int              valid = 0;
 	struct iatt      iatt = {0, };
 
-	iatt.ia_uid = uid;
-	iatt.ia_gid = gid;
-	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+        if (uid != (uid_t) -1) {
+	        iatt.ia_uid = uid;
+	        valid = GF_SET_ATTR_UID;
+        }
 
-	ret = glfs_setattr (fs, path, &iatt, valid, 0);
+        if (gid != (uid_t) -1) {
+                iatt.ia_gid = gid;
+                valid = valid | GF_SET_ATTR_GID;
+        }
+
+        if (valid)
+	        ret = glfs_setattr (fs, path, &iatt, valid, 0);
 
 	return ret;
 }
@@ -2329,15 +2345,22 @@ glfs_lchown (struct glfs *fs, const char *path, uid_t uid, gid_t gid)
 int
 glfs_fchown (struct glfs_fd *glfd, uid_t uid, gid_t gid)
 {
-	int              ret = -1;
+	int              ret = 0;
 	int              valid = 0;
 	struct iatt      iatt = {0, };
 
-	iatt.ia_uid = uid;
-	iatt.ia_gid = gid;
-	valid = GF_SET_ATTR_UID|GF_SET_ATTR_GID;
+        if (uid != (uid_t) -1) {
+                iatt.ia_uid = uid;
+                valid = GF_SET_ATTR_UID;
+        }
 
-	ret = glfs_fsetattr (glfd, &iatt, valid);
+        if (gid != (uid_t) -1) {
+                iatt.ia_gid = gid;
+                valid = valid | GF_SET_ATTR_GID;
+        }
+
+        if (valid)
+	        ret = glfs_fsetattr (glfd, &iatt, valid);
 
 	return ret;
 }
@@ -2545,10 +2568,13 @@ glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
 {
 	int ret = -1;
 
-	if (!value || !size || !xattr)
+	if (!xattr)
 		goto out;
 
 	ret = dict_keys_join (NULL, 0, xattr, NULL);
+
+        if (!value || !size)
+                goto out;
 
 	if (size < ret) {
 		ret = -1;
@@ -2557,9 +2583,10 @@ glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
 		dict_keys_join (value, size, xattr, NULL);
 	}
 
-	dict_unref (xattr);
-
 out:
+        if (xattr)
+                dict_unref (xattr);
+
 	return ret;
 }
 

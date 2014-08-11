@@ -1,12 +1,47 @@
 M0=${M0:=/mnt/glusterfs/0};   # 0th mount point for FUSE
 M1=${M1:=/mnt/glusterfs/1};   # 1st mount point for FUSE
+M2=${M1:=/mnt/glusterfs/2};   # 2nd mount point for FUSE
 N0=${N0:=/mnt/nfs/0};         # 0th mount point for NFS
 N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
 V0=${V0:=patchy};             # volume name to use in tests
 V1=${V1:=patchy1};            # volume name to use in tests
 B0=${B0:=/d/backends};        # top level of brick directories
-H0=${H0:=`hostname --fqdn`};  # hostname
+CC=cc
+OSTYPE=$(uname -s)
+
+if [ ! -f ${PWD}/tests/env.rc ]; then
+   echo "Aborting."
+   echo
+   echo "env.rc not found"
+   echo
+   echo "Please correct the problem and try again."
+   echo
+   exit 1
+fi
+. ${PWD}/tests/env.rc
+
+case $OSTYPE in
+Linux)
+  H0=${H0:=`hostname --fqdn`}; # hostname
+  ;;
+*)
+  H0=${H0:=`hostname`}; # hostname
+  ;;
+esac
+
 DEBUG=${DEBUG:=0}             # turn on debugging?
+
+PROCESS_UP_TIMEOUT=20
+NFS_EXPORT_TIMEOUT=20
+CHILD_UP_TIMEOUT=20
+PROBE_TIMEOUT=20
+REBALANCE_TIMEOUT=120
+REOPEN_TIMEOUT=20
+HEAL_TIMEOUT=60
+MARKER_UPDATE_TIMEOUT=20
+JANITOR_TIMEOUT=60
+UMOUNT_TIMEOUT=5
+
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";
@@ -40,6 +75,7 @@ function test_header()
 {
 	dbg "=========================";
 	dbg "TEST $t (line $TESTLINE): $*";
+	saved_cmd="$*"
 }
 
 
@@ -52,6 +88,10 @@ function test_footer()
 	     	echo "ok $t";
 	else
                 echo "not ok $t $err";
+		# With DEBUG, this was already printed out, so skip it.
+		if [ x"$DEBUG" = x"0" ]; then
+			echo "FAILED COMMAND: $saved_cmd"
+		fi
 		if [ "$EXIT_EARLY" = "1" ]; then
 			exit $RET
 		fi
@@ -163,36 +203,26 @@ function _EXPECT_WITHIN()
         test_header "$@"
 
         e=$1;
+        a="";
         shift;
 
         local endtime=$(( ${timeout}+`date +%s` ))
 
-        local success=0
         while [ `date +%s` -lt $endtime ]; do
-                ("$@") | tail -1 | egrep -q "^${e}\$"
-
-                local pipestatus=(${PIPESTATUS[@]})
-
+                a=$("$@" | tail -1 ; exit ${PIPESTATUS[0]})
                 ## Check command success
-                if [ ${pipestatus[0]} -ne 0 ]; then
+                if [ $? -ne 0 ]; then
                         break;
                 fi
 
                 ## Check match success
-                if [ ${pipestatus[2]} -eq 0 ]; then
-                        success=1;
+                if [[ "$a" =~ "$e" ]]; then
                         break;
                 fi
                 sleep 1;
         done
 
-        if [ $success -eq 1 ]; then
-                true;
-        else
-                false;
-        fi
-
-        test_footer;
+        test_expect_footer "$e" "$a";
 }
 
 
@@ -211,13 +241,20 @@ function _TEST_IN_LOOP()
 	_TEST $@
 }
 
+which killall > /dev/null || {
+        killall() {
+                pkill $@
+        }
+}
 
 function cleanup()
 {
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+	test "x`uname -s` = "xNetBSD" && pkill -15 perfused || true
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
 	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
+	test "x`uname -s` = "xNetBSD" && pkill -9 perfused || true
 
         MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
         for m in $MOUNTPOINTS;
@@ -225,20 +262,60 @@ function cleanup()
                 umount $m
         done
 
+        # unregister nfs and related services from portmapper/rpcbind
+        ## nfs
+        rpcinfo -d 100003 3
+        ## mountd
+        rpcinfo -d 100005 1
+        rpcinfo -d 100005 3
+        ## nlockmgr
+        rpcinfo -d 100021 1
+        rpcinfo -d 100021 4
+        ## nfs_acl
+        rpcinfo -d 100227 3
 
-        LOOPDEVICES=`losetup -a | grep "$B0/" | awk '{print $1}' | tr -d :`
-        for l in $LOOPDEVICES;
-        do
-                losetup -d $l
-        done
+        type cleanup_lvm &>/dev/null && cleanup_lvm
 
+	case `uname -s` in
+	Linux)
+        	LOOPDEVICES=`losetup -a | grep "$B0/" | \
+			     awk '{print $1}' | tr -d :`
+		for l in $LOOPDEVICES;
+		do
+			losetup -d $l
+		done
+		;;
+	NetBSD)
+		vnd=`vnconfig -l | \
+		     awk '!/not in use/{printf("%s%s:%d ", $1, $2, $5);}'`
+		for l in ${vnd} ; do
+			dev=${l%%:*}
+			tmp=${l#*:}
+			fs=${tmp%%:*}
+			inode=${tmp#*:}
+			file=`find -x ${fs} -inum ${inode} -print -exit`
+			echo ${file} | grep "$B0/" && \
+			    LOOPDEVICES="${LOOPDEVICES} $dev"
+		done
+		for l in $LOOPDEVICES;
+		do
+			vnconfig -u $l
+		done
+		;;
+	*)
+		echo "`uname -s` loopback device supportmissing"
+		;;
+	esac
 
-	rm -rf /var/lib/glusterd/* $B0/* /etc/glusterd/*;
+        if [ -n "${GLUSTERD_WORKDIR}" ] ; then
+            rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
+        fi
 
 	umount -l $M0 2>/dev/null || true;
 	umount -l $M1 2>/dev/null || true;
 	umount -l $N0 2>/dev/null || true;
 	umount -l $N1 2>/dev/null || true;
+
 }
 
 function volinfo_field()
@@ -261,13 +338,127 @@ function build_tester ()
     local fname=$(basename "$cfile")
     local ext="${fname##*.}"
     local execname="${fname%.*}"
-    gcc -g -o $(dirname $cfile)/$execname $cfile
+    shift
+    local cflags=$*
+    $CC -g -o $(dirname $cfile)/$execname $cfile $cflags
 }
 
 function process_leak_count ()
 {
     local pid=$1;
     return $(ls -lh /proc/$pid/fd | grep "(deleted)"| wc -l)
+}
+
+which truncate > /dev/null || {
+  truncate() {
+    local nocreate=0
+    local ioblocks=0
+    local fileref=""
+    local newsize=""
+
+    args=`getopt xor:s: $*`
+    if [ $? -ne 0 ]; then
+      echo 'Usage: truncate [-co](-r file | -s size) file ...'
+      exit 2
+    fi
+    set -- $args
+    while [ $# -gt 0 ]; do
+      case "$1" in
+      -c)
+        nocreate=1;
+        ;;
+      -o)
+        ioblocks=1;
+	echo "Unimplemented -o option"
+        exit 2
+        ;;
+      -r)
+        fileref=$2;
+        shift;
+        ;;
+      -s)
+        newsize=$2;
+        shift;
+        ;;
+      --)
+        shift;
+        break;
+        ;;
+      *)
+        echo 'Usage: truncate [-co](-r file | -s size) file ...'
+        exit 2;
+        ;;
+      esac
+      shift
+    done
+
+    if [ "x$newsize" = "x" -a "x$fileref" = "x" ] ; then
+      echo 'Usage: truncate [-co](-r file | -s size) file ...'
+      exit 2;
+    fi
+
+    if [ "x$newsize" != "x" -a "x$fileref" != "x" ] ; then
+      echo 'Usage: truncate [-co](-r file | -s size) file ...'
+      exit 2;
+    fi
+
+    if [ "x$newsize" != "x" ] ; then
+      echo $newsize | grep -q '^[-_<>%/]' && {
+        echo "Unimplemented prefix in ${newsize}"
+        exit 2;
+      }
+
+      echo $newsize | egrep -q '[GTPEZY]B?$' && {
+        echo "Unit not implemented for ${newsize}"
+        exit 2;
+      }
+
+      case $newsize in
+      *KB)
+        newsize=$(( ${newsize/KB/} * 1000 ))
+        ;;
+      *K)
+        newsize=$(( ${newsize/K/} * 1024 ))
+        ;;
+      *MB)
+        newsize=$(( ${newsize/MB/} * 1000 * 1000 ))
+        ;;
+      *M)
+        newsize=$(( ${newsize/M/} * 1024 * 1024 ))
+        ;;
+      esac
+
+    fi
+
+    if [ "x$fileref" != "x" ] ; then
+       if [ ! -f $fileref ] ; then
+         echo "File does not exists: ${fileref}"
+         exit 2;
+       fi
+       newsize=`ls -l ${fileref}|awk '{print $5}'`
+    fi
+
+    if [ $# -eq 0 ]; then
+      echo 'Usage: truncate [-co](-r file | -s size) file ...'
+      exit 2;
+    fi
+
+    for f in $* ; do
+      if [ "x$nocreate" = "x1" -a ! -f $f ] ; then
+        continue;
+      fi
+
+      dd bs=1 seek=$newsize if=/dev/null of=$f
+    done
+  }
+}
+
+which md5sum > /dev/null || {
+  md5sum() {
+    for f in $* ; do
+      md5 $f | awk -F'[() ]' '{printf("%s  %s\n", $6, $3)}'
+    done
+  }
 }
 
 alias EXPECT='_EXPECT $LINENO'
@@ -277,3 +468,13 @@ alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
+
+if [ x"$OSTYPE" = x"Linux" ]; then
+	alias dd="dd status=none"
+elif [ x"$OSTYPE" = x"NetBSD" ]; then
+	alias dd="dd msgfmt=quiet"
+fi
+# MacOS doesn't seem to support either option.  Doing nothing at all is
+# probably the safest option there and on anything we don't recognize, but
+# if you want to reduce the noise level and know the correct option for
+# your favorite platform please feel free to add it here.

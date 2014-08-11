@@ -20,7 +20,7 @@ do
         mkdir dir$i && cd dir$i
 done
 cd
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 start
 EXPECT_WITHIN 600 "Y" gd_is_replace_brick_completed $H0 $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1
 TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 commit

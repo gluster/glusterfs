@@ -96,8 +96,17 @@ class Monitor(object):
             if state != old_state:
                 self.set_state(state)
         else:
-            logging.info('new state: %s' % state)
             if getattr(gconf, 'state_file', None):
+                # If previous state is paused, suffix the
+                # new state with '(Paused)'
+                try:
+                    with open(gconf.state_file, "r") as f:
+                        content = f.read()
+                        if "paused" in content.lower():
+                            state = state + '(Paused)'
+                except IOError:
+                    pass
+                logging.info('new state: %s' % state)
                 update_file(gconf.state_file, lambda f: f.write(state + '\n'))
 
     @staticmethod
@@ -108,7 +117,7 @@ class Monitor(object):
         # give a chance to graceful exit
         os.kill(-os.getpid(), signal.SIGTERM)
 
-    def monitor(self, w, argv, cpids):
+    def monitor(self, w, argv, cpids, agents):
         """the monitor loop
 
         Basic logic is a blantantly simple blunt heuristics:
@@ -129,6 +138,7 @@ class Monitor(object):
         """
 
         self.set_state(self.ST_INIT, w)
+
         ret = 0
 
         def nwait(p, o=0):
@@ -147,8 +157,28 @@ class Monitor(object):
             return 1
         conn_timeout = int(gconf.connection_timeout)
         while ret in (0, 1):
+            # Spawn the worker and agent in lock to avoid fd leak
+            self.lock.acquire()
+
             logging.info('-' * conn_timeout)
             logging.info('starting gsyncd worker')
+
+            # Couple of pipe pairs for RPC communication b/w
+            # worker and changelog agent.
+
+            # read/write end for agent
+            (ra, ww) = os.pipe()
+            # read/write end for worker
+            (rw, wa) = os.pipe()
+
+            # spawn the agent process
+            apid = os.fork()
+            if apid == 0:
+                os.execv(sys.executable, argv + ['--local-path', w[0],
+                                                 '--agent',
+                                                 '--rpc-fd',
+                                                 ','.join([str(ra), str(wa),
+                                                           str(rw), str(ww)])])
             pr, pw = os.pipe()
             cpid = os.fork()
             if cpid == 0:
@@ -157,19 +187,32 @@ class Monitor(object):
                                                  '--local-path', w[0],
                                                  '--local-id',
                                                  '.' + escape(w[0]),
+                                                 '--rpc-fd',
+                                                 ','.join([str(rw), str(ww),
+                                                           str(ra), str(wa)]),
                                                  '--resource-remote', w[1]])
-            self.lock.acquire()
+
             cpids.add(cpid)
-            self.lock.release()
+            agents.add(apid)
             os.close(pw)
+
+            # close all RPC pipes in monitor
+            os.close(ra)
+            os.close(wa)
+            os.close(rw)
+            os.close(ww)
+            self.lock.release()
+
             t0 = time.time()
             so = select((pr,), (), (), conn_timeout)[0]
             os.close(pr)
+
             if so:
                 ret = nwait(cpid, os.WNOHANG)
                 if ret is not None:
                     logging.info("worker(%s) died before establishing "
                                  "connection" % w[0])
+                    nwait(apid) #wait for agent
                 else:
                     logging.debug("worker(%s) connected" % w[0])
                     while time.time() < t0 + conn_timeout:
@@ -177,15 +220,20 @@ class Monitor(object):
                         if ret is not None:
                             logging.info("worker(%s) died in startup "
                                          "phase" % w[0])
+                            nwait(apid) #wait for agent
                             break
                         time.sleep(1)
             else:
                 logging.info("worker(%s) not confirmed in %d sec, "
                              "aborting it" % (w[0], conn_timeout))
                 os.kill(cpid, signal.SIGKILL)
+                nwait(apid) #wait for agent
                 ret = nwait(cpid)
             if ret is None:
                 self.set_state(self.ST_STABLE, w)
+                #If worker dies, agent terminates on EOF.
+                #So lets wait for agent first.
+                nwait(apid)
                 ret = nwait(cpid)
             if exit_signalled(ret):
                 ret = 0
@@ -206,14 +254,17 @@ class Monitor(object):
         argv.insert(0, os.path.basename(sys.executable))
 
         cpids = set()
+        agents = set()
         ta = []
         for wx in wspx:
             def wmon(w):
-                cpid, _ = self.monitor(w, argv, cpids)
+                cpid, _ = self.monitor(w, argv, cpids, agents)
                 time.sleep(1)
                 self.lock.acquire()
                 for cpid in cpids:
                     os.kill(cpid, signal.SIGKILL)
+                for apid in agents:
+                    os.kill(apid, signal.SIGKILL)
                 self.lock.release()
                 finalize(exval=1)
             t = Thread(target=wmon, args=[wx])
@@ -237,7 +288,7 @@ def distribute(*resources):
         sbricks = {'host': 'localhost', 'dir': si.path}
         suuid = uuid.uuid5(uuid.NAMESPACE_URL, slave.get_url(canonical=True))
     elif isinstance(si, GLUSTER):
-        svol = Volinfo(si.volume, si.host, prelude)
+        svol = Volinfo(si.volume, slave.remote_addr.split('@')[-1])
         sbricks = svol.bricks
         suuid = svol.uuid
     else:
@@ -267,5 +318,11 @@ def distribute(*resources):
 
 
 def monitor(*resources):
+    # Check if gsyncd restarted in pause state. If
+    # yes, send SIGSTOP to negative of monitor pid
+    # to go back to pause state.
+    if gconf.pause_on_start:
+        os.kill(-os.getpid(), signal.SIGSTOP)
+
     """oh yeah, actually Monitor is used as singleton, too"""
     return Monitor().multiplex(*distribute(*resources))

@@ -44,6 +44,18 @@
 #include <windows.h>
 #define UUID MYUUID
 #endif
+
+#ifdef __APPLE__
+#define PRI_TIME "ld"
+#define PRI_TIME_USEC "d"
+#define SCAN_TIME "lu"
+#else
+#define PRI_TIME "lu"
+#define PRI_TIME_USEC "lu"
+#define SCAN_TIME "ld"
+#endif
+
+
 #include <stdio.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -354,8 +366,7 @@ static int get_clock(uint32_t *clock_high, uint32_t *clock_low,
 		unsigned int cl;
 		unsigned long tv1, tv2;
 		int a;
-
-		if (fscanf(state_f, "clock: %04x tv: %lu %lu adj: %d\n",
+		if (fscanf(state_f, "clock: %04x tv: %" SCAN_TIME " %" SCAN_TIME " adj: %d\n",
 			   &cl, &tv1, &tv2, &a) == 4) {
 			clock_seq = cl & 0x3FFF;
 			last.tv_sec = tv1;
@@ -404,7 +415,7 @@ try_again:
 	if (state_fd > 0) {
 		rewind(state_f);
 		len = fprintf(state_f, 
-			      "clock: %04x tv: %016lu %08lu adj: %08d\n",
+			      "clock: %04x tv: %016" PRI_TIME "%08" PRI_TIME_USEC "adj: %08d\n",
 			      clock_seq, last.tv_sec, last.tv_usec, adjustment);
 		fflush(state_f);
 		if (ftruncate(state_fd, len) < 0) {

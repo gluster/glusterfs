@@ -35,8 +35,8 @@ typedef struct __attribute__((packed)) {
  * Prototypes to private functions
  */
 int
-gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
-                      size_t size, uint32_t type);
+gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr, size_t size,
+                      uint32_t type, const char *typestr);
 
 /*
  * Helper functions
@@ -137,14 +137,14 @@ test_gf_mem_set_acct_info_asserts(void **state)
 
 
     // Check xl is NULL
-    expect_assert_failure(gf_mem_set_acct_info(NULL, &alloc_ptr, size, type));
+    expect_assert_failure(gf_mem_set_acct_info(NULL, &alloc_ptr, size, type, ""));
     // Check xl->mem_acct.rec = NULL
-    expect_assert_failure(gf_mem_set_acct_info(&xltest, &alloc_ptr, 0, type));
+    expect_assert_failure(gf_mem_set_acct_info(&xltest, &alloc_ptr, 0, type, ""));
     // Check type <= xl->mem_acct.num_types
     type = 100;
-    expect_assert_failure(gf_mem_set_acct_info(&xltest, &alloc_ptr, 0, type));
+    expect_assert_failure(gf_mem_set_acct_info(&xltest, &alloc_ptr, 0, type, ""));
     // Check alloc is NULL
-    assert_int_equal(-1, gf_mem_set_acct_info(&xltest, NULL, size, type));
+    assert_int_equal(-1, gf_mem_set_acct_info(&xltest, NULL, size, type, ""));
 
     // Initialize xl
     xl = helper_xlator_init(10);
@@ -153,7 +153,7 @@ test_gf_mem_set_acct_info_asserts(void **state)
     type = 100;
     assert_true(NULL != xl->mem_acct.rec);
     assert_true(type > xl->mem_acct.num_types);
-    expect_assert_failure(gf_mem_set_acct_info(xl, &alloc_ptr, size, type));
+    expect_assert_failure(gf_mem_set_acct_info(xl, &alloc_ptr, size, type, ""));
 
     helper_xlator_destroy(xl);
 }
@@ -166,20 +166,23 @@ test_gf_mem_set_acct_info_memory(void **state)
     char *temp_ptr;
     size_t size;
     uint32_t type;
+    const char *typestr = "TEST";
 
     size = 8196;
     type = 9;
 
     // Initialize xl
     xl = helper_xlator_init(10);
+    assert_null(xl->mem_acct.rec[type].typestr);
 
     // Test allocation
     temp_ptr = test_calloc(1, size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE);
     assert_non_null(temp_ptr);
     alloc_ptr = temp_ptr;
-    gf_mem_set_acct_info(xl, &alloc_ptr, size, type);
+    gf_mem_set_acct_info(xl, &alloc_ptr, size, type, typestr);
 
     //Check values
+    assert_ptr_equal(typestr, xl->mem_acct.rec[type].typestr);
     assert_int_equal(xl->mem_acct.rec[type].size, size);
     assert_int_equal(xl->mem_acct.rec[type].num_allocs, 1);
     assert_int_equal(xl->mem_acct.rec[type].total_allocs, 1);
@@ -220,7 +223,7 @@ test_gf_calloc_default_calloc(void **state)
     // Call __gf_calloc
     size = 1024;
     type = 3;
-    mem = __gf_calloc(1, size, type);
+    mem = __gf_calloc(1, size, type, "3");
     assert_non_null(mem);
     memset(mem, 0x5A, size);
 
@@ -254,7 +257,7 @@ test_gf_calloc_mem_acct_enabled(void **state)
     // Call __gf_calloc
     size = 1024;
     type = 3;
-    mem = __gf_calloc(1, size, type);
+    mem = __gf_calloc(1, size, type, "3");
     assert_non_null(mem);
     memset(mem, 0x5A, size);
 
@@ -287,7 +290,7 @@ test_gf_malloc_default_malloc(void **state)
     // Call __gf_malloc
     size = 1024;
     type = 3;
-    mem = __gf_malloc(size, type);
+    mem = __gf_malloc(size, type, "3");
     assert_non_null(mem);
     memset(mem, 0x5A, size);
 
@@ -321,7 +324,7 @@ test_gf_malloc_mem_acct_enabled(void **state)
     // Call __gf_malloc
     size = 1024;
     type = 3;
-    mem = __gf_malloc(size, type);
+    mem = __gf_malloc(size, type, "3");
     assert_non_null(mem);
     memset(mem, 0x5A, size);
 
@@ -354,7 +357,7 @@ test_gf_realloc_default_realloc(void **state)
     // Call __gf_malloc then realloc
     size = 10;
     type = 3;
-    mem = __gf_malloc(size, type);
+    mem = __gf_malloc(size, type, "3");
     assert_non_null(mem);
     memset(mem, 0xA5, size);
 
@@ -393,7 +396,7 @@ test_gf_realloc_mem_acct_enabled(void **state)
     // Call __gf_malloc then realloc
     size = 1024;
     type = 3;
-    mem = __gf_malloc(size, type);
+    mem = __gf_malloc(size, type, "3");
     assert_non_null(mem);
     memset(mem, 0xA5, size);
 

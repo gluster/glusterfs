@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -48,7 +49,7 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 echo "test_data" > $M0/a_file;
 
 ## Unmount.
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Mess with the flags as though brick-0 accuses brick-2 while brick-1 is
 ## missing its brick-2 changelog altogether.
@@ -58,11 +59,14 @@ setfattr -x trusted.afr.${V0}-client-2 $B0/${V0}-1/a_file
 echo "wrong_data" > $B0/${V0}-2/a_file
 
 gluster volume set $V0 cluster.self-heal-daemon on
-sleep 10
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 gluster volume heal $V0 full
 
 ## Make sure brick 2 now has the correct contents.
-EXPECT_WITHIN 30 "test_data" cat $B0/${V0}-2/a_file
+EXPECT_WITHIN $HEAL_TIMEOUT "test_data" cat $B0/${V0}-2/a_file
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;

@@ -459,8 +459,43 @@ gf_changelog_decode (xlator_t *this, gf_changelog_t *gfc, int from_fd,
         return ret;
 }
 
-static int
-gf_changelog_consume (xlator_t *this, gf_changelog_t *gfc, char *from_path)
+int
+gf_changelog_publish (xlator_t *this, gf_changelog_t *gfc, char *from_path)
+{
+        int         ret        = 0;
+        char dest[PATH_MAX]    = {0,};
+        char to_path[PATH_MAX] = {0,};
+        struct stat stbuf      = {0,};
+
+        (void) snprintf (to_path, PATH_MAX, "%s%s",
+                         gfc->gfc_current_dir, basename (from_path));
+
+        /* handle zerob file that wont exist in current */
+        ret = stat (to_path, &stbuf);
+        if (ret){
+                if (errno == ENOENT)
+                        ret = 0;
+                goto out;
+        }
+
+        (void) snprintf (dest, PATH_MAX, "%s%s",
+                         gfc->gfc_processing_dir, basename (from_path));
+
+        ret = rename (to_path, dest);
+        if (ret){
+                gf_log (this->name, GF_LOG_ERROR,
+                        "error moving %s to processing dir"
+                        " (reason: %s)", to_path, strerror (errno));
+        }
+
+out:
+        return ret;
+}
+
+int
+gf_changelog_consume (xlator_t *this,
+                      gf_changelog_t *gfc,
+                      char *from_path, gf_boolean_t no_publish)
 {
         int         ret        = -1;
         int         fd1        = 0;
@@ -472,6 +507,7 @@ gf_changelog_consume (xlator_t *this, gf_changelog_t *gfc, char *from_path)
 
         ret = stat (from_path, &stbuf);
         if (ret || !S_ISREG(stbuf.st_mode)) {
+                ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
                         "stat failed on changelog file: %s", from_path);
                 goto out;
@@ -504,8 +540,10 @@ gf_changelog_consume (xlator_t *this, gf_changelog_t *gfc, char *from_path)
                 close (fd2);
 
                 if (!ret) {
-                        /* move it to processing on a successfull
+                        /* move it to processing on a successful
                            decode */
+                        if (no_publish == _gf_true)
+                                goto close_fd;
                         ret = rename (to_path, dest);
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -516,10 +554,11 @@ gf_changelog_consume (xlator_t *this, gf_changelog_t *gfc, char *from_path)
 
                 /* remove it from .current if it's an empty file */
                 if (zerob) {
+                        /* zerob changelogs must be unlinked */
                         ret = unlink (to_path);
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "could not unlink %s (reason: %s",
+                                        "could not unlink %s (reason: %s)",
                                         to_path, strerror (errno));
                 }
         }
@@ -546,7 +585,7 @@ gf_changelog_ext_change (xlator_t *this,
                         alo = 1;
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "processing changelog: %s", path);
-                        ret = gf_changelog_consume (this, gfc, path);
+                        ret = gf_changelog_consume (this, gfc, path, _gf_false);
                 }
 
                 if (ret)

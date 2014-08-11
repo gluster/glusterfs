@@ -1041,7 +1041,7 @@ data_to_uint8 (data_t *data)
 	errno = 0;
 	value = strtol (str, NULL, 0);
 
-	if ((UCHAR_MAX - value) < 0) {
+	if ((UCHAR_MAX - (uint8_t)value) < 0) {
 		errno = ERANGE;
 		gf_log_callingfn ("dict", GF_LOG_WARNING,
 				  "data conversion overflow detected (%s)",
@@ -1602,6 +1602,8 @@ dict_set_int8 (dict_t *this, char *key, int8_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1645,6 +1647,8 @@ dict_set_int16 (dict_t *this, char *key, int16_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1688,6 +1692,8 @@ dict_set_int32 (dict_t *this, char *key, int32_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1731,6 +1737,8 @@ dict_set_int64 (dict_t *this, char *key, int64_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1774,6 +1782,8 @@ dict_set_uint16 (dict_t *this, char *key, uint16_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1818,6 +1828,8 @@ dict_set_uint32 (dict_t *this, char *key, uint32_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1861,6 +1873,8 @@ dict_set_uint64 (dict_t *this, char *key, uint64_t val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1903,6 +1917,8 @@ dict_set_double (dict_t *this, char *key, double val)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1921,6 +1937,8 @@ dict_set_static_ptr (dict_t *this, char *key, void *ptr)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -1939,6 +1957,8 @@ dict_set_dynptr (dict_t *this, char *key, void *ptr, size_t len)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -2015,6 +2035,8 @@ dict_set_ptr (dict_t *this, char *key, void *ptr)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -2061,8 +2083,27 @@ dict_set_str (dict_t *this, char *key, char *str)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
+        return ret;
+}
+
+int
+dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str)
+{
+        char *alloc_str = NULL;
+        int   ret       = -1;
+
+        alloc_str = gf_strdup (str);
+        if (!alloc_str)
+                return -1;
+
+        ret = dict_set_dynstr (this, key, alloc_str);
+        if (ret == -EINVAL)
+                GF_FREE (alloc_str);
+
         return ret;
 }
 
@@ -2079,6 +2120,8 @@ dict_set_dynstr (dict_t *this, char *key, char *str)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -2100,6 +2143,8 @@ dict_set_dynmstr (dict_t *this, char *key, char *str)
         }
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -2140,7 +2185,7 @@ dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
         data_t * data = NULL;
         int      ret  = 0;
 
-        if (!ptr || (size < 0)) {
+        if (!ptr || (size > ULONG_MAX)) {
                 ret = -EINVAL;
                 goto err;
         }
@@ -2156,6 +2201,8 @@ dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
         data->is_static = 0;
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;
@@ -2168,7 +2215,7 @@ dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
         data_t * data = NULL;
         int      ret  = 0;
 
-        if (!ptr || (size < 0)) {
+        if (!ptr || (size > ULONG_MAX)) {
                 ret = -EINVAL;
                 goto err;
         }
@@ -2184,6 +2231,8 @@ dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
         data->is_static = 1;
 
         ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
 
 err:
         return ret;

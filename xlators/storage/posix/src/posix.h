@@ -53,6 +53,8 @@
 #define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
 #define MAX_NO_VECT 1024
 
+#define LINKTO "trusted.glusterfs.dht.linkto"
+
 #define POSIX_GFID_HANDLE_SIZE(base_path_len) (base_path_len + SLEN("/") \
                                                + SLEN(GF_HIDDEN_PATH) + SLEN("/") \
                                                + SLEN("00/")            \
@@ -158,6 +160,16 @@ struct posix_private {
         uint32_t        health_check_interval;
         pthread_t       health_check;
         gf_boolean_t    health_check_active;
+
+#ifdef GF_DARWIN_HOST_OS
+        enum {
+                XATTR_NONE = 0,
+                XATTR_STRIP,
+                XATTR_APPEND,
+                XATTR_BOTH,
+        } xattr_user_namespace;
+#endif
+
 };
 
 typedef struct {
@@ -216,4 +228,8 @@ int
 posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
                     gf_dirent_t *head, char **path, int type, int32_t *op_errno,
                     dict_t *xdata);
+
+void
+posix_gfid_unset (xlator_t *this, dict_t *xdata);
+
 #endif /* _POSIX_H */

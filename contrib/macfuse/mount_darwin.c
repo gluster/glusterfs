@@ -105,7 +105,7 @@ loadkmod(void)
     pid = fork();
 
     if (pid == 0) {
-        execl(MACFUSE_LOAD_PROG, MACFUSE_LOAD_PROG, NULL);
+        execl(OSXFUSE_LOAD_PROG, OSXFUSE_LOAD_PROG, NULL);
 
         /* exec failed */
         exit(ENOENT);
@@ -133,13 +133,17 @@ Return:
 }
 
 int
+gf_fuse_mount (const char *mountpoint, char *fsname,
+               unsigned long mountflags, char *mnt_param,
+	       pid_t *mnt_pid, int status_fd) /* Not used on OS X */
+/* int
 gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
-               pid_t *mtab_pid /* not used on OS X */)
+pid_t *mtab_pid) */
 {
     int fd, pid;
     int result;
     char *fdnam, *dev;
-    const char *mountprog = MACFUSE_MOUNT_PROG;
+    const char *mountprog = OSXFUSE_MOUNT_PROG;
     sig_t chldf;
 
     /* mount_fusefs should not try to spawn the daemon */
@@ -170,7 +174,8 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
         size_t version_len = MAXHOSTNAMELEN;
         size_t version_len_desired = 0;
 
-        result = sysctlbyname(SYSCTL_MACFUSE_VERSION_NUMBER, version,
+        result = sysctlbyname(SYSCTL_OSXFUSE_VERSION_NUMBER
+			      , version,
                               &version_len, NULL, (size_t)0);
         if (result == 0) {
             /* sysctlbyname() includes the trailing '\0' in version_len */
@@ -197,10 +202,12 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
                 gf_log("glusterfs-fuse", GF_LOG_INFO,
                        "MacFUSE kext version %s", version);
         }
+	// TODO Bypass version check
+	result = 0;
         if (result != 0)
-            GFFUSE_LOGERR("MacFUSE version %s is not supported", version);
+	  GFFUSE_LOGERR("MacFUSE version %s is not supported", version);
     } else
-        GFFUSE_LOGERR("cannot load MacFUSE kext");
+      GFFUSE_LOGERR("cannot load MacFUSE kext");
     if (result != 0)
         return -1;
 
@@ -228,9 +235,9 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
         int r, devidx = -1;
         char devpath[MAXPATHLEN];
 
-        for (r = 0; r < MACFUSE_NDEVICES; r++) {
+        for (r = 0; r < OSXFUSE_NDEVICES; r++) {
             snprintf(devpath, MAXPATHLEN - 1,
-                     _PATH_DEV MACFUSE_DEVICE_BASENAME "%d", r);
+                     _PATH_DEV OSXFUSE_DEVICE_BASENAME "%d", r);
             fd = open(devpath, O_RDWR);
             if (fd >= 0) {
                 dev = devpath;
@@ -336,8 +343,8 @@ gf_fuse_unmount(const char *mountpoint, int fd)
 
     devname_r(sbuf.st_rdev, S_IFCHR, dev, 128);
 
-    if (strncmp(dev, MACFUSE_DEVICE_BASENAME,
-                sizeof(MACFUSE_DEVICE_BASENAME) - 1)) {
+    if (strncmp(dev, OSXFUSE_DEVICE_BASENAME,
+                sizeof(OSXFUSE_DEVICE_BASENAME) - 1)) {
         return;
     }
 

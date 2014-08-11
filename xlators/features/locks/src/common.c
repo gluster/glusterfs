@@ -116,21 +116,7 @@ fd_from_fdnum (posix_lock_t *lock)
 int
 __pl_inode_is_empty (pl_inode_t *pl_inode)
 {
-        pl_dom_list_t *dom = NULL;
-        int            is_empty = 1;
-
-        if (!list_empty (&pl_inode->ext_list))
-                is_empty = 0;
-
-        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
-                if (!list_empty (&dom->entrylk_list))
-                        is_empty = 0;
-
-                if (!list_empty (&dom->inodelk_list))
-                        is_empty = 0;
-        }
-
-        return is_empty;
+        return (list_empty (&pl_inode->ext_list));
 }
 
 void
@@ -451,6 +437,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
                 INIT_LIST_HEAD (&pl_inode->reservelk_list);
                 INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
                 INIT_LIST_HEAD (&pl_inode->blocked_calls);
+                uuid_copy (pl_inode->gfid, inode->gfid);
 
                 __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
         }

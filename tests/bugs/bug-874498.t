@@ -1,5 +1,6 @@
 #!/bin/bash
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 . $(dirname $0)/../afr.rc
 
 cleanup;
@@ -13,7 +14,7 @@ TEST $CLI volume start $V0;
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 B0_hiphenated=`echo $B0 | tr '/' '-'`
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0$B0_hiphenated-brick1.pid` ;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0$B0_hiphenated-brick1.pid` ;
 
 echo "GLUSTER FILE SYSTEM" > $M0/FILE1
 echo "GLUSTER FILE SYSTEM" > $M0/FILE2
@@ -48,12 +49,14 @@ EXPECT "3" echo $count
 
 
 TEST $CLI volume start $V0 force
-sleep 5
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 
 
 ##Expected number of entries are 0 in the .glusterfs/indices/xattrop directory
-EXPECT_WITHIN 60 '0' count_sh_entries $FILEN;
+EXPECT_WITHIN $HEAL_TIMEOUT '1' count_sh_entries $FILEN;
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;

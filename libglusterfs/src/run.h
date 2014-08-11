@@ -118,7 +118,7 @@ runner_redir (runner_t *runner, int fd, int tgt_fd);
  *
  * @param runner  pointer to runner_t instance
  *
- * @return  0 on succesful spawn
+ * @return  0 on successful spawn
  *          -1 on failure (either due to earlier errors or execve(2) failing)
  *
  * @see runner_cout()

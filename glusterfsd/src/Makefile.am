@@ -3,8 +3,8 @@ sbin_PROGRAMS = glusterfsd
 glusterfsd_SOURCES = glusterfsd.c glusterfsd-mgmt.c
 glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
-	$(GF_LDADD) $(GF_GLUSTERFS_LIBS)
+	$(top_builddir)/rpc/xdr/src/libgfxdr.la ${GF_LDADD}
+
 glusterfsd_LDFLAGS = $(GF_LDFLAGS)
 noinst_HEADERS = glusterfsd.h glusterfsd-mem-types.h glusterfsd-messages.h
 
@@ -13,9 +13,9 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-I$(top_srcdir)/rpc/rpc-lib/src -I$(top_srcdir)/rpc/xdr/src
 
-AM_CFLAGS = -Wall $(GF_GLUSTERFS_CFLAGS)
+AM_CFLAGS = -Wall $(GF_CFLAGS)
 
-CLEANFILES = 
+CLEANFILES =
 
 $(top_builddir)/libglusterfs/src/libglusterfs.la:
 	$(MAKE) -C $(top_builddir)/libglusterfs/src/ all

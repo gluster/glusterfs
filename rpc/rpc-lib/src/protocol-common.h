@@ -69,6 +69,8 @@ enum gf_handshake_procnum {
         GF_HNDSK_PING,
         GF_HNDSK_SET_LK_VER,
         GF_HNDSK_EVENT_NOTIFY,
+        GF_HNDSK_GET_VOLUME_INFO,
+        GF_HNDSK_GET_SNAPSHOT_INFO,
         GF_HNDSK_MAXVALUE,
 };
 
@@ -107,7 +109,10 @@ enum gf_probe_resp {
         GF_PROBE_SAME_UUID,
         GF_PROBE_UNKNOWN_PEER,
         GF_PROBE_ADD_FAILED,
-        GF_PROBE_QUORUM_NOT_MET
+        GF_PROBE_QUORUM_NOT_MET,
+        GF_PROBE_MISSED_SNAP_CONFLICT,
+        GF_PROBE_SNAP_CONFLICT,
+        GF_PROBE_FRIEND_DETACHING,
 };
 
 enum gf_deprobe_resp {
@@ -117,6 +122,7 @@ enum gf_deprobe_resp {
         GF_DEPROBE_BRICK_EXIST,
         GF_DEPROBE_FRIEND_DOWN,
         GF_DEPROBE_QUORUM_NOT_MET,
+        GF_DEPROBE_FRIEND_DETACHING,
 };
 
 enum gf_cbk_procnum {
@@ -167,6 +173,8 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_UUID_GET,
         GLUSTER_CLI_COPY_FILE,
         GLUSTER_CLI_SYS_EXEC,
+        GLUSTER_CLI_SNAP,
+        GLUSTER_CLI_BARRIER_VOLUME,
         GLUSTER_CLI_MAXVALUE,
 };
 
@@ -198,6 +206,8 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_XLATOR_DEFRAG,
         GLUSTERD_NODE_PROFILE,
         GLUSTERD_NODE_STATUS,
+        GLUSTERD_VOLUME_BARRIER_OP,
+        GLUSTERD_BRICK_BARRIER,
         GLUSTERD_BRICK_MAXVALUE,
 };
 
@@ -234,16 +244,36 @@ struct gf_gsync_detailed_status_ {
         char bytes_remaining[NAME_MAX];
         char purges_remaining[NAME_MAX];
         char total_files_skipped[NAME_MAX];
+        char brick_host_uuid[NAME_MAX];
+        char slavekey[NAME_MAX];
+        char session_slave[NAME_MAX];
 };
 
 enum glusterd_mgmt_v3_procnum {
         GLUSTERD_MGMT_V3_NULL,    /* 0 */
-        GLUSTERD_MGMT_V3_VOLUME_LOCK,
-        GLUSTERD_MGMT_V3_VOLUME_UNLOCK,
+        GLUSTERD_MGMT_V3_LOCK,
+        GLUSTERD_MGMT_V3_PRE_VALIDATE,
+        GLUSTERD_MGMT_V3_BRICK_OP,
+        GLUSTERD_MGMT_V3_COMMIT,
+        GLUSTERD_MGMT_V3_POST_VALIDATE,
+        GLUSTERD_MGMT_V3_UNLOCK,
         GLUSTERD_MGMT_V3_MAXVALUE,
 };
 
 typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
+
+enum gf_get_volume_info_type {
+        GF_GET_VOLUME_NONE,    /* 0 */
+        GF_GET_VOLUME_UUID
+};
+
+typedef enum gf_get_volume_info_type gf_get_volume_info_type;
+
+
+enum gf_get_snapshot_info_type {
+        GF_GET_SNAPSHOT_LIST,
+};
+typedef enum gf_get_snapshot_info_type gf_get_snapshot_info_type;
 
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    2   /* 0.0.2 */
@@ -281,5 +311,7 @@ typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
 /* OP-VERSION handshake */
 #define GD_MGMT_HNDSK_PROGRAM    1239873 /* Completely random */
 #define GD_MGMT_HNDSK_VERSION    1
+
+#define GD_VOLUME_NAME_MAX 256 /* Maximum size of volume name */
 
 #endif /* !_PROTOCOL_COMMON_H */

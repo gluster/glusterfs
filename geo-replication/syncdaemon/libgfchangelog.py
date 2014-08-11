@@ -9,8 +9,9 @@
 #
 
 import os
-from ctypes import CDLL, create_string_buffer, get_errno
+from ctypes import CDLL, create_string_buffer, get_errno, byref, c_ulong
 from ctypes.util import find_library
+from syncdutils import ChangelogException
 
 
 class Changes(object):
@@ -21,9 +22,9 @@ class Changes(object):
         return get_errno()
 
     @classmethod
-    def raise_oserr(cls):
+    def raise_changelog_err(cls):
         errn = cls.geterrno()
-        raise OSError(errn, os.strerror(errn))
+        raise ChangelogException(errn, os.strerror(errn))
 
     @classmethod
     def _get_api(cls, call):
@@ -35,19 +36,19 @@ class Changes(object):
                                                     log_file,
                                                     log_level, retries)
         if ret == -1:
-            cls.raise_oserr()
+            cls.raise_changelog_err()
 
     @classmethod
     def cl_scan(cls):
         ret = cls._get_api('gf_changelog_scan')()
         if ret == -1:
-            cls.raise_oserr()
+            cls.raise_changelog_err()
 
     @classmethod
     def cl_startfresh(cls):
         ret = cls._get_api('gf_changelog_start_fresh')()
         if ret == -1:
-            cls.raise_oserr()
+            cls.raise_changelog_err()
 
     @classmethod
     def cl_getchanges(cls):
@@ -64,7 +65,7 @@ class Changes(object):
                 break
             changes.append(buf.raw[:ret - 1])
         if ret == -1:
-            cls.raise_oserr()
+            cls.raise_changelog_err()
         # cleanup tracker
         cls.cl_startfresh()
         return sorted(changes, key=clsort)
@@ -73,4 +74,55 @@ class Changes(object):
     def cl_done(cls, clfile):
         ret = cls._get_api('gf_changelog_done')(clfile)
         if ret == -1:
-            cls.raise_oserr()
+            cls.raise_changelog_err()
+
+    @classmethod
+    def cl_history_scan(cls):
+        ret = cls._get_api('gf_history_changelog_scan')()
+        if ret == -1:
+            cls.raise_changelog_err()
+
+        return ret
+
+    @classmethod
+    def cl_history_changelog(cls, changelog_path, start, end, num_parallel):
+        actual_end = c_ulong()
+        ret = cls._get_api('gf_history_changelog')(changelog_path, start, end,
+                                                   num_parallel,
+                                                   byref(actual_end))
+        if ret == -1:
+            cls.raise_changelog_err()
+
+        return (ret, actual_end.value)
+
+    @classmethod
+    def cl_history_startfresh(cls):
+        ret = cls._get_api('gf_history_changelog_start_fresh')()
+        if ret == -1:
+            cls.raise_changelog_err()
+
+    @classmethod
+    def cl_history_getchanges(cls):
+        """ remove hardcoding for path name length """
+        def clsort(f):
+            return f.split('.')[-1]
+
+        changes = []
+        buf = create_string_buffer('\0', 4096)
+        call = cls._get_api('gf_history_changelog_next_change')
+
+        while True:
+            ret = call(buf, 4096)
+            if ret in (0, -1):
+                break
+            changes.append(buf.raw[:ret - 1])
+        if ret == -1:
+            cls.raise_changelog_err()
+
+        return sorted(changes, key=clsort)
+
+    @classmethod
+    def cl_history_done(cls, clfile):
+        ret = cls._get_api('gf_history_changelog_done')(clfile)
+        if ret == -1:
+            cls.raise_changelog_err()

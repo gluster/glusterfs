@@ -80,6 +80,7 @@ typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
 
 struct glfs {
 	char               *volname;
+        uuid_t              vol_uuid;
 
 	glusterfs_ctx_t    *ctx;
 
@@ -130,6 +131,8 @@ struct glfs_object {
 #define GF_MEMPOOL_COUNT_OF_DICT_T        4096
 #define GF_MEMPOOL_COUNT_OF_DATA_T        (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 #define GF_MEMPOOL_COUNT_OF_DATA_PAIR_T   (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
+
+#define GF_MEMPOOL_COUNT_OF_LRU_BUF_T     256
 
 int glfs_mgmt_init (struct glfs *fs);
 void glfs_init_done (struct glfs *fs, int ret);
@@ -216,5 +219,11 @@ int glfs_loc_touchup (loc_t *loc);
 void glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat);
 int glfs_loc_link (loc_t *loc, struct iatt *iatt);
 int glfs_loc_unlink (loc_t *loc);
+dict_t * dict_for_key_value (const char *name, const char *value, size_t size);
+int glfs_getxattr_process (void *value, size_t size, dict_t *xattr,
+			   const char *name);
+
+/* Sends RPC call to glusterd to fetch required volume info */
+int glfs_get_volume_info (struct glfs *fs);
 
 #endif /* !_GLFS_INTERNAL_H */

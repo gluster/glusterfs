@@ -37,7 +37,6 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
-//#include "afr-self-heal-common.h"
 
 
 static void
@@ -230,7 +229,7 @@ afr_writev_handle_short_writes (call_frame_t *frame, xlator_t *this)
                         continue;
 
                 if (local->replies[i].op_ret < local->op_ret)
-                        afr_transaction_fop_failed(frame, this, i);
+                        afr_transaction_fop_failed (frame, this, i);
         }
 }
 
@@ -403,13 +402,8 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
             struct iovec *vector, int32_t count, off_t offset,
             uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
         int op_errno = ENOMEM;
-
-        priv = this->private;
-
-        QUORUM_CHECK(writev,out);
 
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
@@ -529,15 +523,10 @@ int
 afr_truncate (call_frame_t *frame, xlator_t *this,
               loc_t *loc, off_t offset, dict_t *xdata)
 {
-        afr_private_t * priv  = NULL;
         afr_local_t   * local = NULL;
         call_frame_t   *transaction_frame = NULL;
 	int ret = -1;
         int op_errno = ENOMEM;
-
-        priv = this->private;
-
-        QUORUM_CHECK(truncate,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -653,15 +642,10 @@ int
 afr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	       dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
 	call_frame_t *transaction_frame = NULL;
 	int ret = -1;
         int op_errno = ENOMEM;
-
-        priv = this->private;
-
-        QUORUM_CHECK(ftruncate,out);
 
 	transaction_frame = copy_frame (frame);
 	if (!frame)
@@ -770,15 +754,10 @@ int
 afr_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
 	     int32_t valid, dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
         call_frame_t *transaction_frame = NULL;
         int ret = -1;
         int op_errno = ENOMEM;
-
-        priv = this->private;
-
-        QUORUM_CHECK(setattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -880,15 +859,10 @@ int
 afr_fsetattr (call_frame_t *frame, xlator_t *this,
               fd_t *fd, struct iatt *buf, int32_t valid, dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
         call_frame_t *transaction_frame = NULL;
         int ret = -1;
         int op_errno = ENOMEM;
-
-        priv = this->private;
-
-        QUORUM_CHECK(fsetattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -992,7 +966,6 @@ int
 afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 	      int32_t flags, dict_t *xdata)
 {
-        afr_private_t  *priv              = NULL;
         afr_local_t    *local             = NULL;
         call_frame_t   *transaction_frame = NULL;
         int             ret               = -1;
@@ -1003,10 +976,6 @@ afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
                                    op_errno, out);
-
-        priv = this->private;
-
-        QUORUM_CHECK(setxattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1108,7 +1077,6 @@ int
 afr_fsetxattr (call_frame_t *frame, xlator_t *this,
                fd_t *fd, dict_t *dict, int32_t flags, dict_t *xdata)
 {
-        afr_private_t    *priv              = NULL;
         afr_local_t      *local             = NULL;
         call_frame_t     *transaction_frame = NULL;
         int               ret               = -1;
@@ -1119,10 +1087,6 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
                                    op_errno, out);
-
-        priv = this->private;
-
-        QUORUM_CHECK(fsetxattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1227,7 +1191,6 @@ int
 afr_removexattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, const char *name, dict_t *xdata)
 {
-        afr_private_t   *priv              = NULL;
         afr_local_t     *local             = NULL;
         call_frame_t    *transaction_frame = NULL;
         int              ret               = -1;
@@ -1238,10 +1201,6 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
         GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.afr.*",
                                  name, op_errno, out);
-
-        priv = this->private;
-
-        QUORUM_CHECK(removexattr,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1340,7 +1299,6 @@ int
 afr_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		  const char *name, dict_t *xdata)
 {
-	afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
         call_frame_t *transaction_frame = NULL;
         int ret = -1;
@@ -1351,10 +1309,6 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         GF_IF_NATIVE_XATTR_GOTO ("trusted.glusterfs.afr.*",
                                  name, op_errno, out);
-
-	priv = this->private;
-
-        QUORUM_CHECK(fremovexattr, out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1456,15 +1410,10 @@ int
 afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
                off_t offset, size_t len, dict_t *xdata)
 {
-	afr_private_t *priv = NULL;
         call_frame_t *transaction_frame = NULL;
         afr_local_t *local = NULL;
         int ret = -1;
         int op_errno = ENOMEM;
-
-	priv = this->private;
-
-        QUORUM_CHECK(fallocate,out);
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)
@@ -1574,15 +1523,10 @@ int
 afr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
              size_t len, dict_t *xdata)
 {
-        afr_private_t *priv  = NULL;
         afr_local_t *local = NULL;
         call_frame_t *transaction_frame = NULL;
         int ret = -1;
         int op_errno = ENOMEM;
-
-        priv = this->private;
-
-        QUORUM_CHECK(discard, out);
 
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame)
@@ -1688,21 +1632,16 @@ int
 afr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
              size_t len, dict_t *xdata)
 {
-        afr_private_t *priv  = NULL;
         afr_local_t *local = NULL;
         call_frame_t *transaction_frame = NULL;
         int ret = -1;
         int op_errno = ENOMEM;
 
-        priv = this->private;
-
-        QUORUM_CHECK(discard, out);
-
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame)
 		goto out;
 
-	local = AFR_FRAME_INIT (frame, op_errno);
+	local = AFR_FRAME_INIT (transaction_frame, op_errno);
 	if (!local)
 		goto out;
 
@@ -1750,5 +1689,3 @@ out:
 }
 
 /* }}} */
-
-

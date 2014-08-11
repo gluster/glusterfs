@@ -17,11 +17,13 @@ TEST setfattr -n "user.foo" -v "test" $M0/f1
 BRICK=$B0"/${V0}1"
 
 TEST $CLI volume start $V0 force
-sleep 5
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 
 # Wait for self-heal to complete
-EXPECT_WITHIN 30 '0' count_sh_entries $BRICK;
+EXPECT_WITHIN $HEAL_TIMEOUT '1' count_sh_entries $BRICK;
 
 TEST getfattr -n "user.foo" $B0/${V0}0/f1;
 

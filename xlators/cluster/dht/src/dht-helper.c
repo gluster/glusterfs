@@ -440,18 +440,18 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
         layout = dht_layout_get (this, loc->parent);
 
         if (!layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "layout missing path=%s parent=%s",
-                        loc->path, uuid_utoa (loc->parent->gfid));
+                gf_msg_debug (this->name, 0,
+                              "Missing layout. path=%s, parent gfid =%s",
+                              loc->path, uuid_utoa (loc->parent->gfid));
                 goto out;
         }
 
         subvol = dht_layout_search (this, layout, loc->name);
 
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "could not find subvolume for path=%s",
-                        loc->path);
+                gf_msg_debug (this->name, 0,
+                              "No hashed subvolume for path=%s",
+                              loc->path);
                 goto out;
         }
 
@@ -816,7 +816,8 @@ dht_migration_complete_check_task (void *data)
                 }
 
                 if (uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_GFID_MISMATCH,
                                 "%s: gfid different on the target file on %s",
                                 local->loc.path, dst_node->name);
                         ret = -1;
@@ -830,9 +831,10 @@ dht_migration_complete_check_task (void *data)
 
         ret = dht_layout_preset (this, dst_node, inode);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "%s: could not set preset layout for subvol %s",
-                        local->loc.path, dst_node->name);
+                gf_msg_debug (this->name, 0,
+                              "%s: could not set preset layout "
+                              "for subvol %s", local->loc.path,
+                              dst_node->name);
                 ret   = -1;
                 local->op_errno = EINVAL;
                 goto out;
@@ -1011,7 +1013,8 @@ dht_rebalance_inprogress_task (void *data)
                 }
 
                 if (uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_GFID_MISMATCH,
                                 "%s: gfid different on the target file on %s",
                                 local->loc.path, dst_node->name);
                         ret = -1;
@@ -1109,6 +1112,34 @@ dht_inode_ctx_layout_set (inode_t *inode, xlator_t *this,
         return ret;
 }
 
+
+void
+dht_inode_ctx_time_set (inode_t *inode, xlator_t *this, struct iatt *stat)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        dht_stat_time_t         *time           = 0;
+        int                      ret            = -1;
+
+        ret = dht_inode_ctx_get (inode, this, &ctx);
+
+        if (ret)
+		return;
+
+        time = &ctx->time;
+
+	time->mtime      = stat->ia_mtime;
+	time->mtime_nsec = stat->ia_mtime_nsec;
+
+	time->ctime      = stat->ia_ctime;
+	time->ctime_nsec = stat->ia_ctime_nsec;
+
+	time->atime      = stat->ia_atime;
+	time->atime_nsec = stat->ia_atime_nsec;
+
+	return;
+}
+
+
 int
 dht_inode_ctx_time_update (inode_t *inode, xlator_t *this, struct iatt *stat,
                            int32_t post)
@@ -1175,4 +1206,17 @@ int dht_inode_ctx_set (inode_t *inode, xlator_t *this, dht_inode_ctx_t *ctx)
         ret = inode_ctx_set (inode, this, &ctx_int);
 out:
         return ret;
+}
+
+int
+dht_subvol_status (dht_conf_t *conf, xlator_t *subvol)
+{
+        int i;
+
+        for (i=0 ; i < conf->subvolume_cnt; i++) {
+                if (conf->subvolumes[i] == subvol) {
+                        return conf->subvolume_status[i];
+                }
+        }
+        return 0;
 }

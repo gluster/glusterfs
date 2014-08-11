@@ -55,7 +55,7 @@ TEST ln -s $M0/testfile-link $M0/testfile-symlink
 TEST rm -f $M0/testfile-renamed
 
 ## Remount the volume
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 TEST diff -u $M0/testfile-symlink /tmp/$V0-goodfile
@@ -69,7 +69,7 @@ TEST rm -f $M0/testfile-link
 TEST rm -f /tmp/$V0-master-key
 TEST rm -f /tmp/$V0-goodfile
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Reset crypt options
 TEST $CLI volume reset $V0 encryption.block-size

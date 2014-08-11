@@ -196,6 +196,21 @@ glusterfs_graph_worm (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         return ret;
 }
 
+
+int
+glusterfs_graph_meta (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+{
+        int ret = 0;
+
+	if (!ctx->master)
+		return 0;
+
+        ret = glusterfs_graph_insert (graph, ctx, "meta",
+                                      "meta-autoload", 1);
+        return ret;
+}
+
+
 int
 glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
@@ -367,7 +382,7 @@ fill_uuid (char *uuid, int size)
                         strerror (errno));
         }
 
-        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_Ymd_T);
+        gf_time_fmt (now_str, sizeof now_str, tv.tv_sec, gf_timefmt_dirent);
         snprintf (uuid, size, "%s-%d-%s:%"GF_PRI_SUSECONDS,
                   hostname, getpid(), now_str, tv.tv_usec);
 
@@ -463,6 +478,14 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
                         "glusterfs graph 'gfid-access' failed");
                 return -1;
         }
+
+	/* XXX: topmost xlator */
+	ret = glusterfs_graph_meta (graph, ctx);
+	if (ret) {
+		gf_log ("graph", GF_LOG_ERROR,
+			"glusterfs graph meta failed");
+		return -1;
+	}
 
         /* XXX: this->ctx setting */
         for (trav = graph->first; trav; trav = trav->next) {
@@ -670,6 +693,8 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
         if (!newvolfile_graph) {
                 goto out;
         }
+
+	glusterfs_graph_prepare (newvolfile_graph, ctx);
 
         if (!is_graph_topology_equal (oldvolfile_graph,
                                       newvolfile_graph)) {

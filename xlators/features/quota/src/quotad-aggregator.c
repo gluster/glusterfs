@@ -112,12 +112,8 @@ ret:
                 quotad_aggregator_free_state (state);
         }
 
-        if (frame) {
-                if (frame->root->client)
-                        gf_client_unref (frame->root->client);
-
+        if (frame)
                 STACK_DESTROY (frame->root);
-        }
 
         if (new_iobref) {
                 iobref_unref (iobref);
@@ -227,7 +223,7 @@ quotad_aggregator_getlimit (rpcsvc_request_t *req)
         if (ret)
                 goto err;
 
-        ret = dict_set_int32 (state->xdata, GET_ANCESTRY_PATH_KEY,42);
+        ret = dict_set_int32 (state->xdata, GET_ANCESTRY_PATH_KEY, 42);
         if (ret)
                 goto err;
 
@@ -404,13 +400,13 @@ out:
         return ret;
 }
 
-rpcsvc_actor_t quotad_aggregator_actors[] = {
+rpcsvc_actor_t quotad_aggregator_actors[GF_AGGREGATOR_MAXVALUE] = {
         [GF_AGGREGATOR_NULL]     = {"NULL", GF_AGGREGATOR_NULL, NULL, NULL, 0,
                                     DRC_NA},
         [GF_AGGREGATOR_LOOKUP]   = {"LOOKUP", GF_AGGREGATOR_NULL,
                                     quotad_aggregator_lookup, NULL, 0, DRC_NA},
         [GF_AGGREGATOR_GETLIMIT] = {"GETLIMIT", GF_AGGREGATOR_GETLIMIT,
-                                   quotad_aggregator_getlimit, NULL, 0},
+                                   quotad_aggregator_getlimit, NULL, 0, DRC_NA},
 };
 
 

@@ -25,14 +25,13 @@ TEST $CLI volume start $V0
 
 ## Mount FUSE
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
-sleep 5;
 
 TEST touch $M0/files{1..10000};
 
 ORIG_FILE_COUNT=`ls -l $M0 | wc -l`;
 
 # Kill a brick process
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
 TEST $CLI volume rebalance $V0 fix-layout start
 

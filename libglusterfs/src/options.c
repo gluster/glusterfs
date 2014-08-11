@@ -58,11 +58,21 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                             volume_option_t *opt, char **op_errstr)
 {
         long long inputll = 0;
+        unsigned long long uinputll = 0;
         int       ret = -1;
         char      errstr[256];
 
         /* Check the range */
         if (gf_string2longlong (value, &inputll) != 0) {
+                snprintf (errstr, 256,
+                          "invalid number format \"%s\" in option \"%s\"",
+                          value, key);
+                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                goto out;
+        }
+
+        /* Handle '-0' */
+        if ((inputll == 0) && (gf_string2ulonglong (value, &uinputll) != 0)) {
                 snprintf (errstr, 256,
                           "invalid number format \"%s\" in option \"%s\"",
                           value, key);
@@ -79,7 +89,7 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                 goto out;
         }
 
-        if ((opt->validate == GF_OPT_VALIDATE_MIN)) {
+        if (opt->validate == GF_OPT_VALIDATE_MIN) {
                 if (inputll < opt->min) {
                         snprintf (errstr, 256,
                                   "'%lld' in 'option %s %s' is smaller than "
@@ -88,8 +98,8 @@ xlator_option_validate_int (xlator_t *xl, const char *key, const char *value,
                         gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
                         goto out;
                 }
-        } else if ((opt->validate == GF_OPT_VALIDATE_MAX)) {
-                if ((inputll > opt->max)) {
+        } else if (opt->validate == GF_OPT_VALIDATE_MAX) {
+                if (inputll > opt->max) {
                         snprintf (errstr, 256,
                                   "'%lld' in 'option %s %s' is greater than "
                                   "maximum value '%.0f'", inputll, key,
@@ -118,12 +128,12 @@ static int
 xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
                               volume_option_t *opt, char **op_errstr)
 {
-        uint64_t  size = 0;
+        size_t  size = 0;
         int       ret = 0;
         char      errstr[256];
 
         /* Check the range */
-        if (gf_string2bytesize (value, &size) != 0) {
+        if (gf_string2bytesize_size (value, &size) != 0) {
                 snprintf (errstr, 256,
                           "invalid number format \"%s\" in option \"%s\"",
                           value, key);
@@ -142,13 +152,13 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
         if ((size < opt->min) || (size > opt->max)) {
                 if ((strncmp (key, "cache-size", 10) == 0) &&
                     (size > opt->max)) {
-                       snprintf (errstr, 256, "Cache size %"PRId64" is out of "
+                       snprintf (errstr, 256, "Cache size %" GF_PRI_SIZET " is out of "
                                  "range [%.0f - %.0f]",
                                  size, opt->min, opt->max);
                        gf_log (xl->name, GF_LOG_WARNING, "%s", errstr);
                 } else {
                         snprintf (errstr, 256,
-                                  "'%"PRId64"' in 'option %s %s' "
+                                  "'%" GF_PRI_SIZET "' in 'option %s %s' "
                                   "is out of range [%.0f - %.0f]",
                                   size, key, value, opt->min, opt->max);
                         gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
@@ -478,7 +488,7 @@ xlator_option_validate_double (xlator_t *xl, const char *key, const char *value,
                 goto out;
         }
 
-        if ((opt->validate == GF_OPT_VALIDATE_MIN)) {
+        if (opt->validate == GF_OPT_VALIDATE_MIN) {
                 if (input < opt->min) {
                         snprintf (errstr, 256,
                                   "'%f' in 'option %s %s' is smaller than "
@@ -487,8 +497,8 @@ xlator_option_validate_double (xlator_t *xl, const char *key, const char *value,
                         gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
                         goto out;
                 }
-        } else if ((opt->validate == GF_OPT_VALIDATE_MAX)) {
-                if ((input > opt->max)) {
+        } else if (opt->validate == GF_OPT_VALIDATE_MAX) {
+                if (input > opt->max) {
                         snprintf (errstr, 256,
                                   "'%f' in 'option %s %s' is greater than "
                                   "maximum value '%f'", input, key,
@@ -574,16 +584,55 @@ out:
         return ret;
 }
 
+static int
+xlator_option_validate_mntauth (xlator_t *xl, const char *key,
+                                const char *value, volume_option_t *opt,
+                                char **op_errstr)
+{
+        int          ret = -1;
+        char         *dup_val = NULL;
+        char         *addr_tok = NULL;
+        char         *save_ptr = NULL;
+        char         errstr[4096] = {0,};
+
+        dup_val = gf_strdup (value);
+        if (!dup_val)
+                goto out;
+
+        addr_tok = strtok_r (dup_val, ",", &save_ptr);
+        if (addr_tok == NULL)
+                goto out;
+        while (addr_tok) {
+                if (!valid_mount_auth_address (addr_tok))
+                        goto out;
+
+                addr_tok = strtok_r (NULL, ",", &save_ptr);
+        }
+        ret = 0;
+
+out:
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "option %s %s: '%s' is not "
+                "a valid mount-auth-address", key, value, value);
+                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                if (op_errstr)
+                        *op_errstr = gf_strdup (errstr);
+        }
+        GF_FREE (dup_val);
+
+        return ret;
+}
+
 /*XXX: the rules to validate are as per block-size required for stripe xlator */
 static int
 gf_validate_size (const char *sizestr, volume_option_t *opt)
 {
-        uint64_t                value = 0;
+        size_t                value = 0;
         int                     ret = 0;
 
         GF_ASSERT (opt);
 
-        if (gf_string2bytesize (sizestr, &value) != 0 ||
+        if (gf_string2bytesize_size (sizestr, &value) != 0 ||
             value < opt->min ||
             value % 512) {
                 ret = -1;
@@ -744,10 +793,11 @@ xlator_option_validate (xlator_t *xl, char *key, char *value,
                 xlator_option_validate_priority_list,
                 [GF_OPTION_TYPE_SIZE_LIST]   = xlator_option_validate_size_list,
                 [GF_OPTION_TYPE_ANY]         = xlator_option_validate_any,
+                [GF_OPTION_TYPE_CLIENT_AUTH_ADDR] = xlator_option_validate_mntauth,
                 [GF_OPTION_TYPE_MAX]         = NULL,
         };
 
-        if (opt->type < 0 || opt->type >= GF_OPTION_TYPE_MAX) {
+        if (opt->type > GF_OPTION_TYPE_MAX) {
                 gf_log (xl->name, GF_LOG_ERROR,
                         "unknown option type '%d'", opt->type);
                 goto out;
@@ -1080,18 +1130,18 @@ pc_or_size (char *in, double *out)
 {
         double  pc = 0;
         int       ret = 0;
-        uint64_t  size = 0;
+        size_t  size = 0;
 
         if (gf_string2percent (in, &pc) == 0) {
                 if (pc > 100.0) {
-                        ret = gf_string2bytesize (in, &size);
+                        ret = gf_string2bytesize_size (in, &size);
                         if (!ret)
                                 *out = size;
                 } else {
                         *out = pc;
                 }
         } else {
-                ret = gf_string2bytesize (in, &size);
+                ret = gf_string2bytesize_size (in, &size);
                 if (!ret)
                         *out = size;
         }
@@ -1103,7 +1153,8 @@ DEFINE_INIT_OPT(uint64_t, uint64, gf_string2uint64);
 DEFINE_INIT_OPT(int64_t, int64, gf_string2int64);
 DEFINE_INIT_OPT(uint32_t, uint32, gf_string2uint32);
 DEFINE_INIT_OPT(int32_t, int32, gf_string2int32);
-DEFINE_INIT_OPT(uint64_t, size, gf_string2bytesize);
+DEFINE_INIT_OPT(size_t, size, gf_string2bytesize_size);
+DEFINE_INIT_OPT(uint64_t, size_uint64, gf_string2bytesize_uint64);
 DEFINE_INIT_OPT(double, percent, gf_string2percent);
 DEFINE_INIT_OPT(double, percent_or_size, pc_or_size);
 DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
@@ -1118,7 +1169,8 @@ DEFINE_RECONF_OPT(uint64_t, uint64, gf_string2uint64);
 DEFINE_RECONF_OPT(int64_t, int64, gf_string2int64);
 DEFINE_RECONF_OPT(uint32_t, uint32, gf_string2uint32);
 DEFINE_RECONF_OPT(int32_t, int32, gf_string2int32);
-DEFINE_RECONF_OPT(uint64_t, size, gf_string2bytesize);
+DEFINE_RECONF_OPT(size_t, size, gf_string2bytesize_size);
+DEFINE_RECONF_OPT(uint64_t, size_uint64, gf_string2bytesize_uint64);
 DEFINE_RECONF_OPT(double, percent, gf_string2percent);
 DEFINE_RECONF_OPT(double, percent_or_size, pc_or_size);
 DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);

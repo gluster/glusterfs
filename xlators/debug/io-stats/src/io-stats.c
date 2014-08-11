@@ -381,6 +381,7 @@ ios_stat_unref (struct ios_stat *iosstat)
         UNLOCK (&iosstat->lock);
 
         if (cleanup) {
+                LOCK_DESTROY (&iosstat->lock);
                 GF_FREE (iosstat);
                 iosstat = NULL;
         }
@@ -509,7 +510,7 @@ out:
         return 0;
 }
 
-inline int
+static inline int
 ios_stats_cleanup (xlator_t *this, inode_t *inode)
 {
 
@@ -723,13 +724,13 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_READ];
-                ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_THRU_READ);
+                ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_TYPE_READ);
 
                 ios_log (this, logfp, "\n======Write Throughput File Stats======");
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_WRITE];
-                ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_THRU_WRITE);
+                ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_TYPE_WRITE);
         }
         return 0;
 }
@@ -2666,9 +2667,15 @@ reconfigure (xlator_t *this, dict_t *options)
         struct ios_conf    *conf = NULL;
         int                 ret = -1;
         char               *sys_log_str = NULL;
+        char               *log_format_str = NULL;
+        char               *logger_str    = NULL;
         int                 sys_log_level = -1;
         char               *log_str = NULL;
         int                 log_level = -1;
+        int                 log_format = -1;
+        int                 logger = -1;
+        uint32_t            log_buf_size = 0;
+        uint32_t            log_flush_timeout = 0;
 
         if (!this || !this->private)
                 goto out;
@@ -2696,6 +2703,25 @@ reconfigure (xlator_t *this, dict_t *options)
                 gf_log_set_loglevel (log_level);
         }
 
+        GF_OPTION_RECONF ("logger", logger_str, options, str, out);
+        if (logger_str) {
+                logger = gf_check_logger (logger_str);
+                gf_log_set_logger (logger);
+        }
+
+        GF_OPTION_RECONF ("log-format", log_format_str, options, str, out);
+        if (log_format_str) {
+                log_format = gf_check_log_format (log_format_str);
+                gf_log_set_logformat (log_format);
+        }
+
+        GF_OPTION_RECONF ("log-buf-size", log_buf_size, options, uint32, out);
+        gf_log_set_log_buf_size (log_buf_size);
+
+        GF_OPTION_RECONF ("log-flush-timeout", log_flush_timeout, options,
+                          time, out);
+        gf_log_set_log_flush_timeout (log_flush_timeout);
+
         ret = 0;
 out:
         gf_log (this->name, GF_LOG_DEBUG, "reconfigure returning %d", ret);
@@ -2722,15 +2748,32 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+void
+ios_conf_destroy (struct ios_conf *conf)
+{
+        if (!conf)
+                return;
+
+        ios_destroy_top_stats (conf);
+        LOCK_DESTROY (&conf->lock);
+        GF_FREE(conf);
+}
+
 int
 init (xlator_t *this)
 {
         struct ios_conf    *conf = NULL;
         char               *sys_log_str = NULL;
+        char               *logger_str  = NULL;
+        char               *log_format_str  = NULL;
+        int                 logger = -1;
+        int                 log_format = -1;
         int                 sys_log_level = -1;
         char               *log_str = NULL;
         int                 log_level = -1;
         int                 ret = -1;
+        uint32_t            log_buf_size = 0;
+        uint32_t            log_flush_timeout = 0;
 
         if (!this)
                 return -1;
@@ -2751,12 +2794,13 @@ init (xlator_t *this)
 
         conf = GF_CALLOC (1, sizeof(*conf), gf_io_stats_mt_ios_conf);
 
-        if (!conf) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
-                return -1;
-        }
+        if (!conf)
+                goto out;
 
+        /*
+         * Init it just after calloc, so that we are sure the lock is inited
+         * in case of error paths.
+         */
         LOCK_INIT (&conf->lock);
 
         gettimeofday (&conf->cumulative.started_at, NULL);
@@ -2764,7 +2808,7 @@ init (xlator_t *this)
 
         ret = ios_init_top_stats (conf);
         if (ret)
-                return -1;
+                goto out;
 
         GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
@@ -2785,12 +2829,35 @@ init (xlator_t *this)
                 gf_log_set_loglevel (log_level);
         }
 
+        GF_OPTION_INIT ("logger", logger_str, str, out);
+        if (logger_str) {
+                logger = gf_check_logger (logger_str);
+                gf_log_set_logger (logger);
+        }
+
+        GF_OPTION_INIT ("log-format", log_format_str, str, out);
+        if (log_format_str) {
+                log_format = gf_check_log_format (log_format_str);
+                gf_log_set_logformat (log_format);
+        }
+
+        GF_OPTION_INIT ("log-buf-size", log_buf_size, uint32, out);
+        gf_log_set_log_buf_size (log_buf_size);
+
+        GF_OPTION_INIT ("log-flush-timeout", log_flush_timeout, time, out);
+        gf_log_set_log_flush_timeout (log_flush_timeout);
+
+
         this->private = conf;
         ret = 0;
 out:
+        if (!this->private) {
+                ios_conf_destroy (conf);
+                ret = -1;
+        }
+
         return ret;
 }
-
 
 void
 fini (xlator_t *this)
@@ -2801,15 +2868,9 @@ fini (xlator_t *this)
                 return;
 
         conf = this->private;
-
-        if (!conf)
-                return;
         this->private = NULL;
 
-        ios_destroy_top_stats (conf);
-
-        GF_FREE(conf);
-
+        ios_conf_destroy (conf);
         gf_log (this->name, GF_LOG_INFO,
                 "io-stats translator unloaded");
         return;
@@ -3026,6 +3087,88 @@ struct volume_options options[] = {
           .description = "Changes the log-level of the bricks",
           .value = { "DEBUG", "WARNING", "ERROR", "INFO",
                      "CRITICAL", "NONE", "TRACE"}
+        },
+        { .key = {"logger"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { GF_LOGGER_GLUSTER_LOG, GF_LOGGER_SYSLOG}
+        },
+        { .key = {"client-logger"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOGGER_GLUSTER_LOG,
+          .description = "Changes the logging sub-system to log to, for the "
+                         "clients",
+          .value = { GF_LOGGER_GLUSTER_LOG, GF_LOGGER_SYSLOG}
+        },
+        { .key = {"brick-logger"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOGGER_GLUSTER_LOG,
+          .description = "Changes the logging sub-system to log to, for the "
+                         "bricks",
+          .value = { GF_LOGGER_GLUSTER_LOG, GF_LOGGER_SYSLOG}
+        },
+        { .key = {"log-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .value = { GF_LOG_FORMAT_NO_MSG_ID, GF_LOG_FORMAT_WITH_MSG_ID}
+        },
+        { .key = {"client-log-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOG_FORMAT_WITH_MSG_ID,
+          .description = "Changes log format for the clients",
+          .value = { GF_LOG_FORMAT_NO_MSG_ID, GF_LOG_FORMAT_WITH_MSG_ID}
+        },
+        { .key = {"brick-log-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = GF_LOG_FORMAT_WITH_MSG_ID,
+          .description = "Changes the log format for the bricks",
+          .value = { GF_LOG_FORMAT_NO_MSG_ID, GF_LOG_FORMAT_WITH_MSG_ID}
+        },
+        { .key  = {"log-buf-size"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = GF_LOG_LRU_BUFSIZE_MIN,
+          .max  = GF_LOG_LRU_BUFSIZE_MAX,
+          .default_value = "5",
+        },
+        { .key  = {"client-log-buf-size"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = GF_LOG_LRU_BUFSIZE_MIN,
+          .max  = GF_LOG_LRU_BUFSIZE_MAX,
+          .default_value = "5",
+          .description = "This option determines the maximum number of unique "
+                         "log messages that can be buffered for a time equal to"
+                         " the value of the option client-log-flush-timeout."
+        },
+        { .key  = {"brick-log-buf-size"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = GF_LOG_LRU_BUFSIZE_MIN,
+          .max  = GF_LOG_LRU_BUFSIZE_MAX,
+          .default_value = "5",
+          .description = "This option determines the maximum number of unique "
+                         "log messages that can be buffered for a time equal to"
+                         " the value of the option brick-log-flush-timeout."
+        },
+        { .key  = {"log-flush-timeout"},
+          .type = GF_OPTION_TYPE_TIME,
+          .min  = GF_LOG_FLUSH_TIMEOUT_MIN,
+          .max  = GF_LOG_FLUSH_TIMEOUT_MAX,
+          .default_value = "120",
+        },
+        { .key  = {"client-log-flush-timeout"},
+          .type = GF_OPTION_TYPE_TIME,
+          .min  = GF_LOG_FLUSH_TIMEOUT_MIN,
+          .max  = GF_LOG_FLUSH_TIMEOUT_MAX,
+          .default_value = "120",
+          .description = "This option determines the maximum number of unique "
+                         "log messages that can be buffered for a time equal to"
+                         " the value of the option client-log-flush-timeout."
+        },
+        { .key  = {"brick-log-flush-timeout"},
+          .type = GF_OPTION_TYPE_TIME,
+          .min  = GF_LOG_FLUSH_TIMEOUT_MIN,
+          .max  = GF_LOG_FLUSH_TIMEOUT_MAX,
+          .default_value = "120",
+          .description = "This option determines the maximum number of unique "
+                         "log messages that can be buffered for a time equal to"
+                         " the value of the option brick-log-flush-timeout."
         },
         { .key  = {NULL} },
 

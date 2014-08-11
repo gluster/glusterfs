@@ -15,8 +15,10 @@
 #include "xlator.h"
 #include "defaults.h"
 
-#ifndef __NetBSD__
+#ifdef HAVE_BACKTRACE
 #include <execinfo.h>
+#else
+#include "execinfo_compat.h"
 #endif
 
 #define NUM_FRAMES 20
@@ -44,20 +46,20 @@ pcli_print_trace (char *name, call_frame_t *frame)
                 frame = frame->next;
         }
 
-        size = backtrace(frames,NUM_FRAMES);
+        size = backtrace (frames, NUM_FRAMES);
         if (size <= 0) {
                 return;
         }
-        symbols = backtrace_symbols(frames,size);
+        symbols = backtrace_symbols (frames, size);
         if (!symbols) {
                 return;
         }
 
-        gf_log(name, GF_LOG_INFO, "Processor stack:");
+        gf_log (name, GF_LOG_INFO, "Processor stack:");
         for (i = 0; i < size; ++i) {
                 gf_log (name, GF_LOG_INFO, "%s", symbols[i]);
         }
-        free(symbols);
+        free (symbols);
 }
 
 int32_t
@@ -73,14 +75,14 @@ pcli_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         if (!oldloc->parent) {
                 goto simple_unwind;
         }
-        if (inode_ctx_get(oldloc->parent,this,&value) != 0) {
+        if (inode_ctx_get (oldloc->parent, this, &value) != 0) {
                 goto simple_unwind;
         }
 
         if (value != PROT_ACT_NONE) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "got rename for protected %s", oldloc->path);
-                pcli_print_trace(this->name,frame->next);
+                pcli_print_trace (this->name, frame->next);
                 if (value == PROT_ACT_REJECT) {
                         STACK_UNWIND_STRICT (rename, frame, -1, EPERM,
                                              NULL, NULL, NULL, NULL, NULL,
@@ -181,25 +183,25 @@ simple_unwind:
 int32_t
 init (xlator_t *this)
 {
-	if (!this->children || this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"translator not configured with exactly one child");
-		return -1;
-	}
+        if (!this->children || this->children->next) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "translator not configured with exactly one child");
+                return -1;
+        }
 
-	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
-	}
+        if (!this->parents) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dangling volume. check volfile ");
+        }
 
-	return 0;
+        return 0;
 }
 
 
 void
 fini (xlator_t *this)
 {
-	return;
+        return;
 }
 
 
@@ -213,5 +215,5 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
-	{ .key = {NULL} },
+        { .key = {NULL} },
 };

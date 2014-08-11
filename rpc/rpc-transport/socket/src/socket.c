@@ -23,7 +23,7 @@
 #include "byte-order.h"
 #include "common-utils.h"
 #include "compat-errno.h"
-
+#include "socket-mem-types.h"
 
 /* ugly #includes below */
 #include "protocol-common.h"
@@ -152,6 +152,13 @@ typedef int SSL_trinary_func (SSL *, void *, int);
                 __socket_proto_update_priv_after_read (priv, ret, bytes_read); \
         }
 
+struct socket_connect_error_state_ {
+        xlator_t            *this;
+        rpc_transport_t     *trans;
+        gf_boolean_t         refd;
+};
+typedef struct socket_connect_error_state_ socket_connect_error_state_t;
+
 static int socket_init (rpc_transport_t *this);
 
 static void
@@ -239,7 +246,7 @@ out:
 #define ssl_read_one(t,b,l)  ssl_do((t),(b),(l),(SSL_trinary_func *)SSL_read)
 #define ssl_write_one(t,b,l) ssl_do((t),(b),(l),(SSL_trinary_func *)SSL_write)
 
-static int
+static char *
 ssl_setup_connection (rpc_transport_t *this, int server)
 {
 	X509             *peer = NULL;
@@ -290,7 +297,7 @@ ssl_setup_connection (rpc_transport_t *this, int server)
 		NID_commonName, peer_CN, sizeof(peer_CN)-1);
 	peer_CN[sizeof(peer_CN)-1] = '\0';
 	gf_log(this->name,GF_LOG_INFO,"peer CN = %s", peer_CN);
-	return 0;
+        return gf_strdup(peer_CN);
 
 	/* Error paths. */
 ssl_error:
@@ -300,7 +307,7 @@ free_ssl:
 	SSL_free(priv->ssl_ssl);
         priv->ssl_ssl = NULL;
 done:
-	return ret;
+	return NULL;
 }
 
 
@@ -311,6 +318,7 @@ ssl_teardown_connection (socket_private_t *priv)
         SSL_clear(priv->ssl_ssl);
         SSL_free(priv->ssl_ssl);
         priv->ssl_ssl = NULL;
+        priv->use_ssl = _gf_false;
 }
 
 
@@ -759,7 +767,7 @@ __socket_keepalive (int fd, int family, int keepalive_intvl, int keepalive_idle)
                 goto done;
 
 #if !defined(GF_LINUX_HOST_OS) && !defined(__NetBSD__)
-#ifdef GF_SOLARIS_HOST_OS
+#if defined(GF_SOLARIS_HOST_OS) || defined(__FreeBSD__)
         ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive_intvl,
                           sizeof (keepalive_intvl));
 #else
@@ -839,6 +847,7 @@ __socket_reset (rpc_transport_t *this)
 
         if (priv->incoming.iobuf) {
                 iobuf_unref (priv->incoming.iobuf);
+                priv->incoming.iobuf = NULL;
         }
 
         GF_FREE (priv->incoming.request_info);
@@ -1891,10 +1900,10 @@ out:
 }
 
 
-static inline
-void __socket_reset_priv (socket_private_t *priv)
+static inline void
+__socket_reset_priv (socket_private_t *priv)
 {
-        struct gf_sock_incoming      *in         = NULL;
+        struct gf_sock_incoming   *in    = NULL;
 
         /* used to reduce the indirection */
         in = &priv->incoming;
@@ -1906,6 +1915,7 @@ void __socket_reset_priv (socket_private_t *priv)
 
         if (in->iobuf) {
                 iobuf_unref (in->iobuf);
+                in->iobuf = NULL;
         }
 
         if (in->request_info != NULL) {
@@ -1916,7 +1926,6 @@ void __socket_reset_priv (socket_private_t *priv)
         memset (&in->payload_vector, 0,
                 sizeof (in->payload_vector));
 
-        in->iobuf = NULL;
 }
 
 
@@ -1979,6 +1988,12 @@ __socket_proto_state_machine (rpc_transport_t *this,
 
                         in->fraghdr = ntoh32 (in->fraghdr);
                         in->total_bytes_read += RPC_FRAGSIZE(in->fraghdr);
+
+                        if (in->total_bytes_read >= GF_UNIT_GB) {
+                                ret = -ENOMEM;
+                                goto out;
+                        }
+
                         iobuf = iobuf_get2 (this->ctx->iobuf_pool,
                                             (in->total_bytes_read +
                                              sizeof (in->fraghdr)));
@@ -2079,6 +2094,7 @@ out:
         if ((ret == -1) && (errno == EAGAIN)) {
                 ret = 0;
         }
+
         return ret;
 }
 
@@ -2255,14 +2271,22 @@ socket_poller (void *ctx)
 	gf_boolean_t      to_write = _gf_false;
 	int               ret = 0;
         uint32_t          gen = 0;
+        char             *cname = NULL;
 
         priv->ot_state = OT_RUNNING;
 
         if (priv->use_ssl) {
-                if (ssl_setup_connection(this,priv->connected) < 0) {
+                cname = ssl_setup_connection(this,priv->connected);
+                if (!cname) {
                         gf_log (this->name,GF_LOG_ERROR, "%s setup failed",
                                 priv->connected ? "server" : "client");
                         goto err;
+                }
+                if (priv->connected) {
+                        this->ssl_name = cname;
+                }
+                else {
+                        GF_FREE(cname);
                 }
         }
 
@@ -2443,6 +2467,7 @@ socket_server_event_handler (int fd, int idx, void *data,
         socklen_t                addrlen = sizeof (new_sockaddr);
         socket_private_t        *new_priv = NULL;
         glusterfs_ctx_t         *ctx = NULL;
+        char                    *cname = NULL;
 
         this = data;
         GF_VALIDATE_OR_GOTO ("socket", this, out);
@@ -2547,13 +2572,31 @@ socket_server_event_handler (int fd, int idx, void *data,
                         new_trans->listener = this;
                         new_priv = new_trans->private;
 
-			new_priv->use_ssl = priv->use_ssl;
+                        if (new_sockaddr.ss_family == AF_UNIX) {
+                                new_priv->use_ssl = _gf_false;
+                        }
+                        else {
+                                switch (priv->srvr_ssl) {
+                                case MGMT_SSL_ALWAYS:
+                                        /* Glusterd with secure_mgmt. */
+                                        new_priv->use_ssl = _gf_true;
+                                        break;
+                                case MGMT_SSL_COPY_IO:
+                                        /* Glusterfsd. */
+                                        new_priv->use_ssl = priv->ssl_enabled;
+                                        break;
+                                default:
+                                        new_priv->use_ssl = _gf_false;
+                                }
+                        }
+
 			new_priv->sock = new_sock;
 			new_priv->own_thread = priv->own_thread;
 
                         new_priv->ssl_ctx = priv->ssl_ctx;
-			if (priv->use_ssl && !priv->own_thread) {
-				if (ssl_setup_connection(new_trans,1) < 0) {
+			if (new_priv->use_ssl && !new_priv->own_thread) {
+				cname = ssl_setup_connection(new_trans,1);
+                                if (!cname) {
 					gf_log(this->name,GF_LOG_ERROR,
 					       "server setup failed");
 					close(new_sock);
@@ -2561,6 +2604,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                         GF_FREE (new_trans);
 					goto unlock;
 				}
+                                this->ssl_name = cname;
 			}
 
                         if (!priv->bio && !priv->own_thread) {
@@ -2627,6 +2671,9 @@ unlock:
         pthread_mutex_unlock (&priv->lock);
 
 out:
+        if (cname && (cname != this->ssl_name)) {
+                GF_FREE(cname);
+        }
         return ret;
 }
 
@@ -2652,19 +2699,59 @@ out:
         return ret;
 }
 
+void*
+socket_connect_error_cbk (void *opaque)
+{
+        socket_connect_error_state_t *arg;
+
+        GF_ASSERT (opaque);
+
+        arg = opaque;
+        THIS = arg->this;
+
+        rpc_transport_notify (arg->trans, RPC_TRANSPORT_DISCONNECT, arg->trans);
+
+        if (arg->refd)
+                rpc_transport_unref (arg->trans);
+
+        GF_FREE (opaque);
+        return NULL;
+}
+
+static void
+socket_fix_ssl_opts (rpc_transport_t *this, socket_private_t *priv,
+                     uint16_t port)
+{
+        if (port == GF_DEFAULT_SOCKET_LISTEN_PORT) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s SSL for portmapper connection",
+                        priv->mgmt_ssl ? "enabling" : "disabling");
+                priv->use_ssl = priv->mgmt_ssl;
+        }
+        else if (priv->ssl_enabled && !priv->use_ssl) {
+                gf_log(this->name,GF_LOG_DEBUG,
+                       "re-enabling SSL for I/O connection");
+                priv->use_ssl = _gf_true;
+        }
+}
 
 static int
 socket_connect (rpc_transport_t *this, int port)
 {
-        int                      ret = -1;
-        int                      sock = -1;
-        socket_private_t        *priv = NULL;
-        socklen_t                sockaddr_len = 0;
-        glusterfs_ctx_t         *ctx = NULL;
-        sa_family_t              sa_family = {0, };
-        char                    *local_addr   = NULL;
-        union gf_sock_union      sock_union;
-        struct sockaddr_in      *addr         = NULL;
+        int                            ret             = -1;
+        int                            th_ret          = -1;
+        int                            sock            = -1;
+        socket_private_t              *priv            = NULL;
+        socklen_t                      sockaddr_len    = 0;
+        glusterfs_ctx_t               *ctx             = NULL;
+        sa_family_t                    sa_family       = {0, };
+        char                          *local_addr      = NULL;
+        union gf_sock_union            sock_union;
+        struct sockaddr_in            *addr            = NULL;
+        gf_boolean_t                   refd      = _gf_false;
+        socket_connect_error_state_t  *arg             = NULL;
+        pthread_t                      th_id           = {0, };
+        char                          *cname           = NULL;
 
         GF_VALIDATE_OR_GOTO ("socket", this, err);
         GF_VALIDATE_OR_GOTO ("socket", this->private, err);
@@ -2680,52 +2767,36 @@ socket_connect (rpc_transport_t *this, int port)
 
         pthread_mutex_lock (&priv->lock);
         {
-                sock = priv->sock;
-        }
-        pthread_mutex_unlock (&priv->lock);
-
-        if (sock != -1) {
-                gf_log_callingfn (this->name, GF_LOG_TRACE,
-                                  "connect () called on transport already connected");
-                errno = EINPROGRESS;
-                ret = -1;
-                goto err;
-        }
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "connecting %p, state=%u gen=%u sock=%d", this,
-                priv->ot_state, priv->ot_gen, priv->sock);
-
-        ret = socket_client_get_remote_sockaddr (this, &sock_union.sa,
-                                                 &sockaddr_len, &sa_family);
-        if (ret == -1) {
-                /* logged inside client_get_remote_sockaddr */
-                goto err;
-        }
-
-        if (port > 0) {
-                sock_union.sin.sin_port = htons (port);
-        }
-        if (ntohs(sock_union.sin.sin_port) == GF_DEFAULT_SOCKET_LISTEN_PORT) {
-                if (priv->use_ssl) {
-                        gf_log(this->name,GF_LOG_DEBUG,
-                               "disabling SSL for portmapper connection");
-                        priv->use_ssl = _gf_false;
-                }
-        }
-        else {
-                if (priv->ssl_enabled && !priv->use_ssl) {
-                        gf_log(this->name,GF_LOG_DEBUG,
-                               "re-enabling SSL for I/O connection");
-                        priv->use_ssl = _gf_true;
-                }
-        }
-        pthread_mutex_lock (&priv->lock);
-        {
                 if (priv->sock != -1) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "connect() -- already connected");
+                        gf_log_callingfn (this->name, GF_LOG_TRACE,
+                                          "connect () called on transport "
+                                          "already connected");
+                        errno = EINPROGRESS;
+                        ret = -1;
                         goto unlock;
+                }
+
+                gf_log (this->name, GF_LOG_TRACE,
+                        "connecting %p, state=%u gen=%u sock=%d", this,
+                        priv->ot_state, priv->ot_gen, priv->sock);
+
+                ret = socket_client_get_remote_sockaddr (this, &sock_union.sa,
+                                                     &sockaddr_len, &sa_family);
+                if (ret == -1) {
+                        /* logged inside client_get_remote_sockaddr */
+                        goto unlock;
+                }
+
+                if (sa_family == AF_UNIX) {
+                        priv->ssl_enabled = _gf_false;
+                        priv->mgmt_ssl = _gf_false;
+                }
+                else {
+                        if (port > 0) {
+                                sock_union.sin.sin_port = htons (port);
+                        }
+                        socket_fix_ssl_opts (this, priv,
+                                             ntohs(sock_union.sin.sin_port));
                 }
 
                 memcpy (&this->peerinfo.sockaddr, &sock_union.storage,
@@ -2737,6 +2808,7 @@ socket_connect (rpc_transport_t *this, int port)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "socket creation failed (%s)",
                                 strerror (errno));
+                        ret = -1;
                         goto unlock;
                 }
 
@@ -2795,7 +2867,8 @@ socket_connect (rpc_transport_t *this, int port)
                                     &local_addr);
                 if (!ret && SA (&this->myinfo.sockaddr)->sa_family == AF_INET) {
                         addr = (struct sockaddr_in *)(&this->myinfo.sockaddr);
-                        ret = inet_pton (AF_INET, local_addr, &(addr->sin_addr.s_addr));
+                        ret = inet_pton (AF_INET, local_addr,
+                                         &(addr->sin_addr.s_addr));
                 }
 
                 ret = client_bind (this, SA (&this->myinfo.sockaddr),
@@ -2803,9 +2876,7 @@ socket_connect (rpc_transport_t *this, int port)
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "client bind failed: %s", strerror (errno));
-                        close (priv->sock);
-                        priv->sock = -1;
-                        goto unlock;
+                        goto handler;
                 }
 
                 if (!priv->use_ssl && !priv->bio && !priv->own_thread) {
@@ -2814,9 +2885,7 @@ socket_connect (rpc_transport_t *this, int port)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "NBIO on %d failed (%s)",
                                         priv->sock, strerror (errno));
-                                close (priv->sock);
-                                priv->sock = -1;
-                                goto unlock;
+                                goto handler;
                         }
                 }
 
@@ -2832,21 +2901,28 @@ socket_connect (rpc_transport_t *this, int port)
                                 GF_LOG_DEBUG : GF_LOG_ERROR),
                                 "connection attempt on %s failed, (%s)",
                                 this->peerinfo.identifier, strerror (errno));
-                        close (priv->sock);
-                        priv->sock = -1;
-                        goto unlock;
+                        goto handler;
+                }
+                else {
+                        ret = 0;
                 }
 
-		if (priv->use_ssl && !priv->own_thread) {
-			ret = ssl_setup_connection(this,0);
-			if (ret < 0) {
-				gf_log(this->name,GF_LOG_ERROR,
-					"client setup failed");
-				close(priv->sock);
-				priv->sock = -1;
-				goto unlock;
-			}
-		}
+                if (priv->use_ssl && !priv->own_thread) {
+                        cname = ssl_setup_connection(this,0);
+                        if (!cname) {
+                                errno = ENOTCONN;
+                                ret = -1;
+                                gf_log(this->name,GF_LOG_ERROR,
+                                       "client setup failed");
+                                goto handler;
+                        }
+                        if (priv->connected) {
+                                this->ssl_name = cname;
+                        }
+                        else {
+                                GF_FREE(cname);
+                        }
+                }
 
                 if (!priv->bio && !priv->own_thread) {
                         ret = __socket_nonblock (priv->sock);
@@ -2855,9 +2931,23 @@ socket_connect (rpc_transport_t *this, int port)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "NBIO on %d failed (%s)",
                                         priv->sock, strerror (errno));
-                                close (priv->sock);
+                                goto handler;
+                        }
+                }
+
+handler:
+                if (ret < 0) {
+                        if (priv->own_thread) {
+                                close(priv->sock);
                                 priv->sock = -1;
                                 goto unlock;
+                        }
+                        else {
+                                /* Ignore error from connect. epoll events
+                                   should be handled in the socket handler.
+                                   shutdown(2) will result in EPOLLERR, so
+                                   cleanup is done in socket_event_handler */
+                                shutdown (priv->sock, SHUT_RDWR);
                         }
                 }
 
@@ -2868,31 +2958,58 @@ socket_connect (rpc_transport_t *this, int port)
                 priv->connected = 0;
                 priv->is_server = _gf_false;
                 rpc_transport_ref (this);
+                refd = _gf_true;
 
-		if (priv->own_thread) {
-			if (pipe(priv->pipe) < 0) {
-				gf_log(this->name,GF_LOG_ERROR,
-				       "could not create pipe");
-			}
+                if (priv->own_thread) {
+                        if (pipe(priv->pipe) < 0) {
+                                gf_log(this->name,GF_LOG_ERROR,
+                                "could not create pipe");
+                        }
 
                         this->listener = this;
                         socket_spawn(this);
-		}
-		else {
-			priv->idx = event_register (ctx->event_pool, priv->sock,
-						    socket_event_handler,
-						    this, 1, 1);
-			if (priv->idx == -1) {
-				gf_log ("", GF_LOG_WARNING,
-					"failed to register the event");
-				ret = -1;
-			}
-		}
-        }
+                }
+                else {
+                        priv->idx = event_register (ctx->event_pool, priv->sock,
+                                                    socket_event_handler,
+                                                    this, 1, 1);
+                        if (priv->idx == -1) {
+                                gf_log ("", GF_LOG_WARNING,
+                                        "failed to register the event");
+                                close(priv->sock);
+                                priv->sock = -1;
+                                ret = -1;
+                        }
+                }
+
 unlock:
+                sock = priv->sock;
+        }
         pthread_mutex_unlock (&priv->lock);
 
 err:
+        /* if sock != -1, then cleanup is done from the event handler */
+        if (ret == -1 && sock == -1) {
+                /* Cleaup requires to send notification to upper layer which
+                   intern holds the big_lock. There can be dead-lock situation
+                   if big_lock is already held by the current thread.
+                   So transfer the ownership to seperate thread for cleanup.
+                */
+                arg = GF_CALLOC (1, sizeof (*arg),
+                                 gf_sock_connect_error_state_t);
+                arg->this = THIS;
+                arg->trans = this;
+                arg->refd = refd;
+                th_ret = pthread_create (&th_id, NULL, socket_connect_error_cbk,
+                                         arg);
+                if (th_ret) {
+                       gf_log (this->name, GF_LOG_ERROR, "pthread_create"
+                               "failed: %s", strerror(errno));
+                        GF_FREE (arg);
+                        GF_ASSERT (0);
+                }
+        }
+
         return ret;
 }
 
@@ -3346,7 +3463,7 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         optstr = NULL;
         if (dict_get_str (this->options, "tcp-window-size",
                           &optstr) == 0) {
-                if (gf_string2bytesize (optstr, &windowsize) != 0) {
+                if (gf_string2uint64 (optstr, &windowsize) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format: %s", optstr);
                         goto out;
@@ -3399,6 +3516,9 @@ socket_init (rpc_transport_t *this)
         uint32_t          keepalive = 0;
         uint32_t          backlog = 0;
 	int               session_id = 0;
+        int32_t           cert_depth = 1;
+        char             *cipher_list = "HIGH:-SSLv2";
+        int               ret;
 
         if (this->private) {
                 gf_log_callingfn (this->name, GF_LOG_ERROR,
@@ -3467,7 +3587,7 @@ socket_init (rpc_transport_t *this)
         optstr = NULL;
         if (dict_get_str (this->options, "tcp-window-size",
                           &optstr) == 0) {
-                if (gf_string2bytesize (optstr, &windowsize) != 0) {
+                if (gf_string2uint64 (optstr, &windowsize) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format: %s", optstr);
                         return -1;
@@ -3537,6 +3657,8 @@ socket_init (rpc_transport_t *this)
 				"invalid value given for ssl-enabled boolean");
 		}
 	}
+        priv->mgmt_ssl = this->ctx->secure_mgmt;
+        priv->srvr_ssl = this->ctx->secure_srvr;
 
         priv->ssl_own_cert = DEFAULT_CERT_PATH;
 	if (dict_get_str(this->options,SSL_OWN_CERT_OPT,&optstr) == 0) {
@@ -3572,8 +3694,11 @@ socket_init (rpc_transport_t *this)
         priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
         gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO: GF_LOG_DEBUG,
-               "SSL support is %s",
+               "SSL support on the I/O path is %s",
                priv->ssl_enabled ? "ENABLED" : "NOT enabled");
+        gf_log(this->name, priv->mgmt_ssl ? GF_LOG_INFO: GF_LOG_DEBUG,
+               "SSL support for glusterd is %s",
+               priv->mgmt_ssl ? "ENABLED" : "NOT enabled");
         /*
          * This might get overridden temporarily in socket_connect (q.v.)
          * if we're using the glusterd portmapper.
@@ -3582,8 +3707,9 @@ socket_init (rpc_transport_t *this)
 
 	priv->own_thread = priv->use_ssl;
 	if (dict_get_str(this->options,OWN_THREAD_OPT,&optstr) == 0) {
+                gf_log (this->name, GF_LOG_INFO, "OWN_THREAD_OPT found");
                 if (gf_string2boolean (optstr, &priv->own_thread) != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_WARNING,
 				"invalid value given for own-thread boolean");
 		}
 	}
@@ -3591,14 +3717,22 @@ socket_init (rpc_transport_t *this)
                "using %s polling thread",
 	       priv->own_thread ? "private" : "system");
 
-	if (priv->use_ssl) {
+        if (!dict_get_int32 (this->options, "ssl-cert-depth", &cert_depth)) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using certificate depth %d", cert_depth);
+        }
+        if (!dict_get_str (this->options, "ssl-cipher-list", &cipher_list)) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "using cipher list %s", cipher_list);
+        }
+
+	if (priv->ssl_enabled || priv->mgmt_ssl) {
 		SSL_library_init();
 		SSL_load_error_strings();
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_method();
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
-                if (SSL_CTX_set_cipher_list(priv->ssl_ctx,
-                                            "HIGH:-SSLv2") == 0) {
+                if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
                         gf_log(this->name,GF_LOG_ERROR,
                                "failed to find any valid ciphers");
                         goto err;
@@ -3627,7 +3761,7 @@ socket_init (rpc_transport_t *this)
 		}
 
 #if (OPENSSL_VERSION_NUMBER < 0x00905100L)
-		SSL_CTX_set_verify_depth(ctx,1);
+		SSL_CTX_set_verify_depth(ctx,cert_depth);
 #endif
 
 		priv->ssl_session_id = ++session_id;
@@ -3784,5 +3918,17 @@ struct volume_options options[] = {
 	{ .key   = {OWN_THREAD_OPT},
 	  .type  = GF_OPTION_TYPE_BOOL
 	},
+        { .key = {"ssl-cert-depth"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Maximum certificate-chain depth.  If zero, the "
+                         "peer's certificate itself must be in the local "
+                         "certificate list.  Otherwise, there may be up to N "
+                         "signing certificates between the peer's and the "
+                         "local list.  Ignored if SSL is not enabled."
+        },
+        { .key = {"ssl-cipher-list"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Allowed SSL ciphers  Ignored if SSL is not enabled."
+        },
         { .key = {NULL} }
 };

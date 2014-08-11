@@ -60,6 +60,15 @@
  * glfs_h_create_from_handle */
 #define GFAPI_HANDLE_LENGTH 16
 
+/* Portability non glibc c++ build systems */
+#ifndef __THROW
+# if defined __cplusplus
+#  define __THROW       throw ()
+# else
+#  define __THROW
+# endif
+#endif
+
 __BEGIN_DECLS
 
 /*
@@ -114,8 +123,16 @@ int glfs_h_stat(struct glfs *fs, struct glfs_object *object,
 int glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
 		     struct stat *stat) __THROW;
 
+int glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
+		      const char *name, void *value,
+		      size_t size) __THROW;
+
 int glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
 		     struct stat *sb, int valid) __THROW;
+
+int glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
+		      const char *name, const void *value,
+		      size_t size, int flags) __THROW;
 
 int glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
 		     size_t bufsiz) __THROW;
@@ -126,6 +143,9 @@ int glfs_h_link (struct glfs *fs, struct glfs_object *linktgt,
 int glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
 		   const char *oldname, struct glfs_object *newdir,
 		   const char *newname) __THROW;
+
+int glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object,
+			 const char *name) __THROW;
 
 /* Operations enabling opaque invariant handle to object transitions */
 ssize_t glfs_h_extract_handle (struct glfs_object *object,
@@ -141,6 +161,9 @@ struct glfs_fd *glfs_h_opendir (struct glfs *fs,
 
 struct glfs_fd *glfs_h_open (struct glfs *fs, struct glfs_object *object,
 			     int flags) __THROW;
+
+int
+glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW;
 
 __END_DECLS
 

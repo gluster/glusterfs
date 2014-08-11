@@ -31,7 +31,7 @@ function remove_brick_start_status {
 EXPECT "success"  remove_brick_start_status;
 
 # Wait for rebalance to complete
-EXPECT_WITHIN 10 "completed" remove_brick_status_completed_field "$V0" "$H0:$B0/${V0}6 $H0:$B0/${V0}1 $H0:$B0/${V0}2 $H0:$B0/${V0}5"
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0" "$H0:$B0/${V0}6 $H0:$B0/${V0}1 $H0:$B0/${V0}2 $H0:$B0/${V0}5"
 
 # Check commit status
 function remove_brick_commit_status {
@@ -44,7 +44,7 @@ EXPECT "success" remove_brick_commit_status;
 # Check the volume type
 EXPECT "Replicate" echo `$CLI volume info |grep Type |awk '{print $2}'`
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;

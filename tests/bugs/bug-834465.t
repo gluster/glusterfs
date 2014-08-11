@@ -20,10 +20,10 @@ TEST glusterfs --mem-accounting --volfile-server=$H0 --volfile-id=$V0 $MOUNTDIR;
 
 sdump1=$(generate_mount_statedump $V0);
 nalloc1=0
-grep -A2 "fuse - usage-type 85" $sdump1
+grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump1
 if [ $? -eq '0' ]
 then
-        nalloc1=`grep -A2 "fuse - usage-type 85" $sdump1 | grep num_allocs | cut -d '=' -f2`
+        nalloc1=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump1 | grep num_allocs | cut -d '=' -f2`
 fi
 
 build_tester $(dirname $0)/bug-834465.c
@@ -31,7 +31,7 @@ build_tester $(dirname $0)/bug-834465.c
 TEST $(dirname $0)/bug-834465 $M0/testfile
 
 sdump2=$(generate_mount_statedump $V0);
-nalloc2=`grep -A2 "fuse - usage-type 85" $sdump2 | grep num_allocs | cut -d '=' -f2`
+nalloc2=`grep -A3 "fuse - usage-type gf_common_mt_fd_lk_ctx_node_t" $sdump2 | grep num_allocs | cut -d '=' -f2`
 
 TEST [ $nalloc1 -eq $nalloc2 ];
 
@@ -39,6 +39,6 @@ TEST rm -rf $MOUNTDIR/*
 TEST rm -rf $(dirname $0)/bug-834465
 cleanup_mount_statedump $V0
 
-TEST   umount $MOUNTDIR -l
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $MOUNTDIR
 
 cleanup;

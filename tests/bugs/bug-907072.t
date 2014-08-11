@@ -3,6 +3,7 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fileio.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -31,7 +32,7 @@ TEST setfattr -x trusted.glusterfs.dht $B0/${V0}2/test;
 
 TEST $CLI volume start $V0 force;
 
-TEST umount $M0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 TEST stat $M0/test;
 

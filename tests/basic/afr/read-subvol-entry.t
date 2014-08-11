@@ -26,10 +26,10 @@ TEST kill_brick $V0 $H0 $B0/brick0
 
 TEST touch $M0/abc/def/ghi
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 5 "ghi" echo `ls $M0/abc/def/`
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "ghi" echo `ls $M0/abc/def/`
 
 #Cleanup
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 TEST rm -rf $B0/*

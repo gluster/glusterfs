@@ -215,7 +215,8 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 			if (gfid_idx != -1 &&
 			    (sources[gfid_idx] || source == -1) &&
 			    uuid_compare (gfid, replies[i].poststat.ia_gfid)) {
-				gf_log (this->name, GF_LOG_WARNING,
+				gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        AFR_MSG_SPLIT_BRAIN,
 					"GFID mismatch for <gfid:%s>/%s "
 					"%s on %s and %s on %s",
 					uuid_utoa (pargfid), bname,

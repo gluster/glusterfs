@@ -29,6 +29,7 @@
 #ifdef USE_LIBGLUSTERFS
 #include "glusterfs.h"
 #include "globals.h"
+#include "defaults.h"
 #endif
 
 #include "common-utils.h"
@@ -115,6 +116,7 @@ invoke_gsyncd (int argc, char **argv)
                 /* in restricted mode we forcibly use the system-wide config */
                 runinit (&runner);
                 runner_add_args (&runner, SBIN_DIR"/gluster",
+                                 "--remote-host=localhost",
                                  "--log-file=-", "system::", "getwd",
                                  NULL);
                 runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
@@ -341,10 +343,11 @@ struct invocable invocables[] = {
 int
 main (int argc, char **argv)
 {
-        char *evas          = NULL;
-        struct invocable *i = NULL;
-        char *b             = NULL;
-        char *sargv         = NULL;
+        int               ret   = -1;
+        char             *evas  = NULL;
+        struct invocable *i     = NULL;
+        char             *b     = NULL;
+        char             *sargv = NULL;
 
 #ifdef USE_LIBGLUSTERFS
         glusterfs_ctx_t *ctx = NULL;
@@ -357,6 +360,11 @@ main (int argc, char **argv)
                 return 1;
 
         THIS->ctx = ctx;
+        ret = default_mem_acct_init (THIS);
+        if (ret) {
+                fprintf (stderr, "internal error: mem accounting failed\n");
+                return 1;
+        }
 #endif
 
         evas = getenv (_GLUSTERD_CALLED_);

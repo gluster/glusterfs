@@ -2200,6 +2200,57 @@ default_getspec (call_frame_t *frame, xlator_t *this, const char *key,
         return 0;
 }
 
+
+struct xlator_fops _default_fops = {
+        .create = default_create,
+        .open = default_open,
+        .stat = default_stat,
+        .readlink = default_readlink,
+        .mknod = default_mknod,
+        .mkdir = default_mkdir,
+        .unlink = default_unlink,
+        .rmdir = default_rmdir,
+        .symlink = default_symlink,
+        .rename = default_rename,
+        .link = default_link,
+        .truncate = default_truncate,
+        .readv = default_readv,
+        .writev = default_writev,
+        .statfs = default_statfs,
+        .flush = default_flush,
+        .fsync = default_fsync,
+        .setxattr = default_setxattr,
+        .getxattr = default_getxattr,
+        .fsetxattr = default_fsetxattr,
+        .fgetxattr = default_fgetxattr,
+        .removexattr = default_removexattr,
+        .fremovexattr = default_fremovexattr,
+        .opendir = default_opendir,
+        .readdir = default_readdir,
+        .readdirp = default_readdirp,
+        .fsyncdir = default_fsyncdir,
+        .access = default_access,
+        .ftruncate = default_ftruncate,
+        .fstat = default_fstat,
+        .lk = default_lk,
+        .inodelk = default_inodelk,
+        .finodelk = default_finodelk,
+        .entrylk = default_entrylk,
+        .fentrylk = default_fentrylk,
+        .lookup = default_lookup,
+        .rchecksum = default_rchecksum,
+        .xattrop = default_xattrop,
+        .fxattrop = default_fxattrop,
+        .setattr = default_setattr,
+        .fsetattr = default_fsetattr,
+	.fallocate = default_fallocate,
+	.discard = default_discard,
+        .zerofill = default_zerofill,
+
+        .getspec = default_getspec,
+};
+struct xlator_fops *default_fops = &_default_fops;
+
 /* notify */
 int
 default_notify (xlator_t *this, int32_t event, void *data, ...)

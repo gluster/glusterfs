@@ -1,10 +1,10 @@
-libglusterfs_la_CFLAGS = -Wall $(GF_CFLAGS) \
-	$(GF_DARWIN_LIBGLUSTERFS_CFLAGS)    \
-        -DDATADIR=\"$(localstatedir)\"
+libglusterfs_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
+	-DDATADIR=\"$(localstatedir)\"
 
 libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
-	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree
+	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
+	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS}
 
 libglusterfs_la_LIBADD = @LEXLIB@
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
@@ -26,10 +26,10 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	graph-print.c trie.c run.c options.c fd-lk.c circ-buff.c \
 	event-history.c gidcache.c ctx.c client_t.c event-poll.c event-epoll.c \
 	$(CONTRIBDIR)/libgen/basename_r.c $(CONTRIBDIR)/libgen/dirname_r.c \
-	$(CONTRIBDIR)/stdlib/gf_mkostemp.c
+	$(CONTRIBDIR)/stdlib/gf_mkostemp.c strfd.c \
+	$(CONTRIBDIR)/mount/mntent.c $(CONTRIBDIR)/libexecinfo/execinfo.c
 
-
-nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c gf-error-codes.h
+nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
 BUILT_SOURCES = graph.lex.c
 
@@ -43,7 +43,9 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	$(CONTRIB_BUILDDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h \
 	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
 	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
-	template-component-messages.h
+	template-component-messages.h strfd.h \
+	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
+	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h
 
 EXTRA_DIST = graph.l graph.y
 
@@ -56,3 +58,19 @@ y.tab.h: graph.y
 
 CLEANFILES = graph.lex.c y.tab.c y.tab.h
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
+
+#### UNIT TESTS #####
+CLEANFILES += *.gcda *.gcno *_xunit.xml
+noinst_PROGRAMS =
+TESTS =
+
+mem_pool_unittest_CPPFLAGS = $(libglusterfs_la_CPPFLAGS)
+mem_pool_unittest_SOURCES = mem-pool.c \
+                            mem-pool.h \
+                            unittest/mem_pool_unittest.c \
+                            unittest/log_mock.c \
+                            unittest/global_mock.c
+mem_pool_unittest_CFLAGS = $(UNITTEST_CFLAGS)
+mem_pool_unittest_LDFLAGS = $(UNITTEST_LDFLAGS)
+noinst_PROGRAMS += mem_pool_unittest
+TESTS += mem_pool_unittest

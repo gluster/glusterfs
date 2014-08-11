@@ -53,8 +53,6 @@ typedef struct {
 	struct subvol_healer   *index_healers;
 	struct subvol_healer   *full_healers;
 
-	eh_t                    *healed;
-        eh_t                    *heal_failed;
         eh_t                    *split_brain;
         eh_t                    **statistics;
 } afr_self_heald_t;

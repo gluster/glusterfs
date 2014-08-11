@@ -50,6 +50,7 @@ extern int daemon(int, int);
 #include <glib/gprintf.h>
 
 #include "config-host.h"
+#include "qemu-common.h"
 #include "sysemu/sysemu.h"
 #include "trace.h"
 #include "qemu/sockets.h"
@@ -85,7 +86,7 @@ void *qemu_oom_check(void *ptr)
 void *qemu_memalign(size_t alignment, size_t size)
 {
     void *ptr;
-#if defined(_POSIX_C_SOURCE) && !defined(__sun__)
+#if defined(_POSIX_C_SOURCE) && !defined(__sun__) || defined(__APPLE__)
     int ret;
     ret = posix_memalign(&ptr, alignment, size);
     if (ret != 0) {
@@ -93,7 +94,7 @@ void *qemu_memalign(size_t alignment, size_t size)
                 size, strerror(ret));
         abort();
     }
-#elif defined(CONFIG_BSD)
+#elif defined(GF_BSD_HOST_OS)
     ptr = qemu_oom_check(valloc(size));
 #else
     ptr = qemu_oom_check(memalign(alignment, size));
@@ -174,10 +175,12 @@ int qemu_pipe(int pipefd[2])
     int ret;
 
 #ifdef CONFIG_PIPE2
+#ifdef pipe2
     ret = pipe2(pipefd, O_CLOEXEC);
     if (ret != -1 || errno != ENOSYS) {
         return ret;
     }
+#endif
 #endif
     ret = pipe(pipefd);
     if (ret == 0) {
@@ -193,13 +196,15 @@ int qemu_utimens(const char *path, const struct timespec *times)
     struct timeval tv[2], tv_now;
     struct stat st;
     int i;
-#ifdef CONFIG_UTIMENSAT
+#if defined(CONFIG_UTIMENSAT)
+#ifdef utimensat
     int ret;
 
     ret = utimensat(AT_FDCWD, path, times, AT_SYMLINK_NOFOLLOW);
     if (ret != -1 || errno != ENOSYS) {
         return ret;
     }
+#endif
 #endif
     /* Fallback: use utimes() instead of utimensat() */
 

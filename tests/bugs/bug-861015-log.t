@@ -16,7 +16,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 cd $M0
 for i in {1..10}
 do
-        dd if=/dev/urandom of=f bs=1M count=10 2>/dev/null
+        dd if=/dev/urandom of=f bs=1024k count=10 2>/dev/null
 done
 
 cd ~

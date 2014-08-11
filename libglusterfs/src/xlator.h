@@ -29,6 +29,7 @@
 #include "latency.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
+#define SECOND_CHILD(xl) (xl->children->next->xlator)
 
 #define GF_SET_ATTR_MODE  0x1
 #define GF_SET_ATTR_UID   0x2
@@ -933,6 +934,9 @@ void xlator_foreach_depth_first (xlator_t *this,
 				 void *data);
 
 xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
+
+void
+xlator_set_inode_lru_limit (xlator_t *this, void *data);
 
 void inode_destroy_notify (inode_t *inode, const char *xlname);
 

@@ -1124,7 +1124,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("page-count", conf->page_count, options, uint32, out);
 
-	GF_OPTION_RECONF ("page-size", conf->page_size, options, size, out);
+        GF_OPTION_RECONF ("page-size", conf->page_size, options, size_uint64,
+                          out);
 
         ret = 0;
  out:
@@ -1158,7 +1159,7 @@ init (xlator_t *this)
 
         conf->page_size = this->ctx->page_size;
 
-	GF_OPTION_INIT ("page-size", conf->page_size, size, out);
+        GF_OPTION_INIT ("page-size", conf->page_size, size_uint64, out);
 
         GF_OPTION_INIT ("page-count", conf->page_count, uint32, out);
 

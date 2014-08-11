@@ -43,17 +43,17 @@ function remove_brick_status_completed_field {
 
 function get_mount_process_pid {
         local vol=$1
-        ps aux | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
+        ps auxww | grep glusterfs | grep -E "volfile-id[ =]/?$vol " | awk '{print $2}' | head -1
 }
 
 function get_nfs_pid ()
 {
-        ps aux | grep "volfile-id\ gluster\/nfs" | awk '{print $2}' | head -1
+        ps auxww | grep "volfile-id\ gluster\/nfs" | awk '{print $2}' | head -1
 }
 
 function read_nfs_pidfile ()
 {
-        echo `cat /var/lib/glusterd/nfs/run/nfs.pid`
+        echo `cat $GLUSTERD_WORKDIR/nfs/run/nfs.pid`
 }
 
 function cleanup_statedump {
@@ -84,6 +84,14 @@ function cleanup_mount_statedump {
         cleanup_statedump $(get_mount_process_pid $vol)
 }
 
+function snap_client_connected_status {
+         local vol=$1
+         local fpath=$(generate_mount_statedump $vol)
+         up=$(grep -A2 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
+         rm -f $fpath
+         echo "$up"
+}
+
 function _afr_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
@@ -104,7 +112,7 @@ function afr_child_up_status {
 
 function get_shd_process_pid {
         local vol=$1
-        ps aux | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
+        ps auxww | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
 }
 
 function generate_shd_statedump {
@@ -146,12 +154,16 @@ function glustershd_up_status {
         gluster volume status | grep "Self-heal Daemon" | awk '{print $6}'
 }
 
+function quotad_up_status {
+        gluster volume status | grep "Quota Daemon" | awk '{print $6}'
+}
+
 function get_brick_pid {
         local vol=$1
         local host=$2
         local brick=$3
         local brick_hiphenated=$(echo $brick | tr '/' '-')
-        echo `cat /var/lib/glusterd/vols/$vol/run/${host}${brick_hiphenated}.pid`
+        echo `cat $GLUSTERD_WORKDIR/vols/$vol/run/${host}${brick_hiphenated}.pid`
 }
 
 function kill_brick {
@@ -307,4 +319,75 @@ function has_holes {
         else
                 echo "0"
         fi
+}
+
+function do_volume_operations() {
+        local operation=$1
+        local count=$2
+        local force=$3
+
+        local pids=()
+        local cli
+        local v
+
+         for i in `seq 1 $count`; do
+                cli="CLI_$i"
+                v="V`expr $i - 1`"
+                ${!cli} volume $operation ${!v} $force &
+                pids[$i]=$!
+        done
+
+        for i in `seq 1 $count`; do
+                wait ${pids[$i]}
+        done
+}
+
+function start_volumes() {
+        do_volume_operations start $1
+}
+
+function stop_volumes() {
+        do_volume_operations stop $1
+}
+
+function start_force_volumes() {
+        do_volume_operations start $1 force
+}
+
+function stop_force_volumes() {
+        do_volume_operations stop $1 force
+}
+
+function delete_volumes() {
+        do_volume_operations delete $1
+}
+
+function volume_exists() {
+        local volname=$1
+        $CLI volume info $volname 2>&1 | grep -q 'does not exist'
+        if [ $? -eq 0 ]; then
+                return 1
+        else
+                return 0
+        fi
+}
+
+function afr_get_index_count {
+        local brick=$1
+        ls $1/.glusterfs/indices/xattrop | grep -v xattrop | wc -l
+}
+
+function landfill_entry_count {
+        local brick=$1
+        ls $brick/.glusterfs/landfill | wc -l
+}
+
+function path_exists {
+        stat $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
+}
+
+function force_umount {
+        umount -f $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }

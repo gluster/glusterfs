@@ -57,5 +57,4 @@ int auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
                               struct _client_t *client);
 
 server_ctx_t *server_ctx_get (client_t *client, xlator_t *xlator);
-
 #endif /* !_SERVER_HELPERS_H */

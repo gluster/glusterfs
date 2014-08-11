@@ -134,7 +134,6 @@ struct syncargs {
         struct iatt         iatt1;
         struct iatt         iatt2;
         dict_t             *xattr;
-        gf_dirent_t        entries;
         struct statvfs     statvfs_buf;
         struct iovec       *vector;
         int                 count;
@@ -156,6 +155,7 @@ struct syncargs {
         pthread_mutex_t     mutex;
         pthread_cond_t      cond;
 	int                 done;
+        gf_dirent_t        entries;
 };
 
 struct syncopctx {
@@ -327,7 +327,7 @@ syncop_create_frame (xlator_t *this)
 }
 
 int synclock_init (synclock_t *lock);
-int synclock_destory (synclock_t *lock);
+int synclock_destroy (synclock_t *lock);
 int synclock_lock (synclock_t *lock);
 int synclock_trylock (synclock_t *lock);
 int synclock_unlock (synclock_t *lock);

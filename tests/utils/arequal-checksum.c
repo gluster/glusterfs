@@ -21,7 +21,7 @@
 #define _GNU_SOURCE
 #endif
 
-#define _XOPEN_SOURCE 600
+#define _XOPEN_SOURCE 500
 
 #include <ftw.h>
 #include <stdio.h>
@@ -35,10 +35,18 @@
 #include <stdlib.h>
 #include <libgen.h>
 #include <stdint.h>
-#include <alloca.h>
 #include <dirent.h>
 #include <argp.h>
 
+/*
+ * FTW_ACTIONRETVAL is a GNU libc extension. It is used here to skip
+ * hiearchies. On other systems we will still walk the tree, ignoring
+ * entries.
+ */
+#ifndef FTW_ACTIONRETVAL
+#define FTW_ACTIONRETVAL 0
+#define FTW_SKIP_SUBTREE 0
+#endif
 
 int debug = 0;
 
@@ -60,12 +68,12 @@ static struct argp_option arequal_options[] = {
         {0, 0, 0, 0, 0}
 };
 
-#define DBG(fmt ...) do {			\
-		if (debug) {			\
-			fprintf (stderr, "D "); \
-			fprintf (stderr, fmt);	\
-		}				\
-	} while (0)
+#define DBG(fmt ...) do {                       \
+                if (debug) {                    \
+                        fprintf (stderr, "D "); \
+                        fprintf (stderr, fmt);  \
+                }                               \
+        } while (0)
 
 void
 add_to_list (char *arg);
@@ -74,7 +82,7 @@ get_absolute_path (char directory[], char *arg);
 
 static inline int roof(int a, int b)
 {
-	return ((((a)+(b)-1)/((b)?(b):1))*(b));
+        return ((((a)+(b)-1)/((b)?(b):1))*(b));
 }
 
 void
@@ -194,25 +202,25 @@ unsigned long long      checksum_other   = 0;
 unsigned long long
 checksum_path (const char *path)
 {
-	unsigned long long   csum = 0;
-	unsigned long long  *nums = 0;
-	int                  len = 0;
-	int                  cnt = 0;
+        unsigned long long   csum = 0;
+        unsigned long long  *nums = 0;
+        int                  len = 0;
+        int                  cnt = 0;
 
-	len = roof (strlen (path), sizeof (csum));
-	cnt = len / sizeof (csum);
+        len = roof (strlen (path), sizeof (csum));
+        cnt = len / sizeof (csum);
 
-	nums = alloca (len);
-	memset (nums, 0, len);
-	strcpy ((char *)nums, path);
+        nums = __builtin_alloca (len);
+        memset (nums, 0, len);
+        strcpy ((char *)nums, path);
 
-	while (cnt) {
-		csum ^= *nums;
-		nums++;
-		cnt--;
-	}
+        while (cnt) {
+                csum ^= *nums;
+                nums++;
+                cnt--;
+        }
 
-	return csum;
+        return csum;
 }
 
 int
@@ -243,8 +251,18 @@ checksum_md5 (const char *path, const struct stat *sb)
         /* Now, build the command with single quotes escaped. */
 
         cpos = cmd;
+#if defined(linux)
         strcpy(cpos, "md5sum '");
         cpos += 8;
+#elif defined(__NetBSD__)
+        strcpy(cpos, "md5 -n '");
+        cpos += 8;
+#elif defined(__FreeBSD__) || defined(__APPLE__)
+        strcpy(cpos, "md5 -q '");
+        cpos += 8;
+#else
+#error "Please add system-specific md5 command"
+#endif
 
         /* Add the file path, with every single quotes replaced with this sequence:
          * '\''
@@ -307,20 +325,20 @@ out:
 int
 checksum_filenames (const char *path, const struct stat *sb)
 {
-	DIR                *dirp = NULL;
-	struct dirent      *entry = NULL;
-	unsigned long long  csum = 0;
+        DIR                *dirp = NULL;
+        struct dirent      *entry = NULL;
+        unsigned long long  csum = 0;
         int                 i = 0;
         int                 found = 0;
 
-	dirp = opendir (path);
-	if (!dirp) {
-		perror (path);
-		goto out;
-	}
+        dirp = opendir (path);
+        if (!dirp) {
+                perror (path);
+                goto out;
+        }
 
-	errno = 0;
-	while ((entry = readdir (dirp))) {
+        errno = 0;
+        while ((entry = readdir (dirp))) {
                 /* do not calculate the checksum of the entries which user has
                    told to ignore and proceed to other siblings.*/
                 if (arequal_config.ignored_directory) {
@@ -339,112 +357,112 @@ checksum_filenames (const char *path, const struct stat *sb)
                                 continue;
                         }
                 }
-		csum = checksum_path (entry->d_name);
-		checksum_dir ^= csum;
-	}
+                csum = checksum_path (entry->d_name);
+                checksum_dir ^= csum;
+        }
 
-	if (errno) {
-		perror (path);
-		goto out;
-	}
+        if (errno) {
+                perror (path);
+                goto out;
+        }
 
 out:
-	if (dirp)
-		closedir (dirp);
+        if (dirp)
+                closedir (dirp);
 
-	return 0;
+        return 0;
 }
 
 
 int
 process_file (const char *path, const struct stat *sb)
 {
-	int    ret = 0;
+        int    ret = 0;
 
-	count_file++;
+        count_file++;
 
-	avg_uid_file ^= sb->st_uid;
-	avg_gid_file ^= sb->st_gid;
-	avg_mode_file ^= sb->st_mode;
+        avg_uid_file ^= sb->st_uid;
+        avg_gid_file ^= sb->st_gid;
+        avg_mode_file ^= sb->st_mode;
 
-	ret = checksum_md5 (path, sb);
+        ret = checksum_md5 (path, sb);
 
-	return ret;
+        return ret;
 }
 
 
 int
 process_dir (const char *path, const struct stat *sb)
 {
-	unsigned long long csum = 0;
+        unsigned long long csum = 0;
 
-	count_dir++;
+        count_dir++;
 
-	avg_uid_dir ^= sb->st_uid;
-	avg_gid_dir ^= sb->st_gid;
-	avg_mode_dir ^= sb->st_mode;
+        avg_uid_dir ^= sb->st_uid;
+        avg_gid_dir ^= sb->st_gid;
+        avg_mode_dir ^= sb->st_mode;
 
-	csum = checksum_filenames (path, sb);
+        csum = checksum_filenames (path, sb);
 
-	checksum_dir ^= csum;
+        checksum_dir ^= csum;
 
-	return 0;
+        return 0;
 }
 
 
 int
 process_symlink (const char *path, const struct stat *sb)
 {
-	int                ret = 0;
-	char               buf[4096] = {0, };
-	unsigned long long csum = 0;
+        int                ret = 0;
+        char               buf[4096] = {0, };
+        unsigned long long csum = 0;
 
-	count_symlink++;
+        count_symlink++;
 
-	avg_uid_symlink ^= sb->st_uid;
-	avg_gid_symlink ^= sb->st_gid;
-	avg_mode_symlink ^= sb->st_mode;
+        avg_uid_symlink ^= sb->st_uid;
+        avg_gid_symlink ^= sb->st_gid;
+        avg_mode_symlink ^= sb->st_mode;
 
-	ret = readlink (path, buf, 4096);
-	if (ret < 0) {
-		perror (path);
-		goto out;
-	}
+        ret = readlink (path, buf, 4096);
+        if (ret < 0) {
+                perror (path);
+                goto out;
+        }
 
-	DBG ("readlink (%s) => %s\n", path, buf);
+        DBG ("readlink (%s) => %s\n", path, buf);
 
-	csum = checksum_path (buf);
+        csum = checksum_path (buf);
 
-	DBG ("checksum_path (%s) => %llx\n", buf, csum);
+        DBG ("checksum_path (%s) => %llx\n", buf, csum);
 
-	checksum_symlink ^= csum;
+        checksum_symlink ^= csum;
 
-	ret = 0;
+        ret = 0;
 out:
-	return ret;
+        return ret;
 }
 
 
 int
 process_other (const char *path, const struct stat *sb)
 {
-	count_other++;
+        count_other++;
 
-	avg_uid_other ^= sb->st_uid;
-	avg_gid_other ^= sb->st_gid;
-	avg_mode_other ^= sb->st_mode;
+        avg_uid_other ^= sb->st_uid;
+        avg_gid_other ^= sb->st_gid;
+        avg_mode_other ^= sb->st_mode;
 
-	checksum_other ^= sb->st_rdev;
+        checksum_other ^= sb->st_rdev;
 
-	return 0;
+        return 0;
 }
 
 
 int
 process_entry (const char *path, const struct stat *sb,
-	       int typeflag, struct FTW *ftwbuf)
+               int typeflag, struct FTW *ftwbuf)
 {
-	int ret = 0;
+        int ret = 0;
         char *name = NULL;
         char *bname = NULL;
         char *dname = NULL;
@@ -469,7 +487,7 @@ process_entry (const char *path, const struct stat *sb,
         if (arequal_config.ignored_directory) {
                 name = strdup (path);
 
-                name[strlen(name)] == '\0';
+                name[strlen(name)] = '\0';
 
                 bname = strrchr (name, '/');
                 if (bname)
@@ -489,22 +507,22 @@ process_entry (const char *path, const struct stat *sb,
                 }
         }
 
-	DBG ("processing entry %s\n", path);
+        DBG ("processing entry %s\n", path);
 
-	switch ((S_IFMT & sb->st_mode)) {
-	case S_IFDIR:
-		ret = process_dir (path, sb);
-		break;
-	case S_IFREG:
-		ret = process_file (path, sb);
-		break;
-	case S_IFLNK:
-		ret = process_symlink (path, sb);
-		break;
-	default:
-		ret = process_other (path, sb);
-		break;
-	}
+        switch ((S_IFMT & sb->st_mode)) {
+        case S_IFDIR:
+                ret = process_dir (path, sb);
+                break;
+        case S_IFREG:
+                ret = process_file (path, sb);
+                break;
+        case S_IFLNK:
+                ret = process_symlink (path, sb);
+                break;
+        default:
+                ret = process_other (path, sb);
+                break;
+        }
 
         if (name)
                 free (name);
@@ -515,69 +533,69 @@ process_entry (const char *path, const struct stat *sb,
 int
 display_counts (FILE *fp)
 {
-	fprintf (fp, "\n");
-	fprintf (fp, "Entry counts\n");
-	fprintf (fp, "Regular files   : %lld\n", count_file);
-	fprintf (fp, "Directories     : %lld\n", count_dir);
-	fprintf (fp, "Symbolic links  : %lld\n", count_symlink);
-	fprintf (fp, "Other           : %lld\n", count_other);
-	fprintf (fp, "Total           : %lld\n",
-		 (count_file + count_dir + count_symlink + count_other));
+        fprintf (fp, "\n");
+        fprintf (fp, "Entry counts\n");
+        fprintf (fp, "Regular files   : %lld\n", count_file);
+        fprintf (fp, "Directories     : %lld\n", count_dir);
+        fprintf (fp, "Symbolic links  : %lld\n", count_symlink);
+        fprintf (fp, "Other           : %lld\n", count_other);
+        fprintf (fp, "Total           : %lld\n",
+                 (count_file + count_dir + count_symlink + count_other));
 
-	return 0;
+        return 0;
 }
 
 
 int
 display_checksums (FILE *fp)
 {
-	fprintf (fp, "\n");
-	fprintf (fp, "Checksums\n");
-	fprintf (fp, "Regular files   : %llx%llx\n", checksum_file1, checksum_file2);
-	fprintf (fp, "Directories     : %llx\n", checksum_dir);
-	fprintf (fp, "Symbolic links  : %llx\n", checksum_symlink);
-	fprintf (fp, "Other           : %llx\n", checksum_other);
-	fprintf (fp, "Total           : %llx\n",
-		 (checksum_file1 ^ checksum_file2 ^ checksum_dir ^ checksum_symlink ^ checksum_other));
+        fprintf (fp, "\n");
+        fprintf (fp, "Checksums\n");
+        fprintf (fp, "Regular files   : %llx%llx\n", checksum_file1, checksum_file2);
+        fprintf (fp, "Directories     : %llx\n", checksum_dir);
+        fprintf (fp, "Symbolic links  : %llx\n", checksum_symlink);
+        fprintf (fp, "Other           : %llx\n", checksum_other);
+        fprintf (fp, "Total           : %llx\n",
+                 (checksum_file1 ^ checksum_file2 ^ checksum_dir ^ checksum_symlink ^ checksum_other));
 
-	return 0;
+        return 0;
 }
 
 
 int
 display_metadata (FILE *fp)
 {
-	fprintf (fp, "\n");
-	fprintf (fp, "Metadata checksums\n");
-	fprintf (fp, "Regular files   : %llx\n",
-		 (avg_uid_file + 13) * (avg_gid_file + 11) * (avg_mode_file + 7));
-	fprintf (fp, "Directories     : %llx\n",
-		 (avg_uid_dir + 13) * (avg_gid_dir + 11) * (avg_mode_dir + 7));
-	fprintf (fp, "Symbolic links  : %llx\n",
-		 (avg_uid_symlink + 13) * (avg_gid_symlink + 11) * (avg_mode_symlink + 7));
-	fprintf (fp, "Other           : %llx\n",
-		 (avg_uid_other + 13) * (avg_gid_other + 11) * (avg_mode_other + 7));
+        fprintf (fp, "\n");
+        fprintf (fp, "Metadata checksums\n");
+        fprintf (fp, "Regular files   : %llx\n",
+                 (avg_uid_file + 13) * (avg_gid_file + 11) * (avg_mode_file + 7));
+        fprintf (fp, "Directories     : %llx\n",
+                 (avg_uid_dir + 13) * (avg_gid_dir + 11) * (avg_mode_dir + 7));
+        fprintf (fp, "Symbolic links  : %llx\n",
+                 (avg_uid_symlink + 13) * (avg_gid_symlink + 11) * (avg_mode_symlink + 7));
+        fprintf (fp, "Other           : %llx\n",
+                 (avg_uid_other + 13) * (avg_gid_other + 11) * (avg_mode_other + 7));
 
-	return 0;
+        return 0;
 }
 
 int
 display_stats (FILE *fp)
 {
-	display_counts (fp);
+        display_counts (fp);
 
-	display_metadata (fp);
+        display_metadata (fp);
 
-	display_checksums (fp);
+        display_checksums (fp);
 
-	return 0;
+        return 0;
 }
 
 
 int
 main(int argc, char *argv[])
 {
-	int  ret = 0;
+        int  ret = 0;
         int  i = 0;
 
         ret = argp_parse (&argp, argc, argv, 0, 0, NULL);
@@ -591,13 +609,13 @@ main(int argc, char *argv[])
          /* (process_entry in this case) */
         ret = nftw (arequal_config.test_directory, process_entry, 30,
                     FTW_ACTIONRETVAL|FTW_PHYS|FTW_MOUNT);
-	if (ret != 0) {
-		fprintf (stderr, "ftw (%s) returned %d (%s), terminating\n",
-			 argv[1], ret, strerror (errno));
-		return 1;
-	}
+        if (ret != 0) {
+                fprintf (stderr, "ftw (%s) returned %d (%s), terminating\n",
+                         argv[1], ret, strerror (errno));
+                return 1;
+        }
 
-	display_stats (stdout);
+        display_stats (stdout);
 
         if (arequal_config.ignored_directory) {
                 for (i = 0; i < arequal_config.directories_ignored; i++) {
@@ -607,5 +625,5 @@ main(int argc, char *argv[])
                 free (arequal_config.ignored_directory);
         }
 
-	return 0;
+        return 0;
 }

@@ -14,9 +14,9 @@ TEST $CLI volume set $V0 data-self-heal-algorithm full
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
-TEST dd if=/dev/urandom of=$M0/small count=1 bs=1M
-TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2M
-TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1M
+TEST dd if=/dev/urandom of=$M0/small count=1 bs=1024k
+TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2048k
+TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1024k
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 
@@ -39,12 +39,12 @@ TEST truncate -s 2M $M0/big2bigger
 big2bigger_md5sum=$(md5sum $M0/big2bigger | awk '{print $1}')
 
 $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
@@ -71,9 +71,9 @@ TEST rm -f $M0/*
 #check the same tests with diff self-heal
 TEST $CLI volume set $V0 data-self-heal-algorithm diff
 
-TEST dd if=/dev/urandom of=$M0/small count=1 bs=1M
-TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1M
-TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2M
+TEST dd if=/dev/urandom of=$M0/small count=1 bs=1024k
+TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1024k
+TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2048k
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 
@@ -96,12 +96,12 @@ TEST truncate -s 2M $M0/big2bigger
 big2bigger_md5sum=$(md5sum $M0/big2bigger | awk '{print $1}')
 
 $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0
-EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
-EXPECT_WITHIN 20 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')

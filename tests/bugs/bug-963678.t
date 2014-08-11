@@ -14,6 +14,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../fallocate.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -41,14 +42,14 @@ TEST [ $(($blksz * $nblks)) -lt $((917504 + 16384)) ]
 TEST unlink $M0/file
 
 # write some data, punch a hole and verify the file content changes
-TEST dd if=/dev/urandom of=$M0/file bs=1M count=1
+TEST dd if=/dev/urandom of=$M0/file bs=1024k count=1
 TEST cp $M0/file $M0/file.copy.pre
 TEST fallocate -p -o 512k -l 128k $M0/file
 TEST cp $M0/file $M0/file.copy.post
 TEST ! cmp $M0/file.copy.pre $M0/file.copy.post
 TEST unlink $M0/file
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0

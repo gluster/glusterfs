@@ -20,7 +20,7 @@ TEST touch $M0/file1;
 
 #following C program tries open up race(s) if any, in F_GETLK/F_SETLKW codepaths
 #of locks xlator
-gcc -lpthread -g3 $(dirname $0)/bug-905864.c -o $(dirname $0)/bug-905864
+$CC -lpthread -g3 $(dirname $0)/bug-905864.c -o $(dirname $0)/bug-905864
 $(dirname $0)/bug-905864 $M0/file1 &
 $(dirname $0)/bug-905864 $M1/file1;
 wait
@@ -29,4 +29,3 @@ rm -f $(dirname $0)/bug-905864
 EXPECT $(brick_count $V0) online_brick_count
 
 cleanup
-

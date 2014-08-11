@@ -1,0 +1,104 @@
+#!/bin/sh
+
+append_licence_header ()
+{
+    local src_file=$1;
+    local dst_file=$2;
+
+    cat >$dst_file <<EOF
+/*
+  Copyright (c) 2007-2014 Red Hat, Inc. <http://www.redhat.com>
+  This file is part of GlusterFS.
+
+  This file is licensed to you under your choice of the GNU Lesser
+  General Public License, version 3 or any later version (LGPLv3 or
+  later), or the GNU General Public License, version 2 (GPLv2), in all
+  cases as published by the Free Software Foundation.
+*/
+
+#include "compat.h"
+#include "xdr-common.h"
+#include "xdr-nfs3.h"
+
+#if defined(__GNUC__)
+#if __GNUC__ >= 4
+#if !defined(__clang__)
+#if !defined(__NetBSD__)
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+#else
+#pragma clang diagnostic ignored "-Wunused-variable"
+#pragma clang diagnostic ignored "-Wunused-value"
+#endif
+#endif
+#endif
+
+EOF
+
+    cat $src_file >> $dst_file;
+
+}
+
+gen_sources ()
+{
+    local xfile="$1";
+
+    local cfile="${1%.x}.c";
+    local hfile="${1%.x}.h";
+
+    local tmp_cfile="$1.c.tmp";
+    local tmp_hfile="$1.h.tmp";
+
+    rm -f $cfile;
+    rpcgen -c -o $cfile $xfile;
+    append_licence_header $cfile $tmp_cfile;
+    mv $tmp_cfile $cfile;
+    # remove unwanted temporary files (if any)
+    rm -f $tmp_cfile;
+    echo "Generated $cfile"
+    return
+}
+
+gen_headers ()
+{
+    local xfile="$1";
+
+    local cfile="${1%.x}.c";
+    local hfile="${1%.x}.h";
+
+    local tmp_cfile="$1.c.tmp";
+    local tmp_hfile="$1.h.tmp";
+
+    # no need for a temporary file here as there are no changes from glusterfs
+    rm -f $hfile;
+    rpcgen -h -o $hfile $xfile;
+    # the '#ifdef' part of file should be fixed
+    sed -e 's/-/_/g' $hfile > ${hfile}.new && mv ${hfile}.new $hfile;
+    # Gen header to temp file and append generated file
+    append_licence_header $hfile $tmp_hfile;
+    # now move the destination file to actual original file
+    mv $tmp_hfile $hfile;
+    rm -f $tmp_hfile;
+    echo "Generated $hfile";
+    return
+}
+
+main ()
+{
+    if [ $# -ne 2 ]; then
+        echo "wrong number of arguments given"
+        echo " $0 [header|source] <XDR-definition-file>.x"
+        exit 1;
+    fi
+
+    if [ $1 = "header" ]; then
+        gen_headers $2
+    fi
+
+    if [ $1 = "source" ]; then
+        gen_sources $2
+    fi
+}
+
+main "$@";

@@ -82,7 +82,7 @@ EXPECT 1 xattr_query_check ${backend_paths_array[1]} "trusted.name"
 # restart the brick process
 TEST $CLI volume start $V0 force
 
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 `expr $brick_id - 1`
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 `expr $brick_id - 1`
 
 cat $pth >/dev/null
 

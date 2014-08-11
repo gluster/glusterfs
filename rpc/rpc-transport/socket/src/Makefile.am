@@ -1,4 +1,4 @@
-noinst_HEADERS = socket.h name.h
+noinst_HEADERS = socket.h name.h socket-mem-types.h
 
 rpctransport_LTLIBRARIES = socket.la
 rpctransportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/rpc-transport

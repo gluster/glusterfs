@@ -42,7 +42,7 @@ TEST `echo "GLUSTER-FILE-SYSTEM" > $M0/a/file`
 TEST mkdir $M0/a/b
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 0;
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0;
 
 
 
@@ -52,9 +52,9 @@ TEST chmod 757 $M0/a
 TEST chmod 757 $M0/a/file
 
 TEST $CLI volume start $V0 force
-EXPECT_WITHIN 20 "1" afr_child_up_status $V0 1;
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1;
 
-TEST dd if=$M0/a/file of=/dev/null bs=1M
+TEST dd if=$M0/a/file of=/dev/null bs=1024k
 
 b1c0dir=$(afr_get_specific_changelog_xattr $B0/$V0"1"/a \
           trusted.afr.$V0-client-0 "entry")

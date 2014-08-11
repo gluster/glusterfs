@@ -16,6 +16,7 @@
 
 #include "server.h"
 #include "server-helpers.h"
+#include "rpc-common-xdr.h"
 #include "glusterfs3-xdr.h"
 #include "compat-errno.h"
 #include "glusterfs3.h"
@@ -449,6 +450,13 @@ server_setvolume (rpcsvc_request_t *req)
                 req->trans->xl_private = client;
 
         auth_set_username_passwd (params, config_params, client);
+        if (req->trans->ssl_name) {
+                if (dict_set_str(params,"ssl-name",req->trans->ssl_name) != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to set ssl_name %s", req->trans->ssl_name);
+                        /* Not fatal, auth will just fail. */
+                }
+        }
 
         ret = dict_get_int32 (params, "fops-version", &fop_version);
         if (ret < 0) {
@@ -645,7 +653,7 @@ server_setvolume (rpcsvc_request_t *req)
 
 fail:
         rsp.dict.dict_len = dict_serialized_length (reply);
-        if (rsp.dict.dict_len < 0) {
+        if (rsp.dict.dict_len > UINT_MAX) {
                 gf_log ("server-handshake", GF_LOG_DEBUG,
                         "failed to get serialized length of reply dict");
                 op_ret   = -1;
@@ -749,12 +757,13 @@ server_set_lk_version (rpcsvc_request_t *req)
         }
 
         serv_ctx->lk_version = args.lk_ver;
-        gf_client_put (client, NULL);
-
         rsp.lk_ver   = args.lk_ver;
 
         op_ret = 0;
 fail:
+        if (client)
+                gf_client_put (client, NULL);
+
         rsp.op_ret   = op_ret;
         rsp.op_errno = op_errno;
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
@@ -765,7 +774,7 @@ fail:
         return 0;
 }
 
-rpcsvc_actor_t gluster_handshake_actors[] = {
+rpcsvc_actor_t gluster_handshake_actors[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_NULL]       = {"NULL",       GF_HNDSK_NULL,       server_null,           NULL, 0, DRC_NA},
         [GF_HNDSK_SETVOLUME]  = {"SETVOLUME",  GF_HNDSK_SETVOLUME,  server_setvolume,      NULL, 0, DRC_NA},
         [GF_HNDSK_GETSPEC]    = {"GETSPEC",    GF_HNDSK_GETSPEC,    server_getspec,        NULL, 0, DRC_NA},

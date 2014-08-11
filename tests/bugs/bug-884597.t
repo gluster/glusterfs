@@ -1,6 +1,7 @@
 #!/bin/bash
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 BRICK_COUNT=3
@@ -37,9 +38,14 @@ TEST touch $M0/$i
 chown $NEW_UID:$NEW_GID $M0/$i
 ## rename till file gets a linkfile
 
-while [ $i -ne 0 ]
+has_link=0
+while [ $i -lt 100 ]
 do
-        TEST mv $M0/$i $M0/$(( $i+1 ))
+        mv $M0/$i $M0/$(( $i+1 ))
+        if [ $? -ne 0 ]
+        then
+                break
+        fi
         let i++
         file_has_linkfile $i
         has_link=$?
@@ -48,6 +54,8 @@ do
                 break;
         fi
 done
+
+TEST [ $has_link -eq 2 ]
 
 get_hashed_brick $i
 cached=$?
@@ -63,7 +71,7 @@ rm -rf $B0/${V0}$cached/$i
 
 # without a unmount, we are not able to trigger a lookup based heal
 
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 ## Mount FUSE
 TEST glusterfs --attribute-timeout=0 --entry-timeout=0 -s $H0 --volfile-id $V0 $M0;
@@ -86,10 +94,14 @@ chown $NEW_UID:$NEW_GID $M0/file;
 
 ## ln till file gets a linkfile
 
-while [ $i -ne 0 ]
+has_link=0
+while [ $i -lt 100 ]
 do
-        TEST ln $M0/file $M0/link$i
-
+        ln $M0/file $M0/link$i
+        if [ $? -ne 0 ]
+        then
+                break
+        fi
         file_has_linkfile link$i
         has_link=$?
         if [ $has_link -eq 2 ]
@@ -98,6 +110,8 @@ do
         fi
         let i++
 done
+
+TEST [ $has_link -eq 2 ]
 
 get_hashed_brick link$i
 cached=$?
@@ -126,9 +140,14 @@ TEST `useradd -M ABC 2>/dev/null`
 TEST cd $M0
 ## rename as different user till file gets a linkfile
 
-while [ $i -ne 0 ]
+has_link=0
+while [ $i -lt 100 ]
 do
         su -c "mv $M0/user_file$i $M0/user_file$(( $i+1 ))" ABC
+        if [ $? -ne 0 ]
+        then
+                break
+        fi
         let i++
         file_has_linkfile user_file$i
         has_link=$?
@@ -137,6 +156,8 @@ do
                 break;
         fi
 done
+
+TEST [ $has_link -eq 2 ]
 
 ## del user ABC
 TEST userdel ABC

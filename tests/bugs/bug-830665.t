@@ -1,6 +1,8 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../nfs.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -25,6 +27,16 @@ function volinfo_field()
     $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
 }
 
+#EXPECT_WITHIN fails the test if the command it executes fails. This function
+#returns "" when the file doesn't exist
+function friendly_cat {
+        if [ ! -f $1 ];
+        then
+                echo "";
+        else
+                cat $1;
+        fi
+}
 
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
@@ -42,11 +54,9 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 
-## Wait for volume to register with rpc.mountd
-sleep 5;
-
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 ## Mount NFS
-TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 ## Create some files and directories
 echo "test_data" > $N0/a_file;
@@ -54,7 +64,7 @@ mkdir $N0/a_dir;
 echo "more_test_data" > $N0/a_dir/another_file;
 
 ## Unmount and stop the volume.
-TEST umount $N0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 TEST $CLI volume stop $V0;
 
 # Recreate the brick. Note that because of http://review.gluster.org/#change,4202
@@ -70,8 +80,8 @@ setfattr -n trusted.glusterfs.volume-id -v $volid $B0/${V0}-0
 ## Restart and remount. Note that we use actimeo=0 so that the stat calls
 ## we need for self-heal don't get blocked by the NFS client.
 TEST $CLI volume start $V0;
-sleep 5
-TEST mount -t nfs -o vers=3,nolock,soft,intr,actimeo=0 $H0:/$V0 $N0;
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+TEST mount_nfs $H0:/$V0 $N0 nolock,actimeo=0;
 
 ## The Linux NFS client has a really charming habit of caching stuff right
 ## after mount, even though we set actimeo=0 above. Life would be much easier
@@ -82,7 +92,9 @@ sleep 5;
 
 ## Force entry self-heal.
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
-sleep 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
 #ls -lR $N0 > /dev/null;
 
@@ -90,15 +102,15 @@ TEST gluster volume heal $V0 full
 ## check, but we want to test whether self-heal already happened.
 
 ## Make sure everything's in order on the recreated brick.
-EXPECT_WITHIN 20 'test_data' cat $B0/${V0}-0/a_file;
-EXPECT_WITHIN 20 'more_test_data' cat $B0/${V0}-0/a_dir/another_file;
+EXPECT_WITHIN $HEAL_TIMEOUT 'test_data' friendly_cat $B0/${V0}-0/a_file;
+EXPECT_WITHIN $HEAL_TIMEOUT 'more_test_data' friendly_cat $B0/${V0}-0/a_dir/another_file;
 
 if [ "$EXIT_EARLY" = "1" ]; then
 	exit 0;
 fi
 
 ## Finish up
-TEST umount $N0;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 

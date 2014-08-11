@@ -29,9 +29,11 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-messages.h"
 #include "glusterd-store.h"
 #include "run.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 
 #include "syscall.h"
 #include "cli1-xdr.h"
@@ -95,8 +97,13 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
         int                     ret      = 0;
         char                    pidfile[PATH_MAX];
         glusterd_conf_t        *priv    = NULL;
+        xlator_t               *this    = NULL;
 
-        priv = THIS->private;
+        this = THIS;
+        if (!this)
+                return 0;
+
+        priv = this->private;
         if (!priv)
                 return 0;
 
@@ -160,8 +167,10 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                                         volinfo->rebal.defrag_status);
 
                 GF_FREE (defrag);
-                gf_log ("", GF_LOG_DEBUG, "%s got RPC_CLNT_DISCONNECT",
-                        rpc->conn.name);
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_REBALANCE_DISCONNECTED,
+                        "Rebalance process for volume %s has disconnected.",
+                        volinfo->volname);
                 break;
         }
         case RPC_CLNT_DESTROY:
@@ -344,9 +353,9 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
                                                            priv);
                         ret =sys_stat (sockfile, &buf);
                         if (ret && (ENOENT == errno)) {
-                                gf_log (this->name, GF_LOG_ERROR, "Rebalance "
-                                        "sockfile %s does not exist.",
-                                        sockfile);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_REBAL_NO_SOCK_FILE, "Rebalance "
+                                        "sockfile %s does not exist", sockfile);
                                 goto out;
                         }
                 }
@@ -359,17 +368,17 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
          */
         ret = rpc_transport_unix_options_build (&options, sockfile, 600);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unix options build failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_UNIX_OP_BUILD_FAIL,
+                        "Unix options build failed");
                 goto out;
         }
 
         glusterd_volinfo_ref (volinfo);
-        synclock_unlock (&priv->big_lock);
         ret = glusterd_rpc_create (&defrag->rpc, options,
                                    glusterd_defrag_notify, volinfo);
-        synclock_lock (&priv->big_lock);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "RPC create failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_RPC_CREATE_FAIL,
+                        "Glusterd RPC creation failed");
                 goto out;
         }
         ret = 0;
@@ -512,6 +521,7 @@ int
 glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
 {
         char                    *volname = NULL;
+        char                    *cmd_str = NULL;
         int                     ret = 0;
         int32_t                 cmd = 0;
         char                    msg[2048] = {0};
@@ -582,6 +592,25 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 break;
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
+                ret = dict_get_str (dict, "cmd-str", &cmd_str);
+                if (ret) {
+                     gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                             "command string");
+                     ret = -1;
+                     goto out;
+                }
+                if ((strstr(cmd_str,"rebalance") != NULL) &&
+                         (volinfo->rebal.op != GD_OP_REBALANCE)){
+                        snprintf (msg,sizeof(msg),"Rebalance not started.");
+                        ret = -1;
+                        goto out;
+                }
+                if ((strstr(cmd_str,"remove-brick")!= NULL) &&
+                          (volinfo->rebal.op != GD_OP_REMOVE_BRICK)){
+                        snprintf (msg,sizeof(msg),"remove-brick not started.");
+                        ret = -1;
+                        goto out;
+                }
                 break;
         default:
                 break;

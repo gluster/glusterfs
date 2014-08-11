@@ -33,17 +33,14 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
-## Wait for volume to register with rpc.mountd
-sleep 5;
-
 ## Test for checking whether the fops have been saved in the event-history
 TEST ! stat $M0/newfile;
 TEST touch $M0/newfile;
 TEST stat $M0/newfile;
 TEST rm $M0/newfile;
 
-nfs_pid=$(cat /var/lib/glusterd/nfs/run/nfs.pid);
-glustershd_pid=$(cat /var/lib/glusterd/glustershd/run/glustershd.pid);
+nfs_pid=$(cat $GLUSTERD_WORKDIR/nfs/run/nfs.pid);
+glustershd_pid=$(cat $GLUSTERD_WORKDIR/glustershd/run/glustershd.pid);
 
 pids=$(pidof glusterfs);
 for i in $pids

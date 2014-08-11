@@ -22,6 +22,7 @@
 #include "glusterfs3.h"
 #include "timer.h"
 #include "client_t.h"
+#include "gidcache.h"
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
@@ -57,6 +58,11 @@ struct server_conf {
         dict_t                 *auth_modules;
         pthread_mutex_t         mutex;
         struct list_head        xprt_list;
+        pthread_t               barrier_th;
+
+        gf_boolean_t            server_manage_gids; /* resolve gids on brick */
+        gid_cache_t             gid_cache;
+        int32_t                 gid_cache_timeout;
 };
 typedef struct server_conf server_conf_t;
 
@@ -144,8 +150,6 @@ struct _server_state {
 
 extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpcsvc_program glusterfs3_3_fop_prog;
-extern struct rpcsvc_program gluster_ping_prog;
-
 
 typedef struct _server_ctx {
         gf_lock_t            fdtable_lock;

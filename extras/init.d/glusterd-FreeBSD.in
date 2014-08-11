@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# $FreeBSD$
+#
+
+# PROVIDE: glusterd
+
+. /etc/rc.subr
+
+name="glusterd"
+rcvar=`set_rcvar`
+command=@prefix@/sbin/${name}
+pidfile="/var/run/${name}.pid"
+glusterd_flags="-p /var/run/${name}.pid"
+start_precmd="glusterd_prestart"
+
+glusterd_prestart()
+{
+    mkdir -p @GLUSTERD_WORKDIR@ /var/log/glusterfs
+    return 0
+}
+
+load_rc_config $name
+run_rc_command "$1"

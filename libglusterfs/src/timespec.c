@@ -10,54 +10,51 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#if defined GF_LINUX_HOST_OS || defined GF_SOLARIS_HOST_OS || defined GF_BSD_HOST_OS
 #include <time.h>
 #include <sys/time.h>
-#endif
 
 #if defined GF_DARWIN_HOST_OS
 #include <mach/mach_time.h>
+static mach_timebase_info_data_t gf_timebase;
 #endif
 
 #include "logging.h"
-#include "time.h"
-
-
-void tv2ts (struct timeval tv, struct timespec *ts)
-{
-        ts->tv_sec  = tv.tv_sec;
-        ts->tv_nsec = tv.tv_usec * 1000;
-}
+#include "timespec.h"
 
 void timespec_now (struct timespec *ts)
 {
 #if defined GF_LINUX_HOST_OS || defined GF_SOLARIS_HOST_OS || defined GF_BSD_HOST_OS
-
         if (0 == clock_gettime(CLOCK_MONOTONIC, ts))
                 return;
         else {
                 struct timeval tv;
                 if (0 == gettimeofday(&tv, NULL))
-                        tv2ts(tv, ts);
+                        TIMEVAL_TO_TIMESPEC(&tv, ts);
         }
 #elif defined GF_DARWIN_HOST_OS
-        mach_timebase_info_data_t tb = { 0 };
-        static double timebase = 0.0;
-        uint64_t time = 0;
-        mach_timebase_info (&tb);
+        uint64_t time = mach_absolute_time();
+        static double scaling = 0.0;
 
-        timebase *= info.numer;
-        timebase /= info.denom;
+        if (mach_timebase_info(&gf_timebase) != KERN_SUCCESS) {
+                gf_timebase.numer = 1;
+                gf_timebase.denom = 1;
+        }
+        if (gf_timebase.denom == 0) {
+                gf_timebase.numer = 1;
+                gf_timebase.denom = 1;
+        }
 
-        time = mach_absolute_time();
-        time *= timebase;
+        scaling = (double) gf_timebase.numer / (double) gf_timebase.denom;
+        time *= scaling;
 
         ts->tv_sec = (time * NANO);
-        ts->tv_nsec = (time - (ts.tv_sec * GIGA));
+        ts->tv_nsec = (time - (ts->tv_sec * GIGA));
 
 #endif /* Platform verification */
-        gf_log_callingfn ("timer", GF_LOG_DEBUG, "%"PRIu64".%09"PRIu64,
+	/*
+        gf_log_callingfn ("timer", GF_LOG_TRACE, "%"GF_PRI_TIME".%09"GF_PRI_TIME,
                           ts->tv_sec, ts->tv_nsec);
+	*/
 }
 
 void timespec_adjust_delta (struct timespec *ts, struct timespec delta)

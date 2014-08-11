@@ -23,6 +23,7 @@
 #include "globals.h"
 #include "glusterfs.h"
 #include "logging.h"
+#include "defaults.h"
 
 #include "gf-changelog-helpers.h"
 
@@ -65,6 +66,8 @@ __attribute__ ((constructor)) gf_changelog_ctor (void)
         }
 
         THIS->ctx = ctx;
+        if (xlator_mem_acct_init (THIS, gf_changelog_mt_end))
+                return;
 }
 
 void
@@ -82,6 +85,10 @@ __attribute__ ((destructor)) gf_changelog_dtor (void)
         gfc = this->private;
 
         if (gfc) {
+                if (gfc->hist_gfc) {
+                        gf_changelog_cleanup(gfc->hist_gfc);
+                        GF_FREE (gfc->hist_gfc);
+                }
                 gf_changelog_cleanup (gfc);
                 GF_FREE (gfc);
         }
@@ -265,7 +272,7 @@ gf_changelog_done (char *file)
 
 /**
  * @API
- *  for a set of changelogs, start from the begining
+ *  for a set of changelogs, start from the beginning
  */
 int
 gf_changelog_start_fresh ()
@@ -300,7 +307,7 @@ gf_changelog_start_fresh ()
 ssize_t
 gf_changelog_next_change (char *bufptr, size_t maxlen)
 {
-        ssize_t         size       = 0;
+        ssize_t         size       = -1;
         int             tracker_fd = 0;
         xlator_t       *this       = NULL;
         gf_changelog_t *gfc        = NULL;
@@ -319,18 +326,19 @@ gf_changelog_next_change (char *bufptr, size_t maxlen)
         tracker_fd = gfc->gfc_fd;
 
         size = gf_readline (tracker_fd, buffer, maxlen);
-        if (size < 0)
+        if (size < 0) {
+                size = -1;
                 goto out;
+        }
+
         if (size == 0)
-                return 0;
+                goto out;
 
         memcpy (bufptr, buffer, size - 1);
-        *(buffer + size) = '\0';
+        bufptr[size - 1] = '\0';
 
+out:
         return size;
-
- out:
-        return -1;
 }
 
 /**
@@ -432,11 +440,13 @@ int
 gf_changelog_register (char *brick_path, char *scratch_dir,
                        char *log_file, int log_level, int max_reconnects)
 {
-        int             i    = 0;
-        int             ret  = -1;
-        int             errn = 0;
-        xlator_t       *this = NULL;
-        gf_changelog_t *gfc  = NULL;
+        int             i                          = 0;
+        int             ret                        = -1;
+        int             errn                       = 0;
+        xlator_t       *this                       = NULL;
+        gf_changelog_t *gfc                        = NULL;
+        char            hist_scratch_dir[PATH_MAX] = {0,};
+        struct stat     buf                        = {0,};
 
         this = THIS;
         if (!this->ctx)
@@ -454,11 +464,65 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
         gfc->gfc_dir = NULL;
         gfc->gfc_fd = gfc->gfc_sockfd = -1;
 
+        if (stat (scratch_dir, &buf) && errno == ENOENT) {
+                ret = mkdir_p (scratch_dir, 0600, _gf_true);
+                if (ret) {
+                        errn = errno;
+                        goto cleanup;
+                }
+        }
+
         gfc->gfc_working_dir = realpath (scratch_dir, NULL);
         if (!gfc->gfc_working_dir) {
                 errn = errno;
                 goto cleanup;
         }
+
+        /* Begin: Changes for History API */
+        gfc->hist_gfc = NULL;
+
+        gfc->hist_gfc = GF_CALLOC (1, sizeof (*gfc),
+                         gf_changelog_mt_libgfchangelog_t);
+        if (!gfc->hist_gfc)
+                goto cleanup;
+
+        gfc->hist_gfc->gfc_dir = NULL;
+        gfc->hist_gfc->gfc_fd = gfc->hist_gfc->gfc_sockfd = -1;
+        gfc->hist_gfc->this = NULL;
+
+        (void) strncpy (hist_scratch_dir, scratch_dir, PATH_MAX);
+        (void) snprintf (hist_scratch_dir, PATH_MAX,
+                         "%s/"GF_CHANGELOG_HISTORY_DIR"/",
+                         gfc->gfc_working_dir);
+
+        ret = mkdir_p (hist_scratch_dir, 0600, _gf_false);
+        if (ret) {
+                errn = errno;
+                goto cleanup;
+        }
+
+        gfc->hist_gfc->gfc_working_dir = realpath (hist_scratch_dir, NULL);
+        if (!gfc->hist_gfc->gfc_working_dir) {
+                errn = errno;
+                goto cleanup;
+        }
+
+        ret = gf_changelog_open_dirs (gfc->hist_gfc);
+        if (ret) {
+                errn = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not create entries in history scratch dir");
+                goto cleanup;
+        }
+
+        (void) strncpy (gfc->hist_gfc->gfc_brickpath, brick_path, PATH_MAX);
+
+        for (i=0; i < 256; i++) {
+                gfc->hist_gfc->rfc3986[i] =
+                        (isalnum(i) || i == '~' ||
+                        i == '-' || i == '.' || i == '_') ? i : 0;
+        }
+        /* End: Changes for History API*/
 
         ret = gf_changelog_open_dirs (gfc);
         if (ret) {
@@ -494,7 +558,7 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
                 goto cleanup;
         }
 
-        for (; i < 256; i++) {
+        for (i=0; i < 256; i++) {
                 gfc->rfc3986[i] =
                         (isalnum(i) || i == '~' ||
                         i == '-' || i == '.' || i == '_') ? i : 0;
@@ -506,6 +570,10 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
         goto out;
 
  cleanup:
+        if (gfc->hist_gfc) {
+                gf_changelog_cleanup (gfc->hist_gfc);
+                GF_FREE (gfc->hist_gfc);
+        }
         gf_changelog_cleanup (gfc);
         GF_FREE (gfc);
         this->private = NULL;

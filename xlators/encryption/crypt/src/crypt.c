@@ -3120,15 +3120,11 @@ static int32_t linkop_begin(call_frame_t *frame,
 	uint32_t new_mtd_size;
 	uint64_t value = 0;
 	void (*unwind_fn)(call_frame_t *frame);
-	void (*wind_fn)(call_frame_t *frame, xlator_t *this);
 	mtd_op_t mop;
 
-	wind_fn = linkop_wind_dispatch(local->fop);
 	unwind_fn = linkop_unwind_dispatch(local->fop);
 	mop = linkop_mtdop_dispatch(local->fop);
 
-	if (local->fd->inode->ia_type == IA_IFLNK)
-		goto wind;
 	if (op_ret < 0)
 		/*
 		 * verification failed
@@ -3230,9 +3226,6 @@ static int32_t linkop_begin(call_frame_t *frame,
 		   0,
 		   NULL);
 	return 0;
- wind:
-	wind_fn(frame, this);
-	return 0;
  error:
 	local->op_ret = -1;
 	local->op_errno = op_errno;
@@ -3332,13 +3325,19 @@ static int32_t linkop(call_frame_t *frame,
 	dict_t *dict;
 	crypt_local_t *local;
 	void (*unwind_fn)(call_frame_t *frame);
+        void (*wind_fn)(call_frame_t *frame, xlator_t *this);
 
+        wind_fn = linkop_wind_dispatch(op);
 	unwind_fn = linkop_unwind_dispatch(op);
 
 	ret = linkop_grab_local(frame, this, oldloc, newloc, flags, xdata, op);
 	local = frame->local;
 	if (ret)
 		goto error;
+
+        if (local->fd->inode->ia_type == IA_IFLNK)
+                goto wind;
+
 	dict = dict_new();
 	if (!dict) {
 		gf_log(this->name, GF_LOG_ERROR, "Can not create dict");
@@ -3375,7 +3374,12 @@ static int32_t linkop(call_frame_t *frame,
 		   dict);
 	dict_unref(dict);
 	return 0;
- error:
+
+wind:
+        wind_fn(frame, this);
+        return 0;
+
+error:
 	local->op_ret = -1;
 	local->op_errno = ret;
 	unwind_fn(frame);
@@ -4169,9 +4173,9 @@ int32_t master_set_block_size (xlator_t *this, crypt_private_t *priv,
 
 	if (options != NULL)
 		GF_OPTION_RECONF("block-size", block_size, options,
-				 size, error);
+				 size_uint64, error);
 	else
-		GF_OPTION_INIT("block-size", block_size, size, error);
+		GF_OPTION_INIT("block-size", block_size, size_uint64, error);
 
 	switch (block_size) {
 	case 512:
@@ -4224,9 +4228,9 @@ static int master_set_data_key_size (xlator_t *this, crypt_private_t *priv,
 
 	if (options != NULL)
 		GF_OPTION_RECONF("data-key-size", key_size, options,
-				 size, error);
+				 uint64, error);
 	else
-		GF_OPTION_INIT("data-key-size", key_size, size, error);
+		GF_OPTION_INIT("data-key-size", key_size, uint64, error);
 
 	ret = data_cipher_algs[master->m_alg][master->m_mode].check_key(key_size);
 	if (ret) {

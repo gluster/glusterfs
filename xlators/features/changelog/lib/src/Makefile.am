@@ -6,8 +6,7 @@ libgfchangelog_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 -fpic \
 				-I$(top_srcdir)/xlators/features/changelog/src \
 				-DDATADIR=\"$(localstatedir)\"
 
-libgfchangelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-			$(GF_GLUSTERFS_LIBS)
+libgfchangelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 libgfchangelog_la_LDFLAGS = $(GF_LDFLAGS) -version-info $(LIBGFCHANGELOG_LT_VERSION)
 
@@ -17,7 +16,8 @@ lib_LTLIBRARIES = libgfchangelog.la
 CONTRIB_BUILDDIR = $(top_builddir)/contrib
 
 libgfchangelog_la_SOURCES = gf-changelog.c gf-changelog-process.c \
-		gf-changelog-helpers.c $(CONTRIBDIR)/uuid/clear.c \
+		gf-changelog-helpers.c gf-history-changelog.c \
+		$(CONTRIBDIR)/uuid/clear.c \
 		$(CONTRIBDIR)/uuid/copy.c $(CONTRIBDIR)/uuid/gen_uuid.c \
 		$(CONTRIBDIR)/uuid/pack.c $(CONTRIBDIR)/uuid/parse.c \
 		$(CONTRIBDIR)/uuid/unparse.c $(CONTRIBDIR)/uuid/uuid_time.c \
