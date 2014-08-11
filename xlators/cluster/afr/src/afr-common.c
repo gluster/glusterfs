@@ -679,10 +679,13 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
 {
         int     ret = -ENOMEM;
 
-        local->xattr_req = dict_new ();
+        if (!local->xattr_req)
+                local->xattr_req = dict_new ();
+
         if (!local->xattr_req)
                 goto out;
-        if (xattr_req)
+
+        if (xattr_req != local->xattr_req)
                 dict_copy (xattr_req, local->xattr_req);
 
         ret = afr_xattr_req_prepare (this, local->xattr_req);
