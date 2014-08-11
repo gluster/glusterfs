@@ -120,6 +120,15 @@ struct dht_skip_linkto_unlink {
         uuid_t          hashed_gfid;
 };
 
+typedef struct {
+        xlator_t     *xl;
+        loc_t         loc;     /* contains/points to inode to lock on. */
+        short         type;    /* read/write lock.                     */
+        char         *domain;  /* Only locks within a single domain
+                                * contend with each other
+                                */
+        gf_boolean_t  locked;
+} dht_lock_t;
 
 struct dht_local {
         int                      call_cnt;
@@ -214,6 +223,15 @@ struct dht_local {
 
         struct dht_skip_linkto_unlink  skip_unlink;
 
+        struct {
+                fop_inodelk_cbk_t   inodelk_cbk;
+                dht_lock_t        **locks;
+                int                 lk_count;
+
+                /* whether locking failed on _any_ of the "locks" above */
+                int                 op_ret;
+                int                 op_errno;
+        } lock;
 };
 typedef struct dht_local dht_local_t;
 
@@ -335,6 +353,8 @@ struct dht_conf {
         /* Support size-weighted rebalancing (heterogeneous bricks). */
         gf_boolean_t    do_weighting;
         gf_boolean_t    randomize_by_gfid;
+
+        struct mem_pool *lock_pool;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -834,4 +854,40 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this);
 
 int
 dht_fill_dict_to_avoid_unlink_of_migrating_file (dict_t *dict);
+
+
+/* Acquire non-blocking inodelk on a list of xlators.
+ *
+ * @lk_array: array of lock requests lock on.
+ *
+ * @lk_count: number of locks in @lk_array
+ *
+ * @inodelk_cbk: will be called after inodelk replies are received
+ *
+ * @retval: -1 if stack_winding inodelk fails. 0 otherwise.
+ *          inodelk_cbk is called with appropriate error on errors.
+ *          On failure to acquire lock on all members of list, successful
+ *          locks are unlocked before invoking cbk.
+ */
+
+int
+dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
+                         int lk_count, fop_inodelk_cbk_t inodelk_cbk);
+
+/* same as dht_nonblocking_inodelk, but issues sequential blocking locks on
+ * @lk_array directly. locks are issued on some order which remains same
+ * for a list of xlators (irrespective of order of xlators within list).
+ */
+int
+dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
+                      int lk_count, fop_inodelk_cbk_t inodelk_cbk);
+
+int32_t
+dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
+                    fop_inodelk_cbk_t inodelk_cbk);
+
+dht_lock_t *
+dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
+              const char *domain);
+
 #endif/* _DHT_H */
