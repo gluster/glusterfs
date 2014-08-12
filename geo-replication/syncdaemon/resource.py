@@ -26,6 +26,7 @@ import subprocess
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP
 from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL
 from select import error as SelectError
+import shutil
 
 from gconf import gconf
 import repce
@@ -616,6 +617,17 @@ class Server(object):
                 while True:
                     er = entry_purge(entry, gfid)
                     if isinstance(er, int):
+                        if er == ENOTEMPTY and op == 'RMDIR':
+                            er1 = errno_wrap(shutil.rmtree,
+                                             [os.path.join(pg, bname)],
+                                             [ENOENT])
+                            if not isinstance(er1, int):
+                                logging.info("Removed %s/%s recursively" %
+                                             (pg, bname))
+                                break
+
+                        logging.warn("Failed to remove %s => %s/%s. %s" %
+                                     (gfid, pg, bname, os.strerror(er)))
                         time.sleep(1)
                     else:
                         break
