@@ -24,6 +24,34 @@
 
 #define XDR_BYTES_PER_UNIT      4
 
+/*
+  On OSX > 10.9
+  -------------
+  typedef bool_t (*xdrproc_t)(XDR *, void *, unsigned int);
+
+  On OSX < 10.9
+  ------------
+  typedef bool_t (*xdrproc_t)(XDR *, ...);
+
+  FreeBSD all versions
+  ------------
+  typedef bool_t (*xdrproc_t)(XDR *, ...);
+
+  NetBSD 6.1.4
+  -----------
+  typedef bool_t (*xdrproc_t)(XDR *, const void *);
+
+  Linux all versions
+  -----------
+  typedef bool_t (*xdrproc_t)(XDR *, void *,...);
+*/
+
+#if defined(__NetBSD__)
+#define  PROC(xdr, res)  proc(xdr, res)
+#else
+#define  PROC(xdr, res)  proc(xdr, res, 0)
+#endif
+
 ssize_t
 xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc);
 
