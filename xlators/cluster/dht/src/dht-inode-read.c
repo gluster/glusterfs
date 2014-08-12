@@ -515,9 +515,9 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         if (local->call_cnt != 1)
                 goto out;
-        if ((op_ret == -1) && (op_errno == ENOTCONN) &&
-            IA_ISDIR(local->loc.inode->ia_type)) {
-
+        if ((op_ret == -1) && ((op_errno == ENOTCONN) ||
+                dht_inode_missing(op_errno)) &&
+                IA_ISDIR(local->loc.inode->ia_type)) {
                 subvol = dht_subvol_next_available (this, prev->this);
                 if (!subvol)
                         goto out;
@@ -531,7 +531,8 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             &local->loc, local->rebalance.flags, NULL);
                 return 0;
         }
-        if ((op_ret == -1) && dht_inode_missing(op_errno)) {
+        if ((op_ret == -1) && dht_inode_missing(op_errno) &&
+                !(IA_ISDIR(local->loc.inode->ia_type))) {
                 /* File would be migrated to other node */
                 local->op_errno = op_errno;
                 local->rebalance.target_op_fn = dht_access2;
