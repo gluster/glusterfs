@@ -9,6 +9,7 @@ DEBUG=${DEBUG:=0}             # turn on debugging?
 
 NFS_EXPORT_TIMEOUT=20
 UMOUNT_TIMEOUT=5
+REBALANCE_TIMEOUT=200
 
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
