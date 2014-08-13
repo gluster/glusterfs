@@ -21,7 +21,7 @@
 int
 __afr_selfheal_assign_gfid (call_frame_t *frame, xlator_t *this, inode_t *parent,
 			    uuid_t pargfid, const char *bname, inode_t *inode,
-			    struct afr_reply *replies, int gfid_idx)
+			    struct afr_reply *replies, void *gfid)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
@@ -38,8 +38,7 @@ __afr_selfheal_assign_gfid (call_frame_t *frame, xlator_t *this, inode_t *parent
 		return -ENOMEM;
 	}
 
-	ret = dict_set_static_bin (xdata, "gfid-req",
-				   replies[gfid_idx].poststat.ia_gfid, 16);
+	ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
 	if (ret) {
 		dict_destroy (xdata);
 		return -ENOMEM;
@@ -150,11 +149,12 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 			uuid_t pargfid, const char *bname, inode_t *inode,
 			unsigned char *sources, unsigned char *sinks,
 			unsigned char *healed_sinks, int source,
-			unsigned char *locked_on, struct afr_reply *replies)
+			unsigned char *locked_on, struct afr_reply *replies,
+                        void *gfid_req)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
-	uuid_t gfid = {0, };
+	void* gfid = NULL;
 	int gfid_idx = -1;
 	gf_boolean_t source_is_empty = _gf_true;
 	gf_boolean_t need_heal = _gf_false;
@@ -166,6 +166,10 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid)
 			continue;
+
+                if ((replies[i].op_ret == -1) &&
+                    (replies[i].op_errno == ENODATA))
+                        need_heal = _gf_true;
 
 		if (first_idx == -1) {
 			first_idx = i;
@@ -184,14 +188,18 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 		return 0;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid)
-			continue;
+                if (!sources[i])
+                        continue;
 
-		if (!replies[i].op_ret && (source == -1 || sources[i])) {
-			source_is_empty = _gf_false;
-			break;
-		}
+                if (replies[i].op_ret == -1 && replies[i].op_errno == ENOENT)
+                        continue;
+
+                source_is_empty = _gf_false;
+                break;
 	}
+
+        if (source == -1)
+                source_is_empty = _gf_false;
 
 	if (source_is_empty) {
 		return __afr_selfheal_name_expunge (frame, this, parent, pargfid,
@@ -205,8 +213,8 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 		if (uuid_is_null (replies[i].poststat.ia_gfid))
 			continue;
 
-		if (uuid_is_null (gfid)) {
-			uuid_copy (gfid, replies[i].poststat.ia_gfid);
+		if (!gfid) {
+			gfid = &replies[i].poststat.ia_gfid;
 			gfid_idx = i;
 			continue;
 		}
@@ -227,17 +235,26 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 				return -1;
 			}
 
-			uuid_copy (gfid, replies[i].poststat.ia_gfid);
+                        gfid = &replies[i].poststat.ia_gfid;
 			gfid_idx = i;
 			continue;
 		}
 	}
 
-	if (gfid_idx == -1)
-		return -1;
+	if (gfid_idx == -1) {
+                if (!gfid_req || uuid_is_null (gfid_req))
+                        return -1;
+                gfid = gfid_req;
+        }
 
 	__afr_selfheal_assign_gfid (frame, this, parent, pargfid, bname, inode,
-				    replies, gfid_idx);
+				    replies, gfid);
+        /*TODO:
+         * once the gfid is assigned refresh the replies and carry on with
+         * impunge. i.e. gfid_idx won't be -1.
+         */
+        if (gfid_idx == -1)
+                return -1;
 
 	return __afr_selfheal_name_impunge (frame, this, parent, pargfid,
 					    bname, inode, replies, gfid_idx);
@@ -326,7 +343,7 @@ __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *paren
 
 int
 afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
-		      uuid_t pargfid, const char *bname)
+		      uuid_t pargfid, const char *bname, void *gfid_req)
 {
 	afr_private_t *priv = NULL;
 	unsigned char *sources = NULL;
@@ -371,7 +388,8 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 
 		ret = __afr_selfheal_name_do (frame, this, parent, pargfid, bname,
 					      inode, sources, sinks, healed_sinks,
-					      source, locked_on, replies);
+					      source, locked_on, replies,
+                                              gfid_req);
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, parent, this->name, bname,
@@ -407,6 +425,10 @@ afr_selfheal_name_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		if (!replies[i].valid)
 			continue;
 
+                if ((replies[i].op_ret == -1) &&
+                    (replies[i].op_errno == ENODATA))
+                        *need_heal = _gf_true;
+
 		if (first_idx == -1) {
 			first_idx = i;
 			continue;
@@ -426,7 +448,8 @@ afr_selfheal_name_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 }
 
 int
-afr_selfheal_name (xlator_t *this, uuid_t pargfid, const char *bname)
+afr_selfheal_name (xlator_t *this, uuid_t pargfid, const char *bname,
+                   void *gfid_req)
 {
 	inode_t *parent = NULL;
 	call_frame_t *frame = NULL;
@@ -447,7 +470,8 @@ afr_selfheal_name (xlator_t *this, uuid_t pargfid, const char *bname)
 		goto out;
 
 	if (need_heal)
-		afr_selfheal_name_do (frame, this, parent, pargfid, bname);
+		afr_selfheal_name_do (frame, this, parent, pargfid, bname,
+                                      gfid_req);
 out:
 	if (parent)
 		inode_unref (parent);
