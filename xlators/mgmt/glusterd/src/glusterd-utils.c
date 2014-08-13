@@ -112,7 +112,11 @@ glusterd_is_fuse_available ()
 
         int     fd = 0;
 
+#ifdef __NetBSD__
+	fd = open ("/dev/puffs", O_RDWR);
+#else
         fd = open ("/dev/fuse", O_RDWR);
+#endif
 
         if (fd > -1 && !close (fd))
                 return _gf_true;
