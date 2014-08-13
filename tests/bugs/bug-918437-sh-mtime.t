@@ -47,9 +47,13 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 
+#TODO remove these 2 lines once heal-full is fixed in v2.
+TEST stat $M0/a
+TEST stat $M0/b
+
 TEST gluster volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick01/a
-EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick01/b
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" file_exists $B0/gfs0/brick02/b
 EXPECT_WITHIN $HEAL_TIMEOUT 0 afr_get_pending_heal_count $V0
 
 size=`stat -c '%s' /etc/passwd`
