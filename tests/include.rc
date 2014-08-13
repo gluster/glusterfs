@@ -506,7 +506,7 @@ which truncate > /dev/null || {
         continue;
       fi
 
-      dd bs=1 seek=$newsize if=/dev/null of=$f
+      dd bs=1 seek=$newsize if=/dev/null of=$f msgfmt=quiet
     done
   }
 }
