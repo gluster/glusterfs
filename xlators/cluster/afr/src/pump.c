@@ -520,7 +520,8 @@ gf_pump_traverse_directory (loc_t *loc)
 				continue;
 			}
 
-			ret = afr_selfheal_name (this, loc->gfid, entry->d_name);
+			ret = afr_selfheal_name (this, loc->gfid, entry->d_name,
+                                                 NULL);
 			if (ret) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"%s: name self-heal failed (%s/%s)",

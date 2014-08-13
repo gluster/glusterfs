@@ -419,6 +419,7 @@ typedef struct _afr_local {
         struct {
                 struct {
                         gf_boolean_t needs_fresh_lookup;
+                        uuid_t gfid_req;
                 } lookup;
 
                 struct {
