@@ -716,6 +716,7 @@ gf_rdma_transport_new (rpc_transport_t *listener, struct rdma_cm_id *cm_id)
         this->name = gf_strdup (listener->name);
         this->notify = listener->notify;
         this->mydata = listener->mydata;
+        this->xl = listener->xl;
 
         this->myinfo.sockaddr_len = sizeof (cm_id->route.addr.src_addr);
         memcpy (&this->myinfo.sockaddr, &cm_id->route.addr.src_addr,
