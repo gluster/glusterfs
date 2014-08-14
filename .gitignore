@@ -8,6 +8,7 @@ install-sh
 ltmain.sh
 Makefile.in
 missing
+test-driver
 *compile
 *.gcda
 *.gcno
@@ -29,9 +30,14 @@ log
 *.vol
 
 # Generated files
+tests/env.rc
+dht_layout_unittest
+mem_pool_unittest
+tests/utils/arequal-checksum
 api/examples/__init__.py
 api/examples/__init__.py?
 api/examples/setup.py
+xlators/features/glupy/src/__init__.py
 contrib/argp-standalone/libargp.a
 contrib/uuid/uuid_types.h
 extras/init.d/glusterd-Debian
@@ -44,6 +50,8 @@ extras/ocf/glusterd
 extras/ocf/volume
 extras/who-wrote-glusterfs/gitdm
 extras/geo-rep/gsync-sync-gfid
+geo-replication/src/set_geo_rep_pem_keys.sh
+geo-replication/syncdaemon/configinterface.py
 glusterfs-api.pc
 glusterfs.spec
 glusterfsd/src/glusterfsd

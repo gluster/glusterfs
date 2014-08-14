@@ -1742,7 +1742,7 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t               *dict = NULL;
         char                 *help_str = NULL;
         char                 msg[1024] = {0,};
-        char                 *debug_xlator = _gf_false;
+        char                 *debug_xlator = NULL;
         char                 tmp_str[512] = {0,};
 
         if (-1 == req->rpc_status) {

@@ -1,4 +1,3 @@
-
 gsyncddir = $(libexecdir)/glusterfs
 
 gsyncd_SCRIPTS = gverify.sh peer_add_secret_pub peer_gsec_create set_geo_rep_pem_keys.sh
@@ -11,8 +10,7 @@ gsyncd_PROGRAMS = gsyncd
 
 gsyncd_SOURCES = gsyncd.c procdiggy.c
 
-gsyncd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-	$(GF_GLUSTERFS_LIBS)
+gsyncd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 gsyncd_LDFLAGS = $(GF_LDFLAGS)
 

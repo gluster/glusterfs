@@ -9,6 +9,19 @@ B0=${B0:=/d/backends};        # top level of brick directories
 H0=${H0:=`hostname --fqdn`};  # hostname
 DEBUG=${DEBUG:=0}             # turn on debugging?
 
+OSTYPE=$(uname -s)
+
+if [ ! -f ${PWD}/tests/env.rc ]; then
+   echo "Aborting."
+   echo
+   echo "env.rc not found"
+   echo
+   echo "Please correct the problem and try again."
+   echo
+   exit 1
+fi
+. ${PWD}/tests/env.rc
+
 PROCESS_UP_TIMEOUT=20
 NFS_EXPORT_TIMEOUT=20
 CHILD_UP_TIMEOUT=20
@@ -222,10 +235,10 @@ function _TEST_IN_LOOP()
 
 function cleanup()
 {
-	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+        killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
-	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
+        killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
 
         MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
         for m in $MOUNTPOINTS;
@@ -253,13 +266,14 @@ function cleanup()
                 losetup -d $l
         done
 
+        if [ -n "${GLUSTERD_WORKDIR}" ] ; then
+            rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
+        fi
 
-	rm -rf /var/lib/glusterd/* $B0/* /etc/glusterd/*;
-
-	umount -l $M0 2>/dev/null || true;
-	umount -l $M1 2>/dev/null || true;
-	umount -l $N0 2>/dev/null || true;
-	umount -l $N1 2>/dev/null || true;
+        umount -l $M0 2>/dev/null || true;
+        umount -l $M1 2>/dev/null || true;
+        umount -l $N0 2>/dev/null || true;
+        umount -l $N1 2>/dev/null || true;
 
 }
 
@@ -300,10 +314,9 @@ alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
 
-ostype=$(uname -s)
-if [ x"$ostype" = x"Linux" ]; then
+if [ x"$OSTYPE" = x"Linux" ]; then
 	alias dd="dd status=none"
-elif [ x"$ostype" = x"NetBSD" ]; then
+elif [ x"$OSTYPE" = x"NetBSD" ]; then
 	alias dd="dd msgfmt=quiet"
 fi
 # MacOS doesn't seem to support either option.  Doing nothing at all is

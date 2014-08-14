@@ -5,9 +5,9 @@ Before=network-online.target
 
 [Service]
 Type=forking
-PIDFile=/run/glusterd.pid
+PIDFile=@localstatedir@/run/glusterd.pid
 LimitNOFILE=65536
-ExecStart=@prefix@/sbin/glusterd -p /run/glusterd.pid
+ExecStart=@prefix@/sbin/glusterd -p @localstatedir@/run/glusterd.pid
 KillMode=process
 
 [Install]

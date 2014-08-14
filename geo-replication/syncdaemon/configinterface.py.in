@@ -36,7 +36,7 @@ CONFIGS = (
     ("peersrx . .",
      "georep_session_working_dir",
      "",
-     "/var/lib/glusterd/geo-replication/${mastervol}_${remotehost}_"
+     "@GLUSTERD_WORKDIR@/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/"),
     ("peersrx .",
      "gluster_params",
@@ -46,7 +46,7 @@ CONFIGS = (
      "ssh_command_tar",
      "",
      "ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no "
-     "-i /var/lib/glusterd/geo-replication/tar_ssh.pem"),
+     "-i @GLUSTERD_WORKDIR@/geo-replication/tar_ssh.pem"),
     ("peersrx . .",
      "changelog_log_file",
      "",
@@ -54,11 +54,7 @@ CONFIGS = (
      "/${eSlave}${local_id}-changes.log"),
     ("peersrx . .",
      "working_dir",
-     "/var/run/gluster/${mastervol}/${eSlave}",
-     "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
-    ("peersrx . .",
-     "working_dir",
-     "/usr/local/var/run/gluster/${mastervol}/${eSlave}",
+     "@localstatedir@/run/gluster/${mastervol}/${eSlave}",
      "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
 )
 

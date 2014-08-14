@@ -1,6 +1,6 @@
 #!/bin/bash
 PROGNAME="Sganesha-set"
-OPTSPEC="volname:"
+OPTSPEC="volname:,gd-workdir:"
 VOL=
 declare -i EXPORT_ID
 GANESHA_DIR="/var/lib/glusterfs-ganesha"
@@ -11,7 +11,7 @@ gnfs="enabled"
 enable_ganesha=""
 host_name="none"
 LOC=""
-
+GLUSTERD_WORKDIR=
 
 
 function parse_args ()
@@ -21,29 +21,32 @@ function parse_args ()
 
         while true; do
             case $1 in
-            --volname)
-                shift
-                VOL=$1
-                ;;
-            *)
-                shift
-                for pair in $@; do
+                --volname)
+                    shift
+                    VOL=$1
+                    ;;
+                --gd-workdir)
+                    shift
+                    GLUSTERD_WORKDIR=$1
+                    ;;
+                *)
+                    shift
+                    for pair in $@; do
                         read key value < <(echo "$pair" | tr "=" " ")
                         case "$key" in
-                          "nfs-ganesha.enable")
-                                    enable_ganesha=$value
-                                    ;;
-                          "nfs-ganesha.host")
-                                    host_name=$value
-                                    ;;
+                            "nfs-ganesha.enable")
+                                enable_ganesha=$value
+                                ;;
+                            "nfs-ganesha.host")
+                                host_name=$value
+                                ;;
                             *)
-                                    ;;
+                                ;;
                         esac
-                done
-
-                shift
-                break
-                ;;
+                    done
+                    shift
+                    break
+                    ;;
             esac
             shift
         done
@@ -52,7 +55,7 @@ function parse_args ()
 
 function check_if_host_set()
 {
-        if ! cat /var/lib/glusterd/vols/$VOL/info | grep -q "nfs-ganesha.host"
+        if ! cat $GLUSTERD_WORKDIR/vols/$VOL/info | grep -q "nfs-ganesha.host"
                 then
                 exit 1
         fi
@@ -71,7 +74,7 @@ function check_nfsd_loc()
 
 function check_gluster_nfs()
 {
-        if cat /var/lib/glusterd/vols/$VOL/info | grep -q "nfs.disable=ON"
+        if cat $GLUSTERD_WORKDIR/vols/$VOL/info | grep -q "nfs.disable=ON"
                  then
                  gnfs="disabled"
         fi
@@ -279,5 +282,3 @@ function stop_ganesha()
                 fi
 
         fi
-
-

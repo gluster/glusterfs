@@ -100,6 +100,6 @@ fi
 CPPFLAGS="$CPPFLAGS -I$srcdir"
 
 dnl Added for C99 standards
-CFLAGS="$CFLAGS -std=gnu89"
+CFLAGS="$CFLAGS -std=gnu89 -static"
 
 AC_OUTPUT(Makefile)

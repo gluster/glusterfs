@@ -15,7 +15,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
 	-I$(top_srcdir)/libglusterfs/src \
 	-I$(nfsrpclibdir) -I$(CONTRIBDIR)/rbtree \
-	-I$(top_srcdir)/rpc/xdr/src/
+	-I$(top_srcdir)/rpc/xdr/src/ -DDATADIR=\"$(localstatedir)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

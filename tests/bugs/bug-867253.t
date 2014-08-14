@@ -35,7 +35,7 @@ TEST mount -o vers=3,nolock,noac -t nfs $H0:/$V0 $M0;
 touch $M0/files{1..1000};
 
 # Kill a brick process
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}0.pid`;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}0.pid`;
 
 echo 3 >/proc/sys/vm/drop_caches;
 
@@ -46,7 +46,7 @@ NEW_FILE_COUNT=`echo $?`;
 TEST $CLI volume start $V0 force
 
 # Kill a brick process
-kill -9 `cat /var/lib/glusterd/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
 echo 3 >/proc/sys/vm/drop_caches;
 

@@ -24,7 +24,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --entry-timeout=0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
-TEST glusterfs --volfile=/var/lib/glusterd/vols/$V0/${V0}-fuse.vol $M0
+TEST glusterfs --volfile=$GLUSTERD_WORKDIR/vols/$V0/${V0}-fuse.vol $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 --log-file=/tmp/a.txt --log-level=DEBUG $M0
