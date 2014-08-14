@@ -2329,3 +2329,43 @@ syncop_lk (xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock)
                 return -args.op_errno;
         return args.op_ret;
 }
+
+int32_t
+syncop_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        __wake (args);
+
+        return 0;
+
+}
+
+int
+syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
+                struct gf_flock *lock, dict_t *xdata_req, dict_t **xdata_rsp)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_inodelk_cbk, subvol->fops->inodelk,
+                volume, loc, cmd, lock, xdata_req);
+
+        if (xdata_rsp)
+                *xdata_rsp = args.xdata;
+        else
+                dict_unref (args.xdata);
+
+        if (args.op_ret < 0)
+                return -args.op_errno;
+
+        return args.op_ret;
+}
