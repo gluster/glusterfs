@@ -4261,10 +4261,8 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
 
         priv = this->private;
 
-        *child_latency_msec = child_xlator->client_latency;
+        *child_latency_msec = child_xlator->client_latency.mean / 1000.0;
         priv->child_latency[idx] = *child_latency_msec;
-        gf_log (child_xlator->name, GF_LOG_DEBUG, "Client ping @ %ld ms",
-                *child_latency_msec);
 
         for (i = 0; i < priv->child_count; i++)
                 if (priv->child_up[i] == 1)

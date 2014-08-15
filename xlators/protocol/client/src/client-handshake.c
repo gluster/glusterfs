@@ -15,6 +15,7 @@
 #include "glusterfs.h"
 #include "statedump.h"
 #include "compat-errno.h"
+#include "latency.h"
 
 #include "glusterfs3.h"
 #include "portmap-xdr.h"

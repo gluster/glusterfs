@@ -172,6 +172,21 @@ out:
         return;
 }
 
+void
+_update_client_latency (call_frame_t *frame, double elapsed_usec)
+{
+        fop_latency_t *lat;
+
+        lat = &frame->this->client_latency;
+
+        lat->total += elapsed_usec;
+        lat->count++;
+        lat->mean = lat->mean + (elapsed_usec - lat->mean) / lat->count;
+        gf_log (THIS->name, GF_LOG_DEBUG, "Ping latency is %0.6lf ms, "
+                "avg: %0.6lf ms, count:%ld", elapsed_usec / 1000.0,
+                lat->mean / 1000.0, lat->count);
+}
+
 int
 rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                    void *myframe)
@@ -184,7 +199,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct timespec       timeout  = {0, };
         struct timespec       now;
         struct timespec       delta;
-        int64_t               latency_msec = 0;
+        int64_t               latency_usec = 0;
         int                   ret = 0;
         int                   unref    = 0;
         gf_boolean_t          call_notify = _gf_false;
@@ -204,12 +219,10 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         {
                 timespec_now (&now);
                 timespec_sub (&local->submit_time, &now, &delta);
-                latency_msec = delta.tv_sec * 1000 + delta.tv_nsec / 1000000;
+                latency_usec = delta.tv_sec * 1000000UL +
+                               delta.tv_nsec / 1000UL;
 
-                this->client_latency = latency_msec;
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "Ping latency is %" PRIu64 "ms",
-                        latency_msec);
+                _update_client_latency (frame, (double)latency_usec);
 
                 if (req->rpc_status == -1) {
                         unref = rpc_clnt_remove_ping_timer_locked (local->rpc);
