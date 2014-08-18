@@ -4,6 +4,19 @@
 # i.e. where we are interested in the result of a command,
 # we have to run the command in an if-statement.
 
+
+while getopts "v" opt; do
+    case $opt in
+        v)
+            # Verbose mode
+            function git () { >&2 echo "git $@" && `which git` $@; }
+            ;;
+    esac
+done
+# Move the positional arguments to the beginning
+shift $((OPTIND-1))
+
+
 branch="master";
 
 set_hooks_commit_msg()
