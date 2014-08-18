@@ -28,7 +28,7 @@ check_gitdm()
 {
         if [ ! -e "${GITDM_DIR}/gitdm" ]
         then
-                git clone --quiet git://git.lwn.net/gitdm.git ${DIRNAME}/gitdm
+                git clone --quiet ${GITDM_REPO} ${DIRNAME}/gitdm
         fi
 }
 
