@@ -4856,26 +4856,23 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
-                if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "%s returned error %s",
-                                prev->this->name, strerror (op_errno));
-                        local->op_errno = op_errno;
-                        local->op_ret = op_ret;
-                        goto unlock;
-                } else {
-                        local->op_ret = op_ret;
+                local->op_errno = op_errno;
+                local->op_ret = op_ret;
+
+                if (op_ret != -1) {
                         list_splice_init (&orig_entries->list,
                                           &local->entries.list);
                         local->wind_count = op_ret;
                 }
 
         }
-unlock:
         UNLOCK (&frame->lock);
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "%s returned error %s",
+                        prev->this->name, strerror (op_errno));
                 goto out;
+        }
 
         xattrs = dict_new ();
         if (xattrs)
