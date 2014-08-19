@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 
 # This script was developed by Vijaykumar Koppad (vkoppad@redhat.com)
 # The latest version of this script can found at

@@ -60,6 +60,14 @@ function check_dependencies()
         MISSING="$MISSING pidof"
     fi
 
+    # check for psutil python package
+    test `uname -s` == "Darwin" || test `uname -s` == "FreeBSD" && {
+        pip show psutil | grep -q psutil >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            MISSING="$MISSING psutil"
+        fi
+    }
+
     ## If dependencies are missing, warn the user and abort
     if [ "x$MISSING" != "x" ]; then
         test "x${force}" != "xyes" && echo "Aborting."
