@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -19,7 +20,7 @@ sleep 2
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 ## Mount NFS
-TEST mount -t nfs -o vers=3,nolock,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 TEST $CLI volume status all
 TEST $CLI volume status $V0
@@ -61,6 +62,10 @@ function test_brick_cmds () {
 TEST test_shd_cmds;
 TEST test_nfs_cmds;
 TEST test_brick_cmds;
+
+
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 cleanup;
 

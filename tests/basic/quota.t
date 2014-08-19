@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 . $(dirname $0)/../dht.rc
 
 cleanup;
@@ -97,7 +98,7 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 #  though this may change.
 ## -----------------------------
 
-TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 TEST $CLI volume quota $V0 limit-usage /test_dir 100MB
 
 TEST $CLI volume quota $V0 limit-usage /test_dir/in_test_dir 150MB

@@ -54,6 +54,8 @@ TEST [ $? -eq 0 ]
 mkdir $N0/old 2>/dev/null;
 TEST [ $? -eq 0 ]
 
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
 

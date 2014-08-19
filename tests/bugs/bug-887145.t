@@ -80,6 +80,8 @@ TEST [ $? -ne 0 ]
 userdel tmp_user;
 rm -rf /home/tmp_user;
 
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
 

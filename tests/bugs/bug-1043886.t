@@ -46,6 +46,9 @@ TEST [ "$(stat -c %u:%g $N0/other/file)" = "$uid:$gid" ];
 TEST mkdir $M0/other/dir 2>/dev/null;
 TEST [ "$(stat -c %u:%g $N0/other/dir)" = "$uid:$gid" ];
 
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
 

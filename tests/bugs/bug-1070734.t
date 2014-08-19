@@ -68,4 +68,7 @@ TEST [ -f ${OTHERBRICK}/DIR/file ]
 EXPECT "0x00000001000000000000000000000000" dht_get_layout $HASHED/DIR ;
 EXPECT "0x000000010000000000000000ffffffff" dht_get_layout $OTHERBRICK/DIR;
 
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 cleanup
