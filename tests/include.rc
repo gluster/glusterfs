@@ -20,12 +20,21 @@ if [ ! -f ${PWD}/tests/env.rc ]; then
 fi
 . ${PWD}/tests/env.rc
 
+H0=${H0:=`hostname`}; # hostname
+MOUNT_TYPE_FUSE="fuse.glusterfs"
+GREP_MOUNT_OPT_RO="grep (ro"
+GREP_MOUNT_OPT_RW="grep (rw"
+
 case $OSTYPE in
 Linux)
   H0=${H0:=`hostname --fqdn`}; # hostname
   ;;
+NetBSD)
+  MOUNT_TYPE_FUSE="puffs|perfuse|fuse.glusterfs"
+  GREP_MOUNT_OPT_RO="grep (read-only"
+  GREP_MOUNT_OPT_RW="grep -v (read-only"
+  ;;
 *)
-  H0=${H0:=`hostname`}; # hostname
   ;;
 esac
 
@@ -297,18 +306,19 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
 
 function cleanup()
 {
+        # unmount filesystems before killing daemons to avoid deadllocks
+        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        for m in $MOUNTPOINTS;
+        do
+                umount $m
+        done
+
 	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
 	test "x`uname -s` = "xNetBSD" && pkill -15 perfused || true
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
 	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
 	test "x`uname -s` = "xNetBSD" && pkill -9 perfused || true
-
-        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
-        for m in $MOUNTPOINTS;
-        do
-                umount $m
-        done
 
         # unregister nfs and related services from portmapper/rpcbind
         ## nfs

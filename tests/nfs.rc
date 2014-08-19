@@ -23,5 +23,49 @@ function mount_nfs ()
         local m=$2
         local opt=$3
         if [ ! -z "$opt" ]; then opt=",$opt"; fi
-        mount -t nfs -o soft,intr,vers=3"$opt" $e $m
+        opt="soft,intr,vers=3$opt"
+
+        nopt=""
+        for o in ${opt//,/ }; do 
+                case $OSTYPE in
+                NetBSD)
+                        test "x${nopt}" = "x" && nopt="tcp,"
+
+                        case $o in
+                        nolock|noac|actimeo=*|mountproto=udp)
+                                continue
+                                ;;
+                        proto=tcp)
+                                o="tcp"
+                                ;;
+                        vers=3)
+                                o="nfsv3"
+                                ;;
+                        retry=*)
+                                o=${o/retry=/-R}
+                                ;;
+                        timeo=*)
+                                o=${o/timeo=/-t}
+                                ;;
+                        retrans=*)
+                                o=${o/retrans=/-x}
+                                ;;
+                        *)
+                                ;;
+                        esac        
+                        ;;
+                *)
+                        ;;
+                esac
+                if [ ! -z "$nopt" ]; then nopt="${nopt},"; fi
+                nopt="${nopt}$o"
+        done
+
+        mount -t nfs -o $nopt $e $m
 }
+
+function umount_nfs {
+        umount -f $1
+        if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
+}
+

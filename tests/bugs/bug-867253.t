@@ -30,7 +30,7 @@ TEST $CLI volume start $V0
 
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 ## Mount nfs, with nocache option
-TEST mount -o vers=3,nolock,noac -t nfs $H0:/$V0 $M0;
+TEST mount_nfs $H0:/$V0 $M0 nolock,noac;
 
 touch $M0/files{1..1000};
 

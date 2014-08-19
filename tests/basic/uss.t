@@ -243,4 +243,7 @@ TEST fd_close $fd1;
 TEST fd_close $fd2;
 TEST fd_close $fd3;
 
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 cleanup;

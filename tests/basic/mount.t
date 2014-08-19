@@ -39,21 +39,21 @@ TEST $CLI volume set $V0 performance.stat-prefetch off;
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
 ## Check consistent "rw" option
-TEST 'mount -t fuse.glusterfs | grep -E "^$H0:$V0 .+ \(rw,"';
-TEST 'grep -E "^$H0:$V0 .+ ,?rw," /proc/mounts';
+TEST 'mount -t $MOUNT_TYPE_FUSE | grep -E "^$H0:$V0 "|$GREP_MOUNT_OPT_RW';
+TEST 'grep -E "^$H0:$V0 .+ ,?rw,?" /proc/mounts';
 
 ## Mount FUSE with caching disabled (read-only)
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --read-only -s $H0 --volfile-id $V0 $M1;
 
 ## Check consistent "ro" option
-TEST 'mount -t fuse.glusterfs | grep -E "^$H0:$V0 .+ \(ro,"';
-TEST 'grep -E "^$H0:$V0 .+ ,?ro,.+" /proc/mounts';
+TEST 'mount -t $MOUNT_TYPE_FUSE | grep -E "^$H0:$V0 "|$GREP_MOUNT_OPT_RO';
+TEST 'grep -E "^$H0:$V0 .+ ,?ro(,.+)?" /proc/mounts';
 
 ## Wait for volume to register with rpc.mountd
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 ## Mount NFS
-TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 
 ## Test for consistent views between NFS and FUSE mounts
@@ -63,11 +63,13 @@ TEST ! touch $M1/newfile;
 TEST touch $M0/newfile;
 TEST stat $M1/newfile;
 TEST stat $N0/newfile;
-TEST ! rm $M1/newfile;
-TEST rm $N0/newfile;
+TEST ! rm -f $M1/newfile;
+TEST rm -f $N0/newfile;
 TEST ! stat $M0/newfile;
 TEST ! stat $M1/newfile;
 
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Finish up
 TEST $CLI volume stop $V0;

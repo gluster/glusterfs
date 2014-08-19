@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -27,6 +28,9 @@ TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --read-only -s $H0 --volf
 sleep 5;
 
 ## Mount NFS
-TEST mount -t nfs -o nolock,soft,intr $H0:/$V0 $N0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
+
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 cleanup;

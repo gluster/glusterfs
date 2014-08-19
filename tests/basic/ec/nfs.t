@@ -15,4 +15,7 @@ TEST mount_nfs $H0:/$V0 $N0
 
 TEST dd if=/dev/zero of=$N0/test bs=1024k count=1k
 
+## Before killing daemon to avoid deadlocks
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0  
+
 cleanup
