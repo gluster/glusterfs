@@ -59,7 +59,7 @@ TEST ls $B0/brick0/def/ghi/file2.txt
 TEST ls $B0/brick0/jkl/mno/file.txt
 TEST ! ls $B0/brick0/abc/ghi
 EXPECT "$NEW_UID$NEW_GID" stat -c %u%g $B0/brick0/abc/def/file_abc_def_2.txt
-TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -83,7 +83,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 TEST test -d $B0/brick0/file
-TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -106,7 +106,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "777" stat -c %a $B0/brick0/file
-TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -130,7 +130,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT "$NEW_UID$NEW_GID" stat -c %u%g $B0/brick0/file
-TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -161,7 +161,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
 #check heal has happened in the correct direction
 EXPECT 0 stat -c %s $B0/brick1/file
-TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*
@@ -209,7 +209,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 #check heal has happened in the correct direction
 TEST test -f $B0/brick0/hard_link_to_file
 TEST test -h $B0/brick0/link_to_file
-TEST diff <($AREQUAL_PATH/arequal-checksum -p $B0/brick0 -i .glusterfs) <($AREQUAL_PATH/arequal-checksum -p $B0/brick1 -i .glusterfs)
+TEST diff <(arequal-checksum -p $B0/brick0 -i .glusterfs) <(arequal-checksum -p $B0/brick1 -i .glusterfs)
 
 #Cleanup
 TEST rm -rf $M0/*

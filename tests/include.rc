@@ -25,6 +25,8 @@ MOUNT_TYPE_FUSE="fuse.glusterfs"
 GREP_MOUNT_OPT_RO="grep (ro"
 GREP_MOUNT_OPT_RW="grep (rw"
 
+PATH=$PATH:${PWD}/tests/utils
+
 case $OSTYPE in
 Linux)
   H0=${H0:=`hostname --fqdn`}; # hostname
@@ -256,6 +258,12 @@ which killall > /dev/null || {
         }
 }
 
+which pidof > /dev/null || {
+      pidof() {
+              pidof.py $1
+      }
+}
+
 stat -c %s /dev/null > /dev/null 2>&1 || {
   stat() {
     local format=""
@@ -322,17 +330,17 @@ function cleanup()
 
         # unregister nfs and related services from portmapper/rpcbind
         ## nfs
-        rpcinfo -d 100003 3
+        rpcinfo -d 100003 3 2>/dev/null || true;
         ## mountd
-        rpcinfo -d 100005 1
-        rpcinfo -d 100005 3
+        rpcinfo -d 100005 1 2>/dev/null || true;
+        rpcinfo -d 100005 3 2>/dev/null || true;
         ## nlockmgr
-        rpcinfo -d 100021 1
-        rpcinfo -d 100021 4
+        rpcinfo -d 100021 1 2>/dev/null || true;
+        rpcinfo -d 100021 4 2>/dev/null || true;
         ## nfs_acl
-        rpcinfo -d 100227 3
+        rpcinfo -d 100227 3 2>/dev/null || true;
 
-        type cleanup_lvm &>/dev/null && cleanup_lvm
+        type cleanup_lvm &>/dev/null && cleanup_lvm || true;
 
 	case `uname -s` in
 	Linux)

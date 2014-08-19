@@ -16,7 +16,7 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 
 
 # create file with specific gfid
 uuid=`uuidgen`
-EXPECT "File creation OK" python2 $(dirname $0)/../utils/gfid-access.py $M0 ROOT file0 $uuid file
+EXPECT "File creation OK" gfid-access.py $M0 ROOT file0 $uuid file
 
 # check gfid
 EXPECT "$uuid" getfattr -m . --only-values -n glusterfs.gfid.string $M0/file0
@@ -27,6 +27,6 @@ TEST umount $M0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0 --aux-gfid-mount
 
 # touch the file again (gfid-access.py handles errno)
-EXPECT "File creation OK" python2 $(dirname $0)/../utils/gfid-access.py $M0 ROOT file0 $uuid file
+EXPECT "File creation OK" gfid-access.py $M0 ROOT file0 $uuid file
 
 cleanup;
