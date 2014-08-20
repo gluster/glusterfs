@@ -5,6 +5,11 @@
 
 cleanup;
 
+function file_mime_type () {
+    mime_type=$(file --mime $1 2>/dev/null | sed '/^[^:]*: /s///')
+    echo $mime_type
+}
+
 TEST glusterd
 TEST pidof glusterd
 
@@ -44,7 +49,7 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 
 sleep 2
 ## Mount FUSE with caching disabled
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 ####################
 ## Testing writev ##
@@ -59,7 +64,15 @@ TEST dd if=/tmp/cdc-orig of=$M0/cdc-server count=1 bs=1k 2>/dev/null
 checksum[brick-file]=`md5sum $B0/${V0}1/cdc-server | cut -d' ' -f1`
 
 ## Uncompress the gzip dump file and find its md5sum
-EXPECT '/tmp/cdcdump.gz: application/x-gzip; charset=binary' file -i /tmp/cdcdump.gz
+# mime outputs for gzip are different for file version > 5.14
+TEST touch /tmp/gzipfile
+TEST gzip /tmp/gzipfile
+GZIP_MIME_TYPE=$(file_mime_type /tmp/gzipfile.gz)
+
+TEST rm -f /tmp/gzipfile.gz
+
+EXPECT "$GZIP_MIME_TYPE" echo $(file_mime_type /tmp/cdcdump.gz)
+
 TEST gunzip -f /tmp/cdcdump.gz
 checksum[dump-file-writev]=`md5sum /tmp/cdcdump | cut -d' ' -f1`
 
@@ -79,7 +92,9 @@ TEST dd if=$M0/cdc-server of=/tmp/cdc-client count=1 bs=1k 2>/dev/null
 checksum[client-file]=`md5sum /tmp/cdc-client | cut -d' ' -f1`
 
 ## Uncompress the gzip dump file and find its md5sum
-EXPECT '/tmp/cdcdump.gz: application/x-gzip; charset=binary' file -i /tmp/cdcdump.gz
+# mime outputs for gzip are different for file version > 5.14
+EXPECT "$GZIP_MIME_TYPE" echo $(file_mime_type /tmp/cdcdump.gz)
+
 TEST gunzip -f /tmp/cdcdump.gz
 checksum[dump-file-readv]=`md5sum /tmp/cdcdump | cut -d' ' -f1`
 
@@ -106,7 +121,7 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 ## Mount FUSE with caching disabled
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 ## Create a file of size 99 bytes on mountpoint
 ## This is should not be compressed

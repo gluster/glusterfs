@@ -13,9 +13,9 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
 TEST $CLI volume start $V0;
 
 ## Mount FUSE
-TEST glusterfs -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
-TEST glusterfs -s $H0 --volfile-id $V0 $M1;
+TEST $GFS -s $H0 --volfile-id $V0 $M1;
 
 D0="hello-this-is-a-test-message0";
 F0="test-file0";

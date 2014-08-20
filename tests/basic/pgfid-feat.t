@@ -16,10 +16,10 @@ TEST pidof glusterd
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2  $H0:$B0/${V0}{1,2,3,4};
-TEST $CLI volume start $V0;
-TEST glusterfs -s $H0 --volfile-id $V0 $M0;
-
 TEST $CLI volume set $V0 build-pgfid on;
+
+TEST $CLI volume start $V0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 TEST mkdir $M0/a;
 TEST touch $M0/a/b;

@@ -18,7 +18,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 redundancy 2 $H0:$B0/${V0}{0..5}
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 
 TEST dd if=/dev/urandom of=$tmp/test bs=1024 count=1024
 
@@ -96,7 +96,7 @@ cd
 TEST umount $M0
 TEST $CLI volume stop $V0 force
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 cd $M0
 
 EXPECT "1048576" stat -c "%s" test2

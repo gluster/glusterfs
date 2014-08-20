@@ -17,7 +17,7 @@ TEST $CLI volume start $V0
 
 TEST $CLI volume set $V0 readdir-ahead on
 
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 
 TEST mkdir $M0/test
 for i in $(seq 0 99)

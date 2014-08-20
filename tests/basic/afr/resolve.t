@@ -12,8 +12,8 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M1
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M1;
 TEST cd $M0
 TEST mkdir -p a/b/c/d/e
 TEST cd a/b/c/d/e

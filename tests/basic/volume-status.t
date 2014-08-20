@@ -17,7 +17,7 @@ TEST $CLI volume start $V0;
 sleep 2
 
 ## Mount FUSE
-TEST glusterfs -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 ## Mount NFS
 TEST mount_nfs $H0:/$V0 $N0 nolock;
@@ -68,4 +68,3 @@ TEST test_brick_cmds;
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 cleanup;
-

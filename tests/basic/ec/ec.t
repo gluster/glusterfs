@@ -140,7 +140,7 @@ TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status'
 
 # Mount FUSE with caching disabled
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
+TEST $GFS -s $H0 --volfile-id $V0 $M0
 
 # Create local files for comparisons etc.
 tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
@@ -185,7 +185,7 @@ TEST setup_perm_file $M0
 
 # Unmount/remount so that create/write and truncate don't see cached data.
 TEST umount $M0
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
+TEST $GFS -s $H0 --volfile-id $V0 $M0
 
 # Test create/write and truncate *before* the bricks are brought back.
 TEST check_create_write $M0
@@ -197,7 +197,7 @@ sleep 10
 
 # Unmount/remount again, same reason as before.
 TEST umount $M0
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
+TEST $GFS -s $H0 --volfile-id $V0 $M0
 
 # Make sure everything is as it should be.  Most tests check for consistency
 # between the bricks and the front end.  This is not valid for disperse, so we
@@ -230,4 +230,3 @@ rm -rf $tmpdir
 userdel --force ${TEST_USER}
 
 cleanup
-

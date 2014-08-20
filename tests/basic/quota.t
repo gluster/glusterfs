@@ -4,6 +4,7 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 . $(dirname $0)/../dht.rc
+. $(dirname $0)/../nfs.rc
 
 cleanup;
 
@@ -40,7 +41,7 @@ EXPECT '4' brick_count $V0
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-TEST glusterfs -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 TEST mkdir -p $M0/test_dir/in_test_dir
 

@@ -11,7 +11,7 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1,2,3,4,5}
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}2
 TEST kill_brick $V0 $H0 $B0/${V0}4

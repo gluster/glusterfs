@@ -56,6 +56,7 @@ UMOUNT_TIMEOUT=5
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";
+GFS="glusterfs --attribute-timeout=0 --entry-timeout=0";
 
 mkdir -p $B0;
 mkdir -p $M0 $M1;
@@ -72,7 +73,10 @@ for line in $expect_tests; do
 done
 IFS=$x_ifs
 
-echo 1..$testcnt
+# Remove space again since `wc -l` on OSX and FreeBSD
+# adds spurious space which clobbers up TAP output
+testcnt_nospace=$(echo $testcnt | tr -d ' ')
+echo 1..$testcnt_nospace
 
 t=1
 
@@ -377,10 +381,10 @@ function cleanup()
             rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
         fi
 
-	umount -l $M0 2>/dev/null || true;
-	umount -l $M1 2>/dev/null || true;
-	umount -l $N0 2>/dev/null || true;
-	umount -l $N1 2>/dev/null || true;
+	umount -l $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
+	umount -l $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+	umount -l $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
+	umount -l $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
 
 }
 
@@ -529,9 +533,18 @@ which md5sum > /dev/null || {
 
 which sha1sum > /dev/null || {
   sha1sum() {
+  case $OSTYPE in
+  Darwin)
+    for f in $* ; do
+      openssl sha1 $f | awk -F'[() ]' '{printf("%s %s\n", $4, $2)}'
+    done
+    ;;
+  NetBSD | FreeBSD)
     for f in $* ; do
       sha1 $f | awk -F'[() ]' '{printf("%s  %s\n", $6, $3)}'
     done
+    ;;
+  esac
   }
 }
 
