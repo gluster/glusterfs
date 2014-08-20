@@ -39,7 +39,7 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 ## Mount the volume
-TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
+TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 ## Testing writev, readv, ftruncate:
 ## Create fragmented files and compare them with the reference files

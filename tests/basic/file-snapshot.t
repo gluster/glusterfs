@@ -21,7 +21,7 @@ TEST $CLI volume set $V0 features.file-snapshot on;
 
 TEST $CLI volume set $V0 performance.quick-read off;
 TEST $CLI volume set $V0 performance.io-cache off;
-TEST glusterfs -s $H0 --volfile-id $V0 $M0 --attribute-timeout=0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 TEST touch $M0/big-file;
 

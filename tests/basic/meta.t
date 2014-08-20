@@ -17,7 +17,7 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-TEST glusterfs -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 # verify json validity
 

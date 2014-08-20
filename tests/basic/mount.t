@@ -36,14 +36,14 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST $CLI volume set $V0 performance.stat-prefetch off;
 
 ## Mount FUSE with caching disabled (read-write)
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 ## Check consistent "rw" option
 TEST 'mount -t $MOUNT_TYPE_FUSE | grep -E "^$H0:$V0 "|$GREP_MOUNT_OPT_RW';
 TEST 'grep -E "^$H0:$V0 .+ ,?rw,?" /proc/mounts';
 
 ## Mount FUSE with caching disabled (read-only)
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --read-only -s $H0 --volfile-id $V0 $M1;
+TEST $GFS --read-only -s $H0 --volfile-id $V0 $M1;
 
 ## Check consistent "ro" option
 TEST 'mount -t $MOUNT_TYPE_FUSE | grep -E "^$H0:$V0 "|$GREP_MOUNT_OPT_RO';
@@ -54,7 +54,6 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 ## Mount NFS
 TEST mount_nfs $H0:/$V0 $N0 nolock;
-
 
 ## Test for consistent views between NFS and FUSE mounts
 ## write access to $M1 should fail

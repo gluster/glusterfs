@@ -62,7 +62,7 @@ TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status'
 
 # Create some files for later tests.
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
+TEST $GFS -s $H0 --volfile-id $V0 $M0
 TEST mkdir $M0/dir
 TEST touch_files
 TEST umount $M0

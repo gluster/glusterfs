@@ -13,7 +13,7 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 TEST $CLI volume set $V0 data-self-heal-algorithm full
 TEST $CLI volume start $V0
 
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 TEST dd if=/dev/urandom of=$M0/small count=1 bs=1024k
 TEST dd if=/dev/urandom of=$M0/bigger2big count=1 bs=2048k
 TEST dd if=/dev/urandom of=$M0/big2bigger count=1 bs=1024k

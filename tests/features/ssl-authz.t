@@ -44,7 +44,7 @@ TEST $CLI volume start $V0
 # This mount should FAIL because the identity given by our certificate does not
 # match the allowed user.  In other words, authentication works (they know who
 # we are) but authorization doesn't (we're not the right person).
-TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
+TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 
 # Looks like /*/bin/glusterfs isn't returning error status correctly (again).
 # Actually try doing something to get a real error.

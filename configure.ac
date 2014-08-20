@@ -606,7 +606,7 @@ AC_SUBST(SYNCDAEMON_SUBDIR)
 # CDC xlator - check if libz is present if so enable HAVE_LIB_Z
 BUILD_CDC=yes
 PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
-                  [AC_CHECK_LIB([z], [deflate], [LIBZ_LIBS="-lz"],
+                  [AC_CHECK_LIB([z], [deflate], [ZLIB_LIBS="-lz"],
                                 [BUILD_CDC=no])])
 echo -n "features requiring zlib enabled: "
 if test "x$BUILD_CDC" = "xyes" ; then
@@ -615,8 +615,8 @@ if test "x$BUILD_CDC" = "xyes" ; then
 else
   echo "no"
 fi
-AC_SUBST(LIBZ_CFLAGS)
-AC_SUBST(LIBZ_LIBS)
+AC_SUBST(ZLIB_CFLAGS)
+AC_SUBST(ZLIB_LIBS)
 # end CDC xlator secion
 
 # check for systemtap/dtrace
