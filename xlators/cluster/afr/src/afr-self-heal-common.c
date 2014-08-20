@@ -287,7 +287,36 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
 	return 0;
 }
 
+void
+afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
+                       unsigned char *locked_on, unsigned char *sinks)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
 
+        priv = this->private;
+
+        memset (sinks, 0, sizeof (*sinks) * priv->child_count);
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i] && locked_on[i])
+                        sinks[i] = 1;
+        }
+}
+
+gf_boolean_t
+afr_does_witness_exist (xlator_t *this, uint64_t *witness)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (witness[i])
+                        return _gf_true;
+        }
+        return _gf_false;
+}
 
 /*
  * This function determines if a self-heal is required for a given inode,
@@ -309,22 +338,29 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
  */
 
 int
-afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
-			     afr_transaction_type type, unsigned char *locked_on,
-			     unsigned char *sources, unsigned char *sinks)
+afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
+                             struct afr_reply *replies,
+                             afr_transaction_type type,
+                             unsigned char *locked_on, unsigned char *sources,
+                             unsigned char *sinks, uint64_t *witness)
 {
-	afr_private_t *priv = NULL;
-	int i = 0;
-	int j = 0;
-	int *dirty = NULL;
-	int **matrix = NULL;
-	char *accused = NULL;
+        afr_private_t *priv = NULL;
+        int i = 0;
+        int j = 0;
+        int *dirty = NULL; /* Denotes if dirty xattr is set */
+        int **matrix = NULL;/* Changelog matrix */
+        char *accused = NULL;/* Accused others without any self-accusal */
+        char *pending = NULL;/* Have pending operations on others */
+        char *self_accused = NULL; /* Accused itself */
 
 	priv = this->private;
 
 	dirty = alloca0 (priv->child_count * sizeof (int));
 	accused = alloca0 (priv->child_count);
+        pending = alloca0 (priv->child_count);
+        self_accused = alloca0 (priv->child_count);
 	matrix = ALLOC_MATRIX(priv->child_count, int);
+        memset (witness, 0, sizeof (*witness) * priv->child_count);
 
         if (afr_success_count (replies,
                                priv->child_count) < AFR_SH_MIN_PARTICIPANTS) {
@@ -335,11 +371,23 @@ afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
 	/* First construct the pending matrix for further analysis */
 	afr_selfheal_extract_xattr (this, replies, type, dirty, matrix);
 
+        /* short list all self-accused */
+        for (i = 0; i < priv->child_count; i++) {
+                if (matrix[i][i])
+                        self_accused[i] = 1;
+        }
+
 	/* Next short list all accused to exclude them from being sources */
+        /* Self-accused can't accuse others as they are FOOLs */
 	for (i = 0; i < priv->child_count; i++) {
 		for (j = 0; j < priv->child_count; j++) {
-			if (matrix[i][j])
-				accused[j] = 1;
+                        if (matrix[i][j]) {
+                                 if (!self_accused[i])
+                                         accused[j] = 1;
+
+                                 if (i != j)
+                                         pending[i] = 1;
+                         }
 		}
 	}
 
@@ -350,38 +398,47 @@ afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
 			sources[i] = 1;
 	}
 
-	/* Everyone accused by sources are sinks */
-	memset (sinks, 0, priv->child_count);
-	for (i = 0; i < priv->child_count; i++) {
-		if (!sources[i])
-			continue;
-		for (j = 0; j < priv->child_count; j++) {
-			if (matrix[i][j])
-				sinks[j] = 1;
-		}
-	}
+        /* Everyone accused by non-self-accused sources are sinks */
+        memset (sinks, 0, priv->child_count);
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (self_accused[i])
+                        continue;
+                for (j = 0; j < priv->child_count; j++) {
+                        if (matrix[i][j])
+                                sinks[j] = 1;
+                }
+        }
 
-	/* If any source has 'dirty' bit, pick first
-	   'dirty' source and make everybody else sinks */
-	for (i = 0; i < priv->child_count; i++) {
-		if (sources[i] && dirty[i]) {
-			for (j = 0; j < priv->child_count; j++) {
-				if (j != i) {
-					sources[j] = 0;
-					sinks[j] = 1;
-				}
-			}
-			break;
-		}
-	}
+        /* For breaking ties provide with number of fops they witnessed */
 
-	/* If no sources, all locked nodes are sinks - split brain */
-	if (AFR_COUNT (sources, priv->child_count) == 0) {
-		for (i = 0; i < priv->child_count; i++) {
-			if (locked_on[i])
-				sinks[i] = 1;
-		}
-	}
+        /*
+         * count the pending fops witnessed from itself to others when it is
+         * self-accused
+         */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!self_accused[i])
+                        continue;
+                for (j = 0; j < priv->child_count; j++) {
+                        if (i == j)
+                                continue;
+                        witness[i] += matrix[i][j];
+                }
+        }
+
+        /* In afr-v1 if a file is self-accused but didn't have any pending
+         * operations on others then it is similar to 'dirty' in afr-v2.
+         * Consider such cases as witness.
+         */
+        for (i = 0; i < priv->child_count; i++) {
+                if (self_accused[i] && !pending[i])
+                        witness[i] += matrix[i][i];
+        }
+
+        /* count the number of dirty fops witnessed */
+        for (i = 0; i < priv->child_count; i++)
+                witness[i] += dirty[i];
 
 	return 0;
 }

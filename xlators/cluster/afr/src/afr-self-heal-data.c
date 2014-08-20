@@ -372,21 +372,160 @@ __afr_selfheal_truncate_sinks (call_frame_t *frame, xlator_t *this,
 	return 0;
 }
 
+gf_boolean_t
+afr_has_source_witnesses (xlator_t *this, unsigned char *sources,
+                          uint64_t *witness)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i] && witness[i])
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
+static gf_boolean_t
+afr_does_size_mismatch (xlator_t *this, unsigned char *sources,
+                        struct afr_reply *replies)
+{
+        int     i = 0;
+        afr_private_t *priv = NULL;
+        struct iatt *min = NULL;
+        struct iatt *max = NULL;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret < 0)
+                        continue;
+
+                if (!min)
+                        min = &replies[i].poststat;
+
+                if (!max)
+                        max = &replies[i].poststat;
+
+                if (min->ia_size > replies[i].poststat.ia_size)
+                        min = &replies[i].poststat;
+
+                if (max->ia_size < replies[i].poststat.ia_size)
+                        max = &replies[i].poststat;
+        }
+
+        if (min && max) {
+                if (min->ia_size != max->ia_size)
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
 /*
  * If by chance there are multiple sources with differing sizes, select
  * the largest file as the source.
  *
- * This can only happen if data was directly modified in the backend.
+ * This can happen if data was directly modified in the backend or for snapshots
  */
+
+static void
+afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
+                                 struct afr_reply *replies)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        uint64_t size = 0;
+
+        /* Find source with biggest file size */
+        priv = this->private;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (size <= replies[i].poststat.ia_size) {
+                        size = replies[i].poststat.ia_size;
+                }
+        }
+
+        /* Mark sources with less size as not source */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (size > replies[i].poststat.ia_size)
+                        sources[i] = 0;
+        }
+
+        return;
+}
+
+static void
+afr_mark_biggest_witness_as_source (xlator_t *this, unsigned char *sources,
+                                    uint64_t *witness)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        uint64_t biggest_witness = 0;
+
+        priv = this->private;
+        /* Find source with biggest witness count */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (biggest_witness < witness[i])
+                        biggest_witness = witness[i];
+        }
+
+        /* Mark files with less witness count as not source */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (witness[i] < biggest_witness)
+                        sources[i] = 0;
+        }
+
+        return;
+}
+
+/* This is a tie breaker function. Only one source be assigned here */
+static void
+afr_mark_newest_file_as_source (xlator_t *this, unsigned char *sources,
+                                struct afr_reply *replies)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        int source = -1;
+        uint32_t max_ctime = 0;
+
+        priv = this->private;
+        /* Find source with latest ctime */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+
+                if (max_ctime <= replies[i].poststat.ia_ctime) {
+                        source = i;
+                        max_ctime = replies[i].poststat.ia_ctime;
+                }
+        }
+
+        /* Only mark one of the files as source to break ties */
+        memset (sources, 0, sizeof (*sources) * priv->child_count);
+        sources[source] = 1;
+}
+
 static int
 __afr_selfheal_data_finalize_source (xlator_t *this, unsigned char *sources,
 				     unsigned char *healed_sinks,
 				     unsigned char *locked_on,
-				     struct afr_reply *replies)
+				     struct afr_reply *replies,
+                                     uint64_t *witness)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
-	uint64_t size = 0;
 	int source = -1;
 	int sources_count = 0;
 
@@ -400,24 +539,24 @@ __afr_selfheal_data_finalize_source (xlator_t *this, unsigned char *sources,
 		return -EIO;
 	}
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!sources[i])
-			continue;
-		if (size <= replies[i].poststat.ia_size) {
-			size = replies[i].poststat.ia_size;
-			source = i;
-		}
-	}
+        /* If there are no witnesses/size-mismatches on sources we are done*/
+        if (!afr_does_size_mismatch (this, sources, replies) &&
+            !afr_has_source_witnesses (this, sources, witness))
+                goto out;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!sources[i])
-			continue;
-		if (replies[i].poststat.ia_size < size) {
-			sources[i] = 0;
-			healed_sinks[i] = 1;
-		}
-	}
+        afr_mark_largest_file_as_source (this, sources, replies);
+        afr_mark_biggest_witness_as_source (this, sources, witness);
+        afr_mark_newest_file_as_source (this, sources, replies);
 
+out:
+        afr_mark_active_sinks (this, sources, locked_on, healed_sinks);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i]) {
+                        source = i;
+                        break;
+                }
+        }
 	return source;
 }
 
@@ -439,6 +578,7 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int ret = -1;
 	int source = -1;
 	afr_private_t *priv = NULL;
+        uint64_t *witness = NULL;
 
 	priv = this->private;
 
@@ -447,15 +587,16 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (ret)
 		return ret;
 
-	ret = afr_selfheal_find_direction (this, replies, AFR_DATA_TRANSACTION,
-					   locked_on, sources, sinks);
+        witness = alloca0(priv->child_count * sizeof (*witness));
+	ret = afr_selfheal_find_direction (frame, this, replies,
+					   AFR_DATA_TRANSACTION,
+					   locked_on, sources, sinks, witness);
 	if (ret)
 		return ret;
 
         /* Initialize the healed_sinks[] array optimistically to
            the intersection of to-be-healed (i.e sinks[]) and
            the list of servers which are up (i.e locked_on[]).
-
            As we encounter failures in the healing process, we
            will unmark the respective servers in the healed_sinks[]
            array.
@@ -464,7 +605,7 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	source = __afr_selfheal_data_finalize_source (this, sources,
                                                       healed_sinks, locked_on,
-                                                      replies);
+                                                      replies, witness);
 	if (source < 0)
 		return -EIO;
 
