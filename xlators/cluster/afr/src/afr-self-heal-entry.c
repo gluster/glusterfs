@@ -326,7 +326,9 @@ __afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 static int
 __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
 				      unsigned char *healed_sinks,
-				      unsigned char *locked_on)
+                                      unsigned char *locked_on,
+                                      struct afr_reply *replies,
+                                      uint64_t *witness)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
@@ -338,7 +340,10 @@ __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
 	sources_count = AFR_COUNT (sources, priv->child_count);
 
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
-            || !sources_count) {
+            || !sources_count || afr_does_witness_exist (this, witness)) {
+
+                memset (sources, 0, sizeof (*sources) * priv->child_count);
+                afr_mark_active_sinks (this, sources, locked_on, healed_sinks);
 		return -1;
 	}
 
@@ -362,6 +367,7 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int ret = -1;
 	int source = -1;
 	afr_private_t *priv = NULL;
+        uint64_t *witness = NULL;
 
 	priv = this->private;
 
@@ -370,8 +376,10 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (ret)
 		return ret;
 
-	ret = afr_selfheal_find_direction (this, replies, AFR_ENTRY_TRANSACTION,
-					   locked_on, sources, sinks);
+        witness = alloca0 (sizeof (*witness) * priv->child_count);
+	ret = afr_selfheal_find_direction (frame, this, replies,
+					   AFR_ENTRY_TRANSACTION,
+					   locked_on, sources, sinks, witness);
 	if (ret)
 		return ret;
 
@@ -386,7 +394,10 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
         AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
 
 	source = __afr_selfheal_entry_finalize_source (this, sources,
-                                                       healed_sinks, locked_on);
+                                                       healed_sinks,
+						       locked_on, replies,
+                                                       witness);
+
 	if (source < 0) {
 		/* If source is < 0 (typically split-brain), we perform a
 		   conservative merge of entries rather than erroring out */
