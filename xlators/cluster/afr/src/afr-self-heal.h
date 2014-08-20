@@ -136,9 +136,11 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 				 unsigned char *lookup_on, dict_t *xattr);
 
 int
-afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
-			     afr_transaction_type type, unsigned char *locked_on,
-			     unsigned char *sources, unsigned char *sinks);
+afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
+                             struct afr_reply *replies,
+                             afr_transaction_type type,
+                             unsigned char *locked_on, unsigned char *sources,
+                             unsigned char *sinks, uint64_t *witness);
 
 int
 afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
@@ -189,4 +191,11 @@ afr_success_count (struct afr_reply *replies, unsigned int count);
 void
 afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
                   int source, unsigned char *healed_sinks);
+
+void
+afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
+                       unsigned char *locked_on, unsigned char *sinks);
+
+gf_boolean_t
+afr_does_witness_exist (xlator_t *this, uint64_t *witness);
 #endif /* !_AFR_SELFHEAL_H */

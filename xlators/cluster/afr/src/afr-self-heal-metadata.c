@@ -169,7 +169,6 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	return source;
 }
 
-
 static int
 __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *inode,
 				 unsigned char *locked_on, unsigned char *sources,
@@ -179,6 +178,8 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	int ret = -1;
 	int source = -1;
 	afr_private_t *priv = NULL;
+	int i = 0;
+        uint64_t *witness = NULL;
 
 	priv = this->private;
 
@@ -187,9 +188,10 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	if (ret)
 		return ret;
 
-	ret = afr_selfheal_find_direction (this, replies,
-                                           AFR_METADATA_TRANSACTION,
-					   locked_on, sources, sinks);
+        witness = alloca0 (sizeof (*witness) * priv->child_count);
+	ret = afr_selfheal_find_direction (frame, this, replies,
+					   AFR_METADATA_TRANSACTION,
+					   locked_on, sources, sinks, witness);
 	if (ret)
 		return ret;
 
@@ -203,9 +205,28 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
         */
         AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
 
+        /* If any source has witness, pick first
+         * witness source and make everybody else sinks */
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i] && witness[i]) {
+                        source = i;
+                        break;
+                }
+        }
+
+        if (source != -1) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (i != source && sources[i]) {
+                                sources[i] = 0;
+                                healed_sinks[i] = 1;
+                        }
+                }
+        }
+
 	source = __afr_selfheal_metadata_finalize_source (frame, this, sources,
                                                           healed_sinks,
-							  locked_on, replies);
+                                                          locked_on, replies);
+
 	if (source < 0)
 		return -EIO;
 
