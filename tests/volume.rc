@@ -415,3 +415,13 @@ function force_umount {
         umount -f $1
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
+
+function assign_gfid {
+        local gfid=$1
+        local file=$2
+        setfattr -n trusted.gfid -v $1 $2
+}
+
+function get_random_gfid {
+        echo "0x"$(uuidgen | awk -F '-' 'BEGIN {OFS=""} {print $1,$2,$3,$4,$5}')
+}
