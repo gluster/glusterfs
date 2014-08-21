@@ -1219,9 +1219,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 			continue;
 		}
 
-		if (!uuid_compare (replies[i].poststat.ia_gfid,
-				   read_gfid))
-			continue;
+		if (!uuid_compare (replies[i].poststat.ia_gfid, read_gfid))
+                        continue;
 
 		can_interpret = _gf_false;
 
@@ -1442,6 +1441,7 @@ afr_attempt_local_discovery (xlator_t *this, int32_t child_index)
 int
 afr_lookup_selfheal_wrap (void *opaque)
 {
+        int ret = 0;
 	call_frame_t *frame = opaque;
 	afr_local_t *local = NULL;
 	xlator_t *this = NULL;
@@ -1450,19 +1450,25 @@ afr_lookup_selfheal_wrap (void *opaque)
 	local = frame->local;
 	this = frame->this;
 
-	afr_selfheal_name (frame->this, local->loc.pargfid, local->loc.name,
-                           &local->cont.lookup.gfid_req);
+	ret = afr_selfheal_name (frame->this, local->loc.pargfid,
+                                 local->loc.name, &local->cont.lookup.gfid_req);
+        if (ret == -EIO)
+                goto unwind;
 
         afr_local_replies_wipe (local, this->private);
 
 	inode = afr_selfheal_unlocked_lookup_on (frame, local->loc.parent,
 						 local->loc.name, local->replies,
-						 local->child_up);
+						 local->child_up, NULL);
 	if (inode)
 		inode_unref (inode);
-	afr_lookup_done (frame, this);
 
-	return 0;
+	afr_lookup_done (frame, this);
+        return 0;
+
+unwind:
+	AFR_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL, NULL, NULL);
+        return 0;
 }
 
 

@@ -132,11 +132,10 @@ afr_selfheal_unlocked_discover (call_frame_t *frame, inode_t *inode,
 inode_t *
 afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 				 const char *name, struct afr_reply *replies,
-				 unsigned char *lookup_on);
+				 unsigned char *lookup_on, dict_t *xattr);
 
 int
-afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
-			     struct afr_reply *replies,
+afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
 			     afr_transaction_type type, unsigned char *locked_on,
 			     unsigned char *sources, unsigned char *sinks);
 
@@ -151,9 +150,9 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			   struct afr_reply *replies, unsigned char *locked_on);
 
 int
-afr_selfheal_recreate_entry (call_frame_t *frame, xlator_t *this, int dst,
-			     int source, inode_t *dir, const char *name,
-			     inode_t *inode, struct afr_reply *replies);
+afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
+                             const char *name, inode_t *inode,
+                             struct afr_reply *replies);
 
 int
 afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -164,5 +163,14 @@ afr_frame_create (xlator_t *this);
 
 inode_t *
 afr_inode_find (xlator_t *this, uuid_t gfid);
+
+int
+afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+			   int op_ret, int op_errno, inode_t *inode,
+			   struct iatt *buf, dict_t *xdata,
+                           struct iatt *parbuf);
+
+void
+afr_replies_copy (struct afr_reply *dst, struct afr_reply *src, int count);
 
 #endif /* !_AFR_SELFHEAL_H */
