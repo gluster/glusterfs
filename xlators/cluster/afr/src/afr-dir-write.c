@@ -278,7 +278,8 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
         dict_t        *xattr      = NULL;
         int32_t       **changelog = NULL;
         int           i           = 0;
-	int           idx         = 0;
+	int           idx         = -1;
+        int           m_idx       = 0;
         int           op_errno    = ENOMEM;
 	unsigned char *pending    = NULL;
 	int           call_count   = 0;
@@ -298,11 +299,17 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
         if (!changelog)
                 goto out;
 
+        new_local->pending = changelog;
         xattr = dict_new ();
 	if (!xattr)
 		goto out;
 
-	idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
+        if (IA_ISREG (local->cont.dir_fop.buf.ia_type)) {
+                idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
+        } else if (IA_ISDIR (local->cont.dir_fop.buf.ia_type)) {
+                idx = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
+        }
+        m_idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
 
 	pending = alloca0 (priv->child_count);
 
@@ -313,11 +320,12 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
 			continue;
 		}
 
-		changelog[i][idx] = hton32(1);
+                changelog[i][m_idx] = hton32(1);
+                if (idx != -1)
+                        changelog[i][idx] = hton32(1);
 		pending[i] = 1;
 	}
 
-        new_local->pending = changelog;
         uuid_copy (new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
         new_local->loc.inode = inode_ref (local->inode);
 
