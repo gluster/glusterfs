@@ -212,7 +212,7 @@ gf_store_read_and_tokenize (FILE *file, char *str, char **iter_key,
                 goto out;
         }
 
-        value = strtok_r (NULL, "=", &savetok);
+        value = strtok_r (NULL, "", &savetok);
         if (!value) {
                 ret = -1;
                 *store_errno = GD_STORE_VALUE_NULL;
