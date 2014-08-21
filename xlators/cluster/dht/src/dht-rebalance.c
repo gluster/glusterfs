@@ -858,19 +858,22 @@ int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                   int flag)
 {
-        int             ret            = -1;
-        struct iatt     new_stbuf      = {0,};
-        struct iatt     stbuf          = {0,};
-        struct iatt     empty_iatt     = {0,};
-        ia_prot_t       src_ia_prot    = {0,};
-        fd_t           *src_fd         = NULL;
-        fd_t           *dst_fd         = NULL;
-        dict_t         *dict           = NULL;
-        dict_t         *xattr          = NULL;
-        dict_t         *xattr_rsp      = NULL;
-        int             file_has_holes = 0;
-        dht_conf_t     *conf           = this->private;
-        int            rcvd_enoent_from_src = 0;
+        int             ret                  = -1;
+        struct iatt     new_stbuf            = {0,};
+        struct iatt     stbuf                = {0,};
+        struct iatt     empty_iatt           = {0,};
+        ia_prot_t       src_ia_prot          = {0,};
+        fd_t           *src_fd               = NULL;
+        fd_t           *dst_fd               = NULL;
+        dict_t         *dict                 = NULL;
+        dict_t         *xattr                = NULL;
+        dict_t         *xattr_rsp            = NULL;
+        int             file_has_holes       = 0;
+        dht_conf_t     *conf                 = this->private;
+        int             rcvd_enoent_from_src = 0;
+        struct gf_flock flock                = {0, };
+        loc_t           tmp_loc              = {0, };
+        gf_boolean_t    locked               = _gf_false;
 
         gf_log (this->name, GF_LOG_INFO, "%s: attempting to move from %s to %s",
                 loc->path, from->name, to->name);
@@ -887,6 +890,25 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to set 'linkto' key in dict", loc->path);
                 goto out;
         }
+
+        flock.l_type = F_WRLCK;
+
+        tmp_loc.inode = inode_ref (loc->inode);
+        uuid_copy (tmp_loc.gfid, loc->gfid);
+
+        ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc, F_SETLKW,
+                              &flock, NULL, NULL);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "migrate file failed: "
+                        "%s: failed to lock file on %s (%s)",
+                        loc->path, from->name, strerror (-ret));
+                ret = -1;
+                goto out;
+        }
+
+        locked = _gf_true;
 
         /* Phase 1 - Data migration is in progress from now on */
         ret = syncop_lookup (from, loc, dict, &stbuf, &xattr_rsp, NULL);
@@ -1136,6 +1158,19 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         ret = 0;
 out:
+        if (locked) {
+                flock.l_type = F_UNLCK;
+
+                ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc,
+                                      F_SETLK, &flock, NULL, NULL);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "%s: failed to unlock file on %s (%s)",
+                                loc->path, from->name, strerror (-ret));
+                }
+        }
+
         if (dict)
                 dict_unref (dict);
 
@@ -1148,6 +1183,8 @@ out:
                 syncop_close (dst_fd);
         if (src_fd)
                 syncop_close (src_fd);
+
+        loc_wipe (&tmp_loc);
 
         return ret;
 }
