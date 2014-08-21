@@ -21,9 +21,9 @@
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID|GF_SET_ATTR_GID|GF_SET_ATTR_MODE)
 
 int
-afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
-			  int source, unsigned char *healed_sinks,
-			  struct afr_reply *locked_replies)
+__afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                            int source, unsigned char *healed_sinks,
+                            struct afr_reply *locked_replies)
 {
 	int ret = -1;
 	loc_t loc = {0,};
@@ -189,7 +189,6 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	return source;
 }
 
-
 static int
 __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			 unsigned char *locked_on)
@@ -220,30 +219,27 @@ __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			goto unlock;
 		}
 
-		ret = __afr_selfheal_metadata_prepare (frame, this, inode, data_lock,
-						       sources, sinks, healed_sinks,
+		ret = __afr_selfheal_metadata_prepare (frame, this, inode,
+                                                       data_lock, sources,
+                                                       sinks, healed_sinks,
 						       locked_replies);
 		if (ret < 0)
 			goto unlock;
 
 		source = ret;
-		ret = 0;
+                ret = __afr_selfheal_metadata_do (frame, this, inode, source,
+                                                  healed_sinks, locked_replies);
+                if (ret)
+                        goto unlock;
+
+                ret = afr_selfheal_undo_pending (frame, this, inode, sources,
+                                                 sinks, healed_sinks,
+                                                 AFR_METADATA_TRANSACTION,
+                                                 locked_replies, data_lock);
 	}
 unlock:
 	afr_selfheal_uninodelk (frame, this, inode, this->name,
 				LLONG_MAX -1, 0, data_lock);
-	if (ret < 0)
-		goto out;
-
-	ret = afr_selfheal_metadata_do (frame, this, inode, source, healed_sinks,
-					locked_replies);
-	if (ret)
-		goto out;
-
-	ret = afr_selfheal_undo_pending (frame, this, inode, sources, sinks,
-					 healed_sinks, AFR_METADATA_TRANSACTION,
-					 locked_replies, data_lock);
-out:
 	return ret;
 }
 
