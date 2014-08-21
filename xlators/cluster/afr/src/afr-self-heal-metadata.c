@@ -160,8 +160,8 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	if (ret)
 		return ret;
 
-	ret = afr_selfheal_find_direction (frame, this, replies,
-					   AFR_METADATA_TRANSACTION,
+	ret = afr_selfheal_find_direction (this, replies,
+                                           AFR_METADATA_TRANSACTION,
 					   locked_on, sources, sinks);
 	if (ret)
 		return ret;

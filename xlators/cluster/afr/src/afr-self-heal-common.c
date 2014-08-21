@@ -312,8 +312,7 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
  */
 
 int
-afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
-			     struct afr_reply *replies,
+afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
 			     afr_transaction_type type, unsigned char *locked_on,
 			     unsigned char *sources, unsigned char *sinks)
 {
@@ -415,7 +414,7 @@ afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 inode_t *
 afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 				 const char *name, struct afr_reply *replies,
-				 unsigned char *lookup_on)
+				 unsigned char *lookup_on, dict_t *xattr)
 {
 	loc_t loc = {0, };
 	dict_t *xattr_req = NULL;
@@ -429,6 +428,9 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 	xattr_req = dict_new ();
 	if (!xattr_req)
 		return NULL;
+
+        if (xattr)
+                dict_copy (xattr, xattr_req);
 
 	if (afr_xattr_req_prepare (frame->this, xattr_req) != 0) {
 		dict_destroy (xattr_req);
@@ -456,7 +458,6 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 
 	return inode;
 }
-
 
 int
 afr_selfheal_unlocked_discover_on (call_frame_t *frame, inode_t *inode,
