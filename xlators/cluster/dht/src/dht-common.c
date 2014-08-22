@@ -1279,9 +1279,9 @@ preset_layout:
         }
 
         gf_msg_debug (this->name, 0,
-                      "Linking file %s on %s to %s (hash)(gfid = %s)",
-                      local->loc.path, cached_subvol->name,
-                      hashed_subvol->name, gfid);
+                      "Creating linkto file on %s(hash) to %s on %s (gfid = %s)",
+                      hashed_subvol->name, local->loc.path,
+                      cached_subvol->name, gfid);
 
         ret = dht_linkfile_create (frame,
                                    dht_lookup_linkfile_create_cbk, this,
@@ -1456,7 +1456,10 @@ unlock:
                         } else {
                                 gf_log (this->name, GF_LOG_INFO,
                                         "attempting deletion of stale linkfile "
-                                        "%s on %s", loc->path, subvol->name);
+                                        "%s on %s (hashed subvol is %s)",
+                                        loc->path, subvol->name,
+                                        (local->hashed_subvol?
+                                        local->hashed_subvol->name : "<null>"));
 
                                 STACK_WIND (frame, dht_lookup_unlink_cbk,
                                             subvol, subvol->fops->unlink, loc,

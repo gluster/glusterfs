@@ -1029,7 +1029,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         local->dst_hashed = dst_hashed;
         local->dst_cached = dst_cached;
 
-        gf_msg_trace (this->name, 0,
+        gf_msg_debug (this->name, 0,
                       "renaming %s (hash=%s/cache=%s) => %s"
                       " (hash=%s/cache=%s)",
                       oldloc->path, src_hashed->name, src_cached->name,
