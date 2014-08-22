@@ -5661,15 +5661,15 @@ client3_3_readdir (call_frame_t *frame, xlator_t *this,
         readdir_rsp_size = xdr_sizeof ((xdrproc_t) xdr_gfs3_readdir_rsp, &rsp)
                 + args->size;
 
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+        frame->local = local;
+
         if ((readdir_rsp_size + GLUSTERFS_RPC_REPLY_SIZE + GLUSTERFS_RDMA_MAX_HEADER_SIZE)
             > (GLUSTERFS_RDMA_INLINE_THRESHOLD)) {
-                local = mem_get0 (this->local_pool);
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto unwind;
-                }
-                frame->local = local;
-
                 rsp_iobref = iobref_new ();
                 if (rsp_iobref == NULL) {
                         goto unwind;
