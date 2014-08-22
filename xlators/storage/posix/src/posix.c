@@ -1354,6 +1354,41 @@ out:
         return 0;
 }
 
+int32_t
+posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
+                                    struct iatt *stbuf, int32_t *op_errno)
+{
+        int32_t             ret      =   0;
+
+        /*  Unlink the gfid_handle_first */
+
+        if (stbuf && stbuf->ia_nlink == 1) {
+                ret = posix_handle_unset (this, stbuf->ia_gfid, NULL);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "unlink of gfid handle failed for path:%s with"
+                                "gfid %s with errno:%s", real_path,
+                                uuid_utoa (stbuf->ia_gfid), strerror (errno));
+                }
+        }
+
+        /* Unlink the actual file */
+        ret = sys_unlink (real_path);
+        if (ret == -1) {
+                if (op_errno)
+                        *op_errno = errno;
+
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unlink of %s failed: %s", real_path,
+                        strerror (errno));
+                goto err;
+        }
+
+        return 0;
+
+err:
+        return -1;
+}
 
 int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
@@ -1393,9 +1428,6 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                         par_path, strerror (op_errno));
                 goto out;
         }
-
-        if (stbuf.ia_nlink == 1)
-                posix_handle_unset (this, stbuf.ia_gfid, NULL);
 
         priv = this->private;
 
@@ -1481,12 +1513,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = sys_unlink (real_path);
+        op_ret =  posix_unlink_gfid_handle_and_entry (this, real_path, &stbuf,
+                                                      &op_errno);
         if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "unlink of %s failed: %s", real_path,
-                        strerror (op_errno));
                 goto out;
         }
 
