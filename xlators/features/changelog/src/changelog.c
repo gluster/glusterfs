@@ -417,13 +417,37 @@ changelog_link_cbk (call_frame_t *frame,
 }
 
 int32_t
+changelog_link_resume (call_frame_t *frame, xlator_t *this,
+                        loc_t *oldloc, loc_t *newloc, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("changelog", this, out);
+        GF_VALIDATE_OR_GOTO ("changelog", this->fops, out);
+        GF_VALIDATE_OR_GOTO ("changelog", frame, out);
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing link");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_link_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->link,
+                    oldloc, newloc, xdata);
+        return 0;
+out:
+        return -1;
+}
+int32_t
 changelog_link (call_frame_t *frame,
                 xlator_t *this, loc_t *oldloc,
                 loc_t *newloc, dict_t *xdata)
 {
-        size_t            xtra_len = 0;
-        changelog_priv_t *priv     = NULL;
-        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len         = 0;
+        changelog_priv_t *priv             = NULL;
+        changelog_opt_t  *co               = NULL;
+        call_stub_t      *stub             = NULL;
+        struct list_head queue             = {0, };
+        gf_boolean_t     barrier_enabled   = _gf_false;
 
         priv = this->private;
 
@@ -444,11 +468,40 @@ changelog_link (call_frame_t *frame,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_link_stub (frame, changelog_link_resume,
+                                               oldloc, newloc, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueued link");
+                goto out;
+        }
+
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: link, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_link_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->link,
                     oldloc, newloc, xdata);
+out:
         return 0;
 }
 
@@ -479,15 +532,41 @@ changelog_mkdir_cbk (call_frame_t *frame,
 }
 
 int32_t
+changelog_mkdir_resume (call_frame_t *frame, xlator_t *this,
+                        loc_t *loc, mode_t mode,
+                        mode_t umask, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("changelog", this, out);
+        GF_VALIDATE_OR_GOTO ("changelog", this->fops, out);
+        GF_VALIDATE_OR_GOTO ("changelog", frame, out);
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing mkdir");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_mkdir_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->mkdir,
+                    loc, mode, umask, xdata);
+        return 0;
+out:
+        return -1;
+}
+
+int32_t
 changelog_mkdir (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
-        int               ret      = -1;
-        uuid_t            gfid     = {0,};
-        void             *uuid_req = NULL;
-        size_t            xtra_len = 0;
-        changelog_priv_t *priv     = NULL;
-        changelog_opt_t  *co       = NULL;
+        int               ret              = -1;
+        uuid_t            gfid             = {0,};
+        void             *uuid_req         = NULL;
+        size_t            xtra_len         = 0;
+        changelog_priv_t *priv             = NULL;
+        changelog_opt_t  *co               = NULL;
+        call_stub_t      *stub             = NULL;
+        struct list_head queue             = {0, };
+        gf_boolean_t     barrier_enabled   = _gf_false;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
@@ -523,11 +602,41 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_mkdir_stub (frame, changelog_mkdir_resume,
+                                               loc, mode, umask, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueued mkdir");
+                goto out;
+        }
+
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: mkdir, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_mkdir_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mkdir,
                     loc, mode, umask, xdata);
+out:
         return 0;
 }
 
@@ -557,17 +666,44 @@ changelog_symlink_cbk (call_frame_t *frame,
         return 0;
 }
 
+
+int32_t
+changelog_symlink_resume (call_frame_t *frame, xlator_t *this,
+                          const char *linkname, loc_t *loc,
+                          mode_t umask, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("changelog", this, out);
+        GF_VALIDATE_OR_GOTO ("changelog", this->fops, out);
+        GF_VALIDATE_OR_GOTO ("changelog", frame, out);
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing symlink");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_symlink_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->symlink,
+                    linkname, loc, umask, xdata);
+        return 0;
+out:
+        return -1;
+}
+
 int32_t
 changelog_symlink (call_frame_t *frame, xlator_t *this,
                    const char *linkname, loc_t *loc,
                    mode_t umask, dict_t *xdata)
 {
-        int               ret      = -1;
-        size_t            xtra_len = 0;
-        uuid_t            gfid     = {0,};
-        void             *uuid_req = NULL;
-        changelog_priv_t *priv     = NULL;
-        changelog_opt_t  *co       = NULL;
+        int               ret              = -1;
+        size_t            xtra_len         = 0;
+        uuid_t            gfid             = {0,};
+        void             *uuid_req         = NULL;
+        changelog_priv_t *priv             = NULL;
+        changelog_opt_t  *co               = NULL;
+        call_stub_t      *stub             = NULL;
+        struct list_head queue             = {0, };
+        gf_boolean_t     barrier_enabled   = _gf_false;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
@@ -594,11 +730,42 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_symlink_stub (frame,
+                                                 changelog_symlink_resume,
+                                                 linkname, loc, umask, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueued symlink");
+                goto out;
+        }
+
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: symlink, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_symlink_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->symlink,
                     linkname, loc, umask, xdata);
+out:
         return 0;
 }
 
@@ -629,16 +796,42 @@ changelog_mknod_cbk (call_frame_t *frame,
 }
 
 int32_t
+changelog_mknod_resume (call_frame_t *frame, xlator_t *this,
+                        loc_t *loc, mode_t mode, dev_t rdev,
+                        mode_t umask, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("changelog", this, out);
+        GF_VALIDATE_OR_GOTO ("changelog", this->fops, out);
+        GF_VALIDATE_OR_GOTO ("changelog", frame, out);
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing mknod");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_mknod_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->mknod,
+                    loc, mode, rdev, umask, xdata);
+        return 0;
+out:
+        return -1;
+}
+
+int32_t
 changelog_mknod (call_frame_t *frame,
                  xlator_t *this, loc_t *loc,
                  mode_t mode, dev_t dev, mode_t umask, dict_t *xdata)
 {
-        int               ret      = -1;
-        uuid_t            gfid     = {0,};
-        void             *uuid_req = NULL;
-        size_t            xtra_len = 0;
-        changelog_priv_t *priv     = NULL;
-        changelog_opt_t  *co       = NULL;
+        int               ret              = -1;
+        uuid_t            gfid             = {0,};
+        void             *uuid_req         = NULL;
+        size_t            xtra_len         = 0;
+        changelog_priv_t *priv             = NULL;
+        changelog_opt_t  *co               = NULL;
+        call_stub_t      *stub             = NULL;
+        struct list_head queue             = {0, };
+        gf_boolean_t     barrier_enabled   = _gf_false;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
@@ -675,11 +868,41 @@ changelog_mknod (call_frame_t *frame,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_mknod_stub (frame, changelog_mknod_resume,
+                                               loc, mode, dev, umask, xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueued mknod");
+                goto out;
+        }
+
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: mknod, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_mknod_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mknod,
                     loc, mode, dev, umask, xdata);
+out:
         return 0;
 }
 
@@ -712,16 +935,43 @@ changelog_create_cbk (call_frame_t *frame,
 }
 
 int32_t
+changelog_create_resume (call_frame_t *frame, xlator_t *this,
+                         loc_t *loc, int32_t flags, mode_t mode,
+                         mode_t umask, fd_t *fd, dict_t *xdata)
+{
+        changelog_priv_t *priv     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("changelog", this, out);
+        GF_VALIDATE_OR_GOTO ("changelog", this->fops, out);
+        GF_VALIDATE_OR_GOTO ("changelog", frame, out);
+
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing create");
+        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        STACK_WIND (frame, changelog_create_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
+                    loc, flags, mode, umask, fd, xdata);
+        return 0;
+
+out:
+        return -1;
+}
+
+int32_t
 changelog_create (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, int32_t flags, mode_t mode,
                   mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        int               ret      = -1;
-        uuid_t            gfid     = {0,};
-        void             *uuid_req = NULL;
-        changelog_opt_t  *co       = NULL;
-        changelog_priv_t *priv     = NULL;
-        size_t            xtra_len = 0;
+        int               ret              = -1;
+        uuid_t            gfid             = {0,};
+        void             *uuid_req         = NULL;
+        changelog_opt_t  *co               = NULL;
+        changelog_priv_t *priv             = NULL;
+        size_t            xtra_len         = 0;
+        call_stub_t      *stub             = NULL;
+        struct list_head queue             = {0, };
+        gf_boolean_t     barrier_enabled   = _gf_false;
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
@@ -760,11 +1010,42 @@ changelog_create (call_frame_t *frame, xlator_t *this,
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 5);
 
+        LOCK (&priv->lock);
+        {
+                if ((barrier_enabled = priv->barrier_enabled)) {
+                        stub = fop_create_stub (frame, changelog_create_resume,
+                                               loc, flags, mode, umask, fd,
+                                               xdata);
+                        if (!stub)
+                               __chlog_barrier_disable (this, &queue);
+                        else
+                               __chlog_barrier_enqueue (this, stub);
+                } else {
+                        ((changelog_local_t *)frame->local)->color
+                                                          = priv->current_color;
+                        changelog_inc_fop_cnt (this, priv, frame->local);
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (barrier_enabled && stub) {
+                gf_log (this->name, GF_LOG_DEBUG, "Enqueued create");
+                goto out;
+        }
+
+        if (barrier_enabled && !stub) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to barrier FOPs, disabling changelog barrier "
+                        "FOP: create, ERROR: %s", strerror (ENOMEM));
+                chlog_barrier_dequeue_all (this, &queue);
+        }
+
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, umask, fd, xdata);
+out:
         return 0;
 }
 
