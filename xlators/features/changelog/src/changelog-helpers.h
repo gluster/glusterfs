@@ -212,10 +212,16 @@ struct changelog_priv {
         /* htime fd for current changelog session */
         int htime_fd;
 
+        /*  c_snap_fd is fd for call-path changelog */
+        int c_snap_fd;
+
         /* rollover_count used by htime */
         int  rollover_count;
 
         gf_lock_t lock;
+
+        /*  lock to synchronize CSNAP updation */
+        gf_lock_t c_snap_lock;
 
         /* writen end of the pipe */
         int wfd;
@@ -431,6 +437,18 @@ changelog_drain_white_fops (xlator_t *this, changelog_priv_t *priv);
 void
 changelog_drain_black_fops (xlator_t *this, changelog_priv_t *priv);
 
+/* Crash consistency of changelog wrt snapshot */
+int
+changelog_snap_logging_stop ( xlator_t *this, changelog_priv_t *priv);
+int
+changelog_snap_logging_start ( xlator_t *this, changelog_priv_t *priv);
+int
+changelog_snap_open ( xlator_t *this, changelog_priv_t *priv);
+int
+changelog_snap_handle_ascii_change (xlator_t *this,
+                changelog_log_data_t *cld);
+int
+changelog_snap_write_change (changelog_priv_t *priv, char *buffer, size_t len);
 /* Changelog barrier routines */
 void __chlog_barrier_enqueue (xlator_t *this, call_stub_t *stub);
 void __chlog_barrier_disable (xlator_t *this, struct list_head *queue);

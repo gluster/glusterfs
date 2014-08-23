@@ -337,6 +337,101 @@ out:
         return ret;
 }
 
+/* Description:
+ *      Opens the snap changelog to log call path fops in it.
+ *      This changelos name is "CHANGELOG.SNAP", stored in
+ *      path ".glusterfs/changelogs/csnap".
+ * Returns:
+ *       0  : On success.
+ *      -1  : On failure.
+ */
+int
+changelog_snap_open (xlator_t *this,
+                         changelog_priv_t *priv)
+{
+        int fd                        = -1;
+        int ret                       = 0;
+        int flags                     = 0;
+        char buffer[1024]             = {0,};
+        char c_snap_path[PATH_MAX]    = {0,};
+        char csnap_dir_path[PATH_MAX] = {0,};
+
+        CHANGELOG_FILL_CSNAP_DIR(priv->changelog_dir, csnap_dir_path);
+
+        (void) snprintf (c_snap_path, PATH_MAX,
+                        "%s/"CSNAP_FILE_NAME,
+                        csnap_dir_path);
+
+        flags |= (O_CREAT | O_RDWR | O_TRUNC);
+
+        fd = open (c_snap_path, flags,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "unable to open %s file "
+                                "reason:(%s)", c_snap_path, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+        priv->c_snap_fd = fd;
+
+        (void) snprintf (buffer, 1024, CHANGELOG_HEADER,
+                        CHANGELOG_VERSION_MAJOR,
+                        CHANGELOG_VERSION_MINOR,
+                        priv->ce->encoder);
+        ret = changelog_snap_write_change (priv, buffer, strlen (buffer));
+        if (ret < 0) {
+                close (priv->c_snap_fd);
+                priv->c_snap_fd = -1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+/*
+ * Description:
+ *      Starts logging fop details in CSNAP journal.
+ * Returns:
+ *       0 : On success.
+ *      -1 : On Failure.
+ */
+int
+changelog_snap_logging_start (xlator_t *this,
+                                  changelog_priv_t *priv)
+{
+        int ret = 0;
+
+        ret = changelog_snap_open (this, priv);
+        gf_log (this->name, GF_LOG_INFO,
+                        "Now starting to log in call path");
+
+        return ret;
+}
+
+/*
+ * Description:
+ *      Stops logging fop details in CSNAP journal.
+ * Returns:
+ *       0 : On success.
+ *      -1 : On Failure.
+ */
+int
+changelog_snap_logging_stop (xlator_t *this,
+                changelog_priv_t *priv)
+{
+        int ret         = 0;
+
+        close (priv->c_snap_fd);
+        priv->c_snap_fd = -1;
+
+        gf_log (this->name, GF_LOG_INFO,
+                        "Stopped to log in call path");
+
+        return ret;
+}
+
 int
 changelog_open (xlator_t *this,
                 changelog_priv_t *priv)
@@ -424,9 +519,70 @@ changelog_fill_rollover_data (changelog_log_data_t *cld, gf_boolean_t is_last)
 }
 
 int
+changelog_snap_write_change (changelog_priv_t *priv, char *buffer, size_t len)
+{
+        return changelog_write (priv->c_snap_fd, buffer, len);
+}
+
+int
 changelog_write_change (changelog_priv_t *priv, char *buffer, size_t len)
 {
         return changelog_write (priv->changelog_fd, buffer, len);
+}
+
+/*
+ * Descriptions:
+ *      Writes fop details in ascii format to CSNAP.
+ * Issues:
+ *      Not Encoding agnostic.
+ * Returns:
+ *      0 : On Success.
+ *     -1 : On Failure.
+ */
+int
+changelog_snap_handle_ascii_change (xlator_t *this,
+                                    changelog_log_data_t *cld)
+{
+        size_t            off      = 0;
+        size_t            gfid_len = 0;
+        char             *gfid_str = NULL;
+        char             *buffer   = NULL;
+        changelog_priv_t *priv     = NULL;
+        int               ret      = 0;
+
+        if (this == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        priv = this->private;
+
+        if (priv == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        gfid_str = uuid_utoa (cld->cld_gfid);
+        gfid_len = strlen (gfid_str);
+
+        /*  extra bytes for decorations */
+        buffer = alloca (gfid_len + cld->cld_ptr_len + 10);
+        CHANGELOG_STORE_ASCII (priv, buffer,
+                        off, gfid_str, gfid_len, cld);
+
+        CHANGELOG_FILL_BUFFER (buffer, off, "\0", 1);
+
+        ret = changelog_snap_write_change (priv, buffer, off);
+
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "error writing csnap to disk");
+        }
+        gf_log (this->name, GF_LOG_INFO,
+                        "Successfully wrote to csnap");
+        ret = 0;
+out:
+        return ret;
 }
 
 inline int

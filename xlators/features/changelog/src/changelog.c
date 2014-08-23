@@ -1433,6 +1433,16 @@ changelog_truncate (call_frame_t *frame,
 
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 0);
+        LOCK(&priv->c_snap_lock);
+        {
+                if (priv->c_snap_fd != -1 &&
+                    priv->barrier_enabled == _gf_true) {
+                        changelog_snap_handle_ascii_change (this,
+                              &( ((changelog_local_t *)(frame->local))->cld));
+                }
+        }
+        UNLOCK(&priv->c_snap_lock);
+
 
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
@@ -1476,6 +1486,15 @@ changelog_ftruncate (call_frame_t *frame,
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
+        LOCK(&priv->c_snap_lock);
+        {
+                if (priv->c_snap_fd != -1 &&
+                    priv->barrier_enabled == _gf_true) {
+                        changelog_snap_handle_ascii_change (this,
+                              &( ((changelog_local_t *)(frame->local))->cld));
+                }
+        }
+        UNLOCK(&priv->c_snap_lock);
 
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
@@ -1523,6 +1542,15 @@ changelog_writev (call_frame_t *frame,
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 0);
+        LOCK(&priv->c_snap_lock);
+        {
+                if (priv->c_snap_fd != -1 &&
+                    priv->barrier_enabled == _gf_true) {
+                        changelog_snap_handle_ascii_change (this,
+                              &( ((changelog_local_t *)(frame->local))->cld));
+                }
+        }
+        UNLOCK(&priv->c_snap_lock);
 
  wind:
         changelog_color_fop_and_inc_cnt (this, priv, frame->local);
@@ -1751,6 +1779,11 @@ notify (xlator_t *this, int event, void *data, ...)
                                 "Barrier off notification");
 
                         CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
+                        LOCK(&priv->c_snap_lock);
+                        {
+                                changelog_snap_logging_stop (this, priv);
+                        }
+                        UNLOCK(&priv->c_snap_lock);
 
                         LOCK (&priv->bflags.lock);
                         {
@@ -1800,6 +1833,11 @@ notify (xlator_t *this, int event, void *data, ...)
                                 "Barrier on notification");
 
                         CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
+                        LOCK(&priv->c_snap_lock);
+                        {
+                                changelog_snap_logging_start (this, priv);
+                        }
+                        UNLOCK(&priv->c_snap_lock);
 
                         LOCK (&priv->bflags.lock);
                         {
@@ -2080,6 +2118,7 @@ reconfigure (xlator_t *this, dict_t *options)
         changelog_time_slice_t *slice          = NULL;
         changelog_log_data_t    cld            = {0,};
         char    htime_dir[PATH_MAX]            = {0,};
+        char    csnap_dir[PATH_MAX]            = {0,};
         struct timeval          tv             = {0,};
         uint32_t                timeout        = 0;
 
@@ -2111,6 +2150,12 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
         ret = mkdir_p (htime_dir, 0600, _gf_true);
+
+        if (ret)
+                goto out;
+
+        CHANGELOG_FILL_CSNAP_DIR(priv->changelog_dir, csnap_dir);
+        ret = mkdir_p (csnap_dir, 0600, _gf_true);
 
         if (ret)
                 goto out;
@@ -2197,6 +2242,7 @@ init (xlator_t *this)
         changelog_priv_t        *priv                   = NULL;
         gf_boolean_t            cond_lock_init          = _gf_false;
         char                    htime_dir[PATH_MAX]     = {0,};
+        char                    csnap_dir[PATH_MAX]     = {0,};
         uint32_t                timeout                 = 0;
 
         GF_VALIDATE_OR_GOTO ("changelog", this, out);
@@ -2225,6 +2271,7 @@ init (xlator_t *this)
         }
 
         LOCK_INIT (&priv->lock);
+        LOCK_INIT (&priv->c_snap_lock);
 
         GF_OPTION_INIT ("changelog-brick", tmp, str, out);
         if (!tmp) {
@@ -2261,6 +2308,11 @@ init (xlator_t *this)
 
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, htime_dir);
         ret = mkdir_p (htime_dir, 0600, _gf_true);
+        if (ret)
+                goto out;
+
+        CHANGELOG_FILL_CSNAP_DIR(priv->changelog_dir, csnap_dir);
+        ret = mkdir_p (csnap_dir, 0600, _gf_true);
         if (ret)
                 goto out;
 
