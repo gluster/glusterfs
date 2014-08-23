@@ -118,6 +118,6 @@ EXPECT "2" stat -c "%h" test4
 EXPECT_WITHIN 5 "3" stat -c "%h" ${brick[0]}/test4
 EXPECT_WITHIN 5 "3" stat -c "%h" ${brick[1]}/test4
 
-rm -rf $tmp
+TEST rm -rf $tmp
 
 cleanup

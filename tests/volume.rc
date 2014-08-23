@@ -252,8 +252,8 @@ function gd_is_replace_brick_completed {
 }
 
 function dht_get_layout {
-	local my_xa=trusted.glusterfs.dht
-	getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
+        local my_xa=trusted.glusterfs.dht
+        getfattr -d -e hex -n $my_xa $1 2> /dev/null | grep "$my_xa=" | cut -d= -f2
 }
 
 function afr_get_specific_changelog_xattr ()

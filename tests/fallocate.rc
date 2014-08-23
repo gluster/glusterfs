@@ -7,13 +7,13 @@
 
 function require_fallocate()
 {
-	output=`fallocate $* 2>&1`
-	ret=$?
-	if [ ! $ret -eq 0 ] && ([[ $output == *unsupported* ]] ||
-				[[ $output == *invalid* ]] ||
-				[[ $output == *"not supported"* ]])
-	then
-		SKIP_TESTS
-		exit
-	fi
+        output=`fallocate $* 2>&1`
+        ret=$?
+        if [ ! $ret -eq 0 ] && ([[ $output == *unsupported* ]] ||
+                                [[ $output == *invalid* ]] ||
+                                [[ $output == *"not supported"* ]])
+        then
+                SKIP_TESTS
+                exit
+        fi
 }

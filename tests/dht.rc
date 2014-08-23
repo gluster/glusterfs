@@ -1,9 +1,9 @@
 #!/bin/bash
 
+
 function get_layout()
 {
-        getfattr -n trusted.glusterfs.dht -e hex $1 2>&1|grep dht |cut -d = -f2
-
+        getfattr -n trusted.glusterfs.dht -e hex $1 2>&1 | grep dht | cut -d = -f2
 }
 
 ## populates $BRICK1 and $BRICK2 with hashed/cached subvolume. These will be
@@ -15,7 +15,7 @@ function file_has_linkfile()
         l=0
         while [ $k -lt $BRICK_COUNT ]
         do
-                stat=`stat $B0/${V0}$k/$1 2>/dev/null`
+                stat=$(stat $B0/${V0}$k/$1 2>/dev/null)
                 if [ $? -eq 0 ]
                 then
                         let l++
@@ -33,7 +33,7 @@ function get_cached_brick()
         brick=$BRICK1
         while [ $i -lt 3 ]
         do
-                test=`getfattr -n trusted.glusterfs.dht.linkto -e text $B0/${V0}$brick/$1 2>&1`
+                test=$(getfattr -n trusted.glusterfs.dht.linkto -e text $B0/${V0}$brick/$1 2>&1)
                 if [ $? -eq 1 ]
                 then
                         cached=$brick
@@ -52,7 +52,7 @@ function get_hashed_brick()
         brick=$BRICK1
         while [ $j -lt 3 ]
         do
-                test=`getfattr -n trusted.glusterfs.dht.linkto -e text $B0/${V0}$brick/$1 2>&1`
+                test=$(getfattr -n trusted.glusterfs.dht.linkto -e text $B0/${V0}$brick/$1 2>&1)
                 if [ $? -eq 0 ]
                 then
                         hashed=$brick
@@ -69,7 +69,7 @@ function get_hashed_brick()
 function rebalance_completed()
 {
        val=1
-       test=`gluster volume rebalance $V0 status |grep localhost|grep -v "in progress" 2>&1`
+       test=$(gluster volume rebalance $V0 status | grep localhost | grep -v "in progress" 2>&1)
        if [ $? -eq 0 ]
        then
                 val=0
@@ -82,7 +82,7 @@ function rebalance_completed()
 function remove_brick_completed()
 {
        val=1
-       test=`gluster volume remove-brick $V0 $H0:$B0/${V0}2 status |grep localhost|grep -v "in progress" 2>&1`
+       test=$(gluster volume remove-brick $V0 $H0:$B0/${V0}2 status | grep localhost | grep -v "in progress" 2>&1)
        if [ $? -eq 0 ]
        then
                 val=0
@@ -95,14 +95,14 @@ function remove_brick_completed()
 function dht_get_linkto_target()
 {
         local path=$1;
-        echo `getfattr -d -m . -e text --only-values --absolute-names --name=trusted.glusterfs.dht.linkto $path`
+        echo $(getfattr -e text --only-values --absolute-names -n trusted.glusterfs.dht.linkto $path)
 }
 
 function is_dht_linkfile()
 {
         local path=$1
         retval=0
-        local output=`stat --format=%a $path`
+        local output=$(stat -c %a $path)
         if [ $output -eq 1000 ]; then
                  retval=1
         fi

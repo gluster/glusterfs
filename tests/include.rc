@@ -62,59 +62,75 @@ mkdir -p $B0;
 mkdir -p $M0 $M1;
 mkdir -p $N0 $N1;
 
+case $OSTYPE in
+FreeBSD | Darwin)
+wc () {
+   if test "x$1" = "x-l"; then
+      awk '{ lines++ } END {print lines}'
+   fi
+   if test "x$1" = "x-w"; then
+      awk '{ words += NF } END {print words}' }
+   fi
+   if test "x$1" = "x-c"; then
+      awk '{ chars += length($0) + 1 } END {print chars}'
+   fi
+   if test "x$1" = "x-m"; then
+      awk '{ chars += length($0) + 1 } END {print chars}'
+   fi
+}
+;;
+esac
+
 testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
 expect_tests=`egrep '^[[:space:]]*TESTS_EXPECTED_IN_LOOP[[:space:]]*' $0`
 
 x_ifs=$IFS
 IFS=$'\n'
 for line in $expect_tests; do
-	expect_tests=`echo $line | cut -f 2 -d =`
-	testcnt=`expr $testcnt + $expect_tests`
+        expect_tests=`echo $line | cut -f 2 -d =`
+        testcnt=`expr $testcnt + $expect_tests`
 done
 IFS=$x_ifs
 
-# Remove space again since `wc -l` on OSX and FreeBSD
-# adds spurious space which clobbers up TAP output
-testcnt_nospace=$(echo $testcnt | tr -d ' ')
-echo 1..$testcnt_nospace
+echo 1..$testcnt
 
 t=1
 
 function dbg()
 {
-	[ "x$DEBUG" = "x0" ] || echo "$*" >&2;
+        [ "x$DEBUG" = "x0" ] || echo "$*" >&2;
 }
 
 
 function test_header()
 {
-	dbg "=========================";
-	dbg "TEST $t (line $TESTLINE): $*";
-	saved_cmd="$*"
+        dbg "=========================";
+        dbg "TEST $t (line $TESTLINE): $*";
+        saved_cmd="$*"
 }
 
 
 function test_footer()
 {
-	RET=$?
+        RET=$?
         local err=$1
 
-	if [ $RET -eq 0 ]; then
-	     	echo "ok $t";
-	else
+        if [ $RET -eq 0 ]; then
+                echo "ok $t";
+        else
                 echo "not ok $t $err";
-		# With DEBUG, this was already printed out, so skip it.
-		if [ x"$DEBUG" = x"0" ]; then
-			echo "FAILED COMMAND: $saved_cmd"
-		fi
-		if [ "$EXIT_EARLY" = "1" ]; then
-			exit $RET
-		fi
-	fi
+                # With DEBUG, this was already printed out, so skip it.
+                if [ x"$DEBUG" = x"0" ]; then
+                        echo "FAILED COMMAND: $saved_cmd"
+                fi
+                if [ "$EXIT_EARLY" = "1" ]; then
+                        exit $RET
+                fi
+        fi
 
-	dbg "RESULT $t: $RET";
+        dbg "RESULT $t: $RET";
 
-	t=`expr $t + 1`;
+        t=`expr $t + 1`;
 }
 
 function test_expect_footer()
@@ -133,20 +149,20 @@ function test_expect_footer()
 
 function _EXPECT()
 {
-	TESTLINE=$1;
-	shift;
+        TESTLINE=$1;
+        shift;
         local a=""
 
-	test_header "$@";
+        test_header "$@";
 
-	e="$1";
-	shift;
-	a=$("$@" | tail -1)
+        e="$1";
+        shift;
+        a=$("$@" | tail -1)
 
         if [ "x$e" = "x" ] ; then
-	        test_expect_footer "x$e" "x$a";
+                test_expect_footer "x$e" "x$a";
         else
-	        test_expect_footer "$e" "$a";
+                test_expect_footer "$e" "$a";
         fi
 }
 
@@ -166,15 +182,15 @@ function test_expect_not_footer()
 
 function _EXPECT_NOT()
 {
-	TESTLINE=$1;
-	shift;
+        TESTLINE=$1;
+        shift;
         local a=""
 
-	test_header "$@";
+        test_header "$@";
 
-	e="$1";
-	shift;
-	a=$("$@" | tail -1)
+        e="$1";
+        shift;
+        a=$("$@" | tail -1)
 
         if [ "x$e" = "x" ] ; then
                test_expect_not_footer "x$e" "x$a";
@@ -185,34 +201,34 @@ function _EXPECT_NOT()
 
 function _EXPECT_KEYWORD()
 {
-	TESTLINE=$1;
-	shift;
+        TESTLINE=$1;
+        shift;
 
-	test_header "$@";
+        test_header "$@";
 
-	e="$1";
-	shift;
-	"$@" | tail -1 | grep -q "$e"
+        e="$1";
+        shift;
+        "$@" | tail -1 | grep -q "$e"
 
-	test_footer;
+        test_footer;
 }
 
 
 function _TEST()
 {
-	TESTLINE=$1;
-	shift;
+        TESTLINE=$1;
+        shift;
         local redirect=""
 
-	test_header "$@";
+        test_header "$@";
 
         if [ "$1" = "!" ]; then
                 redirect="2>&1"
         fi
 
-	eval "$@" >/dev/null $redirect
+        eval "$@" >/dev/null $redirect
 
-	test_footer;
+        test_footer;
 }
 
 function _EXPECT_WITHIN()
@@ -264,20 +280,20 @@ function SKIP_TESTS()
 
 function _TEST_IN_LOOP()
 {
-	testcnt=`expr $testcnt + 1`;
-	_TEST $@
+        testcnt=`expr $testcnt + 1`;
+        _TEST $@
 }
 
 which killall > /dev/null || {
-        killall() {
-                pkill $@
-        }
+  killall() {
+    pkill $@
+  }
 }
 
 which pidof > /dev/null || {
-      pidof() {
-              pidof.py $1
-      }
+  pidof() {
+    pidof.py $@
+  }
 }
 
 stat -c %s /dev/null > /dev/null 2>&1 || {
@@ -337,12 +353,12 @@ function cleanup()
                 umount $m
         done
 
-	killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
-	test "x`uname -s` = "xNetBSD" && pkill -15 perfused || true
+        killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused || true
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
-	killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
-	test "x`uname -s` = "xNetBSD" && pkill -9 perfused || true
+        killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
+        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused || true
 
         # unregister nfs and related services from portmapper/rpcbind
         ## nfs
@@ -358,45 +374,45 @@ function cleanup()
 
         type cleanup_lvm &>/dev/null && cleanup_lvm || true;
 
-	case `uname -s` in
-	Linux)
-        	LOOPDEVICES=`losetup -a | grep "$B0/" | \
-			     awk '{print $1}' | tr -d :`
-		for l in $LOOPDEVICES;
-		do
-			losetup -d $l
-		done
-		;;
-	NetBSD)
-		vnd=`vnconfig -l | \
-		     awk '!/not in use/{printf("%s%s:%d ", $1, $2, $5);}'`
-		for l in ${vnd} ; do
-			dev=${l%%:*}
-			tmp=${l#*:}
-			fs=${tmp%%:*}
-			inode=${tmp#*:}
-			file=`find -x ${fs} -inum ${inode} -print -exit`
-			echo ${file} | grep "$B0/" && \
-			    LOOPDEVICES="${LOOPDEVICES} $dev"
-		done
-		for l in $LOOPDEVICES;
-		do
-			vnconfig -u $l
-		done
-		;;
-	*)
-		echo "`uname -s` loopback device supportmissing"
-		;;
-	esac
+        case `uname -s` in
+        Linux)
+                LOOPDEVICES=`losetup -a | grep "$B0/" | \
+                             awk '{print $1}' | tr -d :`
+                for l in $LOOPDEVICES;
+                do
+                        losetup -d $l
+                done
+                ;;
+        NetBSD)
+                vnd=`vnconfig -l | \
+                     awk '!/not in use/{printf("%s%s:%d ", $1, $2, $5);}'`
+                for l in ${vnd} ; do
+                        dev=${l%%:*}
+                        tmp=${l#*:}
+                        fs=${tmp%%:*}
+                        inode=${tmp#*:}
+                        file=`find -x ${fs} -inum ${inode} -print -exit`
+                        echo ${file} | grep "$B0/" && \
+                            LOOPDEVICES="${LOOPDEVICES} $dev"
+                done
+                for l in $LOOPDEVICES;
+                do
+                        vnconfig -u $l
+                done
+                ;;
+        *)
+                echo "`uname -s` loopback device supportmissing"
+                ;;
+        esac
 
         if [ -n "${GLUSTERD_WORKDIR}" ] ; then
             rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
         fi
 
-	umount -l $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
-	umount -l $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
-	umount -l $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
-	umount -l $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
+        umount -l $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
+        umount -l $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+        umount -l $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
+        umount -l $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
 
 }
 
@@ -451,7 +467,7 @@ which truncate > /dev/null || {
         ;;
       -o)
         ioblocks=1;
-	echo "Unimplemented -o option"
+        echo "Unimplemented -o option"
         exit 2
         ;;
       -r)
@@ -543,6 +559,18 @@ which md5sum > /dev/null || {
   }
 }
 
+which setfattr > /dev/null || {
+  setfattr() {
+    setfattr.py $@
+  }
+}
+
+which getfattr > /dev/null || {
+  getfattr() {
+    getfattr.py $@
+  }
+}
+
 which sha1sum > /dev/null || {
   sha1sum() {
   case $OSTYPE in
@@ -569,9 +597,9 @@ alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
 shopt -s expand_aliases
 
 if [ x"$OSTYPE" = x"Linux" ]; then
-	alias dd="dd status=none"
+        alias dd="dd status=none"
 elif [ x"$OSTYPE" = x"NetBSD" ]; then
-	alias dd="dd msgfmt=quiet"
+        alias dd="dd msgfmt=quiet"
 fi
 # MacOS doesn't seem to support either option.  Doing nothing at all is
 # probably the safest option there and on anything we don't recognize, but

@@ -7,7 +7,7 @@ cleanup;
 
 function tmp_file_count()
 {
-echo $(ls -lh /tmp/tmp.* |  wc -l)
+    echo $(ls -lh /tmp/tmp.* 2>/dev/null |  wc -l)
 }
 
 

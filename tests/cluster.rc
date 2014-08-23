@@ -21,12 +21,12 @@ function define_backends() {
     local b;
 
     for i in `seq 1 $count`; do
-	eval "B$i=$B0/$i";
+        eval "B$i=$B0/$i";
     done
 
     for i in `seq 1 $count`; do
-	b="B$i";
-	mkdir -p ${!b}/glusterd;
+        b="B$i";
+        mkdir -p ${!b}/glusterd;
     done
 }
 
@@ -40,11 +40,11 @@ function define_glusterds() {
     local popt;
 
     for i in `seq 1 $count`; do
-	b="B$i";
-	h="H$i";
-	wopt="management.working-directory=${!b}/glusterd";
-	bopt="management.transport.socket.bind-address=${!h}";
-	popt="--pid-file=${!b}/glusterd.pid";
+        b="B$i";
+        h="H$i";
+        wopt="management.working-directory=${!b}/glusterd";
+        bopt="management.transport.socket.bind-address=${!h}";
+        popt="--pid-file=${!b}/glusterd.pid";
         sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
         #Get the logdir
         logdir=`gluster --print-logdir`
@@ -66,8 +66,8 @@ function start_glusterds() {
     local g;
 
     for i in `seq 1 $CLUSTER_COUNT`; do
-	g="glusterd_$i";
-	${!g};
+        g="glusterd_$i";
+        ${!g};
     done
 }
 
@@ -98,15 +98,15 @@ function define_hosts() {
     local count=$1;
 
     for i in `seq 1 $count`; do
-	eval "H_$i=${CLUSTER_PFX}.$i"
-	eval "H$i=${CLUSTER_PFX}.$i";
-	case $OSTYPE in
-	NetBSD)
-		ifconfig lo0 alias ${CLUSTER_PFX}.$i 2>/dev/null
-		;;
-	*)
-		;;
-	esac
+        eval "H_$i=${CLUSTER_PFX}.$i"
+        eval "H$i=${CLUSTER_PFX}.$i";
+        case $OSTYPE in
+        NetBSD)
+                ifconfig lo0 alias ${CLUSTER_PFX}.$i 2>/dev/null
+                ;;
+        *)
+                ;;
+        esac
     done
 }
 
@@ -116,9 +116,9 @@ function define_clis() {
     local h;
 
     for i in `seq 1 $count`; do
-	b="B$i";
-	eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
-	eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
+        b="B$i";
+        eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
+        eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
     done
 }
 

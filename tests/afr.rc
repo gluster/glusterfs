@@ -74,9 +74,9 @@ function is_file_heal_done {
 function count_sh_entries()
 {
     val1=0
-    for g in `ls $1/.glusterfs/indices/xattrop`
+    for g in $(ls $1/.glusterfs/indices/xattrop)
     do
-	val1=$(( val1 + 1 ))
+        val1=$(( val1 + 1 ))
     done
 
     echo $val1;

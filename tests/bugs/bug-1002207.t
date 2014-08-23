@@ -26,7 +26,7 @@ function xattr_query_check()
     local path=$1
     local xa_name=$2
 
-    local ret=`getfattr -m . -n $xa_name $path 2>&1 | grep -o "$xa_name: No such attribute" | wc -l`
+    local ret=$(getfattr -n $xa_name $path 2>&1 | grep -o "$xa_name: No such attribute" | wc -l)
     echo $ret
 }
 
