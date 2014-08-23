@@ -17,6 +17,7 @@
 #define CHANGELOG_MAX_TYPE  3
 #define CHANGELOG_FILE_NAME "CHANGELOG"
 #define HTIME_FILE_NAME "HTIME"
+#define CSNAP_FILE_NAME "CHANGELOG.SNAP"
 #define HTIME_KEY "trusted.glusterfs.htime"
 #define HTIME_INITIAL_VALUE "0:0"
 
@@ -70,6 +71,11 @@
 #define CHANGELOG_FILL_HTIME_DIR(changelog_dir, path) do {      \
                 strcpy (path, changelog_dir);                   \
                 strcat (path, "/htime");                        \
+        } while(0)
+
+#define CHANGELOG_FILL_CSNAP_DIR(changelog_dir, path) do {      \
+                strcpy (path, changelog_dir);                   \
+                strcat (path, "/csnap");                        \
         } while(0)
 /**
  * everything after 'CHANGELOG_TYPE_ENTRY' are internal types
