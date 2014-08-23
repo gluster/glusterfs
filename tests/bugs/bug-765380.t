@@ -13,15 +13,15 @@ TEST $CLI volume create $V0 replica $REPLICA $H0:$B0/${V0}00 $H0:$B0/${V0}01 $H0
 TEST $CLI volume start $V0
 
 ## Mount FUSE with caching disabled
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 function count_hostname_or_uuid_from_pathinfo()
 {
-    pathinfo=`getfattr -m . -n trusted.glusterfs.pathinfo $M0/f00f`
+    pathinfo=$(getfattr -n trusted.glusterfs.pathinfo $M0/f00f)
     echo $pathinfo | grep -o $1 | wc -l
 }
 
-touch $M0/f00f
+TEST touch $M0/f00f
 
 EXPECT $REPLICA count_hostname_or_uuid_from_pathinfo $H0
 
@@ -31,7 +31,7 @@ TEST $CLI volume set $V0 node-uuid-pathinfo on
 # do not expext hostname as part of the pathinfo string
 EXPECT 0 count_hostname_or_uuid_from_pathinfo $H0
 
-uuid=`grep UUID $GLUSTERD_WORKDIR/glusterd.info | cut -f2 -d=`
+uuid=$(grep UUID $GLUSTERD_WORKDIR/glusterd.info | cut -f2 -d=)
 
 # ... but expect the uuid $REPLICA times
 EXPECT $REPLICA count_hostname_or_uuid_from_pathinfo $uuid

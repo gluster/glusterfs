@@ -226,7 +226,7 @@ EXPECT_WITHIN 5 "Y" check_setxattr $B0/${V0}{0..9}
 EXPECT_WITHIN 5 "Y" check_removexattr $B0/${V0}{0..9}
 EXPECT_WITHIN 5 "Y" check_perm_file $B0/${V0}{0..9}
 
-rm -rf $tmpdir
-userdel --force ${TEST_USER}
+TEST rm -rf $tmpdir
+TEST userdel --force ${TEST_USER}
 
 cleanup

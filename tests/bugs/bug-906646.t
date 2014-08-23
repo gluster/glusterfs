@@ -17,14 +17,14 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 
 ## Mount FUSE with caching disabled
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 function xattr_query_check()
 {
     local path=$1
     local xa_name=$2
 
-    local ret=`getfattr -m . -n $xa_name $path 2>&1 | grep -o "$xa_name: No such attribute" | wc -l`
+    local ret=$(getfattr -n $xa_name $path 2>&1 | grep -o "$xa_name: No such attribute" | wc -l)
     echo $ret
 }
 
@@ -50,7 +50,7 @@ function remove_xattr()
 f=f00f
 pth=$M0/$f
 
-touch $pth
+TEST touch $pth
 
 # fetch backend paths
 backend_paths=`get_backend_paths $pth`

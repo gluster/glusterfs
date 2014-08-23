@@ -22,7 +22,7 @@ TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 TEST mkdir $M0/test
 for i in $(seq 0 99)
 do
-	touch $M0/test/$i
+        touch $M0/test/$i
 done
 
 count=`ls -1 $M0/test | wc -l`

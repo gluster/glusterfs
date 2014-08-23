@@ -8,7 +8,7 @@
 
 # We only care about the exit code, so keep it quiet.
 function silent_getfattr {
-	getfattr $* &> /dev/null
+    getfattr $* &> /dev/null
 }
 
 cleanup

@@ -3,7 +3,7 @@
 . $(dirname $0)/../include.rc
 
 ping_file () {
-	echo hello > $1 2> /dev/null
+        echo hello > $1 2> /dev/null
 }
 
 SSL_BASE=/etc/ssl

@@ -7,35 +7,35 @@
 NFILES=1000
 
 touch_files () {
-	for i in $(seq 1 $NFILES); do
-		touch $(printf $M0/dir/file%02d $i) 2> /dev/null
-	done
+        for i in $(seq 1 $NFILES); do
+                touch $(printf $M0/dir/file%02d $i) 2> /dev/null
+        done
 }
 
 count_files () {
-	found=0
-	for i in $(seq 1 $NFILES); do
-		if [ -f $(printf $1/dir/file%02d $i) ]; then
-			found=$((found+1))
-		fi
-	done
-	echo $found
+        found=0
+        for i in $(seq 1 $NFILES); do
+                if [ -f $(printf $1/dir/file%02d $i) ]; then
+                        found=$((found+1))
+                fi
+        done
+        echo $found
 }
 
 wait_for_rebalance () {
-	while true; do
-		rebalance_completed
-		if [ $? -eq 1 ]; then
-			sleep 1
-		else
-			break
-		fi
-	done
+        while true; do
+                rebalance_completed
+                if [ $? -eq 1 ]; then
+                        sleep 1
+                else
+                        break
+                fi
+        done
 }
 
 get_xattr () {
-	cmd="getfattr --absolute-names --only-values -n trusted.glusterfs.dht"
-	$cmd $1 | od -tx1 -An | tr -d ' '
+        cmd="getfattr --absolute-names --only-values -n trusted.glusterfs.dht"
+        $cmd $1 | od -tx1 -An | tr -d ' '
 }
 
 cleanup

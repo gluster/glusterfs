@@ -2,53 +2,53 @@
 
 function fd_available() {
          for i in {1..65536}; do
-	     if [ ! -e /proc/$$/fd/$i ]; then
-		 echo $i;
-		 return 0;
-	     fi
-	 done
+             if [ ! -e /proc/$$/fd/$i ]; then
+                 echo $i;
+                 return 0;
+             fi
+         done
 
-	 return 1;
+         return 1;
 }
 
 function fd_open() {
-	 local fd=$1;
-	 local mode=$2
-	 local path=$3;
+         local fd=$1;
+         local mode=$2
+         local path=$3;
 
-	 case $mode in
-	     r)
-		 eval "exec $fd<$path";;
-	     w)
-		 eval "exec $fd>$path";;
-	     rw)
-		 eval "exec $fd<>$path";;
-	     *)
-		 false;;
-	 esac
+         case $mode in
+             r)
+                 eval "exec $fd<$path";;
+             w)
+                 eval "exec $fd>$path";;
+             rw)
+                 eval "exec $fd<>$path";;
+             *)
+                 false;;
+         esac
 }
 
 
 function fd_cat() {
-	 local fd=$1;
+         local fd=$1;
 
-	 eval "cat <&$fd";
+         eval "cat <&$fd";
 }
 
 
 function fd_write() {
-	 local fd=$1;
-	 shift;
-	 local msg="$@";
+         local fd=$1;
+         shift;
+         local msg="$@";
 
-	 eval "echo $@ >&$fd";
+         eval "echo $@ >&$fd";
 }
 
 
 function fd_close() {
-	 local fd=$1;
+         local fd=$1;
 
-	 eval "exec $fd>&-";
+         eval "exec $fd>&-";
 }
 
 
