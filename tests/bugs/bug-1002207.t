@@ -18,7 +18,8 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-dd if=/dev/zero of=$M0/file$i.data bs=1024 count=1024 1>/dev/null 2>&1
+TEST glusterfs --attribute-timeout=0 --entry-timeout=0 -s $H0 --volfile-id=$V0 $M0;
+TEST dd if=/dev/zero of=$M0/file$i.data bs=1024 count=1024;
 
 function xattr_query_check()
 {
@@ -40,7 +41,6 @@ function set_xattr()
 }
 
 EXPECT 0 set_xattr $M0/file$i.data "trusted.name" "testofafairlylongxattrstringthatbutnotlongenoughtofailmemoryallocation"
-
 EXPECT 0 xattr_query_check $M0/file$i.data "trusted.name"
 
 ## Finish up
@@ -51,4 +51,3 @@ TEST $CLI volume delete $V0;
 TEST ! $CLI volume info $V0;
 
 cleanup;
-
