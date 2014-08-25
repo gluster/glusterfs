@@ -1890,7 +1890,8 @@ __socket_read_reply (rpc_transport_t *this)
 
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "notify for event MAP_XID failed");
+                                "notify for event MAP_XID failed for %s",
+                                this->peerinfo.identifier);
                         goto out;
                 }
         }

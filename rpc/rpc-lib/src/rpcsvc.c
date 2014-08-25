@@ -222,11 +222,13 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
         rpcsvc_actor_t          *actor   = NULL;
         rpcsvc_t                *svc     = NULL;
         char                    found    = 0;
+        char                    *peername = NULL;
 
         if (!req)
                 goto err;
 
         svc = req->svc;
+        peername = req->trans->peerinfo.identifier;
         pthread_mutex_lock (&svc->rpclock);
         {
                 list_for_each_entry (program, &svc->programs, program) {
@@ -250,30 +252,34 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
                          */
                         gf_log (GF_RPCSVC, (req->prognum == ACL_PROGRAM) ?
                                 GF_LOG_DEBUG : GF_LOG_WARNING,
-                                "RPC program not available (req %u %u)",
-                                req->prognum, req->progver);
+                                "RPC program not available (req %u %u) for %s",
+                                req->prognum, req->progver,
+                                peername);
                         err = PROG_UNAVAIL;
                         goto err;
                 }
 
                 gf_log (GF_RPCSVC, GF_LOG_WARNING,
-                        "RPC program version not available (req %u %u)",
-                        req->prognum, req->progver);
+                        "RPC program version not available (req %u %u) for %s",
+                        req->prognum, req->progver,
+                        peername);
                 goto err;
         }
         req->prog = program;
         if (!program->actors) {
                 gf_log (GF_RPCSVC, GF_LOG_WARNING,
-                        "RPC Actor not found for program %s %d",
-                        program->progname, program->prognum);
+                        "RPC Actor not found for program %s %d for %s",
+                        program->progname, program->prognum,
+                        peername);
                 err = SYSTEM_ERR;
                 goto err;
         }
 
         if ((req->procnum < 0) || (req->procnum >= program->numactors)) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure not"
-                        " available for procedure %d in %s", req->procnum,
-                        program->progname);
+                        " available for procedure %d in %s for  %s",
+                        req->procnum, program->progname,
+                        peername);
                 err = PROC_UNAVAIL;
                 goto err;
         }
@@ -281,8 +287,9 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
         actor = &program->actors[req->procnum];
         if (!actor->actor) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure not"
-                        " available for procedure %d in %s", req->procnum,
-                        program->progname);
+                        " available for procedure %d in %s for %s",
+                        req->procnum, program->progname,
+                        peername);
                 err = PROC_UNAVAIL;
                 actor = NULL;
                 goto err;
@@ -291,8 +298,9 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
         req->synctask = program->synctask;
 
         err = SUCCESS;
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Actor found: %s - %s",
-                program->progname, actor->procname);
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Actor found: %s - %s for %s",
+                program->progname, actor->procname,
+                peername);
 err:
         if (req)
                 req->rpc_err = err;
