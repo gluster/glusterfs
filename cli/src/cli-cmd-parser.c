@@ -3500,10 +3500,13 @@ out:
  *                 0 on success
  */
 int
-cli_snap_restore_parse (dict_t *dict, const char **words, int wordcount)
+cli_snap_restore_parse (dict_t *dict, const char **words, int wordcount,
+                        struct cli_state *state)
 {
 
         int             ret             =       -1;
+        const char      *question       =       NULL;
+        gf_answer_t     answer          =       GF_ANSWER_NO;
 
         GF_ASSERT (words);
         GF_ASSERT (dict);
@@ -3517,6 +3520,18 @@ cli_snap_restore_parse (dict_t *dict, const char **words, int wordcount)
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to save snap-name %s",
                         words[2]);
+                goto out;
+        }
+
+        question = "Restore operation will replace the "
+                   "original volume with the snapshotted volume. "
+                   "Do you still want to continue?";
+
+        answer = cli_cmd_get_confirmation (state, question);
+        if (GF_ANSWER_NO == answer) {
+                ret = 1;
+                gf_log ("cli", GF_LOG_ERROR, "User cancelled a snapshot "
+                        "restore operation for snap %s", (char *)words[2]);
                 goto out;
         }
 out:
@@ -4215,13 +4230,14 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                 /* Syntax:
                  * snapshot restore <snapname>
                  */
-                ret = cli_snap_restore_parse (dict, words, wordcount);
+                ret = cli_snap_restore_parse (dict, words, wordcount, state);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to parse "
                                 "restore command");
                         goto out;
                 }
                 break;
+
                 case GF_SNAP_OPTION_TYPE_ACTIVATE:
                         /* Syntax:
                         * snapshot activate <snapname> [force]
@@ -4250,6 +4266,7 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                                 goto out;
                         }
                         break;
+
         default:
                 gf_log ("", GF_LOG_ERROR, "Opword Mismatch");
                 goto out;
