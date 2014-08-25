@@ -3619,7 +3619,7 @@ out:
         return ret;
 }
 
-/* snapshot delete <snapname>
+/* snapshot delete (all | snapname | volume <volname>)
  * @arg-0, dict     : Request Dictionary to be sent to server side.
  * @arg-1, words    : Contains individual words of CLI command.
  * @arg-2, wordcount: Contains number of words present in the CLI command.
@@ -4162,7 +4162,7 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
 
         case GF_SNAP_OPTION_TYPE_DELETE:
                 /* Syntax :
-                 * gluster snapshot delete <snapname>
+                 * snapshot delete (all | snapname | volume <volname>)
                  */
                 ret = cli_snap_delete_parse (dict, words, wordcount, state);
                 if (ret) {
