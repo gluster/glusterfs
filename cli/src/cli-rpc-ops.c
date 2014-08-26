@@ -8653,6 +8653,7 @@ cli_snapshot_status (dict_t *dict, gf_cli_rsp *rsp,
         }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
+#if (HAVE_LIB_XML)
                 ret = cli_xml_snapshot_status_per_snap (local->writer,
                                                         local->doc,
                                                         dict, key);
@@ -8661,6 +8662,7 @@ cli_snapshot_status (dict_t *dict, gf_cli_rsp *rsp,
                                 "xml output for snapshot status");
                         goto out;
                 }
+#endif
         } else {
                 ret = cli_get_single_snap_status (dict, key);
                 if (ret) {

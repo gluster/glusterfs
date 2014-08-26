@@ -190,7 +190,9 @@ enum {
 #define le64toh(x) OSSwapLittleToHostInt64(x)
 
 #define UNIX_PATH_MAX 104
+#ifndef AT_SYMLINK_NOFOLLOW
 #define AT_SYMLINK_NOFOLLOW 0x100
+#endif
 #include <sys/types.h>
 
 #include <sys/un.h>
