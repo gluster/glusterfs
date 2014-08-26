@@ -1054,6 +1054,8 @@ afr_is_errno_unset (int *child_errno, int child);
 gf_boolean_t
 afr_is_fd_fixable (fd_t *fd);
 
+void _destroy_shd_event_data (void *data);
+
 void
 afr_prepare_new_entry_pending_matrix (int32_t **pending,
                                       gf_boolean_t (*is_pending) (int *, int),

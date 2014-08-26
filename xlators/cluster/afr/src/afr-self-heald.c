@@ -65,6 +65,18 @@ afr_find_child_position (xlator_t *this, int child, afr_child_pos_t *pos);
 int
 afr_syncop_find_child_position (void *data);
 
+void
+_destroy_shd_event_data (void *data)
+{
+        shd_event_t             *event = NULL;
+        if (!data)
+                goto out;
+        event = (shd_event_t*)data;
+        GF_FREE (event->path);
+out:
+        return;
+}
+
 static int
 _loc_assign_gfid_path (loc_t *loc)
 {

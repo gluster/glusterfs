@@ -430,15 +430,18 @@ init (xlator_t *this)
         if (!priv->shd.timer)
                 goto out;
 
-        priv->shd.healed = eh_new (AFR_EH_HEALED_LIMIT, _gf_false);
+        priv->shd.healed = eh_new (AFR_EH_HEALED_LIMIT, _gf_false,
+                                   _destroy_shd_event_data);
         if (!priv->shd.healed)
                 goto out;
 
-        priv->shd.heal_failed = eh_new (AFR_EH_HEAL_FAIL_LIMIT, _gf_false);
+        priv->shd.heal_failed = eh_new (AFR_EH_HEAL_FAIL_LIMIT, _gf_false,
+                                        _destroy_shd_event_data);
         if (!priv->shd.heal_failed)
                 goto out;
 
-        priv->shd.split_brain = eh_new (AFR_EH_SPLIT_BRAIN_LIMIT, _gf_false);
+        priv->shd.split_brain = eh_new (AFR_EH_SPLIT_BRAIN_LIMIT, _gf_false,
+                                        _destroy_shd_event_data);
         if (!priv->shd.split_brain)
                 goto out;
 
