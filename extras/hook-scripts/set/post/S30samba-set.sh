@@ -115,16 +115,17 @@ if [ "0" = $(is_volume_started "$VOL") ]; then
     exit 0
 fi
 
-#Find smb.conf, smbd pid directory and smbd logfile path
-find_config_info
 
 if [ "$enable_smb" = "enable" ]; then
+    #Find smb.conf, smbd pid directory and smbd logfile path
+    find_config_info
     if ! grep --quiet "\[gluster-$VOL\]" /etc/samba/smb.conf ; then
             add_samba_share $VOL
             sighup_samba
     fi
 
 elif [ "$enable_smb" = "disable" ]; then
+    find_config_info
     del_samba_share $VOL
     sighup_samba
 fi

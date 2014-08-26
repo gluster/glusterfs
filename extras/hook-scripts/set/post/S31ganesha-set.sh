@@ -3,6 +3,7 @@ PROGNAME="Sganesha-set"
 OPTSPEC="volname:,gd-workdir:"
 VOL=
 declare -i EXPORT_ID
+ganesha_key="FALSE"
 GANESHA_DIR="/var/lib/glusterfs-ganesha"
 CONF1="$GANESHA_DIR/nfs-ganesha.conf"
 GANESHA_LOG_DIR="/var/log/nfs-ganesha/"
@@ -12,7 +13,6 @@ enable_ganesha=""
 host_name="none"
 LOC=""
 GLUSTERD_WORKDIR=
-
 
 function parse_args ()
 {
@@ -34,12 +34,14 @@ function parse_args ()
                     for pair in $@; do
                         read key value < <(echo "$pair" | tr "=" " ")
                         case "$key" in
-                            "nfs-ganesha.enable")
-                                enable_ganesha=$value
-                                ;;
-                            "nfs-ganesha.host")
-                                host_name=$value
-                                ;;
+                          "nfs-ganesha.enable")
+                                    enable_ganesha=$value
+                                    ganesha_key="TRUE"
+                                    ;;
+                          "nfs-ganesha.host")
+                                    host_name=$value
+                                    ganesha_key="TRUE"
+                                    ;;
                             *)
                                 ;;
                         esac
@@ -257,6 +259,10 @@ function stop_ganesha()
 }
 
         parse_args $@
+        if [ "$ganesha_key" == "FALSE" ]
+        then
+                exit 0
+        fi
         check_ganesha_dir $VOL
         if echo $enable_ganesha | grep -q -i "ON"
                 then
