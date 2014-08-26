@@ -2843,7 +2843,7 @@ afr_log_self_heal_completion_status (afr_local_t *local, gf_loglevel_t loglvl)
         ADD_FMT_STRING_SYNC (sh_log, off, "metadata",
                              all_status.metadata_self_heal, print_log);
         if (sh->background) {
-                ADD_FMT_STRING_SYNC (sh_log, off, "backgroung data",
+                ADD_FMT_STRING_SYNC (sh_log, off, "background data",
                                 all_status.data_self_heal, print_log);
         } else {
                 ADD_FMT_STRING_SYNC (sh_log, off, "foreground data",
