@@ -1,11 +1,12 @@
 #!/bin/bash
-#Usage: generate-gfid-file.sh <master-volfile-server:master-volume> <path-to-get-gfid.sh> <output-file>
+#Usage: generate-gfid-file.sh <master-volfile-server:master-volume> <path-to-get-gfid.sh> <output-file> [dirs-list-file]
 
 function get_gfids()
 {
     GET_GFID_CMD=$1
     OUTPUT_FILE=$2
-    find . -exec $GET_GFID_CMD {} \; > $OUTPUT_FILE
+    DIR_PATH=$3
+    find "$DIR_PATH" -exec $GET_GFID_CMD {} \; >> $OUTPUT_FILE
 }
 
 function mount_client()
@@ -27,8 +28,18 @@ function mount_client()
     [ "x$i" = "x1" ] || fatal "could not mount volume $MASTER on $T";
 
     cd $T;
+    rm -f $OUTPUT;
+    touch $OUTPUT;
 
-    get_gfids $GFID_CMD $OUTPUT
+    if [ "$DIRS_FILE" = "." ]
+    then
+        get_gfids $GFID_CMD $OUTPUT "."
+    else
+        while read line
+        do
+            get_gfids $GFID_CMD $OUTPUT "$line"
+        done < $DIRS_FILE
+    fi;
 
     cd -;
 
@@ -47,7 +58,13 @@ function main()
     VOLFILE_SERVER=`echo $SLAVE | sed -e 's/\(.*\):.*/\1/'`
     VOLUME_NAME=`echo $SLAVE | sed -e 's/.*:\(.*\)/\1/'`
 
-    mount_client $VOLFILE_SERVER $VOLUME_NAME $GET_GFID_CMD $OUTPUT
+    if [ "$#" -lt 4 ]
+    then
+        DIRS_FILE="."
+    else
+        DIRS_FILE=$4
+    fi
+    mount_client $VOLFILE_SERVER $VOLUME_NAME $GET_GFID_CMD $OUTPUT $DIRS_FILE
 }
 
 main "$@";
