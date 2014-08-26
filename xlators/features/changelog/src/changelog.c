@@ -497,7 +497,6 @@ changelog_link (call_frame_t *frame,
                 chlog_barrier_dequeue_all (this, &queue);
         }
  wind:
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_link_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->link,
                     oldloc, newloc, xdata);
@@ -632,7 +631,6 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         }
 
  wind:
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_mkdir_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mkdir,
                     loc, mode, umask, xdata);
@@ -761,7 +759,6 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         }
 
  wind:
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_symlink_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->symlink,
                     linkname, loc, umask, xdata);
@@ -898,7 +895,6 @@ changelog_mknod (call_frame_t *frame,
         }
 
  wind:
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_mknod_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mknod,
                     loc, mode, dev, umask, xdata);
@@ -1041,7 +1037,6 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         }
 
  wind:
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
         STACK_WIND (frame, changelog_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, umask, fd, xdata);
