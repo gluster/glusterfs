@@ -197,12 +197,17 @@ _get_xlator_opt_key_from_vme ( struct volopt_map_entry *vme, char **key);
 void
 _free_xlator_opt_key (char *key);
 
+
+#if (HAVE_LIB_XML)
 int
 init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf);
 
 int
 xml_add_volset_element (xmlTextWriterPtr writer, const char *name,
                         const char *def_val, const char *dscrpt);
+int
+end_sethelp_xml_doc (xmlTextWriterPtr writer);
+#endif /* HAVE_LIB_XML */
 
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
@@ -212,9 +217,6 @@ glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
 
 int
 glusterd_check_nfs_topology_identical (gf_boolean_t *identical);
-
-int
-end_sethelp_xml_doc (xmlTextWriterPtr writer);
 
 uint32_t
 glusterd_get_op_version_for_key (char *key);
