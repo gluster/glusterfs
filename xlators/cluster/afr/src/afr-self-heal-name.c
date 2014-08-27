@@ -264,8 +264,7 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 int
 __afr_selfheal_name_finalize_source (xlator_t *this, unsigned char *sources,
 				     unsigned char *healed_sinks,
-                                     unsigned char *locked_on,
-				     struct afr_reply *replies)
+                                     unsigned char *locked_on)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
@@ -296,24 +295,26 @@ int
 __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *parent,
 			     uuid_t pargfid, unsigned char *locked_on,
 			     unsigned char *sources, unsigned char *sinks,
-			     unsigned char *healed_sinks, struct afr_reply *replies,
-			     int *source_p)
+			     unsigned char *healed_sinks, int *source_p)
 {
 	int ret = -1;
 	int source = -1;
 	afr_private_t *priv = NULL;
+        struct afr_reply *replies = NULL;
 
 	priv = this->private;
 
+        replies = alloca0 (priv->child_count * sizeof(*replies));
+
 	ret = afr_selfheal_unlocked_discover (frame, parent, pargfid, replies);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_ENTRY_TRANSACTION,
 					   locked_on, sources, sinks);
 	if (ret)
-		return ret;
+		goto out;
 
         /* Initialize the healed_sinks[] array optimistically to
            the intersection of to-be-healed (i.e sinks[]) and
@@ -326,13 +327,16 @@ __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *paren
         AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
 
 	source = __afr_selfheal_name_finalize_source (this, sources,
-                                                      healed_sinks,
-						      locked_on, replies);
+                                                      healed_sinks, locked_on);
 	if (source < 0) {
 		/* If source is < 0 (typically split-brain), we perform a
 		   conservative merge of entries rather than erroring out */
 	}
 	*source_p = source;
+
+out:
+        if (replies)
+                afr_replies_wipe (replies, priv->child_count);
 
 	return ret;
 }
@@ -348,7 +352,7 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 	unsigned char *healed_sinks = NULL;
 	unsigned char *locked_on = NULL;
 	int source = -1;
-	struct afr_reply *replies = NULL;
+        struct afr_reply *replies = NULL;
 	int ret = -1;
 	inode_t *inode = NULL;
 
@@ -371,8 +375,7 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 
 		ret = __afr_selfheal_name_prepare (frame, this, parent, pargfid,
 						   locked_on, sources, sinks,
-						   healed_sinks, replies,
-						   &source);
+						   healed_sinks, &source);
 		if (ret)
 			goto unlock;
 
@@ -393,6 +396,9 @@ unlock:
 				locked_on);
 	if (inode)
 		inode_unref (inode);
+
+        if (replies)
+                afr_replies_wipe (replies, priv->child_count);
 
 	return ret;
 }
@@ -441,6 +447,8 @@ afr_selfheal_name_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 
 	if (inode)
 		inode_unref (inode);
+        if (replies)
+                afr_replies_wipe (replies, priv->child_count);
 	return 0;
 }
 
