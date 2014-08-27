@@ -4287,17 +4287,6 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
 
-        if (dht_filter_loc_subvol_key (this, loc, &local->loc,
-                                       &cached_subvol)) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "unlinking %s on %s (given path %s)",
-                        local->loc.path, cached_subvol->name, loc->path);
-                STACK_WIND (frame, dht_unlink_cbk,
-                            cached_subvol, cached_subvol->fops->unlink,
-                            &local->loc, xflag, xdata);
-                goto done;
-        }
-
         local = dht_local_init (frame, loc, NULL, GF_FOP_UNLINK);
         if (!local) {
                 op_errno = ENOMEM;
@@ -4332,7 +4321,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                             cached_subvol, cached_subvol->fops->unlink, loc,
                             xflag, xdata);
         }
-done:
+
         return 0;
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
