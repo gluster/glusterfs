@@ -1033,11 +1033,11 @@ fi
 * Wed Jul 16 2014 Luis Pabon <lpabon@redhat.com>
 - Added cmockery2 dependency
 
-* Thu Jun 29 2014 Humble Chirammal <hchiramm@redhat.com>
-- Added dynamic loading of fuse module with glusterfs-fuse package installation in el5.
-
 * Fri Jun 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - killall --wait in %%post server, (#1113543)
+
+* Thu Jun 19 2014 Humble Chirammal <hchiramm@redhat.com>
+- Added dynamic loading of fuse module with glusterfs-fuse package installation in el5.
 
 * Thu Jun 12 2014 Varun Shastry <vshastry@redhat.com>
 - Add bash completion config to the cli package
