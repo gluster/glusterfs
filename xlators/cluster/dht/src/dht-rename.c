@@ -621,15 +621,49 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->linked == _gf_true)
                 FRAME_SU_UNDO (frame, dht_local_t);
+
+        /* It is a critical failure iff we fail to rename the cached file
+         * if the rename of the linkto failed, it is not a critical failure,
+         * and we do not want to lose the created hard link for the new
+         * name as that could have been read by other clients.
+         *
+         * NOTE: If another client is attempting the same oldname -> newname
+         * rename, and finds both file names as existing, and are hard links
+         * to each other, then FUSE would send in an unlink for oldname. In
+         * this time duration if we treat the linkto as a critical error and
+         * unlink the newname we created, we would have effectively lost the
+         * file to rename operations.
+         *
+         * Repercussions of treating this as a non-critical error is that
+         * we could leave behind a stale linkto file and/or not create the new
+         * linkto file, the second case would be rectified by a subsequent
+         * lookup, the first case by a rebalance, like for all stale linkto
+         * files */
+
         if (op_ret == -1) {
-                gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                        DHT_MSG_RENAME_FAILED,
-                        "%s: Rename on %s failed, (gfid = %s) ",
-                        local->loc.path, prev->this->name,
-                        local->loc.inode? uuid_utoa(local->loc.inode->gfid):"");
-                local->op_ret   = op_ret;
-                local->op_errno = op_errno;
-                goto cleanup;
+                /* Critical failure: unable to rename the cached file */
+                if (src_cached == dst_cached) {
+                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                                DHT_MSG_RENAME_FAILED,
+                                "%s: Rename on %s failed, (gfid = %s) ",
+                                local->loc.path, prev->this->name,
+                                local->loc.inode ?
+                                uuid_utoa(local->loc.inode->gfid):"");
+                        local->op_ret   = op_ret;
+                        local->op_errno = op_errno;
+                        goto cleanup;
+                } else {
+                        /* Non-critical failure, unable to rename the linkto
+                         * file
+                         */
+                        gf_msg (this->name, GF_LOG_INFO, op_errno,
+                                DHT_MSG_RENAME_FAILED,
+                                "%s: Rename (linkto file) on %s failed, "
+                                "(gfid = %s) ",
+                                local->loc.path, prev->this->name,
+                                local->loc.inode ?
+                                uuid_utoa(local->loc.inode->gfid):"");
+                }
         }
 
         if ((src_cached == dst_cached) && (dst_hashed != dst_cached)) {
