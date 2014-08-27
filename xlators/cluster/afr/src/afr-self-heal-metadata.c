@@ -236,6 +236,8 @@ __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 unlock:
 	afr_selfheal_uninodelk (frame, this, inode, this->name,
 				LLONG_MAX -1, 0, data_lock);
+        if (locked_replies)
+                afr_replies_wipe (locked_replies, priv->child_count);
 	return ret;
 }
 

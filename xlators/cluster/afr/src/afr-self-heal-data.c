@@ -557,6 +557,10 @@ out:
 	if (compat)
 		afr_selfheal_uninodelk (frame, this, fd->inode, this->name,
 					LLONG_MAX - 2, 1, compat_lock);
+
+        if (locked_replies)
+                afr_replies_wipe (locked_replies, priv->child_count);
+
 	return ret;
 }
 

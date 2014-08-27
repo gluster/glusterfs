@@ -916,6 +916,9 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 out:
         if (inode)
                 inode_unref (inode);
+        if (replies)
+                afr_replies_wipe (replies, priv->child_count);
+
 	return ret;
 }
 
