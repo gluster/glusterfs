@@ -3,18 +3,30 @@ Installation Instructions
 
 0. If you have cloned from git, run ./autogen.sh.
 
-1. Run ./configure after untaring the package.
+1. Run ./configure.
 
  bash# ./configure
  GlusterFS configure summary
  ===========================
- FUSE client        : yes
- Infiniband verbs   : yes
- epoll IO multiplex : yes
- Berkeley-DB        : yes
- libglusterfsclient : yes
- mod_glusterfs      : yes
- argp-standalone    : no
+ GlusterFS configure summary
+  ===========================
+   FUSE client          : yes
+   Infiniband verbs     : yes
+   epoll IO multiplex   : yes
+   argp-standalone      : no
+   fusermount           : yes
+   readline             : yes
+   georeplication       : yes
+   Linux-AIO            : yes
+   Enable Debug         : no
+   systemtap            : no
+   Block Device xlator  : yes
+   glupy                : yes
+   Use syslog           : yes
+   XML output           : yes
+   QEMU Block formats   : yes
+   Encryption xlator    : yes
+
  
 The configure summary will tell you what all components will be built with 
 GlusterFS. Other than 'argp-standalone' if something else says 'no', that 
@@ -26,9 +38,11 @@ be used if the system doesn't have a proper argp package installed.
  bash# make 
  bash# make install
 
-Installation complete :-)
+Installation completed :-)
 
  bash# glusterfs --version
 
 Make sure your version is the latest from the release, and the one you 
 just installed :-)
+
+For more information on GlusterFS installation refer# http://gluster.org/community/documentation/index.php/Building_GlusterFS
