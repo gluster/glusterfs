@@ -1568,6 +1568,10 @@ done:
         if (lock_frame)
                 dht_lock_stack_destroy (lock_frame);
 
+        /* no locks acquired, invoke inodelk_cbk */
+        if (ret == 0)
+                inodelk_cbk (frame, NULL, frame->this, 0, 0, NULL);
+
         return ret;
 }
 
