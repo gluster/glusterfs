@@ -826,7 +826,7 @@ int
 afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
 void
-afr_replies_wipe (afr_local_t *local, afr_private_t *priv);
+afr_local_replies_wipe (afr_local_t *local, afr_private_t *priv);
 
 void
 afr_local_cleanup (afr_local_t *local, xlator_t *this);
@@ -969,4 +969,8 @@ afr_local_pathinfo (char *pathinfo, gf_boolean_t *is_local);
 
 void
 afr_remove_eager_lock_stub (afr_local_t *local);
+
+void
+afr_replies_wipe (struct afr_reply *replies, int count);
+
 #endif /* __AFR_H__ */

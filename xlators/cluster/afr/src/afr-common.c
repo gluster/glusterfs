@@ -472,7 +472,7 @@ afr_refresh_selfheal_wrap (void *opaque)
 
 	err = afr_inode_refresh_err (frame, this);
 
-	afr_replies_wipe (local, this->private);
+        afr_local_replies_wipe (local, this->private);
 
 	local->refreshfn (frame, this, err);
 
@@ -509,7 +509,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 
 	err = afr_inode_refresh_err (frame, this);
 
-	afr_replies_wipe (local, this->private);
+        afr_local_replies_wipe (local, this->private);
 
 	if (ret && afr_selfheal_enabled (this)) {
 		heal = copy_frame (frame);
@@ -588,7 +588,7 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 	local = frame->local;
 
-	afr_replies_wipe (local, priv);
+        afr_local_replies_wipe (local, priv);
 
 	xdata = dict_new ();
 	if (!xdata) {
@@ -877,19 +877,26 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
 
 void
-afr_replies_wipe (afr_local_t *local, afr_private_t *priv)
+afr_replies_wipe (struct afr_reply *replies, int count)
 {
-	int i;
+        int i = 0;
+
+        for (i = 0; i < count; i++) {
+                if (replies[i].xdata) {
+                        dict_unref (replies[i].xdata);
+                        replies[i].xdata = NULL;
+                }
+        }
+}
+
+void
+afr_local_replies_wipe (afr_local_t *local, afr_private_t *priv)
+{
 
 	if (!local->replies)
 		return;
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->replies[i].xdata) {
-			dict_unref (local->replies[i].xdata);
-			local->replies[i].xdata = NULL;
-		}
-	}
+        afr_replies_wipe (local->replies, priv->child_count);
 
 	memset (local->replies, 0, sizeof(*local->replies) * priv->child_count);
 }
@@ -934,7 +941,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
         if (local->dict)
                 dict_unref (local->dict);
 
-	afr_replies_wipe (local, priv);
+        afr_local_replies_wipe (local, priv);
 	GF_FREE(local->replies);
 
         GF_FREE (local->child_up);
@@ -1446,7 +1453,7 @@ afr_lookup_selfheal_wrap (void *opaque)
 	afr_selfheal_name (frame->this, local->loc.pargfid, local->loc.name,
                            &local->cont.lookup.gfid_req);
 
-	afr_replies_wipe (local, this->private);
+        afr_local_replies_wipe (local, this->private);
 
 	inode = afr_selfheal_unlocked_lookup_on (frame, local->loc.parent,
 						 local->loc.name, local->replies,
