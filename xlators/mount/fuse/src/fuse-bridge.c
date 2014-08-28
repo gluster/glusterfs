@@ -522,12 +522,32 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 void
+fuse_fop_resume (fuse_state_t *state)
+{
+        fuse_resume_fn_t fn = NULL;
+
+        /*
+ *          * Fail fd resolution failures right away.
+ *                   */
+        if (state->resolve.fd && state->resolve.op_ret < 0) {
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
+                free_fuse_state (state);
+                return;
+        }
+
+        fn = state->resume_fn;
+        fn (state);
+}
+
+void
 fuse_lookup_resume (fuse_state_t *state)
 {
         if (!state->loc.parent && !state->loc.inode) {
                 gf_log ("fuse", GF_LOG_ERROR, "failed to resolve path %s",
                         state->loc.path);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -732,7 +752,8 @@ fuse_getattr_resume (fuse_state_t *state)
                         "%"PRIu64": GETATTR %"PRIu64" (%s) resolution failed",
                         state->finh->unique, state->finh->nodeid,
                         uuid_utoa (state->resolve.gfid));
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1044,7 +1065,8 @@ fuse_setattr_resume (fuse_state_t *state)
                         "%"PRIu64": SETATTR %"PRIu64" (%s) resolution failed",
                         state->finh->unique, state->finh->nodeid,
                         uuid_utoa (state->resolve.gfid));
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1249,7 +1271,8 @@ fuse_access_resume (fuse_state_t *state)
                         "%"PRIu64": ACCESS %"PRIu64" (%s) resolution failed",
                         state->finh->unique, state->finh->nodeid,
                         uuid_utoa (state->resolve.gfid));
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1326,7 +1349,8 @@ fuse_readlink_resume (fuse_state_t *state)
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "READLINK %"PRIu64" (%s) resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid));
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1361,7 +1385,8 @@ fuse_mknod_resume (fuse_state_t *state)
                         "MKNOD %"PRId64"/%s (%s/%s) resolution failed",
                         state->finh->nodeid, state->resolve.bname,
                         uuid_utoa (state->resolve.gfid), state->resolve.bname);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1431,7 +1456,8 @@ fuse_mkdir_resume (fuse_state_t *state)
                         "MKDIR %"PRId64" (%s/%s) resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1493,7 +1519,8 @@ fuse_unlink_resume (fuse_state_t *state)
                         "UNLINK %"PRId64" (%s/%s) resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1529,7 +1556,8 @@ fuse_rmdir_resume (fuse_state_t *state)
                         "RMDIR %"PRId64" (%s/%s) resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1565,7 +1593,8 @@ fuse_symlink_resume (fuse_state_t *state)
                         "SYMLINK %"PRId64" (%s/%s) -> %s resolution failed",
                         state->finh->nodeid, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname, state->name);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1681,7 +1710,8 @@ fuse_rename_resume (fuse_state_t *state)
                         uuid_utoa_r (state->resolve2.gfid, loc2_uuid),
                         state->resolve2.bname);
 
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1738,7 +1768,8 @@ fuse_link_resume (fuse_state_t *state)
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "fuse_loc_fill() failed %"PRIu64": LINK %s %s",
                         state->finh->unique, state->loc2.path, state->loc.path);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1889,7 +1920,8 @@ fuse_create_resume (fuse_state_t *state)
                         "%"PRIu64" CREATE %s/%s resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid),
                         state->resolve.bname);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -1995,7 +2027,8 @@ fuse_open_resume (fuse_state_t *state)
                         "%"PRIu64": OPEN %s resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid));
 
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -2375,7 +2408,8 @@ fuse_opendir_resume (fuse_state_t *state)
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": OPENDIR (%s) resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid));
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -2840,7 +2874,8 @@ fuse_statfs_resume (fuse_state_t *state)
                         "%"PRIu64": STATFS (%s) resolution fail",
                         state->finh->unique, uuid_utoa (state->resolve.gfid));
 
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -2875,7 +2910,8 @@ fuse_setxattr_resume (fuse_state_t *state)
                         "resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid),
                         state->finh->nodeid, state->name);
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -3171,7 +3207,8 @@ fuse_getxattr_resume (fuse_state_t *state)
                         uuid_utoa (state->resolve.gfid),
                         state->finh->nodeid, state->name);
 
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -3278,7 +3315,8 @@ fuse_listxattr_resume (fuse_state_t *state)
                         "resolution failed", state->finh->unique,
                         uuid_utoa (state->resolve.gfid), state->finh->nodeid);
 
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }
@@ -3333,7 +3371,8 @@ fuse_removexattr_resume (fuse_state_t *state)
                         state->finh->unique, uuid_utoa (state->resolve.gfid),
                         state->finh->nodeid, state->name);
 
-                send_fuse_err (state->this, state->finh, ENOENT);
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
                 free_fuse_state (state);
                 return;
         }

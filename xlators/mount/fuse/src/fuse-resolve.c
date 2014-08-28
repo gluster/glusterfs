@@ -653,19 +653,6 @@ fuse_resolve (fuse_state_t *state)
 }
 
 
-static int
-fuse_resolve_done (fuse_state_t *state)
-{
-        fuse_resume_fn_t fn = NULL;
-
-        fn = state->resume_fn;
-
-	fn (state);
-
-        return 0;
-}
-
-
 /*
  * This function is called multiple times, once per resolving one location/fd.
  * state->resolve_now is used to decide which location/fd is to be resolved now
@@ -689,7 +676,7 @@ fuse_resolve_all (fuse_state_t *state)
 
         } else if (state->resolve_now == &state->resolve2) {
 
-                fuse_resolve_done (state);
+                fuse_fop_resume (state);
 
         } else {
                 gf_log ("fuse-resolve", GF_LOG_ERROR,
