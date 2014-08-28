@@ -77,6 +77,7 @@ padded_sizeof=108 #Each mempool element is padded with a doubly-linked-list + pt
 pool-misses=0 #Number of times the element had to be allocated from heap because all elements from the pool are in active use.
 alloc-count=314 #Number of times this type of data is allocated through out the life of this process. This may include pool-misses as well.
 max-alloc=3 #Maximum number of elements from the pool in active use at any point in the life of the process. This does *not* include pool-misses.
+cur-stdalloc=0 #Denotes the number of allocations made from heap once cold-count reaches 0, that are yet to be released via mem_put().
 max-stdalloc=0 #Maximum number of allocations from heap that are in active use at any point in the life of the process.
 ```
 
@@ -241,6 +242,9 @@ inodelk.inodelk[0](ACTIVE)=type=WRITE, whence=0, start=11141120, len=131072, pid
 
 ##FAQ
 ###How to debug Memory leaks using statedump?
+
+####Using memory accounting feature:
+
 `https://bugzilla.redhat.com/show_bug.cgi?id=1120151` is one of the bugs which was debugged using statedump to see which data-structure is leaking. Here is the process used to find what the leak is using statedump. According to the bug the observation is that the process memory usage is increasing whenever one of the bricks is wiped in a replicate volume and a `full` self-heal is invoked to heal the contents. Statedump of the process is taken using kill -USR1 `<pid-of-gluster-self-heal-daemon>`.
 ```
 grep -w num_allocs glusterdump.5225.dump.1405493251
@@ -265,6 +269,73 @@ grep of the statedump revealed too many allocations for the following data-types
 
 After checking afr-code for allocations with tag `gf_common_mt_char` found `data-self-heal` code path does not free one such allocated memory. `gf_common_mt_mem_pool` suggests that there is a leak in pool memory. `replicate-0:dict_t`, `glusterfs:data_t` and `glusterfs:data_pair_t` pools are using lot of memory, i.e. cold_count is `0` and too many allocations. Checking source code of dict.c revealed that `key` in `dict` is allocated with `gf_common_mt_char` i.e. `2.` tag and value is created using gf_asprintf which in-turn uses `gf_common_mt_asprintf` i.e. `1.`. Browsing the code for leak in self-heal code paths lead to a line which over-writes a variable with new dictionary even when it was already holding a reference to another dictionary. After fixing these leaks, ran the same test to verify that none of the `num_allocs` are increasing even after healing 10,000 files directory hierarchy in statedump of self-heal daemon.
 Please check http://review.gluster.org/8316 for more info about patch/code.
+
+####Debugging leaks in memory pools:
+Statedump output of memory pools was used to test and verify the fixes to https://bugzilla.redhat.com/show_bug.cgi?id=1134221. On code analysis, dict_t objects were found to be leaking (in terms of not being unref'd enough number of times, during name self-heal. The test involved creating 100 files on plain replicate volume, removing them from one of the bricks's backend, and then triggering lookup on them from the mount point. Statedump of the mount process was taken before executing the test case and after it, after compiling glusterfs with -DDEBUG flags (to have cold count set to 0 by default).
+
+Statedump output of the fuse mount process before the test case was executed:
+
+```
+
+pool-name=glusterfs:dict_t
+hot-count=0
+cold-count=0
+padded_sizeof=140
+alloc-count=33
+max-alloc=0
+pool-misses=33
+cur-stdalloc=14
+max-stdalloc=18
+
+```
+Statedump output of the fuse mount process after the test case was executed:
+
+```
+
+pool-name=glusterfs:dict_t
+hot-count=0
+cold-count=0
+padded_sizeof=140
+alloc-count=2841
+max-alloc=0
+pool-misses=2841
+cur-stdalloc=214
+max-stdalloc=220
+
+```
+Here, with cold count being 0 by default, cur-stdalloc indicated the number of dict_t objects that were allocated in heap using mem_get(), and yet to be freed using mem_put() (refer to https://github.com/gluster/glusterfs/blob/master/doc/data-structures/mem-pool.md for more details on how mempool works). After the test case (name selfheal of 100 files), there was a rise in the cur-stdalloc value (from 14 to 214) for dict_t.
+
+After these leaks were fixed, glusterfs was again compiled with -DDEBUG flags, and the same steps were performed again and statedump was taken before and after executing the test case, of the mount. This was done to ascertain the validity of the fix. And the following are the results:
+
+Statedump output of the fuse mount process before executing the test case:
+
+```
+pool-name=glusterfs:dict_t
+hot-count=0
+cold-count=0
+padded_sizeof=140
+alloc-count=33
+max-alloc=0
+pool-misses=33
+cur-stdalloc=14
+max-stdalloc=18
+
+```
+Statedump output of the fuse mount process after executing the test case:
+
+```
+pool-name=glusterfs:dict_t
+hot-count=0
+cold-count=0
+padded_sizeof=140
+alloc-count=2837
+max-alloc=0
+pool-misses=2837
+cur-stdalloc=14
+max-stdalloc=119
+
+```
+The value of cur-stdalloc remained 14 before and after the test, indicating that the fix indeed does what it's supposed to do.
 
 ###How to debug hangs because of frame-loss?
 `https://bugzilla.redhat.com/show_bug.cgi?id=994959` is one of the bugs where statedump was helpful in finding where the frame was lost. Here is the process used to find where the hang is using statedump.
