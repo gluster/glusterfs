@@ -9336,7 +9336,7 @@ gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                         "Error outputting to xml");
                         }
                 } else {
-                        cli_err (msg);
+                        cli_err ("%s", msg);
                 }
                 ret = 0; /* setting ret to 0 ensures we do not end up displaying
                             double error messages */
