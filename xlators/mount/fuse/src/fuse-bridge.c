@@ -3192,9 +3192,6 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         if (fsi->size > 0) {
                 dict_value = memdup (value, fsi->size);
-        } else {
-                gf_log (THIS->name, GF_LOG_ERROR, "value size zero");
-                dict_value = NULL;
         }
         dict_set (state->xattr, newkey,
                   data_from_dynptr ((void *)dict_value, fsi->size));

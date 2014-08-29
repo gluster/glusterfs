@@ -130,7 +130,7 @@ _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
 
         xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
 
-        if (xattr_size > 0) {
+        if (xattr_size != -1) {
                 value = GF_CALLOC (1, xattr_size + 1,
                                    gf_posix_mt_char);
                 if (!value)
@@ -138,7 +138,7 @@ _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
 
                 xattr_size = sys_lgetxattr (filler->real_path, key, value,
                                             xattr_size);
-                if (xattr_size <= 0) {
+                if (xattr_size == -1) {
                         gf_log (filler->this->name, GF_LOG_WARNING,
                                 "getxattr failed. path: %s, key: %s",
                                 filler->real_path, key);

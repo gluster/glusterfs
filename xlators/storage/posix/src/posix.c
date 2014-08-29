@@ -3703,7 +3703,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 }
 #endif
                 size = sys_lgetxattr (real_path, key, NULL, 0);
-                if (size <= 0) {
+                if (size == -1) {
                         op_errno = errno;
                         if ((op_errno == ENOTSUP) || (op_errno == ENOSYS)) {
                                 GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
@@ -3928,7 +3928,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 }
 #endif
                 size = sys_fgetxattr (_fd, key, NULL, 0);
-                if (size <= 0) {
+                if (size == -1) {
                         op_errno = errno;
                         gf_log (this->name,
                                 ((errno == ENODATA || errno == ENOATTR) ?

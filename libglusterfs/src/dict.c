@@ -2452,13 +2452,10 @@ _dict_serialize (dict_t *this, char *buf)
                 buf += keylen;
                 *buf++ = '\0';
 
-                if (!pair->value->data) {
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "pair->value->data is null!");
-                        goto out;
+                if (pair->value->data) {
+                        memcpy (buf, pair->value->data, vallen);
+                        buf += vallen;
                 }
-                memcpy (buf, pair->value->data, vallen);
-                buf += vallen;
 
                 pair = pair->next;
                 count--;
