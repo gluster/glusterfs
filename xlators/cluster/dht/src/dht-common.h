@@ -544,11 +544,11 @@ int dht_filter_loc_subvol_key (xlator_t  *this, loc_t *loc, loc_t *new_loc,
                                xlator_t **subvol);
 
 int                                     dht_rename_cleanup (call_frame_t *frame);
-int dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t           op_ret, int32_t op_errno,
-                          inode_t          *inode, struct iatt *stbuf,
-                          struct iatt      *preparent, struct iatt *postparent,
-                          dict_t *xdata);
+int dht_rename_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t           op_ret, int32_t op_errno,
+                         inode_t          *inode, struct iatt *stbuf,
+                         struct iatt      *preparent, struct iatt *postparent,
+                         dict_t *xdata);
 
 int dht_fix_directory_layout (call_frame_t *frame,
                               dht_selfheal_dir_cbk_t  dir_cbk,
