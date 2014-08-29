@@ -1,5 +1,5 @@
 /*
- * Derived from mount_bsd.c from the fuse distribution.
+ *  Derived from mount_bsd.c from the fuse distribution.
  *
  *  FUSE: Filesystem in Userspace
  *  Copyright (C) 2005-2006 Csaba Henk <csaba.henk@creo.hu>
@@ -41,324 +41,225 @@
 #define GFFUSE_LOGERR(...) \
         gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)
 
-static long
-fuse_os_version_major_np(void)
-{
-    int ret = 0;
-    long major = 0;
-    char *c = NULL;
-    struct utsname u;
-    size_t oldlen;
-
-    oldlen = sizeof(u.release);
-
-    ret = sysctlbyname("kern.osrelease", u.release, &oldlen, NULL, 0);
-    if (ret != 0) {
-        return -1;
-    }
-
-    c = strchr(u.release, '.');
-    if (c == NULL) {
-        return -1;
-    }
-
-    *c = '\0';
-
-    errno = 0;
-    major = strtol(u.release, NULL, 10);
-    if ((errno == EINVAL) || (errno == ERANGE)) {
-        return -1;
-    }
-
-    return major;
-}
-
-static int
-fuse_running_under_rosetta(void)
-{
-    int result = 0;
-    int is_native = 1;
-    size_t sz = sizeof(result);
-
-    int ret = sysctlbyname("sysctl.proc_native", &result, &sz, NULL, (size_t)0);
-    if ((ret == 0) && !result) {
-        is_native = 0;
-    }
-
-    return !is_native;
-}
-
-static int
-loadkmod(void)
-{
-    int result = -1;
-    int pid, terminated_pid;
-    union wait status;
-    long major;
-
-    major = fuse_os_version_major_np();
-
-    if (major < 9) { /* not Mac OS X 10.5+ */
-        return EINVAL;
-    }
-
-    pid = fork();
-
-    if (pid == 0) {
-        execl(OSXFUSE_LOAD_PROG, OSXFUSE_LOAD_PROG, NULL);
-
-        /* exec failed */
-        exit(ENOENT);
-    }
-
-    require_action(pid != -1, Return, result = errno);
-
-    while ((terminated_pid = wait4(pid, (int *)&status, 0, NULL)) < 0) {
-        /* retry if EINTR, else break out with error */
-        if (errno != EINTR) {
-            break;
-        }
-    }
-
-    if ((terminated_pid == pid) && (WIFEXITED(status))) {
-        result = WEXITSTATUS(status);
-    } else {
-        result = -1;
-    }
-
-Return:
-    check_noerr_string(result, strerror(errno));
-
-    return result;
-}
-
 int
 gf_fuse_mount (const char *mountpoint, char *fsname,
                unsigned long mountflags, char *mnt_param,
-	       pid_t *mnt_pid, int status_fd) /* Not used on OS X */
-/* int
-gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
-pid_t *mtab_pid) */
+               pid_t *mnt_pid, int status_fd) /* Not used on OS X */
 {
-    int fd, pid;
-    int result;
-    char *fdnam, *dev;
-    const char *mountprog = OSXFUSE_MOUNT_PROG;
-    sig_t chldf;
+        int fd       = 0;
+        int pid      = 0;
+        int ret      = 0;
+        char *fdnam  = NULL;
+        char *dev    = NULL;
+        char vstr[4];
+        unsigned vval = 0;
+        int i        = 0;
 
-    /* mount_fusefs should not try to spawn the daemon */
-    setenv("MOUNT_FUSEFS_SAFE", "1", 1);
-
-    /* to notify mount_fusefs it's called from lib */
-    setenv("MOUNT_FUSEFS_CALL_BY_LIB", "1", 1);
-
-    if (!mountpoint) {
-        fprintf(stderr, "missing or invalid mount point\n");
-        return -1;
-    }
-
-    if (fuse_running_under_rosetta()) {
-        fprintf(stderr, "MacFUSE does not work under Rosetta\n");
-        return -1;
-    }
-
-    chldf = signal(SIGCHLD, SIG_DFL); /* So that we can wait4() below. */
-
-    result = loadkmod();
-    if (result == EINVAL)
-        GFFUSE_LOGERR("OS X >= 10.5 (at least Leopard) required");
-    else if (result == 0 || result == ENOENT || result == EBUSY) {
-        /* Module loaded, but now need to check for user<->kernel match. */
-
+        const char *mountprog              = OSXFUSE_MOUNT_PROG;
+        sig_t chldf                        = SIG_ERR;
         char   version[MAXHOSTNAMELEN + 1] = { 0 };
-        size_t version_len = MAXHOSTNAMELEN;
-        size_t version_len_desired = 0;
+        size_t version_len                 = MAXHOSTNAMELEN;
+        size_t version_len_desired         = 0;
+        int r                              = 0;
+        char devpath[MAXPATHLEN]           = { 0 };;
 
-        result = sysctlbyname(SYSCTL_OSXFUSE_VERSION_NUMBER
-			      , version,
+        if (!mountpoint) {
+                gf_log ("glustefs-fuse", GF_LOG_ERROR,
+                        "missing or invalid mount point");
+                goto err;
+        }
+
+        /* mount_fusefs should not try to spawn the daemon */
+        setenv("MOUNT_FUSEFS_SAFE", "1", 1);
+
+        /* to notify mount_fusefs it's called from lib */
+        setenv("MOUNT_FUSEFS_CALL_BY_LIB", "1", 1);
+
+        chldf = signal(SIGCHLD, SIG_DFL); /* So that we can wait4() below. */
+
+        if (chldf == SIG_ERR) {
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "signal() returned SIG_ERR: %s",
+                        strerror(errno));
+                goto err;
+        }
+
+        /* check for user<->kernel match. */
+        ret = sysctlbyname(SYSCTL_OSXFUSE_VERSION_NUMBER, version,
                               &version_len, NULL, (size_t)0);
-        if (result == 0) {
-            /* sysctlbyname() includes the trailing '\0' in version_len */
-            version_len_desired = strlen("2.x.y") + 1;
+        if (ret != 0) {
+                gf_log ("glustefs-fuse", GF_LOG_ERROR,
+                        "sysctlbyname() returned error: %s",
+                        strerror(errno));
+                goto err;
+        }
 
-            if (version_len != version_len_desired)
-                result = -1;
-        } else
-            strcpy(version, "?.?.?");
-        if (result == 0) {
-            char *ep;
-            char vstr[4];
-            unsigned vval;
-            int i;
+        /* sysctlbyname() includes the trailing '\0' in version_len */
+        version_len_desired = strlen("2.x.y") + 1;
 
-            for (i = 0; i < 3; i++)
+        if (version_len != version_len_desired) {
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "version length mismatch for OSXFUSE %s",
+                        version);
+                ret = -1;
+                goto err;
+        }
+
+        for (i = 0; i < 3; i++)
                 vstr[i] = version[2*i];
-            vstr[3] = '\0';
+        vstr[3] = '\0';
 
-            vval = strtoul(vstr, &ep, 10);
-            if (*ep || vval < 203 || vval > 217)
-                result = -1;
-            else
-                gf_log("glusterfs-fuse", GF_LOG_INFO,
-                       "MacFUSE kext version %s", version);
-        }
-	// TODO Bypass version check
-	result = 0;
-        if (result != 0)
-	  GFFUSE_LOGERR("MacFUSE version %s is not supported", version);
-    } else
-      GFFUSE_LOGERR("cannot load MacFUSE kext");
-    if (result != 0)
-        return -1;
-
-    fdnam = getenv("FUSE_DEV_FD");
-
-    if (fdnam) {
-        char *ep;
-
-        fd = strtol(fdnam, &ep, 10);
-        if (*ep != '\0' || fd < 0) {
-            GFFUSE_LOGERR("invalid value given in FUSE_DEV_FD");
-            return -1;
+        vval = strtoul(vstr, NULL, 10);
+        if (vval < 264) {
+                GFFUSE_LOGERR("OSXFUSE version %s is not supported", version);
+                ret = -1;
+                goto err;
         }
 
-        goto mount;
-    }
+        gf_log("glusterfs-fuse", GF_LOG_INFO,
+               "OSXFUSE kext version supported %s", version);
 
-    dev = getenv("FUSE_DEV_NAME");
-    if (dev) {
-        if ((fd = open(dev, O_RDWR)) < 0) {
-            GFFUSE_LOGERR("failed to open device (%s)", strerror(errno));
-            return -1;
+        fdnam = getenv("FUSE_DEV_FD");
+        if (fdnam) {
+                fd = strtol(fdnam, NULL, 10);
+                if (fd < 0) {
+                        GFFUSE_LOGERR("invalid value given in FUSE_DEV_FD");
+                        ret = -1;
+                        goto err;
+                }
+                goto mount;
         }
-    } else {
-        int r, devidx = -1;
-        char devpath[MAXPATHLEN];
 
-        for (r = 0; r < OSXFUSE_NDEVICES; r++) {
-            snprintf(devpath, MAXPATHLEN - 1,
-                     _PATH_DEV OSXFUSE_DEVICE_BASENAME "%d", r);
-            fd = open(devpath, O_RDWR);
-            if (fd >= 0) {
-                dev = devpath;
-                devidx = r;
-                break;
-            }
+        dev = getenv("FUSE_DEV_NAME");
+        if (!dev) {
+                for (r = 0; r < OSXFUSE_NDEVICES; r++) {
+                        snprintf(devpath, MAXPATHLEN - 1,
+                                 _PATH_DEV OSXFUSE_DEVICE_BASENAME "%d", r);
+                        if ((fd = open(devpath, O_RDWR)) < 0) {
+                                GFFUSE_LOGERR("failed to open device %s (%s)",
+                                              devpath,
+                                              strerror(errno));
+                                goto err;
+                        }
+                        dev = devpath;
+                        goto mount;
+                }
         }
-        if (devidx == -1) {
-            GFFUSE_LOGERR("failed to open device (%s)", strerror(errno));
-            return -1;
+
+        fd = open(dev, O_RDWR);
+        if (fd < 0) {
+                GFFUSE_LOGERR("failed to open device %s (%s)", dev,
+                              strerror(errno));
+                ret = -1;
+                goto err;
         }
-    }
 
 mount:
-    if (getenv("FUSE_NO_MOUNT") || ! mountpoint)
-        goto out;
-
-    signal(SIGCHLD, chldf);
-
-    pid = fork();
-
-    if (pid == -1) {
-        GFFUSE_LOGERR("fork() failed (%s)", strerror(errno));
-        close(fd);
-        return -1;
-    }
-
-    if (pid == 0) {
+        signal(SIGCHLD, chldf);
 
         pid = fork();
         if (pid == -1) {
-            GFFUSE_LOGERR("fork() failed (%s)", strerror(errno));
-            close(fd);
-            exit(1);
+                GFFUSE_LOGERR("fork() failed (%s)", strerror(errno));
+                ret = -1;
+                goto err;
         }
 
         if (pid == 0) {
-            const char *argv[32];
-            int a = 0;
-            char *opts = NULL;
-
-            if (asprintf(&opts, "%s,fssubtype=glusterfs", mnt_param) == -1) {
-                GFFUSE_LOGERR("Out of memory");
-		exit(1);
-            }
-
-            if (! fdnam)
-                asprintf(&fdnam, "%d", fd);
-
-            argv[a++] = mountprog;
-            if (opts) {
-                argv[a++] = "-o";
-                argv[a++] = opts;
-            }
-            argv[a++] = fdnam;
-            argv[a++] = mountpoint;
-            argv[a++] = NULL;
-
-            {
-                char title[MAXPATHLEN + 1] = { 0 };
-                u_int32_t len = MAXPATHLEN;
-                int ret = proc_pidpath(getpid(), title, len);
-                if (ret) {
-                    setenv("MOUNT_FUSEFS_DAEMON_PATH", title, 1);
+                pid = fork();
+                if (pid == -1) {
+                        GFFUSE_LOGERR("fork() failed (%s)", strerror(errno));
+                        ret = -1;
+                        goto err;
                 }
-            }
-            execvp(mountprog, (char **) argv);
-            GFFUSE_LOGERR("MacFUSE: failed to exec mount program (%s)", strerror(errno));
-            exit(1);
+
+                if (pid == 0) {
+                        const char *argv[32];
+                        int a = 0;
+                        char *opts = NULL;
+
+                        if (asprintf(&opts, "%s,fssubtype=glusterfs",
+                                     mnt_param) == -1) {
+                                GFFUSE_LOGERR("asprintf() error: %s",
+                                              strerror(errno));
+                                ret = -1;
+                                goto err;
+                        }
+
+                        if (!fdnam)
+                                asprintf(&fdnam, "%d", fd);
+
+                        argv[a++] = mountprog;
+                        if (opts) {
+                                argv[a++] = "-o";
+                                argv[a++] = opts;
+                        }
+                        argv[a++] = fdnam;
+                        argv[a++] = mountpoint;
+                        argv[a++] = NULL;
+
+                        {
+                                char title[MAXPATHLEN + 1] = { 0 };
+                                u_int32_t len = MAXPATHLEN;
+                                int ret = proc_pidpath(getpid(), title, len);
+                                if (ret) {
+                                        setenv("MOUNT_FUSEFS_DAEMON_PATH",
+                                               title, 1);
+                                }
+                        }
+                        execvp(mountprog, (char **) argv);
+                        GFFUSE_LOGERR("OSXFUSE: failed to exec mount"
+                                      " program (%s)", strerror(errno));
+                        _exit(1);
+                }
+                _exit(0);
         }
-
-        _exit(0);
-    }
-
-out:
-    return fd;
+        ret = fd;
+err:
+        if (ret == -1) {
+                if (fd > 0) {
+                        close(fd);
+                }
+        }
+        return ret;
 }
 
 void
 gf_fuse_unmount(const char *mountpoint, int fd)
 {
-    int ret;
-    struct stat sbuf;
-    char dev[128];
-    char resolved_path[PATH_MAX];
-    char *ep, *rp = NULL;
+        int ret;
+        struct stat sbuf;
+        char dev[128];
+        char resolved_path[PATH_MAX];
+        char *ep, *rp = NULL;
 
-    unsigned int hs_complete = 0;
+        unsigned int hs_complete = 0;
 
-    ret = ioctl(fd, FUSEDEVIOCGETHANDSHAKECOMPLETE, &hs_complete);
-    if (ret || !hs_complete) {
+        ret = ioctl(fd, FUSEDEVIOCGETHANDSHAKECOMPLETE, &hs_complete);
+        if (ret || !hs_complete) {
+                return;
+        }
+
+        if (fstat(fd, &sbuf) == -1) {
+                return;
+        }
+
+        devname_r(sbuf.st_rdev, S_IFCHR, dev, 128);
+
+        if (strncmp(dev, OSXFUSE_DEVICE_BASENAME,
+                    sizeof(OSXFUSE_DEVICE_BASENAME) - 1)) {
+                return;
+        }
+
+        strtol(dev + sizeof(OSXFUSE_DEVICE_BASENAME) - 1, &ep, 10);
+        if (*ep != '\0') {
+                return;
+        }
+
+        rp = realpath(mountpoint, resolved_path);
+        if (rp) {
+                ret = unmount(resolved_path, 0);
+        }
+
+        close(fd);
         return;
-    }
-    /* XXX does this have any use here? */
-    ret = ioctl(fd,  FUSEDEVIOCSETDAEMONDEAD, &fd);
-    if (ret) {
-        return;
-    }
-
-    if (fstat(fd, &sbuf) == -1) {
-        return;
-    }
-
-    devname_r(sbuf.st_rdev, S_IFCHR, dev, 128);
-
-    if (strncmp(dev, OSXFUSE_DEVICE_BASENAME,
-                sizeof(OSXFUSE_DEVICE_BASENAME) - 1)) {
-        return;
-    }
-
-    strtol(dev + 4, &ep, 10);
-    if (*ep != '\0') {
-        return;
-    }
-
-    rp = realpath(mountpoint, resolved_path);
-    if (rp) {
-        ret = unmount(resolved_path, 0);
-    }
-
-    close(fd);
-
-    return;
 }
