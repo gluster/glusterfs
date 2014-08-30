@@ -1547,14 +1547,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         /* Other options which don't fit any place above */
         { .key        = "features.read-only",
           .voltype    = "features/read-only",
-          .option     = "!read-only",
-          .value      = "off",
+          .option     = "read-only",
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
         { .key        = "features.worm",
           .voltype    = "features/worm",
-          .option     = "!worm",
+          .option     = "worm",
           .value      = "off",
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT

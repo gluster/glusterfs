@@ -1852,15 +1852,12 @@ brick_graph_add_ro (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        /* Check for read-only volume option, and add it to the graph */
-        if (dict_get_str_boolean (set_dict, "features.read-only", 0)){
-                xl = volgen_graph_add (graph, "features/read-only",
-                                       volinfo->volname);
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
-        }
+        xl = volgen_graph_add (graph, "features/read-only", volinfo->volname);
+        if (!xl)
+                return -1;
+        ret = xlator_set_option (xl, "read-only", "off");
+                if (ret)
+                        return -1;
 
         ret = 0;
 
@@ -1886,15 +1883,9 @@ brick_graph_add_worm (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        /* Check for worm volume option, and add it to the graph */
-        if (dict_get_str_boolean (set_dict, "features.worm", 0)) {
-                xl = volgen_graph_add (graph, "features/worm",
-                                       volinfo->volname);
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
-        }
+        xl = volgen_graph_add (graph, "features/worm", volinfo->volname);
+        if (!xl)
+                return -1;
 
         ret = 0;
 
@@ -3399,6 +3390,10 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         ret = -1;
                         goto out;
                 }
+                ret = xlator_set_option (xl, "read-only", "on");
+                if (ret)
+                        goto out;
+
         }
 
         /* Check for compress volume option, and add it to the graph on client side */
