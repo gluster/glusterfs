@@ -2386,13 +2386,15 @@ svs_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t off, dict_t *xdata)
 {
         svs_private_t *priv      = NULL;
-        gf_dirent_t    entries;
+        gf_dirent_t    entries   = {{{0, }, }, };
         int            count     = 0;
         svs_inode_t   *inode_ctx = NULL;
         int            op_errno  = EINVAL;
         int            op_ret    = -1;
         svs_fd_t      *svs_fd    = NULL;
         glfs_fd_t     *glfd      = NULL;
+
+        INIT_LIST_HEAD (&entries.list);
 
         GF_VALIDATE_OR_GOTO ("snap-view-server", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
