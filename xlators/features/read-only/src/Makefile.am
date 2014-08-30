@@ -2,7 +2,7 @@ xlator_LTLIBRARIES = read-only.la worm.la
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-noinst_HEADERS = read-only-common.h
+noinst_HEADERS = read-only.h read-only-mem-types.h read-only-common.h
 
 read_only_la_LDFLAGS = -module -avoid-version
 

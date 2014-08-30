@@ -15,6 +15,9 @@
 #include "xlator.h"
 #include "defaults.h"
 
+gf_boolean_t
+is_readonly_or_worm_enabled (xlator_t *this);
+
 int32_t
 ro_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
             gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata);
