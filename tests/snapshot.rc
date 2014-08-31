@@ -384,3 +384,12 @@ function snap_config()
         local var=$2
         $cli_index snapshot config | grep "^$var" | sed 's/.*: //'
 }
+
+case $OSTYPE in
+NetBSD)
+        echo "Skip test on LVM which is not available on NetBSD" >&2
+        exit 0
+        ;;
+*)      
+        ;;
+esac  
