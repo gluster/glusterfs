@@ -71,6 +71,15 @@ function volume_type()
         getfattr -n volume.type $M0/. --only-values --absolute-names -e text
 }
 
+case $OSTYPE in
+NetBSD)
+        echo "Skip test on LVM which is not available on NetBSD" >&2
+        exit 0
+        ;;
+*)      
+        ;;
+esac 
+
 TEST glusterd
 TEST pidof glusterd
 configure
