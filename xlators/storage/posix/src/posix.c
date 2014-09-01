@@ -3910,8 +3910,9 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 size = sys_fgetxattr (_fd, key, NULL, 0);
                 if (size <= 0) {
                         op_errno = errno;
-                        gf_log (this->name, ((errno == ENODATA) ?
-                                             GF_LOG_DEBUG : GF_LOG_ERROR),
+                        gf_log (this->name,
+                                ((errno == ENODATA || errno == ENOATTR) ?
+                                        GF_LOG_DEBUG : GF_LOG_ERROR),
                                 "fgetxattr failed on key %s (%s)", key,
                                 strerror (op_errno));
                         goto done;
@@ -4131,7 +4132,7 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
         op_ret = sys_lremovexattr (filler->real_path, key);
         if (op_ret == -1) {
                 filler->op_errno = errno;
-                if (errno != ENOATTR && errno != EPERM)
+                if (errno != ENOATTR && errno != ENODATA && errno != EPERM)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "removexattr failed on %s (for %s): %s",
                                 filler->real_path, key, strerror (errno));
@@ -4191,7 +4192,8 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
         op_ret = sys_lremovexattr (real_path, name);
         if (op_ret == -1) {
                 op_errno = errno;
-                if (op_errno != ENOATTR && op_errno != EPERM)
+                if (op_errno != ENOATTR && op_errno != ENODATA &&
+                    op_errno != EPERM)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "removexattr on %s (for %s): %s", real_path,
                                 name, strerror (op_errno));
@@ -4246,7 +4248,8 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
         op_ret = sys_fremovexattr (_fd, name);
         if (op_ret == -1) {
                 op_errno = errno;
-                if (op_errno != ENOATTR && op_errno != EPERM)
+                if (op_errno != ENOATTR && op_errno != ENODATA &&
+                    op_errno != EPERM)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fremovexattr (for %s): %s",
                                 name, strerror (op_errno));
@@ -5516,15 +5519,16 @@ init (xlator_t *this)
                                 ret = -1;
                                 goto out;
                         }
-                } else if ((size == -1) && (errno == ENODATA)) {
-
+                } else if ((size == -1) &&
+                           (errno == ENODATA || errno == ENOATTR)) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Extended attribute trusted.glusterfs."
                                         "volume-id is absent");
                                 ret = -1;
                                 goto out;
 
-                }  else if ((size == -1) && (errno != ENODATA)) {
+                }  else if ((size == -1) && (errno != ENODATA) &&
+                            (errno != ENOATTR)) {
                         /* Wrong 'volume-id' is set, it should be error */
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to fetch volume-id (%s)",

@@ -68,7 +68,7 @@
        op_ret = sys_lgetxattr (path, key, &value, sizeof (value));  \
        if (op_ret == -1) {                                              \
                op_errno = errno;                                        \
-               if (op_errno == ENOATTR) {                               \
+               if (op_errno == ENOATTR || op_errno == ENODATA) {        \
                        value = 1;                                       \
                } else {                                                 \
                        gf_log (this->name, GF_LOG_WARNING,"getting xattr " \
