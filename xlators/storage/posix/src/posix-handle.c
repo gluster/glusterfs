@@ -549,7 +549,7 @@ posix_does_old_trash_exists (char *old_trash)
         ret = lstat (old_trash, &stbuf);
         if ((ret == 0) && S_ISDIR (stbuf.st_mode)) {
                 ret = sys_lgetxattr (old_trash, "trusted.gfid", gfid, 16);
-                if ((ret < 0) && (errno == ENODATA))
+                if ((ret < 0) && (errno == ENODATA || errno == ENOATTR) )
                         exists = _gf_true;
         }
         return exists;

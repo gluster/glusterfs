@@ -3312,7 +3312,7 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 } /* if(state->name)...else */
         } else {
                 /* if failure - no need to check if listxattr or getxattr */
-                if (op_errno != ENODATA) {
+                if (op_errno != ENODATA && op_errno != ENOATTR) {
                         if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY (gf_fuse_xattr_enotsup_log,
                                                      "glusterfs-fuse",

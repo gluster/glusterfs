@@ -859,6 +859,12 @@ init_compat_errno_arrays ()
         gf_error_to_errno_array[GF_ERROR_CODE_BADMSG] = EBADMSG;
         gf_errno_to_error_array[EBADMSG] = GF_ERROR_CODE_BADMSG;
 
+#ifdef __NetBSD__
+        /*      ENODATA         89              / * No message available */
+        gf_error_to_errno_array[GF_ERROR_CODE_NODATA] = ENODATA;
+        gf_errno_to_error_array[ENODATA] = GF_ERROR_CODE_NODATA;
+#endif
+
         /*      EMULTIHOP       90              / * Multihop attempted */
         gf_error_to_errno_array[GF_ERROR_CODE_MULTIHOP] = EMULTIHOP;
         gf_errno_to_error_array[EMULTIHOP] = GF_ERROR_CODE_MULTIHOP;
