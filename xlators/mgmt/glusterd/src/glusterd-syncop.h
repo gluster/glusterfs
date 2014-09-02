@@ -44,14 +44,19 @@ int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req, void *local,
 
 int gd_syncop_mgmt_lock (glusterd_peerinfo_t *peerinfo, struct syncargs *arg,
                          uuid_t my_uuid, uuid_t recv_uuid);
+
 int gd_syncop_mgmt_unlock (glusterd_peerinfo_t *peerinfo, struct syncargs *arg,
                            uuid_t my_uuid, uuid_t recv_uuid);
-int gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *arg,
-                             uuid_t my_uuid, uuid_t recv_uuid, int op,
-                             dict_t *dict_out, dict_t *op_ctx);
-int gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *arg,
-                              uuid_t my_uuid, uuid_t recv_uuid, int op,
-                              dict_t *dict_out, dict_t *op_ctx);
+
+int gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo,
+                             struct syncargs *arg, uuid_t my_uuid,
+                             uuid_t recv_uuid, int op, dict_t *dict_out,
+                             dict_t *op_ctx);
+
+int gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo,
+                              struct syncargs *arg, uuid_t my_uuid,
+                              uuid_t recv_uuid, int op, dict_t *dict_out,
+                              dict_t *op_ctx);
 
 void
 gd_synctask_barrier_wait (struct syncargs *args, int count);

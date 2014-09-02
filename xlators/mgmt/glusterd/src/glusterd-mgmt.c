@@ -276,14 +276,14 @@ int32_t
 gd_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                                 int count, void *myframe)
 {
-        int32_t                     ret        = -1;
-        struct syncargs            *args       = NULL;
-        glusterd_peerinfo_t        *peerinfo   = NULL;
-        gd1_mgmt_v3_lock_rsp        rsp        = {{0},};
-        call_frame_t               *frame      = NULL;
-        int32_t                     op_ret     = -1;
-        int32_t                     op_errno   = -1;
-        xlator_t                   *this       = NULL;
+        int32_t                     ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_lock_rsp        rsp           = {{0},};
+        call_frame_t               *frame         = NULL;
+        int32_t                     op_ret        = -1;
+        int32_t                     op_errno      = -1;
+        xlator_t                   *this          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -370,6 +370,7 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         uuid_copy (req.uuid, my_uuid);
         req.op = op;
         synclock_unlock (&conf->big_lock);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
@@ -500,15 +501,15 @@ int32_t
 gd_mgmt_v3_pre_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
                                 int count, void *myframe)
 {
-        int32_t                     ret        = -1;
-        struct syncargs            *args       = NULL;
-        glusterd_peerinfo_t        *peerinfo   = NULL;
-        gd1_mgmt_v3_pre_val_rsp      rsp        = {{0},};
-        call_frame_t               *frame      = NULL;
-        int32_t                     op_ret     = -1;
-        int32_t                     op_errno   = -1;
-        dict_t                     *rsp_dict   = NULL;
-        xlator_t                   *this       = NULL;
+        int32_t                     ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_pre_val_rsp     rsp           = {{0},};
+        call_frame_t               *frame         = NULL;
+        int32_t                     op_ret        = -1;
+        int32_t                     op_errno      = -1;
+        dict_t                     *rsp_dict      = NULL;
+        xlator_t                   *this          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -624,6 +625,7 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
         uuid_copy (req.uuid, my_uuid);
         req.op = op;
         synclock_unlock (&conf->big_lock);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_PRE_VALIDATE,
@@ -767,14 +769,14 @@ int32_t
 gd_mgmt_v3_brick_op_cbk_fn (struct rpc_req *req, struct iovec *iov,
                             int count, void *myframe)
 {
-        int32_t                     ret        = -1;
-        struct syncargs            *args       = NULL;
-        glusterd_peerinfo_t        *peerinfo   = NULL;
-        gd1_mgmt_v3_brick_op_rsp     rsp        = {{0},};
-        call_frame_t               *frame      = NULL;
-        int32_t                     op_ret     = -1;
-        int32_t                     op_errno   = -1;
-        xlator_t                   *this       = NULL;
+        int32_t                     ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_brick_op_rsp     rsp          = {{0},};
+        call_frame_t               *frame         = NULL;
+        int32_t                     op_ret        = -1;
+        int32_t                     op_errno      = -1;
+        xlator_t                   *this          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -862,6 +864,7 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
         uuid_copy (req.uuid, my_uuid);
         req.op = op;
         synclock_unlock (&conf->big_lock);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_BRICK_OP,
@@ -964,15 +967,15 @@ int32_t
 gd_mgmt_v3_commit_cbk_fn (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        int32_t                     ret        = -1;
-        struct syncargs            *args       = NULL;
-        glusterd_peerinfo_t        *peerinfo   = NULL;
-        gd1_mgmt_v3_commit_rsp       rsp        = {{0},};
-        call_frame_t               *frame      = NULL;
-        int32_t                     op_ret     = -1;
-        int32_t                     op_errno   = -1;
-        dict_t                     *rsp_dict   = NULL;
-        xlator_t                   *this       = NULL;
+        int32_t                     ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_commit_rsp       rsp          = {{0},};
+        call_frame_t               *frame         = NULL;
+        int32_t                     op_ret        = -1;
+        int32_t                     op_errno      = -1;
+        dict_t                     *rsp_dict      = NULL;
+        xlator_t                   *this          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1086,6 +1089,7 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
         uuid_copy (req.uuid, my_uuid);
         req.op = op;
         synclock_unlock (&conf->big_lock);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_COMMIT,
@@ -1199,14 +1203,14 @@ int32_t
 gd_mgmt_v3_post_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
                                  int count, void *myframe)
 {
-        int32_t                     ret        = -1;
-        struct syncargs            *args       = NULL;
-        glusterd_peerinfo_t        *peerinfo   = NULL;
-        gd1_mgmt_v3_post_val_rsp     rsp        = {{0},};
-        call_frame_t               *frame      = NULL;
-        int32_t                     op_ret     = -1;
-        int32_t                     op_errno   = -1;
-        xlator_t                   *this       = NULL;
+        int32_t                     ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_post_val_rsp    rsp           = {{0},};
+        call_frame_t               *frame         = NULL;
+        int32_t                     op_ret        = -1;
+        int32_t                     op_errno      = -1;
+        xlator_t                   *this          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1289,6 +1293,7 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         req.op = op;
         req.op_ret = op_ret;
         synclock_unlock (&conf->big_lock);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE,
@@ -1397,14 +1402,14 @@ int32_t
 gd_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        int32_t                     ret        = -1;
-        struct syncargs            *args       = NULL;
-        glusterd_peerinfo_t        *peerinfo   = NULL;
-        gd1_mgmt_v3_unlock_rsp      rsp        = {{0},};
-        call_frame_t               *frame      = NULL;
-        int32_t                     op_ret     = -1;
-        int32_t                     op_errno   = -1;
-        xlator_t                   *this       = NULL;
+        int32_t                     ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_unlock_rsp      rsp           = {{0},};
+        call_frame_t               *frame         = NULL;
+        int32_t                     op_ret        = -1;
+        int32_t                     op_errno      = -1;
+        xlator_t                   *this          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1483,6 +1488,7 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
         uuid_copy (req.uuid, my_uuid);
         req.op = op;
         synclock_unlock (&conf->big_lock);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_UNLOCK,

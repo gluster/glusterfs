@@ -316,13 +316,13 @@ int32_t
 gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                                  int count, void *myframe)
 {
-        int                         ret         = -1;
-        struct syncargs             *args       = NULL;
-        glusterd_peerinfo_t         *peerinfo   = NULL;
-        gd1_mgmt_v3_lock_rsp         rsp        = {{0},};
-        call_frame_t                *frame      = NULL;
-        int                         op_ret      = -1;
-        int                         op_errno    = -1;
+        int                         ret           = -1;
+        struct syncargs            *args          = NULL;
+        glusterd_peerinfo_t        *peerinfo      = NULL;
+        gd1_mgmt_v3_lock_rsp        rsp           = {{0},};
+        call_frame_t               *frame         = NULL;
+        int                         op_ret        = -1;
+        int                         op_errno      = -1;
 
         GF_ASSERT(req);
         GF_ASSERT(iov);
@@ -405,13 +405,13 @@ int32_t
 gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                                  int count, void *myframe)
 {
-        int                         ret         = -1;
-        struct syncargs             *args       = NULL;
-        glusterd_peerinfo_t         *peerinfo   = NULL;
-        gd1_mgmt_v3_unlock_rsp       rsp        = {{0},};
-        call_frame_t                *frame      = NULL;
-        int                         op_ret      = -1;
-        int                         op_errno    = -1;
+        int                          ret           = -1;
+        struct syncargs             *args          = NULL;
+        glusterd_peerinfo_t         *peerinfo      = NULL;
+        gd1_mgmt_v3_unlock_rsp       rsp           = {{0},};
+        call_frame_t                *frame         = NULL;
+        int                          op_ret        = -1;
+        int                          op_errno      = -1;
 
         GF_ASSERT(req);
         GF_ASSERT(iov);
@@ -495,13 +495,13 @@ int32_t
 _gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        int                         ret         = -1;
-        struct syncargs             *args       = NULL;
-        glusterd_peerinfo_t         *peerinfo   = NULL;
-        gd1_mgmt_cluster_lock_rsp   rsp         = {{0},};
-        call_frame_t                *frame      = NULL;
-        int                         op_ret      = -1;
-        int                         op_errno    = -1;
+        int                         ret             = -1;
+        struct syncargs             *args           = NULL;
+        glusterd_peerinfo_t         *peerinfo       = NULL;
+        gd1_mgmt_cluster_lock_rsp   rsp             = {{0},};
+        call_frame_t                *frame          = NULL;
+        int                         op_ret          = -1;
+        int                         op_errno        = -1;
 
         frame  = myframe;
         args   = frame->local;
@@ -565,13 +565,13 @@ int32_t
 _gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                             int count, void *myframe)
 {
-        int                         ret         = -1;
-        struct syncargs             *args       = NULL;
-        glusterd_peerinfo_t         *peerinfo   = NULL;
-        gd1_mgmt_cluster_unlock_rsp rsp         = {{0},};
-        call_frame_t                *frame      = NULL;
-        int                         op_ret      = -1;
-        int                         op_errno    = -1;
+        int                          ret           = -1;
+        struct syncargs             *args          = NULL;
+        glusterd_peerinfo_t         *peerinfo      = NULL;
+        gd1_mgmt_cluster_unlock_rsp  rsp           = {{0},};
+        call_frame_t                *frame         = NULL;
+        int                          op_ret        = -1;
+        int                          op_errno      = -1;
 
         frame = myframe;
         args  = frame->local;
@@ -633,19 +633,20 @@ int32_t
 _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                          int count, void *myframe)
 {
-        int                         ret         = -1;
-        gd1_mgmt_stage_op_rsp       rsp         = {{0},};
-        struct syncargs             *args       = NULL;
-        xlator_t                    *this       = NULL;
-        dict_t                      *rsp_dict   = NULL;
-        call_frame_t                *frame      = NULL;
-        glusterd_peerinfo_t         *peerinfo   = NULL;
-        int                         op_ret      = -1;
-        int                         op_errno    = -1;
+        int                         ret           = -1;
+        gd1_mgmt_stage_op_rsp       rsp           = {{0},};
+        struct syncargs             *args         = NULL;
+        xlator_t                    *this         = NULL;
+        dict_t                      *rsp_dict     = NULL;
+        call_frame_t                *frame        = NULL;
+        glusterd_peerinfo_t         *peerinfo     = NULL;
+        int                         op_ret        = -1;
+        int                         op_errno      = -1;
 
         this  = THIS;
         frame = myframe;
         args  = frame->local;
+        peerinfo = frame->cookie;
         frame->local = NULL;
 
         if (-1 == req->rpc_status) {
@@ -724,7 +725,7 @@ gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
 
 
 int
-gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
+gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
                          uuid_t my_uuid, uuid_t recv_uuid, int op,
                          dict_t *dict_out, dict_t *op_ctx)
 {
@@ -745,8 +746,8 @@ gd_syncop_mgmt_stage_op (struct rpc_clnt *rpc, struct syncargs *args,
                 goto out;
 
         synclock_unlock (&conf->big_lock);
-        ret = gd_syncop_submit_request (rpc, req, args, NULL, &gd_mgmt_prog,
-                                        GLUSTERD_MGMT_STAGE_OP,
+        ret = gd_syncop_submit_request (peerinfo->rpc, req, args, peerinfo,
+                                        &gd_mgmt_prog, GLUSTERD_MGMT_STAGE_OP,
                                         gd_syncop_stage_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_stage_op_req);
         synclock_lock (&conf->big_lock);
@@ -888,20 +889,21 @@ int32_t
 _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        int                          ret           = -1;
-        gd1_mgmt_commit_op_rsp       rsp           = {{0},};
-        struct syncargs             *args          = NULL;
-        xlator_t                    *this          = NULL;
-        dict_t                      *rsp_dict      = NULL;
-        call_frame_t                *frame         = NULL;
-        glusterd_peerinfo_t         *peerinfo      = NULL;
-        int                          op_ret        = -1;
-        int                          op_errno      = -1;
-        int                          type          = GF_QUOTA_OPTION_TYPE_NONE;
+        int                     ret               = -1;
+        gd1_mgmt_commit_op_rsp  rsp               = {{0},};
+        struct syncargs        *args              = NULL;
+        xlator_t               *this              = NULL;
+        dict_t                 *rsp_dict          = NULL;
+        call_frame_t           *frame             = NULL;
+        glusterd_peerinfo_t    *peerinfo          = NULL;
+        int                     op_ret            = -1;
+        int                     op_errno          = -1;
+        int                     type              = GF_QUOTA_OPTION_TYPE_NONE;
 
         this  = THIS;
         frame = myframe;
         args  = frame->local;
+        peerinfo = frame->cookie;
         frame->local = NULL;
 
         if (-1 == req->rpc_status) {
@@ -931,6 +933,7 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
+
         if (peerinfo == NULL) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_CRITICAL, "Commit response "
@@ -988,7 +991,7 @@ gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
 
 int
-gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
+gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
                           uuid_t my_uuid, uuid_t recv_uuid,
                           int op, dict_t *dict_out, dict_t *op_ctx)
 {
@@ -1009,8 +1012,8 @@ gd_syncop_mgmt_commit_op (struct rpc_clnt *rpc, struct syncargs *args,
                 goto out;
 
         synclock_unlock (&conf->big_lock);
-        ret = gd_syncop_submit_request (rpc, req, args, NULL, &gd_mgmt_prog,
-                                        GLUSTERD_MGMT_COMMIT_OP ,
+        ret = gd_syncop_submit_request (peerinfo->rpc, req, args, peerinfo,
+                                        &gd_mgmt_prog, GLUSTERD_MGMT_COMMIT_OP,
                                         gd_syncop_commit_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_commit_op_req);
         synclock_lock (&conf->big_lock);
@@ -1163,7 +1166,7 @@ stage_done:
         synctask_barrier_init((&args));
         peer_cnt = 0;
         list_for_each_entry (peerinfo, peers, op_peers_list) {
-                ret = gd_syncop_mgmt_stage_op (peerinfo->rpc, &args,
+                ret = gd_syncop_mgmt_stage_op (peerinfo, &args,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, op_ctx);
                 peer_cnt++;
@@ -1267,7 +1270,7 @@ commit_done:
         synctask_barrier_init((&args));
         peer_cnt = 0;
         list_for_each_entry (peerinfo, peers, op_peers_list) {
-                ret = gd_syncop_mgmt_commit_op (peerinfo->rpc, &args,
+                ret = gd_syncop_mgmt_commit_op (peerinfo, &args,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, op_ctx);
                 peer_cnt++;
