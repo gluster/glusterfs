@@ -2088,6 +2088,12 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 cli_out ("volume remove-brick %s: success", cmd_str);
                 if (GF_OP_CMD_START == cmd && task_id_str != NULL)
                         cli_out ("ID: %s", task_id_str);
+                if (GF_OP_CMD_COMMIT_FORCE == cmd)
+                        cli_out ("Check the removed bricks to ensure all files "
+                                 "are migrated.\nIf files with data are "
+                                 "found on the brick path, copy them via a "
+                                 "gluster mount point before re-purposing the "
+                                 "removed brick. ");
         }
 
         ret = rsp.op_ret;
