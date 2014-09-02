@@ -29,6 +29,8 @@
                                   UUID0_STR) + 1)
 
 #define LOC_HAS_ABSPATH(loc) (loc && (loc->path) && (loc->path[0] == '/'))
+#define LOC_IS_DIR(loc) (loc && (loc->inode) && \
+                (loc->inode->ia_type == IA_IFDIR))
 
 #define MAKE_PGFID_XATTR_KEY(var, prefix, pgfid) do {                   \
         var = alloca (strlen (prefix) + UUID_CANONICAL_FORM_LEN + 1);   \
@@ -152,7 +154,7 @@
                         "null gfid for path %s", (loc)->path);          \
                 break;                                                  \
         }                                                               \
-        if (LOC_HAS_ABSPATH (loc)) {                                    \
+        if (LOC_IS_DIR (loc) && LOC_HAS_ABSPATH (loc)) {                \
                 MAKE_REAL_PATH (rpath, this, (loc)->path);              \
                 op_ret = posix_pstat (this, (loc)->gfid, rpath, iatt_p); \
                 break;                                                  \
