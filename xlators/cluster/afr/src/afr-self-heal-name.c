@@ -291,12 +291,11 @@ afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies
                                             priv->children[i]->name,
                                             replies[type_idx].poststat.ia_type,
                                             priv->children[type_idx]->name);
-                                return -EIO;
+                                    return -EIO;
                         }
+                        inode_type = replies[i].poststat.ia_type;
+                        type_idx = i;
                 }
-                inode_type = replies[i].poststat.ia_type;
-                type_idx = i;
-                continue;
         }
         return 0;
 }
@@ -345,7 +344,6 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
 
                         gfid = &replies[i].poststat.ia_gfid;
 			gfid_idx_iter = i;
-			continue;
 		}
 	}
 
