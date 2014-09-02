@@ -31,26 +31,18 @@ move_files () {
 
 check_files () {
 	errors=0
-	warnings=0
 	for i in {1..1000}; do
 		if [ ! -f $(printf %s/dst%04d $1 $i) ]; then
 			if [ -f $(printf %s/src%04d $1 $i) ]; then
-				# We do hit this sometimes, though very rarely.
-				# It's a bug.  It's just not *this* bug.
-				# Therefore, instead of allowing it to cause
-				# spurious test failures, we let it slide for
-				# now.  Some day, when that other bug is fixed,
-				# I hope I remember to come back and strengthen
-				# this test accordingly.
 				echo "file $i didnt get moved" > /dev/stderr
-				#warnings=$((warnings+1))
+				errors=$((errors+1))
 			else
 				echo "file $i is MISSING" > /dev/stderr
 				errors=$((errors+1))
 			fi
 		fi
 	done
-	if [ $((errors+warnings)) != 0 ]; then
+	if [ $((errors)) != 0 ]; then
 		: ls -l $1 > /dev/stderr
 	fi
 	return $errors
@@ -84,9 +76,11 @@ TEST move_files $M1
 
 # It's regrettable that renaming 1000 files might take more than 30 seconds,
 # but on our test systems sometimes it does, so double the time from what we'd
-# use otherwise.
-EXPECT_WITHIN 60 "done" cat $M0/status_0
-EXPECT_WITHIN 60 "done" cat $M1/status_1
+# use otherwise.  There still seem to be some spurious failures, 1 in 20 when
+# this does not complete, added an additional 15 seconds to take false reports
+# out of the system, during test runs.
+EXPECT_WITHIN 75 "done" cat $M0/status_0
+EXPECT_WITHIN 75 "done" cat $M1/status_1
 
 TEST umount $M0
 TEST umount $M1
