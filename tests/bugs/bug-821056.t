@@ -43,7 +43,7 @@ for i in {1..1024}; do
         echo "open sesame" >&5
 done
 
-EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/a
+EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpath"
 #close the fd
 exec 5>&-
 
