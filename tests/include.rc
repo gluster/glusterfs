@@ -143,7 +143,11 @@ function _EXPECT()
 	shift;
 	a=$("$@" | tail -1)
 
-	test_expect_footer "$e" "$a";
+        if [ "x$e" = "x" ] ; then
+	        test_expect_footer "x$e" "x$a";
+        else
+	        test_expect_footer "$e" "$a";
+        fi
 }
 
 function test_expect_not_footer()
