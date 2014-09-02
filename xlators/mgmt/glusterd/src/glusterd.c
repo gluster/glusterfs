@@ -1161,6 +1161,24 @@ init (xlator_t *this)
         int                i                 = 0;
         char              *valgrind_str      = NULL;
 
+#ifndef GF_DARWIN_HOST_OS
+        {
+                struct rlimit lim;
+                lim.rlim_cur = 65536;
+                lim.rlim_max = 65536;
+
+                if (setrlimit (RLIMIT_NOFILE, &lim) == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set 'ulimit -n "
+                                " 65536': %s", strerror(errno));
+                } else {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Maximum allowed open file descriptors "
+                                "set to 65536");
+                }
+        }
+#endif
+
         dir_data = dict_get (this->options, "working-directory");
 
         if (!dir_data) {
