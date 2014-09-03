@@ -209,6 +209,9 @@
 #define GF_LOG_FLUSH_TIMEOUT_MIN_STR "30"
 #define GF_LOG_FLUSH_TIMEOUT_MAX_STR "300"
 
+#define GF_BACKTRACE_LEN        4096
+#define GF_BACKTRACE_FRAME_COUNT 7
+
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
@@ -520,6 +523,8 @@ struct _glusterfs_ctx {
          * NFS.
          */
         mgmt_ssl_t          secure_srvr;
+        /* Buffer to 'save' backtrace even under OOM-kill like situations*/
+        char btbuf[GF_BACKTRACE_LEN];
 
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

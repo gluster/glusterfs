@@ -644,4 +644,10 @@ gf_check_logger (const char *value);
 gf_boolean_t
 gf_compare_sockaddr (const struct sockaddr *addr1,
                      const struct sockaddr *addr2);
+
+char *
+gf_backtrace_save (char *buf);
+
+void
+gf_backtrace_done (char *buf);
 #endif /* _COMMON_UTILS_H */
