@@ -49,7 +49,7 @@ TEST stat $M0/one
 # Check pending xattrs
 EXPECT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 data
 EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 entry
-EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 metadata
+EXPECT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 metadata
 
 TEST gluster volume set $V0 self-heal-daemon on
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
