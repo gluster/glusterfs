@@ -17,7 +17,6 @@
 #include "afr.h"
 #include "afr-self-heal.h"
 
-
 int
 __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                             const char *bname, inode_t *inode,
@@ -105,17 +104,22 @@ out:
 	return ret;
 }
 
-
 int
-__afr_selfheal_name_impunge (xlator_t *this, inode_t *parent, uuid_t pargfid,
+__afr_selfheal_name_impunge (call_frame_t *frame, xlator_t *this,
+                             inode_t *parent, uuid_t pargfid,
                              const char *bname, inode_t *inode,
                              struct afr_reply *replies, int gfid_idx)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
-	int ret = 0;
+        int ret = 0;
+        unsigned char *newentry = NULL;
+        unsigned char *sources = NULL;
 
-	priv = this->private;
+        priv = this->private;
+
+	newentry = alloca0 (priv->child_count);
+	sources = alloca0 (priv->child_count);
 
 	uuid_copy (parent->gfid, pargfid);
 
@@ -124,13 +128,19 @@ __afr_selfheal_name_impunge (xlator_t *this, inode_t *parent, uuid_t pargfid,
 			continue;
 
 		if (uuid_compare (replies[i].poststat.ia_gfid,
-				  replies[gfid_idx].poststat.ia_gfid) == 0)
+				  replies[gfid_idx].poststat.ia_gfid) == 0) {
+                        sources[i] = 1;
 			continue;
+                }
 
 		ret |= afr_selfheal_recreate_entry (this, i, gfid_idx, parent,
-                                                    bname, inode, replies);
+                                                    bname, inode, replies,
+                                                    newentry);
 	}
 
+	if (AFR_COUNT (newentry, priv->child_count))
+		afr_selfheal_newentry_mark (frame, this, inode, gfid_idx, replies,
+					    sources, newentry);
 	return ret;
 }
 
@@ -381,8 +391,8 @@ out:
 }
 
 int
-__afr_selfheal_name_do (xlator_t *this, inode_t *parent, uuid_t pargfid,
-                        const char *bname, inode_t *inode,
+__afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
+                        uuid_t pargfid, const char *bname, inode_t *inode,
                         unsigned char *sources, unsigned char *sinks,
 			unsigned char *healed_sinks, int source,
 			unsigned char *locked_on, struct afr_reply *replies,
@@ -438,7 +448,8 @@ __afr_selfheal_name_do (xlator_t *this, inode_t *parent, uuid_t pargfid,
                         return -1;
         }
 
-	return __afr_selfheal_name_impunge (this, parent, pargfid, bname, inode,
+	return __afr_selfheal_name_impunge (frame, this, parent, pargfid,
+                                            bname, inode,
                                             replies, gfid_idx);
 }
 
@@ -579,10 +590,10 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 			goto unlock;
 		}
 
-		ret = __afr_selfheal_name_do (this, parent, pargfid, bname,
-                                              inode, sources, sinks, healed_sinks,
-                                              source, locked_on, replies,
-                                              gfid_req);
+		ret = __afr_selfheal_name_do (frame, this, parent, pargfid,
+                                              bname, inode, sources, sinks,
+                                              healed_sinks, source, locked_on,
+                                              replies, gfid_req);
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, parent, this->name, bname,

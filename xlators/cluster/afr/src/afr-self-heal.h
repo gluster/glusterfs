@@ -152,7 +152,8 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 int
 afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
                              const char *name, inode_t *inode,
-                             struct afr_reply *replies);
+                             struct afr_reply *replies,
+                             unsigned char *newentry);
 
 int
 afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -172,5 +173,10 @@ afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 void
 afr_replies_copy (struct afr_reply *dst, struct afr_reply *src, int count);
+
+int
+afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                            int source, struct afr_reply *replies,
+                            unsigned char *sources, unsigned char *newentry);
 
 #endif /* !_AFR_SELFHEAL_H */

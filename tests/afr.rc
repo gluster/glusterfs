@@ -1,5 +1,73 @@
 #!/bin/bash
 
+function diff_dirs {
+        diff <(ls $1 | sort) <(ls $2 | sort)
+}
+
+function heal_status {
+        local f1_path="${1}/${3}"
+        local f2_path="${2}/${3}"
+        local zero_xattr="000000000000000000000000"
+        local insync=""
+        diff_dirs $f1_path $f2_path
+        if [ $? -eq 0 ];
+        then
+                insync="Y"
+        else
+                insync="N"
+        fi
+        local xattr11=$(get_hex_xattr trusted.afr.$V0-client-0 $f1_path)
+        local xattr12=$(get_hex_xattr trusted.afr.$V0-client-1 $f1_path)
+        local xattr21=$(get_hex_xattr trusted.afr.$V0-client-0 $f2_path)
+        local xattr22=$(get_hex_xattr trusted.afr.$V0-client-1 $f2_path)
+        local dirty1=$(get_hex_xattr trusted.afr.dirty $f1_path)
+        local dirty2=$(get_hex_xattr trusted.afr.dirty $f2_path)
+        if [ -z $xattr11 ]; then xattr11="000000000000000000000000"; fi
+        if [ -z $xattr12 ]; then xattr12="000000000000000000000000"; fi
+        if [ -z $xattr21 ]; then xattr21="000000000000000000000000"; fi
+        if [ -z $xattr22 ]; then xattr22="000000000000000000000000"; fi
+        if [ -z $dirty1 ]; then dirty1="000000000000000000000000"; fi
+        if [ -z $dirty2 ]; then dirty2="000000000000000000000000"; fi
+        echo ${insync}${xattr11}${xattr12}${xattr21}${xattr22}${dirty1}${dirty2}
+}
+# Check if given dir's self-heal is done
+function is_dir_heal_done {
+        local zero_xattr="000000000000000000000000"
+        if [ "$(heal_status $@)" == "Y${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}${zero_xattr}" ];
+        then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}
+# Check if the given file's self-heal is done
+function is_file_heal_done {
+        local f1_path="${1}/${3}"
+        local f2_path="${2}/${3}"
+        local zxattr="000000000000000000000000"
+        local size1=$(stat -c "%s" $f1_path)
+        local size2=$(stat -c "%s" $f2_path)
+        local diff=$((size1-size2))
+        local x11=$(get_hex_xattr trusted.afr.$V0-client-0 $f1_path)
+        local x12=$(get_hex_xattr trusted.afr.$V0-client-1 $f1_path)
+        local x21=$(get_hex_xattr trusted.afr.$V0-client-0 $f2_path)
+        local x22=$(get_hex_xattr trusted.afr.$V0-client-1 $f2_path)
+        local dirty1=$(get_hex_xattr trusted.afr.dirty $f1_path)
+        local dirty2=$(get_hex_xattr trusted.afr.dirty $f2_path)
+        if [ -z $x11 ]; then x11="000000000000000000000000"; fi
+        if [ -z $x12 ]; then x12="000000000000000000000000"; fi
+        if [ -z $x21 ]; then x21="000000000000000000000000"; fi
+        if [ -z $x22 ]; then x22="000000000000000000000000"; fi
+        if [ -z $dirty1 ]; then dirty1="000000000000000000000000"; fi
+        if [ -z $dirty2 ]; then dirty2="000000000000000000000000"; fi
+        if [ "${diff}${x11}${x12}${x21}${x22}${dirty1}${dirty2}" == "0${zxattr}${zxattr}${zxattr}${zxattr}${zxattr}${zxattr}" ];
+        then
+             echo "Y"
+        else
+             echo "N"
+        fi
+}
+
 #count the number of entries marked for self-heal
 #in brick $1's index
 

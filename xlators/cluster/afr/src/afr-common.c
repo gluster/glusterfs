@@ -3684,3 +3684,38 @@ afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this)
 
 	fd_ctx->open_fd_count = local->open_fd_count;
 }
+
+int**
+afr_mark_pending_changelog (afr_private_t *priv, unsigned char *pending,
+                            dict_t *xattr, ia_type_t iat)
+{
+       int i = 0;
+       int **changelog = NULL;
+       int idx = -1;
+       int m_idx = 0;
+       int ret = 0;
+
+       m_idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
+
+       idx = afr_index_from_ia_type (iat);
+
+       changelog = afr_matrix_create (priv->child_count, AFR_NUM_CHANGE_LOGS);
+       if (!changelog)
+                goto out;
+
+       for (i = 0; i < priv->child_count; i++) {
+               if (!pending[i])
+                       continue;
+
+               changelog[i][m_idx] = hton32(1);
+               if (idx != -1)
+                       changelog[i][idx] = hton32(1);
+       }
+       ret = afr_set_pending_dict (priv, xattr, changelog);
+       if (ret < 0) {
+               afr_matrix_cleanup (changelog, priv->child_count);
+               return NULL;
+       }
+out:
+       return changelog;
+}
