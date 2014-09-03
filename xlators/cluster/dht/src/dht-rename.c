@@ -1337,12 +1337,11 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         local->dst_hashed = dst_hashed;
         local->dst_cached = dst_cached;
 
-        gf_msg_debug (this->name, 0,
-                      "renaming %s (hash=%s/cache=%s) => %s"
-                      " (hash=%s/cache=%s)",
-                      oldloc->path, src_hashed->name, src_cached->name,
-                      newloc->path, dst_hashed->name,
-                      dst_cached ? dst_cached->name : "<nul>");
+        gf_log (this->name, GF_LOG_INFO,
+                "renaming %s (hash=%s/cache=%s) => %s (hash=%s/cache=%s)",
+                oldloc->path, src_hashed->name, src_cached->name,
+                newloc->path, dst_hashed->name,
+                dst_cached ? dst_cached->name : "<nul>");
 
         if (IA_ISDIR (oldloc->inode->ia_type)) {
                 dht_rename_dir (frame, this);
