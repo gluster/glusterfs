@@ -82,12 +82,12 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 
 /*
- * Look for mismatching uid/gid or mode even if xattrs don't say so, and
- * pick one arbitrarily as winner.
- */
+ * Look for mismatching uid/gid or mode or user xattrs even if
+ * AFR xattrs don't say so, and pick one arbitrarily as winner. */
 
 static int
-__afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
+__afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
+                                         unsigned char *sources,
 					 unsigned char *healed_sinks,
 					 unsigned char *locked_on,
 					 struct afr_reply *replies)
@@ -97,6 +97,7 @@ __afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
 	struct iatt first = {0, };
 	int source = -1;
 	int sources_count = 0;
+        int ret = 0;
 
 	priv = this->private;
 
@@ -124,11 +125,12 @@ __afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
 		if (source == -1) {
 			source = i;
 			first = replies[i].poststat;
+                        break;
 		}
 	}
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (!sources[i])
+		if (!sources[i] || i == source)
 			continue;
 		if (!IA_EQUAL (first, replies[i].poststat, type) ||
 		    !IA_EQUAL (first, replies[i].poststat, uid) ||
@@ -138,6 +140,22 @@ __afr_selfheal_metadata_finalize_source (xlator_t *this, unsigned char *sources,
 			healed_sinks[i] = 1;
 		}
 	}
+
+        for (i =0; i < priv->child_count; i++) {
+		if (!sources[i] || i == source)
+			continue;
+                if (replies[source].xdata->count != replies[i].xdata->count) {
+                        sources[i] = 0;
+                        healed_sinks[i] = 1;
+                        continue;
+                }
+                ret = dict_foreach(replies[source].xdata, xattr_is_equal,
+                                        (void*)replies[i].xdata);
+                if  (ret == -1) {
+                        sources[i] = 0;
+                        healed_sinks[i] = 1;
+                }
+        }
 
 	return source;
 }
@@ -176,7 +194,7 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
         */
         AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
 
-	source = __afr_selfheal_metadata_finalize_source (this, sources,
+	source = __afr_selfheal_metadata_finalize_source (frame, this, sources,
                                                           healed_sinks,
 							  locked_on, replies);
 	if (source < 0)
