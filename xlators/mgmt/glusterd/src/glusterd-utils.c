@@ -13905,3 +13905,42 @@ out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
+
+int
+glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
+                                          char **op_errstr)
+{
+        int                     ret = 0;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        rpc_transport_t         *xprt = NULL;
+
+        this = THIS;
+        GF_ASSERT(this);
+        priv = this->private;
+        GF_ASSERT(priv);
+
+        pthread_mutex_lock (&priv->xprt_lock);
+        list_for_each_entry (xprt, &priv->xprt_list, list) {
+                if ((!strcmp(volname, xprt->peerinfo.volname)) &&
+                    ((op_version > xprt->peerinfo.max_op_version) ||
+                     (op_version < xprt->peerinfo.min_op_version))) {
+                        ret = -1;
+                        break;
+                }
+        }
+        pthread_mutex_unlock (&priv->xprt_lock);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "One or more clients "
+                        "don't support the required op-version");
+                if (op_errstr)
+                        ret = gf_asprintf (op_errstr, "One or more connected "
+                                           "clients cannot support the feature "
+                                           "being set. These clients need to be"
+                                           " upgraded or disconnected before "
+                                           "running this command again");
+                return -1;
+        }
+        return 0;
+}

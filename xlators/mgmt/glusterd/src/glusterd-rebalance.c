@@ -554,6 +554,26 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         switch (cmd) {
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+                /* Check if the connected clients are all of version
+                 * glusterfs-3.6 and higher. This is needed to prevent some data
+                 * loss issues that could occur when older clients are connected
+                 * when rebalance is run. This check can be bypassed by using
+                 * 'force'
+                 */
+                ret = glusterd_check_client_op_version_support
+                        (volname, GD_OP_VERSION_3_6_0, NULL);
+                if (ret) {
+                        ret = gf_asprintf (op_errstr, "Volume %s has one or "
+                                           "more connected clients of a version"
+                                           " lower than GlusterFS-v3.6.0. "
+                                           "Starting rebalance in this state "
+                                           "could lead to data loss.\nPlease "
+                                           "disconnect those clients before "
+                                           "attempting this command again.",
+                                           volname);
+                        goto out;
+                }
+
         case GF_DEFRAG_CMD_START_FORCE:
                 if (is_origin_glusterd (dict)) {
                         op_ctx = glusterd_op_get_ctx ();
