@@ -491,6 +491,7 @@ out:
         return ret;
 }
 
+
 int32_t
 glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
 {
@@ -501,6 +502,7 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
         gf_boolean_t                    is_valid        = _gf_true;
         uuid_t                          owner           = {0};
         xlator_t                       *this            = NULL;
+        char                           *bt              = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -567,6 +569,18 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
                 if (lock_obj)
                         GF_FREE (lock_obj);
                 goto out;
+        }
+
+        /* Saving the backtrace into the pre-allocated buffer, ctx->btbuf*/
+        if ((bt = gf_backtrace_save (NULL))) {
+                snprintf (key, sizeof (key), "debug.last-success-bt-%s-%s",
+                          name, type);
+                ret = dict_set_dynstr_with_alloc (priv->mgmt_v3_lock, key, bt);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to save "
+                                "the back trace for lock %s-%s granted to %s",
+                                name, type, uuid_utoa (uuid));
+                ret = 0;
         }
 
         gf_log (this->name, GF_LOG_DEBUG,

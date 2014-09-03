@@ -775,7 +775,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         char           *str2            = NULL;
         char           *msg             = NULL;
         char            timestr[256]    = {0,};
-        char            callstr[4096]   = {0,};
+        char           *callstr         = NULL;
         struct timeval  tv              = {0,};
         size_t          len             = 0;
         int             ret             = 0;
@@ -817,28 +817,9 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         else
                 basename = file;
 
-        do {
-                void *array[5];
-                char **callingfn = NULL;
-                size_t size = 0;
-
-                size = backtrace (array, 5);
-                if (size)
-                        callingfn = backtrace_symbols (&array[2], size-2);
-                if (!callingfn)
-                        break;
-
-                if (size == 5)
-                        snprintf (callstr, 4096, "(-->%s (-->%s (-->%s)))",
-                                  callingfn[2], callingfn[1], callingfn[0]);
-                if (size == 4)
-                        snprintf (callstr, 4096, "(-->%s (-->%s))",
-                                  callingfn[1], callingfn[0]);
-                if (size == 3)
-                        snprintf (callstr, 4096, "(-->%s)", callingfn[0]);
-
-                free (callingfn);
-        } while (0);
+        /*Saving the backtrace to pre-allocated ctx->btbuf
+         * to avoid allocating memory from the heap*/
+        callstr = gf_backtrace_save (NULL);
 
         if (ctx->log.log_control_file_found)
         {
