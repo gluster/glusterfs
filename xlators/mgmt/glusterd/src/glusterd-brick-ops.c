@@ -1577,6 +1577,25 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
+                /* Check if the connected clients are all of version
+                 * glusterfs-3.6 and higher. This is needed to prevent some data
+                 * loss issues that could occur when older clients are connected
+                 * when rebalance is run.
+                 */
+                ret = glusterd_check_client_op_version_support
+                        (volname, GD_OP_VERSION_3_6_0, NULL);
+                if (ret) {
+                        ret = gf_asprintf (op_errstr, "Volume %s has one or "
+                                           "more connected clients of a version"
+                                           " lower than GlusterFS-v3.6.0. "
+                                           "Starting remove-brick in this state "
+                                           "could lead to data loss.\nPlease "
+                                           "disconnect those clients before "
+                                           "attempting this command again.",
+                                           volname);
+                        goto out;
+                }
+
                 if (is_origin_glusterd (dict)) {
                         ret = glusterd_generate_and_set_task_id
                                 (dict, GF_REMOVE_BRICK_TID_KEY);
