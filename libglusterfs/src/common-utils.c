@@ -3275,3 +3275,119 @@ gf_set_timestamp  (const char *src, const char* dest)
 out:
         return ret;
 }
+
+static void
+gf_backtrace_end (char *buf, size_t frames)
+{
+        size_t pos = 0;
+
+        if (!buf)
+                return;
+
+        pos = strlen (buf);
+
+        frames = min(frames, GF_BACKTRACE_LEN - pos -1);
+
+        if (frames <= 0)
+                return;
+
+        memset (buf+pos, ')', frames);
+        buf[pos+frames] = '\0';
+}
+
+/*Returns bytes written*/
+static int
+gf_backtrace_append (char *buf, size_t pos, char *framestr)
+{
+        if (pos >= GF_BACKTRACE_LEN)
+                return -1;
+        return snprintf (buf+pos, GF_BACKTRACE_LEN-pos, "(--> %s ", framestr);
+}
+
+static int
+gf_backtrace_fillframes (char *buf)
+{
+        void    *array[GF_BACKTRACE_FRAME_COUNT];
+        size_t  frames                  = 0;
+        FILE    *fp                     = NULL;
+        char    callingfn[GF_BACKTRACE_FRAME_COUNT-2][1024] = {{0},};
+        int     ret                     = -1;
+        int     fd                      = -1;
+        size_t  idx                     = 0;
+        size_t  pos                     = 0;
+        size_t  inc                     = 0;
+        char    tmpl[32]                = "/tmp/btXXXXXX";
+
+        frames = backtrace (array, GF_BACKTRACE_FRAME_COUNT);
+        if (!frames)
+                return -1;
+
+        fd = gf_mkostemp (tmpl, 0, O_RDWR);
+        if (fd == -1)
+                return -1;
+
+        /*The most recent two frames are the calling function and
+         * gf_backtrace_save, which we can infer.*/
+
+        backtrace_symbols_fd (&array[2], frames-2, fd);
+
+        fp = fdopen (fd, "r");
+        if (!fp) {
+                close (fd);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fseek (fp, 0L, SEEK_SET);
+        if (ret)
+                goto out;
+
+        pos = 0;
+        for (idx = 0; idx < frames - 2; idx++) {
+                ret = fscanf (fp, "%s", callingfn[idx]);
+                if (ret == EOF)
+                        break;
+                inc = gf_backtrace_append (buf, pos, callingfn[idx]);
+                if (inc == -1)
+                        break;
+                pos += inc;
+        }
+        gf_backtrace_end (buf, idx);
+
+out:
+        if (fp)
+                fclose (fp);
+
+        unlink (tmpl);
+
+        return (idx > 0)? 0: -1;
+
+}
+
+/* Optionally takes @buf to save backtrace.  If @buf is NULL, uses the
+ * pre-allocated ctx->btbuf to avoid allocating memory while printing
+ * backtrace.
+ * TODO: This API doesn't provide flexibility in terms of no. of frames
+ * of the backtrace is being saved in the buffer. Deferring fixing it
+ * when there is a real-use for that.*/
+
+char *
+gf_backtrace_save (char *buf)
+{
+        char *bt = NULL;
+
+        if (!buf) {
+                bt = THIS->ctx->btbuf;
+                GF_ASSERT (bt);
+
+        } else {
+                bt = buf;
+
+        }
+
+        if ((0 == gf_backtrace_fillframes (bt)))
+                return bt;
+
+        gf_log (THIS->name, GF_LOG_WARNING, "Failed to save the backtrace.");
+        return NULL;
+}

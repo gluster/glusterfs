@@ -44,6 +44,7 @@ glusterfs_ctx_new ()
 		free (ctx);
 		ctx = NULL;
 	}
+
 out:
 	return ctx;
 }
