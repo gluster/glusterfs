@@ -1367,7 +1367,7 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "unlink of gfid handle failed for path:%s with"
-                                "gfid %s with errno:%s", real_path,
+                                " gfid %s with errno:%s", real_path,
                                 uuid_utoa (stbuf->ia_gfid), strerror (errno));
                 }
         }
