@@ -975,6 +975,43 @@ afr_frame_create (xlator_t *this)
 	return frame;
 }
 
+int
+afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			    int source, struct afr_reply *replies,
+			    unsigned char *sources, unsigned char *newentry)
+{
+	int ret = 0;
+	int i = 0;
+	afr_private_t *priv = NULL;
+	dict_t *xattr = NULL;
+	int **changelog = NULL;
+
+	priv = this->private;
+
+	uuid_copy (inode->gfid, replies[source].poststat.ia_gfid);
+
+	xattr = dict_new();
+	if (!xattr)
+		return -ENOMEM;
+
+        changelog = afr_mark_pending_changelog (priv, newentry, xattr,
+                                            replies[source].poststat.ia_type);
+
+        if (!changelog)
+                goto out;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (!sources[i])
+			continue;
+		afr_selfheal_post_op (frame, this, inode, i, xattr);
+	}
+out:
+        if (changelog)
+                afr_matrix_cleanup (changelog, priv->child_count);
+        if (xattr)
+                dict_unref (xattr);
+	return ret;
+}
 
 /*
  * This is the entry point for healing a given GFID
