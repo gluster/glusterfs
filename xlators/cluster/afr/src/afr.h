@@ -776,6 +776,9 @@ int32_t
 afr_notify (xlator_t *this, int32_t event, void *data, void *data2);
 
 int
+xattr_is_equal (dict_t *this, char *key1, data_t *value1, void *data);
+
+int
 afr_init_entry_lockee (afr_entry_lockee_t *lockee, afr_local_t *local,
                        loc_t *loc, char *basename, int child_count);
 

@@ -179,4 +179,6 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
                             int source, struct afr_reply *replies,
                             unsigned char *sources, unsigned char *newentry);
 
+inode_t*
+afr_inode_link (inode_t *inode, struct iatt *iatt);
 #endif /* !_AFR_SELFHEAL_H */
