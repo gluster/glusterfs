@@ -515,7 +515,7 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
 
         is_valid = glusterd_mgmt_v3_is_type_valid (type);
         if (is_valid != _gf_true) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
                         "Invalid entity. Cannot perform locking "
                         "operation on %s types", type);
                 ret = -1;
@@ -543,8 +543,9 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
         /* If the lock has already been held for the given volume
          * we fail */
         if (!uuid_is_null (owner)) {
-                gf_log (this->name, GF_LOG_WARNING, "Lock for %s held by %s",
-                        name, uuid_utoa (owner));
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                  "Lock for %s held by %s",
+                                  name, uuid_utoa (owner));
                 ret = -1;
                 goto out;
         }
@@ -601,7 +602,7 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
 
         is_valid = glusterd_mgmt_v3_is_type_valid (type);
         if (is_valid != _gf_true) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
                         "Invalid entity. Cannot perform unlocking "
                         "operation on %s types", type);
                 ret = -1;
@@ -628,7 +629,7 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         }
 
         if (uuid_is_null (owner)) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
                         "Lock for %s %s not held", type, name);
                 ret = -1;
                 goto out;
@@ -636,9 +637,10 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
 
         ret = uuid_compare (uuid, owner);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Lock owner mismatch. "
-                        "Lock for %s %s held by %s",
-                        type, name, uuid_utoa (owner));
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                  "Lock owner mismatch. "
+                                  "Lock for %s %s held by %s",
+                                  type, name, uuid_utoa (owner));
                 goto out;
         }
 
