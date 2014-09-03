@@ -507,10 +507,14 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 is_dir = check_is_dir (inode, stbuf, xattr);
                 if (!is_dir) {
+
                         gf_msg_debug (this->name, 0,
-                                      "lookup of %s on %s returned non dir 0%o",
+                                      "lookup of %s on %s returned non"
+                                      "dir 0%o"
+                                      "calling lookup_everywhere",
                                       local->loc.path, prev->this->name,
                                       stbuf->ia_type);
+
                         local->need_selfheal = 1;
                         goto unlock;
                 }
@@ -610,6 +614,12 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
+
+                gf_msg_debug (this->name, 0,
+                              "revalidate lookup of %s "
+                              "returned with op_ret %d and op_errno %d",
+                              local->loc.path, op_ret, op_errno);
+
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
 
@@ -634,6 +644,14 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          * the file is not migrated */
                         if (op_errno == ENOENT) {
                                 if (IA_ISREG (local->loc.inode->ia_type)) {
+
+                                        gf_msg_debug (this->name, 0,
+                                                      "found ENOENT for %s. "
+                                                      "Setting "
+                                                      "need_lookup_everywhere"
+                                                      " flag to 1",
+                                                      local->loc.path);
+
                                         local->need_lookup_everywhere = 1;
                                 }
                         }
@@ -839,8 +857,15 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         }
 
 unwind:
+        gf_msg_debug (this->name, 0,
+                      "creation of linkto on hashed subvol:%s, "
+                      "returned with op_ret %d and op_errno %d: %s",
+                      local->hashed_subvol->name,
+                      op_ret, op_errno, uuid_utoa (local->loc.gfid));
+
         if (local->linked == _gf_true)
                 dht_linkfile_attr_heal (frame, this);
+
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -935,11 +960,23 @@ dht_lookup_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
                                     struct iatt *postparent, dict_t *xdata)
 {
 
+        dht_local_t     *local = NULL;
+        const char      *path  = NULL;
+
         /* NOTE:
          * If stale file unlink fails either there is an open-fd or is not an
          * dht-linkto-file then posix_unlink returns EBUSY, which is overwritten
          *  to ENOENT
          */
+
+        local = frame->local;
+
+        if (local && local->loc.path)
+                path = local->loc.path;
+
+        gf_log (this->name, GF_LOG_INFO, "Returned with op_ret %d and "
+                "op_errno %d for %s", op_ret, op_errno,
+                ((path==NULL)?"null":path));
 
         DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
                           NULL);
@@ -1043,6 +1080,10 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
+        gf_log (this->name, GF_LOG_INFO, "STATUS: hashed_subvol %s "
+                "cached_subvol %s",
+                (hashed_subvol == NULL)?"null":hashed_subvol->name,
+                (cached_subvol == NULL)?"null":cached_subvol->name);
 
         if (!cached_subvol) {
 
@@ -1084,7 +1125,14 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                                   NULL, NULL, NULL, NULL);
                         } else {
                                local->skip_unlink.handle_valid_link = _gf_false;
-                                STACK_WIND (frame,
+
+                                gf_msg_debug (this->name, 0,
+                                              "No Cached was found and "
+                                              "unlink on hashed was skipped"
+                                              " so performing now: %s",
+                                              local->loc.path);
+
+                               STACK_WIND (frame,
                                             dht_lookup_unlink_stale_linkto_cbk,
                                             hashed_subvol,
                                             hashed_subvol->fops->unlink,
@@ -1092,6 +1140,11 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                         }
 
                 } else  {
+
+                        gf_msg_debug (this->name, 0,
+                                      "There was no cached file and  "
+                                      "unlink on hashed is not skipped %s",
+                                      local->loc.path);
 
                         DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL,
                                           NULL, NULL);
@@ -1115,6 +1168,11 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
 
                 } else if ((local->file_count == 1) &&
                             (hashed_subvol == cached_subvol)) {
+
+                        gf_msg_debug (this->name, 0,
+                                      "found cached file on hashed subvolume "
+                                      "so store in context and return for %s",
+                                      local->loc.path);
 
                         found_non_linkto_on_hashed = _gf_true;
                 }
@@ -1161,10 +1219,29 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                                 (local->loc.parent, this,
                                                  &local->postparent, 1);
                                 }
+
+                                gf_msg_debug (this->name, 0,
+                                              "Skipped unlinking linkto file "
+                                              "on the hashed subvolume. "
+                                              "Returning success as it is a "
+                                              "valid linkto file. Path:%s"
+                                              ,local->loc.path);
+
                                 goto unwind_hashed_and_cached;
                         } else {
 
                                local->skip_unlink.handle_valid_link = _gf_false;
+
+                               gf_msg_debug (this->name, 0,
+                                             "Linkto file found on hashed "
+                                             "subvol "
+                                             "and data file found on cached "
+                                             "subvolume. But linkto points to "
+                                             "different cached subvolume (%s) "
+                                             "path %s",
+                                         local->skip_unlink.hash_links_to->name,
+                                             local->loc.path);
+
                                if (local->skip_unlink.opend_fd_count == 0) {
 
 
@@ -1244,11 +1321,11 @@ preset_layout:
         }
 
         if (!hashed_subvol) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        DHT_MSG_HASHED_SUBVOL_GET_FAILED,
-                        "cannot create linkfile file for %s on %s: "
-                        "hashed subvolume cannot be found, gfid = %s.",
-                        local->loc.path, cached_subvol->name, gfid);
+
+                gf_msg_debug (this->name, 0,
+                              "Cannot create linkfile for %s on %s: "
+                              "hashed subvolume cannot be found, gfid = %s.",
+                              local->loc.path, cached_subvol->name, gfid);
 
                 local->op_ret = 0;
                 local->op_errno = 0;
@@ -1330,6 +1407,11 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev   = cookie;
         subvol = prev->this;
 
+        gf_msg_debug (this->name, 0,
+                      "returned with op_ret %d and op_errno %d (%s) "
+                      "from subvol %s", op_ret, op_errno, loc->path,
+                      subvol->name);
+
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
@@ -1354,6 +1436,14 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 is_linkfile = check_is_linkfile (inode, buf, xattr,
                                                  conf->link_xattr_name);
+
+                if (is_linkfile) {
+
+                        gf_msg_debug (this->name, 0,
+                                      "Found linktofile on %s for %s",
+                                       subvol->name, loc->path);
+
+               }
                 is_dir = check_is_dir (inode, buf, xattr);
 
                 if (is_linkfile) {
@@ -1378,15 +1468,20 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 } else {
                         local->file_count++;
 
+                        gf_msg_debug (this->name, 0,
+                                      "found cached file on %s for %s",
+                                      subvol->name, loc->path);
+
                         if (!local->cached_subvol) {
                                 /* found one file */
                                 dht_iatt_merge (this, &local->stbuf, buf,
                                                 subvol);
                                 local->xattr = dict_ref (xattr);
                                 local->cached_subvol = subvol;
+
                                 gf_msg_debug (this->name, 0,
-                                              "found on %s file %s",
-                                              subvol->name, loc->path);
+                                              "storing cached on %s file"
+                                              " %s", subvol->name, loc->path);
 
                                 dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
@@ -1429,6 +1524,12 @@ unlock:
                         local->skip_unlink.hash_links_to = link_subvol;
                         uuid_copy (local->skip_unlink.hashed_gfid,
                                    buf->ia_gfid);
+
+                        gf_msg_debug (this->name, 0, "Found"
+                                      " one linkto file on hashed subvol %s "
+                                      "for %s: Skipping unlinking till "
+                                      "everywhere_done", subvol->name,
+                                      loc->path);
 
                 } else if (!ret && (fd_count == 0)) {
 
@@ -1504,6 +1605,9 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         if (!local->inode)
                 local->inode = inode_ref (loc->inode);
+
+        gf_msg_debug (this->name, 0,
+                      "winding lookup call to %d subvols", call_cnt);
 
         for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_lookup_everywhere_cbk,
@@ -1712,8 +1816,12 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret && uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
+        gf_msg_debug (this->name, 0,
+                      "fresh_lookup returned for %s with op_ret %d and "
+                      "op_errno %d", loc->path, op_ret, op_errno);
+
         if (ENTRY_MISSING (op_ret, op_errno)) {
-                gf_msg_trace (this->name, 0, "Entry %s missing on subvol"
+                gf_log (this->name, GF_LOG_INFO, "Entry %s missing on subvol"
                               " %s", loc->path, prev->this->name);
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
                         local->op_errno = ENOENT;
@@ -1774,12 +1882,20 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         subvol = dht_linkfile_subvol (this, inode, stbuf, xattr);
         if (!subvol) {
+
+                gf_log (this->name, GF_LOG_INFO, "linkfile not having link "
+                        "subvol for %s", loc->path);
+
                 gf_msg_debug (this->name, 0,
                               "linkfile not having link subvolume. path=%s",
                               loc->path);
                 dht_lookup_everywhere (frame, this, loc);
                 return 0;
         }
+
+        gf_msg_debug (this->name, 0,
+                      "Calling lookup on linkto target %s for path %s",
+                      subvol->name, loc->path);
 
         STACK_WIND (frame, dht_lookup_linkfile_cbk,
                     subvol, subvol->fops->lookup,
@@ -1927,6 +2043,13 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         dht_layout_unref (this, local->layout);
                         local->layout = NULL;
                         local->cached_subvol = NULL;
+
+                        gf_msg_debug(this->name, 0,
+                                     "Called revalidate lookup for %s, "
+                                     "but layout->gen (%d) is less than "
+                                     "conf->gen (%d), calling fresh_lookup",
+                                     loc->path, layout->gen, conf->gen);
+
                         goto do_fresh_lookup;
                 }
 
@@ -1983,6 +2106,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		for (i = 0; i < call_cnt; i++) {
 			subvol = layout->list[i].xlator;
 
+                        gf_msg_debug (this->name, 0, "calling "
+                                      "revalidate lookup for %s at %s",
+                                      loc->path, subvol->name);
+
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    &local->loc, local->xattr_req);
@@ -2025,10 +2152,12 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 dht_check_and_set_acl_xattr_req (loc->inode, local->xattr_req);
 
                 if (!hashed_subvol) {
+
                         gf_msg_debug (this->name, 0,
                                       "no subvolume in layout for path=%s, "
                                       "checking on all the subvols to see if "
                                       "it is a directory", loc->path);
+
                         call_cnt        = conf->subvolume_cnt;
                         local->call_cnt = call_cnt;
 
@@ -2039,6 +2168,10 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                                 goto err;
                         }
 
+                        gf_msg_debug (this->name, 0,
+                                      "Found null hashed subvol. Calling lookup"
+                                      " on all nodes.");
+
                         for (i = 0; i < call_cnt; i++) {
                                 STACK_WIND (frame, dht_lookup_dir_cbk,
                                             conf->subvolumes[i],
@@ -2047,6 +2180,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         }
                         return 0;
                 }
+
+                gf_msg_debug (this->name, 0, "Calling fresh lookup for %s on"
+                              " %s", loc->path, hashed_subvol->name);
 
                 STACK_WIND (frame, dht_lookup_cbk,
                             hashed_subvol, hashed_subvol->fops->lookup,
