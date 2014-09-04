@@ -55,7 +55,7 @@ function check_dependencies()
     fi
 
     # Check for pidof
-    pidof init > /dev/null 2>&1
+    pidof pidof > /dev/null 2>&1
     if [ $? -ne 0 ]; then
         MISSING="$MISSING pidof"
     fi
