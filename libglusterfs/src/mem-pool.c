@@ -279,6 +279,10 @@ __gf_free (void *free_ptr)
         {
                 xl->mem_acct.rec[type].size -= req_size;
                 xl->mem_acct.rec[type].num_allocs--;
+                /* If all the instaces are freed up then ensure typestr is
+                 * set to NULL */
+                if (!xl->mem_acct.rec[type].num_allocs)
+                        xl->mem_acct.rec[type].typestr = NULL;
         }
         UNLOCK (&xl->mem_acct.rec[type].lock);
 free:

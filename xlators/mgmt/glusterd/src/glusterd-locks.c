@@ -661,6 +661,18 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         /* Removing the mgmt_v3 lock from the global list */
         dict_del (priv->mgmt_v3_lock, key);
 
+        /* Remove the backtrace key as well */
+        ret = snprintf (key, sizeof(key), "debug.last-success-bt-%s-%s", name,
+                        type);
+        if (ret != strlen ("debug.last-success-bt-") + strlen (name) +
+                   strlen (type) + 1) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create backtrace "
+                        "key");
+                ret = -1;
+                goto out;
+        }
+        dict_del (priv->mgmt_v3_lock, key);
+
         gf_log (this->name, GF_LOG_DEBUG,
                 "Lock for %s %s successfully released",
                 type, name);

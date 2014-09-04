@@ -29,6 +29,7 @@
 #include "compat.h"
 #include "byte-order.h"
 #include "globals.h"
+#include "statedump.h"
 
 data_t *
 get_new_data ()
@@ -2807,39 +2808,67 @@ out:
         return ret;
 }
 
-void
-dict_dump (dict_t *this)
+int
+dict_dump_to_str (dict_t *dict, char *dump, int dumpsize, char *format)
 {
-        int          ret     = 0;
-        int          dumplen = 0;
-        data_pair_t *trav    = NULL;
-        char         dump[64*1024]; /* This is debug only, hence
-                                       performance should not matter */
+        int          ret                       = 0;
+        int          dumplen                   = 0;
+        data_pair_t *trav                      = NULL;
 
-        if (!this) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict NULL");
-                goto out;
-        }
-
-        dump[0] = '\0'; /* the array is not initialized to '\0' */
-
-        /* There is a possibility of issues if data is binary, ignore it
-           for now as debugging is more important */
-        for (trav = this->members_list; trav; trav = trav->next) {
-                ret = snprintf (&dump[dumplen], ((64*1024) - dumplen - 1),
-                                "(%s:%s)", trav->key, trav->value->data);
+        for (trav = dict->members_list; trav; trav = trav->next) {
+                ret = snprintf (&dump[dumplen], dumpsize - dumplen,
+                                format, trav->key, trav->value->data);
                 if ((ret == -1) || !ret)
-                        break;
+                        return ret;
 
                 dumplen += ret;
-                /* snprintf doesn't append a trailing '\0', add it here */
-                dump[dumplen] = '\0';
+        }
+        return 0;
+}
+
+void
+dict_dump_to_log (dict_t *dict)
+{
+        int          ret                       = -1;
+        char         dump[64*1024]             = {0,};
+        char        *format                    = "(%s:%s)";
+
+        if (!dict) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
+                return;
         }
 
-        if (dumplen)
-                gf_log_callingfn ("dict", GF_LOG_INFO,
-                                  "dict=%p (%s)", this, dump);
+        ret = dict_dump_to_str (dict, dump, sizeof(dump), format);
+        if (ret) {
+                gf_log ("dict", GF_LOG_WARNING, "Failed to log dictionary");
+                return;
+        }
+        gf_log_callingfn ("dict", GF_LOG_INFO, "dict=%p (%s)", dict, dump);
 
-out:
+        return;
+}
+
+void
+dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain)
+{
+        int          ret                       = -1;
+        char         dump[64*1024]             = {0,};
+        char         key[4096]                 = {0,};
+        char        *format                    = "\n\t%s:%s";
+
+        if (!dict) {
+                gf_log_callingfn (domain, GF_LOG_WARNING, "dict is NULL");
+                return;
+        }
+
+        ret = dict_dump_to_str (dict, dump, sizeof(dump), format);
+        if (ret) {
+                gf_log (domain, GF_LOG_WARNING, "Failed to log dictionary %s",
+                        dict_name);
+                return;
+        }
+        gf_proc_dump_build_key (key, domain, dict_name);
+        gf_proc_dump_write (key, "%s", dump);
+
         return;
 }
