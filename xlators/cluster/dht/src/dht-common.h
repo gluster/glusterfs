@@ -28,6 +28,7 @@
 #define GF_DHT_LOOKUP_UNHASHED_ON   1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
+#define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
 
 #include <fnmatch.h>
 
@@ -220,6 +221,7 @@ struct dht_local {
         gf_boolean_t     quota_deem_statfs;
 
         gf_boolean_t     added_link;
+        gf_boolean_t     is_linkfile;
 
         struct dht_skip_linkto_unlink  skip_unlink;
 
@@ -889,5 +891,7 @@ dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 dht_lock_t *
 dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
               const char *domain);
+void
+dht_lock_array_free (dht_lock_t **lk_array, int count);
 
 #endif/* _DHT_H */
