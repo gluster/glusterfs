@@ -3787,7 +3787,7 @@ server3_3_writev (rpcsvc_request_t *req)
                                       op_errno, out);
 
 #ifdef GF_TESTING_IO_XDATA
-        dict_dump (state->xdata);
+        dict_dump_to_log (state->xdata);
 #endif
 
         ret = 0;

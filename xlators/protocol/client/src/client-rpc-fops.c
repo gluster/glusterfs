@@ -2832,7 +2832,7 @@ client3_3_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       rsp.op_errno, out);
 
 #ifdef GF_TESTING_IO_XDATA
-        dict_dump (xdata);
+        dict_dump_to_log (xdata);
 #endif
 
 out:

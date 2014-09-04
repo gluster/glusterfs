@@ -624,6 +624,28 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 *snap_volname_ptr = '\0';                               \
         } while (0)
 
+#define GLUSTERD_DUMP_PEERS(head, member, xpeers) do {                       \
+                glusterd_peerinfo_t  *_peerinfo                = NULL;       \
+                char                  subkey[50]               = {0,};       \
+                int                   index                    = 1;          \
+                char                  key[GF_DUMP_MAX_BUF_LEN] = {0,};       \
+                                                                             \
+                if (!xpeers)                                                 \
+                        snprintf (key, sizeof (key), "glusterd.peer");       \
+                else                                                         \
+                        snprintf (key, sizeof (key),                         \
+                                  "glusterd.xaction_peer");                  \
+                                                                             \
+                list_for_each_entry (_peerinfo, head, member) {              \
+                        glusterd_dump_peer (_peerinfo, key, index, xpeers);  \
+                        if (!xpeers)                                         \
+                                glusterd_dump_peer_rpcstat (_peerinfo, key,  \
+                                                            index);          \
+                        index++;                                             \
+                }                                                            \
+                                                                             \
+        } while (0)
+
 int glusterd_uuid_init();
 
 int glusterd_uuid_generate_save ();
@@ -1056,5 +1078,13 @@ glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
+
+void
+glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *key, int index,
+                    gf_boolean_t xpeers);
+
+void
+glusterd_dump_peer_rpcstat (glusterd_peerinfo_t *peerinfo, char *key,
+                            int index);
 
 #endif
