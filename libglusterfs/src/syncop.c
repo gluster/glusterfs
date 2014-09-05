@@ -291,8 +291,10 @@ synctask_yield (struct synctask *task)
         task->proc->sched.uc_flags &= ~_UC_TLSBASE;
 #endif
 
-        if (task->state != SYNCTASK_DONE)
+        if (task->state != SYNCTASK_DONE) {
                 task->state = SYNCTASK_SUSPEND;
+                (void) gf_backtrace_save (task->btbuf);
+        }
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
                 gf_log ("syncop", GF_LOG_ERROR,
                         "swapcontext failed (%s)", strerror (errno));
