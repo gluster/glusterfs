@@ -184,4 +184,8 @@ gf_boolean_t posix_special_xattr (char **pattern, char *key);
 void
 __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 			off_t offset, size_t size);
+
+void
+posix_gfid_unset (xlator_t *this, dict_t *xdata);
+
 #endif /* _POSIX_H */
