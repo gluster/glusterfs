@@ -178,13 +178,30 @@ glusterd_handle_mgmt_v3_lock_fn (rpcsvc_request_t *req)
                                               "is_synctasked", _gf_false);
         if (is_synctasked) {
                 ret = glusterd_synctasked_mgmt_v3_lock (req, &lock_req, ctx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to acquire mgmt_v3_locks");
+                        /* Ignore the return code, as it shouldn't be propagated
+                         * from the handler function so as to avoid double
+                         * deletion of the req
+                         */
+                        ret = 0;
+                }
+
                 /* The above function does not take ownership of ctx.
                  * Therefore we need to free the ctx explicitly. */
                 free_ctx = _gf_true;
         }
         else {
+                /* Shouldn't ignore the return code here, and it should
+                 * be propagated from the handler function as in failure
+                 * case it doesn't delete the req object
+                 */
                 ret = glusterd_op_state_machine_mgmt_v3_lock (req, &lock_req,
                                                               ctx);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to acquire mgmt_v3_locks");
         }
 
 out:
@@ -324,8 +341,8 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
-        return ret;
+        /* Return 0 from handler to avoid double deletion of req obj */
+        return 0;
 }
 
 static int
@@ -449,8 +466,8 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
-        return ret;
+        /* Return 0 from handler to avoid double deletion of req obj */
+        return 0;
 }
 
 static int
@@ -573,8 +590,8 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
-        return ret;
+        /* Return 0 from handler to avoid double deletion of req obj */
+        return 0;
 }
 
 static int
@@ -699,8 +716,8 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
-        return ret;
+        /* Return 0 from handler to avoid double deletion of req obj */
+        return 0;
 }
 
 static int
@@ -844,13 +861,30 @@ glusterd_handle_mgmt_v3_unlock_fn (rpcsvc_request_t *req)
                                               "is_synctasked", _gf_false);
         if (is_synctasked) {
                 ret = glusterd_syctasked_mgmt_v3_unlock (req, &lock_req, ctx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to release mgmt_v3_locks");
+                        /* Ignore the return code, as it shouldn't be propagated
+                         * from the handler function so as to avoid double
+                         * deletion of the req
+                         */
+                        ret = 0;
+                }
+
                 /* The above function does not take ownership of ctx.
                  * Therefore we need to free the ctx explicitly. */
                 free_ctx = _gf_true;
         }
         else {
+                /* Shouldn't ignore the return code here, and it should
+                 * be propagated from the handler function as in failure
+                 * case it doesn't delete the req object
+                 */
                 ret = glusterd_op_state_machine_mgmt_v3_unlock (req, &lock_req,
                                                                 ctx);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to release mgmt_v3_locks");
         }
 
 out:
