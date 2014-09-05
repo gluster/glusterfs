@@ -79,6 +79,7 @@ struct synctask {
         int                 done;
 
 	struct list_head    waitq; /* can wait only "once" at a time */
+        char                btbuf[GF_BACKTRACE_LEN];
 };
 
 
