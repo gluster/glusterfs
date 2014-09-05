@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 qemu_block_la_LDFLAGS = -module -avoid-version
 qemu_block_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-	$(GLIB_LIBS) $(LIBZ_LIBS)
+	$(GLIB_LIBS) $(ZLIB_LIBS)
 
 qemu_block_la_SOURCES_qemu = \
 	$(CONTRIBDIR)/qemu/qemu-coroutine.c \
