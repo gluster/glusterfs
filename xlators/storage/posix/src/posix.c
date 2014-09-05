@@ -1396,6 +1396,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
                 UNLOCK (&loc->inode->lock);
 
+                gf_log (this->name, GF_LOG_INFO, "open-fd-key-status: "
+                        "%"PRIu32" for %s", skip_unlink, real_path);
+
                 if (skip_unlink) {
                         op_ret = -1;
                         op_errno = EBUSY;
@@ -1422,6 +1425,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 }
 
                 UNLOCK (&loc->inode->lock);
+
+                gf_log (this->name, GF_LOG_INFO, "linkto_xattr status: "
+                        "%"PRIu32" for %s", skip_unlink, real_path);
 
                 if (skip_unlink) {
                         op_ret = -1;
