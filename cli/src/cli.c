@@ -553,7 +553,10 @@ cli_quotad_clnt_rpc_init (void)
 
         global_quotad_rpc = rpc;
 out:
-        dict_unref (rpc_opts);
+        if (ret) {
+                if (rpc_opts)
+                        dict_destroy(rpc_opts);
+        }
         return rpc;
 }
 
