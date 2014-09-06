@@ -1130,7 +1130,7 @@ marker_rename_release_oldp_lock (call_frame_t *frame, void *cookie,
         local = frame->local;
         oplocal = local->oplocal;
 
-        if ((op_ret < 0) && (op_errno != ENOATTR)) {
+        if ((op_ret < 0) && (op_errno != ENOATTR) && (op_errno != ENODATA)) {
                 local->err = op_errno;
         }
 
@@ -1275,7 +1275,7 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
         if (cookie == (void *) _GF_UID_GID_CHANGED)
                 MARKER_RESET_UID_GID (frame, frame->root, local);
 
-        if ((op_ret < 0) && (op_errno != ENOATTR)) {
+        if ((op_ret < 0) && (op_errno != ENOATTR) && (op_errno != ENODATA)) {
                 local->err = op_errno ? op_errno : EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "fetching contribution values from %s (gfid:%s) "
@@ -1327,7 +1327,7 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
         if (cookie == (void *) _GF_UID_GID_CHANGED)
                 MARKER_RESET_UID_GID (frame, frame->root, local);
 
-        if ((op_ret < 0) && (op_errno != ENOATTR)) {
+        if ((op_ret < 0) && (op_errno != ENOATTR) && (op_errno != ENODATA)) {
                 local->err = op_errno ? op_errno : EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "fetching contribution values from %s (gfid:%s) "
