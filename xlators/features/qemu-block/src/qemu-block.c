@@ -316,7 +316,7 @@ qb_setxattr_format (call_frame_t *frame, xlator_t *this, call_stub_t *stub,
 	qb_local->stub = stub;
 	qb_local->inode = inode_ref (inode);
 
-	snprintf(qb_local->fmt, QB_XATTR_VAL_MAX, "%s:%lu", qb_inode->fmt,
+	snprintf(qb_local->fmt, QB_XATTR_VAL_MAX, "%s:%" PRId64, qb_inode->fmt,
 		 qb_inode->size);
 
 	qb_coroutine (frame, qb_format_and_resume);
