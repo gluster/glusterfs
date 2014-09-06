@@ -5872,6 +5872,15 @@ glusterd_nodesvc_connect (char *server, char *socketpath)
                                                         600);
                 if (ret)
                         goto out;
+
+                if (!strcmp(server, "glustershd") ||
+                    !strcmp(server, "nfs") ||
+                    !strcmp(server, "quotad")) {
+                        ret = dict_set_str(options, "transport.socket.ignore-enoent", "on");
+                        if (ret)
+                                goto out;
+                }
+
                 ret = glusterd_rpc_create (&rpc, options,
                                            glusterd_nodesvc_rpc_notify,
                                            server);
@@ -13041,6 +13050,11 @@ glusterd_snapd_connect (glusterd_volinfo_t *volinfo, char *socketpath)
                  */
                 ret = rpc_transport_unix_options_build (&options, socketpath,
                                                         600);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_str(options,
+                                   "transport.socket.ignore-enoent", "on");
                 if (ret)
                         goto out;
 
