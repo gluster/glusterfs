@@ -247,7 +247,8 @@ err:
         cli_rsp.op_errstr = "";
 
         quotad_aggregator_getlimit_cbk (this, frame, &cli_rsp);
-        dict_unref (dict);
+        if (dict)
+                dict_unref (dict);
 
         return ret;
 }
