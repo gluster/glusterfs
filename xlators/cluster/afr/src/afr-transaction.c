@@ -239,12 +239,8 @@ afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int **pending)
 {
         int i = 0;
         int ret = 0;
-	int pending_zero[AFR_NUM_CHANGE_LOGS] = {0, };
 
         for (i = 0; i < priv->child_count; i++) {
-		if (!memcmp (pending_zero, pending[i], sizeof (pending_zero)))
-			/* don't set xattrs for non-pending servers */
-			continue;
 
                 ret = dict_set_static_bin (xattr, priv->pending_key[i],
 					   pending[i],
@@ -605,33 +601,31 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		goto out;
 	}
 
-	if (need_undirty) {
+	if (need_undirty)
 		local->dirty[idx] = hton32(-1);
+	else
+		local->dirty[idx] = hton32(0);
 
-		ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
-					   sizeof(int) * AFR_NUM_CHANGE_LOGS);
-		if (ret) {
-			local->op_ret = -1;
-			local->op_errno = ENOMEM;
-			afr_changelog_post_op_done (frame, this);
-			goto out;
-		}
-
+	ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
+				   sizeof(int) * AFR_NUM_CHANGE_LOGS);
+	if (ret) {
+		local->op_ret = -1;
+		local->op_errno = ENOMEM;
+		afr_changelog_post_op_done (frame, this);
+		goto out;
 	}
 
-	if (!nothing_failed) {
-		for (i = 0; i < priv->child_count; i++) {
-			if (local->transaction.failed_subvols[i])
-				local->pending[i][idx] = hton32(1);
-		}
-		ret = afr_set_pending_dict (priv, xattr, local->pending);
-		if (ret < 0) {
-			local->op_ret = -1;
-			local->op_errno = ENOMEM;
-			afr_changelog_post_op_done (frame, this);
-			goto out;
-		}
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->transaction.failed_subvols[i])
+			local->pending[i][idx] = hton32(1);
+	}
 
+	ret = afr_set_pending_dict (priv, xattr, local->pending);
+	if (ret < 0) {
+		local->op_ret = -1;
+		local->op_errno = ENOMEM;
+		afr_changelog_post_op_done (frame, this);
+		goto out;
 	}
 
 	afr_changelog_do (frame, this, xattr, afr_changelog_post_op_done);
