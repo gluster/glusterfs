@@ -153,6 +153,7 @@ typedef struct _afr_private {
         uint32_t               halo_max_latency_msec;
         uint32_t               halo_max_replicas;
         uint32_t               halo_min_replicas;
+        uint32_t               halo_min_samples;
 
         afr_self_heald_t       shd;
         struct afr_nfsd        nfsd;

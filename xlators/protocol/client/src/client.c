@@ -2750,6 +2750,8 @@ init (xlator_t *this)
 
         this->private = conf;
 
+        this->client_latency.min = UINT64_MAX;
+
         /* If it returns -1, then its a failure, if it returns +1 we need
            have to understand that 'this' is subvolume of a xlator which,
            will set the remote host and remote subvolume in a setxattr

@@ -201,6 +201,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("halo-min-replicas", priv->halo_min_replicas, options,
                               uint32, out);
 
+        GF_OPTION_RECONF ("halo-min-samples", priv->halo_min_samples, options,
+                              uint32, out);
+
         GF_OPTION_RECONF ("read-subvolume", read_subvol, options, xlator, out);
 
         GF_OPTION_RECONF ("read-hash-mode", priv->hash_mode,
@@ -434,6 +437,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("halo-max-replicas", priv->halo_max_replicas, uint32,
                         out);
         GF_OPTION_INIT ("halo-min-replicas", priv->halo_min_replicas, uint32,
+                        out);
+        GF_OPTION_INIT ("halo-min-samples", priv->halo_min_samples, uint32,
                         out);
 
         GF_OPTION_INIT ("halo-nfsd-max-latency",
@@ -762,8 +767,16 @@ struct volume_options options[] = {
           .default_value = "2",
            .description = "The minimum number of halo replicas, before adding "
                           "out of region replicas."
-         },
-         { .key  = {"heal-wait-queue-length"},
+        },
+        { .key   = {"halo-min-samples"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "3",
+           .description = "The minimum number of halo latency samples, before "
+                          "we start forming the halos."
+        },
+        { .key  = {"heal-wait-queue-length"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
           .max  = 10000, /*Around 100MB with sizeof(afr_local_t)= 10496 bytes*/

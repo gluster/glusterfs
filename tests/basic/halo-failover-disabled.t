@@ -25,6 +25,7 @@ TEST $CLI volume set $V0 cluster.halo-enabled True
 TEST $CLI volume set $V0 cluster.halo-max-latency 9999
 TEST $CLI volume set $V0 cluster.halo-shd-max-latency 9999
 TEST $CLI volume set $V0 cluster.halo-max-replicas 2
+TEST $CLI volume set $V0 cluster.halo-min-samples 1
 TEST $CLI volume set $V0 cluster.halo-failover-enabled off
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 2
@@ -44,9 +45,8 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 
 cd $M0
 
 # Write some data to the mount
-dd if=/dev/urandom of=$M0/test bs=1k count=200 oflag=sync &> /dev/null &
+TEST dd if=/dev/urandom of=$M0/test bs=1k count=200 conv=fsync
 
-sleep 0.5
 # Kill the first brick, fail-over to 3rd
 TEST kill_brick $V0 $H0 $B0/${V0}0
 
@@ -56,7 +56,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 # will not be fullfilled.  If we waited 1000 second the brick would
 # indeed be activated based on ping time, but for our test we want
 # the decision to be solely "down event" driven, not ping driven.
-TEST ! dd if=/dev/urandom of=$M0/test_rw bs=1M count=1
+TEST ! dd if=/dev/urandom of=$M0/test_rw bs=1M count=1 conv=fsync
 
 TEST $CLI volume start $V0 force
 sleep 2

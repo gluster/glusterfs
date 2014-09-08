@@ -23,6 +23,7 @@ TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume set $V0 cluster.shd-max-threads 1
 TEST $CLI volume set $V0 cluster.halo-enabled True
 TEST $CLI volume set $V0 cluster.halo-max-replicas 2
+TEST $CLI volume set $V0 cluster.halo-min-samples 1
 TEST $CLI volume set $V0 cluster.heal-timeout 5
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.eager-lock off

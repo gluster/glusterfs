@@ -3068,6 +3068,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.halo-min-samples",
+          .voltype    = "cluster/replicate",
+          .op_version = 2,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };

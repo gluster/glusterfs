@@ -173,17 +173,28 @@ out:
 }
 
 void
-_update_client_latency (call_frame_t *frame, double elapsed_usec)
+_update_client_latency (const rpc_clnt_connection_t *conn,
+                        call_frame_t *frame,
+                        uint64_t elapsed_usec)
 {
         fop_latency_t *lat;
 
         lat = &frame->this->client_latency;
 
+        if (elapsed_usec < lat->min) {
+                lat->min = elapsed_usec;
+        }
+
+        if (elapsed_usec > lat->max) {
+                lat->max = elapsed_usec;
+        }
+
         lat->total += elapsed_usec;
         lat->count++;
         lat->mean = lat->mean + (elapsed_usec - lat->mean) / lat->count;
-        gf_log (THIS->name, GF_LOG_DEBUG, "Ping latency is %0.6lf ms, "
-                "avg: %0.6lf ms, count:%ld", elapsed_usec / 1000.0,
+        gf_log (THIS->name, GF_LOG_DEBUG, "%s - Ping latency is %0.6lf ms, "
+                "avg: %0.6lf ms, count:%ld",
+                conn->trans->peerinfo.identifier, elapsed_usec / 1000.0,
                 lat->mean / 1000.0, lat->count);
 }
 
@@ -217,13 +228,6 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         pthread_mutex_lock (&conn->lock);
         {
-                timespec_now (&now);
-                timespec_sub (&local->submit_time, &now, &delta);
-                latency_usec = delta.tv_sec * 1000000UL +
-                               delta.tv_nsec / 1000UL;
-
-                _update_client_latency (frame, (double)latency_usec);
-
                 if (req->rpc_status == -1) {
                         unref = rpc_clnt_remove_ping_timer_locked (local->rpc);
                         if (unref) {
@@ -240,6 +244,13 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto unlock;
                 }
 
+                timespec_now (&now);
+                timespec_sub (&local->submit_time, &now, &delta);
+                latency_usec = delta.tv_sec * 1000000UL +
+                               delta.tv_nsec / 1000UL;
+
+                _update_client_latency (conn, frame, latency_usec);
+                call_notify = _gf_true;
                 unref = rpc_clnt_remove_ping_timer_locked (local->rpc);
                 if (__rpc_clnt_rearm_ping_timer (local->rpc,
                                                  rpc_clnt_start_ping) == -1) {
