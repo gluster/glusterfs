@@ -4566,16 +4566,6 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         is_force = dict_get_str_boolean (dict, "force", _gf_false);
 
         if (type == GF_GSYNC_OPTION_TYPE_START) {
-
-                ret = glusterd_set_gsync_confs (volinfo);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING, "marker/changelog"
-                                " start failed");
-                        *op_errstr = gf_strdup ("Index initialization failed");
-                        ret = -1;
-                        goto out;
-                }
-
                 /* Add slave to the dict indicating geo-rep session is running*/
                 ret = dict_set_dynstr_with_alloc (volinfo->gsync_active_slaves,
                                                   key, "running");
@@ -5342,6 +5332,16 @@ create_essentials:
                 snprintf (errmsg, sizeof (errmsg), "Unable to store"
                           " slave info.");
                 gf_log ("", GF_LOG_ERROR, "%s", errmsg);
+                goto out;
+        }
+
+        /* Enable marker and changelog */
+        ret = glusterd_set_gsync_confs (volinfo);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING, "marker/changelog"
+                        " start failed");
+                *op_errstr = gf_strdup ("Index initialization failed");
+                ret = -1;
                 goto out;
         }
 
