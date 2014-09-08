@@ -562,7 +562,8 @@ quota_build_ancestry_open_cbk (call_frame_t *frame, void *cookie,
 err:
         fd_unref (fd);
 
-        dict_unref (xdata_req);
+        if (xdata_req)
+                dict_unref (xdata_req);
 
         if (op_ret < 0) {
                 local = frame->local;
@@ -2496,6 +2497,8 @@ dict_set:
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -3534,7 +3537,6 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int64_t            blocks       = 0;
         quota_inode_ctx_t *ctx          = NULL;
         int                ret          = 0;
-        gf_boolean_t       dict_created = _gf_false;
         quota_local_t     *local        = frame->local;
 
         inode = cookie;
@@ -3580,12 +3582,9 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 buf->f_bavail = buf->f_bfree;
         }
 
-        if (!xdata) {
-                xdata = dict_new ();
-                if (!xdata)
-                        goto unwind;
-                dict_created = _gf_true;
-        }
+        xdata = xdata ? dict_ref(xdata) : dict_new();
+        if (!xdata)
+                goto unwind;
 
         ret = dict_set_int8 (xdata, "quota-deem-statfs", 1);
         if (-1 == ret)
@@ -3595,7 +3594,7 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unwind:
         QUOTA_STACK_UNWIND (statfs, frame, op_ret, op_errno, buf, xdata);
 
-        if (dict_created)
+        if (xdata)
                 dict_unref (xdata);
 
         return 0;

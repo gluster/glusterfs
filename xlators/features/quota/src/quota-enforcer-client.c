@@ -321,7 +321,8 @@ quota_enforcer_blocking_connect (rpc_clnt_t *rpc)
 
         ret = 0;
 out:
-        dict_unref (options);
+        if (options)
+                dict_unref (options);
 
         return ret;
 }
