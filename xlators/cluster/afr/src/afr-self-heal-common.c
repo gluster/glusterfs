@@ -75,24 +75,19 @@ afr_selfheal_output_xattr (xlator_t *this, afr_transaction_type type,
 	if (!xattr)
 		return NULL;
 
-	if (output_dirty[subvol]) {
-		/* clear dirty */
-		raw = GF_CALLOC (sizeof(int), AFR_NUM_CHANGE_LOGS, gf_afr_mt_int32_t);
-		if (!raw)
-			goto err;
+	/* clear dirty */
+	raw = GF_CALLOC (sizeof(int), AFR_NUM_CHANGE_LOGS, gf_afr_mt_int32_t);
+	if (!raw)
+		goto err;
 
-		raw[idx] = hton32 (output_dirty[subvol]);
-		ret = dict_set_bin (xattr, AFR_DIRTY, raw,
-				    sizeof(int) * AFR_NUM_CHANGE_LOGS);
-		if (ret)
-			goto err;
-	}
+	raw[idx] = hton32 (output_dirty[subvol]);
+	ret = dict_set_bin (xattr, AFR_DIRTY, raw,
+			    sizeof(int) * AFR_NUM_CHANGE_LOGS);
+	if (ret)
+		goto err;
 
 	/* clear/set pending */
 	for (j = 0; j < priv->child_count; j++) {
-		if (!output_matrix[subvol][j])
-			continue;
-
 		raw = GF_CALLOC (sizeof(int), AFR_NUM_CHANGE_LOGS,
 				 gf_afr_mt_int32_t);
 		if (!raw)
