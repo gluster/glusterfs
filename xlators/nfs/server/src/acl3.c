@@ -464,6 +464,7 @@ acl3_setacl_cbk (call_frame_t *frame, void *cookie,
 
         acl3svc_submit_reply (cs->req, (void *)&cs->args.setaclreply,
                               (acl3_serializer)xdr_serialize_setaclreply);
+        nfs3_call_state_wipe (cs);
         return 0;
 }
 
