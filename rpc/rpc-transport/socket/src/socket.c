@@ -383,10 +383,11 @@ __socket_cached_read (rpc_transport_t *this, struct iovec *opvector, int opcount
 		/* first call after passing SP_STATE_READING_FRAGHDR */
 		in->ra_max = min (RPC_FRAGSIZE (in->fraghdr), GF_SOCKET_RA_MAX);
 		/* Note that the in->iobuf is the primary iobuf into which
-		   headers are read into. By using this itself as our
+		   headers are read into, and in->frag.fragcurrent points to
+ 		   some position in the buffer. By using this itself as our
 		   read-ahead cache, we can avoid memory copies in iov_load
 		*/
-		in->ra_buf = iobuf_ptr (in->iobuf);
+		in->ra_buf = in->frag.fragcurrent;
 	}
 
 	/* fill read-ahead */
@@ -2002,9 +2003,22 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                 goto out;
                         }
 
+                        if (in->iobuf == NULL) {
+                            /* first fragment */
+                            frag->fragcurrent = iobuf_ptr (iobuf);
+                        } else {
+                            /* second or further fragment */
+                            memcpy(iobuf_ptr (iobuf), iobuf_ptr (in->iobuf),
+                               in->total_bytes_read - RPC_FRAGSIZE(in->fraghdr));
+                            iobuf_unref (in->iobuf);
+                            frag->fragcurrent = (char *) iobuf_ptr (iobuf) +
+                                in->total_bytes_read - RPC_FRAGSIZE(in->fraghdr);
+                            frag->pending_vector->iov_base = frag->fragcurrent;
+                            in->pending_vector = frag->pending_vector;
+                        }
+
                         in->iobuf = iobuf;
                         in->iobuf_size = 0;
-                        frag->fragcurrent = iobuf_ptr (iobuf);
                         in->record_state = SP_STATE_READING_FRAG;
                         /* fall through */
 
@@ -2019,6 +2033,9 @@ __socket_proto_state_machine (rpc_transport_t *this,
                         frag->bytes_read = 0;
 
                         if (!RPC_LASTFRAG (in->fraghdr)) {
+                                in->pending_vector = in->vector;
+                                in->pending_vector->iov_base = &in->fraghdr;
+                                in->pending_vector->iov_len = sizeof(in->fraghdr);
                                 in->record_state = SP_STATE_READING_FRAGHDR;
                                 break;
                         }
