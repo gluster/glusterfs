@@ -5035,7 +5035,6 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         int             ret               = -1;
         char            key[1024]         = {0};
         char            buffer[4096]      = {0};
-        char           *inode_size        = NULL;
         char           *device            = NULL;
         char           *fs_name           = NULL;
         char           *cur_word          = NULL;
