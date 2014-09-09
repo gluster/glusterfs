@@ -1191,11 +1191,11 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                                local->skip_unlink.hashed_gfid)){
 
                                         /*GFID different, return error*/
-                                     DHT_STACK_UNWIND (lookup, frame, -1,
-                                                       ESTALE, NULL, NULL, NULL,
-                                                       NULL);
+                                        DHT_STACK_UNWIND (lookup, frame, -1,
+                                                          ESTALE, NULL, NULL,
+                                                          NULL, NULL);
 
-
+                                        return 0;
                                 }
 
                                 ret = dht_layout_preset (this, cached_subvol,
