@@ -421,8 +421,9 @@ dht_rename_cleanup (call_frame_t *frame)
         if (dst_hashed != src_hashed && dst_hashed != src_cached)
                 call_cnt++;
 
-        if (src_cached != dst_hashed)
+        if (local->added_link && (src_cached != dst_hashed)) {
                 call_cnt++;
+        }
 
         local->call_cnt = call_cnt;
 
@@ -451,7 +452,7 @@ dht_rename_cleanup (call_frame_t *frame)
                 xattr_new = NULL;
         }
 
-        if (src_cached != dst_hashed) {
+        if (local->added_link && (src_cached != dst_hashed)) {
                 dict_t *xattr_new = NULL;
 
                 gf_log (this->name, GF_LOG_TRACE,
@@ -764,8 +765,12 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "link/file on %s failed (%s)",
                         prev->this->name, strerror (op_errno));
                 local->op_ret   = -1;
-                if (op_errno != ENOENT)
+                if (op_errno != ENOENT) {
                         local->op_errno = op_errno;
+                        if (prev->this == local->src_cached) {
+                                local->added_link = _gf_false;
+                        }
+                }
         } else if (local->src_cached == prev->this) {
                 /* merge of attr returned only from linkfile creation */
                 dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
@@ -899,6 +904,7 @@ dht_rename_create_links (call_frame_t *frame)
                         DHT_MARKER_DONT_ACCOUNT(xattr_new);
                 }
 
+                local->added_link = _gf_true;
 		STACK_WIND (frame, dht_rename_links_cbk,
 			    src_cached, src_cached->fops->link,
 			    &local->loc, &local->loc2, xattr_new);
