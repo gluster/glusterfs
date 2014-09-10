@@ -138,7 +138,7 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_REMOVEXATTR)
             {
                 if (fop->cbks.removexattr != NULL)
                 {
@@ -165,7 +165,7 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_REMOVEXATTR)
             {
                 if (fop->cbks.removexattr != NULL)
                 {
@@ -547,7 +547,7 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_SETATTR)
             {
                 if (fop->cbks.setattr != NULL)
                 {
@@ -577,7 +577,7 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_SETATTR)
             {
                 if (fop->cbks.setattr != NULL)
                 {
@@ -924,7 +924,7 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_SETXATTR)
             {
                 if (fop->cbks.setxattr != NULL)
                 {
@@ -950,7 +950,7 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_SETXATTR)
             {
                 if (fop->cbks.setxattr != NULL)
                 {
@@ -1378,7 +1378,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_TRUNCATE)
             {
                 ec_lock_prepare_inode(fop, &fop->loc[0]);
             }
@@ -1446,7 +1446,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_TRUNCATE)
             {
                 if (fop->cbks.truncate != NULL)
                 {
@@ -1476,7 +1476,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_TRUNCATE)
             {
                 if (fop->cbks.truncate != NULL)
                 {

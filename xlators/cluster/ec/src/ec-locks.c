@@ -234,7 +234,7 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
                 {
                     if (mask != 0)
                     {
-                        if (fop->fd == NULL)
+                        if (fop->id == GF_FOP_ENTRYLK)
                         {
                             ec_entrylk(fop->req_frame, fop->xl, mask, 1,
                                        ec_lock_unlocked, NULL, fop->str[0],
@@ -272,7 +272,7 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_ENTRYLK)
             {
                 if (fop->cbks.entrylk != NULL)
                 {
@@ -298,7 +298,7 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_ENTRYLK)
             {
                 if (fop->cbks.entrylk != NULL)
                 {
@@ -677,7 +677,7 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                         flock.l_pid = 0;
                         flock.l_owner.len = 0;
 
-                        if (fop->fd == NULL)
+                        if (fop->id == GF_FOP_INODELK)
                         {
                             ec_inodelk(fop->req_frame, fop->xl, mask, 1,
                                        ec_lock_unlocked, NULL, fop->str[0],
@@ -713,7 +713,7 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_INODELK)
             {
                 if (fop->cbks.inodelk != NULL)
                 {
@@ -739,7 +739,7 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_INODELK)
             {
                 if (fop->cbks.inodelk != NULL)
                 {
