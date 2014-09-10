@@ -84,7 +84,7 @@ for dir in . dir1; do
         EXPECT "$cs_big" echo $(sha1sum $dir/big | awk '{ print $1 }')
 
         cd
-        TEST umount $M0
+        EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
         TEST $CLI volume stop $V0 force
         TEST $CLI volume start $V0
         TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
