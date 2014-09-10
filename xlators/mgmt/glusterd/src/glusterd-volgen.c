@@ -2736,7 +2736,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        ret = glusterd_volinfo_get_boolean (volinfo, "features.encryption");
+        ret = dict_get_str_boolean (set_dict, "features.encryption", _gf_false);
         if (ret == -1)
                 goto out;
         if (ret) {
@@ -2764,7 +2764,8 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
 
-        ret = glusterd_volinfo_get_boolean (volinfo, "features.file-snapshot");
+        ret = dict_get_str_boolean (set_dict, "features.file-snapshot",
+                                    _gf_false);
         if (ret == -1)
                 goto out;
         if (ret) {
