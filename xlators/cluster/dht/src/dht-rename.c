@@ -418,8 +418,10 @@ dht_rename_cleanup (call_frame_t *frame)
         if (src_cached == dst_cached)
                 goto nolinks;
 
-        if (dst_hashed != src_hashed && dst_hashed != src_cached)
+        if (local->linked && (dst_hashed != src_hashed )&&
+                (dst_hashed != src_cached)) {
                 call_cnt++;
+        }
 
         if (local->added_link && (src_cached != dst_hashed)) {
                 call_cnt++;
@@ -432,7 +434,9 @@ dht_rename_cleanup (call_frame_t *frame)
 
         DHT_MARK_FOP_INTERNAL (xattr);
 
-        if (dst_hashed != src_hashed && dst_hashed != src_cached) {
+
+        if (local->linked && (dst_hashed != src_hashed) &&
+                        (dst_hashed != src_cached)) {
                 dict_t *xattr_new = NULL;
 
                 gf_log (this->name, GF_LOG_TRACE,
