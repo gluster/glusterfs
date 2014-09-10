@@ -250,6 +250,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         int          ret  = -1;
         fd_t        *fd   = NULL;
         struct iatt  new_stbuf = {0,};
+        struct iatt  check_stbuf= {0,};
         dht_conf_t  *conf = NULL;
 
         this = THIS;
@@ -305,6 +306,42 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to create %s on %s (%s)",
                         loc->path, to->name, strerror (errno));
+                goto out;
+        }
+
+
+        /*Reason of doing lookup after create again:
+         *In the create, there is some time-gap between opening fd at the
+         *server (posix_layer) and binding it in server (incrementing fd count),
+         *so if in that time-gap, if other process sends unlink considering it
+         *as a linkto file, because inode->fd count will be 0, so file will be
+         *unlinked at the backend. And because furthur operations are performed
+         *on fd, so though migration will be done but will end with no file
+         *at  the backend.
+         */
+
+
+        ret = syncop_lookup (to, loc, NULL, &check_stbuf, NULL, NULL);
+        if (!ret) {
+
+                if (uuid_compare (stbuf->ia_gfid, check_stbuf.ia_gfid) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "file %s exists in %s with different gfid,"
+                                "found in lookup after create",
+                                loc->path, to->name);
+                        ret = -1;
+                        fd_unref (fd);
+                        goto out;
+                }
+
+        }
+
+        if (-ret == ENOENT) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s: file does not exist"
+                        "on %s (%s)", loc->path, to->name, strerror (-ret));
+                ret = -1;
+                fd_unref (fd);
                 goto out;
         }
 
@@ -689,6 +726,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         dict_t         *xattr_rsp      = NULL;
         int             file_has_holes = 0;
         dht_conf_t     *conf           = this->private;
+        int            rcvd_enoent_from_src = 0;
 
         gf_log (this->name, GF_LOG_INFO, "%s: attempting to move from %s to %s",
                 loc->path, from->name, to->name);
@@ -867,15 +905,30 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         /* Do a stat and check the gfid before unlink */
+
+        /*
+         * Cached file changes its state from non-linkto to linkto file after
+         * migrating data. If lookup from any other mount-point is performed,
+         * converted-linkto-cached file will be treated as a stale and will be
+         * unlinked. But by this time, file is already migrated. So further
+         * failure because of ENOENT should  not be treated as error
+         */
+
         ret = syncop_stat (from, loc, &empty_iatt);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to do a stat on %s (%s)",
                         loc->path, from->name, strerror (errno));
-                goto out;
+
+                if (errno != ENOENT) {
+                        goto out;
+                }
+
+                rcvd_enoent_from_src = 1;
         }
 
-        if (uuid_compare (empty_iatt.ia_gfid, loc->gfid) == 0) {
+        if ((uuid_compare (empty_iatt.ia_gfid, loc->gfid) == 0 ) &&
+            (!rcvd_enoent_from_src)) {
                 /* take out the source from namespace */
                 ret = syncop_unlink (from, loc);
                 if (ret) {
