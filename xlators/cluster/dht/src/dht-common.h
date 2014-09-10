@@ -804,4 +804,6 @@ dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
 int
 dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this);
 
+int
+dht_fill_dict_to_avoid_unlink_of_migrating_file (dict_t *dict);
 #endif/* _DHT_H */

@@ -183,6 +183,9 @@
                                      == DHT_LINKFILE_MODE)
 #define DHT_LINKFILE_STR "linkto"
 
+#define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
+#define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
+
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
         GF_FOP_NULL = 0,
