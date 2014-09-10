@@ -1050,7 +1050,6 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         char                 *real_path       = 0;
         char                 *par_path        = 0;
         struct iatt           stbuf           = { 0, };
-        char                  was_present     = 1;
         struct posix_private *priv            = NULL;
         gid_t                 gid             = 0;
         struct iatt           preparent       = {0,};
@@ -1058,6 +1057,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         void *                uuid_req        = NULL;
         int32_t               nlink_samepgfid = 0;
         char                 *pgfid_xattr_key = NULL;
+        gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1135,10 +1135,14 @@ real_op:
                 }
         }
 
+        entry_created = _gf_true;
+
         op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
 #ifndef HAVE_SET_FSID
@@ -1204,28 +1208,35 @@ out:
                              (loc)?loc->inode:NULL, &stbuf, &preparent,
                              &postparent, NULL);
 
-        if ((op_ret == -1) && (!was_present)) {
-                unlink (real_path);
+        if (op_ret < 0) {
+                if (entry_created) {
+                        if (S_ISREG (mode))
+                                sys_unlink (real_path);
+                        else
+                                sys_rmdir (real_path);
+                }
+
+                if (gfid_set)
+                        posix_gfid_unset (this, xdata);
         }
 
         return 0;
 }
 
-
 int
 posix_mkdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
-        int32_t               op_ret      = -1;
-        int32_t               op_errno    = 0;
-        char                 *real_path   = NULL;
-        char                 *par_path   = NULL;
-        struct iatt           stbuf       = {0, };
-        char                  was_present = 1;
-        struct posix_private *priv        = NULL;
-        gid_t                 gid         = 0;
-        struct iatt           preparent = {0,};
-        struct iatt           postparent = {0,};
+        int32_t               op_ret        = -1;
+        int32_t               op_errno      = 0;
+        char                 *real_path     = NULL;
+        char                 *par_path      = NULL;
+        struct iatt           stbuf         = {0, };
+        struct posix_private *priv          = NULL;
+        gid_t                 gid           = 0;
+        struct iatt           preparent     = {0,};
+        struct iatt           postparent    = {0,};
+        gf_boolean_t          entry_created = _gf_false, gfid_set = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1253,9 +1264,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         gid = frame->root->gid;
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
-        if ((op_ret == -1) && (errno == ENOENT)) {
-                was_present = 0;
-        }
 
         SET_FS_ID (frame->root->uid, gid);
 
@@ -1282,10 +1290,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        entry_created = _gf_true;
+
         op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
 #ifndef HAVE_SET_FSID
@@ -1339,8 +1351,12 @@ out:
                              (loc)?loc->inode:NULL, &stbuf, &preparent,
                              &postparent, NULL);
 
-        if ((op_ret == -1) && (!was_present)) {
-                unlink (real_path);
+        if (op_ret < 0) {
+                if (entry_created)
+                        sys_rmdir (real_path);
+
+                if (gfid_set)
+                        posix_gfid_unset (this, xdata);
         }
 
         return 0;
@@ -1567,11 +1583,11 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         struct iatt           stbuf           = { 0, };
         struct posix_private *priv            = NULL;
         gid_t                 gid             = 0;
-        char                  was_present     = 1;
         struct iatt           preparent       = {0,};
         struct iatt           postparent      = {0,};
         char                 *pgfid_xattr_key = NULL;
         int32_t               nlink_samepgfid = 0;
+        gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1584,10 +1600,6 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
-
-        if ((op_ret == -1) && (errno == ENOENT)){
-                was_present = 0;
-        }
 
         SET_FS_ID (frame->root->uid, gid);
 
@@ -1616,10 +1628,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        entry_created = _gf_true;
+
         op_ret = posix_gfid_set (this, real_path, loc, xdata);
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
 #ifndef HAVE_SET_FSID
@@ -1681,8 +1697,12 @@ out:
                              (loc)?loc->inode:NULL, &stbuf, &preparent,
                              &postparent, NULL);
 
-        if ((op_ret == -1) && (!was_present)) {
-                unlink (real_path);
+        if (op_ret < 0) {
+                if (entry_created)
+                        sys_unlink (real_path);
+
+                if (gfid_set)
+                        posix_gfid_unset (this, xdata);
         }
 
         return 0;
@@ -1886,10 +1906,6 @@ out:
                              &preoldparent, &postoldparent,
                              &prenewparent, &postnewparent, NULL);
 
-        if ((op_ret == -1) && !was_present) {
-                unlink (real_newpath);
-        }
-
         return 0;
 }
 
@@ -1905,11 +1921,11 @@ posix_link (call_frame_t *frame, xlator_t *this,
         char                 *par_newpath     = 0;
         struct iatt           stbuf           = {0, };
         struct posix_private *priv            = NULL;
-        char                  was_present     = 1;
         struct iatt           preparent       = {0,};
         struct iatt           postparent      = {0,};
         int32_t               nlink_samepgfid = 0;
         char                 *pgfid_xattr_key = NULL;
+        gf_boolean_t          entry_created   = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1925,9 +1941,6 @@ posix_link (call_frame_t *frame, xlator_t *this,
         MAKE_INODE_HANDLE (real_oldpath, this, oldloc, &stbuf);
 
         MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
-        if ((op_ret == -1) && (errno == ENOENT)) {
-                was_present = 0;
-        }
 
         op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &preparent);
         if (op_ret == -1) {
@@ -1956,6 +1969,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
                         real_oldpath, real_newpath, strerror (op_errno));
                 goto out;
         }
+
+        entry_created = _gf_true;
 
         op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
         if (op_ret == -1) {
@@ -2004,8 +2019,9 @@ out:
                              (oldloc)?oldloc->inode:NULL, &stbuf, &preparent,
                              &postparent, NULL);
 
-        if ((op_ret == -1) && (!was_present)) {
-                unlink (real_newpath);
+        if (op_ret < 0) {
+                if (entry_created)
+                        sys_unlink (real_newpath);
         }
 
         return 0;
@@ -2093,6 +2109,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         int                    nlink_samepgfid = 0;
         char *                 pgfid_xattr_key = NULL;
+        gf_boolean_t           entry_created   = _gf_false, gfid_set = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2150,6 +2167,11 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if ((_flags & O_CREAT) && (_flags & O_EXCL)) {
+                entry_created = _gf_true;
+        }
+
+
         if (was_present)
                 goto fill_stat;
 
@@ -2157,6 +2179,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (op_ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
 #ifndef HAVE_SET_FSID
@@ -2237,15 +2261,19 @@ out:
 
         if ((-1 == op_ret) && (_fd != -1)) {
                 close (_fd);
-
-                if (!was_present) {
-                        unlink (real_path);
-                }
         }
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
                              fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
                              &postparent, xdata);
+
+        if (op_ret < 0) {
+                if (entry_created)
+                        sys_unlink (real_path);
+
+                if (gfid_set)
+                        posix_gfid_unset (this, xdata);
+        }
 
         return 0;
 }
