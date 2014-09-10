@@ -1336,7 +1336,7 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == EC_FOP_HEAL)
             {
                 if (fop->cbks.heal != NULL)
                 {
@@ -1364,7 +1364,7 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == EC_FOP_HEAL)
             {
                 if (fop->cbks.heal != NULL)
                 {

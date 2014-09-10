@@ -1534,7 +1534,7 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
 
             GF_ASSERT(cbk != NULL);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_STAT)
             {
                 if (fop->cbks.stat != NULL)
                 {
@@ -1560,7 +1560,7 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
 
-            if (fop->fd == NULL)
+            if (fop->id == GF_FOP_STAT)
             {
                 if (fop->cbks.stat != NULL)
                 {
