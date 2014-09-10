@@ -1913,12 +1913,6 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&ctx->lock);
         {
-                /* decision of whether to create a context in newloc->inode
-                 * depends on fuse_rename_cbk's choice of inode it retains
-                 * after rename. currently it just associates oldloc->inode
-                 * with new parent and name. If this changes, following code
-                 * should be changed to set a new context in newloc->inode.
-                 */
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, local->oldloc.name) == 0) &&
                             (uuid_compare (local->oldloc.parent->gfid,
@@ -1926,16 +1920,18 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 old_dentry = dentry;
                         } else if ((strcmp (dentry->name,
                                             local->newloc.name) == 0) &&
-                                   (uuid_compare (local->oldloc.parent->gfid,
+                                   (uuid_compare (local->newloc.parent->gfid,
                                                   dentry->par) == 0)) {
                                 new_dentry_found = 1;
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "new entry being linked (name:%s) for "
                                         "inode (gfid:%s) is already present "
                                         "in inode-dentry-list", dentry->name,
-                                        uuid_utoa (local->newloc.inode->gfid));
-                                break;
+                                        uuid_utoa (local->oldloc.inode->gfid));
                         }
+
+                        if (old_dentry && new_dentry_found)
+                                break;
                 }
 
                 if (old_dentry != NULL) {
@@ -1955,7 +1951,7 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         "cannot create a new dentry (name:%s) "
                                         "for inode(gfid:%s)",
                                         local->newloc.name,
-                                        uuid_utoa (local->newloc.inode->gfid));
+                                        uuid_utoa (local->oldloc.inode->gfid));
                                 op_ret = -1;
                                 op_errno = ENOMEM;
                                 goto unlock;
