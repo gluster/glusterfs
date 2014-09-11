@@ -1309,7 +1309,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         local->dst_hashed = dst_hashed;
         local->dst_cached = dst_cached;
 
-        gf_log (this->name, GF_LOG_TRACE,
+        gf_log (this->name, GF_LOG_INFO,
                 "renaming %s (hash=%s/cache=%s) => %s (hash=%s/cache=%s)",
                 oldloc->path, src_hashed->name, src_cached->name,
                 newloc->path, dst_hashed->name,
