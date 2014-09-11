@@ -1821,8 +1821,10 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       "op_errno %d", loc->path, op_ret, op_errno);
 
         if (ENTRY_MISSING (op_ret, op_errno)) {
-                gf_log (this->name, GF_LOG_INFO, "Entry %s missing on subvol"
-                              " %s", loc->path, prev->this->name);
+                gf_msg_debug (this->name, 0,
+                              "Entry %s missing on subvol %s",
+                              loc->path, prev->this->name);
+
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
                         local->op_errno = ENOENT;
                         dht_lookup_everywhere (frame, this, loc);
