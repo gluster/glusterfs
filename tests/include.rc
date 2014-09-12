@@ -1,6 +1,6 @@
 M0=${M0:=/mnt/glusterfs/0};   # 0th mount point for FUSE
 M1=${M1:=/mnt/glusterfs/1};   # 1st mount point for FUSE
-M2=${M1:=/mnt/glusterfs/2};   # 2nd mount point for FUSE
+M2=${M2:=/mnt/glusterfs/2};   # 2nd mount point for FUSE
 N0=${N0:=/mnt/nfs/0};         # 0th mount point for NFS
 N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
 V0=${V0:=patchy};             # volume name to use in tests
@@ -59,7 +59,7 @@ CLI="gluster --mode=script --wignore";
 GFS="glusterfs --attribute-timeout=0 --entry-timeout=0";
 
 mkdir -p $B0;
-mkdir -p $M0 $M1;
+mkdir -p $M0 $M1 $M2;
 mkdir -p $N0 $N1;
 
 case $OSTYPE in
