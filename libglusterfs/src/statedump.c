@@ -390,6 +390,7 @@ gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
                 gf_proc_dump_write ("max-alloc", "%d", pool->max_alloc);
 
                 gf_proc_dump_write ("pool-misses", "%"PRIu64, pool->pool_misses);
+                gf_proc_dump_write ("cur-stdalloc", "%d", pool->curr_stdalloc);
                 gf_proc_dump_write ("max-stdalloc", "%d", pool->max_stdalloc);
         }
 }
