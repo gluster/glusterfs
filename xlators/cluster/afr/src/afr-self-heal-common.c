@@ -384,6 +384,38 @@ afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
 	return 0;
 }
 
+void
+afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
+                  int source, unsigned char *healed_sinks)
+{
+        char *status = NULL;
+        char *sinks_str = NULL;
+        char *p = NULL;
+        afr_private_t *priv = NULL;
+        gf_loglevel_t loglevel = GF_LOG_NONE;
+        int i = 0;
+
+        priv = this->private;
+        sinks_str = alloca0 (priv->child_count * 8);
+        p = sinks_str;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!healed_sinks[i])
+                        continue;
+                p += sprintf (p, "%d ", i);
+        }
+
+        if (ret < 0) {
+                status = "Failed";
+                loglevel = GF_LOG_DEBUG;
+        } else {
+                status = "Completed";
+                loglevel = GF_LOG_INFO;
+        }
+
+        gf_log (this->name, loglevel, "%s %s selfheal on %s. "
+                "source=%d sinks=%s", status, type, uuid_utoa (gfid),
+                source, sinks_str);
+}
 
 int
 afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

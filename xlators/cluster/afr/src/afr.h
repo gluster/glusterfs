@@ -1006,4 +1006,6 @@ afr_remove_eager_lock_stub (afr_local_t *local);
 void
 afr_replies_wipe (struct afr_reply *replies, int count);
 
+gf_boolean_t
+afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2);
 #endif /* __AFR_H__ */

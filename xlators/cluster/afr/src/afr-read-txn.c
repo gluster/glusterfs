@@ -202,6 +202,9 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		/* very first transaction on this inode */
 		goto refresh;
 
+        gf_log (this->name, GF_LOG_DEBUG, "%s: generation now vs cached: %d, "
+                "%d", uuid_utoa (inode->gfid), local->event_generation,
+                event_generation);
 	if (local->event_generation != event_generation)
 		/* servers have disconnected / reconnected, and possibly
 		   rebooted, very likely changing the state of freshness

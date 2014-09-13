@@ -185,4 +185,8 @@ afr_inode_link (inode_t *inode, struct iatt *iatt);
 
 unsigned int
 afr_success_count (struct afr_reply *replies, unsigned int count);
+
+void
+afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
+                  int source, unsigned char *healed_sinks);
 #endif /* !_AFR_SELFHEAL_H */

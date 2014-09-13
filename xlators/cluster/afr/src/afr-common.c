@@ -1198,8 +1198,8 @@ xattr_is_equal (dict_t *this, char *key1, data_t *value1, void *data)
  * We need to do both because ignoring glusterfs' internal xattrs
  * happens only in xattr_is_equal().
  */
-static gf_boolean_t
-dicts_are_equal (dict_t *dict1, dict_t *dict2)
+gf_boolean_t
+afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2)
 {
         int ret = 0;
 
@@ -1596,7 +1596,8 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
                 }
 
                 /*Check if xattrs need heal*/
-                if (!dicts_are_equal (replies[first].xdata, replies[i].xdata))
+                if (!afr_xattrs_are_equal (replies[first].xdata,
+                                           replies[i].xdata))
                         start = _gf_true;
         }
 

@@ -97,7 +97,6 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	struct iatt first = {0, };
 	int source = -1;
 	int sources_count = 0;
-        int ret = 0;
 
 	priv = this->private;
 
@@ -136,6 +135,10 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		    !IA_EQUAL (first, replies[i].poststat, uid) ||
 		    !IA_EQUAL (first, replies[i].poststat, gid) ||
 		    !IA_EQUAL (first, replies[i].poststat, prot)) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: iatt mismatch "
+                                "for source(%d) vs (%d)",
+                                uuid_utoa (replies[source].poststat.ia_gfid),
+                                source, i);
 			sources[i] = 0;
 			healed_sinks[i] = 1;
 		}
@@ -144,14 +147,12 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
         for (i =0; i < priv->child_count; i++) {
 		if (!sources[i] || i == source)
 			continue;
-                if (replies[source].xdata->count != replies[i].xdata->count) {
-                        sources[i] = 0;
-                        healed_sinks[i] = 1;
-                        continue;
-                }
-                ret = dict_foreach(replies[source].xdata, xattr_is_equal,
-                                        (void*)replies[i].xdata);
-                if  (ret == -1) {
+                if (!afr_xattrs_are_equal (replies[source].xdata,
+                                           replies[i].xdata)) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: xattr mismatch "
+                                "for source(%d) vs (%d)",
+                                uuid_utoa (replies[source].poststat.ia_gfid),
+                                source, i);
                         sources[i] = 0;
                         healed_sinks[i] = 1;
                 }
@@ -241,6 +242,12 @@ __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			goto unlock;
 
 		source = ret;
+
+                if (AFR_COUNT (healed_sinks, priv->child_count) == 0) {
+                        ret = -ENOTCONN;
+                        goto unlock;
+                }
+
                 ret = __afr_selfheal_metadata_do (frame, this, inode, source,
                                                   healed_sinks, locked_replies);
                 if (ret)
@@ -254,6 +261,10 @@ __afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
 unlock:
 	afr_selfheal_uninodelk (frame, this, inode, this->name,
 				LLONG_MAX -1, 0, data_lock);
+
+        afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
+                          healed_sinks);
+
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
 	return ret;
