@@ -300,28 +300,13 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		      struct afr_reply *replies)
 {
 	afr_private_t *priv = NULL;
-	int i = 0;
 	off_t off = 0;
 	size_t block = 128 * 1024;
 	int type = AFR_SELFHEAL_DATA_FULL;
 	int ret = -1;
 	call_frame_t *iter_frame = NULL;
-	char *sinks_str = NULL;
-	char *p = NULL;
 
 	priv = this->private;
-
-	sinks_str = alloca0 (priv->child_count * 8);
-	p = sinks_str;
-	for (i = 0; i < priv->child_count; i++) {
-		if (!healed_sinks[i])
-			continue;
-		p += sprintf (p, "%d ", i);
-	}
-
-	gf_log (this->name, GF_LOG_INFO, "performing data selfheal on %s. "
-		"source=%d sinks=%s",
-		uuid_utoa (fd->inode->gfid), source, sinks_str);
 
         type = afr_data_self_heal_type_get (priv, healed_sinks, source,
                                             replies);
@@ -331,6 +316,11 @@ afr_selfheal_data_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		return -ENOMEM;
 
 	for (off = 0; off < replies[source].poststat.ia_size; off += block) {
+                if (AFR_COUNT (healed_sinks, priv->child_count) == 0) {
+                        ret = -ENOTCONN;
+                        goto out;
+                }
+
 		ret = afr_selfheal_data_block (iter_frame, this, fd, source,
 					       healed_sinks, off, block, type,
 					       replies);
@@ -511,6 +501,10 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				    data_lock);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
+                                "self-heal as only %d number of subvolumes "
+                                "could be locked", uuid_utoa (fd->inode->gfid),
+                                ret);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -559,6 +553,9 @@ out:
 		afr_selfheal_uninodelk (frame, this, fd->inode, this->name,
 					LLONG_MAX - 2, 1, compat_lock);
 
+        afr_log_selfheal (fd->inode->gfid, this, ret, "data", source,
+                          healed_sinks);
+
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
 
@@ -605,8 +602,11 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	priv = this->private;
 
 	fd = afr_selfheal_data_open (this, inode);
-	if (!fd)
-		return -EIO;
+	if (!fd) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: Failed to open",
+                        uuid_utoa (inode->gfid));
+                return -EIO;
+        }
 
 	locked_on = alloca0 (priv->child_count);
 
@@ -614,6 +614,10 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 				       locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
+                                "self-heal as only %d number of subvolumes "
+                                "could be locked", uuid_utoa (fd->inode->gfid),
+                                ret);
 			/* Either less than two subvols available, or another
 			   selfheal (from another server) is in progress. Skip
 			   for now in any case there isn't anything to do.
