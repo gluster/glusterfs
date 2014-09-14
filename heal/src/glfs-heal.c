@@ -141,11 +141,12 @@ _is_possibly_healing (dict_t *xattr_rsp)
         return _gf_false;
 }
 
-#define RESET_ENTRIES(loc, shf, ope, rsp, grsp) \
+#define RESET_ENTRIES(loc, shf, ope, pth, rsp, grsp) \
         do {                                    \
                 loc_wipe (&loc);                \
                 shf = 0;                        \
                 ope = 0;                        \
+                pth = NULL;                     \
                 if (rsp) {                      \
                         dict_unref (rsp);       \
                         rsp = NULL;             \
@@ -216,7 +217,7 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
                     (strcmp (entry->d_name, "..") == 0))
                         continue;
 
-                RESET_ENTRIES (entry_loc, sh_failed, op_errno, xattr_rsp,
+                RESET_ENTRIES (entry_loc, sh_failed, op_errno, path, xattr_rsp,
                                getxattr_rsp);
 
                 ret = _set_self_heal_vxattrs (xattr_req);
@@ -248,9 +249,15 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
 
                 ret = syncop_getxattr (xl, &entry_loc, &getxattr_rsp,
                                        GFID_TO_PATH_KEY);
+                if (ret < 0) {
+                        op_errno = errno;
+                        if (op_errno == ENOENT || op_errno == ESTALE)
+                                glfsh_remove_stale_index (xl, parentloc,
+                                                          entry->d_name);
+                        continue;
+                }
 
                 ret = dict_get_str (getxattr_rsp, GFID_TO_PATH_KEY, &path);
-
 
                 (*num_entries)++;
                 if (_is_possibly_healing (xattr_rsp)) {
@@ -262,7 +269,8 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
         }
         ret = 0;
 out:
-        RESET_ENTRIES (entry_loc, sh_failed, op_errno, xattr_rsp, getxattr_rsp);
+        RESET_ENTRIES (entry_loc, sh_failed, op_errno, path, xattr_rsp,
+                       getxattr_rsp);
         return ret;
 }
 
