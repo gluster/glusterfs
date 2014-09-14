@@ -43,7 +43,6 @@ check_files () {
 				# I hope I remember to come back and strengthen
 				# this test accordingly.
 				echo "file $i didnt get moved" > /dev/stderr
-				#warnings=$((warnings+1))
 			else
 				echo "file $i is MISSING" > /dev/stderr
 				errors=$((errors+1))
