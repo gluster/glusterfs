@@ -2761,6 +2761,72 @@ out:
 
 /* }}} */
 
+int32_t
+afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int call_count = -1;
+        int child_index = (long)cookie;
+        uuid_t  gfid = {0};
+
+        local = frame->local;
+        priv = this->private;
+
+        if (op_ret < 0 && op_errno != ENOTCONN) {
+                loc_gfid (&local->loc, gfid);
+                gf_log (this->name, GF_LOG_ERROR, "%s: Failed to unlock %s "
+                        "with lk_owner: %s (%s)", uuid_utoa (gfid),
+                        priv->children[child_index]->name,
+                        lkowner_utoa (&frame->root->lk_owner),
+                        strerror (op_errno));
+        }
+
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
+                                  local->op_errno, local->xdata_rsp);
+        }
+
+        return 0;
+}
+
+int32_t
+afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
+                                int call_count)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+        priv = this->private;
+        local->call_count = call_count;
+        local->cont.inodelk.flock.l_type = F_UNLCK;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid)
+                        continue;
+
+                if (local->replies[i].op_ret == -1)
+                        continue;
+
+                STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
+                                   (void*) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->inodelk,
+                                   local->cont.inodelk.volume,
+                                   &local->loc, local->cont.inodelk.cmd,
+                                   &local->cont.inodelk.flock, 0);
+
+                if (!--call_count)
+                        break;
+        }
+
+        return 0;
+}
 
 int32_t
 afr_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2768,24 +2834,63 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
         int call_count = -1;
+        int child_index = (long)cookie;
+        int i = 0;
+        int lock_count = 0;
 
         local = frame->local;
+        priv = this->private;
 
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0)
-                        local->op_ret = 0;
-
-                local->op_errno = op_errno;
+        local->replies[child_index].valid = 1;
+        local->replies[child_index].op_ret = op_ret;
+        local->replies[child_index].op_errno = op_errno;
+        if (op_ret == 0 && xdata) {
+                local->replies[child_index].xdata = dict_ref (xdata);
+                LOCK (&frame->lock);
+                {
+                        if (!local->xdata_rsp)
+                                local->xdata_rsp = dict_ref (xdata);
+                }
+                UNLOCK (&frame->lock);
         }
-        UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0)
-                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
-                                  local->op_errno, xdata);
+        if (call_count == 0) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->replies[i].valid)
+                                continue;
+
+                        if (local->replies[i].op_ret == 0)
+                                lock_count++;
+
+                        if (local->op_ret == -1 && local->op_errno == EAGAIN)
+                                continue;
+
+                        if ((local->replies[i].op_ret == -1) &&
+                            (local->replies[i].op_errno == EAGAIN)) {
+                                local->op_ret = -1;
+                                local->op_errno = EAGAIN;
+                                continue;
+                        }
+
+                        if (local->replies[i].op_ret == 0)
+                                local->op_ret = 0;
+
+                        local->op_errno = local->replies[i].op_errno;
+                }
+
+                if (lock_count && local->cont.inodelk.flock.l_type != F_UNLCK &&
+                    (local->op_ret == -1 && local->op_errno == EAGAIN)) {
+                        afr_unlock_inodelks_and_unwind (frame, this,
+                                                        lock_count);
+                } else {
+                        AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
+                                          local->op_errno, local->xdata_rsp);
+                }
+        }
 
         return 0;
 }
@@ -2808,6 +2913,11 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         if (!local)
                 goto out;
 
+        loc_copy (&local->loc, loc);
+        local->cont.inodelk.volume = volume;
+        local->cont.inodelk.cmd = cmd;
+        local->cont.inodelk.flock = *flock;
+
         call_count = local->call_count;
 	if (!call_count) {
 		op_errno = ENOMEM;
@@ -2816,10 +2926,11 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_inodelk_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->inodelk,
-                                    volume, loc, cmd, flock, xdata);
+                        STACK_WIND_COOKIE (frame, afr_inodelk_cbk,
+                                           (void*) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->inodelk,
+                                           volume, loc, cmd, flock, xdata);
 
                         if (!--call_count)
                                 break;
