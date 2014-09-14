@@ -35,7 +35,6 @@ check_files () {
 		if [ ! -f $(printf %s/dst%04d $1 $i) ]; then
 			if [ -f $(printf %s/src%04d $1 $i) ]; then
 				echo "file $i didnt get moved" > /dev/stderr
-				errors=$((errors+1))
 			else
 				echo "file $i is MISSING" > /dev/stderr
 				errors=$((errors+1))
