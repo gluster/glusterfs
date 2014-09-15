@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
         <key>Label</key>
-        <string>com.gluster.glusterd</string>
+        <string>org.gluster.glusterd</string>
         <key>ProgramArguments</key>
         <array>
                 <string>@prefix@/sbin/glusterd</string>
