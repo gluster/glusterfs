@@ -579,9 +579,9 @@ ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl)
     return ctx;
 }
 
-size_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale)
+uint32_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale)
 {
-    size_t head, tmp;
+    off_t head, tmp;
 
     tmp = *offset;
     head = tmp % ec->stripe_size;
@@ -596,7 +596,7 @@ size_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale)
     return head;
 }
 
-size_t ec_adjust_size(ec_t * ec, size_t size, int32_t scale)
+uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale)
 {
     size += ec->stripe_size - 1;
     size -= size % ec->stripe_size;

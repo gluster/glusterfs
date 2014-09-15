@@ -1141,7 +1141,7 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
 }
 
 void ec_update_size_version(ec_fop_data_t * fop, uint64_t version,
-                            size_t size)
+                            uint64_t size)
 {
     dict_t * dict;
     uid_t uid;

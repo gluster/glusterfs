@@ -181,8 +181,8 @@ struct _ec_fop_data
     int32_t            locked;
     ec_lock_link_t     locks[2];
     int32_t            have_size;
-    size_t             pre_size;
-    size_t             post_size;
+    uint64_t           pre_size;
+    uint64_t           post_size;
     gf_lock_t          lock;
 
     uint32_t           flags;
@@ -198,14 +198,14 @@ struct _ec_fop_data
     ec_cbk_t           cbks;
     void *             data;
 
-    size_t             user_size;
-    size_t             head;
+    uint64_t           user_size;
+    uint32_t           head;
 
     dict_t *           xdata;
     dict_t *           dict;
     int32_t            int32;
     uint32_t           uint32;
-    size_t             size;
+    uint64_t           size;
     off_t              offset;
     mode_t             mode[2];
     entrylk_cmd        entrylk_cmd;
@@ -238,7 +238,7 @@ struct _ec_cbk_data
     dict_t *         dict;
     int32_t          int32;
     uintptr_t        uintptr[3];
-    size_t           size;
+    uint64_t         size;
     uint64_t         version;
     inode_t *        inode;
     fd_t *           fd;
@@ -264,10 +264,10 @@ struct _ec_heal
     uintptr_t       good;
     uintptr_t       bad;
     uintptr_t       open;
-    off_t           offset;
-    size_t          size;
+    uint64_t        offset;
+    uint64_t        size;
     uint64_t        version;
-    size_t          raw_size;
+    uint64_t        raw_size;
 };
 
 ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,

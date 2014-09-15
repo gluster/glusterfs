@@ -705,7 +705,7 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     ec_lock_t * lock = NULL;
     data_t * data = NULL;
     uint8_t * buff = NULL;
-    size_t size = 0;
+    uint64_t size = 0;
     int32_t i = 0, have_size = 0;
 
     if (cbk->op_ret < 0)
@@ -745,7 +745,7 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
             cbk->iatt[0].ia_size = size;
         }
 
-        size = SIZE_MAX;
+        size = UINT64_MAX;
         for (i = 0, ans = cbk; (ans != NULL) && (i < ec->fragments);
              ans = ans->next)
         {

@@ -53,7 +53,7 @@ ec_inode_t * ec_inode_get(inode_t * inode, xlator_t * xl);
 ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl);
 ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl);
 
-size_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale);
-size_t ec_adjust_size(ec_t * ec, size_t size, int32_t scale);
+uint32_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale);
+uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale);
 
 #endif /* __EC_HELPERS_H__ */
