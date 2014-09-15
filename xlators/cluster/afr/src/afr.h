@@ -646,6 +646,13 @@ typedef struct _afr_local {
                         dict_t *params;
                         char *linkpath;
                 } symlink;
+
+                struct {
+                        const char *volume;
+                        int32_t cmd;
+                        struct gf_flock flock;
+                } inodelk;
+
         } cont;
 
         struct {
