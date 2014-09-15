@@ -3400,6 +3400,72 @@ out:
 
 /* }}} */
 
+int32_t
+afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int call_count = -1;
+        int child_index = (long)cookie;
+        uuid_t gfid = {0};
+
+        local = frame->local;
+        priv = this->private;
+
+        if (op_ret < 0 && op_errno != ENOTCONN) {
+                loc_gfid (&local->loc, gfid);
+                gf_log (this->name, GF_LOG_ERROR, "%s: Failed to unlock %s "
+                        "with lk_owner: %s (%s)", uuid_utoa (gfid),
+                        priv->children[child_index]->name,
+                        lkowner_utoa (&frame->root->lk_owner),
+                        strerror (op_errno));
+        }
+
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
+                                  local->op_errno, local->xdata_rsp);
+        }
+
+        return 0;
+}
+
+int32_t
+afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
+                                int call_count)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+        priv = this->private;
+        local->call_count = call_count;
+        local->cont.inodelk.flock.l_type = F_UNLCK;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
+                        continue;
+
+                if (local->child_errno[i])
+                        continue;
+
+                STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
+                                   (void*) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->inodelk,
+                                   local->cont.inodelk.volume,
+                                   &local->loc, local->cont.inodelk.cmd,
+                                   &local->cont.inodelk.flock, 0);
+
+                if (!--call_count)
+                        break;
+        }
+
+        return 0;
+}
 
 int32_t
 afr_inodelk_cbk (call_frame_t *frame, void *cookie,
@@ -3407,24 +3473,88 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
         int call_count = -1;
+        int child_index = (long)cookie;
+        int i = 0;
+        int lock_count = 0;
 
         local = frame->local;
+        priv = this->private;
 
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0)
-                        local->op_ret = 0;
-
-                local->op_errno = op_errno;
+        if (op_ret < 0)
+                local->child_errno[child_index] = op_errno;
+        if (op_ret == 0 && xdata) {
+                LOCK (&frame->lock);
+                {
+                        if (!local->xdata_rsp)
+                                local->xdata_rsp = dict_ref (xdata);
+                }
+                UNLOCK (&frame->lock);
         }
-        UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
-        if (call_count == 0)
-                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
-                                  local->op_errno, xdata);
+        if (call_count == 0) {
+                for (i = 0; i < priv->child_count; i++) {
+                        /*
+                         * The idea is to not allow lock even if at least one of
+                         * the bricks already have a competing lock granted. If
+                         * there is a competing lock the errno returned is
+                         * EAGAIN.  so in this loop the following criteria
+                         * should be met.
+                         * 1) If the errno is anything other than EAGAIN
+                         * on some of the subvols but there is at least one
+                         * success, the fop should be considered success.
+                         * 2) If the errno is EAGAIN on at least one of the
+                         * subvols the fop should fail with -1, EAGAIN.
+                         */
+                        if (!local->child_up[i])
+                                continue;
+
+                        if (local->child_errno[i] == 0)
+                                lock_count++;
+
+                        if (local->op_ret == -1 && local->op_errno == EAGAIN)
+                                continue;
+                        /*
+                         * For meeting '2)' we set op_ret to -1, op_errno to
+                         * EAGAIN if any of the bricks give that error. Check
+                         * above prevents any more modifications to
+                         * local->op_ret, local->op_errno
+                         * (i.e.  final status of the fop).
+                        */
+                        if (local->child_errno[i] == EAGAIN) {
+                                local->op_ret = -1;
+                                local->op_errno = EAGAIN;
+                                continue;
+                        }
+
+                        /*
+                         * For meeting '1)'
+                         * Here we set the op_ret to 0 if the fop succeeds on
+                         * any of the bricks provided we haven't witnessed
+                         * any -1, EAGAIN from other bricks. So if the bricks
+                         * fail with some other reason other than EAGAIN but
+                         * succeed on at least one of the bricks the final
+                         * result is SUCCESS for the fop.
+                         */
+
+                        if (local->child_errno[i] == 0)
+                                local->op_ret = 0;
+
+                        local->op_errno = local->child_errno[i];
+                }
+
+                if (lock_count && local->cont.inodelk.flock.l_type != F_UNLCK &&
+                    (local->op_ret == -1 && local->op_errno == EAGAIN)) {
+                        afr_unlock_inodelks_and_unwind (frame, this,
+                                                        lock_count);
+                } else {
+                        AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
+                                          local->op_errno, local->xdata_rsp);
+                }
+        }
 
         return 0;
 }
@@ -3455,14 +3585,20 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         if (ret < 0)
                 goto out;
 
+        loc_copy (&local->loc, loc);
+        local->cont.inodelk.volume = volume;
+        local->cont.inodelk.cmd = cmd;
+        local->cont.inodelk.flock = *flock;
+
         call_count = local->call_count;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_inodelk_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->inodelk,
-                                    volume, loc, cmd, flock, xdata);
+                        STACK_WIND_COOKIE (frame, afr_inodelk_cbk,
+                                           (void*) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->inodelk,
+                                           volume, loc, cmd, flock, xdata);
 
                         if (!--call_count)
                                 break;

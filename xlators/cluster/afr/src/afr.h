@@ -730,6 +730,11 @@ typedef struct _afr_local {
                         struct iatt postbuf;
                 } zerofill;
 
+                struct {
+                        const char *volume;
+                        int32_t cmd;
+                        struct gf_flock flock;
+                } inodelk;
 
         } cont;
 
