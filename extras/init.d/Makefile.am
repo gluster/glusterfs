@@ -18,5 +18,5 @@ install-exec-local: $(GF_DISTRIBUTION)
 install-data-local:
 if GF_DARWIN_HOST_OS
 	$(mkdir_p) $(DESTDIR)$(LAUNCHD_DIR)
-	$(INSTALL_PROGRAM) glusterd.plist $(DESTDIR)$(LAUNCHD_DIR)/com.gluster.glusterd.plist
+	$(INSTALL_PROGRAM) glusterd.plist $(DESTDIR)$(LAUNCHD_DIR)/org.gluster.glusterd.plist
 endif
