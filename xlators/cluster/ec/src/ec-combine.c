@@ -108,7 +108,7 @@ int32_t ec_iatt_combine(struct iatt * dst, struct iatt * src, int32_t count)
 void ec_iatt_rebuild(ec_t * ec, struct iatt * iatt, int32_t count,
                      int32_t answers)
 {
-    size_t blocks;
+    uint64_t blocks;
 
     while (count-- > 0)
     {
@@ -285,11 +285,10 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
                             int32_t which, char * key, ...)
 {
     data_t * data[cbk->count];
-    size_t len, tmp;
     char * str = NULL, * pre = NULL, * sep, * post;
     dict_t * dict;
     va_list args;
-    int32_t i, num, prelen, postlen, seplen;
+    int32_t i, num, len, prelen, postlen, seplen, tmp;
     int32_t ret = -1;
 
     num = cbk->count;
@@ -589,7 +588,7 @@ int32_t ec_dict_combine(ec_cbk_data_t * cbk, int32_t which)
 int32_t ec_vector_compare(struct iovec * dst_vector, int32_t dst_count,
                           struct iovec * src_vector, int32_t src_count)
 {
-    size_t dst_size = 0, src_size = 0;
+    int32_t dst_size = 0, src_size = 0;
 
     if (dst_count > 0)
     {
