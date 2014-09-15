@@ -13,12 +13,12 @@ vol_DATA = glusterd.vol
 scriptsdir = $(datadir)/glusterfs/scripts
 scripts_DATA = post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh
 
-EXTRA_DIST = $(conf_DATA) specgen.scm MacOSX/Portfile glusterfs-mode.el        \
-	glusterfs.vim migrate-unify-to-distribute.sh backend-xattr-sanitize.sh \
-	backend-cleanup.sh disk_usage_sync.sh clear_xattrs.sh                  \
-	glusterd-sysconfig glusterd.vol post-upgrade-script-for-quota.sh       \
-	pre-upgrade-script-for-quota.sh command-completion/gluster.bash        \
-        command-completion/Makefile command-completion/README
+EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
+	migrate-unify-to-distribute.sh backend-xattr-sanitize.sh backend-cleanup.sh \
+	disk_usage_sync.sh clear_xattrs.sh glusterd-sysconfig glusterd.vol \
+	post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh \
+	command-completion/gluster.bash command-completion/Makefile \
+	command-completion/README
 
 install-data-local:
 	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
