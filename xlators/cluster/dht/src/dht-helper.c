@@ -1728,8 +1728,8 @@ dht_lock_request_cmp (const void *val1, const void *val2)
         dht_lock_t *lock2 = NULL;
         int         ret   = 0;
 
-        lock1 = (dht_lock_t *)val1;
-        lock2 = (dht_lock_t *)val2;
+        lock1 = *(dht_lock_t **)val1;
+        lock2 = *(dht_lock_t **)val2;
 
         GF_VALIDATE_OR_GOTO ("dht-locks", lock1, out);
         GF_VALIDATE_OR_GOTO ("dht-locks", lock2, out);
