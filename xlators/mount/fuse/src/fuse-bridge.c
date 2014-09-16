@@ -1010,14 +1010,14 @@ out:
 }
 
 static void
-fuse_do_truncate (fuse_state_t *state, size_t size)
+fuse_do_truncate (fuse_state_t *state)
 {
         if (state->fd) {
                 FUSE_FOP (state, fuse_truncate_cbk, GF_FOP_FTRUNCATE,
-                          ftruncate, state->fd, size, state->xdata);
+                          ftruncate, state->fd, state->off, state->xdata);
         } else {
                 FUSE_FOP (state, fuse_truncate_cbk, GF_FOP_TRUNCATE,
-                          truncate, &state->loc, size, state->xdata);
+                          truncate, &state->loc, state->off, state->xdata);
         }
 
         return;
@@ -1059,7 +1059,7 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         calc_timeout_nsec (priv->attribute_timeout);
 
                 if (state->truncate_needed) {
-                        fuse_do_truncate (state, state->size);
+                        fuse_do_truncate (state);
                 } else {
 #if FUSE_KERNEL_MINOR_VERSION >= 9
                         priv->proto_minor >= 9 ?
@@ -1166,7 +1166,7 @@ fuse_setattr_resume (fuse_state_t *state)
                                   state->xdata);
                 }
         } else {
-                fuse_do_truncate (state, state->size);
+                fuse_do_truncate (state);
         }
 
 }
@@ -1216,7 +1216,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         if ((fsi->valid & (FATTR_MASK)) != FATTR_SIZE) {
                 if (fsi->valid & FATTR_SIZE) {
-                        state->size            = fsi->size;
+                        state->off             = fsi->size;
                         state->truncate_needed = _gf_true;
                 }
 
@@ -1230,7 +1230,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->attr.ia_uid  = fsi->uid;
                 state->attr.ia_gid  = fsi->gid;
         } else {
-                state->size = fsi->size;
+                state->off = fsi->size;
         }
 
         fuse_resolve_and_resume (state, fuse_setattr_resume);
