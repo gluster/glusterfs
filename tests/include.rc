@@ -9,7 +9,12 @@ B0=${B0:=/d/backends};        # top level of brick directories
 CC=cc
 OSTYPE=$(uname -s)
 
-if [ ! -f ${PWD}/tests/env.rc ]; then
+ENV_RC=$(dirname $0)/../env.rc
+if [ ! -f $ENV_RC ]; then
+   ENV_RC=$(dirname $0)/../../env.rc
+fi
+
+if [ ! -f $ENV_RC ]; then
    echo "Aborting."
    echo
    echo "env.rc not found"
@@ -18,7 +23,7 @@ if [ ! -f ${PWD}/tests/env.rc ]; then
    echo
    exit 1
 fi
-. ${PWD}/tests/env.rc
+. $ENV_RC
 
 H0=${H0:=`hostname`}; # hostname
 MOUNT_TYPE_FUSE="fuse.glusterfs"
