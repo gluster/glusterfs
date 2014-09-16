@@ -11,7 +11,12 @@ DEBUG=${DEBUG:=0}             # turn on debugging?
 
 OSTYPE=$(uname -s)
 
-if [ ! -f ${PWD}/tests/env.rc ]; then
+ENV_RC=$(dirname $0)/../env.rc
+if [ ! -f $ENV_RC ]; then
+   ENV_RC=$(dirname $0)/../../env.rc
+fi
+
+if [ ! -f $ENV_RC ]; then
    echo "Aborting."
    echo
    echo "env.rc not found"
@@ -20,7 +25,7 @@ if [ ! -f ${PWD}/tests/env.rc ]; then
    echo
    exit 1
 fi
-. ${PWD}/tests/env.rc
+. $ENV_RC
 
 PROCESS_UP_TIMEOUT=20
 NFS_EXPORT_TIMEOUT=20
