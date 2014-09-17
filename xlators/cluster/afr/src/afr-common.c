@@ -3678,8 +3678,21 @@ afr_notify (xlator_t *this, int32_t event,
         if (propagate)
                 ret = default_notify (this, event, data);
 
-        if (call_psh && priv->shd.iamshd) {
-                afr_selfheal_childup (this, up_child);
+        if (!had_heard_from_all && have_heard_from_all && priv->shd.iamshd) {
+                /*
+                 * Since self-heal is supposed to be launched only after
+                 * the responses from all the bricks are collected,
+                 * launch self-heals now on all up subvols.
+                 */
+                for (i = 0; i < priv->child_count; i++)
+                        if (priv->child_up[i])
+                                afr_selfheal_childup (this, i);
+        } else if (have_heard_from_all && call_psh && priv->shd.iamshd) {
+                /*
+                 * Already heard from everyone. Just launch heal on now up
+                 * subvolume.
+                 */
+                 afr_selfheal_childup (this, up_child);
 	}
 out:
         return ret;
