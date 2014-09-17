@@ -651,8 +651,9 @@ class Server(object):
                 en = e['entry1']
                 st = lstat(entry)
                 if isinstance(st, int):
-                    (pg, bname) = entry2pb(en)
-                    blob = entry_pack_reg_stat(gfid, bname, e['stat'])
+                    if e['stat']:
+                        (pg, bname) = entry2pb(en)
+                        blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
                     errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
             if blob:
