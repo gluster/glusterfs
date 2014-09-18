@@ -241,17 +241,27 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	loc.parent = inode_ref (parent);
 	uuid_copy (loc.pargfid, parent->gfid);
 
-
-	if (strcmp (component, ".") == 0) {
-		loc.inode = inode_ref (parent);
-        } else if (strcmp (component, "..") == 0) {
-                if (__is_root_gfid (parent->gfid))
-                        /* ".." on root points to itself */
+        /* /.. and /. should point back to /
+           we lookup using inode and gfid of root
+           Fill loc.name so that we make use md-cache.
+           md-cache is not valid for nameless lookups.
+        */
+        if (__is_root_gfid (parent->gfid)) {
+                if ((strcmp (component, ".") == 0) ||
+                    (strcmp (component, "..") == 0)) {
                         loc.inode = inode_ref (parent);
-                else
+                        loc.name = ".";
+                }
+        } else {
+                if (strcmp (component, ".") == 0)
+                        loc.inode = inode_ref (parent);
+                else if (strcmp (component, "..") == 0)
                         loc.inode = inode_parent (parent, 0, 0);
-        } else
-		loc.inode = inode_grep (parent->table, parent, component);
+                else
+                        loc.inode = inode_grep (parent->table, parent,
+                                                component);
+        }
+
 
 	if (loc.inode) {
 		uuid_copy (loc.gfid, loc.inode->gfid);
