@@ -8,7 +8,7 @@
 DISPERSE=5
 REDUNDANCY=1
 
-# This must be equal to 44 * $DISPERSE + 106
-TESTS_EXPECTED_IN_LOOP=326
+# This must be equal to 36 * $DISPERSE + 109
+TESTS_EXPECTED_IN_LOOP=289
 
 . $(dirname $0)/ec-common
