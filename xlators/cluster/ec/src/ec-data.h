@@ -25,6 +25,9 @@
 
 #include "ec.h"
 
+struct _ec_config;
+typedef struct _ec_config ec_config_t;
+
 struct _ec_fd;
 typedef struct _ec_fd ec_fd_t;
 
@@ -52,6 +55,16 @@ typedef struct _ec_heal ec_heal_t;
 typedef void (* ec_wind_f)(ec_t *, ec_fop_data_t *, int32_t);
 typedef int32_t (* ec_handler_f)(ec_fop_data_t *, int32_t);
 typedef void (* ec_resume_f)(ec_fop_data_t *, int32_t);
+
+struct _ec_config
+{
+    uint32_t version;
+    uint8_t  algorithm;
+    uint8_t  gf_word_size;
+    uint8_t  bricks;
+    uint8_t  redundancy;
+    uint32_t chunk_size;
+};
 
 struct _ec_fd
 {
@@ -184,6 +197,7 @@ struct _ec_fop_data
     uint64_t           pre_size;
     uint64_t           post_size;
     gf_lock_t          lock;
+    ec_config_t        config;
 
     uint32_t           flags;
     uint32_t           first;

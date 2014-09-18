@@ -36,6 +36,8 @@ size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
 
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value);
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value);
+int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config);
+int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config);
 
 int32_t ec_loc_parent(xlator_t * xl, loc_t * loc, loc_t * parent,
                       char ** name);
@@ -55,5 +57,10 @@ ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl);
 
 uint32_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale);
 uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale);
+
+static inline int32_t ec_is_power_of_2(uint32_t value)
+{
+    return (value != 0) && ((value & (value - 1)) == 0);
+}
 
 #endif /* __EC_HELPERS_H__ */

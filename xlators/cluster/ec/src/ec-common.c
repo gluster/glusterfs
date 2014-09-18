@@ -26,6 +26,7 @@
 #include "ec-combine.h"
 #include "ec-common.h"
 #include "ec-fops.h"
+#include "ec-method.h"
 #include "ec.h"
 
 int32_t ec_child_valid(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -992,12 +993,75 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
                                 struct iatt * buf, dict_t * xdata,
                                 struct iatt * postparent)
 {
+    ec_t * ec;
     ec_fop_data_t * fop = cookie;
     ec_inode_t * ctx;
     ec_lock_t * lock;
 
     if (op_ret >= 0)
     {
+        if (buf->ia_type == IA_IFREG)
+        {
+            if (ec_dict_del_config(xdata, EC_XATTR_CONFIG, &fop->config) < 0)
+            {
+                gf_log(this->name, GF_LOG_ERROR, "Failed to get a valid "
+                                                 "config");
+
+                ec_fop_set_error(fop, EIO);
+
+                return 0;
+            }
+            ec = this->private;
+            if ((fop->config.version != EC_CONFIG_VERSION) ||
+                (fop->config.algorithm != EC_CONFIG_ALGORITHM) ||
+                (fop->config.gf_word_size != EC_GF_BITS) ||
+                (fop->config.bricks != ec->nodes) ||
+                (fop->config.redundancy != ec->redundancy) ||
+                (fop->config.chunk_size != EC_METHOD_CHUNK_SIZE))
+            {
+                uint32_t data_bricks;
+
+                // This combination of version/algorithm requires the following
+                // values. Incorrect values for these fields are a sign of
+                // corruption:
+                //
+                //   redundancy > 0
+                //   redundancy * 2 < bricks
+                //   gf_word_size must be a power of 2
+                //   chunk_size (in bits) must be a multiple of gf_word_size *
+                //       (bricks - redundancy)
+
+                data_bricks = fop->config.bricks - fop->config.redundancy;
+                if ((fop->config.redundancy < 1) ||
+                    (fop->config.redundancy * 2 >= fop->config.bricks) ||
+                    !ec_is_power_of_2(fop->config.gf_word_size) ||
+                    ((fop->config.chunk_size * 8) % (fop->config.gf_word_size *
+                                                     data_bricks) != 0))
+                {
+                    gf_log(this->name, GF_LOG_ERROR, "Invalid or corrupted "
+                                                     "config (V=%u, A=%u, "
+                                                     "W=%u, N=%u, R=%u, S=%u)",
+                           fop->config.version, fop->config.algorithm,
+                           fop->config.gf_word_size, fop->config.bricks,
+                           fop->config.redundancy, fop->config.chunk_size);
+                }
+                else
+                {
+                    gf_log(this->name, GF_LOG_ERROR, "Unsupported config "
+                                                     "(V=%u, A=%u, W=%u, "
+                                                     "N=%u, R=%u, S=%u)",
+                           fop->config.version, fop->config.algorithm,
+                           fop->config.gf_word_size, fop->config.bricks,
+                           fop->config.redundancy, fop->config.chunk_size);
+                }
+
+                ec_fop_set_error(fop, EIO);
+
+                return 0;
+            }
+        }
+
+
         LOCK(&inode->lock);
 
         ctx = __ec_inode_get(inode, this);
@@ -1065,7 +1129,8 @@ void ec_get_size_version(ec_fop_data_t * fop)
         goto out;
     }
     if ((dict_set_uint64(xdata, EC_XATTR_VERSION, 0) != 0) ||
-        (dict_set_uint64(xdata, EC_XATTR_SIZE, 0) != 0))
+        (dict_set_uint64(xdata, EC_XATTR_SIZE, 0) != 0) ||
+        (dict_set_uint64(xdata, EC_XATTR_CONFIG, 0) != 0))
     {
         goto out;
     }

@@ -246,6 +246,70 @@ int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value)
     return 0;
 }
 
+int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
+{
+    uint64_t * ptr, data;
+
+    if (config->version > EC_CONFIG_VERSION)
+    {
+        gf_log("ec", GF_LOG_ERROR, "Trying to store an unsupported config "
+                                   "version (%u)", config->version);
+
+        return -1;
+    }
+
+    ptr = GF_MALLOC(sizeof(uint64_t), gf_common_mt_char);
+    if (ptr == NULL)
+    {
+        return -1;
+    }
+
+    data = ((uint64_t)config->version) << 56;
+    data |= ((uint64_t)config->algorithm) << 48;
+    data |= ((uint64_t)config->gf_word_size) << 40;
+    data |= ((uint64_t)config->bricks) << 32;
+    data |= ((uint64_t)config->redundancy) << 24;
+    data |= config->chunk_size;
+
+    *ptr = hton64(data);
+
+    return dict_set_bin(dict, key, ptr, sizeof(uint64_t));
+}
+
+int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
+{
+    void * ptr;
+    uint64_t data;
+    int32_t len;
+
+    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0) ||
+        (len != sizeof(uint64_t)))
+    {
+        return -1;
+    }
+
+    data = ntoh64(*(uint64_t *)ptr);
+
+    config->version = (data >> 56) & 0xff;
+    if (config->version > EC_CONFIG_VERSION)
+    {
+        gf_log("ec", GF_LOG_ERROR, "Found an unsupported config version (%u)",
+               config->version);
+
+        return -1;
+    }
+
+    config->algorithm = (data >> 48) & 0xff;
+    config->gf_word_size = (data >> 40) & 0xff;
+    config->bricks = (data >> 32) & 0xff;
+    config->redundancy = (data >> 24) & 0xff;
+    config->chunk_size = data & 0xffffff;
+
+    dict_del(dict, key);
+
+    return 0;
+}
+
 int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
 {
     if (uuid_is_null(src))
