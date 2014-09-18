@@ -137,10 +137,11 @@ EXPECT 'Created' volinfo_field $V0 'Status'
 EXPECT '10' brick_count $V0
 
 TEST $CLI volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 
 # Mount FUSE with caching disabled
 TEST $GFS -s $H0 --volfile-id $V0 $M0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 # Create local files for comparisons etc.
 tmpdir=$(mktemp -d -t ${0##*/}.XXXXXX)
@@ -186,6 +187,7 @@ TEST setup_perm_file $M0
 # Unmount/remount so that create/write and truncate don't see cached data.
 TEST umount $M0
 TEST $GFS -s $H0 --volfile-id $V0 $M0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "8" ec_child_up_count $V0 0
 
 # Test create/write and truncate *before* the bricks are brought back.
 TEST check_create_write $M0
@@ -193,11 +195,13 @@ TEST check_truncate $M0
 
 # Restart the bricks and allow repair to occur.
 TEST $CLI volume start $V0 force
-sleep 10
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 # Unmount/remount again, same reason as before.
 TEST umount $M0
 TEST $GFS -s $H0 --volfile-id $V0 $M0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 # Make sure everything is as it should be.  Most tests check for consistency
 # between the bricks and the front end.  This is not valid for disperse, so we
@@ -217,14 +221,14 @@ TEST stat $M0/removexattr
 TEST stat $M0/perm_dir
 TEST stat $M0/perm_dir/perm_file
 
-EXPECT_WITHIN 5 "Y" check_hard_link $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_soft_link $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_unlink $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_rmdir $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_mkdir $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_setxattr $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_removexattr $B0/${V0}{0..9}
-EXPECT_WITHIN 5 "Y" check_perm_file $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_hard_link $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_soft_link $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_unlink $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_rmdir $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mkdir $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_setxattr $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_removexattr $B0/${V0}{0..9}
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_perm_file $B0/${V0}{0..9}
 
 TEST rm -rf $tmpdir
 TEST userdel --force ${TEST_USER}
