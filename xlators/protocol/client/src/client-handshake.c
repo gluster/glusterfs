@@ -1502,7 +1502,6 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
 
         conf->portmap_err_logged = 0;
         conf->disconnect_err_logged = 0;
-
         config.remote_port = rsp.port;
         rpc_clnt_reconfig (conf->rpc, &config);
 

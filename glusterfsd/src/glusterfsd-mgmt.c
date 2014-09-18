@@ -2238,7 +2238,7 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
 
         req.port  = cmd_args->brick_port;
         req.brick = cmd_args->brick_name;
-
+        req.rdma_port = cmd_args->brick_port2;
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
                                    GF_PMAP_SIGNOUT, mgmt_pmap_signout_cbk,
                                    (xdrproc_t)xdr_pmap_signout_req);

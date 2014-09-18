@@ -438,9 +438,10 @@ gluster_pmap_signin (rpcsvc_request_t *req)
 int
 __gluster_pmap_signout (rpcsvc_request_t *req)
 {
-        pmap_signout_req    args = {0,};
-        pmap_signout_rsp    rsp  = {0,};
-        int                 ret = -1;
+        pmap_signout_req    args                 = {0,};
+        pmap_signout_rsp    rsp                  = {0,};
+        int                 ret                  = -1;
+        char                brick_path[PATH_MAX] = {0,};
         glusterd_brickinfo_t *brickinfo = NULL;
 
         ret = xdr_to_generic (req->msg[0], &args,
@@ -456,13 +457,20 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
 
         ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true,
                                       &brickinfo);
+        if (args.rdma_port) {
+                snprintf(brick_path, PATH_MAX, "%s.rdma", args.brick);
+                rsp.op_ret = pmap_registry_remove (THIS, args.rdma_port,
+                                brick_path, GF_PMAP_PORT_BRICKSERVER,
+                                req->trans);
+        }
+
+        if (!ret)
+                glusterd_brick_update_signin (brickinfo, _gf_false);
+
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_signout_rsp);
         free (args.brick);//malloced by xdr
-
-        if (!ret)
-                glusterd_brick_update_signin (brickinfo, _gf_false);
 
         return 0;
 }

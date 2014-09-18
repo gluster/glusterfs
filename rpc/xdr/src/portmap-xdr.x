@@ -47,6 +47,7 @@ struct pmap_signin_rsp {
 struct pmap_signout_req {
        string brick<>;
        int port;
+       int rdma_port;
 };
 
 struct pmap_signout_rsp {

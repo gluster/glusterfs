@@ -938,7 +938,7 @@ static void
 gf_rdma_cm_handle_disconnect (rpc_transport_t *this)
 {
         gf_rdma_private_t *priv       = NULL;
-        char               need_unref = 0, connected = 0;
+        char               need_unref = 0;
 
         priv = this->private;
         gf_log (this->name, GF_LOG_DEBUG,
@@ -948,7 +948,6 @@ gf_rdma_cm_handle_disconnect (rpc_transport_t *this)
         {
                 if (priv->peer.cm_id != NULL) {
                         need_unref = 1;
-                        connected = priv->connected;
                         priv->connected = 0;
                 }
 
@@ -956,9 +955,7 @@ gf_rdma_cm_handle_disconnect (rpc_transport_t *this)
         }
         pthread_mutex_unlock (&priv->write_mutex);
 
-        if (connected) {
-                rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
-        }
+        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
 
         if (need_unref)
                 rpc_transport_unref (this);
