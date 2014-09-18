@@ -24,6 +24,7 @@
 #include "xlator.h"
 #include "timer.h"
 
+#define EC_XATTR_CONFIG  "trusted.ec.config"
 #define EC_XATTR_SIZE    "trusted.ec.size"
 #define EC_XATTR_VERSION "trusted.ec.version"
 

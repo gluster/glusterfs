@@ -149,6 +149,7 @@ void ec_wind_create(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
 {
+    ec_t * ec;
     ec_cbk_data_t * cbk;
     ec_fd_t * ctx;
 
@@ -174,6 +175,34 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             }
 
             UNLOCK(&fop->fd->lock);
+
+            if (fop->xdata == NULL)
+            {
+                fop->xdata = dict_new();
+                if (fop->xdata == NULL)
+                {
+                    fop->error = EIO;
+
+                    return EC_STATE_REPORT;
+                }
+            }
+
+            ec = fop->xl->private;
+
+            fop->config.version = EC_CONFIG_VERSION;
+            fop->config.algorithm = EC_CONFIG_ALGORITHM;
+            fop->config.gf_word_size = EC_GF_BITS;
+            fop->config.bricks = ec->nodes;
+            fop->config.redundancy = ec->redundancy;
+            fop->config.chunk_size = EC_METHOD_CHUNK_SIZE;
+
+            if (ec_dict_set_config(fop->xdata, EC_XATTR_CONFIG,
+                                   &fop->config) < 0)
+            {
+                fop->error = EIO;
+
+                return EC_STATE_REPORT;
+            }
 
             fop->int32 &= ~O_ACCMODE;
             fop->int32 |= O_RDWR;

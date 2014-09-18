@@ -25,6 +25,10 @@
 
 #include "ec-data.h"
 
+#define EC_CONFIG_VERSION 0
+
+#define EC_CONFIG_ALGORITHM 0
+
 #define EC_FLAG_UPDATE_LOC_PARENT 0x0001
 #define EC_FLAG_UPDATE_LOC_INODE  0x0002
 #define EC_FLAG_UPDATE_FD         0x0004
