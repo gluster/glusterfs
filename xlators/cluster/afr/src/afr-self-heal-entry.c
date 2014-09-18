@@ -195,6 +195,58 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	return ret;
 }
 
+static int
+afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
+                                            struct afr_reply *replies,
+                                            uuid_t pargfid, char *bname,
+                                            int src_idx)
+{
+        int             i      = 0;
+        char            g1[64] = {0,};
+        char            g2[64] = {0,};
+        afr_private_t  *priv   = NULL;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (i == src_idx)
+                        continue;
+
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret != 0)
+                        continue;
+
+                if (uuid_compare (replies[src_idx].poststat.ia_gfid,
+                                  replies[i].poststat.ia_gfid)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Gfid mismatch "
+                                "detected for <%s/%s>, %s on %s and %s on %s. "
+                                "Skipping conservative merge on the file.",
+                                uuid_utoa (pargfid), bname,
+                                uuid_utoa_r (replies[i].poststat.ia_gfid, g1),
+                                priv->children[i]->name,
+                                uuid_utoa_r (replies[src_idx].poststat.ia_gfid,
+                                g2), priv->children[src_idx]->name);
+                        return -1;
+                }
+
+                if ((replies[src_idx].poststat.ia_type) !=
+                    (replies[i].poststat.ia_type)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Type mismatch "
+                                "detected for <%s/%s>, %d on %s and %d on %s. "
+                                "Skipping conservative merge on the file.",
+                                uuid_utoa (pargfid), bname,
+                                replies[i].poststat.ia_type,
+                                priv->children[i]->name,
+                                replies[src_idx].poststat.ia_type,
+                                priv->children[src_idx]->name);
+                        return -1;
+                }
+        }
+
+        return 0;
+}
 
 static int
 __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -202,11 +254,11 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			     unsigned char *healed_sinks, unsigned char *locked_on,
 			     struct afr_reply *replies)
 {
-	int ret = 0;
-	afr_private_t *priv = NULL;
-	int i = 0;
-	int source = -1;
-        unsigned char *newentry = NULL;
+        int             ret       = 0;
+        int             i         = 0;
+        int             source    = -1;
+        unsigned char  *newentry  = NULL;
+        afr_private_t  *priv      = NULL;
 
 	priv = this->private;
 
@@ -223,6 +275,14 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		/* entry got deleted in the mean time? */
 		return 0;
 	}
+
+        /* In case of a gfid or type mismatch on the entry, return -1.*/
+        ret = afr_selfheal_detect_gfid_and_type_mismatch (this, replies,
+                                                          fd->inode->gfid,
+                                                          name, source);
+
+        if (ret < 0)
+                return ret;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source || !healed_sinks[i])
@@ -245,9 +305,10 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 static int
 __afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
-			     char *name, inode_t *inode, int source,
-			     unsigned char *sources, unsigned char *healed_sinks,
-			     unsigned char *locked_on, struct afr_reply *replies)
+                             char *name, inode_t *inode, int source,
+                             unsigned char *sources, unsigned char *healed_sinks,
+                             unsigned char *locked_on,
+                             struct afr_reply *replies)
 {
 	int ret = -1;
 
@@ -470,14 +531,14 @@ static int
 __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		      unsigned char *locked_on)
 {
-	afr_private_t *priv = NULL;
-	int ret = -1;
-	unsigned char *sources = NULL;
-	unsigned char *sinks = NULL;
-	unsigned char *data_lock = NULL;
-	unsigned char *healed_sinks = NULL;
-	struct afr_reply *locked_replies = NULL;
-	int source = -1;
+	int                     ret                   = -1;
+	int                     source                = -1;
+	unsigned char          *sources               = NULL;
+	unsigned char          *sinks                 = NULL;
+	unsigned char          *data_lock             = NULL;
+	unsigned char          *healed_sinks          = NULL;
+	struct afr_reply       *locked_replies        = NULL;
+	afr_private_t          *priv                  = NULL;
 
 	priv = this->private;
 
@@ -507,13 +568,13 @@ unlock:
 		goto out;
 
 	ret = afr_selfheal_entry_do (frame, this, fd, source, sources,
-				     healed_sinks);
+                                     healed_sinks);
 	if (ret)
 		goto out;
 
 	ret = afr_selfheal_undo_pending (frame, this, fd->inode, sources, sinks,
 					 healed_sinks, AFR_ENTRY_TRANSACTION,
-					 locked_replies, data_lock);
+                                         locked_replies, data_lock);
 out:
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
