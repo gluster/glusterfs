@@ -1121,6 +1121,12 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 free_entries = _gf_true;
 
                 list_for_each_entry_safe (entry, tmp, &entries.list, list) {
+
+                        if (dict) {
+                                dict_unref (dict);
+                                dict = NULL;
+                        }
+
                         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                                 ret = 1;
                                 goto out;
@@ -1210,16 +1216,13 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                         uuid_str = NULL;
 
-                        dict_del (dict, GF_XATTR_NODE_UUID_KEY);
-
-
                         /* if distribute is present, it will honor this key.
                          * -1 is returned if distribute is not present or file
                          * doesn't have a link-file. If file has link-file, the
                          * path of link-file will be the value, and also that
                          * guarantees that file has to be mostly migrated */
 
-                        ret = syncop_getxattr (this, &entry_loc, &dict,
+                        ret = syncop_getxattr (this, &entry_loc, NULL,
                                                GF_XATTR_LINKINFO_KEY);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_TRACE, "failed to "
