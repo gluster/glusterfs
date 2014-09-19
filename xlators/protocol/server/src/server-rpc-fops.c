@@ -715,13 +715,19 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
+        gf_loglevel_t        loglevel = GF_LOG_NONE;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         if (op_ret == -1) {
                 state = CALL_STATE (frame);
-                gf_log (this->name, GF_LOG_INFO,
+                if (ENODATA == op_errno || ENOATTR == op_errno)
+                        loglevel = GF_LOG_DEBUG;
+                else
+                        loglevel = GF_LOG_INFO;
+
+                gf_log (this->name, loglevel,
                         "%"PRId64": REMOVEXATTR %s (%s) of key %s ==> (%s)",
                         frame->root->unique, state->loc.path,
                         uuid_utoa (state->resolve.gfid),
