@@ -2361,8 +2361,10 @@ syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
 
         if (xdata_rsp)
                 *xdata_rsp = args.xdata;
-        else
-                dict_unref (args.xdata);
+        else {
+                if (args.xdata)
+                        dict_unref (args.xdata);
+        }
 
         if (args.op_ret < 0)
                 return -args.op_errno;
