@@ -1180,8 +1180,9 @@ client3_3_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
-        xlator_t *this       = NULL;
-        dict_t  *xdata       = NULL;
+        xlator_t        *this       = NULL;
+        dict_t          *xdata      = NULL;
+        gf_loglevel_t    loglevel   = GF_LOG_NONE;
 
         this = THIS;
 
@@ -1207,7 +1208,12 @@ client3_3_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+                if ((ENODATA == rsp.op_errno) || (ENOATTR == rsp.op_errno))
+                        loglevel = GF_LOG_DEBUG;
+                else
+                        loglevel = GF_LOG_WARNING;
+
+                gf_log (this->name, loglevel, "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
 
