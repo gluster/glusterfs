@@ -2241,7 +2241,6 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
         int                     ret                     = -1;
         glusterd_brickinfo_t    *brickinfo              = NULL;
         char                    mountdir[PATH_MAX]      = {0,};
-        runner_t                runner                  = {0,};
         char                    pidfile[PATH_MAX]       = {0,};
         xlator_t                *this                   = NULL;
 
@@ -2278,19 +2277,11 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
                 GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volinfo->volname,
                                                    "/");
 
-                runinit (&runner);
-                runner_add_args (&runner, "umount",
-
-                #if GF_LINUX_HOST_OS
-                                "-l",
-                #endif
-                                mountdir, NULL);
-                ret = runner_run_reuse (&runner);
+                ret = gf_umount_lazy (this->name, mountdir, 0);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "umount on %s failed, "
-                                "reason : %s", mountdir, strerror (errno));
-
-                runner_end (&runner);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "umount on %s failed, reason : %s",
+                                mountdir, strerror (errno));
         }
 
         ret = glusterd_handle_snapd_option (volinfo);
@@ -2496,7 +2487,7 @@ glusterd_clearlocks_unmount (glusterd_volinfo_t *volinfo, char *mntpt)
          * stat() on mount can be due to network failures.*/
 
         runinit (&runner);
-        runner_add_args (&runner, "/bin/umount", "-f", NULL);
+        runner_add_args (&runner, _PATH_UMOUNT, "-f", NULL);
         runner_argprintf (&runner, "%s", mntpt);
 
         synclock_unlock (&priv->big_lock);

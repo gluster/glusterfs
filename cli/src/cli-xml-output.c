@@ -2931,7 +2931,8 @@ cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
                 gf_log ("cli", GF_LOG_ERROR,
                         "failed to mount glusterfs client");
                 ret = -1;
-                goto rm_dir;
+                rmdir (mountdir);
+                goto cont;
         }
 
         while (i < len) {
@@ -2988,19 +2989,10 @@ cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
         }
 
 unmount:
-        runinit (&runner);
-        runner_add_args (&runner, "umount",
-#if GF_LINUX_HOST_OS
-                         "-l",
-#endif
-                         mountdir, NULL);
-        ret = runner_run_reuse (&runner);
+        ret = gf_umount_lazy ("cli", mountdir, 1);
         if (ret)
-                runner_log (&runner, "cli", GF_LOG_WARNING, "error executing");
-        runner_end (&runner);
-
-rm_dir:
-        rmdir (mountdir);
+                gf_log ("cli", GF_LOG_WARNING, "error unmounting %s: %s",
+                        mountdir, strerror (errno));
 
 cont:
         /* </volQuota> */

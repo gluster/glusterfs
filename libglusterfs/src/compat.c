@@ -15,6 +15,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdarg.h>
 #include <getopt.h>
 #include <sys/types.h>
@@ -28,6 +29,7 @@
 #include "common-utils.h"
 #include "iatt.h"
 #include "inode.h"
+#include "run.h"
 
 #ifdef GF_SOLARIS_HOST_OS
 int
@@ -543,3 +545,40 @@ strnlen(const char *string, size_t maxlen)
         return len;
 }
 #endif /* STRNLEN */
+
+int
+gf_umount_lazy (char *xlname, char *path, int rmdir_flag)
+{
+        int                   ret               = -1;
+        runner_t              runner            = {0,};
+
+        runinit (&runner);
+#ifdef GF_LINUX_HOST_OS
+        runner_add_args (&runner, _PATH_UMOUNT, "-l", path, NULL);
+#else
+        if (rmdir_flag)
+                runner_add_args (&runner, SBIN_DIR "/umountd",
+                                 "-r", path, NULL);
+        else
+                runner_add_args (&runner, SBIN_DIR "/umountd",
+                                 path, NULL);
+#endif
+        ret = runner_run (&runner);
+        if (ret) {
+                gf_log (xlname, GF_LOG_ERROR,
+                        "Lazy unmount of %s failed: %s",
+                        path, strerror (errno));
+        }
+
+#ifdef GF_LINUX_HOST_OS
+        if (!ret && rmdir_flag) {
+                ret = rmdir (path);
+                if (ret)
+                         gf_log (xlname, GF_LOG_WARNING,
+                                 "rmdir %s failed: %s",
+                                 path, strerror (errno));
+        }
+#endif
+
+        return ret;
+}
