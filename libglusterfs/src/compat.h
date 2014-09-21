@@ -40,6 +40,10 @@
 #ifdef HAVE_ENDIAN_H
 #include <endian.h>
 #endif
+
+#ifndef _PATH_UMOUNT
+#define _PATH_UMOUNT "/bin/umount"
+#endif
 #endif /* GF_LINUX_HOST_OS */
 
 #ifdef HAVE_XATTR_H
@@ -161,6 +165,9 @@ enum {
 #define FALLOC_FL_KEEP_SIZE     0x01 /* default is extend size */
 #define FALLOC_FL_PUNCH_HOLE    0x02 /* de-allocates range */
 
+#ifndef _PATH_UMOUNT
+  #define _PATH_UMOUNT "/sbin/umount"
+#endif
 #endif /* GF_BSD_HOST_OS */
 
 #ifdef GF_DARWIN_HOST_OS
@@ -239,6 +246,9 @@ int32_t gf_darwin_compat_listxattr (int len, dict_t *dict, int size);
 int32_t gf_darwin_compat_getxattr (const char *key, dict_t *dict);
 int32_t gf_darwin_compat_setxattr (dict_t *dict);
 
+#ifndef _PATH_UMOUNT
+  #define _PATH_UMOUNT "/sbin/umount"
+#endif
 #endif /* GF_DARWIN_HOST_OS */
 
 #ifdef GF_SOLARIS_HOST_OS
@@ -317,6 +327,9 @@ enum {
 
 #ifndef _PATH_MOUNTED
  #define _PATH_MOUNTED "/etc/mtab"
+#endif
+#ifndef _PATH_UMOUNT
+ #define _PATH_UMOUNT "/sbin/umount"
 #endif
 
 #ifndef O_ASYNC
@@ -463,5 +476,7 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 /* Use run API, see run.h */
 #pragma GCC poison system popen
 #endif
+
+int gf_umount_lazy(char *xlname, char *path, int rmdir);
 
 #endif /* __COMPAT_H__ */

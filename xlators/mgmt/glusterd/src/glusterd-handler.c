@@ -2824,12 +2824,16 @@ __glusterd_handle_umount (rpcsvc_request_t *req)
                 goto out;
         }
 
-        runinit (&runner);
-        runner_add_args (&runner, "umount", umnt_req.path, NULL);
-        if (umnt_req.lazy)
-                runner_add_arg (&runner, "-l");
         synclock_unlock (&priv->big_lock);
-        rsp.op_ret = runner_run (&runner);
+
+        if (umnt_req.lazy) {
+                rsp.op_ret = gf_umount_lazy (this->name, umnt_req.path, 0);
+        } else {
+                runinit (&runner);
+                runner_add_args (&runner, _PATH_UMOUNT, umnt_req.path, NULL);
+                rsp.op_ret = runner_run (&runner);
+        }
+
         synclock_lock (&priv->big_lock);
         if (rsp.op_ret == 0) {
                 if (realpath (umnt_req.path, mntp))

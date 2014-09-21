@@ -849,20 +849,6 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        runinit (&runner);
-        runner_add_args (&runner, "/bin/umount", "-l", mntpt, NULL);
-        ret = runner_run_reuse (&runner);
-        if (ret) {
-                runner_log (&runner, this->name, GF_LOG_DEBUG,
-                            "Lazy unmount failed on maintenance client");
-                runner_end (&runner);
-                goto out;
-        } else {
-                runner_log (&runner, this->name, GF_LOG_DEBUG,
-                            "Successfully unmounted  maintenance client");
-                runner_end (&runner);
-        }
-
 
 out:
 
@@ -1050,27 +1036,6 @@ out:
 }
 
 static int
-rb_mountpoint_rmdir (glusterd_volinfo_t *volinfo,
-                     glusterd_brickinfo_t *src_brickinfo)
-{
-        char             mntpt[PATH_MAX] = {0,};
-        int              ret                        = -1;
-
-        GLUSTERD_GET_RB_MNTPT (mntpt, sizeof (mntpt), volinfo);
-        ret = rmdir (mntpt);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "rmdir failed, reason: %s",
-                        strerror (errno));
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
 rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
                                glusterd_brickinfo_t *src_brickinfo)
 {
@@ -1079,6 +1044,7 @@ rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
         char              volfile[PATH_MAX]           = {0,};
         int               ret                         = -1;
         int               mntfd                       = -1;
+        char              mntpt[PATH_MAX]             = {0,};
 
         this = THIS;
         priv = this->private;
@@ -1094,11 +1060,14 @@ rb_destroy_maintenance_client (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        ret = rb_mountpoint_rmdir (volinfo, src_brickinfo);
+        GLUSTERD_GET_RB_MNTPT (mntpt, sizeof (mntpt), volinfo);
+        ret = gf_umount_lazy (this->name, mntpt, 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "rmdir of mountpoint "
-                        "failed");
-                goto out;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Lazy unmount failed on maintenance client");
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Successfully unmounted  maintenance client");
         }
 
         snprintf (volfile, PATH_MAX, "%s/vols/%s/%s", priv->workdir,

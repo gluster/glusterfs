@@ -11987,7 +11987,6 @@ int
 glusterd_remove_auxiliary_mount (char *volname)
 {
         int       ret                = -1;
-        runner_t  runner             = {0,};
         char      mountdir[PATH_MAX] = {0,};
         char      pidfile[PATH_MAX]  = {0,};
         xlator_t *this               = NULL;
@@ -12004,20 +12003,11 @@ glusterd_remove_auxiliary_mount (char *volname)
         }
 
         GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
-        runinit (&runner);
-        runner_add_args (&runner, "umount",
-
-#if GF_LINUX_HOST_OS
-                        "-l",
-#endif
-                        mountdir, NULL);
-        ret = runner_run_reuse (&runner);
+        ret = gf_umount_lazy (this->name, mountdir, 1);
         if (ret)
                 gf_log (this->name, GF_LOG_ERROR, "umount on %s failed, "
                         "reason : %s", mountdir, strerror (errno));
-        runner_end (&runner);
 
-        rmdir (mountdir);
         return ret;
 }
 
@@ -12142,7 +12132,7 @@ glusterd_umount (const char *path)
 
         runinit (&runner);
         snprintf (msg, sizeof (msg), "umount path %s", path);
-        runner_add_args (&runner, "umount", "-f", path, NULL);
+        runner_add_args (&runner, _PATH_UMOUNT, "-f", path, NULL);
         runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
         ret = runner_run (&runner);
         if (ret)

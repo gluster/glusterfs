@@ -256,11 +256,9 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
 
 #ifndef GF_LINUX_HOST_OS
                 runner_end (&runner); /* blocks in waitpid */
-                runcmd ("umount", mountdir, NULL);
-#else
-                runcmd ("umount", "-l", mountdir, NULL);
 #endif
-                rmdir (mountdir);
+                gf_umount_lazy ("glusterd", mountdir, 1);
+
                 _exit (EXIT_SUCCESS);
         }
         ret = (waitpid (pid, &status, 0) == pid &&

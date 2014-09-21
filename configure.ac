@@ -200,6 +200,7 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/reset/post/Makefile
                 extras/hook-scripts/reset/pre/Makefile
                 contrib/fuse-util/Makefile
+                contrib/umountd/Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
                 libgfchangelog.pc
@@ -929,6 +930,14 @@ case $host_os in
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
         ;;
 esac
+
+# lazy umount emulation
+UMOUNTD_SUBDIR=""
+if test "x${GF_HOST_OS}" != "xGF_LINUX_HOST_OS" ; then
+        UMOUNTD_SUBDIR="contrib/umountd"
+fi
+AC_SUBST(UMOUNTD_SUBDIR)
+        
 
 # enable/disable QEMU
 AM_CONDITIONAL([ENABLE_QEMU_BLOCK], [test x$BUILD_QEMU_BLOCK = xyes])
