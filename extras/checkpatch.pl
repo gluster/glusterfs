@@ -2794,41 +2794,6 @@ sub process {
             }
         }
 
-# check for spaces between functions and their parentheses.
-        while ($line =~ /($Ident)\s+\(/g) {
-            my $name = $1;
-            my $ctx_before = substr($line, 0, $-[1]);
-            my $ctx = "$ctx_before$name";
-
-            # Ignore those directives where spaces _are_ permitted.
-            if ($name =~ /^(?:
-                                if|for|while|switch|return|case|
-                                volatile|__volatile__|
-                                __attribute__|format|__extension__|
-                                asm|__asm__)$/x)
-            {
-                # cpp #define statements have non-optional spaces, ie
-                # if there is a space between the name and the open
-                # parenthesis it is simply not a parameter group.
-            } elsif ($ctx_before =~ /^.\s*\#\s*define\s*$/) {
-
-                # cpp #elif statement condition may start with a (
-            } elsif ($ctx =~ /^.\s*\#\s*elif\s*$/) {
-
-                # If this whole things ends with a type its most
-                # likely a typedef for a function.
-            } elsif ($ctx =~ /$Type$/) {
-
-            } else {
-                if (WARN("SPACING",
-                         "space prohibited between function name and open parenthesis '('\n" . $herecurr) &&
-                    $fix) {
-                    $fixed[$linenr - 1] =~
-                        s/\b$name\s+\(/$name\(/;
-                }
-            }
-        }
-
 # Check operator spacing.
         if (!($line=~/\#\s*include/)) {
             my $fixed_line = "";
@@ -3665,11 +3630,8 @@ sub process {
                     foreach (@allowed) {
                         $sum_allowed += $_;
                     }
-                    if ($sum_allowed == 0) {
-                        WARN("BRACES",
-                             "braces {} are not necessary for any arm of this statement\n" . $herectx);
-                    } elsif ($sum_allowed != $allow &&
-                             $seen != $allow) {
+                    if ($sum_allowed != 0 && $sum_allowed != $allow
+		    			  && $seen != $allow) {
                         CHK("BRACES",
                             "braces {} should be used on all arms of this statement\n" . $herectx);
                     }
@@ -3717,17 +3679,6 @@ sub process {
                     #print "APW: ALLOWED: chunk-1 block<$block>\n";
                     $allowed = 1;
                 }
-            }
-            if ($level == 0 && $block =~ /^\s*\{/ && !$allowed) {
-                my $herectx = $here . "\n";
-                my $cnt = statement_rawlines($block);
-
-                for (my $n = 0; $n < $cnt; $n++) {
-                    $herectx .= raw_line($linenr, $n) . "\n";
-                }
-
-                WARN("BRACES",
-                     "braces {} are not necessary for single statement blocks\n" . $herectx);
             }
         }
 
