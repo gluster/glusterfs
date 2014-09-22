@@ -2091,17 +2091,6 @@ sub process {
                  "line over $max_line_length characters\n" . $herecurr);
         }
 
-# Check for user-visible strings broken across lines, which breaks the ability
-# to grep for the string.  Make exceptions when the previous string ends in a
-# newline (multiple lines in one string constant) or '\t', '\r', ';', or '{'
-# (common in inline assembly) or is a octal \123 or hexadecimal \xaf value
-        if ($line =~ /^\+\s*"/ &&
-            $prevline =~ /"\s*$/ &&
-            $prevrawline !~ /(?:\\(?:[ntr]|[0-7]{1,3}|x[0-9a-fA-F]{1,2})|;\s*|\{\s*)"\s*$/) {
-            WARN("SPLIT_STRING",
-                 "quoted string split across lines\n" . $hereprev);
-        }
-
 # check for spaces before a quoted newline
         if ($rawline =~ /^.*\".*\s\\n/) {
             if (WARN("QUOTED_WHITESPACE_BEFORE_NEWLINE",
@@ -2128,7 +2117,7 @@ sub process {
                      "please, no space before tabs\n" . $herevet) &&
                 $fix) {
                 while ($fixed[$linenr - 1] =~
-                       s/(^\+.*) {8,8}+\t/$1\t\t/) {}
+                       s/(^\+.*) {8,8}\t/$1\t\t/) {}
                 while ($fixed[$linenr - 1] =~
                        s/(^\+.*) +\t/$1\t/) {}
             }
