@@ -15,6 +15,9 @@ pre-requisites:
 * Brick LVM should not contain any other data other than brick.
 * None of the brick should be on a thick LVM.
 
+Details of how to create thin volume can be found at the following link.
+https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Logical_Volume_Manager_Administration/thinly_provisioned_volume_creation.html
+
 
 Snapshot Management
 =====================
