@@ -1065,7 +1065,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                         total_size, chunk);
         }
         else {
-                chunk = ((unsigned long) 0xffffffff) / bricks_used;
+                chunk = ((unsigned long) 0xffffffff) / bricks_to_use;
         }
 
         start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
