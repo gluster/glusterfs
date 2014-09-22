@@ -385,6 +385,12 @@ function snap_config()
         $cli_index snapshot config | grep "^$var" | sed 's/.*: //'
 }
 
+function check_if_snapd_exist() {
+        local pid
+        pid=$(ps aux | grep "snapd" | grep -v grep | awk '{print $2}')
+        if [ -n "$pid" ]; then echo "Y"; else echo "N"; fi
+}
+
 case $OSTYPE in
 NetBSD)
         echo "Skip test on LVM which is not available on NetBSD" >&2

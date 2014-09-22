@@ -44,9 +44,7 @@ TEST $CLI snapshot create snap4 $V0;
 
 TEST $CLI volume set $V0 features.uss enable;
 
-SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
-
-TEST [ $SNAPD_PID -gt 0 ];
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' check_if_snapd_exist
 
 TEST $CLI volume set $V0 features.uss disable;
 
@@ -56,9 +54,7 @@ TEST ! [ $SNAPD_PID -gt 0 ];
 
 TEST $CLI volume set $V0 features.uss enable;
 
-SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
-
-TEST [ $SNAPD_PID -gt 0 ];
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' check_if_snapd_exist
 
 TEST $CLI volume stop $V0;
 
