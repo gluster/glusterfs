@@ -25,6 +25,12 @@ function check_dependencies()
         MISSING="$MISSING mock"
     fi
 
+    # Check for rpmbuild
+    env rpmbuild --version > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        MISSING="$MISSING rpmbuild"
+    fi
+
     # Check for nfs-utils
     env mount.nfs -V > /dev/null 2>&1
     if [ $? -ne 0 ]; then
