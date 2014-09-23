@@ -897,7 +897,21 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
 		frame->local = NULL; };				       \
 	frame->local;})
 
-#define AFR_STACK_RESET(frame) do { int opr; STACK_RESET (frame->root); AFR_FRAME_INIT(frame, opr);} while (0)
+#define AFR_STACK_RESET(frame)                                         \
+        do {                                                           \
+                afr_local_t *__local = NULL;                           \
+                xlator_t    *__this = NULL;                            \
+                __local = frame->local;                                \
+                __this = frame->this;                                  \
+                frame->local = NULL;                                   \
+                int __opr;                                             \
+                STACK_RESET (frame->root);                             \
+                if (__local) {                                         \
+                        afr_local_cleanup (__local, __this);           \
+                        mem_put (__local);                             \
+                }                                                      \
+                AFR_FRAME_INIT (frame, __opr);                         \
+        } while (0)
 
 /* allocate and return a string that is the basename of argument */
 static inline char *
