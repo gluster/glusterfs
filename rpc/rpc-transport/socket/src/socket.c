@@ -46,14 +46,28 @@
 #define OWN_THREAD_OPT      "transport.socket.own-thread"
 
 /* TBD: do automake substitutions etc. (ick) to set these. */
+#if !defined(DEFAULT_ETC_SSL)
+#  ifdef GF_LINUX_HOST_OS
+#    define DEFAULT_ETC_SSL "/etc/ssl"
+#  endif
+#  ifdef GF_BSD_HOST_OS
+#    define DEFAULT_ETC_SSL "/etc/openssl"
+#  endif
+#  ifdef GF_DARWIN_HOST_OS
+#    define DEFAULT_ETC_SSL "/opt/local/etc/openssl"
+#  endif
+#  if !defined(DEFAULT_ETC_SSL)
+#    define DEFAULT_ETC_SSL "/etc/ssl"
+#  endif
+#endif
 #if !defined(DEFAULT_CERT_PATH)
-#define DEFAULT_CERT_PATH   "/etc/ssl/glusterfs.pem"
+#define DEFAULT_CERT_PATH   DEFAULT_ETC_SSL "/glusterfs.pem"
 #endif
 #if !defined(DEFAULT_KEY_PATH)
-#define DEFAULT_KEY_PATH    "/etc/ssl/glusterfs.key"
+#define DEFAULT_KEY_PATH    DEFAULT_ETC_SSL "/glusterfs.key"
 #endif
 #if !defined(DEFAULT_CA_PATH)
-#define DEFAULT_CA_PATH     "/etc/ssl/glusterfs.ca"
+#define DEFAULT_CA_PATH     DEFAULT_ETC_SSL "/glusterfs.ca"
 #endif
 
 #define POLL_MASK_INPUT  (POLLIN | POLLPRI)
