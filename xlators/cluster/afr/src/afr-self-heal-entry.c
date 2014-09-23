@@ -323,136 +323,6 @@ __afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	return ret;
 }
 
-
-static int
-afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
-			   int source, unsigned char *sources,
-			   unsigned char *healed_sinks, char *name)
-{
-	afr_private_t *priv = NULL;
-	int ret = 0;
-	unsigned char *locked_on = NULL;
-	struct afr_reply *replies = NULL;
-	inode_t *inode = NULL;
-
-	priv = this->private;
-
-	locked_on = alloca0 (priv->child_count);
-
-	replies = alloca0 (priv->child_count * sizeof(*replies));
-
-	ret = afr_selfheal_entrylk (frame, this, fd->inode, this->name,
-				    name, locked_on);
-	{
-		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-			ret = -ENOTCONN;
-			goto unlock;
-		}
-
-		inode = afr_selfheal_unlocked_lookup_on (frame, fd->inode, name,
-							 replies, locked_on,
-                                                         NULL);
-		if (!inode) {
-			ret = -ENOMEM;
-			goto unlock;
-		}
-
-		ret = __afr_selfheal_entry_dirent (frame, this, fd, name, inode,
-						   source, sources, healed_sinks,
-						   locked_on, replies);
-	}
-unlock:
-	afr_selfheal_unentrylk (frame, this, fd->inode, this->name, name,
-				locked_on);
-	if (inode)
-		inode_unref (inode);
-        if (replies)
-                afr_replies_wipe (replies, priv->child_count);
-	return ret;
-}
-
-
-static int
-afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this, fd_t *fd,
-			      int child, int source, unsigned char *sources,
-			      unsigned char *healed_sinks)
-{
-	int ret = 0;
-	gf_dirent_t entries;
-	gf_dirent_t *entry = NULL;
-	off_t offset = 0;
-	call_frame_t *iter_frame = NULL;
-	xlator_t *subvol = NULL;
-	afr_private_t *priv = NULL;
-
-	priv = this->private;
-	subvol = priv->children[child];
-
-	INIT_LIST_HEAD (&entries.list);
-
-	iter_frame = afr_copy_frame (frame);
-	if (!iter_frame)
-		return -ENOMEM;
-
-	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries))) {
-		if (ret > 0)
-			ret = 0;
-		list_for_each_entry (entry, &entries.list, list) {
-			offset = entry->d_off;
-
-			if (!strcmp (entry->d_name, ".") ||
-			    !strcmp (entry->d_name, ".."))
-				continue;
-
-			if (__is_root_gfid (fd->inode->gfid) &&
-			    !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR))
-				continue;
-
-			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
-							 source, sources,
-							 healed_sinks,
-							 entry->d_name);
-			AFR_STACK_RESET (iter_frame);
-
-			if (ret)
-				break;
-		}
-
-		gf_dirent_free (&entries);
-		if (ret)
-			break;
-	}
-
-	AFR_STACK_DESTROY (iter_frame);
-	return ret;
-}
-
-static int
-afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		       int source, unsigned char *sources,
-		       unsigned char *healed_sinks)
-{
-	int i = 0;
-	afr_private_t *priv = NULL;
-	int ret = 0;
-
-	priv = this->private;
-
-	gf_log (this->name, GF_LOG_INFO, "performing entry selfheal on %s",
-		uuid_utoa (fd->inode->gfid));
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (i != source && !healed_sinks[i])
-			continue;
-		ret = afr_selfheal_entry_do_subvol (frame, this, fd, i, source,
-						    sources, healed_sinks);
-		if (ret)
-			break;
-	}
-	return ret;
-}
-
-
 static int
 __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
 				      unsigned char *healed_sinks,
@@ -528,6 +398,154 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 static int
+afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
+                           fd_t *fd, char *name)
+{
+        int                ret          = 0;
+        int                source       = -1;
+        unsigned char     *locked_on    = NULL;
+        unsigned char     *sources      = NULL;
+        unsigned char     *sinks        = NULL;
+        unsigned char     *healed_sinks = NULL;
+        inode_t           *inode        = NULL;
+        struct afr_reply  *replies      = NULL;
+        struct afr_reply  *par_replies  = NULL;
+        afr_private_t     *priv         = NULL;
+
+	priv = this->private;
+
+        sources = alloca0 (priv->child_count);
+        sinks   = alloca0 (priv->child_count);
+        healed_sinks = alloca0 (priv->child_count);
+	locked_on = alloca0 (priv->child_count);
+
+	replies = alloca0 (priv->child_count * sizeof(*replies));
+	par_replies = alloca0 (priv->child_count * sizeof(*par_replies));
+
+        ret = afr_selfheal_entrylk (frame, this, fd->inode, this->name, NULL,
+                                    locked_on);
+	{
+		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
+                                "entry self-heal as only %d sub-volumes could "
+                                "be locked in %s domain",
+                                uuid_utoa (fd->inode->gfid), ret, this->name);
+			ret = -ENOTCONN;
+			goto unlock;
+		}
+
+                ret = __afr_selfheal_entry_prepare (frame, this, fd, locked_on,
+                                                    sources, sinks,
+                                                    healed_sinks, par_replies,
+                                                    &source);
+                if (ret < 0)
+                        goto unlock;
+
+		inode = afr_selfheal_unlocked_lookup_on (frame, fd->inode, name,
+							 replies, locked_on,
+                                                         NULL);
+		if (!inode) {
+			ret = -ENOMEM;
+			goto unlock;
+		}
+
+		ret = __afr_selfheal_entry_dirent (frame, this, fd, name, inode,
+						   source, sources, healed_sinks,
+						   locked_on, replies);
+	}
+unlock:
+        afr_selfheal_unentrylk (frame, this, fd->inode, this->name, NULL,
+                                locked_on);
+	if (inode)
+		inode_unref (inode);
+        if (replies)
+                afr_replies_wipe (replies, priv->child_count);
+        if (par_replies)
+                afr_replies_wipe (par_replies, priv->child_count);
+
+	return ret;
+}
+
+
+static int
+afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
+                              fd_t *fd, int child)
+{
+	int ret = 0;
+	gf_dirent_t entries;
+	gf_dirent_t *entry = NULL;
+	off_t offset = 0;
+	call_frame_t *iter_frame = NULL;
+	xlator_t *subvol = NULL;
+	afr_private_t *priv = NULL;
+
+	priv = this->private;
+	subvol = priv->children[child];
+
+	INIT_LIST_HEAD (&entries.list);
+
+	iter_frame = afr_copy_frame (frame);
+	if (!iter_frame)
+		return -ENOMEM;
+
+	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries))) {
+		if (ret > 0)
+			ret = 0;
+		list_for_each_entry (entry, &entries.list, list) {
+			offset = entry->d_off;
+
+			if (!strcmp (entry->d_name, ".") ||
+			    !strcmp (entry->d_name, ".."))
+				continue;
+
+			if (__is_root_gfid (fd->inode->gfid) &&
+			    !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR))
+				continue;
+
+			ret = afr_selfheal_entry_dirent (iter_frame, this, fd,
+                                                         entry->d_name);
+			AFR_STACK_RESET (iter_frame);
+
+			if (ret)
+				break;
+		}
+
+		gf_dirent_free (&entries);
+		if (ret)
+			break;
+	}
+
+	AFR_STACK_DESTROY (iter_frame);
+	return ret;
+}
+
+static int
+afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
+		       int source, unsigned char *sources,
+		       unsigned char *healed_sinks)
+{
+	int i = 0;
+	afr_private_t *priv = NULL;
+	int ret = 0;
+
+	priv = this->private;
+
+	gf_log (this->name, GF_LOG_INFO, "performing entry selfheal on %s",
+		uuid_utoa (fd->inode->gfid));
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (i != source && !healed_sinks[i])
+			continue;
+		ret = afr_selfheal_entry_do_subvol (frame, this, fd, i);
+		if (ret)
+			break;
+	}
+	return ret;
+}
+
+
+
+static int
 __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		      unsigned char *locked_on)
 {
@@ -553,6 +571,11 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				    data_lock);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
+                                "entry self-heal as only %d sub-volumes could "
+                                "be locked in %s domain",
+                                uuid_utoa (fd->inode->gfid), ret,
+                                this->name);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -576,6 +599,9 @@ unlock:
 					 healed_sinks, AFR_ENTRY_TRANSACTION,
                                          locked_replies, data_lock);
 out:
+        afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
+                          healed_sinks);
+
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
 	return ret;
@@ -629,6 +655,11 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 				       locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
+                                "entry self-heal as only %d sub-volumes could "
+                                "be locked in %s domain",
+                                uuid_utoa (fd->inode->gfid), ret,
+                                priv->sh_domain);
 			/* Either less than two subvols available, or another
 			   selfheal (from another server) is in progress. Skip
 			   for now in any case there isn't anything to do.
