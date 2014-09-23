@@ -1,12 +1,17 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 ping_file () {
         echo hello > $1 2> /dev/null
 }
-
-SSL_BASE=/etc/ssl
+for d in /etc/ssl /etc/openssl /opt/local/etc/openssl ; do
+        if test -d $d ; then
+                SSL_BASE=$d
+                break
+        fi
+done
 SSL_KEY=$SSL_BASE/glusterfs.key
 SSL_CERT=$SSL_BASE/glusterfs.pem
 SSL_CA=$SSL_BASE/glusterfs.ca
@@ -33,7 +38,7 @@ TEST $CLI volume start $V0
 # This mount should WORK.
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 TEST ping_file $M0/before
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # Change the authorized user name.  Note that servers don't pick up changes
 # automagically like clients do, so we have to stop/start ourselves.
