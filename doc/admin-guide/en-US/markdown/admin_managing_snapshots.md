@@ -14,9 +14,45 @@ pre-requisites:
 * Each brick should be on an independent thinly provisioned LVM.
 * Brick LVM should not contain any other data other than brick.
 * None of the brick should be on a thick LVM.
+* gluster version should be 3.6 and above.
 
 Details of how to create thin volume can be found at the following link.
 https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Logical_Volume_Manager_Administration/thinly_provisioned_volume_creation.html
+
+
+Few features of snapshot are:
+=============================
+
+**Crash Consistency**
+
+when a snapshot is taken at a particular point-in-time, it is made sure that
+the taken snapshot is crash consistent. when the taken snapshot is restored,
+then the data is identical as it was at the time of taking a snapshot.
+
+
+**Online Snapshot**
+
+When the snapshot is being taken the file system and its associated data
+continue to be available for the clients.
+
+
+**Quorum Based**
+
+The quorum feature ensures that the volume is in good condition while the bricks
+are down. Quorum is not met if any bricks are down in a n-way replication where
+n <= 2. Quorum is met when m bricks are up, where m >= (n/2 + 1) where n is odd,
+and m >= n/2 and first brick is up where n is even. snapshot creation fails
+if quorum is not met.
+
+
+**Barrier**
+
+During snapshot creation some of the fops are blocked to guarantee crash
+consistency. There is a default time-out of 2 minutes, if snapshot creation
+is not complete within that span then fops are unbarried. If unbarrier happens
+before the snapshot creation is complete then the snapshot creation operation
+fails. This to ensure that the snapshot is in a consistent state.
+
 
 
 Snapshot Management
