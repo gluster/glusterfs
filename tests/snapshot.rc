@@ -384,3 +384,9 @@ function snap_config()
         local var=$2
         $cli_index snapshot config | grep "^$var" | sed 's/.*: //'
 }
+
+function check_if_snapd_exist() {
+        local pid
+        pid=$(ps aux | grep "snapd" | grep -v grep | awk '{print $2}')
+        if [ -n "$pid" ]; then echo "Y"; else echo "N"; fi
+}
