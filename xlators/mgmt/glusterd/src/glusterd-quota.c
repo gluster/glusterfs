@@ -28,6 +28,18 @@
 #include <sys/wait.h>
 #include <dlfcn.h>
 
+#ifndef _PATH_SETFATTR
+# ifdef GF_LINUX_HOST_OS
+#  define _PATH_SETFATTR "/usr/bin/setfattr"
+# endif
+# ifdef __NetBSD__
+#  define _PATH_SETFATTR "/usr/pkg/bin/setfattr"
+# endif
+# ifdef __FreeBSD__
+#  define _PATH_SETFATTR "/usr/local/bin/setfattr"
+# endif
+#endif
+
 /* Any negative pid to make it special client */
 #define QUOTA_CRAWL_PID "-100"
 
@@ -223,7 +235,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                 else if (type == GF_QUOTA_OPTION_TYPE_DISABLE)
 
                         runner_add_args (&runner, "/usr/bin/find", ".",
-                                         "-exec", "/usr/bin/setfattr", "-n",
+                                         "-exec", _PATH_SETFATTR, "-n",
                                          VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "-v",
                                          "1", "{}", "\\", ";", NULL);
 
