@@ -508,7 +508,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	ret = afr_selfheal_inodelk (frame, this, fd->inode, this->name, 0, 0,
 				    data_lock);
 	{
-		if (ret < 2) {
+		if (ret < AFR_SH_MIN_PARTICIPANTS) {
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -611,7 +611,7 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	ret = afr_selfheal_tryinodelk (frame, this, inode, priv->sh_domain, 0, 0,
 				       locked_on);
 	{
-		if (ret < 2) {
+		if (ret < AFR_SH_MIN_PARTICIPANTS) {
 			/* Either less than two subvols available, or another
 			   selfheal (from another server) is in progress. Skip
 			   for now in any case there isn't anything to do.

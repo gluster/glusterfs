@@ -12,6 +12,7 @@
 #ifndef _AFR_SELFHEAL_H
 #define _AFR_SELFHEAL_H
 
+#define AFR_SH_MIN_PARTICIPANTS 2
 
 /* Perform fop on all UP subvolumes and wait for all callbacks to return */
 
@@ -181,4 +182,7 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 inode_t*
 afr_inode_link (inode_t *inode, struct iatt *iatt);
+
+unsigned int
+afr_success_count (struct afr_reply *replies, unsigned int count);
 #endif /* !_AFR_SELFHEAL_H */

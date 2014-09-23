@@ -571,7 +571,7 @@ afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 	ret = afr_selfheal_entrylk (frame, this, parent, this->name, bname,
 				    locked_on);
 	{
-		if (ret < 2) {
+		if (ret < AFR_SH_MIN_PARTICIPANTS) {
 			ret = -ENOTCONN;
 			goto unlock;
 		}

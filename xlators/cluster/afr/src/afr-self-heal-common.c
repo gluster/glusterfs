@@ -324,6 +324,12 @@ afr_selfheal_find_direction (xlator_t *this, struct afr_reply *replies,
 	accused = alloca0 (priv->child_count);
 	matrix = ALLOC_MATRIX(priv->child_count, int);
 
+        if (afr_success_count (replies,
+                               priv->child_count) < AFR_SH_MIN_PARTICIPANTS) {
+                /* Treat this just like locks not being acquired */
+                return -ENOTCONN;
+        }
+
 	/* First construct the pending matrix for further analysis */
 	afr_selfheal_extract_xattr (this, replies, type, dirty, matrix);
 
@@ -502,6 +508,17 @@ afr_selfheal_unlocked_discover (call_frame_t *frame, inode_t *inode,
 						  priv->child_up);
 }
 
+unsigned int
+afr_success_count (struct afr_reply *replies, unsigned int count)
+{
+        int     i = 0;
+        unsigned int success = 0;
+
+        for (i = 0; i < count; i++)
+                if (replies[i].valid && replies[i].op_ret == 0)
+                        success++;
+        return success;
+}
 
 int
 afr_selfheal_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
