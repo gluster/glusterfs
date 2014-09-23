@@ -862,6 +862,12 @@ nfs3svc_getattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
 
         if (op_ret == -1) {
+                /* Prevent crashes for the case where this call fails
+                 * and buf is left in a NULL state, yet the op_errno == 0.
+                 */
+                if (!buf && op_errno == 0) {
+                        op_errno = EIO;
+                }
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
 
