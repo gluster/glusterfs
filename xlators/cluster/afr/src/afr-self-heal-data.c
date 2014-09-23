@@ -176,6 +176,8 @@ __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			healed_sinks[i] = 0;
 		}
 	}
+        if (iovec)
+                GF_FREE (iovec);
 	if (iobref)
 		iobref_unref (iobref);
 
