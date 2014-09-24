@@ -35,9 +35,6 @@
 # ifdef __NetBSD__
 #  define _PATH_SETFATTR "/usr/pkg/bin/setfattr"
 # endif
-# ifdef __FreeBSD__
-#  define _PATH_SETFATTR "/usr/local/bin/setfattr"
-# endif
 #endif
 
 /* Any negative pid to make it special client */
@@ -232,12 +229,27 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                         runner_add_args (&runner, "/usr/bin/find", "find", ".",
                                          NULL);
 
-                else if (type == GF_QUOTA_OPTION_TYPE_DISABLE)
+                else if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
 
+#if defined(GF_DARWIN_HOST_OS)
+                        runner_add_args (&runner, "/usr/bin/find", ".",
+                                         "-exec", "/usr/bin/xattr", "-w",
+                                         VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "1",
+                                         "{}", "\\", ";", NULL);
+#elif defined(__FreeBSD__)
+                        runner_add_args (&runner, "/usr/bin/find", ".",
+                                         "-exec", "/usr/sbin/setextattr",
+                                         EXTATTR_NAMESPACE_USER,
+                                         VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "1",
+                                         "{}", "\\", ";", NULL);
+#else
                         runner_add_args (&runner, "/usr/bin/find", ".",
                                          "-exec", _PATH_SETFATTR, "-n",
                                          VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "-v",
                                          "1", "{}", "\\", ";", NULL);
+#endif
+
+                }
 
                 if (runner_start (&runner) == -1)
                         _exit (EXIT_FAILURE);
