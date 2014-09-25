@@ -173,10 +173,11 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                                   int type)
 {
         pid_t                      pid;
-        int32_t                    ret              = 0;
-        int                        status           = 0;
-        char                       mountdir[]       = "/tmp/mntXXXXXX";
-        runner_t                   runner           = {0};
+        int32_t                    ret               = 0;
+        int                        status            = 0;
+        char                       mountdir[]        = "/tmp/mntXXXXXX";
+        char                       logfile[PATH_MAX] = {0,};
+        runner_t                   runner            = {0};
 
         if (mkdtemp (mountdir) == NULL) {
                 gf_log ("glusterd", GF_LOG_DEBUG,
@@ -184,6 +185,8 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                 ret = -1;
                 goto out;
         }
+        snprintf (logfile, sizeof (logfile),
+                  DEFAULT_LOG_FILE_DIRECTORY"/%s-quota-crawl.log", volname);
 
         runinit (&runner);
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
@@ -191,8 +194,7 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                          "--volfile-id", volname,
 			 "--use-readdirp=no",
                          "--client-pid", QUOTA_CRAWL_PID,
-                         "-l", DEFAULT_LOG_FILE_DIRECTORY"/quota-crawl.log",
-                         mountdir, NULL);
+                         "-l", logfile, mountdir, NULL);
 
         synclock_unlock (&priv->big_lock);
         ret = runner_run_reuse (&runner);
