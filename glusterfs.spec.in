@@ -139,7 +139,7 @@
 ##-----------------------------------------------------------------------------
 ## All package definitions should be placed here and keep them sorted
 ##
-Summary:          Cluster File System
+Summary:          Distributed File System
 %if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
 Version:          3.5.0
@@ -228,7 +228,7 @@ gluster command line, libglusterfs and glusterfs translator modules common to
 both GlusterFS server and client framework.
 
 %package api
-Summary:          Clustered file-system api library
+Summary:          GlusterFs api library
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
