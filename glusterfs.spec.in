@@ -86,6 +86,7 @@
 %define _init_enable()  /bin/systemctl enable %1.service ;
 %define _init_disable() /bin/systemctl disable %1.service ;
 %define _init_restart() /bin/systemctl try-restart %1.service ;
+%define _init_start()   /bin/systemctl start %1.service ;
 %define _init_stop()    /bin/systemctl stop %1.service ;
 %define _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
 # can't seem to make a generic macro that works
@@ -95,6 +96,7 @@
 %define _init_enable()  /sbin/chkconfig --add %1 ;
 %define _init_disable() /sbin/chkconfig --del %1 ;
 %define _init_restart() /sbin/service %1 condrestart &>/dev/null ;
+%define _init_start()   /sbin/service %1 start &>/dev/null ;
 %define _init_stop()    /sbin/service %1 stop &>/dev/null ;
 %define _init_install() install -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
 # can't seem to make a generic macro that works
@@ -453,9 +455,10 @@ Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-cli = %{version}-%{release}
 Requires:         %{name}-libs = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
-# Runtime necessity for snapshot
+# psmisc for killall, lvm2 for snapshot, and nfs-utils and
+# rpcbind/portmap for gnfs server
+Requires:         psmisc
 Requires:         lvm2
-# nfs-utils provides rpc.statd and it is a requirement for gluster-nfs
 Requires:         nfs-utils
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
@@ -781,6 +784,9 @@ if [ $? -eq 0 ]; then
 
     killall --wait glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
+    # glusterd _was_ running, we killed it, it exited after *.upgrade=on,
+    # so start it again
+    %_init_start glusterd
 else
     glusterd --xlator-option *.upgrade=on -N
 fi
@@ -1034,6 +1040,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Sep 26 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- smarter logic in %%post server (#1146426)
+
 * Wed Sep 24 2014 Balamurugan Arumugam <barumuga@redhat.com>
 - remove /sbin/ldconfig as interpreter (#1145989)
 
