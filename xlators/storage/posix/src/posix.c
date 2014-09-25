@@ -1019,20 +1019,60 @@ out:
         return 0;
 }
 
+int32_t
+posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
+                                    struct iatt *stbuf, int32_t *op_errno)
+{
+        int32_t             ret      =   0;
+
+        /*  Unlink the gfid_handle_first */
+
+        if (stbuf && stbuf->ia_nlink == 1) {
+                ret = posix_handle_unset (this, stbuf->ia_gfid, NULL);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "unlink of gfid handle failed for path:%s with"
+                                "gfid %s with errno:%s", real_path,
+                                uuid_utoa (stbuf->ia_gfid), strerror (errno));
+                }
+        }
+
+        /* Unlink the actual file */
+        ret = sys_unlink (real_path);
+        if (ret == -1) {
+                if (op_errno)
+                        *op_errno = errno;
+
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unlink of %s failed: %s", real_path,
+                        strerror (errno));
+                goto err;
+        }
+
+        return 0;
+
+err:
+        return -1;
+}
 
 int32_t
 posix_unlink (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int xflag, dict_t *xdata)
 {
-        int32_t               op_ret     = -1;
-        int32_t               op_errno   = 0;
-        char                 *real_path  = NULL;
-        char                 *par_path   = NULL;
-        int32_t               fd         = -1;
-        struct iatt           stbuf      = {0,};
-        struct posix_private *priv       = NULL;
-        struct iatt           preparent  = {0,};
-        struct iatt           postparent = {0,};
+        int32_t                op_ret             = -1;
+        int32_t                op_errno           = 0;
+        char                   *real_path         = NULL;
+        char                   *par_path          = NULL;
+        int32_t                fd                 = -1;
+        struct iatt            stbuf              = {0,};
+        struct posix_private  *priv               = NULL;
+        struct iatt            preparent          = {0,};
+        struct iatt            postparent         = {0,};
+        int32_t                unlink_if_linkto   = 0;
+        int32_t                check_open_fd      = 0;
+        int32_t                skip_unlink        = 0;
+        ssize_t                xattr_size         = -1;
+        int32_t                is_dht_linkto_file = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1052,10 +1092,62 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (stbuf.ia_nlink == 1)
-                posix_handle_unset (this, stbuf.ia_gfid, NULL);
-
         priv = this->private;
+
+        op_ret = dict_get_int32 (xdata, DHT_SKIP_OPEN_FD_UNLINK,
+                                 &check_open_fd);
+
+        if (!op_ret && check_open_fd) {
+
+                LOCK (&loc->inode->lock);
+
+                if (loc->inode->fd_count) {
+                        skip_unlink = 1;
+                }
+
+                UNLOCK (&loc->inode->lock);
+
+                gf_log (this->name, GF_LOG_INFO, "open-fd-key-status: "
+                        "%"PRIu32" for %s", skip_unlink, real_path);
+
+                if (skip_unlink) {
+                        op_ret = -1;
+                        op_errno = EBUSY;
+                        goto out;
+                }
+        }
+
+
+        op_ret = dict_get_int32 (xdata, DHT_SKIP_NON_LINKTO_UNLINK,
+                                 &unlink_if_linkto);
+
+        if (!op_ret && unlink_if_linkto) {
+
+                LOCK (&loc->inode->lock);
+
+                xattr_size = sys_lgetxattr (real_path, LINKTO, NULL, 0);
+
+                if (xattr_size <= 0) {
+                        skip_unlink = 1;
+                } else {
+                       is_dht_linkto_file =  IS_DHT_LINKFILE_MODE (&stbuf);
+                       if (!is_dht_linkto_file)
+                               skip_unlink = 1;
+                }
+
+                UNLOCK (&loc->inode->lock);
+
+                gf_log (this->name, GF_LOG_INFO, "linkto_xattr status: "
+                        "%"PRIu32" for %s", skip_unlink, real_path);
+
+                if (skip_unlink) {
+                        op_ret = -1;
+                        op_errno = EBUSY;
+                        goto out;
+                }
+        }
+
+
         if (priv->background_unlink) {
                 if (IA_ISREG (loc->inode->ia_type)) {
                         fd = open (real_path, O_RDONLY);
@@ -1070,12 +1162,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = sys_unlink (real_path);
+        op_ret =  posix_unlink_gfid_handle_and_entry (this, real_path, &stbuf,
+                                                      &op_errno);
         if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "unlink of %s failed: %s", real_path,
-                        strerror (op_errno));
                 goto out;
         }
 

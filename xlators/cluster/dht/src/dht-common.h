@@ -96,6 +96,15 @@ struct dht_rebalance_ {
         dict_t              *xdata;
 };
 
+struct dht_skip_linkto_unlink {
+
+        gf_boolean_t    handle_valid_link;
+        int             opend_fd_count;
+        xlator_t        *hash_links_to;
+        uuid_t          cached_gfid;
+        uuid_t          hashed_gfid;
+};
+
 struct dht_local {
         int                      call_cnt;
         loc_t                    loc;
@@ -184,6 +193,9 @@ struct dht_local {
         xlator_t        *first_up_subvol;
 
         gf_boolean_t     added_link;
+
+        struct dht_skip_linkto_unlink  skip_unlink;
+
 };
 typedef struct dht_local dht_local_t;
 
@@ -752,4 +764,12 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode);
 int
 dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
 
+void
+dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
+                                     dht_layout_t *layout);
+int
+dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this);
+
+int
+dht_fill_dict_to_avoid_unlink_of_migrating_file (dict_t *dict);
 #endif/* _DHT_H */

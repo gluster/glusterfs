@@ -149,6 +149,15 @@
 #define GF_REBALANCE_TID_KEY     "rebalance-id"
 #define GF_REMOVE_BRICK_TID_KEY  "remove-brick-id"
 #define GF_REPLACE_BRICK_TID_KEY "replace-brick-id"
+#define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
+#define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
+
+#define DHT_LINKFILE_MODE        (S_ISVTX)
+
+#define IS_DHT_LINKFILE_MODE(iabuf) ((st_mode_from_ia ((iabuf)->ia_prot, \
+                                                       (iabuf)->ia_type) \
+                                      & ~S_IFMT)                        \
+                                     == DHT_LINKFILE_MODE)
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {

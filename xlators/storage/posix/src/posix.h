@@ -49,6 +49,16 @@
 #include "posix-aio.h"
 #endif
 
+#define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
+#define MAX_NO_VECT 1024
+
+#define LINKTO "trusted.glusterfs.dht.linkto"
+
+#define POSIX_GFID_HANDLE_SIZE(base_path_len) (base_path_len + SLEN("/") \
+                                               + SLEN(GF_HIDDEN_PATH) + SLEN("/") \
+                                               + SLEN("00/")            \
+                                               + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
