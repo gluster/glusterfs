@@ -164,11 +164,18 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                gf_log (this->name,
-                        (op_errno == ENOENT)?GF_LOG_DEBUG:GF_LOG_ERROR,
-                        "Lookup on normal graph failed with error %s",
-                        strerror (op_errno));
-                goto out;
+                if (subvolume == FIRST_CHILD (this)) {
+                        gf_log (this->name,
+                                (op_errno == ENOENT)?GF_LOG_DEBUG:GF_LOG_ERROR,
+                                "Lookup failed on normal graph with error %s",
+                                strerror (op_errno));
+                } else {
+                        gf_log (this->name,
+                                (op_errno == ENOENT)?GF_LOG_DEBUG:GF_LOG_ERROR,
+                                "Lookup failed on snapview graph with error %s",
+                                strerror (op_errno));
+                }
+                        goto out;
         }
 
         if (local->loc.parent)
