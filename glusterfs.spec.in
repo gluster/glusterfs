@@ -3,7 +3,7 @@
 %global _for_fedora_koji_builds 0
 
 # uncomment and add '%' to use the prereltag for pre-releases
-# %%global prereltag qa3
+# %%global prereltag beta2
 
 ##-----------------------------------------------------------------------------
 ## All argument definitions should be placed here and keep them sorted
@@ -44,7 +44,10 @@
 %{?_without_syslog:%global _without_syslog --disable-syslog}
 
 # disable syslog forcefully as rhel <= 6 doesn't have rsyslog or rsyslog-mmcount
-%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+# Fedora deprecated syslog, see
+#  https://fedoraproject.org/wiki/Changes/NoDefaultSyslog
+# (And what about RHEL7?)
+%if ( 0%{?fedora} && 0%{?fedora} >= 20 ) || ( 0%{?rhel} && 0%{?rhel} <= 6 )
 %global _without_syslog --disable-syslog
 %endif
 
@@ -142,8 +145,8 @@
 Summary:          Cluster File System
 %if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
-Version:          3.5.0
-Release:          0.1%{?prereltag:.%{prereltag}}%{?dist}
+Version:          3.6.0
+Release:          0.3%{?prereltag:.%{prereltag}}%{?dist}
 Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
@@ -214,7 +217,7 @@ Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
 %description
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -234,7 +237,7 @@ Requires:         %{name} = %{version}-%{release}
 Provides:         python-gluster = %{version}-%{release}
 
 %description api
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -251,7 +254,7 @@ Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-devel = %{version}-%{release}
 
 %description api-devel
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -267,7 +270,7 @@ Group:            Applications/File
 Requires:         %{name}-libs = %{version}-%{release}
 
 %description cli
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -285,7 +288,7 @@ Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-extra-xlators = %{version}-%{release}
 
 %description devel
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -303,7 +306,7 @@ Requires:         %{name}-api = %{version}-%{release}
 Requires:         python python-ctypes
 
 %description extra-xlators
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -325,7 +328,7 @@ Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
 
 %description fuse
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -344,7 +347,7 @@ Requires:         %{name}-server = %{version}-%{release}
 Requires:         python python-ctypes
 
 %description geo-replication
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file system in
@@ -368,7 +371,7 @@ Requires:         rsyslog-mmcount
 %endif
 
 %description libs
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -387,7 +390,7 @@ BuildRequires:    librdmacm-devel
 Requires:         %{name} = %{version}-%{release}
 
 %description rdma
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -434,7 +437,7 @@ Requires:         glusterfs-server
 Requires:         %{_prefix}/lib/ocf/resource.d
 
 %description resource-agents
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -469,7 +472,7 @@ Obsoletes:        %{name}-geo-replication = %{version}-%{release}
 %endif
 
 %description server
-GlusterFS is a clustered file-system capable of scaling to several
+GlusterFS is a distributed file-system capable of scaling to several
 petabytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
 system. GlusterFS is one of the most sophisticated file systems in
@@ -905,9 +908,6 @@ fi
 %endif
 
 %files fuse
-%if ( 0%{_for_fedora_koji_builds} )
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-fuse
-%endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
 /sbin/mount.glusterfs
 %if ( 0%{!?_without_fusermount:1} )
