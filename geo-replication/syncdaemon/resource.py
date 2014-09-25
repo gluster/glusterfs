@@ -651,7 +651,7 @@ class Server(object):
                 en = e['entry1']
                 st = lstat(entry)
                 if isinstance(st, int):
-                    if e['stat']:
+                    if e['stat'] and not stat.S_ISDIR(e['stat']['mode']):
                         (pg, bname) = entry2pb(en)
                         blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
