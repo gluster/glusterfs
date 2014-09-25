@@ -572,7 +572,6 @@ out:
         return 0;
 }
 
-#ifdef FALLOC_FL_KEEP_SIZE
 static int32_t
 posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 		   off_t offset, size_t len, struct iatt *statpre,
@@ -625,7 +624,6 @@ out:
 
         return ret;
 }
-#endif /* FALLOC_FL_KEEP_SIZE */
 
 char*
 _page_aligned_alloc (size_t size, char **aligned_buf)
@@ -796,16 +794,14 @@ _posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_siz
 		off_t offset, size_t len, dict_t *xdata)
 {
 	int32_t ret;
-#ifndef FALLOC_FL_KEEP_SIZE
-	ret = EOPNOTSUPP;
-
-#else /* FALLOC_FL_KEEP_SIZE */
 	int32_t flags = 0;
         struct iatt statpre = {0,};
         struct iatt statpost = {0,};
 
+#ifdef FALLOC_FL_KEEP_SIZE
 	if (keep_size)
 		flags = FALLOC_FL_KEEP_SIZE;
+#endif /* FALLOC_FL_KEEP_SIZE */
 
 	ret = posix_do_fallocate(frame, this, fd, flags, offset, len,
 				 &statpre, &statpost);
@@ -816,7 +812,6 @@ _posix_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_siz
 	return 0;
 
 err:
-#endif /* FALLOC_FL_KEEP_SIZE */
 	STACK_UNWIND_STRICT(fallocate, frame, -1, -ret, NULL, NULL, NULL);
 	return 0;
 }
