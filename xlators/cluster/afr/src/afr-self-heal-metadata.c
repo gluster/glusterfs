@@ -42,14 +42,19 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL);
 	if (ret < 0) {
-		loc_wipe (&loc);
-		return -EIO;
+		ret = -EIO;
+                goto out;
 	}
 
 	afr_filter_xattrs (xattr);
 	dict_del (xattr, GF_SELINUX_XATTR_KEY);
 
 	for (i = 0; i < priv->child_count; i++) {
+                if (old_xattr) {
+                        dict_unref (old_xattr);
+                        old_xattr = NULL;
+                }
+
 		if (!healed_sinks[i])
 			continue;
 
@@ -59,7 +64,6 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		if (ret)
 			healed_sinks[i] = 0;
 
-		old_xattr = NULL;
 		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0);
 		if (old_xattr) {
 			dict_del (old_xattr, GF_SELINUX_XATTR_KEY);
@@ -72,12 +76,16 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		if (ret)
 			healed_sinks[i] = 0;
 	}
+        ret = 0;
 
+out:
 	loc_wipe (&loc);
 	if (xattr)
 		dict_unref (xattr);
+        if (old_xattr)
+                dict_unref (old_xattr);
 
-	return 0;
+	return ret;
 }
 
 
