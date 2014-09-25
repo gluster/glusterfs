@@ -97,6 +97,7 @@ Requires(postun): systemd-units
 %define _init_enable()  /bin/systemctl enable %1.service ;
 %define _init_disable() /bin/systemctl disable %1.service ;
 %define _init_restart() /bin/systemctl try-restart %1.service ;
+%define _init_start()   /bin/systemctl start %1.service ;
 %define _init_stop()    /bin/systemctl stop %1.service ;
 %define _init_install() %{__install} -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
 # can't seem to make a generic macro that works
@@ -113,6 +114,7 @@ Requires(postun): /sbin/service
 %define _init_enable()  /sbin/chkconfig --add %1 ;
 %define _init_disable() /sbin/chkconfig --del %1 ;
 %define _init_restart() /sbin/service %1 condrestart &>/dev/null ;
+%define _init_start()   /sbin/service %1 start &>/dev/null ;
 %define _init_stop()    /sbin/service %1 stop &>/dev/null ;
 %define _init_install() %{__install} -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
 # can't seem to make a generic macro that works
@@ -267,6 +269,9 @@ Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-cli = %{version}-%{release}
 Requires:         %{name}-libs = %{version}-%{release}
 Requires:         %{name}-fuse = %{version}-%{release}
+# psmisc for killall, and nfs-utils and rpcbind/portmap for gnfs server
+Requires:         psmisc
+Requires:         nfs-utils
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
 %else
@@ -751,6 +756,9 @@ if [ $? -eq 0 ]; then
 
     killall glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
+    # glusterd _was_ running, we killed it, it exited after *.upgrade=on,
+    # so start it again
+    %_init_start glusterd
 else
     glusterd --xlator-option *.upgrade=on -N
 fi
@@ -774,6 +782,9 @@ if [ $1 -ge 1 ]; then
 fi
 
 %changelog
+* Fri Jun 27 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- psmisc (and nfsutils), better %post server logic (#1146624)
+
 * Sat Jan 4 2014 Niels de Vos <ndevos@redhat.com>
 - The main glusterfs package should not provide glusterfs-libs (#1048489)
 
