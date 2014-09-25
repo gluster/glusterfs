@@ -92,19 +92,30 @@ afr_shd_is_subvol_local (xlator_t *this, int subvol)
 
 	ret = syncop_getxattr (priv->children[subvol], &loc, &xattr,
 			       GF_XATTR_PATHINFO_KEY);
-	if (ret)
-		return _gf_false;
-	if (!xattr)
-		return _gf_false;
+	if (ret) {
+		is_local = _gf_false;
+                goto out;
+        }
+
+	if (!xattr) {
+		is_local = _gf_false;
+                goto out;
+        }
 
 	ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &pathinfo);
-	if (ret)
-		return _gf_false;
+	if (ret) {
+		is_local =  _gf_false;
+                goto out;
+        }
 
 	afr_local_pathinfo (pathinfo, &is_local);
 
 	gf_log (this->name, GF_LOG_DEBUG, "subvol %s is %slocal",
 		priv->children[subvol]->name, is_local? "" : "not ");
+
+out:
+        if (xattr)
+                dict_unref (xattr);
 
 	return is_local;
 }
@@ -864,27 +875,38 @@ out:
 int
 afr_shd_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p)
 {
-	loc_t loc = {0,};
-	char *path = NULL;
-	dict_t *xattr = NULL;
-	int ret = 0;
+        int      ret   = 0;
+        char    *path  = NULL;
+        loc_t    loc   = {0,};
+        dict_t  *xattr = NULL;
 
 	uuid_copy (loc.gfid, gfid);
 	loc.inode = inode_new (this->itable);
 
 	ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY);
-	loc_wipe (&loc);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
-	if (ret || !path)
-		return -EINVAL;
+	if (ret || !path) {
+		ret = -EINVAL;
+                goto out;
+        }
 
 	*path_p = gf_strdup (path);
-	if (!*path_p)
-		return -ENOMEM;
-	return 0;
+	if (!*path_p) {
+		ret = -ENOMEM;
+                goto out;
+        }
+
+	ret = 0;
+
+out:
+        if (xattr)
+                dict_unref (xattr);
+	loc_wipe (&loc);
+
+        return ret;
 }
 
 
@@ -1089,12 +1111,11 @@ afr_selfheal_childup (xlator_t *this, int subvol)
 }
 
 
-int64_t
-afr_shd_get_index_count (xlator_t *this, int i)
+int
+afr_shd_get_index_count (xlator_t *this, int i, uint64_t *count)
 {
 	afr_private_t *priv = NULL;
 	xlator_t *subvol = NULL;
-	uint64_t count = 0;
 	loc_t rootloc = {0, };
 	dict_t *xattr = NULL;
 	int ret = -1;
@@ -1107,15 +1128,21 @@ afr_shd_get_index_count (xlator_t *this, int i)
 
 	ret = syncop_getxattr (subvol, &rootloc, &xattr,
 			       GF_XATTROP_INDEX_COUNT);
+	if (ret < 0)
+		goto out;
+
+	ret = dict_get_uint64 (xattr, GF_XATTROP_INDEX_COUNT, count);
+	if (ret)
+		goto out;
+
+        ret = 0;
+
+out:
+        if (xattr)
+                dict_unref (xattr);
 	loc_wipe (&rootloc);
 
-	if (ret < 0)
-		return -1;
-
-	ret = dict_get_uint64 (xattr, GF_XATTROP_INDEX_COUNT, &count);
-	if (ret)
-		return -1;
-	return count;
+	return ret;
 }
 
 
@@ -1131,7 +1158,7 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 	int i = 0;
 	char key[64];
 	int op_ret = 0;
-	int64_t cnt = 0;
+	uint64_t cnt = 0;
 
 	priv = this->private;
 	shd = &priv->shd;
@@ -1239,8 +1266,8 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 			} else {
 				snprintf (key, sizeof (key), "%d-%d-hardlinks",
                                           xl_id, i);
-				cnt = afr_shd_get_index_count (this, i);
-				if (cnt >= 0) {
+				ret = afr_shd_get_index_count (this, i, &cnt);
+				if (ret == 0) {
 					ret = dict_set_uint64 (output, key, cnt);
 				}
 				op_ret = 0;
