@@ -6,7 +6,7 @@
 ping_file () {
         echo hello > $1 2> /dev/null
 }
-for d in /etc/ssl /etc/openssl /opt/local/etc/openssl ; do
+for d in /etc/ssl /etc/openssl /usr/local/etc/openssl ; do
         if test -d $d ; then
                 SSL_BASE=$d
                 break
