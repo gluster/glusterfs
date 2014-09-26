@@ -54,7 +54,7 @@
 #    define DEFAULT_ETC_SSL "/etc/openssl"
 #  endif
 #  ifdef GF_DARWIN_HOST_OS
-#    define DEFAULT_ETC_SSL "/opt/local/etc/openssl"
+#    define DEFAULT_ETC_SSL "/usr/local/etc/openssl"
 #  endif
 #  if !defined(DEFAULT_ETC_SSL)
 #    define DEFAULT_ETC_SSL "/etc/ssl"
