@@ -1068,7 +1068,7 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 {
         inode_t *inode = NULL;
 	call_frame_t *frame = NULL;
-	int ret = -1;
+	int ret = -1, entry_ret = 0, metadata_ret = 0, data_ret = 0;
 	gf_boolean_t data_selfheal = _gf_false;
 	gf_boolean_t metadata_selfheal = _gf_false;
 	gf_boolean_t entry_selfheal = _gf_false;
@@ -1085,13 +1085,18 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 		goto out;
 
 	if (data_selfheal)
-		afr_selfheal_data (frame, this, inode);
+                data_ret = afr_selfheal_data (frame, this, inode);
 
 	if (metadata_selfheal)
-		afr_selfheal_metadata (frame, this, inode);
+                metadata_ret = afr_selfheal_metadata (frame, this, inode);
 
 	if (entry_selfheal)
-		afr_selfheal_entry (frame, this, inode);
+                entry_ret = afr_selfheal_entry (frame, this, inode);
+
+        if (data_ret == -EIO || metadata_ret == -EIO || entry_ret == -EIO)
+                ret = -EIO;
+        else
+                ret = (data_ret | metadata_ret | entry_ret);
 
 	inode_forget (inode, 1);
         inode_unref (inode);
