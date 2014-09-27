@@ -4769,13 +4769,16 @@ afr_priv_destroy (afr_private_t *priv)
         if (priv->shd.split_brain)
                 eh_destroy (priv->shd.split_brain);
 
-        for (i = 0; i < priv->child_count; i++)
+        if (priv->shd.statistics)
         {
-                if (priv->shd.statistics[i])
-                        eh_destroy (priv->shd.statistics[i]);
-        }
+                for (i = 0; i < priv->child_count; i++)
+                {
+                        if (priv->shd.statistics[i])
+                                eh_destroy (priv->shd.statistics[i]);
+                }
 
-        GF_FREE (priv->shd.statistics);
+                GF_FREE (priv->shd.statistics);
+        }
 
         GF_FREE (priv->shd.crawl_events);
 
