@@ -945,17 +945,28 @@ int
 posix_acl_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t off,
                     dict_t *xdata)
 {
+        struct posix_acl_ctx *ctx = NULL;
+
         if (acl_permits (frame, loc->inode, POSIX_ACL_WRITE))
                 goto green;
-        else
-                goto red;
+        /* NFS does a truncate through SETATTR, the owner does not need write
+         * permissions for this. Group permissions and root are checked above.
+         */
+        else if (frame->root->pid == NFS_PID) {
+                ctx = posix_acl_ctx_get (loc->inode, frame->this);
+
+                if (ctx && frame_is_user (frame, ctx->uid))
+                        goto green;
+        }
+
+        /* fail by default */
+        STACK_UNWIND_STRICT (truncate, frame, -1, EACCES, NULL, NULL, NULL);
+        return 0;
+
 green:
         STACK_WIND (frame, posix_acl_truncate_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->truncate,
                     loc, off, xdata);
-        return 0;
-red:
-        STACK_UNWIND_STRICT (truncate, frame, -1, EACCES, NULL, NULL, NULL);
         return 0;
 }
 
