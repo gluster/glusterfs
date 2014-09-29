@@ -36,7 +36,7 @@ The Gluster Console Manager is a command line utility for elastic volume managem
 \fB\ volume info [all|<VOLNAME>] \fR
 Display information about all volumes, or the specified volume.
 .TP
-\fB\ volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ... \fR
+\fB\ volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] [disperse [<COUNT>]] [redundancy <COUNT>] [transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> ... \fR
 Create a new volume of the specified type using the specified bricks and transport type (the default transport type is tcp).
 To create a volume with both transports (tcp and rdma), give 'transport tcp,rdma' as an option.
 .TP
