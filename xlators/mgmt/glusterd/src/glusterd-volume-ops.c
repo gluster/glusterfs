@@ -1095,23 +1095,26 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
         /*Check brick order if the volume type is replicate or disperse. If
          * force at the end of command not given then check brick order.
          */
-        ret = dict_get_int32 (dict, "type", &type);
-        if (ret) {
-                snprintf (msg, sizeof (msg), "Unable to get type of volume %s",
-                          volname);
-                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
-                goto out;
-        }
+        if (is_origin_glusterd (dict)) {
+                ret = dict_get_int32 (dict, "type", &type);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "Unable to get type of "
+                                  "volume %s", volname);
+                        gf_log (this->name, GF_LOG_WARNING, "%s", msg);
+                        goto out;
+                }
 
-        if (!is_force) {
-                if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
-                    (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) ||
-                    (type == GF_CLUSTER_TYPE_DISPERSE)) {
-                        ret = glusterd_check_brick_order(dict, msg);
-                        if (ret) {
-                                gf_log(this->name, GF_LOG_ERROR, "Not creating "
-                                       "volume because of bad brick order");
-                                goto out;
+                if (!is_force) {
+                        if ((type == GF_CLUSTER_TYPE_REPLICATE) ||
+                            (type == GF_CLUSTER_TYPE_STRIPE_REPLICATE) ||
+                            (type == GF_CLUSTER_TYPE_DISPERSE)) {
+                                ret = glusterd_check_brick_order(dict, msg);
+                                if (ret) {
+                                        gf_log(this->name, GF_LOG_ERROR, "Not "
+                                               "creating volume because of bad "
+                                               "brick order");
+                                        goto out;
+                                }
                         }
                 }
         }
