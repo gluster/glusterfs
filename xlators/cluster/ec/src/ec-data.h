@@ -149,8 +149,8 @@ struct _ec_lock
     int32_t              refs;
     int32_t              acquired;
     int32_t              have_size;
-    size_t               size;
-    size_t               size_delta;
+    uint64_t             size;
+    uint64_t             size_delta;
     uint64_t             version;
     uint64_t             version_delta;
     ec_fop_data_t *      owner;

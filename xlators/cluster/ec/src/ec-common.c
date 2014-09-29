@@ -1285,8 +1285,7 @@ out:
 void ec_flush_size_version(ec_fop_data_t * fop)
 {
     ec_lock_t * lock;
-    uint64_t version;
-    size_t delta;
+    uint64_t version, delta;
 
     GF_ASSERT(fop->lock_count == 1);
 
@@ -1316,8 +1315,7 @@ void ec_lock_reuse(ec_fop_data_t * fop, int32_t update)
     ec_fop_data_t * wait_fop;
     ec_lock_t * lock;
     ec_lock_link_t * link;
-    size_t delta = 0;
-    uint64_t version = 0;
+    uint64_t version = 0, delta = 0;
     int32_t refs = 0;
     int32_t i;
 
