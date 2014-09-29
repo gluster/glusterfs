@@ -225,9 +225,9 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                 runinit (&runner);
 
                 if (type == GF_QUOTA_OPTION_TYPE_ENABLE)
-
-                        runner_add_args (&runner, "/usr/bin/find", "find", ".",
-                                         NULL);
+                        runner_add_args (&runner, "/usr/bin/find", ".",
+                                         "-exec", "/usr/bin/stat",
+                                         "{}", "\\", ";", NULL);
 
                 else if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
 
