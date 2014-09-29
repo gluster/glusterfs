@@ -53,6 +53,8 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	syncbarrier_wait (&local->barrier, 1);
 
+        loc_wipe (&loc);
+
 	return 0;
 }
 
