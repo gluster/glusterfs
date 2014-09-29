@@ -229,6 +229,7 @@ afr_shd_index_opendir (xlator_t *this, int child)
 	int ret = 0;
 	dict_t *xattr = NULL;
 	void *index_gfid = NULL;
+	loc_t loc = {0, };
 
 	priv = this->private;
 	subvol = priv->children[child];
@@ -253,11 +254,43 @@ afr_shd_index_opendir (xlator_t *this, int child)
 	inode = afr_shd_inode_find (this, subvol, index_gfid);
 	if (!inode)
 		goto out;
-	fd = fd_anonymous (inode);
+
+	fd = fd_create (inode, GF_CLIENT_PID_AFR_SELF_HEALD);
+	if (!fd)
+		goto out;
+
+	uuid_copy (loc.gfid, index_gfid);
+	loc.inode = inode;
+
+	ret = syncop_opendir(this, &loc, fd);
+	if (ret) {
+	/*
+	 * On Linux, if the brick was not updated, opendir will
+	 * fail. We therefore use backward compatible code
+	 * that violate the standards by reusing offsets
+	 * in seekdir() from different DIR *, but it works on Linux.
+	 *
+	 * On other systems it never worked, hence we do not need
+	 * to provide backward-compatibility.
+	 */
+#ifdef GF_LINUX_HOST_OS
+		fd_unref (fd);
+		fd = fd_anonymous (inode);
+#else /* GF_LINUX_HOST_OS */
+		gf_log(this->name, GF_LOG_ERROR,
+		       "opendir of %s for %s failed: %s",
+		       uuid_utoa (index_gfid), subvol->name, strerror(errno));
+		fd_unref (fd);
+		fd = NULL;
+		goto out;
+#endif /* GF_LINUX_HOST_OS */
+	}
+
 out:
 	loc_wipe (&rootloc);
-        if (inode)
-                inode_unref (inode);
+
+	if (inode)
+		inode_unref (inode);
 
 	if (xattr)
 		dict_unref (xattr);
