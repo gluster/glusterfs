@@ -104,6 +104,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         char *      par_path           = NULL;
         struct iatt postparent         = {0,};
         int32_t     gfidless           = 0;
+        char        *pgfid_xattr_key   = NULL;
+        int32_t     nlink_samepgfid    = 0;
         struct  posix_private *priv    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -155,6 +157,25 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         if (xdata && (op_ret == 0)) {
                 xattr = posix_lookup_xattr_fill (this, real_path, loc,
                                                  xdata, &buf);
+        }
+
+        if (priv->update_pgfid_nlinks) {
+                if (!uuid_is_null (loc->pargfid) && !IA_ISDIR (buf.ia_type)) {
+                        MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
+                                              PGFID_XATTR_KEY_PREFIX,
+                                              loc->pargfid);
+
+                        LOCK (&loc->inode->lock);
+                        {
+                                SET_PGFID_XATTR_IF_ABSENT (real_path,
+                                                           pgfid_xattr_key,
+                                                           nlink_samepgfid,
+                                                           XATTR_CREATE, op_ret,
+                                                           this, unlock);
+                        }
+unlock:
+                        UNLOCK (&loc->inode->lock);
+                }
         }
 
 parent:

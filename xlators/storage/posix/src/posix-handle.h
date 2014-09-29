@@ -51,6 +51,22 @@
         }                                                               \
         } while (0)
 
+#define SET_PGFID_XATTR_IF_ABSENT(path, key, value, flags, op_ret, this, label)\
+        do {                                                                   \
+                op_ret = sys_lgetxattr (path, key, &value, sizeof (value));    \
+                if (op_ret == -1) {                                            \
+                        op_errno = errno;                                      \
+                        if (op_errno == ENOATTR) {                             \
+                                value = 1;                                     \
+                                SET_PGFID_XATTR (path, key, value, flags,      \
+                                                 op_ret, this, label);         \
+                        } else {                                               \
+                                gf_log(this->name, GF_LOG_WARNING, "getting "  \
+                                       "xattr failed on %s: key = %s (%s)",    \
+                                       path, key, strerror (op_errno));        \
+                        }                                                      \
+                }                                                              \
+        } while (0)
 
 #define REMOVE_PGFID_XATTR(path, key, op_ret, this, label) do {               \
        op_ret = sys_lremovexattr (path, key);                           \
