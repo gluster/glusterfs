@@ -3335,12 +3335,12 @@ sub process {
                   "trailing statements should be on next line\n" . $herecurr);
         }
 
-        # Check for }<nl>else {, these must be at the same
-        # indent level to be relevant to each other.
-        if ($prevline=~/}\s*$/ and $line=~/^.\s*else\s*/ and
-            $previndent == $indent) {
+        # Check for "} else" which is less readable.  Having if/else keywords
+	# line up is a good thing, and having control structures on the same
+	# line as a close-brace is bad.
+        if ($line=~/^.\s*}\selse\s*/) {
             ERROR("ELSE_AFTER_BRACE",
-                  "else should follow close brace '}'\n" . $hereprev);
+                  "'}' and 'else' should be on separate lines\n" . $hereprev);
         }
 
         if ($prevline=~/}\s*$/ and $line=~/^.\s*while\s*/ and
