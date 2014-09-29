@@ -4842,6 +4842,17 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 rewinddir (dir);
         } else {
                 seekdir (dir, off);
+#ifndef GF_LINUX_HOST_OS
+                if (telldir(dir) != off) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "seekdir(%ld) failed on dir=%p: "
+                                "Invalid argument (offset reused from "
+                                "another DIR * structure?)", (long)off, dir);
+                        errno = EINVAL;
+                        count = -1;
+                        goto out;
+                }
+#endif /* GF_LINUX_HOST_OS */
         }
 
         while (filled <= size) {
@@ -4904,6 +4915,18 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
 
                 if (this_size + filled > size) {
                         seekdir (dir, in_case);
+#ifndef GF_LINUX_HOST_OS
+                        if (telldir(dir) != in_case) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "seekdir(%ld) failed on dir=%p: "
+                                        "Invalid argument (offset reused from "
+                                        "another DIR * structure?)",
+                                        (long)in_case, dir);
+                                errno = EINVAL;
+                                count = -1;
+                                goto out;
+                        }
+#endif /* GF_LINUX_HOST_OS */
                         break;
                 }
 

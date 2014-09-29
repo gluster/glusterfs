@@ -285,6 +285,17 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
                 rewinddir (dir);
         } else {
                 seekdir (dir, off);
+#ifndef GF_LINUX_HOST_OS
+                if (telldir(dir) != off) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "seekdir(%ld) failed on dir=%p: "
+				"Invalid argument (offset reused from "
+				"another DIR * structure?)", (long)off, dir);
+                        errno = EINVAL;
+                        count = -1;
+                        goto out;
+                }
+#endif /* GF_LINUX_HOST_OS */
         }
 
         while (filled <= size) {
@@ -323,6 +334,18 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
 
                 if (this_size + filled > size) {
                         seekdir (dir, in_case);
+#ifndef GF_LINUX_HOST_OS
+                        if (telldir(dir) != in_case) {
+				gf_log (THIS->name, GF_LOG_ERROR,
+					"seekdir(%ld) failed on dir=%p: "
+					"Invalid argument (offset reused from "
+					"another DIR * structure?)",
+					(long)in_case, dir);
+				errno = EINVAL;
+				count = -1;
+				goto out;
+                        }
+#endif /* GF_LINUX_HOST_OS */
                         break;
                 }
 
@@ -1043,6 +1066,26 @@ normal:
 }
 
 int32_t
+index_opendir (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, fd_t *fd, dict_t *xdata)
+{
+        index_priv_t    *priv = NULL;
+
+        priv = this->private;
+        if (uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
+                goto normal;
+
+        frame->local = NULL;
+        STACK_UNWIND_STRICT (opendir, frame, 0, 0, fd, NULL);
+        return 0;
+
+normal:
+        STACK_WIND (frame, default_opendir_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+        return 0;
+}
+
+int32_t
 index_readdir (call_frame_t *frame, xlator_t *this,
                fd_t *fd, size_t size, off_t off, dict_t *xdata)
 {
@@ -1267,6 +1310,7 @@ struct xlator_fops fops = {
         //interface functions follow
         .getxattr    = index_getxattr,
         .lookup      = index_lookup,
+        .opendir     = index_opendir,
         .readdir     = index_readdir,
         .unlink      = index_unlink
 };
