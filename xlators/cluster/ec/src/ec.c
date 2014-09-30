@@ -19,8 +19,10 @@
 */
 
 #include "defaults.h"
+#include "statedump.h"
 
 #include "ec-mem-types.h"
+#include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-fops.h"
 #include "ec-method.h"
@@ -830,6 +832,30 @@ int32_t ec_gf_releasedir(xlator_t * this, fd_t * fd)
     return 0;
 }
 
+int32_t ec_dump_private(xlator_t *this)
+{
+    ec_t *ec = NULL;
+    char  key_prefix[GF_DUMP_MAX_BUF_LEN];
+    char  tmp[65];
+
+    GF_ASSERT(this);
+
+    ec = this->private;
+    GF_ASSERT(ec);
+
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
+    gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_write("nodes", "%u", ec->nodes);
+    gf_proc_dump_write("redundancy", "%u", ec->redundancy);
+    gf_proc_dump_write("fragment_size", "%u", ec->fragment_size);
+    gf_proc_dump_write("stripe_size", "%u", ec->stripe_size);
+    gf_proc_dump_write("childs_up", "%u", ec->xl_up_count);
+    gf_proc_dump_write("childs_up_mask", "%s",
+                       ec_bin(tmp, sizeof(tmp), ec->xl_up, ec->nodes));
+
+    return 0;
+}
+
 struct xlator_fops fops =
 {
     .lookup       = ec_gf_lookup,
@@ -882,6 +908,10 @@ struct xlator_cbks cbks =
     .forget            = ec_gf_forget,
     .release           = ec_gf_release,
     .releasedir        = ec_gf_releasedir
+};
+
+struct xlator_dumpops dumpops = {
+    .priv = ec_dump_private
 };
 
 struct volume_options options[] =

@@ -110,6 +110,30 @@ function afr_child_up_status {
         _afr_child_up_status $vol $brick_id generate_mount_statedump
 }
 
+function ec_get_info {
+        local vol=$1
+        local dist_id=$2
+        local key=$3
+        local fpath=$(generate_mount_statedump $vol)
+        local value=$(sed -n "/^\[cluster\/disperse\.$vol-disperse-$dist_id\]/,/^\[/{s/^$key=\(.*\)/\1/p;}" $fpath | head -1)
+        rm -f $fpath
+        echo "$value"
+}
+
+function ec_child_up_status {
+        local vol=$1
+        local dist_id=$2
+        local brick_id=$(($3 + 1))
+        local mask=$(ec_get_info $vol $dist_id "childs_up_mask")
+        echo "${mask: -$brick_id:1}"
+}
+
+function ec_child_up_count {
+        local vol=$1
+        local dist_id=$2
+        ec_get_info $vol $dist_id "childs_up"
+}
+
 function get_shd_process_pid {
         local vol=$1
         ps auxww | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
