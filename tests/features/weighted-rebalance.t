@@ -46,11 +46,11 @@ TEST $CLI volume info
 
 TEST mkdir ${B0}/${V0}{1,2}
 
-TEST truncate --size $((40*1024*1024)) ${B0}/disk1
+TEST truncate -s $((40*1024*1024)) ${B0}/disk1
 TEST mkfs.xfs -f -i size=512 ${B0}/disk1
 TEST mount -o loop ${B0}/disk1 ${B0}/${V0}1
 
-TEST truncate --size $((80*1024*1024)) ${B0}/disk2
+TEST truncate -s $((80*1024*1024)) ${B0}/disk2
 TEST mkfs.xfs -f -i size=512 ${B0}/disk2
 TEST mount -o loop ${B0}/disk2 ${B0}/${V0}2
 

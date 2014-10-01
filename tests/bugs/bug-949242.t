@@ -33,7 +33,7 @@ TEST unlink $M0/file
 
 # truncate a file to a fixed size, fallocate and verify that the size does not
 # change
-TEST truncate --size=1m $M0/file
+TEST truncate -s 1M $M0/file
 TEST fallocate -l 2m -n $M0/file
 blksz=`stat -c %b $M0/file`
 nblks=`stat -c %B $M0/file`
