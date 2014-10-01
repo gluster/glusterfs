@@ -30,7 +30,7 @@ i=1
 # Write some data to a file and extend such that the file is sparse to a sector
 # aligned boundary.
 echo test > $M0/$i
-TEST truncate --size=1m $M0/$i
+TEST truncate -s 1M $M0/$i
 
 # cache the original size
 SIZE1=`stat -c %s $M0/$i`

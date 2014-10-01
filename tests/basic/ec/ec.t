@@ -37,7 +37,7 @@ function check_create_write {
 }
 
 function check_truncate {
-    truncate --size=8192 $tmpdir/truncate
+    truncate -s 8192 $tmpdir/truncate
     for b in $*; do
         cmp $tmpdir/truncate $b/truncate || return 1
     done
@@ -165,7 +165,7 @@ sleep 10
 # Test create+write
 TEST cp $tmpdir/create-write $M0/
 # Test truncate
-TEST truncate --size=8192 $M0/truncate
+TEST truncate -s 8192 $M0/truncate
 # Test hard link
 TEST ln $M0/hard-link-1 $M0/hard-link-2
 # Test soft link
