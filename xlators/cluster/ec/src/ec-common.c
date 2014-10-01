@@ -328,7 +328,7 @@ void ec_complete(ec_fop_data_t * fop)
 
     if (--fop->winds == 0)
     {
-        if ((fop->answer == NULL) && (fop->expected != 1))
+        if (fop->answer == NULL)
         {
             if (!list_empty(&fop->cbk_list))
             {
