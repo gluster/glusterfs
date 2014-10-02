@@ -15,9 +15,15 @@
 #include "config.h"
 #endif
 
+#include <limits.h>
 #include <sys/types.h>
 #include "xlator.h"
 #include "gf-dirent.h"
+
+/* From Open Group Base Specifications Issue 6 */
+#ifndef _XOPEN_PATH_MAX
+#define _XOPEN_PATH_MAX 1024
+#endif
 
 #define TRASH_DIR "landfill"
 
@@ -120,10 +126,18 @@
     } while (0)
 
 #define MAKE_REAL_PATH(var, this, path) do {                            \
-        var = alloca (strlen (path) + POSIX_BASE_PATH_LEN(this) + 2);   \
-        strcpy (var, POSIX_BASE_PATH(this));                            \
-        strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);                 \
-        } while (0)
+        size_t path_len = strlen(path);                                 \
+        size_t var_len = path_len + POSIX_BASE_PATH_LEN(this) + 1;      \
+        if (POSIX_PATH_MAX(this) != -1 &&                               \
+            var_len >= POSIX_PATH_MAX(this)) {                          \
+                var = alloca (path_len + 1);                            \
+                strcpy (var, (path[0] == '/') ? path + 1 : path);       \
+        } else {                                                        \
+                var = alloca (var_len);                                 \
+                strcpy (var, POSIX_BASE_PATH(this));                    \
+                strcpy (&var[POSIX_BASE_PATH_LEN(this)], path);         \
+        }                                                               \
+    } while (0)
 
 #define MAKE_HANDLE_PATH(var, this, gfid, base) do {                    \
         int __len;                                                      \
