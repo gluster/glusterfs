@@ -5663,6 +5663,40 @@ init (xlator_t *this)
         _private->base_path = gf_strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
 
+        /*
+         * _XOPEN_PATH_MAX is the longest file path len we MUST
+         * support according to POSIX standard. When prepended
+         * by the brick base path it may exceed backed filesystem
+         * capacity (which MAY be bigger than _XOPEN_PATH_MAX). If
+         * this is the case, chdir() to the brick base path and
+         * use relative paths when they are too long. See also
+         * MAKE_REAL_PATH in posix-handle.h
+          */
+        _private->path_max = pathconf(_private->base_path, _PC_PATH_MAX);
+        if (_private->path_max != -1 &&
+            _XOPEN_PATH_MAX + _private->base_path_length > _private->path_max) {
+                ret = chdir(_private->base_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "chdir() to \"%s\" failed",
+                                _private->base_path);
+                        goto out;
+                }
+#ifdef __NetBSD__
+                /*
+                 * At least on NetBSD, the chdir() above uncovers a
+                 * race condition which cause file lookup to fail
+                 * with ENODATA for a few seconds. The volume quickly
+                 * reaches a sane state, but regression tests are fast
+                 * enough to choke on it. The reason is obscure (as
+                 * often with race conditions), but sleeping here for
+                 * a second seems to workaround the problem.
+                 */
+                sleep(1);
+#endif
+        }
+
+
         LOCK_INIT (&_private->lock);
 
         ret = dict_get_str (this->options, "hostname", &_private->hostname);
