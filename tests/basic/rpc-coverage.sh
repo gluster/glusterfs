@@ -47,6 +47,9 @@
 #set -e;
 set -o pipefail;
 
+# pull compatibility functions (e.g.: stat replacement if not running Linux)
+. $(dirname $0)/../include.rc
+
 function fail() {
     echo "$*: failed.";
     exit 1;
@@ -71,8 +74,8 @@ function test_statfs()
 {
     local size;
 
-    size=$(stat -c -c '%s' $PFX/dir/file);
-    test "x$size" != "x0" || fail "statfs"
+    mode=$(stat -c '%a' $PFX/dir/file);
+    test "x$mode" == "x644" || fail "statfs"
 }
 
 
@@ -85,8 +88,8 @@ function test_open()
 
 function test_write()
 {
-    dd if=/dev/zero of=$PFX/dir/file bs=65536 count=16 2>/dev/null;
-    test $(stat -c '%s' $PFX/dir/file) == 1048576 || fail "open"
+    dd if=/dev/zero of=$PFX/dir/file bs=65536 count=16
+    test $(stat -c '%s' $PFX/dir/file) == 1048576 || fail "write"
 }
 
 
@@ -114,7 +117,9 @@ function test_fstat()
     local msg;
 
     export PFX;
-    msg=$(sh -c 'tail -f $PFX/dir/file --pid=$$ & sleep 1 && echo hooha > $PFX/dir/file && sleep 1');
+    echo hooha > $PFX/dir/file
+    sleep 1
+    msg=$(sh -c 'tail $PFX/dir/file')
     test "x$msg" == "xhooha" || fail "fstat"
 }
 
@@ -139,10 +144,8 @@ function test_symlink()
 {
     local msg;
 
-    pushd;
-    cd $PFX/dir;
-    ln -s file symlink;
-    popd;
+    ( cd $PFX/dir && ln -s file symlink; )
+
     test "$(stat -c '%F' $PFX/dir/symlink)" == "symbolic link" || fail "Creation of symlink"
 
     msg=$(cat $PFX/dir/symlink);
@@ -355,21 +358,21 @@ function test_utimes()
 
 function test_locks()
 {
-    exec 200>$PFX/dir/lockfile || fail "exec"
+    exec 100>$PFX/dir/lockfile || fail "exec"
 
     ## exclusive locks test
-    flock -e 200 || fail "flock -e"
-    ! flock -n -e $PFX/dir/lockfile -c true || fail "! flock -n -e"
+    flock -x 100 || fail "flock -x"
+    ! flock -n -x $PFX/dir/lockfile -c true || fail "! flock -n -x"
     ! flock -n -s $PFX/dir/lockfile -c true || fail "! flock -n -s"
-    flock -u 200 || fail "flock -u"
+    flock -u 100 || fail "flock -u"
 
     ## shared locks test
-    flock -s 200 || fail "flock -s"
-    ! flock -n -e $PFX/dir/lockfile -c true || fail "! flock -n -e"
+    flock -s 100 || fail "flock -s"
+    ! flock -n -x $PFX/dir/lockfile -c true || fail "! flock -n -x"
     flock -n -s $PFX/dir/lockfile -c true || fail "! flock -n -s"
-    flock -u 200 || fail "flock -u"
+    flock -u 100 || fail "flock -u"
 
-    exec 200>&- || fail "exec"
+    exec 100>&- || fail "exec"
 
 }
 
