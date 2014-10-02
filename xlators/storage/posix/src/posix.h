@@ -76,6 +76,7 @@ struct posix_fd {
 struct posix_private {
 	char   *base_path;
 	int32_t base_path_length;
+	int32_t path_max;
 
         gf_lock_t lock;
 
@@ -188,6 +189,8 @@ typedef struct {
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
 #define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)
+
+#define POSIX_PATH_MAX(this) (((struct posix_private *)this->private)->path_max)
 
 /* Helper functions */
 int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
