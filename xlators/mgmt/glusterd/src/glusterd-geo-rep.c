@@ -2821,32 +2821,40 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
                                 goto out;
                         }
                 } else {
-                        ret = kill (-pid, SIGCONT);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to resume gsyncd. Error: %s",
-                                         strerror (errno));
-                                goto out;
-                        }
                         token = strtok (monitor_status, "(");
                         ret = glusterd_create_status_file (master, slave,
                                                            slave_host,
                                                            slave_vol, token);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "Unable to update state_file."
-                                        " Error : %s", strerror (errno));
-                                /* If status cannot be updated pause back */
-                                if (kill (-pid, SIGSTOP)) {
+                                        "Resume Failed: Unable to update "
+                                        "state_file. Error : %s",
+                                        strerror (errno));
+                                goto out;
+                        }
+                        ret = kill (-pid, SIGCONT);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Resumed Failed: Unable to send"
+                                        " SIGCONT. Error: %s",
+                                         strerror (errno));
+                                /* Process can't be resumed, update status
+                                 * back to paused. */
+                                ret = glusterd_create_status_file (master,
+                                                                   slave,
+                                                                   slave_host,
+                                                                   slave_vol,
+                                                                monitor_status);
+                                if (ret) {
                                         snprintf (errmsg, sizeof(errmsg),
-                                                  "Resume successful but could "
-                                                  "not update status file."
-                                                  " Please use 'pause force' to"
-                                                  " pause back and retry resume"
-                                                  " to reflect in status");
+                                                  "Resume failed!!! Status "
+                                                  "inconsistent. Please use "
+                                                  "'resume force' to resume and"
+                                                  " reach consistent state");
                                         gf_log (this->name, GF_LOG_ERROR,
-                                                "Pause back Failed. Error: %s",
-                                                 strerror (errno));
+                                                "Updating status back to paused"
+                                                " Failed. Error: %s",
+                                                strerror (errno));
                                         *op_errstr = gf_strdup (errmsg);
                                 }
                                 goto out;
