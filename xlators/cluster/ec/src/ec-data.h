@@ -278,6 +278,7 @@ struct _ec_heal
     uintptr_t       good;
     uintptr_t       bad;
     uintptr_t       open;
+    uintptr_t       fixed;
     uint64_t        offset;
     uint64_t        size;
     uint64_t        version;

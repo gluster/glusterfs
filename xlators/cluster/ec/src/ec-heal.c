@@ -70,6 +70,7 @@ void ec_heal_lookup_resume(ec_fop_data_t * fop)
                 heal->raw_size = cbk->size;
                 heal->fop->pre_size = cbk->iatt[0].ia_size;
                 heal->fop->post_size = cbk->iatt[0].ia_size;
+                heal->fop->have_size = 1;
 
                 if (!ec_loc_prepare(heal->xl, &heal->loc, cbk->inode,
                                     &cbk->iatt[0]))
@@ -559,7 +560,7 @@ void ec_heal_inodelk(ec_heal_t * heal, int32_t type, int32_t use_fd,
     }
 }
 
-void ec_heal_lookup(ec_heal_t * heal)
+void ec_heal_lookup(ec_heal_t *heal, uintptr_t mask)
 {
     dict_t * xdata;
     int32_t error = ENOMEM;
@@ -574,7 +575,7 @@ void ec_heal_lookup(ec_heal_t * heal)
         goto out;
     }
 
-    ec_lookup(heal->fop->frame, heal->xl, heal->fop->mask, EC_MINIMUM_MIN,
+    ec_lookup(heal->fop->frame, heal->xl, mask, EC_MINIMUM_MIN,
               ec_heal_inode_lookup_cbk, heal, &heal->loc, xdata);
 
     error = 0;
@@ -1098,7 +1099,7 @@ void ec_heal_dispatch(ec_heal_t * heal)
     {
         cbk->uintptr[0] = heal->available;
         cbk->uintptr[1] = heal->good;
-        cbk->uintptr[2] = heal->bad;
+        cbk->uintptr[2] = heal->fixed;
 
         ec_combine(cbk, NULL);
 
@@ -1196,7 +1197,7 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_HEAL_PRE_INODE_LOOKUP;
 
         case EC_STATE_HEAL_PRE_INODE_LOOKUP:
-            ec_heal_lookup(heal);
+            ec_heal_lookup(heal, heal->fop->mask);
 
             return EC_STATE_HEAL_XATTRIBUTES_REMOVE;
 
@@ -1278,12 +1279,13 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_HEAL_POST_INODE_LOOKUP;
 
         case EC_STATE_HEAL_POST_INODE_LOOKUP:
-            ec_heal_lookup(heal);
+            heal->fixed = heal->bad;
+            ec_heal_lookup(heal, heal->good);
 
             return EC_STATE_HEAL_SETATTR;
 
         case EC_STATE_HEAL_SETATTR:
-            ec_setattr(heal->fop->frame, heal->xl, heal->bad, EC_MINIMUM_ONE,
+            ec_setattr(heal->fop->frame, heal->xl, heal->fixed, EC_MINIMUM_ONE,
                        ec_heal_setattr_cbk, heal, &heal->loc, &heal->iatt,
                        GF_SET_ATTR_MODE | GF_SET_ATTR_UID | GF_SET_ATTR_GID |
                        GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME, NULL);

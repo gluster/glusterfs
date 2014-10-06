@@ -1166,7 +1166,13 @@ void ec_get_size_version(ec_fop_data_t * fop)
         goto out;
     }
 
-    ec_lookup(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
+    /* For normal fops, ec_lookup() must succeed on at least EC_MINIMUM_MIN
+     * bricks, however when this is called as part of a self-heal operation
+     * the mask of target bricks (fop->mask) could contain less than
+     * EC_MINIMUM_MIN bricks, causing the lookup to always fail. Thus we
+     * always use the same minimum used for the main fop.
+     */
+    ec_lookup(fop->frame, fop->xl, fop->mask, fop->minimum,
               ec_get_size_version_set, NULL, &loc, xdata);
 
     fop->frame->root->uid = uid;
