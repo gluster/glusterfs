@@ -12,7 +12,7 @@ if [ ! -d $tmp ]; then
     exit 1
 fi
 
-TESTS_EXPECTED_IN_LOOP=85
+TESTS_EXPECTED_IN_LOOP=250
 
 TEST glusterd
 TEST pidof glusterd
@@ -34,16 +34,24 @@ for idx in {0..5}; do
     brick[$idx]=$(gf_get_gfid_backend_file_path $B0/$V0$idx)
 done
 
+
 cd $M0
 TEST cp $tmp/test test
 TEST chmod 644 test
+TEST touch -d "@946681200" test
 EXPECT "-rw-r--r--" stat -c "%A" test
+EXPECT "946681200" stat -c "%Y" test
 
 for idx1 in {0..5}; do
     TEST chmod 666 ${brick[$idx1]}/test
+    TEST truncate -s 0 ${brick[$idx1]}/test
+    TEST setfattr -n user.test -v "test1" ${brick[$idx1]}/test
     sleep 1
     EXPECT "-rw-r--r--" stat -c "%A" test
+    EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[$idx1]}/test
     EXPECT_WITHIN $HEAL_TIMEOUT "-rw-r--r--" stat -c "%A" ${brick[$idx1]}/test
+    EXPECT_WITHIN $HEAL_TIMEOUT "946681200" stat -c "%Y" ${brick[$idx1]}/test
+    TEST ! getfattr -n user.test ${brick[$idx1]}/test
 done
 
 for idx1 in {0..4}; do
@@ -51,31 +59,23 @@ for idx1 in {0..4}; do
         if [ $idx1 -ne $idx2 ]; then
             TEST chmod 666 ${brick[$idx1]}/test
             TEST chmod 600 ${brick[$idx2]}/test
+            TEST truncate -s 0 ${brick[$idx1]}/test
+            TEST truncate -s 2097152 ${brick[$idx2]}/test
+            TEST setfattr -n user.test -v "test1" ${brick[$idx1]}/test
+            TEST setfattr -n user.test -v "test2" ${brick[$idx2]}/test
             sleep 1
             EXPECT "-rw-r--r--" stat -c "%A" test
+            EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[$idx1]}/test
+            EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[$idx2]}/test
             EXPECT_WITHIN $HEAL_TIMEOUT "-rw-r--r--" stat -c "%A" ${brick[$idx1]}/test
             EXPECT_WITHIN $HEAL_TIMEOUT "-rw-r--r--" stat -c "%A" ${brick[$idx2]}/test
+            EXPECT_WITHIN $HEAL_TIMEOUT "946681200" stat -c "%Y" ${brick[$idx1]}/test
+            EXPECT_WITHIN $HEAL_TIMEOUT "946681200" stat -c "%Y" ${brick[$idx2]}/test
+            TEST ! getfattr -n user.test ${brick[$idx1]}/test
+            TEST ! getfattr -n user.test ${brick[$idx2]}/test
         fi
     done
 done
-
-TEST truncate -s 0 ${brick[0]}/test
-TEST truncate -s 2097152 ${brick[1]}/test
-TEST setfattr -n user.test -v "test1" ${brick[0]}/test
-TEST setfattr -n user.test -v "test2" ${brick[1]}/test
-TEST chmod 600 ${brick[0]}/test
-TEST chmod 666 ${brick[1]}/test
-sleep 1
-
-EXPECT "1048576" stat -c "%s" test
-TEST ! getfattr -n user.test test
-
-EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[0]}/test
-EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[1]}/test
-TEST ! getfattr -n user.test ${brick[0]}/test
-TEST ! getfattr -n user.test ${brick[1]}/test
-EXPECT "-rw-r--r--" stat -c "%A" ${brick[0]}/test
-EXPECT "-rw-r--r--" stat -c "%A" ${brick[1]}/test
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}1
