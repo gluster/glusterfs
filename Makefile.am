@@ -6,6 +6,7 @@ EXTRA_DIST = autogen.sh \
 	build-aux/pkg-version \
 	build-aux/xdrgen \
         contrib/argp-standalone \
+        contrib/umountd \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
 SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api xlators glusterfsd \
