@@ -6072,7 +6072,8 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
         char                    logfile[PATH_MAX]          = {0,};
         char                    volfile[PATH_MAX]          = {0,};
         char                    rundir[PATH_MAX]           = {0,};
-        char                    sockfpath[PATH_MAX] = {0,};
+        char                    sockfpath[PATH_MAX]        = {0,};
+        char                    *volfileserver             = NULL;
         char                    volfileid[256]             = {0};
         char                    glusterd_uuid_option[1024] = {0};
         char                    valgrind_logfile[PATH_MAX] = {0};
@@ -6107,6 +6108,11 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
                   server);
         snprintf (volfileid, sizeof (volfileid), "gluster/%s", server);
 
+        if (dict_get_str (this->options, "transport.socket.bind-address",
+                          &volfileserver) != 0) {
+                volfileserver = "localhost";
+        }
+
         glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
                                               sockfpath, sizeof (sockfpath));
 
@@ -6128,7 +6134,7 @@ glusterd_nodesvc_start (char *server, gf_boolean_t wait)
        }
 
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", "localhost",
+                         "-s", volfileserver,
                          "--volfile-id", volfileid,
                          "-p", pidfile,
                          "-l", logfile,
@@ -13287,6 +13293,7 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
         char                    rundir[PATH_MAX]           = {0,};
         char                    sockfpath[PATH_MAX]        = {0,};
         char                    volfileid[256]             = {0};
+        char                   *volfileserver              = NULL;
         char                    valgrind_logfile[PATH_MAX] = {0};
         int                     snapd_port                 = 0;
         char                   *volname                    = volinfo->volname;
@@ -13329,6 +13336,11 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
         glusterd_set_snapd_socket_filepath (volinfo, sockfpath,
                                             sizeof (sockfpath));
 
+        if (dict_get_str (this->options, "transport.socket.bind-address",
+                          &volfileserver) != 0) {
+                volfileserver = "localhost";
+        }
+
         runinit (&runner);
 
         if (priv->valgrind) {
@@ -13344,7 +13356,7 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
 
         snprintf (snapd_id, sizeof (snapd_id), "snapd-%s", volname);
         runner_add_args (&runner, SBIN_DIR"/glusterfsd",
-                         "-s", "localhost",
+                         "-s", volfileserver,
                          "--volfile-id", volfileid,
                          "-p", pidfile,
                          "-l", logfile,
