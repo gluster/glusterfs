@@ -1848,6 +1848,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    logfile[PATH_MAX] = {0,};
         int                     port = 0;
         int                     rdma_port = 0;
+        char                    *bind_address = NULL;
         char                    socketpath[PATH_MAX] = {0};
         char                    glusterd_uuid[1024] = {0,};
         char                    valgrind_logfile[PATH_MAX] = {0};
@@ -1959,6 +1960,13 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf (&runner, "%s-server.listen-port=%d",
                           volinfo->volname, port);
+
+        if (dict_get_str (this->options, "transport.socket.bind-address",
+                          &bind_address) == 0) {
+                runner_add_arg (&runner, "--xlator-option");
+                runner_argprintf (&runner, "transport.socket.bind-address=%s",
+                                  bind_address);
+        }
 
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
