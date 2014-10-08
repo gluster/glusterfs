@@ -76,10 +76,10 @@ struct _ec_fd
 
 struct _ec_inode
 {
-    uintptr_t        bad;
-    struct list_head entry_locks;
-    struct list_head inode_locks;
-    ec_heal_t *      heal;
+    uintptr_t  bad;
+    ec_lock_t *entry_lock;
+    ec_lock_t *inode_lock;
+    ec_heal_t *heal;
 };
 
 typedef int32_t (* fop_heal_cbk_t)(call_frame_t *, void * cookie, xlator_t *,
@@ -141,27 +141,23 @@ union _ec_cbk
 
 struct _ec_lock
 {
-    struct list_head     list;
-    struct list_head     waiting;
-    uintptr_t            mask;
-    uintptr_t            good_mask;
-    int32_t              kind;
-    int32_t              refs;
-    int32_t              acquired;
-    int32_t              have_size;
-    uint64_t             size;
-    uint64_t             size_delta;
-    uint64_t             version;
-    uint64_t             version_delta;
-    ec_fop_data_t *      owner;
-    loc_t                loc;
+    ec_lock_t        **plock;
+    struct list_head   waiting;
+    uintptr_t          mask;
+    uintptr_t          good_mask;
+    int32_t            kind;
+    int32_t            refs;
+    int32_t            acquired;
+    int32_t            have_size;
+    uint64_t           size;
+    uint64_t           size_delta;
+    uint64_t           version;
+    uint64_t           version_delta;
+    ec_fop_data_t     *owner;
+    loc_t              loc;
     union
     {
-        struct
-        {
-            entrylk_type type;
-            char *       basename;
-        };
+        entrylk_type     type;
         struct gf_flock  flock;
     };
 };
@@ -193,6 +189,7 @@ struct _ec_fop_data
     int32_t            lock_count;
     int32_t            locked;
     ec_lock_link_t     locks[2];
+    int32_t            locks_update;
     int32_t            have_size;
     uint64_t           pre_size;
     uint64_t           post_size;
@@ -214,6 +211,8 @@ struct _ec_fop_data
 
     uint64_t           user_size;
     uint32_t           head;
+
+    int32_t            use_fd;
 
     dict_t *           xdata;
     dict_t *           dict;
@@ -273,6 +272,7 @@ struct _ec_heal
     struct iatt     iatt;
     char *          symlink;
     fd_t *          fd;
+    int32_t         partial;
     int32_t         done;
     uintptr_t       available;
     uintptr_t       good;

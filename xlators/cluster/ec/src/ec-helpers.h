@@ -39,8 +39,7 @@ int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value);
 int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config);
 int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config);
 
-int32_t ec_loc_parent(xlator_t * xl, loc_t * loc, loc_t * parent,
-                      char ** name);
+int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent);
 int32_t ec_loc_prepare(xlator_t * xl, loc_t * loc, inode_t * inode,
                        struct iatt * iatt);
 

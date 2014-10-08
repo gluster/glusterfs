@@ -71,7 +71,7 @@ uintptr_t ec_fd_good(fd_t * fd, xlator_t * xl)
     uintptr_t bad = 0;
 
     ctx = ec_fd_get(fd, xl);
-    if ((ctx != NULL) && (ctx->loc.inode != NULL))
+    if (ctx != NULL)
     {
         bad = ctx->bad;
     }
@@ -110,7 +110,7 @@ uintptr_t ec_update_fd(ec_fop_data_t * fop, fd_t * fd, uintptr_t good,
     LOCK(&fd->lock);
 
     ctx = __ec_fd_get(fd, fop->xl);
-    if ((ctx != NULL) && (ctx->loc.inode != NULL))
+    if (ctx != NULL)
     {
         ctx->bad &= ~good;
         bad |= ctx->bad;
@@ -143,6 +143,15 @@ int32_t ec_heal_report(call_frame_t * frame, void * cookie, xlator_t * this,
 void ec_check_status(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
+    int32_t partial = 0;
+
+    if (fop->answer->op_ret >= 0) {
+        if (fop->id == GF_FOP_LOOKUP) {
+            partial = fop->answer->iatt[0].ia_type == IA_IFDIR;
+        } else if (fop->id == GF_FOP_OPENDIR) {
+            partial = 1;
+        }
+    }
 
     if ((ec->xl_up & ~(fop->remaining | fop->good)) == 0)
     {
@@ -154,42 +163,36 @@ void ec_check_status(ec_fop_data_t * fop)
                                           "remaining=%lX, good=%lX, bad=%lX)",
            ec->xl_up, fop->mask, fop->remaining, fop->good, fop->bad);
 
-    if (fop->fd != NULL)
+    if (fop->use_fd)
     {
-        ec_fheal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
-                 fop->fd, NULL);
+        if (fop->fd != NULL) {
+            ec_fheal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report,
+                     NULL, fop->fd, partial, NULL);
+        }
     }
     else
     {
         ec_heal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
-                &fop->loc[0], NULL);
+                &fop->loc[0], partial, NULL);
 
         if (fop->loc[1].inode != NULL)
         {
             ec_heal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report,
-                    NULL, &fop->loc[1], NULL);
+                    NULL, &fop->loc[1], partial, NULL);
         }
     }
 }
 
 void ec_update_bad(ec_fop_data_t * fop, uintptr_t good)
 {
+    ec_t *ec = fop->xl->private;
     uintptr_t bad;
-    int32_t update = 0;
 
-    bad = fop->mask & ~(fop->remaining | good);
-    if ((fop->bad & bad) != bad)
-    {
-        fop->bad |= bad;
-        update = 1;
-    }
-    if ((fop->good & good) != good)
-    {
-        fop->good |= good;
-        update = 1;
-    }
+    bad = ec->xl_up & ~(fop->remaining | good);
+    fop->bad |= bad;
+    fop->good |= good;
 
-    if (update && (fop->parent == NULL))
+    if (fop->parent == NULL)
     {
         if ((fop->flags & EC_FLAG_UPDATE_LOC_PARENT) != 0)
         {
@@ -369,21 +372,20 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     fop->mask &= ec->node_mask;
 
     mask = ec->xl_up;
-    if (fop->loc[0].inode != NULL)
+    if (fop->parent == NULL)
     {
-        mask |= ec_inode_good(fop->loc[0].inode, fop->xl);
-    }
-    if (fop->loc[1].inode != NULL)
-    {
-        mask |= ec_inode_good(fop->loc[1].inode, fop->xl);
-    }
-    if (fop->fd != NULL)
-    {
-        if (fop->fd->inode != NULL)
-        {
-            mask |= ec_inode_good(fop->fd->inode, fop->xl);
+        if (fop->loc[0].inode != NULL) {
+            mask &= ec_inode_good(fop->loc[0].inode, fop->xl);
         }
-        mask |= ec_fd_good(fop->fd, fop->xl);
+        if (fop->loc[1].inode != NULL) {
+            mask &= ec_inode_good(fop->loc[1].inode, fop->xl);
+        }
+        if (fop->fd != NULL) {
+            if (fop->fd->inode != NULL) {
+                mask &= ec_inode_good(fop->fd->inode, fop->xl);
+            }
+            mask &= ec_fd_good(fop->fd, fop->xl);
+        }
     }
     if ((fop->mask & ~mask) != 0)
     {
@@ -619,7 +621,6 @@ ec_lock_t * ec_lock_allocate(xlator_t * xl, int32_t kind, loc_t * loc)
 
 void ec_lock_destroy(ec_lock_t * lock)
 {
-    GF_FREE(lock->basename);
     loc_wipe(&lock->loc);
 
     mem_put(lock);
@@ -627,31 +628,13 @@ void ec_lock_destroy(ec_lock_t * lock)
 
 int32_t ec_lock_compare(ec_lock_t * lock1, ec_lock_t * lock2)
 {
-    int32_t res;
-
-    res = uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
-    if (res != 0)
-    {
-        return res;
-    }
-    if (lock1->basename == NULL)
-    {
-        if (lock2->basename == NULL)
-        {
-            return 0;
-        }
-        return 1;
-    }
-    if (lock2->basename == NULL)
-    {
-        return -1;
-    }
-    return strcmp(lock1->basename, lock2->basename);
+    return uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
 }
 
-void ec_lock_insert(ec_fop_data_t * fop, ec_lock_t * lock)
+void ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, int32_t update)
 {
     ec_lock_t * tmp;
+    int32_t tmp_update;
 
     if ((fop->lock_count > 0) &&
         (ec_lock_compare(fop->locks[0].lock, lock) > 0))
@@ -659,19 +642,25 @@ void ec_lock_insert(ec_fop_data_t * fop, ec_lock_t * lock)
         tmp = fop->locks[0].lock;
         fop->locks[0].lock = lock;
         lock = tmp;
+
+        tmp_update = fop->locks_update;
+        fop->locks_update = update;
+        update = tmp_update;
     }
     fop->locks[fop->lock_count].lock = lock;
     fop->locks[fop->lock_count].fop = fop;
+
+    fop->locks_update |= update << fop->lock_count;
+
     fop->lock_count++;
 
     lock->refs++;
 }
 
-void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc)
+void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update)
 {
     ec_lock_t * lock = NULL;
     ec_inode_t * ctx = NULL;
-    char * name = NULL;
     loc_t tmp;
     int32_t error;
 
@@ -680,12 +669,23 @@ void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc)
         return;
     }
 
-    error = ec_loc_parent(fop->xl, loc, &tmp, &name);
-    if (error != 0)
+    /* update is only 0 for 'opendir', which needs to lock the entry pointed
+     * by loc instead of its parent.
+     */
+    if (update)
     {
-        ec_fop_set_error(fop, error);
+        error = ec_loc_parent(fop->xl, loc, &tmp);
+        if (error != 0) {
+            ec_fop_set_error(fop, error);
 
-        return;
+            return;
+        }
+    } else {
+        if (!ec_loc_from_loc(fop->xl, &tmp, loc)) {
+            ec_fop_set_error(fop, EIO);
+
+            return;
+        }
     }
 
     LOCK(&tmp.inode->lock);
@@ -698,16 +698,14 @@ void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc)
         goto unlock;
     }
 
-    list_for_each_entry(lock, &ctx->entry_locks, list)
+    if (ctx->entry_lock != NULL)
     {
-        if (strcmp(lock->basename, name) == 0)
-        {
-            ec_trace("LOCK_ENTRYLK", fop, "lock=%p, inode=%p, path=%s, "
-                                          "name=%s. Lock already acquired",
-                     lock, tmp.inode, tmp.path, name);
+        lock = ctx->entry_lock;
+        ec_trace("LOCK_ENTRYLK", fop, "lock=%p, inode=%p, path=%s"
+                                      "Lock already acquired",
+                 lock, tmp.inode, tmp.path);
 
-            goto insert;
-        }
+        goto insert;
     }
 
     lock = ec_lock_allocate(fop->xl, EC_LOCK_ENTRY, &tmp);
@@ -721,22 +719,20 @@ void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc)
     ec_trace("LOCK_CREATE", fop, "lock=%p", lock);
 
     lock->type = ENTRYLK_WRLCK;
-    lock->basename = name;
-    name = NULL;
 
-    list_add_tail(&lock->list, &ctx->entry_locks);
+    lock->plock = &ctx->entry_lock;
+    ctx->entry_lock = lock;
 
 insert:
-    ec_lock_insert(fop, lock);
+    ec_lock_insert(fop, lock, update);
 
 unlock:
     UNLOCK(&tmp.inode->lock);
 
     loc_wipe(&tmp);
-    GF_FREE(name);
 }
 
-void ec_lock_prepare_inode(ec_fop_data_t * fop, loc_t * loc)
+void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, int32_t update)
 {
     ec_lock_t * lock;
     ec_inode_t * ctx;
@@ -756,9 +752,9 @@ void ec_lock_prepare_inode(ec_fop_data_t * fop, loc_t * loc)
         goto unlock;
     }
 
-    if (!list_empty(&ctx->inode_locks))
+    if (ctx->inode_lock != NULL)
     {
-        lock = list_entry(ctx->inode_locks.next, ec_lock_t, list);
+        lock = ctx->inode_lock;
         ec_trace("LOCK_INODELK", fop, "lock=%p, inode=%p. Lock already "
                                       "acquired", lock, loc->inode);
 
@@ -778,16 +774,17 @@ void ec_lock_prepare_inode(ec_fop_data_t * fop, loc_t * loc)
     lock->flock.l_type = F_WRLCK;
     lock->flock.l_whence = SEEK_SET;
 
-    list_add_tail(&lock->list, &ctx->inode_locks);
+    lock->plock = &ctx->inode_lock;
+    ctx->inode_lock = lock;
 
 insert:
-    ec_lock_insert(fop, lock);
+    ec_lock_insert(fop, lock, update);
 
 unlock:
     UNLOCK(&loc->inode->lock);
 }
 
-void ec_lock_prepare_fd(ec_fop_data_t * fop, fd_t * fd)
+void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update)
 {
     loc_t loc;
 
@@ -798,7 +795,7 @@ void ec_lock_prepare_fd(ec_fop_data_t * fop, fd_t * fd)
 
     if (ec_loc_from_fd(fop->xl, &loc, fd))
     {
-        ec_lock_prepare_inode(fop, &loc);
+        ec_lock_prepare_inode(fop, &loc, update);
 
         loc_wipe(&loc);
     }
@@ -868,12 +865,11 @@ void ec_lock(ec_fop_data_t * fop)
 
             if (lock->kind == EC_LOCK_ENTRY)
             {
-                ec_trace("LOCK_ACQUIRE", fop, "lock=%p, inode=%p, path=%s, "
-                         "name=%s", lock, lock->loc.inode, lock->loc.path,
-                         lock->basename);
+                ec_trace("LOCK_ACQUIRE", fop, "lock=%p, inode=%p, path=%s",
+                         lock, lock->loc.inode, lock->loc.path);
 
                 ec_entrylk(fop->frame, fop->xl, -1, EC_MINIMUM_ALL, ec_locked,
-                           lock, fop->xl->name, &lock->loc, lock->basename,
+                           lock, fop->xl->name, &lock->loc, NULL,
                            ENTRYLK_LOCK, lock->type, NULL);
             }
             else
@@ -936,7 +932,7 @@ void ec_unlock(ec_fop_data_t * fop)
         refs = --lock->refs;
         if (refs == 0)
         {
-            list_del_init(&lock->list);
+            *lock->plock = NULL;
         }
 
         UNLOCK(&lock->loc.inode->lock);
@@ -951,13 +947,12 @@ void ec_unlock(ec_fop_data_t * fop)
                 {
                     case EC_LOCK_ENTRY:
                         ec_trace("UNLOCK_ENTRYLK", fop, "lock=%p, inode=%p, "
-                                                        "path=%s, basename=%s",
-                                 lock, lock->loc.inode, lock->loc.path,
-                                 lock->basename);
+                                                        "path=%s",
+                                 lock, lock->loc.inode, lock->loc.path);
 
                         ec_entrylk(fop->frame, fop->xl, lock->mask,
                                    EC_MINIMUM_ALL, ec_unlocked, lock,
-                                   fop->xl->name, &lock->loc, lock->basename,
+                                   fop->xl->name, &lock->loc, NULL,
                                    ENTRYLK_UNLOCK, lock->type, NULL);
 
                         break;
@@ -1061,17 +1056,23 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
             }
         }
 
-
         LOCK(&inode->lock);
 
         ctx = __ec_inode_get(inode, this);
-        if ((ctx != NULL) && !list_empty(&ctx->inode_locks))
-        {
-            lock = list_entry(ctx->inode_locks.next, ec_lock_t, list);
+        if (ctx != NULL) {
+            if (ctx->inode_lock != NULL) {
+                lock = ctx->inode_lock;
+                lock->version = fop->answer->version;
 
-            lock->have_size = 1;
-            lock->size = buf->ia_size;
-            lock->version = fop->answer->version;
+                if (buf->ia_type == IA_IFREG) {
+                    lock->have_size = 1;
+                    lock->size = buf->ia_size;
+                }
+            }
+            if (ctx->entry_lock != NULL) {
+                lock = ctx->entry_lock;
+                lock->version = fop->answer->version;
+            }
         }
 
         UNLOCK(&inode->lock);
@@ -1083,10 +1084,10 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
             fop->parent->mask &= fop->good;
         }
 
-        fop->parent->pre_size = fop->parent->post_size = buf->ia_size;
-
-        fop->parent->have_size = 1;
-
+        if (buf->ia_type == IA_IFREG) {
+            fop->parent->pre_size = fop->parent->post_size = buf->ia_size;
+            fop->parent->have_size = 1;
+        }
     }
     else
     {
@@ -1143,7 +1144,7 @@ void ec_get_size_version(ec_fop_data_t * fop)
 
     error = EIO;
 
-    if (fop->fd == NULL)
+    if (!fop->use_fd)
     {
         if (!ec_loc_from_loc(fop->xl, &loc, &fop->loc[0]))
         {
@@ -1211,7 +1212,7 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-void ec_update_size_version(ec_fop_data_t * fop, uint64_t version,
+void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version,
                             uint64_t size)
 {
     dict_t * dict;
@@ -1251,18 +1252,9 @@ void ec_update_size_version(ec_fop_data_t * fop, uint64_t version,
     fop->frame->root->uid = 0;
     fop->frame->root->gid = 0;
 
-    if (fop->fd == NULL)
-    {
-        ec_xattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
-                   ec_update_size_version_done, NULL, &fop->loc[0],
-                   GF_XATTROP_ADD_ARRAY64, dict, NULL);
-    }
-    else
-    {
-        ec_fxattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
-                    ec_update_size_version_done, NULL, fop->fd,
-                    GF_XATTROP_ADD_ARRAY64, dict, NULL);
-    }
+    ec_xattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
+               ec_update_size_version_done, NULL, loc,
+               GF_XATTROP_ADD_ARRAY64, dict, NULL);
 
     fop->frame->root->uid = uid;
     fop->frame->root->gid = gid;
@@ -1291,8 +1283,6 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 
     lock = fop->locks[0].lock;
 
-    GF_ASSERT(lock->kind == EC_LOCK_INODE);
-
     LOCK(&lock->loc.inode->lock);
 
     GF_ASSERT(lock->owner == fop);
@@ -1306,11 +1296,11 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 
     if (version > 0)
     {
-        ec_update_size_version(fop, version, delta);
+        ec_update_size_version(fop, &lock->loc, version, delta);
     }
 }
 
-void ec_lock_reuse(ec_fop_data_t * fop, int32_t update)
+void ec_lock_reuse(ec_fop_data_t *fop)
 {
     ec_fop_data_t * wait_fop;
     ec_lock_t * lock;
@@ -1321,6 +1311,10 @@ void ec_lock_reuse(ec_fop_data_t * fop, int32_t update)
 
     for (i = 0; i < fop->lock_count; i++)
     {
+        refs = 0;
+        delta = 0;
+        version = 0;
+
         wait_fop = NULL;
 
         lock = fop->locks[i].lock;
@@ -1332,28 +1326,26 @@ void ec_lock_reuse(ec_fop_data_t * fop, int32_t update)
         GF_ASSERT(lock->owner == fop);
         lock->owner = NULL;
 
-        if (lock->kind == EC_LOCK_INODE)
-        {
-            if (update && (fop->error == 0))
+        if (((fop->locks_update >> i) & 1) != 0) {
+            if (fop->error == 0)
             {
                 lock->version_delta++;
                 lock->size_delta += fop->post_size - fop->pre_size;
-            }
-            version = lock->version_delta;
-            delta = lock->size_delta;
-            refs = lock->refs;
-            if (refs == 1)
-            {
-                lock->version_delta = 0;
-                lock->size_delta = 0;
-            }
-
-            if (fop->have_size)
-            {
-                lock->size = fop->post_size;
-                lock->have_size = 1;
+                if (fop->have_size) {
+                    lock->size = fop->post_size;
+                    lock->have_size = 1;
+                }
             }
         }
+
+        version = lock->version_delta;
+        delta = lock->size_delta;
+        refs = lock->refs;
+        if (refs == 1) {
+            lock->version_delta = 0;
+            lock->size_delta = 0;
+        }
+
         lock->good_mask &= fop->mask;
 
         if (!list_empty(&lock->waiting))
@@ -1379,11 +1371,10 @@ void ec_lock_reuse(ec_fop_data_t * fop, int32_t update)
 
             ec_resume(wait_fop, 0);
         }
-    }
 
-    if ((refs == 1) && (version > 0))
-    {
-        ec_update_size_version(fop, version, delta);
+        if ((refs == 1) && (version > 0)) {
+            ec_update_size_version(fop, &lock->loc, version, delta);
+        }
     }
 }
 

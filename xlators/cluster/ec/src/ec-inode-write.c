@@ -94,11 +94,11 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 1);
             }
             ec_lock(fop);
 
@@ -186,7 +186,7 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -351,6 +351,8 @@ void ec_fremovexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
         goto out;
     }
 
+    fop->use_fd = 1;
+
     if (fd != NULL)
     {
         fop->fd = fd_ref(fd);
@@ -490,11 +492,11 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 1);
             }
             ec_lock(fop);
 
@@ -598,7 +600,7 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -772,6 +774,8 @@ void ec_fsetattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
         goto out;
     }
 
+    fop->use_fd = 1;
+
     fop->int32 = valid;
 
     if (fd != NULL)
@@ -880,11 +884,11 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 1);
             }
             ec_lock(fop);
 
@@ -971,7 +975,7 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1137,6 +1141,8 @@ void ec_fsetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->int32 = flags;
 
@@ -1380,11 +1386,11 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->id == GF_FOP_TRUNCATE)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 1);
             }
             ec_lock(fop);
 
@@ -1497,7 +1503,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1665,6 +1671,8 @@ void ec_ftruncate(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->offset = offset;
 
@@ -2019,7 +2027,7 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd, 1);
             ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
@@ -2125,7 +2133,7 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -2170,6 +2178,8 @@ void ec_writev(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->int32 = count;
     fop->offset = offset;
     fop->uint32 = flags;
+
+    fop->use_fd = 1;
 
     if (fd != NULL)
     {

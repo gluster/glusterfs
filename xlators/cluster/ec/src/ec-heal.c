@@ -310,8 +310,7 @@ int32_t ec_heal_reopen_cbk(call_frame_t * frame, void * cookie,
         LOCK(&fd->lock);
 
         ctx = __ec_fd_get(fd, fop->xl);
-        if ((ctx != NULL) && (ctx->loc.inode != NULL))
-        {
+        if (ctx != NULL) {
             ctx->bad &= ~good;
             ctx->open |= good;
         }
@@ -482,6 +481,7 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
     heal->fop = fop;
     pool = fop->xl->ctx->iobuf_pool;
     heal->size = iobpool_default_pagesize(pool) * ec->fragments;
+    heal->partial = fop->int32;
 
     LOCK(&inode->lock);
 
@@ -516,10 +516,9 @@ out:
 void ec_heal_entrylk(ec_heal_t * heal, entrylk_cmd cmd)
 {
     loc_t loc;
-    char * name;
     int32_t error;
 
-    error = ec_loc_parent(heal->xl, &heal->loc, &loc, &name);
+    error = ec_loc_parent(heal->xl, &heal->loc, &loc);
     if (error != 0)
     {
         ec_fop_set_error(heal->fop, error);
@@ -528,10 +527,9 @@ void ec_heal_entrylk(ec_heal_t * heal, entrylk_cmd cmd)
     }
 
     ec_entrylk(heal->fop->frame, heal->xl, -1, EC_MINIMUM_ALL, NULL, NULL,
-               heal->xl->name, &loc, name, cmd, ENTRYLK_WRLCK, NULL);
+               heal->xl->name, &loc, NULL, cmd, ENTRYLK_WRLCK, NULL);
 
     loc_wipe(&loc);
-    GF_FREE(name);
 }
 
 void ec_heal_inodelk(ec_heal_t * heal, int32_t type, int32_t use_fd,
@@ -970,7 +968,8 @@ void ec_heal_reopen_fd(ec_heal_t * heal)
 {
     inode_t * inode;
     fd_t * fd;
-    ec_fd_t * ctx;
+    ec_fd_t *ctx_fd;
+    ec_inode_t *ctx_inode;
     uintptr_t mask;
     int32_t flags;
 
@@ -978,12 +977,16 @@ void ec_heal_reopen_fd(ec_heal_t * heal)
 
     LOCK(&inode->lock);
 
+    ctx_inode = __ec_inode_get(inode, heal->xl);
+    if (ctx_inode != NULL) {
+        ctx_inode->bad &= ~(heal->good | heal->bad);
+    }
+
     list_for_each_entry(fd, &inode->fd_list, inode_list)
     {
-        ctx = ec_fd_get(fd, heal->xl);
-        if ((ctx != NULL) && (ctx->loc.inode != NULL))
-        {
-            mask = heal->bad & ~ctx->open;
+        ctx_fd = ec_fd_get(fd, heal->xl);
+        if (ctx_fd != NULL) {
+            mask = heal->bad & ~ctx_fd->open;
             if (mask != 0)
             {
                 UNLOCK(&inode->lock);
@@ -996,7 +999,7 @@ void ec_heal_reopen_fd(ec_heal_t * heal)
                 }
                 else
                 {
-                    flags = ctx->flags & ~O_TRUNC;
+                    flags = ctx_fd->flags & ~O_TRUNC;
                     if ((flags & O_ACCMODE) == O_WRONLY)
                     {
                         flags &= ~O_ACCMODE;
@@ -1179,7 +1182,13 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_HEAL_ENTRY_PREPARE;
 
         case EC_STATE_HEAL_ENTRY_PREPARE:
-            ec_heal_prepare(heal);
+            if (!heal->partial || (heal->iatt.ia_type == IA_IFDIR)) {
+                ec_heal_prepare(heal);
+            }
+
+            if (heal->partial) {
+                return EC_STATE_HEAL_UNLOCK_ENTRY;
+            }
 
             return EC_STATE_HEAL_PRE_INODELK_LOCK;
 
@@ -1240,6 +1249,8 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_HEAL_ENTRY_PREPARE:
         case -EC_STATE_HEAL_PRE_INODELK_LOCK:
         case -EC_STATE_HEAL_PRE_INODE_LOOKUP:
+        case -EC_STATE_HEAL_UNLOCK_ENTRY:
+        case EC_STATE_HEAL_UNLOCK_ENTRY:
             ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
 
             if (ec_heal_needs_data_rebuild(heal))
@@ -1395,7 +1406,7 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
 
 void ec_heal(call_frame_t * frame, xlator_t * this, uintptr_t target,
              int32_t minimum, fop_heal_cbk_t func, void * data, loc_t * loc,
-             dict_t * xdata)
+             int32_t partial, dict_t *xdata)
 {
     ec_cbk_t callback = { .heal = func };
     ec_fop_data_t * fop = NULL;
@@ -1414,6 +1425,8 @@ void ec_heal(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->int32 = partial;
 
     if (loc != NULL)
     {
@@ -1474,14 +1487,15 @@ void ec_wind_fheal(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 void ec_fheal(call_frame_t * frame, xlator_t * this, uintptr_t target,
               int32_t minimum, fop_fheal_cbk_t func, void * data, fd_t * fd,
-              dict_t * xdata)
+              int32_t partial, dict_t *xdata)
 {
     ec_fd_t * ctx = ec_fd_get(fd, this);
 
-    if ((ctx != NULL) && (ctx->loc.inode != NULL))
+    if (ctx != NULL)
     {
         gf_log("ec", GF_LOG_DEBUG, "FHEAL ctx: flags=%X, open=%lX, bad=%lX",
                ctx->flags, ctx->open, ctx->bad);
-        ec_heal(frame, this, target, minimum, func, data, &ctx->loc, xdata);
+        ec_heal(frame, this, target, minimum, func, data, &ctx->loc, partial,
+                xdata);
     }
 }

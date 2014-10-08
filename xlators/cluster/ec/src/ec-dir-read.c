@@ -116,10 +116,38 @@ void ec_wind_opendir(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
+    ec_fd_t *ctx;
 
     switch (state)
     {
         case EC_STATE_INIT:
+            LOCK(&fop->fd->lock);
+
+            ctx = __ec_fd_get(fop->fd, fop->xl);
+            if ((ctx == NULL) || !ec_loc_from_loc(fop->xl, &ctx->loc,
+                &fop->loc[0])) {
+                UNLOCK(&fop->fd->lock);
+
+                fop->error = EIO;
+
+                return EC_STATE_REPORT;
+            }
+
+            UNLOCK(&fop->fd->lock);
+
+            /* Fall through */
+
+        case EC_STATE_LOCK:
+            ec_lock_prepare_entry(fop, &fop->loc[0], 0);
+            ec_lock(fop);
+
+            return EC_STATE_GET_SIZE_AND_VERSION;
+
+        case EC_STATE_GET_SIZE_AND_VERSION:
+            ec_get_size_version(fop);
+
+            return EC_STATE_DISPATCH;
+
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
 
@@ -160,8 +188,10 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
                                   cbk->op_errno, cbk->fd, cbk->xdata);
             }
 
-            return EC_STATE_END;
+            return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_LOCK:
+        case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -172,6 +202,18 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
                 fop->cbks.opendir(fop->req_frame, fop, fop->xl, -1, fop->error,
                                   NULL, NULL);
             }
+
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop);
+
+            return EC_STATE_UNLOCK;
+
+        case -EC_STATE_UNLOCK:
+        case EC_STATE_UNLOCK:
+            ec_unlock(fop);
 
             return EC_STATE_END;
 
@@ -421,6 +463,8 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         goto out;
     }
 
+    fop->use_fd = 1;
+
     fop->size = size;
     fop->offset = offset;
 
@@ -532,6 +576,8 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->size = size;
     fop->offset = offset;
