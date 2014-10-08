@@ -66,14 +66,15 @@
 #define EC_STATE_HEAL_OPEN                  207
 #define EC_STATE_HEAL_REOPEN_FD             208
 #define EC_STATE_HEAL_UNLOCK                209
-#define EC_STATE_HEAL_DATA_LOCK             210
-#define EC_STATE_HEAL_DATA_COPY             211
-#define EC_STATE_HEAL_DATA_UNLOCK           212
-#define EC_STATE_HEAL_POST_INODELK_LOCK     213
-#define EC_STATE_HEAL_POST_INODE_LOOKUP     214
-#define EC_STATE_HEAL_SETATTR               215
-#define EC_STATE_HEAL_POST_INODELK_UNLOCK   216
-#define EC_STATE_HEAL_DISPATCH              217
+#define EC_STATE_HEAL_UNLOCK_ENTRY          210
+#define EC_STATE_HEAL_DATA_LOCK             211
+#define EC_STATE_HEAL_DATA_COPY             212
+#define EC_STATE_HEAL_DATA_UNLOCK           213
+#define EC_STATE_HEAL_POST_INODELK_LOCK     214
+#define EC_STATE_HEAL_POST_INODE_LOOKUP     215
+#define EC_STATE_HEAL_SETATTR               216
+#define EC_STATE_HEAL_POST_INODELK_UNLOCK   217
+#define EC_STATE_HEAL_DISPATCH              218
 
 int32_t ec_dispatch_one_retry(ec_fop_data_t * fop, int32_t idx, int32_t op_ret,
                               int32_t op_errno);
@@ -85,11 +86,11 @@ void ec_update_bad(ec_fop_data_t * fop, uintptr_t good);
 
 void ec_fop_set_error(ec_fop_data_t * fop, int32_t error);
 
-void ec_lock_prepare_inode(ec_fop_data_t * fop, loc_t * loc);
-void ec_lock_prepare_entry(ec_fop_data_t * fop, loc_t * loc);
-void ec_lock_prepare_fd(ec_fop_data_t * fop, fd_t * fd);
+void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, int32_t update);
+void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update);
+void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update);
 void ec_lock(ec_fop_data_t * fop);
-void ec_lock_reuse(ec_fop_data_t * fop, int32_t update);
+void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
 
 void ec_get_size_version(ec_fop_data_t * fop);

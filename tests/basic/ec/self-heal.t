@@ -7,12 +7,119 @@
 
 cleanup
 
+function check_mount_dir
+{
+    for i in {1..20}; do
+        ls | grep "dir1"
+        if [ $? -ne 0 ]; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+function check_size
+{
+    stat $1
+    for i in "${brick[@]}"; do
+        res=`stat -c "%s" $i/$1`
+        if [ "$res" != "$2" ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
+function check_mode
+{
+    stat $1
+    for i in "${brick[@]}"; do
+        res=`stat -c "%A" $i/$1`
+        if [ "$res" != "$2" ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
+function check_date
+{
+    stat $1
+    for i in "${brick[@]}"; do
+        res=`stat -c "%Y" $i/$1`
+        if [ "$res" != "$2" ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
+function check_xattr
+{
+    stat $1
+    for i in "${brick[@]}"; do
+        getfattr -n $2 $i/$1 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
+function check_dir
+{
+    getfattr -m. -d dir1
+    for i in "${brick[@]}"; do
+        if [ ! -d $i/dir1 ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
+function check_soft_link
+{
+    stat test3
+    for i in "${brick[@]}"; do
+        if [ ! -h $i/test3 ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
+function check_hard_link
+{
+    stat test4
+    for i in "${brick[@]}"; do
+        if [ `stat -c "%h" $i/test4` -ne 3 ]; then
+            echo "N"
+            return 0
+        fi
+    done
+    echo "Y"
+    return 0
+}
+
 tmp=`mktemp -d -t ${0##*/}.XXXXXX`
 if [ ! -d $tmp ]; then
     exit 1
 fi
 
-TESTS_EXPECTED_IN_LOOP=250
+TESTS_EXPECTED_IN_LOOP=194
 
 TEST glusterd
 TEST pidof glusterd
@@ -21,6 +128,7 @@ EXPECT "Created" volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Started" volinfo_field $V0 'Status'
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
+# Wait until all 6 childs have been recognized by the ec xlator
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 
 TEST dd if=/dev/urandom of=$tmp/test bs=1024 count=1024
@@ -46,12 +154,11 @@ for idx1 in {0..5}; do
     TEST chmod 666 ${brick[$idx1]}/test
     TEST truncate -s 0 ${brick[$idx1]}/test
     TEST setfattr -n user.test -v "test1" ${brick[$idx1]}/test
-    sleep 1
     EXPECT "-rw-r--r--" stat -c "%A" test
-    EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[$idx1]}/test
-    EXPECT_WITHIN $HEAL_TIMEOUT "-rw-r--r--" stat -c "%A" ${brick[$idx1]}/test
-    EXPECT_WITHIN $HEAL_TIMEOUT "946681200" stat -c "%Y" ${brick[$idx1]}/test
-    TEST ! getfattr -n user.test ${brick[$idx1]}/test
+    EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_size test "262144"
+    EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mode test "-rw-r--r--"
+    EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_date test "946681200"
+    EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_xattr test "user.test"
 done
 
 for idx1 in {0..4}; do
@@ -63,16 +170,11 @@ for idx1 in {0..4}; do
             TEST truncate -s 2097152 ${brick[$idx2]}/test
             TEST setfattr -n user.test -v "test1" ${brick[$idx1]}/test
             TEST setfattr -n user.test -v "test2" ${brick[$idx2]}/test
-            sleep 1
             EXPECT "-rw-r--r--" stat -c "%A" test
-            EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[$idx1]}/test
-            EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[$idx2]}/test
-            EXPECT_WITHIN $HEAL_TIMEOUT "-rw-r--r--" stat -c "%A" ${brick[$idx1]}/test
-            EXPECT_WITHIN $HEAL_TIMEOUT "-rw-r--r--" stat -c "%A" ${brick[$idx2]}/test
-            EXPECT_WITHIN $HEAL_TIMEOUT "946681200" stat -c "%Y" ${brick[$idx1]}/test
-            EXPECT_WITHIN $HEAL_TIMEOUT "946681200" stat -c "%Y" ${brick[$idx2]}/test
-            TEST ! getfattr -n user.test ${brick[$idx1]}/test
-            TEST ! getfattr -n user.test ${brick[$idx2]}/test
+            EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_size test "262144"
+            EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mode test "-rw-r--r--"
+            EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_date test "946681200"
+            EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_xattr test "user.test"
         fi
     done
 done
@@ -96,26 +198,25 @@ EXPECT "2" stat -c "%h" test2
 EXPECT "2" stat -c "%h" test4
 
 TEST $CLI volume start $V0 force
+# Wait until the killed bricks have been started and recognized by the ec
+# xlator
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
+
+TEST check_mount_dir
 
 EXPECT "1048576" stat -c "%s" test2
 EXPECT "-rwxrwxrwx" stat -c "%A" test2
-EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[0]}/test2
-EXPECT_WITHIN $HEAL_TIMEOUT "262144" stat -c "%s" ${brick[1]}/test2
-EXPECT "-rwxrwxrwx" stat -c "%A" ${brick[0]}/test2
-EXPECT "-rwxrwxrwx" stat -c "%A" ${brick[1]}/test2
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_size test2 "262144"
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mode test2 "-rwxrwxrwx"
 
 TEST ls -al dir1
-EXPECT_WITHIN $HEAL_TIMEOUT "1" eval "if [ -d ${brick[0]}/dir1 ]; then echo 1; fi"
-EXPECT_WITHIN $HEAL_TIMEOUT "1" eval "if [ -d ${brick[1]}/dir1 ]; then echo 1; fi"
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_dir
 
 TEST [ -h test3 ]
-EXPECT_WITHIN $HEAL_TIMEOUT "1" eval "if [ -h ${brick[0]}/test3 ]; then echo 1; fi"
-EXPECT_WITHIN $HEAL_TIMEOUT "1" eval "if [ -h ${brick[1]}/test3 ]; then echo 1; fi"
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_soft_link
 
 EXPECT "2" stat -c "%h" test4
-EXPECT_WITHIN $HEAL_TIMEOUT "3" stat -c "%h" ${brick[0]}/test4
-EXPECT_WITHIN $HEAL_TIMEOUT "3" stat -c "%h" ${brick[1]}/test4
+EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_hard_link
 
 TEST rm -rf $tmp
 

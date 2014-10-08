@@ -45,66 +45,97 @@ function check_truncate {
 }
 
 function check_hard_link {
+    stat $M0/hard-link-1
+    stat $M0/hard-link-2
     for b in $*; do
         inum1=$(ls -i $b/hard-link-1 | cut -d' ' -f1)
         inum2=$(ls -i $b/hard-link-2 | cut -d' ' -f1)
-        [ "$inum1" = "$inum2" ] || return 1
+        if [ "$inum1" != "$inum2" ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_soft_link {
+    stat $M0/soft-link
     for b in $*; do
-        [ "$(readlink $b/soft-link)" = "soft-link-tgt" ] || return 1
+        if [ "$(readlink $b/soft-link)" != "soft-link-tgt" ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_unlink {
+    stat $M0/unlink
     for b in $*; do
-        [ ! -e $b/unlink ] || return 1
+        if [ -e $b/unlink ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_mkdir {
+    getfattr -m. -d $M0/mkdir
     for b in $*; do
-        [ -d $b/mkdir ] || return 1
+        if [ ! -d $b/mkdir ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_rmdir {
+    getfattr -m. -d $M0/rmdir
     for b in $*; do
-        [ ! -e $b/rmdir ] || return 1
+        if [ -e $b/rmdir ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_setxattr {
+    stat $M0/setxattr
     for b in $*; do
         v=$(my_getfattr -n user.foo $b/setxattr)
-        [ "$v" = "ash_nazg_durbatuluk" ] || return 1
+        if [ "$v" != "ash_nazg_durbatuluk" ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_removexattr {
+    stat $M0/removexattr
     for b in $*; do
         my_getfattr -n user.bar $b/removexattr 2> /dev/null
-        [ $? = 0 ] && return 1
+        if [ $? -eq 0 ]; then
+            echo "N"
+            return 0
+        fi
     done
     echo "Y"
     return 0
 }
 
 function check_perm_file {
+    stat $M0/perm_dir/perm_file
+    getfattr -m. -d $M0/perm_dir
     b1=$1
     shift 1
     ftext=$(stat -c "%u %g %a" $b1/perm_dir/perm_file)
@@ -113,7 +144,8 @@ function check_perm_file {
         btext=$(stat -c "%u %g %a" $b/perm_dir/perm_file)
         #echo "  next u/a/a = $btext" > /dev/tty
         if [ x"$btext" != x"$ftext" ]; then
-            return 1
+            echo "N"
+            return 0
         fi
     done
     echo "Y"
@@ -209,17 +241,6 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "10" ec_child_up_count $V0 0
 
 TEST check_create_write $M0
 TEST check_truncate $M0
-
-TEST stat $M0/hard-link-1
-TEST stat $M0/hard-link-2
-TEST stat $M0/soft-link
-TEST ! stat $M0/unlink
-TEST ! stat $M0/rmdir
-TEST stat $M0/mkdir
-TEST stat $M0/setxattr
-TEST stat $M0/removexattr
-TEST stat $M0/perm_dir
-TEST stat $M0/perm_dir/perm_file
 
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_hard_link $B0/${V0}{0..9}
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_soft_link $B0/${V0}{0..9}

@@ -210,7 +210,7 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -293,7 +293,7 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -494,7 +494,7 @@ int32_t ec_manager_link(ec_fop_data_t * fop, int32_t state)
             // Parent entry of fop->loc[0] should be locked, but I don't
             // receive enough information to do it (fop->loc[0].parent is
             // NULL).
-            ec_lock_prepare_entry(fop, &fop->loc[1]);
+            ec_lock_prepare_entry(fop, &fop->loc[1], 1);
             ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
@@ -577,7 +577,7 @@ int32_t ec_manager_link(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -765,7 +765,7 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -837,7 +837,7 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1022,7 +1022,7 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1094,7 +1094,7 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1277,8 +1277,8 @@ int32_t ec_manager_rename(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
-            ec_lock_prepare_entry(fop, &fop->loc[1]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
+            ec_lock_prepare_entry(fop, &fop->loc[1], 1);
             ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
@@ -1359,7 +1359,7 @@ int32_t ec_manager_rename(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1533,7 +1533,7 @@ int32_t ec_manager_rmdir(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1597,7 +1597,7 @@ int32_t ec_manager_rmdir(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1780,7 +1780,7 @@ int32_t ec_manager_symlink(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1852,7 +1852,7 @@ int32_t ec_manager_symlink(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -2031,7 +2031,7 @@ int32_t ec_manager_unlink(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0]);
+            ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
@@ -2101,7 +2101,7 @@ int32_t ec_manager_unlink(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
