@@ -497,6 +497,8 @@ void ec_fentrylk(call_frame_t * frame, xlator_t * this, uintptr_t target,
         goto out;
     }
 
+    fop->use_fd = 1;
+
     fop->entrylk_cmd = cmd;
     fop->entrylk_type = type;
 
@@ -951,6 +953,8 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
         goto out;
     }
 
+    fop->use_fd = 1;
+
     fop->int32 = cmd;
 
     if (volume != NULL)
@@ -1244,6 +1248,8 @@ void ec_lk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->int32 = cmd;
 

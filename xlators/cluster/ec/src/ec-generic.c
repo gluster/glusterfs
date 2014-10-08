@@ -91,7 +91,7 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd, 0);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -159,7 +159,7 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -198,6 +198,8 @@ void ec_flush(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     if (fd != NULL)
     {
@@ -325,7 +327,7 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd, 0);
             ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
@@ -408,7 +410,7 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -447,6 +449,8 @@ void ec_fsync(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->int32 = datasync;
 
@@ -550,7 +554,7 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd, 0);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -618,7 +622,7 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -657,6 +661,8 @@ void ec_fsyncdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->int32 = datasync;
 
@@ -720,9 +726,9 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     LOCK(&cbk->inode->lock);
 
     ctx = __ec_inode_get(cbk->inode, fop->xl);
-    if ((ctx != NULL) && !list_empty(&ctx->inode_locks))
+    if ((ctx != NULL) && (ctx->inode_lock != NULL))
     {
-        lock = list_entry(ctx->inode_locks.next, ec_lock_t, list);
+        lock = ctx->inode_lock;
         cbk->version = lock->version;
         if (lock->have_size)
         {
@@ -1374,11 +1380,11 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 1);
             }
             ec_lock(fop);
 
@@ -1468,7 +1474,7 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 1);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1651,6 +1657,8 @@ void ec_fxattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->xattrop_flags = optype;
 

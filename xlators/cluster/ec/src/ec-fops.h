@@ -70,11 +70,11 @@ void ec_fgetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
 void ec_heal(call_frame_t * frame, xlator_t * this, uintptr_t target,
              int32_t minimum, fop_heal_cbk_t func, void *data, loc_t * loc,
-             dict_t * xdata);
+             int32_t partial, dict_t *xdata);
 
 void ec_fheal(call_frame_t * frame, xlator_t * this, uintptr_t target,
               int32_t minimum, fop_fheal_cbk_t func, void *data, fd_t * fd,
-              dict_t * xdata);
+              int32_t partial, dict_t *xdata);
 
 void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
                 int32_t minimum, fop_inodelk_cbk_t func, void *data,

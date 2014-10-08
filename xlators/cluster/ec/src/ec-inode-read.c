@@ -254,11 +254,11 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 0);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 0);
             }
             ec_lock(fop);
 
@@ -337,7 +337,7 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -515,6 +515,8 @@ void ec_fgetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     if (fd != NULL)
     {
@@ -1230,7 +1232,7 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd);
+            ec_lock_prepare_fd(fop, fop->fd, 0);
             ec_lock(fop);
 
             return EC_STATE_GET_SIZE_AND_VERSION;
@@ -1310,7 +1312,7 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1349,6 +1351,8 @@ void ec_readv(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     fop->size = size;
     fop->offset = offset;
@@ -1478,11 +1482,11 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL)
             {
-                ec_lock_prepare_inode(fop, &fop->loc[0]);
+                ec_lock_prepare_inode(fop, &fop->loc[0], 0);
             }
             else
             {
-                ec_lock_prepare_fd(fop, fop->fd);
+                ec_lock_prepare_fd(fop, fop->fd, 0);
             }
             ec_lock(fop);
 
@@ -1581,7 +1585,7 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop, 0);
+            ec_lock_reuse(fop);
 
             return EC_STATE_UNLOCK;
 
@@ -1740,6 +1744,8 @@ void ec_fstat(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         goto out;
     }
+
+    fop->use_fd = 1;
 
     if (fd != NULL)
     {
