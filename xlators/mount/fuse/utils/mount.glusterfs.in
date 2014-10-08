@@ -638,6 +638,11 @@ EOF
         exit 32;
     fi
 
+    #Snapshot volumes are mounted read only
+    case $volume_id in
+        /snaps/* ) read_only=1
+    esac
+
     check_recursive_mount "$mount_point";
 
     update_updatedb;
