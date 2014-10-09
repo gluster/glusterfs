@@ -47,12 +47,12 @@ TEST $CLI volume info
 TEST mkdir ${B0}/${V0}{1,2}
 
 TEST truncate -s $((40*1024*1024)) ${B0}/disk1
-TEST mkfs.xfs -f -i size=512 ${B0}/disk1
-TEST mount -o loop ${B0}/disk1 ${B0}/${V0}1
+TEST MKFS_LOOP -i 512 ${B0}/disk1
+TEST MOUNT_LOOP ${B0}/disk1 ${B0}/${V0}1
 
 TEST truncate -s $((80*1024*1024)) ${B0}/disk2
-TEST mkfs.xfs -f -i size=512 ${B0}/disk2
-TEST mount -o loop ${B0}/disk2 ${B0}/${V0}2
+TEST MKFS_LOOP -i 512 ${B0}/disk2
+TEST MOUNT_LOOP ${B0}/disk2 ${B0}/${V0}2
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2}
 EXPECT "$V0" volinfo_field $V0 'Volume Name'
@@ -65,7 +65,7 @@ EXPECT 'Started' volinfo_field $V0 'Status'
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 TEST mkdir $M0/dir
 TEST touch_files
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # Check that the larger brick got more of the files.
 nfiles=$(count_files ${B0}/${V0}2)
@@ -82,10 +82,8 @@ nfiles=$(count_files ${B0}/${V0}2)
 #echo $nfiles $(get_xattr ${B0}/${V0}1) $(get_xattr ${B0}/${V0}2) 3>&2 2>&1 1>&3 3>&-
 TEST [ $nfiles -le 580 ]
 
-exit 0
-
 $CLI volume stop $V0
-umount ${B0}/${V0}{1,2}
+UMOUNT_LOOP ${B0}/${V0}{1,2}
 rm -f ${B0}/disk{1,2}
 
 cleanup

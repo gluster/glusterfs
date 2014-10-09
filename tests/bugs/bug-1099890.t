@@ -17,16 +17,16 @@ TEST   pidof glusterd;
 TEST   truncate -s 100M $B0/brick1
 TEST   truncate -s 100M $B0/brick2
 
-TEST   L1=`losetup --find --show $B0/brick1`
-TEST   mkfs.xfs $L1
+TEST   L1=`SETUP_LOOP $B0/brick1`
+TEST   MKFS_LOOP $L1
 
-TEST   L2=`losetup --find --show $B0/brick2`
-TEST   mkfs.xfs $L2
+TEST   L2=`SETUP_LOOP $B0/brick2`
+TEST   MKFS_LOOP $L2
 
 TEST   mkdir -p $B0/${V0}{1,2}
 
-TEST   mount -t xfs $L1 $B0/${V0}1
-TEST   mount -t xfs $L2 $B0/${V0}2
+TEST   MOUNT_LOOP $L1 $B0/${V0}1
+TEST   MOUNT_LOOP $L2 $B0/${V0}2
 
 # Create a plain distribute volume with 2 subvols.
 TEST   $CLI volume create $V0 $H0:$B0/${V0}{1,2};
@@ -117,4 +117,9 @@ EXPECT "$V0-client-1" dht_get_linkto_target "$B0/${V0}1/zz"
 
 EXPECT "1" is_dht_linkfile "$B0/${V0}1/zz"
 
-cleanup;
+force_umount $M0
+$CLI volume stop $V0
+UMOUNT_LOOP ${B0}/${V0}{1,2}
+rm -f ${B0}/brick{1,2}
+
+cleanup
