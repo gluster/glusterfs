@@ -53,11 +53,37 @@
                 STACK_DESTROY (((call_frame_t *)_frame)->root);     \
         } while (0)
 
+#define SVS_CHECK_VALID_SNAPSHOT_HANDLE(fs, this)                       \
+        do {                                                            \
+                svs_private_t *_private = NULL;                         \
+                _private = this->private;                               \
+                int  i = 0;                                             \
+                gf_boolean_t found = _gf_false;                         \
+                LOCK (&_private->snaplist_lock);                        \
+                {                                                       \
+                        for (i = 0; i < _private->num_snaps; i++) {     \
+                                if (_private->dirents->fs && fs &&      \
+                                    _private->dirents->fs == fs) {      \
+                                        found = _gf_true;               \
+                                        break;                          \
+                                }                                       \
+                        }                                               \
+                }                                                       \
+                UNLOCK (&_private->snaplist_lock);                      \
+                                                                        \
+                if (!found)                                             \
+                        fs = NULL;                                      \
+        } while (0)
+
 #define SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, ret,   \
                                op_errno, label)                         \
         do {                                                            \
                 fs = inode_ctx->fs;                                     \
                 object = inode_ctx->object;                             \
+                SVS_CHECK_VALID_SNAPSHOT_HANDLE (fs, this);             \
+                if (!fs)                                                \
+                        object = NULL;                                  \
+                                                                        \
                 if (!fs || !object) {                                   \
                         int32_t tmp = -1;                               \
                         char    tmp_uuid[64];                           \
@@ -94,6 +120,7 @@ mgmt_get_snapinfo_cbk (struct rpc_req *req, struct iovec *iov,
 
 typedef enum {
         SNAP_VIEW_ENTRY_POINT_INODE = 0,
+        SNAP_VIEW_SNAPSHOT_INODE,
         SNAP_VIEW_VIRTUAL_INODE
 } inode_type_t;
 
