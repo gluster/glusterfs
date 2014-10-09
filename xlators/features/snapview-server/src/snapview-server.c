@@ -254,7 +254,7 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
         iatt_from_stat (buf, &statbuf);
         uuid_copy (buf->ia_gfid, gfid);
         svs_fill_ino_from_gfid (buf);
-        inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
+        inode_ctx->type = SNAP_VIEW_SNAPSHOT_INODE;
         inode_ctx->fs = fs;
         inode_ctx->object = object;
         memcpy (&inode_ctx->buf, buf, sizeof (*buf));
@@ -574,7 +574,8 @@ svs_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 op_ret = 0;
                 op_errno = 0;
                 goto out;
-        } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
+        }
+        else {
 
                 SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
                                        op_errno, out);
@@ -702,7 +703,8 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
-        } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
+        }
+        else {
 
                 SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
                                        op_errno, out);
@@ -832,8 +834,7 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                 op_errno = EINVAL;
                 goto out;
         }
-
-        if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
+        else {
                 dict = dict_new ();
                 if (!dict) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to "
@@ -1270,16 +1271,17 @@ svs_readdirp_fill (xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
                         goto out;
                 }
 
-                inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
 
                 if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                         buf.ia_type = IA_IFDIR;
                         inode_ctx->buf = buf;
                         entry->d_stat = buf;
+                        inode_ctx->type = SNAP_VIEW_SNAPSHOT_INODE;
                 } else {
                         uuid_copy (entry->d_stat.ia_gfid, buf.ia_gfid);
                         entry->d_stat.ia_ino = buf.ia_ino;
                         inode_ctx->buf = entry->d_stat;
+                        inode_ctx->type = SNAP_VIEW_VIRTUAL_INODE;
                 }
         }
 
@@ -1592,7 +1594,8 @@ svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 svs_iatt_fill (loc->inode->gfid, &buf);
                 op_ret = 0;
-        } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
+        }
+        else {
 
                 SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
                                        op_errno, out);
@@ -1655,7 +1658,8 @@ svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 svs_iatt_fill (fd->inode->gfid, &buf);
                 op_ret = 0;
-        } else if (inode_ctx->type == SNAP_VIEW_VIRTUAL_INODE) {
+        }
+        else {
                 sfd = svs_fd_ctx_get_or_new (this, fd);
                 if (!sfd) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to get the "
