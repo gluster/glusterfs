@@ -31,10 +31,12 @@ function check_dependencies()
         MISSING="$MISSING rpmbuild"
     fi
 
-    # Check for nfs-utils
-    env mount.nfs -V > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        MISSING="$MISSING nfs-utils"
+    # Check for nfs-utils (Linux-only: built-in NetBSD with different name)
+    if [ "x`uname -s`" = "xLinux" ] ; then
+      env mount.nfs -V > /dev/null 2>&1
+      if [ $? -ne 0 ]; then
+          MISSING="$MISSING nfs-utils"
+      fi
     fi
 
     # Check for the Perl Test Harness
@@ -48,10 +50,12 @@ function check_dependencies()
         MISSING="$MISSING json_verify"
     fi
 
-    # Check for XFS programs
-    env mkfs.xfs -V > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        MISSING="$MISSING xfsprogs"
+    # Check for XFS programs (Linux Only: NetBSD does without)
+    if [ "x`uname -s`" = "xLinux" ] ; then
+      env mkfs.xfs -V > /dev/null 2>&1
+      if [ $? -ne 0 ]; then
+          MISSING="$MISSING xfsprogs"
+      fi
     fi
 
     # Check for attr

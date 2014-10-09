@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../cluster.rc
 
 function check_peers {
@@ -35,27 +36,27 @@ TEST truncate -s 16M $B4/brick4
 TEST truncate -s 16M $B5/brick5
 TEST truncate -s 16M $B6/brick6
 
-TEST LD1=`losetup --find --show $B1/brick1`
-TEST mkfs.xfs $LD1
-TEST LD2=`losetup --find --show $B2/brick2`
-TEST mkfs.xfs $LD2
-TEST LD3=`losetup --find --show $B3/brick3`
-TEST mkfs.xfs $LD3
-TEST LD4=`losetup --find --show $B4/brick4`
-TEST mkfs.xfs $LD4
-TEST LD5=`losetup --find --show $B5/brick5`
-TEST mkfs.xfs $LD5
-TEST LD6=`losetup --find --show $B6/brick6`
-TEST mkfs.xfs $LD6
+TEST LD1=`SETUP_LOOP $B1/brick1`
+TEST MKFS_LOOP $LD1
+TEST LD2=`SETUP_LOOP $B2/brick2`
+TEST MKFS_LOOP $LD2
+TEST LD3=`SETUP_LOOP $B3/brick3`
+TEST MKFS_LOOP $LD3
+TEST LD4=`SETUP_LOOP $B4/brick4`
+TEST MKFS_LOOP $LD4
+TEST LD5=`SETUP_LOOP $B5/brick5`
+TEST MKFS_LOOP $LD5
+TEST LD6=`SETUP_LOOP $B6/brick6`
+TEST MKFS_LOOP $LD6
 
 mkdir -p $B1/$V0 $B2/$V0 $B3/$V0 $B4/$V0 $B5/$V0 $B6/$V0
 
-TEST mount -t xfs $LD1 $B1/$V0
-TEST mount -t xfs $LD2 $B2/$V0
-TEST mount -t xfs $LD3 $B3/$V0
-TEST mount -t xfs $LD4 $B4/$V0
-TEST mount -t xfs $LD5 $B5/$V0
-TEST mount -t xfs $LD6 $B6/$V0
+TEST MOUNT_LOOP $LD1 $B1/$V0
+TEST MOUNT_LOOP $LD2 $B2/$V0
+TEST MOUNT_LOOP $LD3 $B3/$V0
+TEST MOUNT_LOOP $LD4 $B4/$V0
+TEST MOUNT_LOOP $LD5 $B5/$V0
+TEST MOUNT_LOOP $LD6 $B6/$V0
 
 #Case 0: Parent directory of the brick is absent
 TEST ! $CLI1 volume create $V0 $H1:$B1/$V0/nonexistent/b1 $H2:$B2/$V0/nonexistent/b2 force
@@ -80,5 +81,23 @@ TEST   $CLI1 volume add-brick $V2 $H1:$B4/$V0/brick3 force
 #####framework
 
 rmdir /$uuid1 /$uuid2 /$uuid3;
+
+$CLI volume stop $V0
+$CLI volume stop $V1
+$CLI volume stop $V2
+
+UMOUNT_LOOP $B1/$V0
+UMOUNT_LOOP $B2/$V0
+UMOUNT_LOOP $B3/$V0
+UMOUNT_LOOP $B4/$V0
+UMOUNT_LOOP $B5/$V0
+UMOUNT_LOOP $B6/$V0
+
+rm -f $B1/brick1
+rm -f $B2/brick2
+rm -f $B3/brick3
+rm -f $B4/brick4
+rm -f $B5/brick5
+rm -f $B6/brick6
 
 cleanup;

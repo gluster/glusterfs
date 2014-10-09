@@ -13,13 +13,13 @@ TEST $CLI volume info;
 ## Lets create partitions for bricks
 TEST truncate -s 100M $B0/brick1
 TEST truncate -s 200M $B0/brick2
-TEST LO1=`losetup --find --show $B0/brick1`
-TEST mkfs.xfs $LO1
-TEST LO2=`losetup --find --show $B0/brick2`
-TEST mkfs.xfs $LO2
+TEST LO1=`SETUP_LOOP $B0/brick1`
+TEST MKFS_LOOP $LO1
+TEST LO2=`SETUP_LOOP $B0/brick2`
+TEST MKFS_LOOP $LO2
 TEST mkdir -p $B0/${V0}1 $B0/${V0}2
-TEST mount -t xfs $LO1 $B0/${V0}1
-TEST mount -t xfs $LO2 $B0/${V0}2
+TEST MOUNT_LOOP $LO1 $B0/${V0}1
+TEST MOUNT_LOOP $LO2 $B0/${V0}2
 
 ## Lets create volume
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
@@ -101,5 +101,8 @@ TEST rm -rf $M0/*
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 $CLI volume delete $V0;
+
+UMOUNT_LOOP ${B0}/${V0}{1,2}
+rm -f ${B0}/brick{1,2}
 
 cleanup;
