@@ -274,4 +274,40 @@ function count_snaps
 
 EXPECT_WITHIN 30 "5" count_snaps $M0;
 
+# deletion of a snapshot and creation of a new snapshot with same name
+# should not create problems. The data that was supposed to be present
+# in the deleted snapshot need not be present in the new snapshot just
+# because the name is same. Ex:
+# 1) Create a file "aaa"
+# 2) Create a snapshot snap6
+# 3) stat the file "aaa" in snap6 and it should succeed
+# 4) delete the file "aaa"
+# 5) Delete the snapshot snap6
+# 6) Create a snapshot snap6
+# 7) stat the file "aaa" in snap6 and it should fail now
+
+echo "aaa" > $M0/aaa;
+
+TEST $CLI snapshot create snap6 $V0
+
+TEST ls $M0/.history;
+
+EXPECT_WITHIN 30 "6" count_snaps $M0;
+
+TEST stat $M0/.history/snap6/aaa
+
+TEST rm -f $M0/aaa;
+
+TEST $CLI snapshot delete snap6;
+
+TEST $CLI snapshot create snap6 $V0
+
+TEST ls $M0/.history;
+
+EXPECT_WITHIN 30 "6" count_snaps $M0;
+
+TEST ls $M0/.history/snap6/;
+
+TEST ! stat $M0/.history/snap6/aaa;
+
 cleanup;
