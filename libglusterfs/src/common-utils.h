@@ -650,4 +650,7 @@ gf_backtrace_save (char *buf);
 
 void
 gf_backtrace_done (char *buf);
+
+gf_loglevel_t
+fop_log_level (glusterfs_fop_t fop, int op_errno);
 #endif /* _COMMON_UTILS_H */
