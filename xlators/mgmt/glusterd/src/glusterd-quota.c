@@ -377,7 +377,9 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
         char *quota_options[]     = {"features.soft-timeout",
                                      "features.hard-timeout",
                                      "features.alert-time",
-                                     "features.default-soft-limit", NULL};
+                                     "features.default-soft-limit",
+                                     "features.quota-deem-statfs",
+                                     "features.quota-timeout", NULL};
 
         this = THIS;
         GF_ASSERT (this);

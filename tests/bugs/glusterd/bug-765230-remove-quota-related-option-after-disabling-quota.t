@@ -41,14 +41,16 @@ EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
 ## Disabling quota
 TEST $CLI volume quota $V0 disable
 EXPECT 'off' volinfo_field $V0 'features.quota'
+EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
+EXPECT '' volinfo_field $V0 'features.quota-timeout'
 
 ## Setting quota-timeout as 30
 TEST ! $CLI volume set $V0 features.quota-timeout 30
-EXPECT '20' volinfo_field $V0 'features.quota-timeout';
+EXPECT '' volinfo_field $V0 'features.quota-timeout';
 
 ## Disabling features.quota-deem-statfs
 TEST ! $CLI volume set $V0 features.quota-deem-statfs off
-EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
+EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
 
 ## Finish up
 TEST $CLI volume stop $V0;
