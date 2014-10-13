@@ -58,6 +58,8 @@ gf_rdma_disconnect (rpc_transport_t *this);
 static void
 gf_rdma_cm_handle_disconnect (rpc_transport_t *this);
 
+static int
+gf_rdma_cm_handle_connect_init (struct rdma_cm_event *event);
 
 static void
 gf_rdma_put_post (gf_rdma_queue_t *queue, gf_rdma_post_t *post)
@@ -785,7 +787,7 @@ gf_rdma_cm_handle_connect_request (struct rdma_cm_event *event)
         rpc_transport_t        *this        = NULL, *listener = NULL;
         struct rdma_cm_id      *child_cm_id = NULL, *listener_cm_id = NULL;
         struct rdma_conn_param  conn_param  = {0, };
-        gf_rdma_private_t      *priv        = NULL, *child_priv = NULL;
+        gf_rdma_private_t      *priv        = NULL;
         gf_rdma_options_t      *options     = NULL;
 
         child_cm_id = event->id;
@@ -804,7 +806,7 @@ gf_rdma_cm_handle_connect_request (struct rdma_cm_event *event)
                 rdma_destroy_id (child_cm_id);
                 goto out;
         }
-        child_priv = this->private;
+
         gf_log (listener->name, GF_LOG_TRACE,
                 "got a connect request (me:%s peer:%s)",
                 listener->myinfo.identifier, this->peerinfo.identifier);
@@ -831,7 +833,7 @@ gf_rdma_cm_handle_connect_request (struct rdma_cm_event *event)
                 gf_rdma_cm_handle_disconnect (this);
                 goto out;
         }
-        child_priv->connected = 1;
+        gf_rdma_cm_handle_connect_init (event);
         ret = 0;
 
 out:
@@ -965,7 +967,7 @@ gf_rdma_cm_handle_disconnect (rpc_transport_t *this)
 
 
 static int
-gf_rdma_cm_handle_event_established (struct rdma_cm_event *event)
+gf_rdma_cm_handle_connect_init (struct rdma_cm_event *event)
 {
         rpc_transport_t   *this  = NULL;
         gf_rdma_private_t *priv  = NULL;
@@ -975,6 +977,13 @@ gf_rdma_cm_handle_event_established (struct rdma_cm_event *event)
         cm_id = event->id;
         this = cm_id->context;
         priv = this->private;
+
+        if (priv->connected == 1) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "received event RDMA_CM_EVENT_ESTABLISHED (me:%s peer:%s)",
+                        this->myinfo.identifier, this->peerinfo.identifier);
+                return ret;
+        }
 
         priv->connected = 1;
 
@@ -986,6 +995,9 @@ gf_rdma_cm_handle_event_established (struct rdma_cm_event *event)
         pthread_mutex_unlock (&priv->write_mutex);
 
         if (priv->entity == GF_RDMA_CLIENT) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "received event RDMA_CM_EVENT_ESTABLISHED (me:%s peer:%s)",
+                        this->myinfo.identifier, this->peerinfo.identifier);
                 ret = rpc_transport_notify (this, RPC_TRANSPORT_CONNECT, this);
 
         } else if (priv->entity == GF_RDMA_SERVER) {
@@ -996,10 +1008,6 @@ gf_rdma_cm_handle_event_established (struct rdma_cm_event *event)
         if (ret < 0) {
                 gf_rdma_disconnect (this);
         }
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "received event RDMA_CM_EVENT_ESTABLISHED (me:%s peer:%s)",
-                this->myinfo.identifier, this->peerinfo.identifier);
 
         return ret;
 }
@@ -1060,7 +1068,7 @@ gf_rdma_cm_event_handler (void *data)
                         break;
 
                 case RDMA_CM_EVENT_ESTABLISHED:
-                        gf_rdma_cm_handle_event_established (event);
+                        gf_rdma_cm_handle_connect_init (event);
                         break;
 
                 case RDMA_CM_EVENT_ADDR_ERROR:
