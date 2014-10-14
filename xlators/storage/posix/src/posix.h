@@ -68,6 +68,7 @@ struct posix_fd {
 	int     fd;      /* fd returned by the kernel */
 	int32_t flags;   /* flags for open/creat      */
 	DIR *   dir;     /* handle returned by the kernel */
+	off_t   dir_eof; /* offset at dir EOF */
         int     odirect;
         struct list_head list; /* to add to the janitor list */
 };
