@@ -877,6 +877,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 2,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "client.own-thread",
+          .voltype     = "protocol/client",
+          .option      = "transport.socket.own-thread",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
 
         /* Server xlator options */
         { .key         = "network.tcp-window-size",
@@ -972,6 +978,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "server.gid-timeout",
           .voltype     = "protocol/server",
           .op_version  = GD_OP_VERSION_3_6_0,
+        },
+        { .key         = "server.own-thread",
+          .voltype     = "protocol/server",
+          .option      = "transport.socket.own-thread",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0,
         },
 
         /* Generic transport options */
