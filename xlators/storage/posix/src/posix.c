@@ -933,6 +933,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         }
 
         pfd->dir = dir;
+        pfd->dir_eof = -1;
         pfd->fd = dirfd (dir);
 
         op_ret = fd_ctx_set (fd, this, (uint64_t)(long)pfd);
@@ -4845,11 +4846,21 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
         struct dirent  *entry          = NULL;
         int32_t               this_size      = -1;
         gf_dirent_t          *this_entry     = NULL;
+        struct posix_fd      *pfd            = NULL;
         uuid_t                rootgfid = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
         struct stat           stbuf = {0,};
         char                 *hpath = NULL;
         int                   len = 0;
         int                   ret = 0;
+
+        ret = posix_fd_ctx_get (fd, this, &pfd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "pfd is NULL, fd=%p", fd);
+                count = -1;
+                errno = -ret;
+                goto out;
+        }
 
         if (skip_dirs) {
                 len = posix_handle_path (this, fd->inode->gfid, NULL, NULL, 0);
@@ -4864,7 +4875,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
         } else {
                 seekdir (dir, off);
 #ifndef GF_LINUX_HOST_OS
-                if (telldir(dir) != off) {
+                if (telldir(dir) != (long)off && off != pfd->dir_eof) {
                         gf_log (THIS->name, GF_LOG_ERROR,
                                 "seekdir(%ld) failed on dir=%p: "
                                 "Invalid argument (offset reused from "
@@ -4937,7 +4948,8 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 if (this_size + filled > size) {
                         seekdir (dir, in_case);
 #ifndef GF_LINUX_HOST_OS
-                        if (telldir(dir) != in_case) {
+                        if (telldir(dir) != (long)in_case &&
+                            in_case != pfd->dir_eof) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "seekdir(%ld) failed on dir=%p: "
                                         "Invalid argument (offset reused from "
@@ -4969,9 +4981,12 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 count ++;
         }
 
-        if ((!readdir (dir) && (errno == 0)))
+        if ((!readdir (dir) && (errno == 0))) {
                 /* Indicate EOF */
                 errno = ENOENT;
+                /* Remember EOF offset for later detection */
+                pfd->dir_eof = telldir (dir);
+        }
 out:
         return count;
 }
