@@ -162,13 +162,13 @@ done
 ## --------------------------------
 for i in `seq 1 200`; do
         dd if=/dev/urandom of="$M0/$TESTDIR/dir1/1MBfile$i" bs=1024k count=1 \
-           2>&1 | grep -v "No space left"
+           2>&1 | egrep -v '(No space left|Disc quota exceeded)'
 done
 
 # 65
 ## <Test whether quota limit crossed more than 10% of limit>
 ## ---------------------------------------------------------
-USED_KB=`du -s $M0/$TESTDIR/dir1 | cut -f1`;
+USED_KB=`du -ks $M0/$TESTDIR/dir1 | cut -f1`;
 USED_MB=$(($USED_KB/1024));
 TEST [ $USED_MB -le $((($QUOTALIMIT * 110) / 100)) ]
 
