@@ -142,6 +142,7 @@ union _ec_cbk
 struct _ec_lock
 {
     ec_lock_t        **plock;
+    gf_timer_t        *timer;
     struct list_head   waiting;
     uintptr_t          mask;
     uintptr_t          good_mask;

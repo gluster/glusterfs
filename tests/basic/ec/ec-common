@@ -80,6 +80,11 @@ for dir in . dir1; do
 
     EXPECT "$cs_big" echo $(sha1sum $dir/big | awk '{ print $1 }')
 
+# Give enough time for current operations to complete. Otherwise the
+# following kill_brick can cause data corruption and self-heal will be
+# needed, but this script is not prepared to handle self-healing.
+    sleep 2
+
     for idx in `seq 0 $LAST_BRICK`; do
         TEST kill_brick $V0 $H0 $B0/$V0$idx
 

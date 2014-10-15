@@ -1016,11 +1016,41 @@ void ec_wind_mknod(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
 {
+    ec_t *ec;
     ec_cbk_data_t * cbk;
 
     switch (state)
     {
         case EC_STATE_INIT:
+            if (S_ISREG(fop->mode[0])) {
+                if (fop->xdata == NULL) {
+                    fop->xdata = dict_new();
+                    if (fop->xdata == NULL) {
+                        fop->error = EIO;
+
+                        return EC_STATE_REPORT;
+                    }
+                }
+
+                ec = fop->xl->private;
+
+                fop->config.version = EC_CONFIG_VERSION;
+                fop->config.algorithm = EC_CONFIG_ALGORITHM;
+                fop->config.gf_word_size = EC_GF_BITS;
+                fop->config.bricks = ec->nodes;
+                fop->config.redundancy = ec->redundancy;
+                fop->config.chunk_size = EC_METHOD_CHUNK_SIZE;
+
+                if (ec_dict_set_config(fop->xdata, EC_XATTR_CONFIG,
+                                       &fop->config) < 0) {
+                    fop->error = EIO;
+
+                    return EC_STATE_REPORT;
+                }
+            }
+
+        /* Fall through */
+
         case EC_STATE_LOCK:
             ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
