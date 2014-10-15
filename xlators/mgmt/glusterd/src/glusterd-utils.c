@@ -13973,3 +13973,25 @@ glusterd_have_peers ()
 
         return !list_empty (&conf->peers);
 }
+
+void
+glusterd_op_clear_xaction_peers ()
+{
+        xlator_t               *this     = NULL;
+        glusterd_conf_t        *priv     = NULL;
+        glusterd_peerinfo_t    *peerinfo = NULL;
+        glusterd_peerinfo_t    *tmp      = NULL;
+
+        this = THIS;
+        priv = this->private;
+
+        GF_ASSERT (this);
+        GF_ASSERT (priv);
+
+        list_for_each_entry_safe (peerinfo, tmp, &priv->xaction_peers,
+                                  op_peers_list) {
+                GF_ASSERT (peerinfo);
+                list_del_init (&peerinfo->op_peers_list);
+        }
+
+}
