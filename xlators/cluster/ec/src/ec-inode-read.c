@@ -81,7 +81,7 @@ int32_t ec_manager_access(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_DISPATCH:
             ec_dispatch_one(fop);
 
-            return EC_STATE_PREPARE_ANSWER;
+            return EC_STATE_REPORT;
 
         case -EC_STATE_REPORT:
             if (fop->cbks.access != NULL)

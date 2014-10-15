@@ -326,8 +326,10 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
     len = prelen;
     for (i = 0; i < num; i++)
     {
-        memcpy(str + len, sep, seplen);
-        len += seplen;
+        if (i > 0) {
+            memcpy(str + len, sep, seplen);
+            len += seplen;
+        }
         tmp = data[i]->len - 1;
         memcpy(str + len, data[i]->data, tmp);
         len += tmp;

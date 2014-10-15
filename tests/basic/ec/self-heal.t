@@ -179,6 +179,8 @@ for idx1 in {0..4}; do
     done
 done
 
+sleep 2
+
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST cp $tmp/test test2
@@ -196,6 +198,8 @@ TEST ln test2 test4
 TEST [ -f test4 ]
 EXPECT "2" stat -c "%h" test2
 EXPECT "2" stat -c "%h" test4
+
+sleep 2
 
 TEST $CLI volume start $V0 force
 # Wait until the killed bricks have been started and recognized by the ec

@@ -631,9 +631,11 @@ int32_t ec_lock_compare(ec_lock_t * lock1, ec_lock_t * lock2)
     return uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
 }
 
-void ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, int32_t update)
+ec_lock_link_t *ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock,
+                               int32_t update)
 {
     ec_lock_t * tmp;
+    ec_lock_link_t *link = NULL;
     int32_t tmp_update;
 
     if ((fop->lock_count > 0) &&
@@ -654,13 +656,23 @@ void ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, int32_t update)
 
     fop->lock_count++;
 
-    lock->refs++;
+    if (lock->timer != NULL) {
+        link = lock->timer->data;
+        ec_trace("UNLOCK_CANCELLED", link->fop, "lock=%p", lock);
+        gf_timer_call_cancel(fop->xl->ctx, lock->timer);
+        lock->timer = NULL;
+    } else {
+        lock->refs++;
+    }
+
+    return link;
 }
 
 void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update)
 {
     ec_lock_t * lock = NULL;
     ec_inode_t * ctx = NULL;
+    ec_lock_link_t *link = NULL;
     loc_t tmp;
     int32_t error;
 
@@ -724,16 +736,21 @@ void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update)
     ctx->entry_lock = lock;
 
 insert:
-    ec_lock_insert(fop, lock, update);
+    link = ec_lock_insert(fop, lock, update);
 
 unlock:
     UNLOCK(&tmp.inode->lock);
 
     loc_wipe(&tmp);
+
+    if (link != NULL) {
+        ec_resume(link->fop, 0);
+    }
 }
 
 void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, int32_t update)
 {
+    ec_lock_link_t *link = NULL;
     ec_lock_t * lock;
     ec_inode_t * ctx;
 
@@ -778,10 +795,14 @@ void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, int32_t update)
     ctx->inode_lock = lock;
 
 insert:
-    ec_lock_insert(fop, lock, update);
+    link = ec_lock_insert(fop, lock, update);
 
 unlock:
     UNLOCK(&loc->inode->lock);
+
+    if (link != NULL) {
+        ec_resume(link->fop, 0);
+    }
 }
 
 void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update)
@@ -898,90 +919,6 @@ void ec_lock(ec_fop_data_t * fop)
     }
 }
 
-int32_t ec_unlocked(call_frame_t * frame, void * cookie, xlator_t * this,
-                    int32_t op_ret, int32_t op_errno, dict_t * xdata)
-{
-    ec_fop_data_t * fop = cookie;
-
-    if (op_ret < 0)
-    {
-        gf_log(this->name, GF_LOG_WARNING, "entry/inode unlocking failed (%s)",
-               ec_fop_name(fop->parent->id));
-    }
-    else
-    {
-        ec_trace("UNLOCKED", fop->parent, "lock=%p", fop->data);
-    }
-
-    return 0;
-}
-
-void ec_unlock(ec_fop_data_t * fop)
-{
-    ec_lock_t * lock;
-    int32_t i, refs;
-
-    for (i = 0; i < fop->lock_count; i++)
-    {
-        lock = fop->locks[i].lock;
-
-        LOCK(&lock->loc.inode->lock);
-
-        ec_trace("UNLOCK", fop, "lock=%p", lock);
-
-        refs = --lock->refs;
-        if (refs == 0)
-        {
-            *lock->plock = NULL;
-        }
-
-        UNLOCK(&lock->loc.inode->lock);
-
-        if (refs == 0)
-        {
-            if (lock->mask != 0)
-            {
-                ec_owner_set(fop->frame, lock);
-
-                switch (lock->kind)
-                {
-                    case EC_LOCK_ENTRY:
-                        ec_trace("UNLOCK_ENTRYLK", fop, "lock=%p, inode=%p, "
-                                                        "path=%s",
-                                 lock, lock->loc.inode, lock->loc.path);
-
-                        ec_entrylk(fop->frame, fop->xl, lock->mask,
-                                   EC_MINIMUM_ALL, ec_unlocked, lock,
-                                   fop->xl->name, &lock->loc, NULL,
-                                   ENTRYLK_UNLOCK, lock->type, NULL);
-
-                        break;
-
-                    case EC_LOCK_INODE:
-                        lock->flock.l_type = F_UNLCK;
-                        ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p",
-                                 lock, lock->loc.inode);
-
-                        ec_inodelk(fop->frame, fop->xl, lock->mask,
-                                   EC_MINIMUM_ALL, ec_unlocked, lock,
-                                   fop->xl->name, &lock->loc, F_SETLK,
-                                   &lock->flock, NULL);
-
-                        break;
-
-                    default:
-                        gf_log(fop->xl->name, GF_LOG_ERROR, "Invalid lock "
-                                                            "type");
-                }
-            }
-
-            ec_trace("LOCK_DESTROY", fop, "lock=%p", lock);
-
-            ec_lock_destroy(lock);
-        }
-    }
-}
-
 int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
                                 xlator_t * this, int32_t op_ret,
                                 int32_t op_errno, inode_t * inode,
@@ -991,7 +928,7 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
     ec_t * ec;
     ec_fop_data_t * fop = cookie;
     ec_inode_t * ctx;
-    ec_lock_t * lock;
+    ec_lock_t *lock = NULL;
 
     if (op_ret >= 0)
     {
@@ -1192,6 +1129,58 @@ out:
     ec_fop_set_error(fop, error);
 }
 
+int32_t ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+
+    if (op_ret < 0) {
+        gf_log(this->name, GF_LOG_WARNING, "entry/inode unlocking failed (%s)",
+               ec_fop_name(fop->parent->id));
+    } else {
+        ec_trace("UNLOCKED", fop->parent, "lock=%p", fop->data);
+    }
+
+    return 0;
+}
+
+void ec_unlock_lock(ec_fop_data_t *fop, ec_lock_t *lock)
+{
+    if (lock->mask != 0) {
+        ec_owner_set(fop->frame, lock);
+
+        switch (lock->kind) {
+        case EC_LOCK_ENTRY:
+            ec_trace("UNLOCK_ENTRYLK", fop, "lock=%p, inode=%p, path=%s", lock,
+                     lock->loc.inode, lock->loc.path);
+
+            ec_entrylk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ALL,
+                       ec_unlocked, lock, fop->xl->name, &lock->loc, NULL,
+                       ENTRYLK_UNLOCK, lock->type, NULL);
+
+            break;
+
+        case EC_LOCK_INODE:
+            lock->flock.l_type = F_UNLCK;
+            ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p", lock,
+                     lock->loc.inode);
+
+            ec_inodelk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ALL,
+                       ec_unlocked, lock, fop->xl->name, &lock->loc, F_SETLK,
+                       &lock->flock, NULL);
+
+            break;
+
+        default:
+            gf_log(fop->xl->name, GF_LOG_ERROR, "Invalid lock type");
+        }
+    }
+
+    ec_trace("LOCK_DESTROY", fop, "lock=%p", lock);
+
+    ec_lock_destroy(lock);
+}
+
 int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
                                     xlator_t * this, int32_t op_ret,
                                     int32_t op_errno, dict_t * xattr,
@@ -1209,11 +1198,15 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
         fop->parent->mask &= fop->good;
     }
 
+    if (fop->data != NULL) {
+        ec_unlock_lock(fop->parent, fop->data);
+    }
+
     return 0;
 }
 
 void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version,
-                            uint64_t size)
+                            uint64_t size, ec_lock_t *lock)
 {
     dict_t * dict;
     uid_t uid;
@@ -1253,7 +1246,7 @@ void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version,
     fop->frame->root->gid = 0;
 
     ec_xattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
-               ec_update_size_version_done, NULL, loc,
+               ec_update_size_version_done, lock, loc,
                GF_XATTROP_ADD_ARRAY64, dict, NULL);
 
     fop->frame->root->uid = uid;
@@ -1272,6 +1265,103 @@ out:
     ec_fop_set_error(fop, EIO);
 
     gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to update version and size");
+}
+
+void ec_unlock_now(ec_fop_data_t *fop, ec_lock_t *lock)
+{
+    ec_trace("UNLOCK_NOW", fop, "lock=%p", lock);
+
+    if (lock->version_delta != 0) {
+        ec_update_size_version(fop, &lock->loc, lock->version_delta,
+                               lock->size_delta, lock);
+    } else {
+        ec_unlock_lock(fop, lock);
+    }
+
+    ec_resume(fop, 0);
+}
+
+void ec_unlock_timer_cbk(void *data)
+{
+    ec_lock_link_t *link = data;
+    ec_lock_t *lock = link->lock;
+    ec_fop_data_t *fop = NULL;
+
+    LOCK(&lock->loc.inode->lock);
+
+    if (lock->timer != NULL) {
+        fop = link->fop;
+
+        ec_trace("UNLOCK_DELAYED", fop, "lock=%p", lock);
+
+        GF_ASSERT(lock->refs == 1);
+
+        gf_timer_call_cancel(fop->xl->ctx, lock->timer);
+        lock->timer = NULL;
+        *lock->plock = NULL;
+    }
+
+    UNLOCK(&lock->loc.inode->lock);
+
+    if (fop != NULL) {
+        ec_unlock_now(fop, lock);
+    }
+}
+
+void ec_unlock_timer_add(ec_lock_link_t *link)
+{
+    struct timespec delay;
+    ec_fop_data_t *fop = link->fop;
+    ec_lock_t *lock = link->lock;
+    int32_t refs = 1;
+
+    LOCK(&lock->loc.inode->lock);
+
+    GF_ASSERT(lock->timer == NULL);
+
+    if (lock->refs != 1) {
+        ec_trace("UNLOCK_SKIP", fop, "lock=%p", lock);
+
+        lock->refs--;
+
+        UNLOCK(&lock->loc.inode->lock);
+    } else {
+        ec_trace("UNLOCK_DELAY", fop, "lock=%p", lock);
+
+        delay.tv_sec = 1;
+        delay.tv_nsec = 0;
+
+        LOCK(&fop->lock);
+
+        fop->jobs++;
+        fop->refs++;
+
+        UNLOCK(&fop->lock);
+
+        lock->timer = gf_timer_call_after(fop->xl->ctx, delay,
+                                          ec_unlock_timer_cbk, link);
+        if (lock->timer == NULL) {
+            gf_log(fop->xl->name, GF_LOG_WARNING, "Unable to delay an unlock");
+
+            *lock->plock = NULL;
+            refs = 0;
+        }
+
+        UNLOCK(&lock->loc.inode->lock);
+
+        if (refs == 0) {
+            ec_unlock_now(fop, lock);
+        }
+    }
+}
+
+void ec_unlock(ec_fop_data_t *fop)
+{
+    int32_t i;
+
+    for (i = 0; i < fop->lock_count; i++) {
+        ec_unlock_timer_add(&fop->locks[i]);
+    }
 }
 
 void ec_flush_size_version(ec_fop_data_t * fop)
@@ -1296,7 +1386,7 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 
     if (version > 0)
     {
-        ec_update_size_version(fop, &lock->loc, version, delta);
+        ec_update_size_version(fop, &lock->loc, version, delta, NULL);
     }
 }
 
@@ -1305,16 +1395,10 @@ void ec_lock_reuse(ec_fop_data_t *fop)
     ec_fop_data_t * wait_fop;
     ec_lock_t * lock;
     ec_lock_link_t * link;
-    uint64_t version = 0, delta = 0;
-    int32_t refs = 0;
     int32_t i;
 
     for (i = 0; i < fop->lock_count; i++)
     {
-        refs = 0;
-        delta = 0;
-        version = 0;
-
         wait_fop = NULL;
 
         lock = fop->locks[i].lock;
@@ -1336,14 +1420,6 @@ void ec_lock_reuse(ec_fop_data_t *fop)
                     lock->have_size = 1;
                 }
             }
-        }
-
-        version = lock->version_delta;
-        delta = lock->size_delta;
-        refs = lock->refs;
-        if (refs == 1) {
-            lock->version_delta = 0;
-            lock->size_delta = 0;
         }
 
         lock->good_mask &= fop->mask;
@@ -1370,10 +1446,6 @@ void ec_lock_reuse(ec_fop_data_t *fop)
             ec_lock(wait_fop);
 
             ec_resume(wait_fop, 0);
-        }
-
-        if ((refs == 1) && (version > 0)) {
-            ec_update_size_version(fop, &lock->loc, version, delta);
         }
     }
 }
