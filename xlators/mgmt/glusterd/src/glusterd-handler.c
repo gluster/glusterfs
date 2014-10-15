@@ -517,6 +517,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                        char *err_str, size_t err_len)
 {
         int32_t                     ret             = -1;
+        int                         npeers          = 0;
         dict_t                     *dict            = NULL;
         xlator_t                   *this            = NULL;
         glusterd_conf_t            *priv            = NULL;
@@ -604,6 +605,10 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         gf_log (this->name, GF_LOG_DEBUG, "Acquired lock on localhost");
 
 local_locking_done:
+
+        INIT_LIST_HEAD (&priv->xaction_peers);
+
+        npeers = gd_build_peers_list (&priv->peers, &priv->xaction_peers, op);
 
         /* If no volname is given as a part of the command, locks will
          * not be held, hence sending stage event. */

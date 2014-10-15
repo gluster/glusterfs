@@ -915,4 +915,7 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
 
 gf_boolean_t
 glusterd_have_peers ();
+
+void
+glusterd_op_clear_xaction_peers ();
 #endif

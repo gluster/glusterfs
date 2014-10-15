@@ -2810,7 +2810,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -2880,19 +2880,19 @@ out:
 static int
 glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                   ret      = 0;
-        rpc_clnt_procedure_t *proc     = NULL;
-        glusterd_conf_t      *priv     = NULL;
-        xlator_t             *this     = NULL;
-        glusterd_peerinfo_t  *peerinfo = NULL;
-        uint32_t             pending_count = 0;
-        dict_t               *dict     = NULL;
+        int                   ret           = 0;
+        rpc_clnt_procedure_t *proc          = NULL;
+        glusterd_conf_t      *priv          = NULL;
+        xlator_t             *this          = NULL;
+        glusterd_peerinfo_t  *peerinfo      = NULL;
+        uint32_t              pending_count = 0;
+        dict_t               *dict          = NULL;
 
         this = THIS;
         priv = this->private;
         GF_ASSERT (priv);
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -3522,7 +3522,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         if (op == GD_OP_REPLACE_BRICK)
                 glusterd_rb_use_rsp_dict (NULL, rsp_dict);
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -4115,7 +4115,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -4430,6 +4430,7 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         glusterd_op_clear_op ();
         glusterd_op_reset_ctx ();
         glusterd_op_clear_errstr ();
+        glusterd_op_clear_xaction_peers ();
 
         /* Based on the op-version, we release the cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_3_6_0) {
