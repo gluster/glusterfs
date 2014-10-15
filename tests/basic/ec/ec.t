@@ -190,6 +190,8 @@ TEST touch $M0/setxattr
 TEST touch $M0/removexattr
 TEST setfattr -n user.bar -v "ash_nazg_gimbatul" $M0/removexattr
 
+sleep 2
+
 # Kill a couple of bricks and allow some time for things to settle.
 TEST kill_brick $V0 $H0 $B0/${V0}3
 TEST kill_brick $V0 $H0 $B0/${V0}8
@@ -215,6 +217,8 @@ TEST setfattr -n user.foo -v "ash_nazg_durbatuluk" $M0/setxattr
 TEST setfattr -x user.bar $M0/removexattr
 # Test uid/gid behavior
 TEST setup_perm_file $M0
+
+sleep 2
 
 # Unmount/remount so that create/write and truncate don't see cached data.
 TEST umount $M0
