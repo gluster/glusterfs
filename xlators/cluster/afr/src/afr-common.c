@@ -2569,7 +2569,7 @@ afr_lookup_cont_init (afr_local_t *local, unsigned int child_count)
 
         GF_ASSERT (local);
         local->cont.lookup.xattrs = GF_CALLOC (child_count,
-                                               sizeof (*local->cont.lookup.xattr),
+                                            sizeof (*local->cont.lookup.xattrs),
                                                gf_afr_mt_dict_t);
         if (NULL == local->cont.lookup.xattrs)
                 goto out;
