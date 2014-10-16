@@ -2583,12 +2583,13 @@ int
 glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
                                             char **xl_opts)
 {
-        glusterd_brickinfo_t    *brickinfo      = NULL;
-        glusterd_conf_t         *priv           = NULL;
-        int                     index           = 0;
-        int                     ret             = -1;
-        int                     i               = 0;
-        int                     port            = 0;
+        glusterd_brickinfo_t    *brickinfo          = NULL;
+        glusterd_conf_t         *priv               = NULL;
+        char                    brickname[PATH_MAX] = {0,};
+        int                     index               = 0;
+        int                     ret                 = -1;
+        int                     i                   = 0;
+        int                     port                = 0;
 
         GF_ASSERT (xl_opts);
         if (!xl_opts) {
@@ -2605,7 +2606,14 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
                 if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
-                port = pmap_registry_search (THIS, brickinfo->path,
+                if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
+                        snprintf (brickname, sizeof(brickname), "%s.rdma",
+                                  brickinfo->path);
+                } else
+                        snprintf (brickname, sizeof(brickname), "%s",
+                                  brickinfo->path);
+
+                port = pmap_registry_search (THIS, brickname,
                                              GF_PMAP_PORT_BRICKSERVER);
                 if (!port) {
                         ret = -1;

@@ -1390,14 +1390,16 @@ umount:
  * after all commit acks are received.
  */
 static int
-rb_update_srcbrick_port (glusterd_brickinfo_t *src_brickinfo, dict_t *rsp_dict,
-                         dict_t *req_dict, int32_t replace_op)
+rb_update_srcbrick_port (glusterd_volinfo_t *volinfo,
+                         glusterd_brickinfo_t *src_brickinfo,
+                         dict_t *rsp_dict, dict_t *req_dict, int32_t replace_op)
 {
-        xlator_t *this            = NULL;
-        dict_t   *ctx             = NULL;
-        int       ret             = 0;
-        int       dict_ret        = 0;
-        int       src_port        = 0;
+        xlator_t *this                  = NULL;
+        dict_t   *ctx                   = NULL;
+        int       ret                   = 0;
+        int       dict_ret              = 0;
+        int       src_port              = 0;
+        char      brickname[PATH_MAX]   = {0,};
 
         this = THIS;
 
@@ -1409,8 +1411,15 @@ rb_update_srcbrick_port (glusterd_brickinfo_t *src_brickinfo, dict_t *rsp_dict,
                 gf_log ("", GF_LOG_INFO,
                         "adding src-brick port no");
 
+                if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
+                        snprintf (brickname, sizeof(brickname), "%s.rdma",
+                                  src_brickinfo->path);
+                } else
+                        snprintf (brickname, sizeof(brickname), "%s",
+                                  src_brickinfo->path);
+
                 src_brickinfo->port = pmap_registry_search (this,
-                                      src_brickinfo->path, GF_PMAP_PORT_BRICKSERVER);
+                                      brickname, GF_PMAP_PORT_BRICKSERVER);
                 if (!src_brickinfo->port &&
                     replace_op != GF_REPLACE_OP_COMMIT_FORCE ) {
                         gf_log ("", GF_LOG_ERROR,
@@ -1645,7 +1654,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = rb_update_srcbrick_port (src_brickinfo, rsp_dict,
+        ret = rb_update_srcbrick_port (volinfo, src_brickinfo, rsp_dict,
                                        dict, replace_op);
         if (ret)
                 goto out;
