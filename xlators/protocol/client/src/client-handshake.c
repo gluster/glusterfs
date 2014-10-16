@@ -1205,8 +1205,6 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         conf->connecting = 0;
         conf->connected = 1;
 
-        conf->need_different_port = 0;
-
         if (lk_ver != client_get_lk_ver (conf)) {
                 gf_log (this->name, GF_LOG_INFO, "Server and Client "
                         "lk-version numbers are not same, reopening the fds");
@@ -1546,22 +1544,11 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
 
         req.brick = remote_subvol;
 
-        /* FIXME: Dirty work around */
         if (!dict_get_str (options, "transport-type", &xprt)) {
-                /* This logic is required only in case of 'rdma' client
-                   transport-type and the volume is of 'tcp,rdma'
-                   transport type. */
                 if (!strcmp (xprt, "rdma")) {
-                        if (!conf->need_different_port) {
-                                snprintf (brick_name, PATH_MAX, "%s.rdma",
-                                          remote_subvol);
-                                req.brick = brick_name;
-                                conf->need_different_port = 1;
-                                conf->skip_notify = 1;
-                        } else {
-                                conf->need_different_port = 0;
-                                conf->skip_notify = 0;
-                        }
+                        snprintf (brick_name, sizeof(brick_name), "%s.rdma",
+                                  remote_subvol);
+                        req.brick = brick_name;
                 }
         }
 

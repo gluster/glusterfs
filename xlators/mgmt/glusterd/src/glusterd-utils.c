@@ -1968,6 +1968,12 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                   bind_address);
         }
 
+        if (volinfo->transport_type == GF_TRANSPORT_RDMA)
+                runner_argprintf (&runner, "--volfile-server-transport=rdma");
+        else if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA)
+                runner_argprintf (&runner,
+                                  "--volfile-server-transport=socket,rdma");
+
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
 

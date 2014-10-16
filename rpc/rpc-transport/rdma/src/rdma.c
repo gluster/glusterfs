@@ -4274,7 +4274,7 @@ gf_rdma_disconnect (rpc_transport_t *this)
         int32_t            ret  = 0;
 
         priv = this->private;
-        gf_log_callingfn (this->name, GF_LOG_WARNING,
+        gf_log_callingfn (this->name, GF_LOG_DEBUG,
                           "disconnect called (peer:%s)",
                           this->peerinfo.identifier);
 

@@ -2160,10 +2160,11 @@ out:
 int
 glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx)
 {
-        call_frame_t     *frame = NULL;
-        pmap_signin_req   req = {0, };
-        int               ret = -1;
-        cmd_args_t       *cmd_args = NULL;
+        call_frame_t     *frame                 = NULL;
+        pmap_signin_req   req                   = {0, };
+        int               ret                   = -1;
+        cmd_args_t       *cmd_args              = NULL;
+        char              brick_name[PATH_MAX]  = {0,};
 
         frame = create_frame (THIS, ctx->pool);
         cmd_args = &ctx->cmd_args;
@@ -2174,8 +2175,15 @@ glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
+        if (cmd_args->volfile_server_transport &&
+                      !strcmp(cmd_args->volfile_server_transport, "rdma")) {
+                snprintf (brick_name, sizeof(brick_name), "%s.rdma",
+                          cmd_args->brick_name);
+                req.brick = brick_name;
+        } else
+                req.brick = cmd_args->brick_name;
+
         req.port  = cmd_args->brick_port;
-        req.brick = cmd_args->brick_name;
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
                                    GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
@@ -2226,6 +2234,7 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
         pmap_signout_req  req = {0, };
         call_frame_t     *frame = NULL;
         cmd_args_t       *cmd_args = NULL;
+        char              brick_name[PATH_MAX]  = {0,};
 
         frame = create_frame (THIS, ctx->pool);
         cmd_args = &ctx->cmd_args;
@@ -2236,8 +2245,15 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
+        if (cmd_args->volfile_server_transport &&
+                      !strcmp(cmd_args->volfile_server_transport, "rdma")) {
+                snprintf (brick_name, sizeof(brick_name), "%s.rdma",
+                          cmd_args->brick_name);
+                req.brick = brick_name;
+        } else
+                req.brick = cmd_args->brick_name;
+
         req.port  = cmd_args->brick_port;
-        req.brick = cmd_args->brick_name;
         req.rdma_port = cmd_args->brick_port2;
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
                                    GF_PMAP_SIGNOUT, mgmt_pmap_signout_cbk,
