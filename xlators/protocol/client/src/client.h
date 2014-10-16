@@ -96,10 +96,6 @@ typedef struct clnt_conf {
         char                   disconnect_err_logged; /* flag used to prevent
                                                          excessive disconnect
                                                          logging */
-
-        char                   need_different_port; /* flag used to change the
-                                                       portmap path in case of
-                                                       'tcp,rdma' on server */
         gf_boolean_t           lk_heal;
         uint16_t               lk_version; /* this variable is used to distinguish
                                               client-server transaction while
