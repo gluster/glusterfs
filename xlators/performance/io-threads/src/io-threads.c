@@ -336,15 +336,13 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
                 pri = IOT_PRI_LO;
                 break;
 
-        case GF_FOP_NULL:
         case GF_FOP_FORGET:
         case GF_FOP_RELEASE:
         case GF_FOP_RELEASEDIR:
         case GF_FOP_GETSPEC:
-        case GF_FOP_MAXVALUE:
-                //fail compilation on missing fop
-                //new fop must choose priority.
                 break;
+        default:
+                return -EINVAL;
         }
 out:
         gf_log (this->name, GF_LOG_DEBUG, "%s scheduled as %s fop",
