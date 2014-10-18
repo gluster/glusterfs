@@ -137,6 +137,13 @@ gf_update_latency (call_frame_t *frame)
         elapsed = (end->tv_sec - begin->tv_sec) * 1e6
                 + (end->tv_usec - begin->tv_usec);
 
+        if (frame->op < 0 || frame->op >= GF_FOP_MAXVALUE) {
+                gf_log ("[core]", GF_LOG_WARNING,
+                        "Invalid frame op value: %d",
+                        frame->op);
+                return;
+        }
+
         lat = &frame->this->latencies[frame->op];
 
         lat->total += elapsed;
