@@ -37,6 +37,13 @@ gf_update_latency (call_frame_t *frame)
         elapsed = (end->tv_sec - begin->tv_sec) * 1e9
                 + (end->tv_nsec - begin->tv_nsec);
 
+        if (frame->op < 0 || frame->op >= GF_FOP_MAXVALUE) {
+                gf_log ("[core]", GF_LOG_WARNING,
+                        "Invalid frame op value: %d",
+                        frame->op);
+                return;
+        }
+
         /* Can happen mostly at initiator xlator, as STACK_WIND/UNWIND macros
            set it right anyways for those frames */
         if (!frame->op)
