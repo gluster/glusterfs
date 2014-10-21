@@ -366,6 +366,12 @@ layout information so that the files can also go to newly added nodes.
 When this command is issued, all the file stat information which is
 already cached will get revalidated.
 
+As of GlusterFS 3.6, the assignment of files to bricks will take into account
+the sizes of the bricks.  For example, a 20TB brick will be assigned twice as
+many files as a 10TB brick.  In versions before 3.6, the two bricks were
+treated as equal regardless of size, and would have been assigned an equal
+share of files.
+
 A fix-layout rebalance will only fix the layout changes and does not
 migrate data. If you want to migrate the existing data,
 use`# gluster volume rebalance  start ` command to rebalance data among
