@@ -2349,7 +2349,7 @@ afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
         sh       = &local->self_heal;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Non Blocking entrylks "
+                gf_log (this->name, GF_LOG_DEBUG, "Non Blocking entrylks "
                         "failed for %s.", local->loc.path);
                 afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
                 afr_sh_entry_done (frame, this);

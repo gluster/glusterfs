@@ -2479,7 +2479,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this, inode_t *inode)
         sh->sh_type_in_action = AFR_SELF_HEAL_INVALID;
 
         FRAME_SU_DO (sh_frame, afr_local_t);
-        if (afr_can_start_missing_entry_gfid_self_heal (local, priv)) {
+        if (afr_can_start_missing_entry_gfid_self_heal (sh_local, priv)) {
                 afr_self_heal_missing_entries (sh_frame, this);
         } else {
                 loc = &sh_local->loc;

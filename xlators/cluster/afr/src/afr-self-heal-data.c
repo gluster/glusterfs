@@ -1604,7 +1604,8 @@ afr_sh_data_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         LOCK (&frame->lock);
         {
                 if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_log (this->name,
+                                fop_log_level (GF_FOP_OPEN, op_errno),
                                 "open of %s failed on child %s (%s)",
                                 local->loc.path,
                                 priv->children[child_index]->name,
