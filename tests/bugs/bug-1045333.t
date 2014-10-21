@@ -13,7 +13,6 @@ TEST setup_lvm 1
 TEST $CLI volume create $V0 $H0:$L1
 TEST $CLI volume start $V0
 
-
 S1="${V0}-snap1"    #Create snapshot with name contains hyphen(-)
 S2="-${V0}-snap2"   #Create snapshot with name starts with hyphen(-)
 #Create snapshot with a long name
