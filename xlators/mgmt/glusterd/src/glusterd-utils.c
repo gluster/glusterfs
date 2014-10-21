@@ -568,7 +568,6 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
         new_volinfo->dist_leaf_count = volinfo->dist_leaf_count;
         new_volinfo->sub_count = volinfo->sub_count;
         new_volinfo->transport_type = volinfo->transport_type;
-        new_volinfo->nfs_transport_type = volinfo->nfs_transport_type;
         new_volinfo->brick_count = volinfo->brick_count;
 
         dict_copy (volinfo->dict, new_volinfo->dict);

@@ -247,7 +247,6 @@ typedef enum gf_transport_type_ {
         GF_TRANSPORT_BOTH_TCP_RDMA,
 } gf_transport_type;
 
-#define GF_DEFAULT_NFS_TRANSPORT  GF_TRANSPORT_RDMA
 
 typedef enum gf_rb_status_ {
         GF_RB_STATUS_NONE,
@@ -360,7 +359,6 @@ struct glusterd_volinfo_ {
         uint32_t                  cksum;
         uint32_t                  quota_conf_cksum;
         gf_transport_type         transport_type;
-        gf_transport_type         nfs_transport_type;
 
         dict_t                   *dict;
 

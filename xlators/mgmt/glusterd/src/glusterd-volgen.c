@@ -1160,15 +1160,20 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
         transport_type_to_str (volinfo->transport_type, tt);
 }
 
+/* If no value has specfied for tcp,rdma volume from cli
+ * use tcp as default value.Otherwise, use transport type
+ * mentioned in volinfo
+ */
 static void
 get_vol_nfs_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 {
-        if (volinfo->nfs_transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
-                gf_log ("", GF_LOG_ERROR, "%s:nfs transport cannot be both"
-                        " tcp and rdma", volinfo->volname);
-                GF_ASSERT (0);
-        }
-        transport_type_to_str (volinfo->nfs_transport_type, tt);
+        if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
+                strcpy (tt, "tcp");
+                gf_log ("glusterd", GF_LOG_INFO,
+                        "The default transport type for tcp,rdma volume "
+                        "is tcp if option is not defined by the user ");
+        } else
+                transport_type_to_str (volinfo->transport_type, tt);
 }
 
 /*  gets the volinfo, dict, a character array for filling in
@@ -3425,8 +3430,16 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (ret)
                         goto out;
 
-                /* If both RDMA and TCP are the transport_type, use RDMA
-                   for NFS client protocols */
+                /* If both RDMA and TCP are the transport_type, use TCP for NFS
+                 * client protocols, because tcp,rdma volume can be created in
+                 * servers which does not have rdma supported hardware
+                 * The transport type specified here is client transport type
+                 * which is used for communication between gluster-nfs and brick
+                 * processes.
+                 * User can specify client transport for tcp,rdma volume using
+                 * nfs.transport-type, if it is not set by user default
+                 * one will be tcp.
+                 */
                 memset (&cgraph, 0, sizeof (cgraph));
                 if (mod_dict)
                         get_transport_type (voliter, mod_dict, nfs_xprt, _gf_true);
