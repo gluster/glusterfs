@@ -395,8 +395,9 @@ out:
         return;
 }
 
+/* priv->snaplist_lock should be held before calling this function */
 snap_dirent_t *
-svs_get_snap_dirent (xlator_t *this, const char *name)
+__svs_get_snap_dirent (xlator_t *this, const char *name)
 {
         svs_private_t      *private     = NULL;
         int                 i           = 0;
@@ -404,45 +405,36 @@ svs_get_snap_dirent (xlator_t *this, const char *name)
         snap_dirent_t      *tmp_dirent  = NULL;
         snap_dirent_t      *dirent      = NULL;
 
-        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
-        GF_VALIDATE_OR_GOTO (this->name, name, out);
-
         private = this->private;
 
-        LOCK (&private->snaplist_lock);
-        {
-                dirents = private->dirents;
-                if (!dirents) {
-                        goto unlock;
-                }
-
-                tmp_dirent = dirents;
-                for (i = 0; i < private->num_snaps; i++) {
-                        if (!strcmp (tmp_dirent->name, name)) {
-                                dirent = tmp_dirent;
-                                break;
-                        }
-                        tmp_dirent++;
-                }
+        dirents = private->dirents;
+        if (!dirents) {
+                goto out;
         }
-unlock:
-        UNLOCK (&private->snaplist_lock);
 
-out:
+        tmp_dirent = dirents;
+        for (i = 0; i < private->num_snaps; i++) {
+                if (!strcmp (tmp_dirent->name, name)) {
+                        dirent = tmp_dirent;
+                        break;
+                }
+                tmp_dirent++;
+        }
+
+ out:
         return dirent;
 }
 
 glfs_t *
-svs_initialise_snapshot_volume (xlator_t *this, const char *name)
+__svs_initialise_snapshot_volume (xlator_t *this, const char *name)
 {
-        svs_private_t      *priv              = NULL;
-        int32_t             ret               = -1;
-        snap_dirent_t      *dirent            = NULL;
-        char                volname[PATH_MAX] = {0, };
-        glfs_t             *fs                = NULL;
-        int                 loglevel          = GF_LOG_INFO;
-        char                logfile[PATH_MAX] = {0, };
+        svs_private_t      *priv                = NULL;
+        int32_t             ret                 = -1;
+        snap_dirent_t      *dirent              = NULL;
+        char                volname[PATH_MAX]   = {0, };
+        glfs_t             *fs                  = NULL;
+        int                 loglevel            = GF_LOG_INFO;
+        char                logfile[PATH_MAX]   = {0, };
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
@@ -450,10 +442,10 @@ svs_initialise_snapshot_volume (xlator_t *this, const char *name)
 
         priv = this->private;
 
-        dirent = svs_get_snap_dirent (this, name);
+        dirent = __svs_get_snap_dirent (this, name);
         if (!dirent) {
-                gf_log (this->name, GF_LOG_ERROR, "snap entry for name %s "
-                        "not found", name);
+                gf_log (this->name, GF_LOG_ERROR, "snap entry for "
+                        "name %s not found", name);
                 goto out;
         }
 
@@ -465,6 +457,7 @@ svs_initialise_snapshot_volume (xlator_t *this, const char *name)
 
         snprintf (volname, sizeof (volname), "/snaps/%s/%s",
                   dirent->name, dirent->snap_volname);
+
 
         fs = glfs_new (volname);
         if (!fs) {
@@ -483,13 +476,6 @@ svs_initialise_snapshot_volume (xlator_t *this, const char *name)
                 goto out;
         }
 
-        ret = glfs_init (fs);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "initing the "
-                        "fs for %s failed", dirent->name);
-                goto out;
-        }
-
         snprintf (logfile, sizeof (logfile),
                   DEFAULT_SVD_LOG_FILE_DIRECTORY "/%s-%s.log",
                   name, dirent->uuid);
@@ -501,6 +487,13 @@ svs_initialise_snapshot_volume (xlator_t *this, const char *name)
                 goto out;
         }
 
+        ret = glfs_init (fs);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "initing the "
+                        "fs for %s failed", dirent->name);
+                goto out;
+        }
+
         ret = 0;
 
 out:
@@ -509,8 +502,33 @@ out:
                 fs = NULL;
         }
 
-        if (fs)
+        if (fs) {
                 dirent->fs = fs;
+        }
+
+        return fs;
+}
+
+glfs_t *
+svs_initialise_snapshot_volume (xlator_t *this, const char *name)
+{
+        glfs_t             *fs   = NULL;
+        svs_private_t      *priv = NULL;
+
+        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+        GF_VALIDATE_OR_GOTO (this->name, name, out);
+
+        priv = this->private;
+
+        LOCK (&priv->snaplist_lock);
+        {
+                fs = __svs_initialise_snapshot_volume (this, name);
+        }
+        UNLOCK (&priv->snaplist_lock);
+
+
+out:
 
         return fs;
 }
