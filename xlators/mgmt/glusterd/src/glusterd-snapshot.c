@@ -7443,6 +7443,8 @@ glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                 break;
         case GF_SNAP_OPTION_TYPE_ACTIVATE:
         case GF_SNAP_OPTION_TYPE_DEACTIVATE:
+                glusterd_fetchsnap_notify (this);
+                break;
         case GF_SNAP_OPTION_TYPE_STATUS:
         case GF_SNAP_OPTION_TYPE_CONFIG:
         case GF_SNAP_OPTION_TYPE_INFO:
@@ -8212,6 +8214,10 @@ glusterd_snapshot_get_volnames_uuids (dict_t *dict,
 
         list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
                                   snapvol_list) {
+
+                if (GLUSTERD_STATUS_STARTED != snap_vol->status)
+                        continue;
+
                 snapcount++;
 
                 /* Set Snap Name */
