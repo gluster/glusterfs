@@ -25,6 +25,22 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
+# Construct a cipher list that excludes CBC because of POODLE.
+# http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-3566
+#
+# Since this is a bit opaque, here's what it does:
+#	(1) Get the ciphers matching a normal cipher-list spec
+#	(2) Delete any colon-separated entries containing "CBC"
+#	(3) Collapse adjacent colons from deleted entries
+#	(4) Remove colons at the beginning or end
+function valid_ciphers {
+	openssl ciphers 'HIGH:!SSLv2' | sed	\
+		-e '/[^:]*CBC[^:]*/s///g'	\
+		-e '/::*/s//:/g'		\
+		-e '/^:/s///'			\
+		-e '/:$/s///'
+}
+
 TEST openssl genrsa -out $SSL_KEY 1024
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
 ln $SSL_CERT $SSL_CA
@@ -32,6 +48,7 @@ ln $SSL_CERT $SSL_CA
 TEST $CLI volume create $V0 $H0:$B0/1
 TEST $CLI volume set $V0 server.ssl on
 TEST $CLI volume set $V0 client.ssl on
+#EST $CLI volume set $V0 ssl.cipher-list $(valid_ciphers)
 TEST $CLI volume set $V0 auth.ssl-allow Anyone
 TEST $CLI volume start $V0
 

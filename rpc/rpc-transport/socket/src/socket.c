@@ -45,6 +45,72 @@
 #define SSL_CA_LIST_OPT     "transport.socket.ssl-ca-list"
 #define OWN_THREAD_OPT      "transport.socket.own-thread"
 
+/*
+ * This list was derived by taking the cipher list "HIGH:!SSLv2" (the previous
+ * default) and excluding CBC entries to mitigate the "POODLE" attack.  It
+ * should be re-evaluated in light of each future vulnerability, as those are
+ * discovered.
+ */
+static char *default_cipher_list =
+        "ECDHE-RSA-AES256-GCM-SHA384:"
+        "ECDHE-ECDSA-AES256-GCM-SHA384:"
+        "ECDHE-RSA-AES256-SHA384:"
+        "ECDHE-ECDSA-AES256-SHA384:"
+        "ECDHE-RSA-AES256-SHA:"
+        "ECDHE-ECDSA-AES256-SHA:"
+        "DHE-DSS-AES256-GCM-SHA384:"
+        "DHE-RSA-AES256-GCM-SHA384:"
+        "DHE-RSA-AES256-SHA256:"
+        "DHE-DSS-AES256-SHA256:"
+        "DHE-RSA-AES256-SHA:"
+        "DHE-DSS-AES256-SHA:"
+        "DHE-RSA-CAMELLIA256-SHA:"
+        "DHE-DSS-CAMELLIA256-SHA:"
+        "AECDH-AES256-SHA:"
+        "ADH-AES256-GCM-SHA384:"
+        "ADH-AES256-SHA256:"
+        "ADH-AES256-SHA:"
+        "ADH-CAMELLIA256-SHA:"
+        "ECDH-RSA-AES256-GCM-SHA384:"
+        "ECDH-ECDSA-AES256-GCM-SHA384:"
+        "ECDH-RSA-AES256-SHA384:"
+        "ECDH-ECDSA-AES256-SHA384:"
+        "ECDH-RSA-AES256-SHA:"
+        "ECDH-ECDSA-AES256-SHA:"
+        "AES256-GCM-SHA384:"
+        "AES256-SHA256:"
+        "AES256-SHA:"
+        "CAMELLIA256-SHA:"
+        "ECDHE-RSA-AES128-GCM-SHA256:"
+        "ECDHE-ECDSA-AES128-GCM-SHA256:"
+        "ECDHE-RSA-AES128-SHA256:"
+        "ECDHE-ECDSA-AES128-SHA256:"
+        "ECDHE-RSA-AES128-SHA:"
+        "ECDHE-ECDSA-AES128-SHA:"
+        "DHE-DSS-AES128-GCM-SHA256:"
+        "DHE-RSA-AES128-GCM-SHA256:"
+        "DHE-RSA-AES128-SHA256:"
+        "DHE-DSS-AES128-SHA256:"
+        "DHE-RSA-AES128-SHA:"
+        "DHE-DSS-AES128-SHA:"
+        "DHE-RSA-CAMELLIA128-SHA:"
+        "DHE-DSS-CAMELLIA128-SHA:"
+        "AECDH-AES128-SHA:"
+        "ADH-AES128-GCM-SHA256:"
+        "ADH-AES128-SHA256:"
+        "ADH-AES128-SHA:"
+        "ADH-CAMELLIA128-SHA:"
+        "ECDH-RSA-AES128-GCM-SHA256:"
+        "ECDH-ECDSA-AES128-GCM-SHA256:"
+        "ECDH-RSA-AES128-SHA256:"
+        "ECDH-ECDSA-AES128-SHA256:"
+        "ECDH-RSA-AES128-SHA:"
+        "ECDH-ECDSA-AES128-SHA:"
+        "AES128-GCM-SHA256:"
+        "AES128-SHA256:"
+        "AES128-SHA:"
+        "CAMELLIA128-SHA";      /* no colon for last entry */
+
 /* TBD: do automake substitutions etc. (ick) to set these. */
 #if !defined(DEFAULT_ETC_SSL)
 #  ifdef GF_LINUX_HOST_OS
@@ -3560,7 +3626,7 @@ socket_init (rpc_transport_t *this)
         uint32_t          backlog = 0;
 	int               session_id = 0;
         int32_t           cert_depth = 1;
-        char             *cipher_list = "HIGH:-SSLv2";
+        char             *cipher_list = default_cipher_list;
         int               ret;
 
         if (this->private) {
