@@ -2204,6 +2204,9 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         char                    pidfile[PATH_MAX] = {0, };
         pid_t                   pid               = -1;
         int                     retry_count       = 0;
+        char                   *mnt_pt            = NULL;
+        struct mntent          *entry             = NULL;
+        gf_boolean_t            unmount           = _gf_true;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2228,9 +2231,32 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
                 }
         }
 
+        /* Check if the brick is mounted and then try unmounting the brick */
+        ret = glusterd_get_brick_root (brickinfo->path, &mnt_pt);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "Getting the root "
+                        "of the brick for volume %s (snap %s) failed. "
+                        "Removing lv (%s).", snap_vol->volname,
+                         snap_vol->snapshot->snapname, snap_device);
+                /* The brick path is already unmounted. Remove the lv only *
+                 * Need not fail the operation */
+                ret = 0;
+                unmount = _gf_false;
+        }
+
+        if ((unmount == _gf_true) && (strcmp (mnt_pt, mount_pt))) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Lvm is not mounted for brick %s:%s. "
+                        "Removing lv (%s).", brickinfo->hostname,
+                        brickinfo->path, snap_device);
+                /* The brick path is already unmounted. Remove the lv only *
+                 * Need not fail the operation */
+                unmount = _gf_false;
+        }
+
         /* umount cannot be done when the brick process is still in the process
            of shutdown, so give three re-tries */
-        while (retry_count < 3) {
+        while ((unmount == _gf_true) && (retry_count < 3)) {
                 retry_count++;
                 /*umount2 system call doesn't cleanup mtab entry after un-mount.
                   So use external umount command*/
@@ -2273,8 +2299,6 @@ out:
 int32_t
 glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
 {
-        char                 *mnt_pt               = NULL;
-        struct mntent        *entry                = NULL;
         struct mntent         save_entry           = {0,};
         int32_t               brick_count          = -1;
         int32_t               ret                  = -1;
@@ -2310,7 +2334,19 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         continue;
                 }
 
-                ret = lstat (brickinfo->path, &stbuf);
+                /* Fetch the brick mount path from the brickinfo->path */
+                ret = glusterd_find_brick_mount_path (brickinfo->path,
+                                                      brick_count + 1,
+                                                      &brick_mount_path);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to find brick_mount_path for %s",
+                                brickinfo->path);
+                        ret = 0;
+                        continue;
+                }
+
+                ret = lstat (brick_mount_path, &stbuf);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Brick %s:%s already deleted.",
@@ -2348,54 +2384,36 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         continue;
                 }
 
-                ret = glusterd_get_brick_root (brickinfo->path, &mnt_pt);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "getting the root "
-                               "of the brick for volume %s (snap %s) failed ",
-                               snap_vol->volname, snap_vol->snapshot->snapname);
-                        continue;
-                }
-
-                /* Fetch the brick mount path from the brickinfo->path */
-                ret = glusterd_find_brick_mount_path (brickinfo->path,
-                                                      brick_count + 1,
-                                                      &brick_mount_path);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to find brick_mount_path for %s",
-                                brickinfo->path);
-                        GF_FREE (mnt_pt);
-                        mnt_pt = NULL;
-                        continue;
-                }
-
-                if (strcmp (mnt_pt, brick_mount_path)) {
+                /* Check if the brick has a LV associated with it */
+                if (!brickinfo->device_path) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "Lvm is not mounted for brick %s:%s. "
-                                "Removing the brick path.",
+                                "Brick (%s:%s) does not have a LV "
+                                "associated with it. Removing the brick path",
                                 brickinfo->hostname, brickinfo->path);
-                        err = -1; /* We need to record this failure */
                         goto remove_brick_path;
                 }
 
-                entry = glusterd_get_mnt_entry_info (mnt_pt, buff,
-                                                    sizeof (buff), &save_entry);
-                if (!entry) {
-                        gf_log (this->name, GF_LOG_WARNING, "getting the mount"
-                                " entry for the brick %s:%s of the snap %s "
-                                "(volume: %s) failed", brickinfo->hostname,
-                                brickinfo->path, snap_vol->snapshot->snapname,
-                                snap_vol->volname);
-                        err = -1; /* We need to record this failure */
+                /* Verify if the device path exists or not */
+                ret = stat (brickinfo->device_path, &stbuf);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "LV (%s) for brick (%s:%s) not present. "
+                                "Removing the brick path",
+                                brickinfo->device_path,
+                                brickinfo->hostname, brickinfo->path);
+                        /* Making ret = 0 as absence of device path should *
+                         * not fail the remove operation */
+                        ret = 0;
                         goto remove_brick_path;
                 }
+
                 ret = glusterd_do_lvm_snapshot_remove (snap_vol, brickinfo,
-                                                       mnt_pt,
-                                                       entry->mnt_fsname);
+                                                       brick_mount_path,
+                                                       brickinfo->device_path);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                 "remove the snapshot %s (%s)",
-                                brickinfo->path, entry->mnt_fsname);
+                                brickinfo->path, brickinfo->device_path);
                         err = -1; /* We need to record this failure */
                 }
 
@@ -2412,9 +2430,7 @@ remove_brick_path:
                         if (!tmp) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Invalid brick %s", brickinfo->path);
-                                GF_FREE (mnt_pt);
                                 GF_FREE (brick_mount_path);
-                                mnt_pt = NULL;
                                 brick_mount_path = NULL;
                                 continue;
                         }
@@ -2426,9 +2442,7 @@ remove_brick_path:
                         is_brick_dir_present = _gf_true;
                 }
 
-                GF_FREE (mnt_pt);
                 GF_FREE (brick_mount_path);
-                mnt_pt = NULL;
                 brick_mount_path = NULL;
         }
 
@@ -2459,7 +2473,6 @@ out:
         if (err) {
                 ret = err;
         }
-        GF_FREE (mnt_pt);
         GF_FREE (brick_mount_path);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
