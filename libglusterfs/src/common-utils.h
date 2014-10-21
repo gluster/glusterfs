@@ -628,4 +628,6 @@ struct _dict;
 inline gf_boolean_t
 dht_is_linkfile (struct iatt *buf, struct _dict *dict);
 
+gf_loglevel_t
+fop_log_level (glusterfs_fop_t fop, int op_errno);
 #endif /* _COMMON_UTILS_H */

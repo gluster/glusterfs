@@ -264,9 +264,10 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "successfully on subvolume %s", local->loc.path,
                         priv->children[child_index]->name);
         } else {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open %s "
-                        "on subvolume %s", local->loc.path,
-                        priv->children[child_index]->name);
+                gf_log (this->name, fop_log_level (GF_FOP_OPEN, op_errno),
+                        "Failed to open %s on subvolume %s [%s]",
+                        local->loc.path, priv->children[child_index]->name,
+                        strerror (op_errno));
         }
 
         fd_ctx = afr_fd_ctx_get (local->fd, this);

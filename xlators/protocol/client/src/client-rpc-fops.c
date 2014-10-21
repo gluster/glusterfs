@@ -458,7 +458,8 @@ client3_3_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, fop_log_level (GF_FOP_OPEN,
+                                        gf_error_to_errno (rsp.op_errno)),
                         "remote operation failed: %s. Path: %s (%s)",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         local->loc.path, loc_gfid_utoa (&local->loc));
@@ -923,7 +924,8 @@ client3_3_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, fop_log_level (GF_FOP_FLUSH,
+                                        gf_error_to_errno (rsp.op_errno)),
                         "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
@@ -1524,9 +1526,10 @@ client3_3_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       rsp.op_errno, out);
 
 out:
-        if ((rsp.op_ret == -1) &&
-            (EAGAIN != gf_error_to_errno (rsp.op_errno))) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, fop_log_level (GF_FOP_INODELK,
+                                        gf_error_to_errno (rsp.op_errno)),
+                        "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
         CLIENT_STACK_UNWIND (inodelk, frame, rsp.op_ret,
@@ -1574,9 +1577,10 @@ client3_3_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       rsp.op_errno, out);
 
 out:
-        if ((rsp.op_ret == -1) &&
-            (EAGAIN != gf_error_to_errno (rsp.op_errno))) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, fop_log_level (GF_FOP_FINODELK,
+                                        gf_error_to_errno (rsp.op_errno)),
+                        "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         } else if (rsp.op_ret == 0) {
                 if (local->attempt_reopen)
@@ -1626,9 +1630,10 @@ client3_3_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                                       rsp.op_errno, out);
 
 out:
-        if ((rsp.op_ret == -1) &&
-            (EAGAIN != gf_error_to_errno (rsp.op_errno))) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, fop_log_level (GF_FOP_ENTRYLK,
+                                        gf_error_to_errno (rsp.op_errno)),
+                        "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
 
@@ -2684,7 +2689,8 @@ client3_3_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, fop_log_level (GF_FOP_OPENDIR,
+                                        gf_error_to_errno (rsp.op_errno)),
                         "remote operation failed: %s. Path: %s (%s)",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         local->loc.path, loc_gfid_utoa (&local->loc));
