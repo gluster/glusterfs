@@ -39,6 +39,7 @@
 #include <sys/sysctl.h>
 #endif
 
+#include "compat-errno.h"
 #include "logging.h"
 #include "common-utils.h"
 #include "revision.h"
