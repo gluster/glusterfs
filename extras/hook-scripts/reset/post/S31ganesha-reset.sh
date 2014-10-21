@@ -17,6 +17,10 @@ function parse_args () {
                     shift
                     GLUSTERD_WORKDIR=$1
                     ;;
+                 *)
+                    shift
+                    break
+                    ;;
             esac
             shift
         done
@@ -29,7 +33,7 @@ function is_volume_started () {
 }
 
 parse_args $@
-if ps auxwww | grep -q "[g]anesha.nfsd"
+if ps aux | grep -q "[g]anesha.nfsd"
         then
         kill -s TERM `cat /var/run/ganesha.pid`
         sleep 10
