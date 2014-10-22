@@ -45,6 +45,73 @@
 #define SSL_CA_LIST_OPT     "transport.socket.ssl-ca-list"
 #define OWN_THREAD_OPT      "transport.socket.own-thread"
 
+/*
+ * This list was derived by taking the cipher list "HIGH:!SSLv2" (the previous
+ * default) and excluding CBC entries to mitigate the "POODLE" attack.  It
+ * should be re-evaluated in light of each future vulnerability, as those are
+ * discovered.
+ */
+static char *
+default_cipher_list =
+        "ECDHE-RSA-AES256-GCM-SHA384:"
+        "ECDHE-ECDSA-AES256-GCM-SHA384:"
+        "ECDHE-RSA-AES256-SHA384:"
+        "ECDHE-ECDSA-AES256-SHA384:"
+        "ECDHE-RSA-AES256-SHA:"
+        "ECDHE-ECDSA-AES256-SHA:"
+        "DHE-DSS-AES256-GCM-SHA384:"
+        "DHE-RSA-AES256-GCM-SHA384:"
+        "DHE-RSA-AES256-SHA256:"
+        "DHE-DSS-AES256-SHA256:"
+        "DHE-RSA-AES256-SHA:"
+        "DHE-DSS-AES256-SHA:"
+        "DHE-RSA-CAMELLIA256-SHA:"
+        "DHE-DSS-CAMELLIA256-SHA:"
+        "AECDH-AES256-SHA:"
+        "ADH-AES256-GCM-SHA384:"
+        "ADH-AES256-SHA256:"
+        "ADH-AES256-SHA:"
+        "ADH-CAMELLIA256-SHA:"
+        "ECDH-RSA-AES256-GCM-SHA384:"
+        "ECDH-ECDSA-AES256-GCM-SHA384:"
+        "ECDH-RSA-AES256-SHA384:"
+        "ECDH-ECDSA-AES256-SHA384:"
+        "ECDH-RSA-AES256-SHA:"
+        "ECDH-ECDSA-AES256-SHA:"
+        "AES256-GCM-SHA384:"
+        "AES256-SHA256:"
+        "AES256-SHA:"
+        "CAMELLIA256-SHA:"
+        "ECDHE-RSA-AES128-GCM-SHA256:"
+        "ECDHE-ECDSA-AES128-GCM-SHA256:"
+        "ECDHE-RSA-AES128-SHA256:"
+        "ECDHE-ECDSA-AES128-SHA256:"
+        "ECDHE-RSA-AES128-SHA:"
+        "ECDHE-ECDSA-AES128-SHA:"
+        "DHE-DSS-AES128-GCM-SHA256:"
+        "DHE-RSA-AES128-GCM-SHA256:"
+        "DHE-RSA-AES128-SHA256:"
+        "DHE-DSS-AES128-SHA256:"
+        "DHE-RSA-AES128-SHA:"
+        "DHE-DSS-AES128-SHA:"
+        "DHE-RSA-CAMELLIA128-SHA:"
+        "DHE-DSS-CAMELLIA128-SHA:"
+        "AECDH-AES128-SHA:"
+        "ADH-AES128-GCM-SHA256:"
+        "ADH-AES128-SHA256:"
+        "ADH-AES128-SHA:"
+        "ADH-CAMELLIA128-SHA:"
+        "ECDH-RSA-AES128-GCM-SHA256:"
+        "ECDH-ECDSA-AES128-GCM-SHA256:"
+        "ECDH-RSA-AES128-SHA256:"
+        "ECDH-ECDSA-AES128-SHA256:"
+        "ECDH-RSA-AES128-SHA:"
+        "ECDH-ECDSA-AES128-SHA:"
+        "AES128-GCM-SHA256:"
+        "AES128-SHA256:"
+        "AES128-SHA:"
+        "CAMELLIA128-SHA";      /* no colon for last entry */
+
 /* TBD: do automake substitutions etc. (ick) to set these. */
 #if !defined(DEFAULT_CERT_PATH)
 #define DEFAULT_CERT_PATH   "/etc/ssl/glusterfs.pem"
@@ -3518,7 +3585,7 @@ socket_init (rpc_transport_t *this)
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
                 if (SSL_CTX_set_cipher_list(priv->ssl_ctx,
-                                            "HIGH:-SSLv2") == 0) {
+                                            default_cipher_list) == 0) {
                         gf_log(this->name,GF_LOG_ERROR,
                                "failed to find any valid ciphers");
                         goto err;
