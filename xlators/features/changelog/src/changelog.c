@@ -1091,6 +1091,8 @@ changelog_fsetattr (call_frame_t *frame,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
+
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 1);
         if (!frame->local)
@@ -1150,6 +1152,8 @@ changelog_setattr (call_frame_t *frame,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
+
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 1);
         if (!frame->local)
@@ -1206,6 +1210,8 @@ changelog_fremovexattr (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
+
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 1);
 
@@ -1257,6 +1263,8 @@ changelog_removexattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 1);
@@ -1313,6 +1321,8 @@ changelog_setxattr (call_frame_t *frame,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
+
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 1);
 
@@ -1365,6 +1375,8 @@ changelog_fsetxattr (call_frame_t *frame,
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+
+        CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
 
         CHANGELOG_INIT (this, frame->local,
                         fd->inode, fd->inode->gfid, 1);
