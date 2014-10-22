@@ -267,7 +267,7 @@ cluster is online and available.
     For example, to pause the data migration from server3:/exp3 to
     server5:/exp5 in test-volume:
 
-        # gluster volume replace-brick test-volume server3:/exp3 server5:exp5 pause
+        # gluster volume replace-brick test-volume server3:/exp3 server5:/exp5 pause
         Replace brick pause operation successful
 
 4.  To abort the migration operation, if needed, use the following
