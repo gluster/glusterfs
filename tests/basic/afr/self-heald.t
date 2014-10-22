@@ -7,7 +7,8 @@ cleanup;
 
 function disconnected_brick_count {
         local vol=$1
-        $CLI volume heal $vol info | grep -i transport | wc -l
+        $CLI volume heal $vol info | \
+            egrep -i '(transport|Socket is not connected)' | wc -l
 }
 
 TEST glusterd
@@ -24,7 +25,7 @@ cd $M0
 HEAL_FILES=0
 for i in {1..10}
 do
-        dd if=/dev/urandom of=f bs=1M count=10 2>/dev/null
+        dd if=/dev/urandom of=f bs=1024k count=10
         HEAL_FILES=$(($HEAL_FILES+1)) #+1 for data/metadata self-heal of 'f'
         mkdir a; cd a;
         #+3 for metadata self-heal of 'a' one per subvolume of DHT
@@ -71,15 +72,15 @@ TEST $CLI volume heal $V0 full
 EXPECT_WITHIN 30 "0" afr_get_pending_heal_count $V0
 
 #Test that ongoing IO is not considered as Pending heal
-(dd if=/dev/zero of=$M0/file1 bs=1K 2>/dev/null 1>/dev/null)&
+(dd if=/dev/zero of=$M0/file1 bs=1k 2>/dev/null 1>/dev/null)&
 back_pid1=$!;
-(dd if=/dev/zero of=$M0/file2 bs=1K 2>/dev/null 1>/dev/null)&
+(dd if=/dev/zero of=$M0/file2 bs=1k 2>/dev/null 1>/dev/null)&
 back_pid2=$!;
-(dd if=/dev/zero of=$M0/file3 bs=1K 2>/dev/null 1>/dev/null)&
+(dd if=/dev/zero of=$M0/file3 bs=1k 2>/dev/null 1>/dev/null)&
 back_pid3=$!;
-(dd if=/dev/zero of=$M0/file4 bs=1K 2>/dev/null 1>/dev/null)&
+(dd if=/dev/zero of=$M0/file4 bs=1k 2>/dev/null 1>/dev/null)&
 back_pid4=$!;
-(dd if=/dev/zero of=$M0/file5 bs=1K 2>/dev/null 1>/dev/null)&
+(dd if=/dev/zero of=$M0/file5 bs=1k 2>/dev/null 1>/dev/null)&
 back_pid5=$!;
 EXPECT 0 afr_get_pending_heal_count $V0
 kill -SIGTERM $back_pid1;
@@ -134,7 +135,10 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}2
 TEST kill_brick $V0 $H0 $B0/${V0}4
 TEST touch $M0/d/a
-EXPECT 2 afr_get_pending_heal_count $V0
+# 4 if mtime/ctime is modified for d in bricks without a
+# 2 otherwise
+PENDING=$( afr_get_pending_heal_count $V0 )
+TEST test $PENDING -eq 2 -o $PENDING -eq 4
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN 20 "Y" glustershd_up_status
 EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
