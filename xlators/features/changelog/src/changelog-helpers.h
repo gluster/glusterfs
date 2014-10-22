@@ -539,6 +539,19 @@ int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
                         goto label;                             \
         } while (0)
 
+/* If it is a METADATA entry and fop num being GF_FOP_NULL, don't
+ * log in the changelog as it is of no use. And also if it is
+ * logged, since slicing version checking is done for metadata
+ * entries, the subsequent entries with valid fop num which falls
+ * to same changelog will be missed. Hence check for boundary
+ * condition.
+ */
+#define CHANGELOG_OP_BOUNDARY_CHECK(frame, label) do {          \
+                if (frame->root->op <= GF_FOP_NULL ||           \
+                    frame->root->op >= GF_FOP_MAXVALUE)         \
+                        goto label;                             \
+        } while (0)
+
 /**
  * ignore internal fops for all clients except AFR self-heal daemon
  */
