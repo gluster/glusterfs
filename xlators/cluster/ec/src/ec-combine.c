@@ -141,6 +141,7 @@ int32_t ec_dict_data_compare(dict_t * dict, char * key, data_t * value,
         (strcmp(key, GF_XATTR_CLRLK_CMD) == 0) ||
         (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) ||
         (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
+        (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
         (XATTR_IS_NODE_UUID(key)))
     {
         return 0;
@@ -461,7 +462,7 @@ int32_t ec_dict_data_uuid(ec_cbk_data_t * cbk, int32_t which, char * key)
     return 0;
 }
 
-int32_t ec_dict_data_max(ec_cbk_data_t * cbk, int32_t which, char * key)
+int32_t ec_dict_data_max32(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
     data_t * data[cbk->count];
     dict_t * dict;
@@ -492,6 +493,38 @@ int32_t ec_dict_data_max(ec_cbk_data_t * cbk, int32_t which, char * key)
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
     if (dict_set_uint32(dict, key, max) != 0)
     {
+        return -1;
+    }
+
+    return 0;
+}
+
+int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
+{
+    data_t *data[cbk->count];
+    dict_t *dict;
+    int32_t i, num;
+    uint64_t max, tmp;
+
+    num = cbk->count;
+    if (!ec_dict_list(data, &num, cbk, which, key)) {
+        return -1;
+    }
+
+    if (num <= 1) {
+        return 0;
+    }
+
+    max = data_to_uint64(data[0]);
+    for (i = 1; i < num; i++) {
+        tmp = data_to_uint64(data[i]);
+        if (max < tmp) {
+            max = tmp;
+        }
+    }
+
+    dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
+    if (dict_set_uint64(dict, key, max) != 0) {
         return -1;
     }
 
@@ -550,7 +583,7 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
 
     if (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0)
     {
-        return ec_dict_data_max(data->cbk, data->which, key);
+        return ec_dict_data_max32(data->cbk, data->which, key);
     }
 
     if (XATTR_IS_NODE_UUID(key))
@@ -561,6 +594,10 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
     if (fnmatch(GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0)
     {
         return ec_dict_data_stime(data->cbk, data->which, key);
+    }
+
+    if (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, FNM_NOESCAPE) == 0) {
+        return ec_dict_data_max64(data->cbk, data->which, key);
     }
 
     return 0;
