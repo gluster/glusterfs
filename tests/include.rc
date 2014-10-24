@@ -424,11 +424,22 @@ function cleanup()
 
         # unmount all stale mounts from /tmp, This is a temporary work around
         # till the stale mount in /tmp is found.
-        umount -l /tmp/mnt* 2>/dev/null
-        umount -l $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
-        umount -l $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
-        umount -l $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
-        umount -l $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
+        case `uname -s` in
+        Linux)
+                flag="-l"
+                ;;
+        NetBSD|FreeBSD|Darwin)
+                flag="-f"
+                ;;
+        *)
+                flag=""
+                ;;
+        esac
+        umount $flag /tmp/mnt* 2>/dev/null
+        umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
+        umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+        umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
+        umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
 
 }
 
