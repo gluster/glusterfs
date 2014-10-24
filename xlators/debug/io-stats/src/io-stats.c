@@ -1549,6 +1549,9 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct ios_stat *iosstat = NULL;
         char   *path = frame->local;
 
+        if (!path)
+                goto unwind;
+
         UPDATE_PROFILE_STATS (frame, MKDIR);
         if (op_ret < 0)
                 goto unwind;
@@ -1979,7 +1982,8 @@ int
 io_stats_mkdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
-        frame->local = gf_strdup (loc->path);
+        if (loc->path)
+                frame->local = gf_strdup (loc->path);
 
         START_FOP_LATENCY (frame);
 
@@ -2093,7 +2097,8 @@ int
 io_stats_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
                int32_t flags, fd_t *fd, dict_t *xdata)
 {
-        frame->local = gf_strdup (loc->path);
+        if (loc->path)
+                frame->local = gf_strdup (loc->path);
 
         START_FOP_LATENCY (frame);
 
@@ -2110,7 +2115,8 @@ io_stats_create (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int32_t flags, mode_t mode,
                  mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        frame->local = gf_strdup (loc->path);
+        if (loc->path)
+                frame->local = gf_strdup (loc->path);
 
         START_FOP_LATENCY (frame);
 
