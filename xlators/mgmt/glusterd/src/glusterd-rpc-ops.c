@@ -26,6 +26,7 @@
 #include "protocol-common.h"
 #include "glusterd-utils.h"
 #include "common-utils.h"
+#include "glusterd-messages.h"
 #include <sys/uio.h>
 
 
@@ -656,6 +657,7 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         xlator_t                      *this = NULL;
         uuid_t                        *txn_id = NULL;
         glusterd_conf_t               *priv = NULL;
+        char                          *err_str = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -666,21 +668,26 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         txn_id = &priv->global_txn_id;
 
         if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR, "Lock response is not "
+                        "received from one of the peer");
+                err_str = "Lock response is not received from one of the peer";
+                glusterd_set_opinfo (err_str, ENETRESET, -1);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to decode lock "
-                        "response received from peer");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to decode "
+                        "cluster lock response received from peer");
+                err_str = "Failed to decode cluster lock response received from"
+                          " peer";
+                glusterd_set_opinfo (err_str, EINVAL, -1);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
-out:
         op_ret = rsp.op_ret;
 
         gf_log (this->name, (op_ret) ? GF_LOG_ERROR : GF_LOG_DEBUG,
@@ -689,9 +696,12 @@ out:
 
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_CRITICAL, "Lock response received "
-                        "from unknown peer: %s", uuid_utoa (rsp.uuid));
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "cluster lock response received from unknown peer: %s."
+                        "Ignoring response", uuid_utoa (rsp.uuid));
+                err_str = "cluster lock response received from unknown peer";
+                goto out;
+
         }
 
         if (op_ret) {
@@ -704,6 +714,7 @@ out:
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
+out:
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -723,9 +734,17 @@ glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                                         __glusterd_cluster_lock_cbk);
 }
 
+void
+glusterd_set_opinfo (char *errstr, int32_t op_errno, int32_t op_ret)
+{
+        opinfo.op_errstr = gf_strdup (errstr);
+        opinfo.op_errno = op_errno;
+        opinfo.op_ret = op_ret;
+}
+
 static int32_t
 glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
-                            int count, void *myframe)
+                                    int count, void *myframe)
 {
         gd1_mgmt_v3_lock_rsp          rsp   = {{0},};
         int                           ret   = -1;
@@ -733,26 +752,36 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
+        call_frame_t                  *frame  = NULL;
         uuid_t                        *txn_id = NULL;
+        char                          *err_str = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
 
+        frame = myframe;
+        txn_id = frame->cookie;
+        frame->cookie = NULL;
+
         if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR, "Lock response is not "
+                        "received from one of the peer");
+                err_str = "Lock response is not received from one of the peer";
+                glusterd_set_opinfo (err_str, ENETRESET, -1);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to decode mgmt_v3 lock "
-                        "response received from peer");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to decode "
+                        "mgmt_v3 lock response received from peer");
+                err_str = "Failed to decode mgmt_v3 lock response received from"
+                          " peer";
+                glusterd_set_opinfo (err_str, EINVAL, -1);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
@@ -766,7 +795,6 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
-                ret = -1;
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "mgmt_v3 lock response received "
                         "from unknown peer: %s. Ignoring response",
@@ -784,15 +812,15 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
+out:
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
-
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
         }
 
-out:
-        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
+        GF_FREE (frame->cookie);
+        GLUSTERD_STACK_DESTROY (frame);
         return ret;
 }
 
@@ -814,26 +842,39 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
+        call_frame_t                  *frame = NULL;
         uuid_t                        *txn_id = NULL;
+        char                          *err_str = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
 
+        frame = myframe;
+        txn_id = frame->cookie;
+        frame->cookie = NULL;
+
         if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                err_str = "Unlock response not received from one of the peer.";
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CLUSTER_UNLOCK_FAILED,
+                        "UnLock response is not received from one of the peer");
+                glusterd_set_opinfo (err_str, 0, 0);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to decode mgmt_v3 unlock "
-                        "response received from peer");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CLUSTER_UNLOCK_FAILED,
+                        "Failed to decode mgmt_v3 unlock response received from"
+                        "peer");
+                err_str = "Failed to decode mgmt_v3 unlock response received "
+                          "from peer";
+                glusterd_set_opinfo (err_str, 0, 0);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
@@ -848,8 +889,8 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CLUSTER_UNLOCK_FAILED,
                         "mgmt_v3 unlock response received "
                         "from unknown peer: %s. Ignoring response",
                         uuid_utoa (rsp.uuid));
@@ -866,6 +907,7 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
+out:
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -873,8 +915,8 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-out:
-        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
+        GF_FREE (frame->cookie);
+        GLUSTERD_STACK_DESTROY (frame);
         return ret;
 }
 
@@ -898,6 +940,7 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         xlator_t                      *this = NULL;
         uuid_t                        *txn_id = NULL;
         glusterd_conf_t               *priv = NULL;
+        char                          *err_str = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -908,21 +951,28 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         txn_id = &priv->global_txn_id;
 
         if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                err_str = "Unlock response not received from one of the peer.";
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CLUSTER_UNLOCK_FAILED,
+                        "UnLock response is not received from one of the peer");
+                glusterd_set_opinfo (err_str, 0, 0);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to decode unlock "
-                        "response received from peer");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CLUSTER_UNLOCK_FAILED,
+                        "Failed to decode unlock response received from peer");
+                err_str = "Failed to decode cluster unlock response received "
+                          "from peer";
+                glusterd_set_opinfo (err_str, 0, 0);
+                event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
-out:
         op_ret = rsp.op_ret;
 
         gf_log (this->name, (op_ret) ? GF_LOG_ERROR : GF_LOG_DEBUG,
@@ -931,8 +981,11 @@ out:
 
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unlock response received "
-                        "from unknown peer %s", uuid_utoa (rsp.uuid));
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_CLUSTER_UNLOCK_FAILED,
+                        "Unlock response received from unknown peer %s",
+                        uuid_utoa (rsp.uuid));
+                goto out;
         }
 
         if (op_ret) {
@@ -942,6 +995,7 @@ out:
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
+out:
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
         if (!ret) {
@@ -1516,7 +1570,6 @@ glusterd_mgmt_v3_lock_peers (call_frame_t *frame, xlator_t *this,
         int                              ret         = -1;
         glusterd_peerinfo_t             *peerinfo    = NULL;
         glusterd_conf_t                 *priv        = NULL;
-        call_frame_t                    *dummy_frame = NULL;
         dict_t                          *dict        = NULL;
         uuid_t                          *txn_id      = NULL;
 
@@ -1558,13 +1611,21 @@ glusterd_mgmt_v3_lock_peers (call_frame_t *frame, xlator_t *this,
                 uuid_copy (req.txn_id, *txn_id);
         }
 
-        dummy_frame = create_frame (this, this->ctx->pool);
-        if (!dummy_frame) {
+        if (!frame)
+                frame = create_frame (this, this->ctx->pool);
+
+        if (!frame) {
                 ret = -1;
                 goto out;
         }
+        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!frame->cookie) {
+                ret = -1;
+                goto out;
+        }
+        uuid_copy (frame->cookie, req.txn_id);
 
-        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame,
                                        peerinfo->mgmt_v3,
                                        GLUSTERD_MGMT_V3_LOCK, NULL,
                                        this, glusterd_mgmt_v3_lock_peers_cbk,
@@ -1582,7 +1643,6 @@ glusterd_mgmt_v3_unlock_peers (call_frame_t *frame, xlator_t *this,
         int                              ret         = -1;
         glusterd_peerinfo_t             *peerinfo    = NULL;
         glusterd_conf_t                 *priv        = NULL;
-        call_frame_t                    *dummy_frame = NULL;
         dict_t                          *dict        = NULL;
         uuid_t                          *txn_id      = NULL;
 
@@ -1624,13 +1684,21 @@ glusterd_mgmt_v3_unlock_peers (call_frame_t *frame, xlator_t *this,
                 uuid_copy (req.txn_id, *txn_id);
         }
 
-        dummy_frame = create_frame (this, this->ctx->pool);
-        if (!dummy_frame) {
+        if (!frame)
+                frame = create_frame (this, this->ctx->pool);
+
+        if (!frame) {
                 ret = -1;
                 goto out;
         }
+        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!frame->cookie) {
+                ret = -1;
+                goto out;
+        }
+        uuid_copy (frame->cookie, req.txn_id);
 
-        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame,
                                        peerinfo->mgmt_v3,
                                        GLUSTERD_MGMT_V3_UNLOCK, NULL,
                                        this, glusterd_mgmt_v3_unlock_peers_cbk,

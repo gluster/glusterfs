@@ -45,7 +45,7 @@
  */
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
-#define GLFS_NUM_MESSAGES       19
+#define GLFS_NUM_MESSAGES       20
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -206,6 +206,15 @@
  *                    failure to set default options
  */
 #define GD_MSG_FAIL_DEFAULT_OPT_SET (GLUSTERD_COMP_BASE + 19)
+
+/*!
+ * @messageid 106020
+ * @diagnosis Failed to release cluster wide lock for one of the peer
+ * @recommendedaction Restart the glusterd service on the node where the command
+ * was issued
+ */
+#define GD_MSG_CLUSTER_UNLOCK_FAILED (GLUSTERD_COMP_BASE + 20)
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 

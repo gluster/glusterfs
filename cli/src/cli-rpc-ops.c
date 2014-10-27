@@ -1508,14 +1508,18 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
                         snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
                 } else {
-                        if (!rsp.op_ret) {
+                         if (!rsp.op_ret) {
+                                /* append errstr in the cli msg for successful
+                                 * case since unlock failures can be highlighted
+                                 * event though rebalance command was successful
+                                 */
                                 snprintf (msg, sizeof (msg),
                                           "Rebalance on %s has been started "
                                           "successfully. Use rebalance status "
                                           "command to check status of the "
-                                          "rebalance process.\nID: %s",
-                                          volname, task_id_str);
-                        } else {
+                                          "rebalance process.\nID: %s\n%s",
+                                          volname, task_id_str, rsp.op_errstr);
+                         } else {
                                 snprintf (msg, sizeof (msg),
                                           "Starting rebalance on volume %s has "
                                           "been unsuccessful.", volname);
@@ -1535,13 +1539,17 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                           volname);
                         goto done;
                 } else {
+                        /* append errstr in the cli msg for successful case
+                         * since unlock failures can be highlighted event though
+                         * rebalance command was successful */
                         snprintf (msg, sizeof (msg),
                                   "rebalance process may be in the middle of a "
                                   "file migration.\nThe process will be fully "
                                   "stopped once the migration of the file is "
                                   "complete.\nPlease check rebalance process "
                                   "for completion before doing any further "
-                                  "brick related tasks on the volume.");
+                                  "brick related tasks on the volume.\n%s",
+                                  rsp.op_errstr);
                 }
         }
         if (cmd == GF_DEFRAG_CMD_STATUS) {
@@ -1554,6 +1562,8 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                           "Failed to get the status of "
                                           "rebalance process");
                         goto done;
+                } else {
+                        snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
                 }
         }
 
