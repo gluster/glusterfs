@@ -651,12 +651,6 @@ out:
  * Returns -1 on failure(error).
  */
 
-#define MAKE_HTIME_FILE_PATH(htime_file, htime_dir, htime_bname) do {   \
-                strcpy (htime_file, htime_dir);                         \
-                strcat (htime_file, "/");                               \
-                strcat (htime_file, htime_bname);                       \
-        } while (0)
-
 /**
  * Extract timestamp range from a historical metadata file
  * Returns:
@@ -678,7 +672,7 @@ gf_changelog_extract_min_max (const char *dname, const char *htime_dir,
 
         this = THIS;
 
-        MAKE_HTIME_FILE_PATH (htime_file, htime_dir, dname);
+        snprintf (htime_file, PATH_MAX, "%s/%s", htime_dir, dname);
 
         iter = (htime_file + strlen (htime_file) - TIMESTAMP_LENGTH);
         sscanf (iter ,"%lu",min_ts);
