@@ -311,4 +311,6 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id);
 int32_t
 glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id);
 
+void
+glusterd_set_opinfo (char *errstr, int32_t op_errno, int32_t op_ret);
 #endif

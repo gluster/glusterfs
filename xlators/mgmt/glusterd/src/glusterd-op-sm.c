@@ -2796,6 +2796,20 @@ glusterd_op_ac_none (glusterd_op_sm_event_t *event, void *ctx)
 }
 
 static int
+glusterd_op_sm_locking_failed (uuid_t *txn_id)
+{
+        int ret = -1;
+
+        opinfo.op_ret = -1;
+        opinfo.op_errstr = gf_strdup ("locking failed for one of the peer.");
+
+        /* Inject a reject event such that unlocking gets triggered right away*/
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, txn_id, NULL);
+
+        return ret;
+}
+
+static int
 glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                   ret      = 0;
@@ -2832,8 +2846,10 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                                 "peer %s",
                                                 gd_op_list[opinfo.op],
                                                 peerinfo->hostname);
-                                        continue;
+                                        goto out;
                                 }
+                                /* Mark the peer as locked*/
+                                peerinfo->locked = _gf_true;
                                 pending_count++;
                         }
                 } else {
@@ -2861,8 +2877,10 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                                 gd_op_list[opinfo.op],
                                                 peerinfo->hostname);
                                         dict_unref (dict);
-                                        continue;
+                                        goto out;
                                 }
+                                /* Mark the peer as locked*/
+                                peerinfo->locked = _gf_true;
                                 pending_count++;
                         }
                 }
@@ -2873,6 +2891,9 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
 
 out:
+        if (ret)
+                ret = glusterd_op_sm_locking_failed (&event->txn_id);
+
         gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
@@ -2895,12 +2916,12 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
-                if (!peerinfo->connected || !peerinfo->mgmt)
+                if (!peerinfo->connected || !peerinfo->mgmt ||
+                    !peerinfo->locked)
                         continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
-
                 /* Based on the op_version,
                  * release the cluster or mgmt_v3 lock */
                 if (priv->op_version < GD_OP_VERSION_3_6_0) {
@@ -2909,15 +2930,19 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                         if (proc->fn) {
                                 ret = proc->fn (NULL, this, peerinfo);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_WARNING,
-                                                "Failed to send unlock request "
-                                                "for operation 'Volume %s' to "
-                                                "peer %s",
+                                        opinfo.op_errstr = gf_strdup
+                                               ("Unlocking failed for one of "
+                                                "the peer.");
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_CLUSTER_UNLOCK_FAILED,
+                                                "Unlocking failed for operation"
+                                                " volume %s on peer %s",
                                                 gd_op_list[opinfo.op],
                                                 peerinfo->hostname);
                                         continue;
                                 }
                                 pending_count++;
+                                peerinfo->locked = _gf_false;
                         }
                 } else {
                         dict = glusterd_op_get_ctx ();
@@ -2929,24 +2954,35 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                                 ret = dict_set_static_ptr (dict, "peerinfo",
                                                            peerinfo);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "failed to set peerinfo");
+                                        opinfo.op_errstr = gf_strdup
+                                          ("Unlocking failed for one of the "
+                                           "peer.");
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_CLUSTER_UNLOCK_FAILED,
+                                                "Unlocking failed for operation"
+                                                " volume %s on peer %s",
+                                                gd_op_list[opinfo.op],
+                                                peerinfo->hostname);
                                         dict_unref (dict);
-                                        goto out;
+                                        continue;
                                 }
 
                                 ret = proc->fn (NULL, this, dict);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_WARNING,
-                                                "Failed to send volume unlock "
-                                                "request for operation "
-                                                "'Volume %s' to peer %s",
+                                        opinfo.op_errstr = gf_strdup
+                                          ("Unlocking failed for one of the "
+                                           "peer.");
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_CLUSTER_UNLOCK_FAILED,
+                                                "Unlocking failed for operation"
+                                                " volume %s on peer %s",
                                                 gd_op_list[opinfo.op],
                                                 peerinfo->hostname);
                                         dict_unref (dict);
                                         continue;
                                 }
                                 pending_count++;
+                                peerinfo->locked = _gf_false;
                         }
                 }
         }
@@ -2955,7 +2991,6 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
 
-out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
