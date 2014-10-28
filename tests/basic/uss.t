@@ -23,6 +23,8 @@ TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 for i in {1..10} ; do echo "file" > $M0/file$i ; done
 
+TEST $CLI snapshot config activate-on-create enable
+
 TEST $CLI snapshot create snap1 $V0;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done

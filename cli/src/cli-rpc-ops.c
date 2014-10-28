@@ -7808,6 +7808,7 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
         uint64_t            i                    = 0;
         uint64_t            voldisplaycount      = 0;
         char               *auto_delete          = NULL;
+        char               *snap_activate        = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (rsp);
@@ -7839,9 +7840,11 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
 
         ret = dict_get_str (dict, "auto-delete", &auto_delete);
 
+        ret = dict_get_str (dict, "snap-activate-on-create", &snap_activate);
+
         if (!hard_limit && !soft_limit
                         && config_command != GF_SNAP_CONFIG_DISPLAY
-                        && !auto_delete) {
+                        && !auto_delete && !snap_activate) {
                 ret = -1;
                 gf_log(THIS->name, GF_LOG_ERROR,
                        "Could not fetch config-key");
@@ -7864,6 +7867,9 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                                  volname);
                 } else if (auto_delete) {
                         cli_out ("snapshot config: auto-delete "
+                                 "successfully set");
+                } else if (snap_activate) {
+                        cli_out ("snapshot config: activate-on-create "
                                  "successfully set");
                 }
                 break;
@@ -7891,7 +7897,9 @@ cli_snapshot_config_display (dict_t *dict, gf_cli_rsp *rsp)
                 cli_out ("snap-max-soft-limit : %"PRIu64"%%",
                          soft_limit);
 
-                cli_out ("auto-delete : %s\n", auto_delete);
+                cli_out ("auto-delete : %s", auto_delete);
+
+                cli_out ("activate-on-create : %s\n", snap_activate);
 
                 cli_out ("Snapshot Volume Configuration:");
 

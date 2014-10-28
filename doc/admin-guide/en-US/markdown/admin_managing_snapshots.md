@@ -150,7 +150,8 @@ the snapshots present in the system are displayed.
 
 Syntax:
 *snapshot config \[volname\] \(\[snap-max-hard-limit <count\>\] \[snap-max-soft-limit <percent>\]\)
-                            | \(\[auto-delete <enable|disable\>\]\)*
+                            | \(\[auto-delete <enable|disable\>\]\)
+                            | \(\[activate-on-create <enable|disable\>\]\)*
 
 Details:
 Displays and sets the snapshot config values.
@@ -176,6 +177,8 @@ the user gets a warning with every successful snapshot creation.
 
 Upon reaching the hard-limit, further snapshot creations will not be allowed.
 
+activate-on-create is disabled by default. If you enable activate-on-create,
+then further snapshot will be activated during the time of snapshot creation.
 -------------------------------------------------------------------------
 
 **Activating a snapshot**
