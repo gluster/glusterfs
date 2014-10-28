@@ -853,7 +853,18 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                         inode->ia_type    = iatt->ia_type;
                         __inode_hash (inode);
                 }
-        }
+        } else {
+		/* @old_inode serves another important purpose - it indicates
+		   to the code further below whether a dentry cycle check is
+		   required or not (a new inode linkage can never result in
+		   creation of a loop.)
+
+		   if the given @inode is already hashed, it actually means
+		   it is an "old" inode and deserves to undergo the cyclic
+		   check.
+		*/
+		old_inode = inode;
+	}
 
         if (name) {
                 if (!strcmp(name, ".") || !strcmp(name, ".."))
