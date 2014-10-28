@@ -733,8 +733,18 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         uuid_parse (task_id_str, volinfo->rebal.rebalance_id) ;
                         volinfo->rebal.op = GD_OP_REBALANCE;
                 }
-                if (!gd_should_i_start_rebalance (volinfo))
+                if (!gd_should_i_start_rebalance (volinfo)) {
+                        /* Store the rebalance-id and rebalance command even if
+                         * the peer isn't starting a rebalance process. On peers
+                         * where a rebalance process is started,
+                         * glusterd_handle_defrag_start performs the storing.
+                         *
+                         * Storing this is needed for having 'volume status'
+                         * work correctly.
+                         */
+                        glusterd_store_perform_node_state_store (volinfo);
                         break;
+                }
                 ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
                                                     cmd, NULL, GD_OP_REBALANCE);
                 break;
