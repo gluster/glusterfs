@@ -507,6 +507,10 @@ afr_handle_quorum (call_frame_t *frame)
         if (priv->quorum_count == 0)
                 return;
 
+        /* If the fop already failed return right away to preserve errno */
+        if (local->op_ret == -1)
+                return;
+
         /*
          * Network split may happen just after the fops are unwound, so check
          * if the fop succeeded in a way it still follows quorum. If it doesn't,
@@ -975,15 +979,22 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-        if (priv->quorum_count && !afr_has_fop_quorum (frame)) {
-                op_errno = EROFS;
-                goto err;
-        }
-
+        /* This condition should not be met with present code, as
+         * transaction.done will be called if locks are not acquired on even a
+         * single node.
+         */
         if (call_count == 0) {
 		op_errno = ENOTCONN;
 		goto err;
 	}
+
+        /* Check if the fop can be performed on at least
+         * quorum number of nodes.
+         */
+        if (priv->quorum_count && !afr_has_fop_quorum (frame)) {
+                op_errno = EROFS;
+                goto err;
+        }
 
 	xdata_req = dict_new();
 	if (!xdata_req) {
