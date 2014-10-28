@@ -86,6 +86,8 @@ start_volumes 2
 EXPECT 'Started' volinfo_field $V0 'Status';
 EXPECT 'Started' volinfo_field $V1 'Status';
 
+TEST $CLI_1 snapshot config activate-on-create enable
+
 #Snapshot Operations
 create_snapshots
 

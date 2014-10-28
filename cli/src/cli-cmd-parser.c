@@ -278,7 +278,7 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                        "description", "force",
                                        "snap-max-hard-limit",
                                        "snap-max-soft-limit", "auto-delete",
-                                       NULL};
+                                       "activate-on-create", NULL};
         char    *w = NULL;
         char    *ptr = NULL;
         int      op_count = 0;
@@ -3868,8 +3868,7 @@ cli_snap_config_parse (const char **words, int wordcount, dict_t *dict,
         int8_t                         soft_limit          = 0;
         int8_t                         config_type         = -1;
         const char                    *question            = NULL;
-        unsigned int                    cmdi               = 2;
-        int8_t                         auto_delete         = -1;
+        unsigned int                   cmdi                = 2;
         /* cmdi is command index, here cmdi is "2" (gluster snapshot config)*/
 
         GF_ASSERT (words);
@@ -3892,7 +3891,8 @@ cli_snap_config_parse (const char **words, int wordcount, dict_t *dict,
         /* Check whether the 3rd word is volname */
         if (strcmp (words[cmdi], "snap-max-hard-limit") != 0
              && strcmp (words[cmdi], "snap-max-soft-limit") != 0
-             && strcmp (words[cmdi], "auto-delete") != 0) {
+             && strcmp (words[cmdi], "auto-delete") != 0
+             && strcmp (words[cmdi], "activate-on-create") != 0) {
                 ret = dict_set_str (dict, "volname", (char *)words[cmdi]);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to set volname");
@@ -3950,10 +3950,12 @@ cli_snap_config_parse (const char **words, int wordcount, dict_t *dict,
                         goto out;
                 }
                 soft_limit = 1;
-                goto set;
         }
 
-        if (hard_limit != 1 && (strcmp(words[cmdi], "auto-delete") == 0)) {
+        if (hard_limit || soft_limit)
+                goto set;
+
+        if (strcmp(words[cmdi], "auto-delete") == 0) {
                 if (vol_presence == 1) {
                         ret = -1;
                         cli_err ("As of now, auto-delete option cannot be set "
@@ -3976,19 +3978,47 @@ cli_snap_config_parse (const char **words, int wordcount, dict_t *dict,
                                 "dictionary");
                         goto out;
                 }
-                auto_delete = 1;
 
                 if (++cmdi != wordcount) {
                         ret = -1;
                         gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
                         goto out;
                 }
-        }
-        else {
+        } else if (strcmp(words[cmdi], "activate-on-create") == 0) {
+                if (vol_presence == 1) {
+                        ret = -1;
+                        cli_err ("As of now, activate-on-create option "
+                                 "cannot be set to volumes");
+                        gf_log ("cli", GF_LOG_ERROR, "activate-on-create "
+                                "option cannot be set to volumes");
+                        goto out;
+                }
+
+                if (++cmdi >= wordcount) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "snap-activate-on-create",
+                                    (char *)words[cmdi]);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set value "
+                                "of activate-on-create in request dictionary");
+                        goto out;
+                }
+
+                if (++cmdi != wordcount) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                        goto out;
+                }
+        } else {
                 ret = -1;
                 gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
                 goto out;
         }
+
         ret = 0; /* Success */
 
 set:
@@ -3999,7 +4029,8 @@ set:
                 goto out;
         }
 
-        if (config_type == GF_SNAP_CONFIG_TYPE_SET && auto_delete != 1) {
+        if (config_type == GF_SNAP_CONFIG_TYPE_SET &&
+           (hard_limit || soft_limit)) {
                 conf_vals = snap_confopt_vals;
                 if (hard_limit && soft_limit) {
                         question = conf_vals[GF_SNAP_CONFIG_SET_BOTH].question;

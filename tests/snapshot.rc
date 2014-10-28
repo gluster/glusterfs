@@ -291,11 +291,15 @@ function snapshot_n_exists() {
 function snapshot_status()
 {
     local snap=$1;
+    local cli=$CLI_1;
+    if [ "$cli" = "" ]; then
+        cli=$CLI
+    fi
 
     #TODO: Right now just fetches the status of the single snap volume.
     #When snapshot will have multiple snap volumes, should have a
     #cummulative logic for status
-    $CLI_1 snapshot info $snap | grep "Status" | sed 's/.*: //';
+    $cli snapshot info $snap | grep "Status" | sed 's/.*: //';
 }
 
 
