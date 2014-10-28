@@ -220,6 +220,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
         uint64_t      opt_hard_max      = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
         uint64_t      opt_soft_max      = GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT;
         char         *auto_delete       = "disable";
+        char         *snap_activate     = "disable";
 
         this = THIS;
 
@@ -394,9 +395,26 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                                      GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                                      auto_delete);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
-                        "%s in response dictionary",
-                        GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE);
+                snprintf (err_str, PATH_MAX,
+                          "Failed to set %s in response dictionary",
+                          GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE);
+                goto out;
+        }
+
+        /* "snap-activate-on-create" might not be set by user explicitly,
+         * in that case it's better to consider the default value.
+         * Hence not erroring out if Key is not found.
+         */
+        ret = dict_get_str (conf->opts, GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                            &snap_activate);
+
+        ret = dict_set_dynstr_with_alloc (rsp_dict,
+                                     GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                     snap_activate);
+        if (ret) {
+                snprintf (err_str, PATH_MAX,
+                          "Failed to set %s in response dictionary",
+                          GLUSTERD_STORE_KEY_SNAP_ACTIVATE);
                 goto out;
         }
 
@@ -1118,8 +1136,10 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
         uint64_t            soft_limit          = 0;
         gf_loglevel_t       loglevel            = GF_LOG_ERROR;
         uint64_t            max_limit           = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
-        char                cur_auto_delete     = 0;
-        int                 req_auto_delete     = 0;
+        int32_t             cur_auto_delete     = 0;
+        int32_t             req_auto_delete     = 0;
+        int32_t             cur_snap_activate   = 0;
+        int32_t             req_snap_activate   = 0;
 
         this = THIS;
 
@@ -1138,14 +1158,12 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        /* config values snap-max-hard-limit and snap-max-soft-limit are
-         * optional and hence we are not erroring out if values are not
-         * present
-         */
-        gd_get_snap_conf_values_if_present (dict, &hard_limit, &soft_limit);
+        if (config_command != GF_SNAP_CONFIG_TYPE_SET) {
+                ret = 0;
+                goto out;
+        }
 
         ret = dict_get_str (dict, "volname", &volname);
-
         if (volname) {
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
@@ -1155,41 +1173,41 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                 }
         }
 
-        switch (config_command) {
-        case GF_SNAP_CONFIG_TYPE_SET:
-                if (hard_limit) {
-                        /* Validations for snap-max-hard-limits */
-                        ret = snap_max_hard_limits_validate (dict, volname,
-                                                         hard_limit, op_errstr);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "snap-max-hard-limit validation "
-                                        "failed.");
-                                goto out;
-                        }
-                }
+        /* config values snap-max-hard-limit and snap-max-soft-limit are
+         * optional and hence we are not erroring out if values are not
+         * present
+         */
+        gd_get_snap_conf_values_if_present (dict, &hard_limit, &soft_limit);
 
-                if (soft_limit) {
-                        max_limit = GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT;
-                        if ((soft_limit < 0) || (soft_limit > max_limit)) {
-                                ret = -1;
-                                snprintf (err_str, PATH_MAX, "Invalid "
-                                         "snap-max-soft-limit ""%"
-                                         PRIu64 ". Expected range 1 - %"PRIu64,
-                                         soft_limit, max_limit);
-                                goto out;
-                        }
-                        break;
-                }
-
-                /* If hard_limit or soft_limit is set then need not check
-                 * for auto-delete
-                 */
-                if (hard_limit || soft_limit) {
-                        ret = 0;
+        if (hard_limit) {
+                /* Validations for snap-max-hard-limits */
+                ret = snap_max_hard_limits_validate (dict, volname,
+                                                     hard_limit, op_errstr);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "snap-max-hard-limit validation failed.");
                         goto out;
                 }
+        }
 
+        if (soft_limit) {
+                max_limit = GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT;
+                if ((soft_limit < 0) || (soft_limit > max_limit)) {
+                        ret = -1;
+                        snprintf (err_str, PATH_MAX, "Invalid "
+                                 "snap-max-soft-limit ""%"
+                                 PRIu64 ". Expected range 1 - %"PRIu64,
+                                 soft_limit, max_limit);
+                        goto out;
+                }
+        }
+
+        if (hard_limit || soft_limit) {
+                ret = 0;
+                goto out;
+        }
+
+        if (dict_get(dict, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE)) {
                 req_auto_delete = dict_get_str_boolean (dict,
                                         GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                                         _gf_false);
@@ -1201,8 +1219,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                 }
 
                 /* Ignoring the error as the auto-delete is optional and
-                 * might not be present in the options dictionary.
-                 */
+                   might not be present in the options dictionary.*/
                 cur_auto_delete = dict_get_str_boolean (conf->opts,
                                         GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                                         _gf_false);
@@ -1217,9 +1234,37 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                                           "auto-delete is already disabled");
                         goto out;
                 }
+        } else if (dict_get(dict, GLUSTERD_STORE_KEY_SNAP_ACTIVATE)) {
+                req_snap_activate = dict_get_str_boolean (dict,
+                                        GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                        _gf_false);
+                if (req_snap_activate < 0) {
+                        ret = -1;
+                        snprintf (err_str, sizeof (err_str), "Please enter a "
+                                  "valid boolean value for activate-on-create");
+                        goto out;
+                }
 
-        default:
-                break;
+                /* Ignoring the error as the activate-on-create is optional and
+                   might not be present in the options dictionary.*/
+                cur_snap_activate = dict_get_str_boolean (conf->opts,
+                                        GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                        _gf_false);
+
+                if (cur_snap_activate == req_snap_activate) {
+                        ret = -1;
+                        if (cur_snap_activate == _gf_true)
+                                snprintf (err_str, sizeof (err_str),
+                                      "activate-on-create is already enabled");
+                        else
+                                snprintf (err_str, sizeof (err_str),
+                                      "activate-on-create is already disabled");
+                        goto out;
+                }
+        } else {
+                ret = -1;
+                snprintf (err_str, sizeof (err_str), "Invalid option");
+                goto out;
         }
 
         ret = 0;
@@ -5530,6 +5575,7 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
         int                     ret                     = -1;
         int64_t                 i                       = 0;
         int64_t                 volcount                = 0;
+        int32_t                 snap_activate           = 0;
         char                    *snapname               = NULL;
         char                    *volname                = NULL;
         char                    *tmp_name               = NULL;
@@ -5635,6 +5681,34 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        ret = dict_set_dynstr_with_alloc (rsp_dict, "snapuuid",
+                                          uuid_utoa (snap->snap_id));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set snap "
+                        "uuid in response dictionary for %s snapshot",
+                        snap->snapname);
+                goto out;
+        }
+
+        snap_activate = dict_get_str_boolean (priv->opts,
+                                              GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                              _gf_false);
+        if (!snap_activate) {
+                list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+                        snap_vol->status = GLUSTERD_STATUS_STOPPED;
+                        ret = glusterd_store_volinfo (snap_vol,
+                                             GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to store snap volinfo %s",
+                                        snap_vol->volname);
+                                goto out;
+                        }
+                }
+
+                goto out;
+        }
+
         list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
                 list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
                         ret = glusterd_brick_start (snap_vol, brickinfo,
@@ -5658,15 +5732,6 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                                  "snap volinfo %s", snap_vol->volname);
                         goto out;
                 }
-        }
-
-        ret = dict_set_dynstr_with_alloc (rsp_dict, "snapuuid",
-                                          uuid_utoa (snap->snap_id));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set snap "
-                        "uuid in response dictionary for %s snapshot",
-                        snap->snapname);
-                goto out;
         }
 
         ret = 0;
@@ -5777,6 +5842,8 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
         uint64_t            soft_limit           = 0;
         char               *next_version         = NULL;
         char               *auto_delete          = NULL;
+        char               *snap_activate        = NULL;
+        gf_boolean_t        system_conf          = _gf_false;
 
         this = THIS;
 
@@ -5794,6 +5861,10 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
                         "failed to get config-command type");
                 goto out;
         }
+        if (config_command != GF_SNAP_CONFIG_TYPE_SET) {
+                ret = 0;
+                goto out;
+        }
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -5804,98 +5875,90 @@ glusterd_snapshot_config_commit (dict_t *dict, char **op_errstr,
         gd_get_snap_conf_values_if_present (dict, &hard_limit,
                                             &soft_limit);
 
-        /* Ignoring the return value as auto-delete is optional and
-         * might not be present in the request dictionary.
-         */
-        ret = dict_get_str (dict, GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
-                            &auto_delete);
-
-        switch (config_command) {
-        case GF_SNAP_CONFIG_TYPE_SET:
-                if (hard_limit) {
-                        /* Commit ops for snap-max-hard-limit */
-                        ret = snap_max_hard_limit_set_commit (dict, hard_limit,
-                                                              volname,
-                                                              op_errstr);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "snap-max-hard-limit set "
-                                        "commit failed.");
-                                goto out;
-                        }
+        if (hard_limit) {
+                /* Commit ops for snap-max-hard-limit */
+                ret = snap_max_hard_limit_set_commit (dict, hard_limit, volname,
+                                                      op_errstr);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "snap-max-hard-limit set commit failed.");
+                        goto out;
                 }
+        }
 
-                if (soft_limit) {
-                        /* For system limit */
-
-                        ret = dict_set_uint64 (conf->opts,
-                                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
-                                        soft_limit);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "save %s in the dictionary",
-                                        GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
-                                goto out;
-                        }
-
-                        ret = glusterd_get_next_global_opt_version_str
-                                                         (conf->opts,
-                                                          &next_version);
-                        if (ret)
-                                goto out;
-
-                        ret = dict_set_str (conf->opts,
-                                            GLUSTERD_GLOBAL_OPT_VERSION,
-                                            next_version);
-                        if (ret)
-                                goto out;
-
-                        ret = glusterd_store_options (this, conf->opts);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "store options");
-                                goto out;
-                        }
+        if (soft_limit) {
+                /* For system limit */
+                system_conf = _gf_true;
+                ret = dict_set_uint64 (conf->opts,
+                                       GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT,
+                                       soft_limit);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to save %s in the dictionary",
+                                GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT);
+                        goto out;
                 }
+        }
 
-                if (auto_delete) {
-                        ret = dict_set_dynstr_with_alloc (conf->opts,
+        if (hard_limit || soft_limit) {
+                ret = 0;
+                goto done;
+        }
+
+        if (!dict_get_str(dict,
+                          GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
+                          &auto_delete)) {
+                system_conf = _gf_true;
+                ret = dict_set_dynstr_with_alloc (conf->opts,
                                 GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                                 auto_delete);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Could not "
-                                        "save auto-delete value in conf->opts");
-                                goto out;
-                        }
-
-                        ret = glusterd_get_next_global_opt_version_str
-                                                (conf->opts, &next_version);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "get next global opt-version");
-                                goto out;
-                        }
-
-                        ret = dict_set_str (conf->opts,
-                                            GLUSTERD_GLOBAL_OPT_VERSION,
-                                            next_version);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "set next global opt-version");
-                                goto out;
-                        }
-
-                        ret = glusterd_store_options (this, conf->opts);
-                        if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                        "store options");
-                                goto out;
-                        }
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not "
+                                "save auto-delete value in conf->opts");
+                        goto out;
                 }
-                break;
+        } else if (!dict_get_str(dict,
+                                 GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                 &snap_activate)) {
+                system_conf = _gf_true;
+                ret = dict_set_dynstr_with_alloc (conf->opts,
+                                GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
+                                snap_activate);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Could not save "
+                                "snap-activate-on-create value in conf->opts");
+                        goto out;
+                }
+        } else {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Invalid option");
+                goto out;
+        }
 
-        default:
-                break;
+done:
+        if (system_conf) {
+                ret = glusterd_get_next_global_opt_version_str (conf->opts,
+                                                                &next_version);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get next global opt-version");
+                                goto out;
+                }
+
+                ret = dict_set_str (conf->opts, GLUSTERD_GLOBAL_OPT_VERSION,
+                                    next_version);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set next global opt-version");
+                        goto out;
+                }
+
+                ret = glusterd_store_options (this, conf->opts);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to store options");
+                        goto out;
+                }
         }
 
 out:
@@ -6810,6 +6873,11 @@ glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_SNAP_OPTION_TYPE_CONFIG:
                 ret = glusterd_snapshot_config_commit (dict, op_errstr,
                                                        rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "snapshot config failed");
+                        goto out;
+                }
                 break;
 
         case GF_SNAP_OPTION_TYPE_DELETE:

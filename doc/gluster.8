@@ -128,7 +128,7 @@ This command gives status of the snapshot. The details included are snapshot bri
 
 If snapname is specified then status of the mentioned snapshot is displayed. If volname is specified then status of all snapshots belonging to that volume is displayed. If both snapname and volname is not specified then status of all the snapshots present in the system are displayed.
 .TP
-\fB\ snapshot config [volname] ([snap-max-hard-limit <count>] [snap-max-soft-limit <percent>]) | ([auto-delete <enable|disable>])
+\fB\ snapshot config [volname] ([snap-max-hard-limit <count>] [snap-max-soft-limit <percent>]) | ([auto-delete <enable|disable>]) | ([activate-on-create <enable|disable>])
 Displays and sets the snapshot config values.
 
 snapshot config without any keywords displays the snapshot config values of all volumes in the system. If volname is provided, then the snapshot config values of that volume is displayed.
@@ -144,6 +144,8 @@ When auto-delete feature is enabled, then upon reaching the soft-limit, with eve
 When auto-delete feature is disabled, then upon reaching the soft-limit, the user gets a warning with every successful snapshot creation.
 
 Upon reaching the hard-limit, further snapshot creations will not be allowed.
+
+activate-on-create is disabled by default. If you enable activate-on-create, then further snapshot will be activated during the time of snapshot creation.
 .TP
 \fB\ snapshot activate <snapname> \fR
 Activates the mentioned snapshot.

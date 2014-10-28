@@ -5156,12 +5156,23 @@ cli_xml_snapshot_config_show (xmlTextWriterPtr writer,
 
         ret = dict_get_str (dict, "auto-delete", &str_value);
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Could not fetch auto-delet");
+                gf_log ("cli", GF_LOG_ERROR, "Could not fetch auto-delete");
                 goto out;
         }
 
         ret = xmlTextWriterWriteFormatElement (writer,
                         (xmlChar *) "autoDelete", "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "snap-activate-on-create", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Could not fetch snap-activate-on-create-delete");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer,
+                        (xmlChar *) "activateOnCreate", "%s", str_value);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         /* </systemConfig> */
@@ -5267,6 +5278,7 @@ cli_xml_snapshot_config_set (xmlTextWriterPtr writer, xmlDocPtr doc,
         uint64_t        soft_limit      = 0;
         char           *volname         = NULL;
         char           *auto_delete     = NULL;
+        char           *snap_activate   = NULL;
 
         GF_ASSERT (writer);
         GF_ASSERT (doc);
@@ -5277,12 +5289,13 @@ cli_xml_snapshot_config_set (xmlTextWriterPtr writer, xmlDocPtr doc,
         /* This is optional parameter therefore ignore the error */
         ret = dict_get_uint64 (dict, "snap-max-soft-limit", &soft_limit);
         ret = dict_get_str (dict, "auto-delete", &auto_delete);
+        ret = dict_get_str (dict, "snap-activate-on-create", &snap_activate);
 
-        if (!hard_limit && !soft_limit && !auto_delete) {
+        if (!hard_limit && !soft_limit && !auto_delete && !snap_activate) {
                 ret = -1;
                 gf_log ("cli", GF_LOG_ERROR, "At least one option from "
-                        "snap-max-hard-limit, snap-max-soft-limit and "
-                        "auto-delete should be set");
+                        "snap-max-hard-limit, snap-max-soft-limit, auto-delete"
+                        " and snap-activate-on-create should be set");
                 goto out;
         }
 
@@ -5322,6 +5335,12 @@ cli_xml_snapshot_config_set (xmlTextWriterPtr writer, xmlDocPtr doc,
         if (auto_delete) {
                 ret = xmlTextWriterWriteFormatElement (writer,
                                 (xmlChar *) "autoDelete", "%s", auto_delete);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+        }
+
+        if (snap_activate) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                           (xmlChar *) "activateOnCreate", "%s", snap_activate);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
