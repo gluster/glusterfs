@@ -21,11 +21,14 @@
 #include <fnmatch.h>
 
 #include "libxlator.h"
+#include "byte-order.h"
 
 #include "ec-data.h"
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
+
+#define EC_QUOTA_PREFIX "trusted.glusterfs.quota."
 
 struct _ec_dict_info;
 typedef struct _ec_dict_info ec_dict_info_t;
@@ -140,6 +143,7 @@ int32_t ec_dict_data_compare(dict_t * dict, char * key, data_t * value,
         (strcmp(key, GF_XATTR_LOCKINFO_KEY) == 0) ||
         (strcmp(key, GF_XATTR_CLRLK_CMD) == 0) ||
         (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) ||
+        (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
         (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
         (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
         (XATTR_IS_NODE_UUID(key)))
@@ -531,6 +535,47 @@ int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
     return 0;
 }
 
+int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
+{
+    data_t *data[cbk->count];
+    dict_t *dict;
+    ec_t *ec;
+    int32_t i, num;
+    uint64_t max, tmp;
+
+    num = cbk->count;
+    if (!ec_dict_list(data, &num, cbk, which, key)) {
+        return -1;
+    }
+
+    if (num == 0) {
+        return 0;
+    }
+
+    /* Quota size xattr is managed outside of the control of the ec xlator.
+     * This means that it might not be updated at the same time on all
+     * bricks and we can receive slightly different values. If that's the
+     * case, we take the maximum of all received values.
+     */
+    max = ntoh64(*(uint64_t *)data_to_ptr(data[0]));
+    for (i = 1; i < num; i++) {
+        tmp = ntoh64(*(uint64_t *)data_to_ptr(data[i]));
+        if (max < tmp) {
+            max = tmp;
+        }
+    }
+
+    ec = cbk->fop->xl->private;
+    max *= ec->fragments;
+
+    dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
+    if (ec_dict_set_number(dict, key, max) != 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 int32_t ec_dict_data_stime(ec_cbk_data_t * cbk, int32_t which, char * key)
 {
     data_t * data[cbk->count];
@@ -584,6 +629,14 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
     if (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0)
     {
         return ec_dict_data_max32(data->cbk, data->which, key);
+    }
+
+    if (strcmp(key, QUOTA_SIZE_KEY) == 0) {
+        return ec_dict_data_quota(data->cbk, data->which, key);
+    }
+    /* Ignore all other quota attributes */
+    if (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) {
+        return 0;
     }
 
     if (XATTR_IS_NODE_UUID(key))
