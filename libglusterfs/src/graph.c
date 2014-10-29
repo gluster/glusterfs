@@ -765,12 +765,12 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
 int
 glusterfs_graph_destroy (glusterfs_graph_t *graph)
 {
+        GF_VALIDATE_OR_GOTO ("graph", graph, out);
+
         xlator_tree_free (graph->first);
 
-        if (graph) {
-                list_del_init (&graph->list);
-                GF_FREE (graph);
-        }
-
+        list_del_init (&graph->list);
+        GF_FREE (graph);
+out:
         return 0;
 }
