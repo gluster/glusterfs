@@ -219,6 +219,7 @@ AC_CANONICAL_HOST
 AC_PROG_CC
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
+AC_SUBST([shrext_cmds])
 
 AC_CHECK_PROG([RPCGEN], [rpcgen], [yes], [no])
 
@@ -1003,18 +1004,9 @@ saved_CFLAGS=$CFLAGS
 saved_CPPFLAGS=$CPPFLAGS
 saved_LDFLAGS=$LDFLAGS
 
-case $host_os in
-     linux*)
-       CFLAGS="`${PYTHON}-config --cflags`"
-       CPPFLAGS=$CFLAGS
-       LDFLAGS="-L`${PYTHON}-config --prefix`/lib `${PYTHON}-config --ldflags`"
-       ;;
-     darwin*)
-       CFLAGS="`${PYTHON}-config --cflags`"
-       CPPFLAGS=$CFLAGS
-       LDFLAGS="-L`${PYTHON}-config --prefix`/lib `${PYTHON}-config --ldflags`"
-       ;;
-esac
+CFLAGS="`${PYTHON}-config --cflags`"
+CPPFLAGS=$CFLAGS
+LDFLAGS="-L`${PYTHON}-config --prefix`/lib `${PYTHON}-config --ldflags`"
 
 AC_CHECK_HEADERS([python$PYTHON_VERSION/Python.h],[have_Python_h=yes],[])
 AC_ARG_ENABLE([glupy],
@@ -1065,12 +1057,14 @@ case $host_os in
 esac
 
 if test "x$BUILD_GLUPY" = "xyes"; then
+   BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib())'`
    BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
    BUILD_PYTHON_LIB=python$PYTHON_VERSION
    GLUPY_SUBDIR=glupy
    GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
    GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
    echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
+   AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
    AC_SUBST(BUILD_PYTHON_INC)
    AC_SUBST(BUILD_PYTHON_LIB)
    AC_SUBST(GLUPY_SUBDIR)
