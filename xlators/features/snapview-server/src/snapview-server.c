@@ -367,6 +367,10 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
                 struct iatt *buf, struct iatt *postparent, int32_t *op_errno)
 {
         int32_t         op_ret                          = -1;
+        int             ret                             = -1;
+        char            tmp_uuid[64]                    = {0, };
+        glfs_t         *fs                              = NULL;
+        glfs_object_t  *object                          = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, buf, out);
@@ -383,14 +387,56 @@ svs_revalidate (xlator_t *this, loc_t *loc, inode_t *parent,
                 op_ret = 0;
                 goto out;
         } else {
+                /* Though fs and object are present in the inode context, its
+                 * better to check if fs is valid or not before doing anything.
+                 * Its for the protection from the following operations.
+                 * 1) Create a file on the glusterfs mount point
+                 * 2) Create a snapshot (say "snap1")
+                 * 3) Access the contents of the snapshot
+                 * 4) Delete the file from the mount point
+                 * 5) Delete the snapshot "snap1"
+                 * 6) Create a new snapshot "snap1"
+                 *
+                 * Now accessing the new snapshot "snap1" gives problems.
+                 * Because the inode and dentry created for snap1 would not be
+                 * deleted upon the deletion of the snapshot (as deletion of
+                 * snapshot is a gluster cli operation, not a fop). So next time
+                 * upon creation of a new snap with same name, the previous
+                 * inode and dentry itself will be used. But the inode context
+                 * contains old information about the glfs_t instance and the
+                 * handle in the gfapi world. Thus the glfs_t instance should
+                 * be checked before accessing. If its wrong, then right
+                 * instance should be obtained by doing the lookup.
+                 */
                 if (inode_ctx->fs && inode_ctx->object) {
-                        memcpy (buf, &inode_ctx->buf, sizeof (*buf));
-                        if (parent)
-                                svs_iatt_fill (parent->gfid, postparent);
-                        else
-                                svs_iatt_fill (buf->ia_gfid, postparent);
-                        op_ret = 0;
-                        goto out;
+                        fs = inode_ctx->fs;
+                        object = inode_ctx->object;
+                        SVS_CHECK_VALID_SNAPSHOT_HANDLE(fs, this);
+                        if (fs) {
+                                memcpy (buf, &inode_ctx->buf, sizeof (*buf));
+                                if (parent)
+                                        svs_iatt_fill (parent->gfid,
+                                                       postparent);
+                                else
+                                        svs_iatt_fill (buf->ia_gfid,
+                                                       postparent);
+                                op_ret = 0;
+                                goto out;
+                        } else {
+                                inode_ctx->fs = NULL;
+                                inode_ctx->object = NULL;
+                                ret = svs_get_handle (this, loc, inode_ctx,
+                                                      op_errno);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "failed to get the handle for "
+                                                "%s (gfid %s)", loc->path,
+                                                uuid_utoa_r (loc->inode->gfid,
+                                                             tmp_uuid));
+                                        op_ret = -1;
+                                        goto out;
+                                }
+                        }
                 }
 
                 /* To send the lookup to gfapi world, both the name of the
