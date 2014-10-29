@@ -2172,7 +2172,7 @@ retry:
 	if (ret)
 		goto out;
 
-	ret = syncop_statfs (subvol, &loc, buf);
+	ret = syncop_statfs (subvol, &loc, NULL, buf, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);

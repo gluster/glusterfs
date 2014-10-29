@@ -491,13 +491,31 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
         struct statvfs  dst_statfs = {0,};
         int             ret        = -1;
         xlator_t       *this       = NULL;
+        dict_t         *xdata      = NULL;
 
         uint64_t        src_statfs_blocks = 1;
         uint64_t        dst_statfs_blocks = 1;
 
         this = THIS;
 
-        ret = syncop_statfs (from, loc, &src_statfs);
+        xdata = dict_new ();
+        if (!xdata) {
+                errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to allocate dictionary");
+                goto out;
+        }
+
+        ret = dict_set_int8 (xdata, GF_INTERNAL_IGNORE_DEEM_STATFS, 1);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set "
+                        GF_INTERNAL_IGNORE_DEEM_STATFS" in dict");
+                ret = -1;
+                goto out;
+        }
+
+        ret = syncop_statfs (from, loc, xdata, &src_statfs, NULL);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -507,7 +525,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                 goto out;
         }
 
-        ret = syncop_statfs (to, loc, &dst_statfs);
+        ret = syncop_statfs (to, loc, xdata, &dst_statfs, NULL);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -541,10 +559,13 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
 
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
-                                "data movement attempted from node (%s) with"
-                                " higher disk space to a node (%s) with "
-                                "lesser disk space (%s)", from->name,
-                                to->name, loc->path);
+                                "data movement attempted from node "
+                                "(%s:%"PRIu64") with higher disk space "
+                                "to a node (%s:%"PRIu64") with lesser "
+                                "disk space, file { blocks:%"PRIu64", "
+                                "name:(%s) }", from->name, src_statfs_blocks,
+                                to->name, dst_statfs_blocks,
+                                stbuf->ia_blocks, loc->path);
 
                         /* this is not a 'failure', but we don't want to
                            consider this as 'success' too :-/ */
@@ -557,15 +578,17 @@ check_avail_space:
               GF_DISK_SECTOR_SIZE) < stbuf->ia_blocks) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
-                        "data movement attempted from node (%s) with "
-                        "to node (%s) which does not have required free space"
-                        " for %s", from->name, to->name, loc->path);
+                        "data movement attempted from node (%s) to node (%s) "
+                        "which does not have required free space for (%s)",
+                        from->name, to->name, loc->path);
                 ret = -1;
                 goto out;
         }
 
         ret = 0;
 out:
+        if (xdata)
+                dict_unref (xdata);
         return ret;
 }
 
@@ -1510,7 +1533,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_MIGRATE_FILE_FAILED,
-                                        "Migrate file failed:%s lookup failed", 
+                                        "Migrate file failed:%s lookup failed",
                                         entry_loc.path);
                                 ret = -1;
                                 continue;

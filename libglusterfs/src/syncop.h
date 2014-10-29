@@ -361,7 +361,9 @@ int syncop_fsetattr (xlator_t *subvol, fd_t *fd, struct iatt *iatt, int valid,
                     /* out */
                     struct iatt *preop, struct iatt *postop);
 
-int syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf);
+int syncop_statfs (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
+                   /* out */
+                   struct statvfs *buf, dict_t **xattr_rsp);
 
 int syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags);
 int syncop_fsetxattr (xlator_t *subvol, fd_t *fd, dict_t *dict, int32_t flags);

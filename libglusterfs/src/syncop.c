@@ -1438,6 +1438,8 @@ syncop_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 args->statvfs_buf  = *buf;
+                if (xdata)
+                        args->xdata  = dict_ref (xdata);
         }
 
         __wake (args);
@@ -1447,16 +1449,21 @@ syncop_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf)
+syncop_statfs (xlator_t *subvol, loc_t *loc, dict_t *xdata_req,
+               struct statvfs *buf, dict_t **xdata_rsp)
 
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_statfs_cbk, subvol->fops->statfs,
-                loc, NULL);
+                loc, xdata_req);
 
         if (buf)
                 *buf = args.statvfs_buf;
+        if (xdata_rsp)
+                *xdata_rsp = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
 
         if (args.op_ret < 0)
                 return -args.op_errno;
