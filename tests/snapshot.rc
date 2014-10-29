@@ -394,6 +394,7 @@ function check_if_snapd_exist() {
 case $OSTYPE in
 NetBSD)
         echo "Skip test on LVM which is not available on NetBSD" >&2
+        SKIP_TESTS
         exit 0
         ;;
 *)      
