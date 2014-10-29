@@ -97,7 +97,7 @@ for line in $expect_tests; do
 done
 IFS=$x_ifs
 
-echo 1..$testcnt
+echo "1..`echo $testcnt`"
 
 t=1
 

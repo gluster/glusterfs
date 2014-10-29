@@ -74,6 +74,7 @@ function volume_type()
 case $OSTYPE in
 NetBSD)
         echo "Skip test on LVM which is not available on NetBSD" >&2
+        SKIP_TESTS
         exit 0
         ;;
 *)      
