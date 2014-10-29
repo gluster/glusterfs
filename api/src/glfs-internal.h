@@ -89,6 +89,7 @@ struct glfs {
 	glfs_init_cbk       init_cbk;
 	pthread_mutex_t     mutex;
 	pthread_cond_t      cond;
+        pthread_cond_t      child_down_cond; /* for broadcasting CHILD_DOWN */
 	int                 init;
 	int                 ret;
 	int                 err;
