@@ -2696,13 +2696,34 @@ gf_rdma_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
         int32_t               ret   = 0;
         gf_rdma_ioq_t        *entry = NULL;
         rpc_transport_data_t  data  = {0, };
+        gf_rdma_private_t    *priv  = NULL;
+        gf_rdma_peer_t       *peer  = NULL;
 
         if (req == NULL) {
                 goto out;
         }
 
+        priv = this->private;
+        if (priv == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        peer = &priv->peer;
         data.is_request = 1;
         data.data.req = *req;
+/*
+ * when fist message is received on a transport, quota variable will
+ * initiaize  and quota_set will set to one. In gluster code client
+ * process with respect to transport is the one who sends the first
+ * message. Before settng quota_set variable if a submit request is
+ * came on server, then the message should not send.
+ */
+
+        if (priv->entity == GF_RDMA_SERVER && peer->quota_set == 0) {
+                ret = 0;
+                goto out;
+        }
 
         entry = gf_rdma_ioq_new (this, &data);
         if (entry == NULL) {
