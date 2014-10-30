@@ -27,6 +27,8 @@ TEST $GFS --read-only -s $H0 --volfile-id $V0 $M1;
 ## Wait for volume to register with rpc.mountd
 sleep 5;
 
+##Wait for connection establishment between nfs server and brick process
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 ## Mount NFS
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
