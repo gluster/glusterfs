@@ -465,6 +465,12 @@ static ssize_t read_all(int fd, char *buf, size_t count)
 #if defined(USE_UUIDD) && defined(HAVE_SYS_UN_H)
 static void close_all_fds(void)
 {
+#ifdef F_CLOSEM
+	(void)fcntl(0, F_CLOSEM);
+	(void)open("/dev/null", O_RDWR); /* stdin */
+	(void)open("/dev/null", O_RDWR); /* stdout */
+	(void)open("/dev/null", O_RDWR); /* stderr */
+#else /* F_CLOSEM */
 	int i, max;
 
 #if defined(HAVE_SYSCONF) && defined(_SC_OPEN_MAX)
@@ -485,6 +491,7 @@ static void close_all_fds(void)
 		if (i <= 2)
 			open("/dev/null", O_RDWR);
 	}
+#endif /* F_CLOSEM */
 }
 #endif
 
