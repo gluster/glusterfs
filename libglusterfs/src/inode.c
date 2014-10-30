@@ -833,6 +833,17 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                 if (inode->table != parent->table) {
                         GF_ASSERT (!"link attempted b/w inodes of diff table");
                 }
+
+                if (parent->ia_type != IA_IFDIR) {
+                        GF_ASSERT (!"link attempted on non-directory parent");
+                        return NULL;
+                }
+
+                if (!name || strlen (name) == 0) {
+                        GF_ASSERT (!"link attempted with no basename on "
+                                    "parent");
+                        return NULL;
+                }
         }
 
         link_inode = inode;
@@ -869,6 +880,11 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         if (name) {
                 if (!strcmp(name, ".") || !strcmp(name, ".."))
                         return link_inode;
+
+                if (strchr (name, '/')) {
+                        GF_ASSERT (!"inode link attempted with '/' in name");
+                        return NULL;
+                }
         }
 
         /* use only link_inode beyond this point */
@@ -1027,6 +1043,8 @@ static void
 __inode_unlink (inode_t *inode, inode_t *parent, const char *name)
 {
         dentry_t *dentry = NULL;
+        char pgfid[64] = {0};
+        char gfid[64] = {0};
 
         if (!inode || !parent || !name)
                 return;
@@ -1034,8 +1052,14 @@ __inode_unlink (inode_t *inode, inode_t *parent, const char *name)
         dentry = __dentry_search_for_inode (inode, parent->gfid, name);
 
         /* dentry NULL for corrupted backend */
-        if (dentry)
+        if (dentry) {
                 __dentry_unset (dentry);
+        } else {
+                gf_log ("inode", GF_LOG_WARNING, "%s/%s: dentry not "
+                        "found in %s", uuid_utoa_r (parent->gfid, pgfid), name,
+                        uuid_utoa_r (inode->gfid, gfid));
+        }
+
 }
 
 
