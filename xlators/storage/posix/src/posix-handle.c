@@ -162,7 +162,6 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
         pgfidstr = strtok_r (linkname + SLEN("../../00/00/"), "/", &saveptr);
         dir_name = strtok_r (NULL, "/", &saveptr);
-        strcat (dir_name, "/");
 
         uuid_parse (pgfidstr, tmp_gfid);
 
@@ -178,6 +177,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
         inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
 
+        strcat (dir_name, "/");
         ret = posix_make_ancestral_node (priv_base_path, path, pathsize, head,
                                          dir_name, &iabuf, inode, type, xdata);
         if (*parent != NULL) {
