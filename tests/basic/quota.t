@@ -99,6 +99,9 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test_dir"
 #  though this may change.
 ## -----------------------------
 
+##Wait for connection establishment between nfs server and brick process
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 TEST $CLI volume quota $V0 limit-usage /test_dir 100MB
 

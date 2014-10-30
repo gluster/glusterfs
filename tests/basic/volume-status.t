@@ -19,6 +19,9 @@ sleep 2
 ## Mount FUSE
 TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
+##Wait for connection establishment between nfs server and brick process
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+
 ## Mount NFS
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 

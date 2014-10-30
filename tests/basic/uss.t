@@ -98,7 +98,9 @@ TEST fd_close $fd3
 
 
 # similar tests on nfs mount
-# test 44
+##Wait for connection establishment between nfs server and brick process
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
+#test 44
 TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 NUM_SNAPS=$(ls $N0/.snaps | wc -l);
