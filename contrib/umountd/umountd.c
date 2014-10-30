@@ -49,14 +49,20 @@ sanity_check (char *path, dev_t *devp)
         if (path == NULL)
                 usage ();
 
-        if (stat (path, &st) != 0) {
-                gf_log ("umountd", GF_LOG_ERROR,
-                        "Cannot access %s\n", path, strerror (errno));
-                goto out;
+        if ((ret = stat (path, &st)) != 0) {
+                switch (errno) {
+                case ENOTCONN:
+                        /* volume is stopped */
+                        break;
+                default:
+                        gf_log ("umountd", GF_LOG_ERROR,
+                                "Cannot access %s\n", path, strerror (errno));
+                        goto out;
+                }
         }
 
         /* If dev was not specified, get it from path */
-        if (*devp == -1)
+        if (*devp == -1 && ret == 0)
                 *devp = st.st_dev;
 
         strncpy (pathtmp, path, PATH_MAX);
