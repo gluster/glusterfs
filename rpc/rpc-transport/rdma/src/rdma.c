@@ -4389,6 +4389,7 @@ gf_rdma_listen (rpc_transport_t *this)
         int                  ret          = 0;
         gf_rdma_ctx_t       *rdma_ctx     = NULL;
         char                 service[NI_MAXSERV], host[NI_MAXHOST];
+        int                  optval = 2;
 
         priv = this->private;
         peer = &priv->peer;
@@ -4429,6 +4430,15 @@ gf_rdma_listen (rpc_transport_t *this)
         }
 
         sprintf (this->myinfo.identifier, "%s:%s", host, service);
+
+        ret = rdma_set_option(peer->cm_id, RDMA_OPTION_ID,
+                              RDMA_OPTION_ID_REUSEADDR,
+                              (void *)&optval, sizeof(optval));
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "rdma option set failed (%s)", strerror (errno));
+                goto err;
+        }
 
         ret = rdma_bind_addr (peer->cm_id, &sock_union.sa);
         if (ret != 0) {
