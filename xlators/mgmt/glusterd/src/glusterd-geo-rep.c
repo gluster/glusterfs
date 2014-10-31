@@ -4383,6 +4383,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                 }
                 free_contents = _gf_false;
         } else {
+                free_contents = _gf_false;
                 ret = dict_get_bin (dict, "common_pem_contents",
                                     (void **) &contents);
                 if (ret) {
