@@ -341,59 +341,54 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
 
         snprintf (key, sizeof (key), "brick%d.total", brick_index);
         ret = dict_get_uint64 (dict, key, &size_total);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"sizeTotal",
-                                               "%"PRIu64, size_total);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"sizeTotal",
+                                                       "%"PRIu64, size_total);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free", brick_index);
         ret = dict_get_uint64 (dict, key, &size_free);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"sizeFree",
-                                               "%"PRIu64, size_free);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"sizeFree",
+                                                       "%"PRIu64, size_free);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", brick_index);
         ret = dict_get_str (dict, key, &device);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"device",
-                                               "%s", device);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"device",
+                                                       "%s", device);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.block_size", brick_index);
         ret = dict_get_uint64 (dict, key, &block_size);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"blockSize",
-                                               "%"PRIu64, block_size);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"blockSize",
+                                                       "%"PRIu64, block_size);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", brick_index);
         ret = dict_get_str (dict, key, &mnt_options);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"mntOptions",
-                                               "%s", mnt_options);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"mntOptions",
+                                                       "%s", mnt_options);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.fs_name", brick_index);
         ret = dict_get_str (dict, key, &fs_name);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"fsName",
-                                               "%s", fs_name);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"fsName",
+                                                       "%s", fs_name);
 
         /* inode details are only available for ext 2/3/4 & xfs */
-        if (!IS_EXT_FS(fs_name) || strcmp (fs_name, "xfs")) {
+        if (!fs_name || !IS_EXT_FS(fs_name) || strcmp (fs_name, "xfs")) {
                         ret = 0;
                         goto out;
         }
@@ -401,29 +396,26 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", brick_index);
         ret = dict_get_str (dict, key, &inode_size);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"inodeSize",
-                                               "%s", fs_name);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"inodeSize",
+                                                       "%s", fs_name);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total_inodes", brick_index);
         ret = dict_get_uint64 (dict, key, &inodes_total);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"inodesTotal",
-                                               "%"PRIu64, inodes_total);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"inodesTotal",
+                                                       "%"PRIu64, inodes_total);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free_inodes", brick_index);
         ret = dict_get_uint64 (dict, key, &inodes_free);
-        if (ret)
-                goto out;
-        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"inodesFree",
-                                               "%"PRIu64, inodes_free);
-        XML_RET_CHECK_AND_GOTO (ret, out);
+        if (!ret)
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"inodesFree",
+                                                       "%"PRIu64, inodes_free);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
