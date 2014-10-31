@@ -290,10 +290,14 @@ cli_cmd_await_response (unsigned time)
                                         &ts);
         }
 
+        if (!cmd_done) {
+                if (ret == ETIMEDOUT)
+                        cli_out ("Error : Request timed out");
+                else
+                        cli_out ("Error : Command returned with error code:%d",
+                                 ret);
+        }
         cmd_done = 0;
-
-        if (ret)
-                return ret;
 
         return cli_op_ret;
 }
