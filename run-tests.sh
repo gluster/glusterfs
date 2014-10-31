@@ -20,15 +20,18 @@ function check_dependencies()
         MISSING="$MISSING git"
     fi
 
-    # Check for mock
-    if [ ! -e /usr/bin/mock ]; then
-        MISSING="$MISSING mock"
-    fi
+    # basic/rpm.t uses mock, which assumes Linux as the OS
+    if [ "x`uname -s`" = "xLinux" ] ; then
+        # Check for mock
+        if [ ! -e /usr/bin/mock ]; then
+            MISSING="$MISSING mock"
+        fi
 
-    # Check for rpmbuild
-    env rpmbuild --version > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        MISSING="$MISSING rpmbuild"
+        # Check for rpmbuild
+        env rpmbuild --version > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            MISSING="$MISSING rpmbuild"
+        fi
     fi
 
     # Check for nfs-utils (Linux-only: built-in NetBSD with different name)
