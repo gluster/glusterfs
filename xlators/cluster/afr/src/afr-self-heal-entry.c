@@ -565,6 +565,7 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	unsigned char          *sources               = NULL;
 	unsigned char          *sinks                 = NULL;
 	unsigned char          *data_lock             = NULL;
+        unsigned char          *postop_lock           = NULL;
 	unsigned char          *healed_sinks          = NULL;
 	struct afr_reply       *locked_replies        = NULL;
 	afr_private_t          *priv                  = NULL;
@@ -575,6 +576,7 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	sinks = alloca0 (priv->child_count);
 	healed_sinks = alloca0 (priv->child_count);
 	data_lock = alloca0 (priv->child_count);
+        postop_lock = alloca0 (priv->child_count);
 
 	locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
@@ -606,9 +608,35 @@ unlock:
 	if (ret)
 		goto out;
 
-	ret = afr_selfheal_undo_pending (frame, this, fd->inode, sources, sinks,
-					 healed_sinks, AFR_ENTRY_TRANSACTION,
-                                         locked_replies, data_lock);
+        /* Take entrylks in xlator domain before doing post-op (undo-pending) in
+         * entry self-heal. This is to prevent a parallel name self-heal on
+         * an entry under @fd->inode from reading pending xattrs while it is
+         * being modified by SHD after entry sh below, given that
+         * name self-heal takes locks ONLY in xlator domain and is free to read
+         * pending changelog in the absence of the following locking.
+         */
+        ret = afr_selfheal_entrylk (frame, this, fd->inode, this->name, NULL,
+                                    postop_lock);
+        {
+                if (AFR_CMP (data_lock, postop_lock, priv->child_count) != 0) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
+                                "post-op after entry self-heal as %d "
+                                "sub-volumes, as opposed to %d, could be locked"
+                                " in %s domain", uuid_utoa (fd->inode->gfid),
+                                ret, AFR_COUNT (data_lock, priv->child_count),
+                                this->name);
+                        ret = -ENOTCONN;
+                        goto postop_unlock;
+                }
+
+                ret = afr_selfheal_undo_pending (frame, this, fd->inode,
+                                                 sources, sinks, healed_sinks,
+                                                 AFR_ENTRY_TRANSACTION,
+                                                 locked_replies, postop_lock);
+        }
+postop_unlock:
+        afr_selfheal_unentrylk (frame, this, fd->inode, this->name, NULL,
+                                postop_lock);
 out:
         afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
                           healed_sinks);
