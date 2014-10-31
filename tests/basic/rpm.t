@@ -16,6 +16,16 @@
 
 . $(dirname $0)/../include.rc
 
+case $OSTYPE in
+Linux)
+        ;;
+*)
+        echo "Skip test using mock, which requires Linux" >&2
+        SKIP_TESTS
+        exit 0
+        ;;
+esac
+
 # enable some extra debugging
 if [ -n "${DEBUG}" -a "${DEBUG}" != "0" ]
 then
