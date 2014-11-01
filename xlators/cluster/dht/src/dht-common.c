@@ -1239,8 +1239,9 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                              "subvolume. But linkto points to "
                                              "different cached subvolume (%s) "
                                              "path %s",
-                                         local->skip_unlink.hash_links_to->name,
-                                             local->loc.path);
+                                            (local->skip_unlink.hash_links_to ?
+                                        local->skip_unlink.hash_links_to->name :
+                                             " <nil>"), local->loc.path);
 
                                if (local->skip_unlink.opend_fd_count == 0) {
 
