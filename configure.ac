@@ -364,7 +364,10 @@ AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sy
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+# libglusterfs/checksum
 AC_CHECK_HEADERS([openssl/md5.h])
+AC_CHECK_LIB([z], [adler32], [ZLIB_LIBS="-lz"], AC_MSG_ERROR([zlib is required to build glusterfs]))
+AC_SUBST(ZLIB_LIBS)
 
 AC_CHECK_HEADERS([linux/falloc.h])
 

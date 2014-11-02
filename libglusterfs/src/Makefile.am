@@ -7,7 +7,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
 	-DSBIN_DIR=\"$(sbindir)\"
 
-libglusterfs_la_LIBADD = @LEXLIB@
+libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
 
 lib_LTLIBRARIES = libglusterfs.la
