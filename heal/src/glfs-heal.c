@@ -40,6 +40,10 @@ out:
         return ret;
 }
 
+extern int glfs_loc_touchup (loc_t *);
+xlator_t *glfs_active_subvol (struct glfs *);
+void glfs_subvol_done (struct glfs *, xlator_t *);
+
 int
 glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
                          int32_t *op_errno)

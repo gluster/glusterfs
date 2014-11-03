@@ -206,6 +206,7 @@ AC_CONFIG_FILES([Makefile
                 libgfchangelog.pc
                 api/Makefile
                 api/src/Makefile
+                api/src/gfapi.map
                 api/examples/Makefile
                 geo-replication/Makefile
                 geo-replication/src/Makefile
@@ -1106,7 +1107,7 @@ AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
 
 dnl pkg-config versioning
-GFAPI_VERSION="7.0.0"
+GFAPI_VERSION="0.0.0"
 LIBGFCHANGELOG_VERSION="0.0.1"
 AC_SUBST(GFAPI_VERSION)
 AC_SUBST(LIBGFCHANGELOG_VERSION)
@@ -1116,7 +1117,7 @@ LIBGFXDR_LT_VERSION="0:1:0"
 LIBGFRPC_LT_VERSION="0:1:0"
 LIBGLUSTERFS_LT_VERSION="0:1:0"
 LIBGFCHANGELOG_LT_VERSION="0:1:0"
-GFAPI_LT_VERSION="7:0:0"
+GFAPI_LT_VERSION="0:0:0"
 AC_SUBST(LIBGFXDR_LT_VERSION)
 AC_SUBST(LIBGFRPC_LT_VERSION)
 AC_SUBST(LIBGLUSTERFS_LT_VERSION)

@@ -2010,6 +2010,16 @@ __mnt3udp_get_mstate (xlator_t *nfsx)
         return ms;
 }
 
+extern int
+glfs_resolve_at (struct glfs *, xlator_t *, inode_t *,
+                 const char *, loc_t *, struct iatt *, int, int);
+
+extern struct glfs *
+glfs_new_from_ctx (glusterfs_ctx_t *);
+
+extern void
+glfs_free_from_ctx (struct glfs *);
+
 static inode_t *
 __mnt3udp_get_export_subdir_inode (struct svc_req *req, char *subdir,
                                    char *expname, /* OUT */
