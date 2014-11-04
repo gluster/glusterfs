@@ -653,4 +653,8 @@ gf_backtrace_done (char *buf);
 
 gf_loglevel_t
 fop_log_level (glusterfs_fop_t fop, int op_errno);
+
+int32_t
+gf_build_absolute_path (char *current_path, char *relative_path, char **path);
+
 #endif /* _COMMON_UTILS_H */
