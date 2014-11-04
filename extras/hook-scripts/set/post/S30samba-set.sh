@@ -24,8 +24,8 @@ CONFIGFILE=
 LOGFILEBASE=
 PIDDIR=
 GLUSTERD_WORKDIR=
-
-enable_smb=""
+USERSMB_SET=""
+USERCIFS_SET=""
 
 function parse_args () {
         ARGS=$(getopt -l $OPTSPEC  -o "o" -name $PROGNAME $@)
@@ -47,10 +47,10 @@ function parse_args () {
                         read key value < <(echo "$pair" | tr "=" " ")
                         case "$key" in
                             "user.cifs")
-                                enable_smb=$value
+                                USERCIFS_SET="YES"
                                 ;;
                             "user.smb")
-                                enable_smb=$value
+                                USERSMB_SET="YES"
                                 ;;
                             *)
                                 ;;
@@ -101,7 +101,7 @@ function sighup_samba () {
 
 function del_samba_share () {
         volname=$1
-        sed -i "/\[gluster-$volname\]/,/^$/d" /etc/samba/smb.conf
+        sed -i "/\[gluster-$volname\]/,/^$/d" ${CONFIGFILE}
 }
 
 function is_volume_started () {
@@ -110,22 +110,38 @@ function is_volume_started () {
                 cut -d"=" -f2)"
 }
 
+function get_smb () {
+        volname=$1
+        uservalue=
+
+        usercifsvalue=$(grep user.cifs $GLUSTERD_WORKDIR/vols/"$volname"/info |\
+                        cut -d"=" -f2)
+        usersmbvalue=$(grep user.smb $GLUSTERD_WORKDIR/vols/"$volname"/info |\
+                       cut -d"=" -f2)
+
+        if [[ $usercifsvalue = "disable" || $usersmbvalue = "disable" ]]; then
+                uservalue="disable"
+        fi
+        echo "$uservalue"
+}
+
 parse_args $@
 if [ "0" = $(is_volume_started "$VOL") ]; then
     exit 0
 fi
 
 
-if [ "$enable_smb" = "enable" ]; then
+if [[ "$USERCIFS_SET" = "YES" || "$USERSMB_SET" = "YES" ]]; then
     #Find smb.conf, smbd pid directory and smbd logfile path
     find_config_info
-    if ! grep --quiet "\[gluster-$VOL\]" /etc/samba/smb.conf ; then
+
+    if [ $(get_smb "$VOL") = "disable" ]; then
+        del_samba_share $VOL
+        sighup_samba
+    else
+        if ! grep --quiet "\[gluster-$VOL\]" ${CONFIGFILE} ; then
             add_samba_share $VOL
             sighup_samba
+        fi
     fi
-
-elif [ "$enable_smb" = "disable" ]; then
-    find_config_info
-    del_samba_share $VOL
-    sighup_samba
 fi
