@@ -845,6 +845,15 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *buf, dict_t *xattr,
                          struct iatt *postparent);
 
+int
+mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
+                        char *subdir);
+
+int32_t
+mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, const char *path,
+                   struct iatt *buf, dict_t *xdata);
+
 /* There are multiple components in the directory export path and each one
  * needs to be looked up one after the other.
  */
@@ -880,6 +889,13 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         }
 
         nfs_request_user_init (&nfu, mres->req);
+        if (IA_ISLNK (mres->resolveloc.inode->ia_type)) {
+                ret = nfs_readlink (mres->mstate->nfsx, mres->exp->vol, &nfu,
+                                    &mres->resolveloc, mnt3_readlink_cbk, mres);
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Symlink found , need to resolve"
+                                              " into directory handle");
+                goto err;
+        }
         ret = nfs_lookup (mres->mstate->nfsx, mres->exp->vol, &nfu,
                           &mres->resolveloc, mnt3_resolve_subdir_cbk, mres);
 
@@ -954,7 +970,124 @@ err:
         return 0;
 }
 
+/* This function resolves symbolic link into directory path from
+ * the mount and restart the parsing process from the begining
+ *
+ * Note : Path specified in the symlink should be relative to the
+ *        symlink, because that is the one which is consistent throught
+ *        out the file system.
+ *        If the symlink resolves into another symlink ,then same process
+ *        will be repeated.
+ *        If symbolic links points outside the file system are not considered
+ *        here.
+ *
+ * TODO : 1.) This function cannot handle symlinks points to path which
+ *            goes out of the filesystem and comes backs again to same.
+ *            For example, consider vol is exported volume.It contains
+ *            dir,
+ *            symlink1 which points to ../vol/dir,
+ *            symlink2 which points to ../mnt/../vol/dir,
+ *            symlink1 and symlink2 are not handled right now.
+ *
+ *        2.) udp mount routine is much simpler from tcp routine and resolves
+ *            symlink directly.May be ,its better we change this routine
+ *            similar to udp
+ */
+int32_t
+mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, const char *path,
+                   struct iatt *buf, dict_t *xdata)
+{
+        mnt3_resolve_t           *mres            = NULL;
+        int                      ret              = -EFAULT;
+        char                     *real_loc        = NULL;
+        size_t                   path_len         = 0;
+        size_t                   parent_path_len  = 0;
+        char                     *parent_path     = NULL;
+        char                     *absolute_path   = NULL;
+        char                     *relative_path   = NULL;
+        int                      mntstat          = 0;
 
+        GF_ASSERT (frame);
+
+        mres = frame->local;
+        if (!mres || !path || (path[0] == '/') || (op_ret < 0))
+                goto mnterr;
+
+        /* Finding current location of symlink */
+        parent_path_len = strlen (mres->resolveloc.path) - strlen (mres->resolveloc.name);
+        parent_path = gf_strndup (mres->resolveloc.path, parent_path_len);
+        if (!parent_path) {
+                ret = -ENOMEM;
+                goto mnterr;
+        }
+
+        relative_path = gf_strdup (path);
+        if (!relative_path) {
+                ret = -ENOMEM;
+                goto mnterr;
+        }
+        /* Resolving into absolute path */
+        ret = gf_build_absolute_path (parent_path, relative_path, &absolute_path);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Cannot resolve symlink, path"
+                               "is out of boundary from current location %s"
+                               "and with relative path %s pointed by symlink",
+                                parent_path, relative_path);
+
+                goto mnterr;
+        }
+
+        /* Building the actual mount path to be mounted */
+        path_len = strlen (mres->exp->vol->name) +  strlen (absolute_path)
+                   + strlen (mres->remainingdir) + 1;
+        real_loc = GF_CALLOC (1, path_len, gf_nfs_mt_char);
+        if (!real_loc) {
+                ret = -ENOMEM;
+                goto mnterr;
+        }
+        sprintf (real_loc , "%s%s", mres->exp->vol->name, absolute_path);
+        gf_path_strip_trailing_slashes (real_loc);
+
+        /* There may entries after symlink in the mount path,
+         * we should include remaining entries too */
+        if (strlen (mres->remainingdir) > 0)
+                strcat (real_loc, mres->remainingdir);
+
+        gf_log (GF_MNT, GF_LOG_DEBUG, "Resolved path is : %s%s "
+                        "and actual mount path is %s",
+                        absolute_path, mres->remainingdir, real_loc);
+
+        /* After the resolving the symlink , parsing should be done
+         * for the populated mount path
+         */
+        ret = mnt3_parse_dir_exports (mres->req, mres->mstate, real_loc);
+
+        if (ret) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Resolved into an unknown path %s%s "
+                        "from the current location of symlink %s",
+                         absolute_path, mres->remainingdir, parent_path);
+        }
+
+        GF_FREE (real_loc);
+        GF_FREE (absolute_path);
+        GF_FREE (parent_path);
+        GF_FREE (relative_path);
+
+        return ret;
+
+mnterr:
+        mntstat = mnt3svc_errno_to_mnterr (-ret);
+        mnt3svc_mnt_error_reply (mres->req, mntstat);
+        if (absolute_path)
+                GF_FREE (absolute_path);
+        if (parent_path)
+                GF_FREE (parent_path);
+        if (relative_path)
+                GF_FREE (relative_path);
+        return ret;
+}
 
 /* We will always have to perform a hard lookup on all the components of a
  * directory export for a mount request because in the mount reply we need the
@@ -996,6 +1129,13 @@ __mnt3_resolve_subdir (mnt3_resolve_t *mres)
         }
 
         nfs_request_user_init (&nfu, mres->req);
+        if (IA_ISLNK (mres->resolveloc.inode->ia_type)) {
+                ret = nfs_readlink (mres->mstate->nfsx, mres->exp->vol, &nfu,
+                                    &mres->resolveloc, mnt3_readlink_cbk, mres);
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Symlink found , need to resolve "
+                                              "into directory handle");
+                goto err;
+        }
         ret = nfs_lookup (mres->mstate->nfsx, mres->exp->vol, &nfu,
                           &mres->resolveloc, mnt3_resolve_subdir_cbk, mres);
 
@@ -2054,13 +2194,15 @@ __mnt3udp_get_export_subdir_inode (struct svc_req *req, char *subdir,
          * TODO: Instead of linking against libgfapi.so, just for one API
          * i.e. glfs_resolve_at(), It would be cleaner if PATH name to
          * inode resolution code can be moved to libglusterfs.so or so.
+         * refer bugzilla for more details :
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1161573
          */
         fs = glfs_new_from_ctx (exp->vol->ctx);
         if (!fs)
                 return NULL;
 
         ret = glfs_resolve_at (fs, exp->vol, NULL, subdir,
-                               &loc, &buf, 0 /* Follow link */,
+                               &loc, &buf, 1 /* Follow link */,
                                0 /* Hard lookup */);
 
         glfs_free_from_ctx (fs);

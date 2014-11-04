@@ -3429,3 +3429,130 @@ fop_log_level (glusterfs_fop_t fop, int op_errno)
 
         return GF_LOG_ERROR;
 }
+
+/* This function will build absolute path of file/directory from the
+ * current location and relative path given from the current location
+ * For example consider our current path is /a/b/c/ and relative path
+ * from current location is ./../x/y/z .After parsing through this
+ * function the absolute path becomes /a/b/x/y/z/.
+ *
+ * The function gives a pointer to absolute path if it is successful
+ * and also returns zero.
+ * Otherwise function gives NULL pointer with returning an err value.
+ *
+ * So the user need to free memory allocated for path.
+ *
+ */
+
+int32_t
+gf_build_absolute_path (char *current_path, char *relative_path, char **path)
+{
+        char                    *absolute_path          = NULL;
+        char                    *token                  = NULL;
+        char                    *component              = NULL;
+        char                    *saveptr                = NULL;
+        char                    *end                    = NULL;
+        int                     ret                     = 0;
+        size_t                  relativepath_len        = 0;
+        size_t                  currentpath_len         = 0;
+        size_t                  max_absolutepath_len    = 0;
+
+        GF_ASSERT (current_path);
+        GF_ASSERT (relative_path);
+        GF_ASSERT (path);
+
+        if (!path || !current_path || !relative_path) {
+                ret = -EFAULT;
+                goto err;
+        }
+        /* Check for current and relative path
+         * current path should be absolute one and  start from '/'
+         * relative path should not start from '/'
+         */
+        currentpath_len = strlen (current_path);
+        if (current_path[0] != '/' || (currentpath_len > PATH_MAX)) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Wrong value for"
+                                   " current path %s", current_path);
+                ret = -EINVAL;
+                goto err;
+        }
+
+        relativepath_len = strlen (relative_path);
+        if (relative_path[0] == '/' || (relativepath_len > PATH_MAX)) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Wrong value for"
+                                   " relative path %s", relative_path);
+                ret = -EINVAL;
+                goto err;
+        }
+
+        /* It is maximum possible value for absolute path */
+        max_absolutepath_len = currentpath_len + relativepath_len + 2;
+
+        absolute_path = GF_CALLOC (1, max_absolutepath_len, gf_common_mt_char);
+        if (!absolute_path) {
+                ret = -ENOMEM;
+                goto err;
+        }
+        absolute_path[0] = '\0';
+
+        /* If current path is root i.e contains only "/", we do not
+         * need to copy it
+         */
+        if (strcmp (current_path, "/") != 0) {
+                strcpy (absolute_path, current_path);
+
+                /* We trim '/' at the end for easier string manipulation */
+                gf_path_strip_trailing_slashes (absolute_path);
+        }
+
+        /* Used to spilt relative path based on '/' */
+        component = gf_strdup (relative_path);
+        if (!component) {
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        /* In the relative path, we want to consider ".." and "."
+         * if token is ".." , we just need to reduce one level hierarchy
+         * if token is "." , we just ignore it
+         * if token is NULL , end of relative path
+         * if absolute path becomes '\0' and still "..", then it is a bad
+         * relative path,  it points to out of boundary area and stop
+         * building the absolute path
+         * All other cases we just concatenate token to the absolute path
+         */
+        for (token = strtok_r (component,  "/", &saveptr),
+             end = strchr (absolute_path, '\0'); token;
+             token = strtok_r (NULL, "/", &saveptr)) {
+                if (strcmp (token, ".") == 0)
+                        continue;
+
+                else if (strcmp (token, "..") == 0) {
+
+                        if (absolute_path[0] == '\0') {
+                                ret = -EACCES;
+                                goto err;
+                         }
+
+                         end = strrchr (absolute_path, '/');
+                         *end = '\0';
+                } else {
+                        ret = snprintf (end, max_absolutepath_len -
+                                        strlen (absolute_path), "/%s", token);
+                        end = strchr (absolute_path , '\0');
+                }
+        }
+
+        if (strlen (absolute_path) > PATH_MAX) {
+                ret = -EINVAL;
+                goto err;
+        }
+        *path = gf_strdup (absolute_path);
+
+err:
+        if (component)
+                GF_FREE (component);
+        if (absolute_path)
+                GF_FREE (absolute_path);
+        return ret;
+}
