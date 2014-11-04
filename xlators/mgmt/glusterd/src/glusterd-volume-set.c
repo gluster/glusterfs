@@ -1140,7 +1140,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_6_0,
           .value       = "off",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
-          .description = "Enable/Disable User Servicable Snapshots on the "
+          .description = "enable/disable User Serviceable Snapshots on the "
                          "volume."
         },
 
