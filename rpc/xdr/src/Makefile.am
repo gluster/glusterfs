@@ -22,92 +22,57 @@ CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
 
 EXTRA_DIST = $(XDRGENFILES)
 
+xdrsrc=$(top_srcdir)/rpc/xdr/src
 glusterfs3-xdr.c: glusterfs3-xdr.x glusterfs3-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x}; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 glusterfs3-xdr.h: glusterfs3-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 cli1-xdr.c: cli1-xdr.x cli1-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 cli1-xdr.h: cli1-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 nlm4-xdr.c: nlm4-xdr.x nlm4-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 nlm4-xdr.h: nlm4-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 nsm-xdr.c: nsm-xdr.x nsm-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 nsm-xdr.h: nsm-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 rpc-common-xdr.c: rpc-common-xdr.x rpc-common-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 rpc-common-xdr.h: rpc-common-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 glusterd1-xdr.c: glusterd1-xdr.x glusterd1-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 glusterd1-xdr.h: glusterd1-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 acl3-xdr.c: acl3-xdr.x acl3-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 acl3-xdr.h: acl3-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 portmap-xdr.c: portmap-xdr.x portmap-xdr.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 portmap-xdr.h: portmap-xdr.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
 
 mount3udp.c: mount3udp.x mount3udp.h
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen source $(top_srcdir)/rpc/xdr/src/${@:.c=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 mount3udp.h: mount3udp.x
-	@if test -f $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; then \
-		$(top_srcdir)/build-aux/xdrgen header $(top_srcdir)/rpc/xdr/src/${@:.h=.x} ; \
-	fi
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
