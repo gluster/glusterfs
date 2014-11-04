@@ -449,7 +449,7 @@ without_options()
 parse_options()
 {
     local optarg=${1}
-    for pair in $(echo ${optarg//,/ }); do
+    for pair in $(echo $optarg | sed 's/,/ /g'); do
         key=$(echo "$pair" | cut -f1 -d'=');
         value=$(echo "$pair" | cut -f2- -d'=');
         if [ "$key" = "$value" ]; then
@@ -463,7 +463,8 @@ parse_options()
 main ()
 {
     ## `mount` on OSX specifies options as first argument
-    if [[ $1 =~ "-o" ]]; then
+    echo $1|grep -q -- "-o"
+    if [ $? -eq 0 ];  then
         volfile_loc=$3
         mount_point=$4
     else
