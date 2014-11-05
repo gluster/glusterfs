@@ -441,9 +441,6 @@ ga_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 goto done;
 
-        if (!local->uid && !local->gid)
-                goto done;
-
         temp_stat.ia_uid = local->uid;
         temp_stat.ia_gid = local->gid;
 
