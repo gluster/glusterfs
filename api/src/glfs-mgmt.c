@@ -483,7 +483,7 @@ out:
                 gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
                         "op-version which is not supported");
                 errno = ENOTSUP;
-                glfs_init_done (fs, -1);
+                priv_glfs_init_done (fs, -1);
         }
 
 	if (ret && ctx && !ctx->active) {
@@ -496,7 +496,7 @@ out:
 		if (!need_retry) {
                         if (!errno)
                                 errno = EINVAL;
-			glfs_init_done (fs, -1);
+			priv_glfs_init_done (fs, -1);
                 }
 	}
 
@@ -590,7 +590,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 				cmd_args->max_connect_attempts);
 			if (0 >= cmd_args->max_connect_attempts) {
                                 errno = ENOTCONN;
-				glfs_init_done (fs, -1);
+				priv_glfs_init_done (fs, -1);
                         }
 		}
 		break;
@@ -605,7 +605,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 				"failed to fetch volume file (key:%s)",
 				ctx->cmd_args.volfile_id);
                         errno = EINVAL;
-			glfs_init_done (fs, -1);
+			priv_glfs_init_done (fs, -1);
 		}
 
 		break;

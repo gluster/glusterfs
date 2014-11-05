@@ -26,8 +26,11 @@
 #include "glfs-internal.h"
 
 
+extern void
+glfs_subvol_done (struct glfs *, xlator_t *);
+
 int
-glfs_graph_setup (struct glfs *fs, glusterfs_graph_t *graph)
+graph_setup (struct glfs *fs, glusterfs_graph_t *graph)
 {
 	xlator_t      *new_subvol = NULL;
 	xlator_t      *old_subvol = NULL;
@@ -76,6 +79,9 @@ unlock:
 }
 
 
+extern void
+glfs_init_done (struct glfs *fs, int ret);
+
 int
 notify (xlator_t *this, int event, void *data, ...)
 {
@@ -92,11 +98,11 @@ notify (xlator_t *this, int event, void *data, ...)
 			graph->id);
 		break;
 	case GF_EVENT_CHILD_UP:
-		glfs_graph_setup (fs, graph);
+		graph_setup (fs, graph);
 		glfs_init_done (fs, 0);
 		break;
 	case GF_EVENT_CHILD_DOWN:
-		glfs_graph_setup (fs, graph);
+		graph_setup (fs, graph);
 		glfs_init_done (fs, 1);
 		break;
 	case GF_EVENT_CHILD_CONNECTING:

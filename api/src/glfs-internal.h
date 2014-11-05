@@ -31,7 +31,7 @@
 #define GLFS_LOC_FILL_INODE(oinode, loc, label) do {   \
 	loc.inode = inode_ref (oinode);                \
 	uuid_copy (loc.gfid, oinode->gfid);            \
-	ret = glfs_loc_touchup (&loc);                 \
+	ret = priv_glfs_loc_touchup (&loc);            \
 	if (ret != 0) {                                \
 		errno = EINVAL;                        \
 		goto label;                            \
@@ -47,7 +47,7 @@
 	}                                                                 \
 	loc.parent = inode_ref (pinode);                                  \
 	loc.name = path;                                                  \
-	ret = glfs_loc_touchup (&loc);                                    \
+	ret = priv_glfs_loc_touchup (&loc);                               \
 	if (ret != 0) {                                                   \
 		errno = EINVAL;                                           \
 		goto label;                                               \
@@ -111,7 +111,7 @@ struct glfs_object {
 #define GF_MEMPOOL_COUNT_OF_DATA_PAIR_T   (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
 
 int glfs_mgmt_init (struct glfs *fs);
-void glfs_init_done (struct glfs *fs, int ret);
+void priv_glfs_init_done (struct glfs *fs, int ret);
 int glfs_process_volfp (struct glfs *fs, FILE *fp);
 int glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
 		  struct iatt *iatt, int reval);
@@ -173,11 +173,11 @@ void glfs_fd_destroy (struct glfs_fd *glfd);
 struct glfs_fd *glfs_fd_new (struct glfs *fs);
 void glfs_fd_bind (struct glfs_fd *glfd);
 
-xlator_t * glfs_active_subvol (struct glfs *fs);
-xlator_t * __glfs_active_subvol (struct glfs *fs);
-void glfs_subvol_done (struct glfs *fs, xlator_t *subvol);
+xlator_t *priv_glfs_active_subvol (struct glfs *fs);
+xlator_t *__glfs_active_subvol (struct glfs *fs);
+void priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol);
 
-inode_t * glfs_refresh_inode (xlator_t *subvol, inode_t *inode);
+inode_t *glfs_refresh_inode (xlator_t *subvol, inode_t *inode);
 
 inode_t *glfs_cwd_get (struct glfs *fs);
 int glfs_cwd_set (struct glfs *fs, inode_t *inode);
@@ -188,12 +188,19 @@ int __glfs_cwd_set (struct glfs *fs, inode_t *inode);
 
 int glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 		       struct iatt *iatt);
-int glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
+int priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
                      const char *origpath, loc_t *loc, struct iatt *iatt,
                      int follow, int reval);
-int glfs_loc_touchup (loc_t *loc);
+int priv_glfs_loc_touchup (loc_t *loc);
 void glfs_iatt_to_stat (struct glfs *fs, struct iatt *iatt, struct stat *stat);
 int glfs_loc_link (loc_t *loc, struct iatt *iatt);
 int glfs_loc_unlink (loc_t *loc);
+
+#define GFAPI_SYMVER_PUBLIC_DEFAULT(fn, dotver) \
+        asm(".symver pub_"STR(fn)", "STR(fn)"@@GFAPI_"STR(dotver))
+
+#define GFAPI_SYMVER_PRIVATE_DEFAULT(fn, dotver) \
+        asm(".symver priv_"STR(fn)", "STR(fn)"@@GFAPI_PRIVATE_"STR(dotver))
+#define STR(str) #str
 
 #endif /* !_GLFS_INTERNAL_H */

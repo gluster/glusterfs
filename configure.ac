@@ -146,6 +146,7 @@ AC_CONFIG_FILES([Makefile
                 glusterfs-api.pc
                 api/Makefile
                 api/src/Makefile
+                api/src/gfapi.map
                 api/examples/Makefile
                 api/examples/setup.py
                 glusterfs.spec])

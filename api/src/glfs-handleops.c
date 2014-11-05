@@ -58,7 +58,7 @@ glfs_iatt_from_stat (struct stat *stat, int valid, struct iatt *iatt,
 }
 
 struct glfs_object *
-glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
+pub_glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
 		 const char *path, struct stat *stat)
 {
 	int                      ret = 0;
@@ -77,7 +77,7 @@ glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		errno = EIO;
 		goto out;
@@ -93,7 +93,7 @@ glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
 	}
 
 	/* fop/op */
-	ret = glfs_resolve_at (fs, subvol, inode, path, &loc, &iatt,
+	ret = priv_glfs_resolve_at (fs, subvol, inode, path, &loc, &iatt,
 			       0 /*TODO: links? */, 0);
 
 	/* populate out args */
@@ -110,13 +110,16 @@ out:
 	if (inode)
 		inode_unref (inode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return object;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lookupat, 3.4.2);
+
+
 int
-glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
+pub_glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
@@ -133,7 +136,7 @@ glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -163,13 +166,16 @@ out:
 	if (inode)
 		inode_unref (inode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_stat, 3.4.2);
+
+
 int
-glfs_h_getattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat)
+pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat)
 {
 	int                      ret = 0;
 	xlator_t                *subvol = NULL;
@@ -185,7 +191,7 @@ glfs_h_getattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat)
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -211,10 +217,13 @@ out:
 	if (inode)
 		inode_unref (inode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getattrs, 3.4.2);
+
 
 int
 glfs_h_setattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat,
@@ -236,7 +245,7 @@ glfs_h_setattrs (struct glfs *fs, struct glfs_object *object, struct stat *stat,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -264,10 +273,13 @@ out:
 	if (inode)
 		inode_unref (inode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_setattrs, 3.4.2);
+
 
 struct glfs_fd *
 glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
@@ -287,7 +299,7 @@ glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		errno = EIO;
 		goto out;
@@ -347,14 +359,17 @@ out:
 		glfs_fd_bind (glfd);
 	}
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_open, 3.4.2);
+
+
 struct glfs_object *
-glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
-	      int flags, mode_t mode, struct stat *stat)
+pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
+	          int flags, mode_t mode, struct stat *stat)
 {
 	int                 ret = -1;
 	struct glfs_fd     *glfd = NULL;
@@ -375,7 +390,7 @@ glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -458,13 +473,16 @@ out:
 		glfd = NULL;
 	}
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return object;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_creat, 3.4.2);
+
+
 struct glfs_object *
-glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
+pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
 	      mode_t mode, struct stat *stat)
 {
 	int                 ret = -1;
@@ -485,7 +503,7 @@ glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -546,13 +564,16 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return object;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_mkdir, 3.4.2);
+
+
 struct glfs_object *
-glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
+pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
 	      mode_t mode, dev_t dev, struct stat *stat)
 {
 	int                 ret = -1;
@@ -573,7 +594,7 @@ glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -633,13 +654,16 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return object;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_mknod, 3.4.2);
+
+
 int
-glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path)
+pub_glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path)
 {
 	int                 ret = -1;
 	xlator_t           *subvol = NULL;
@@ -655,7 +679,7 @@ glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path)
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if ( !subvol ) {
 		ret = -1;
 		errno = EIO;
@@ -669,7 +693,7 @@ glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path)
 		goto out;
 	}
 
-	ret = glfs_resolve_at (fs, subvol, inode, path, &loc, NULL, 0 , 0);
+	ret = priv_glfs_resolve_at (fs, subvol, inode, path, &loc, NULL, 0 , 0);
 	if (ret != 0) {
 		goto out;
 	}
@@ -695,13 +719,16 @@ out:
 	if (inode)
 		inode_unref (inode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_unlink, 3.4.2);
+
+
 struct glfs_fd *
-glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
+pub_glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
 {
 	int              ret = -1;
 	struct glfs_fd  *glfd = NULL;
@@ -718,7 +745,7 @@ glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -770,13 +797,16 @@ out:
 		glfs_fd_bind (glfd);
 	}
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_opendir, 3.4.2);
+
+
 ssize_t
-glfs_h_extract_handle (struct glfs_object *object, unsigned char *handle,
+pub_glfs_h_extract_handle (struct glfs_object *object, unsigned char *handle,
 		       int len)
 {
 	ssize_t ret = -1;
@@ -806,8 +836,11 @@ out:
 	return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_extract_handle, 3.4.2);
+
+
 struct glfs_object *
-glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
+pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 			   struct stat *stat)
 {
 	loc_t               loc = {0, };
@@ -826,7 +859,7 @@ glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		errno = EIO;
 		goto out;
@@ -884,13 +917,16 @@ out:
 	/* TODO: Check where the inode ref is being held? */
 	loc_wipe (&loc);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return object;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_create_from_handle, 3.4.2);
+
+
 int
-glfs_h_close (struct glfs_object *object)
+pub_glfs_h_close (struct glfs_object *object)
 {
 	/* Release the held reference */
 	inode_unref (object->inode);
@@ -899,8 +935,11 @@ glfs_h_close (struct glfs_object *object)
 	return 0;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_close, 3.4.2);
+
+
 int
-glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
+pub_glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
 {
 	loc_t               loc = {0, };
 	int                 ret = -1;
@@ -916,7 +955,7 @@ glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -945,13 +984,16 @@ out:
 	if (inode)
 		inode_unref (inode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_truncate, 3.4.2);
+
+
 struct glfs_object *
-glfs_h_symlink (struct glfs *fs, struct glfs_object *parent, const char *name,
+pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent, const char *name,
 		const char *data, struct stat *stat)
 {
 	int                 ret = -1;
@@ -973,7 +1015,7 @@ glfs_h_symlink (struct glfs *fs, struct glfs_object *parent, const char *name,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1039,13 +1081,16 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return object;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_symlink, 3.4.2);
+
+
 int
-glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
+pub_glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
 		 size_t bufsiz)
 {
 	loc_t               loc = {0, };
@@ -1063,7 +1108,7 @@ glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1095,13 +1140,16 @@ out:
 	if (linkval)
 		GF_FREE (linkval);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_readlink, 3.4.2);
+
+
 int
-glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
+pub_glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
 	     struct glfs_object *parent, const char *name)
 {
 	int                 ret = -1;
@@ -1121,7 +1169,7 @@ glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1153,7 +1201,7 @@ glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
 	/* setup newloc based on parent */
 	newloc.parent = inode_ref (pinode);
 	newloc.name = name;
-	ret = glfs_loc_touchup (&newloc);
+	ret = priv_glfs_loc_touchup (&newloc);
 	if (ret != 0) {
 		errno = EINVAL;
 		goto out;
@@ -1180,13 +1228,16 @@ out:
 	if (pinode)
 		inode_unref (pinode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_link, 3.4.2);
+
+
 int
-glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
+pub_glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
 	       struct glfs_object *newdir, const char *newname)
 {
 	int                 ret = -1;
@@ -1208,7 +1259,7 @@ glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
 	__glfs_entry_fs (fs);
 
 	/* get the active volume */
-	subvol = glfs_active_subvol (fs);
+	subvol = priv_glfs_active_subvol (fs);
 	if ( !subvol ) {
 		ret = -1;
 		errno = EIO;
@@ -1222,7 +1273,7 @@ glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
 		goto out;
 	}
 
-	ret = glfs_resolve_at (fs, subvol, oldpinode, oldname, &oldloc,
+	ret = priv_glfs_resolve_at (fs, subvol, oldpinode, oldname, &oldloc,
 			       &oldiatt, 0 , 0);
 	if (ret != 0) {
 		goto out;
@@ -1235,7 +1286,7 @@ glfs_h_rename (struct glfs *fs, struct glfs_object *olddir, const char *oldname,
 		goto out;
 	}
 
-	ret = glfs_resolve_at (fs, subvol, newpinode, newname, &newloc,
+	ret = priv_glfs_resolve_at (fs, subvol, newpinode, newname, &newloc,
 			       &newiatt, 0, 0);
 
 	if (ret && errno != ENOENT && newloc.parent)
@@ -1272,7 +1323,10 @@ out:
 	if (newpinode)
 		inode_unref (newpinode);
 
-	glfs_subvol_done (fs, subvol);
+	priv_glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
+
