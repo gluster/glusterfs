@@ -324,7 +324,7 @@ out:
 }
 
 int
-glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
+pub_glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
 {
         /* TODO: Define a global macro to store UUID size */
         size_t uuid_size = 16;
@@ -365,6 +365,8 @@ done:
 
         return uuid_size;
 }
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volumeid, 3.5.0);
 
 int
 glfs_get_volume_info (struct glfs *fs)
@@ -574,7 +576,7 @@ out:
                 gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
                         "op-version which is not supported");
                 errno = ENOTSUP;
-                glfs_init_done (fs, -1);
+                priv_glfs_init_done (fs, -1);
         }
 
 	if (ret && ctx && !ctx->active) {
@@ -587,7 +589,7 @@ out:
 		if (!need_retry) {
                         if (!errno)
                                 errno = EINVAL;
-			glfs_init_done (fs, -1);
+			priv_glfs_init_done (fs, -1);
                 }
 	}
 
@@ -683,7 +685,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                 errno = ENOTCONN;
                                 gf_log("glfs-mgmt", GF_LOG_INFO,
                                        "Exhausted all volfile servers");
-                                glfs_init_done (fs, -1);
+                                priv_glfs_init_done (fs, -1);
                                 break;
                         }
                         server = list_entry (server->list.next, typeof(*server),
@@ -700,7 +702,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "failed to set remote-port: %d",
                                         server->port);
                                 errno = ENOTCONN;
-                                glfs_init_done (fs, -1);
+                                priv_glfs_init_done (fs, -1);
                                 break;
                         }
 
@@ -712,7 +714,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "failed to set remote-host: %s",
                                         server->volfile_server);
                                 errno = ENOTCONN;
-                                glfs_init_done (fs, -1);
+                                priv_glfs_init_done (fs, -1);
                                 break;
                         }
 
@@ -724,7 +726,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "failed to set transport-type: %s",
                                         server->transport);
                                 errno = ENOTCONN;
-                                glfs_init_done (fs, -1);
+                                priv_glfs_init_done (fs, -1);
                                 break;
                         }
                         gf_log ("glfs-mgmt", GF_LOG_INFO,
@@ -745,7 +747,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 				"failed to fetch volume file (key:%s)",
 				ctx->cmd_args.volfile_id);
                         errno = EINVAL;
-			glfs_init_done (fs, -1);
+			priv_glfs_init_done (fs, -1);
 		}
 
                 break;

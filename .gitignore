@@ -48,3 +48,4 @@ ufo/test/unit/.coverage
 xlators/mount/fuse/utils/mount.glusterfs
 xlators/mount/fuse/utils/mount_glusterfs
 xlators/features/glupy/src/setup.py
+api/src/gfapi.map

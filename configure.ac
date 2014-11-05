@@ -173,6 +173,7 @@ AC_CONFIG_FILES([Makefile
                 libgfchangelog.pc
                 api/Makefile
                 api/src/Makefile
+                api/src/gfapi.map
                 api/examples/Makefile
                 api/examples/__init__.py
                 api/examples/setup.py
