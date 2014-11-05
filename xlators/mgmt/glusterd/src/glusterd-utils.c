@@ -13301,6 +13301,7 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
         runner_t                runner                     = {0,};
         char                    pidfile[PATH_MAX]          = {0,};
         char                    logfile[PATH_MAX]          = {0,};
+        char                    logdir[PATH_MAX]           = {0,};
         char                    volfile[PATH_MAX]          = {0,};
         char                    glusterd_uuid [1024]       = {0,};
         char                    rundir[PATH_MAX]           = {0,};
@@ -13342,8 +13343,16 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
                 goto out;
         }
 
-        snprintf (logfile, PATH_MAX, "%s/%s-snapd.log",
+        snprintf (logdir, PATH_MAX, "%s/snaps/%s",
                   DEFAULT_LOG_FILE_DIRECTORY, volname);
+        ret = mkdir_p (logdir, 0755, _gf_true);
+        if ((ret == -1) && (EEXIST != errno)) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to create logdir %s",
+                        logdir);
+                goto out;
+        }
+
+        snprintf (logfile, PATH_MAX, "%s/snapd.log", logdir);
 
         snprintf (volfileid, sizeof (volfileid), "snapd/%s", volname);
         glusterd_set_snapd_socket_filepath (volinfo, sockfpath,
@@ -13357,9 +13366,8 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
         runinit (&runner);
 
         if (priv->valgrind) {
-                snprintf (valgrind_logfile, PATH_MAX,
-                          "%s/valgrind-%s-snapd.log",
-                          DEFAULT_LOG_FILE_DIRECTORY, volname);
+                snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-snapd.log",
+                          logdir);
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
                                  "--trace-children=yes", "--track-origins=yes",
