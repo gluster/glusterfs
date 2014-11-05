@@ -72,3 +72,4 @@ geo-replication/src/gsyncd
 cli/src/gluster
 contrib/fuse-util/fusermount-glusterfs
 geo-replication/src/gsyncd
+api/src/gfapi.map
