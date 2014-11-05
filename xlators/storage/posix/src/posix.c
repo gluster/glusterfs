@@ -4171,7 +4171,21 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
                 key = newkey;
         }
 #endif
+    /* Bulk remove xattr is internal fop in gluster. Some of the xattrs may
+     * have special behavior. Ex: removexattr("posix.system_acl_access"),
+     * removes more than one xattr on the file that could be present in the
+     * bulk-removal request.  Removexattr of these deleted xattrs will fail
+     * with either ENODATA/ENOATTR.  Since all this fop cares is removal of the
+     * xattrs in bulk-remove request and if they are already deleted, it can be
+     * treated as success.
+     */
+
         op_ret = sys_lremovexattr (filler->real_path, key);
+        if (op_ret == -1) {
+                if (errno == ENODATA || errno == ENOATTR)
+                        op_ret = 0;
+        }
+
         if (op_ret == -1) {
                 filler->op_errno = errno;
                 if (errno != ENOATTR && errno != ENODATA && errno != EPERM)
