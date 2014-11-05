@@ -4696,7 +4696,9 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                 (void) gf_store_handle_destroy (stale_volinfo->shandle);
                 stale_volinfo->shandle = NULL;
         }
+        (void) glusterd_snapd_stop (stale_volinfo);
         (void) glusterd_volinfo_remove (stale_volinfo);
+
         return 0;
 }
 
@@ -4784,6 +4786,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         if (glusterd_is_volume_started (new_volinfo)) {
                 (void) glusterd_start_bricks (new_volinfo);
+                if (glusterd_is_snapd_enabled (new_volinfo))
+                        (void) glusterd_snapd_start (new_volinfo, _gf_false);
         }
 
         ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
@@ -13201,11 +13205,12 @@ glusterd_restart_snapds (glusterd_conf_t *priv)
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 if (volinfo->status == GLUSTERD_STATUS_STARTED &&
                     glusterd_is_snapd_enabled (volinfo)) {
-                        ret = glusterd_snapd_start (volinfo, _gf_false);
+                        ret = glusterd_snapd_start (volinfo,
+                                                    _gf_false);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "Couldn't start snapd for vol: %s",
-                                        volinfo->volname);
+                                        "Couldn't start snapd for "
+                                        "vol: %s", volinfo->volname);
                                 goto out;
                         }
                 }
@@ -13337,9 +13342,24 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
 
         ret = sys_access (volfile, F_OK);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "snapd Volfile %s is not present", volfile);
-                goto out;
+
+                /* If glusterd is down on one of the nodes and during
+                 * that time "USS is enabled" for the first time. After some
+                 * time when the glusterd which was down comes back it tries
+                 * to look for the snapd volfile and it does not find snapd
+                 * volfile and because of this starting of snapd fails.
+                 * Therefore, if volfile is not present then create a fresh
+                 * volfile.
+                 */
+                ret = glusterd_create_snapd_volfile (volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Couldn't create "
+                                "snapd volfile for volume: %s",
+                                volinfo->volname);
+                        goto out;
+                }
         }
 
         snprintf (logdir, PATH_MAX, "%s/snaps/%s",
