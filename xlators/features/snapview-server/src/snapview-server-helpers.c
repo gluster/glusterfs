@@ -477,8 +477,8 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name)
         }
 
         snprintf (logfile, sizeof (logfile),
-                  DEFAULT_SVD_LOG_FILE_DIRECTORY "/%s-%s.log",
-                  name, dirent->uuid);
+                  DEFAULT_SVD_LOG_FILE_DIRECTORY "/snaps/%s/%s-%s.log",
+                  priv->volname, name, dirent->uuid);
 
         ret = glfs_set_logging(fs, logfile, loglevel);
         if (ret) {
