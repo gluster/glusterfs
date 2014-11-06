@@ -642,7 +642,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 /* Critical failure: unable to rename the cached file */
-                if (src_cached == dst_cached) {
+                if (prev->this == src_cached) {
                         gf_msg (this->name, GF_LOG_WARNING, op_errno,
                                 DHT_MSG_RENAME_FAILED,
                                 "%s: Rename on %s failed, (gfid = %s) ",
