@@ -1156,8 +1156,8 @@ static char *afr_ignore_xattrs[] = {
         NULL
 };
 
-static  gf_boolean_t
-afr_lookup_xattr_ignorable (char *key)
+gf_boolean_t
+afr_is_xattr_ignorable (char *key)
 {
         int i = 0;
 
@@ -1176,7 +1176,7 @@ xattr_is_equal (dict_t *this, char *key1, data_t *value1, void *data)
         dict_t *xattr2 = (dict_t *)data;
         data_t *value2 = NULL;
 
-        if (afr_lookup_xattr_ignorable (key1))
+        if (afr_is_xattr_ignorable (key1))
                 return 0;
 
         value2 = dict_get (xattr2, key1);
