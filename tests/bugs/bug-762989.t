@@ -4,6 +4,14 @@
 
 cleanup;
 
+# Skip the entire test if ip_local_reserved_ports does not exist
+if [ ! -f /proc/sys/net/ipv4/ip_local_reserved_ports ] ; then
+    echo "Skip test on /proc/sys/net/ipv4/ip_local_reserved_ports, "\
+         "which does not exists on this system" >&2
+    SKIP_TESTS
+    exit 0
+fi
+
 ## reserve port 1023
 older_ports=$(cat /proc/sys/net/ipv4/ip_local_reserved_ports);
 echo "1023" > /proc/sys/net/ipv4/ip_local_reserved_ports;
