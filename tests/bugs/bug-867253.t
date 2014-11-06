@@ -4,6 +4,14 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
+# Skip the entire test if /proc/sys/vm/drop_caches does not exist
+if [ ! -f /proc/sys/vm/drop_caches ] ; then
+    echo "Skip test using /proc/sys/vm/drop_caches, "\
+         "which does not exists on this system" >&2
+    SKIP_TESTS
+    exit 0
+fi
+
 cleanup;
 
 function file_count()

@@ -15,7 +15,7 @@ function clients_connected()
 ## Start and create a volume
 TEST glusterd;
 TEST pidof glusterd;
-TEST $CLI volume create $V0 $H0:$B0/${V0}{1}
+TEST $CLI volume create $V0 $H0:$B0/${V0}1
 TEST $CLI volume start $V0;
 
 TEST glusterfs --direct-io-mode=yes --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
@@ -26,7 +26,9 @@ TEST fd_write $fd "content"
 TEST $CLI volume stop $V0
 # write some content which will result in marking fd bad
 fd_write $fd "more content"
+sync $V0
 TEST $CLI volume start $V0
+EXPECT 'Started' volinfo_field $V0 'Status';
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 clients_connected $V0
 TEST ! fd_write $fd "still more content"
 

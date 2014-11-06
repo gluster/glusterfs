@@ -73,6 +73,10 @@ int read_after_eof(char *filename)
 void catch_sigbus(int signum)
 {
 	switch (signum) {
+#ifdef __NetBSD__
+		/* Depending on architecture, we can get SIGSEGV */
+		case SIGSEGV: /* FALLTHROUGH */
+#endif
 		case SIGBUS:
 			sigbus_received++;
 			if (!expect_sigbus)
@@ -94,6 +98,10 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+#ifdef __NetBSD__
+	/* Depending on architecture, we can get SIGSEGV */
+	signal(SIGSEGV, catch_sigbus);
+#endif
 	signal(SIGBUS, catch_sigbus);
 
 	/* the next test should not trigger SIGBUS */

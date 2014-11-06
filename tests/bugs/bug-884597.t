@@ -143,7 +143,7 @@ TEST cd $M0
 has_link=0
 while [ $i -lt 100 ]
 do
-        su -c "mv $M0/user_file$i $M0/user_file$(( $i+1 ))" ABC
+        su -m ABC -c "mv $M0/user_file$i $M0/user_file$(( $i+1 ))"
         if [ $? -ne 0 ]
         then
                 break

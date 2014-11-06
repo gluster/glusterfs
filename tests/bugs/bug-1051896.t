@@ -3,6 +3,16 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 
+case $OSTYPE in
+NetBSD)
+        echo "Skip test on ACL which are not available on NetBSD" >&2
+        SKIP_TESTS
+        exit 0
+        ;;
+*)
+        ;;
+esac
+
 cleanup;
 
 ## Start and create a volume
