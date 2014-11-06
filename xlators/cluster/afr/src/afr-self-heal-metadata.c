@@ -39,6 +39,18 @@
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
 
+static gf_boolean_t
+_afr_ignorable_key_match (dict_t *d, char *k, data_t *val, void *mdata)
+{
+        return afr_is_xattr_ignorable (k);
+}
+
+void
+afr_delete_ignorable_xattrs (dict_t *xattr)
+{
+        dict_foreach_match (xattr, _afr_ignorable_key_match, NULL,
+                            dict_remove_foreach_fn, NULL);
+}
 
 int
 afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
@@ -239,22 +251,6 @@ afr_sh_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-inline void
-afr_prune_special_keys (dict_t *xattr_dict)
-{
-        dict_del (xattr_dict, GF_SELINUX_XATTR_KEY);
-}
-
-inline void
-afr_prune_pending_keys (dict_t *xattr_dict, afr_private_t *priv)
-{
-        int i = 0;
-
-        for (; i < priv->child_count; i++) {
-                dict_del (xattr_dict, priv->pending_key[i]);
-        }
-}
-
 int
 afr_sh_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xattr,
@@ -273,9 +269,7 @@ afr_sh_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        afr_prune_pending_keys (xattr, priv);
-
-        afr_prune_special_keys (xattr);
+        afr_delete_ignorable_xattrs (xattr);
 
         i = (long) cookie;
 
@@ -396,7 +390,7 @@ afr_sh_metadata_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 afr_sh_metadata_sync (frame, this, NULL);
         } else {
-                afr_prune_pending_keys (xattr, priv);
+                afr_delete_ignorable_xattrs (xattr);
                 afr_sh_metadata_sync (frame, this, xattr);
         }
 
