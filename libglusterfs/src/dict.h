@@ -177,6 +177,19 @@ int dict_foreach_fnmatch (dict_t *dict, char *pattern,
                                     void *data),
                           void *data);
 
+int
+dict_foreach_match (dict_t *dict,
+             gf_boolean_t (*match)(dict_t *this,
+                                char *key,
+                                data_t *value,
+                                void *mdata),
+             void *match_data,
+             int (*action)(dict_t *this,
+                                char *key,
+                                data_t *value,
+                                void *adata),
+              void *action_data);
+
 int dict_null_foreach_fn (dict_t *d, char *k,
                           data_t *v, void *tmp);
 int dict_remove_foreach_fn (dict_t *d, char *k,
