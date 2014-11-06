@@ -20,6 +20,19 @@
 
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID|GF_SET_ATTR_GID|GF_SET_ATTR_MODE)
 
+static gf_boolean_t
+_afr_ignorable_key_match (dict_t *d, char *k, data_t *val, void *mdata)
+{
+        return afr_is_xattr_ignorable (k);
+}
+
+void
+afr_delete_ignorable_xattrs (dict_t *xattr)
+{
+        dict_foreach_match (xattr, _afr_ignorable_key_match, NULL,
+                            dict_remove_foreach_fn, NULL);
+}
+
 int
 __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
                             int source, unsigned char *healed_sinks,
@@ -46,8 +59,7 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 goto out;
 	}
 
-	afr_filter_xattrs (xattr);
-	dict_del (xattr, GF_SELINUX_XATTR_KEY);
+	afr_delete_ignorable_xattrs (xattr);
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (old_xattr) {
@@ -66,8 +78,7 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0);
 		if (old_xattr) {
-			dict_del (old_xattr, GF_SELINUX_XATTR_KEY);
-			afr_filter_xattrs (old_xattr);
+			afr_delete_ignorable_xattrs (old_xattr);
 			ret = syncop_removexattr (priv->children[i], &loc, "",
 						  old_xattr);
 		}

@@ -1140,6 +1140,51 @@ dict_foreach (dict_t *dict,
    +n = n number of matches
 */
 int
+dict_foreach_match (dict_t *dict,
+             gf_boolean_t (*match)(dict_t *this,
+                                char *key,
+                                data_t *value,
+                                void *mdata),
+             void *match_data,
+             int (*action)(dict_t *this,
+                                char *key,
+                                data_t *value,
+                                void *adata),
+              void *action_data)
+{
+        if (!dict || !match || !action) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "dict|match|action is NULL");
+                return -1;
+        }
+
+        int          ret   = -1;
+        int          count = 0;
+        data_pair_t *pairs = NULL;
+        data_pair_t *next  = NULL;
+
+        pairs = dict->members_list;
+        while (pairs) {
+                next = pairs->next;
+                if (match (dict, pairs->key, pairs->value, match_data)) {
+                        ret = action (dict, pairs->key, pairs->value,
+                                      action_data);
+                        if (ret < 0)
+                                return ret;
+                        count++;
+                }
+                pairs = next;
+        }
+
+        return count;
+}
+
+/* return values:
+   -1 = failure,
+    0 = no matches found,
+   +n = n number of matches
+*/
+int
 dict_foreach_fnmatch (dict_t *dict, char *pattern,
                       int (*fn)(dict_t *this,
                                 char *key,

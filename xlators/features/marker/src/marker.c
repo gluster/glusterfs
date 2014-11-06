@@ -23,7 +23,15 @@
 #include "byte-order.h"
 #include "syncop.h"
 
+#include <fnmatch.h>
+
 #define _GF_UID_GID_CHANGED 1
+
+static char   *quota_external_xattrs[] = {
+        QUOTA_SIZE_KEY,
+        QUOTA_LIMIT_KEY,
+        NULL,
+};
 
 void
 fini (xlator_t *this);
@@ -278,17 +286,51 @@ out:
         return is_true;
 }
 
+static gf_boolean_t
+_is_quota_internal_xattr (dict_t *d, char *k, data_t *v, void *data)
+{
+        int     i = 0;
+        char    **external_xattrs = data;
+
+        for (i = 0; external_xattrs && external_xattrs[i]; i++) {
+                if (strcmp (k, external_xattrs[i]) == 0)
+                        return _gf_false;
+        }
+
+        if (fnmatch ("trusted.glusterfs.quota*", k, 0) == 0)
+                return _gf_true;
+
+        /* It would be nice if posix filters pgfid xattrs. But since marker
+         * also takes up responsibility to clean these up, adding the filtering
+         * here (Check 'quota_xattr_cleaner')
+         */
+        if (fnmatch (PGFID_XATTR_KEY_PREFIX"*", k, 0) == 0)
+                return _gf_true;
+
+        return _gf_false;
+}
+
+static void
+marker_filter_internal_xattrs (xlator_t *this, dict_t *xattrs)
+{
+        marker_conf_t *priv   = NULL;
+        char         **ext    = NULL;
+
+        priv = this->private;
+        if (priv->feature_enabled & GF_QUOTA)
+                ext = quota_external_xattrs;
+
+        dict_foreach_match (xattrs, _is_quota_internal_xattr, ext,
+                            dict_remove_foreach_fn, NULL);
+        return;
+}
+
 int32_t
 marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
 {
-        int            ret    = 0;
-        char           *src   = NULL;
-        char           *dst   = NULL;
-        int            len    = 0;
         marker_local_t *local = NULL;
-
         local = frame->local;
 
 
@@ -308,36 +350,14 @@ marker_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    is changed. So let that xattr be healed by other xlators
                    properly whenever directory healing is done.
                 */
-                ret = dict_get_ptr_and_len (dict, QUOTA_LIMIT_KEY,
-                                            (void **)&src, &len);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, "dict_get on %s "
-                                "failed", QUOTA_LIMIT_KEY);
-                } else {
-                        dst = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
-                        if (dst)
-                                memcpy (dst, src, len);
-                }
-
                 /*
                  * Except limit-set xattr, rest of the xattrs are maintained
                  * by quota xlator. Don't expose them to other xlators.
                  * This filter makes sure quota xattrs are not healed as part of
                  * metadata self-heal
                  */
-                GF_REMOVE_INTERNAL_XATTR ("trusted.glusterfs.quota*", dict);
-                if (!ret && IA_ISDIR (local->loc.inode->ia_type) && dst) {
-                        ret = dict_set_dynptr (dict, QUOTA_LIMIT_KEY,
-                                               dst, len);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_WARNING, "setting "
-                                        "key %s failed", QUOTA_LIMIT_KEY);
-                        else
-                                dst = NULL;
-                }
+                marker_filter_internal_xattrs (frame->this, dict);
         }
-
-        GF_FREE (dst);
 
         frame->local = NULL;
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
@@ -2593,6 +2613,15 @@ err:
         return 0;
 }
 
+static gf_boolean_t
+__has_quota_xattrs (dict_t *xattrs)
+{
+        if (dict_foreach_match (xattrs, _is_quota_internal_xattr, NULL,
+                                dict_null_foreach_fn, NULL) > 0)
+                return _gf_true;
+
+        return _gf_false;
+}
 
 int32_t
 marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2601,10 +2630,24 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         marker_conf_t  *priv    = NULL;
         marker_local_t *local   = NULL;
+        dict_t         *xattrs  = NULL;
+        priv = this->private;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_TRACE, "lookup failed with %s",
                         strerror (op_errno));
+        }
+
+        if (dict && __has_quota_xattrs (dict)) {
+                xattrs = dict_copy_with_ref (dict, NULL);
+                if (!xattrs) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                } else {
+                        marker_filter_internal_xattrs (this, xattrs);
+                }
+        } else if (dict) {
+                xattrs = dict_ref (dict);
         }
 
         local = (marker_local_t *) frame->local;
@@ -2612,7 +2655,7 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
-                             dict, postparent);
+                             xattrs, postparent);
 
         if (op_ret == -1 || local == NULL)
                 goto out;
@@ -2626,14 +2669,14 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 uuid_copy (local->loc.gfid, buf->ia_gfid);
 
 
-        priv = this->private;
-
         if (priv->feature_enabled & GF_QUOTA) {
                 mq_xattr_state (this, &local->loc, dict, *buf);
         }
 
 out:
         marker_local_unref (local);
+        if (xattrs)
+                dict_unref (xattrs);
 
         return 0;
 }
@@ -2652,6 +2695,8 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
                 goto wind;
 
         local = mem_get0 (this->local_pool);
+        if (local == NULL)
+                goto err;
 
         MARKER_INIT_LOCAL (frame, local);
 
@@ -2666,7 +2711,7 @@ wind:
                     FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
         return 0;
 err:
-        STACK_UNWIND_STRICT (lookup, frame, -1, 0, NULL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
 
         return 0;
 }
