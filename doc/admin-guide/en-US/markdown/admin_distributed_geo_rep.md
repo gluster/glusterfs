@@ -31,7 +31,7 @@ Create a geo-rep session between master and slave volume using the following com
 gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> create push-pem [force]
 ```
 
-If the total available size in slave volume is more than the total size of master, the command will throw error message. In such cases 'force' option can be used.
+If the total available size in slave volume is less than the total size of master, the command will throw error message. In such cases 'force' option can be used.
 
 #### Starting a geo-rep session
 There is no change in this command from previous versions to this version.
