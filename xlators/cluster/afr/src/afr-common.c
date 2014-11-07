@@ -1775,6 +1775,7 @@ static char *afr_ignore_xattrs[] = {
         GLUSTERFS_ENTRYLK_COUNT,
         GLUSTERFS_INODELK_COUNT,
         GF_SELINUX_XATTR_KEY,
+        QUOTA_SIZE_KEY,
         NULL
 };
 
@@ -1829,10 +1830,13 @@ afr_lookup_xattrs_are_equal (dict_t **xattr, int32_t *success_children, int succ
         child1 =  success_children[0];
         for (i = 1; i < success_count; i++) {
                 child2 = success_children[i];
-                if (xattr[child1]->count != xattr[child2]->count)
-                        return _gf_false;
                 ret = dict_foreach (xattr[child1], xattr_is_equal,
                                     (void*) xattr[child2]);
+                if (ret == -1)
+                        return _gf_false;
+
+                ret = dict_foreach (xattr[child2], xattr_is_equal,
+                                    (void*) xattr[child1]);
                 if (ret == -1)
                         return _gf_false;
         }
