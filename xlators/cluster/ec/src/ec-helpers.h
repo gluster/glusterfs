@@ -30,8 +30,8 @@ int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config);
 int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config);
 
 int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent);
-int32_t ec_loc_prepare(xlator_t * xl, loc_t * loc, inode_t * inode,
-                       struct iatt * iatt);
+int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
+                      struct iatt *iatt);
 
 int32_t ec_loc_from_fd(xlator_t * xl, loc_t * loc, fd_t * fd);
 int32_t ec_loc_from_loc(xlator_t * xl, loc_t * dst, loc_t * src);

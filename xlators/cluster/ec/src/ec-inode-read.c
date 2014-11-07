@@ -344,6 +344,59 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
     }
 }
 
+int32_t ec_getxattr_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
+                             int32_t op_ret, int32_t op_errno, uintptr_t mask,
+                             uintptr_t good, uintptr_t bad, dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+    fop_getxattr_cbk_t func = fop->data;
+    ec_t *ec = xl->private;
+    dict_t *dict = NULL;
+    char *str;
+    char bin1[65], bin2[65];
+
+    if (op_ret >= 0) {
+        dict = dict_new();
+        if (dict == NULL) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+        } else {
+            if (gf_asprintf(&str, "Good: %s, Bad: %s",
+                            ec_bin(bin1, sizeof(bin1), good, ec->nodes),
+                            ec_bin(bin2, sizeof(bin2), mask & ~(good | bad),
+                                   ec->nodes)) < 0) {
+                dict_unref(dict);
+                dict = NULL;
+
+                op_ret = -1;
+                op_errno = ENOMEM;
+
+                goto out;
+            }
+
+            if (dict_set_str(dict, EC_XATTR_HEAL, str) != 0) {
+                GF_FREE(str);
+                dict_unref(dict);
+                dict = NULL;
+
+                op_ret = -1;
+                op_errno = ENOMEM;
+
+                goto out;
+            }
+        }
+    }
+
+out:
+    func(frame, NULL, xl, op_ret, op_errno, dict, NULL);
+
+    if (dict != NULL) {
+        dict_unref(dict);
+    }
+
+    return 0;
+}
+
 void ec_getxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
                  int32_t minimum, fop_getxattr_cbk_t func, void * data,
                  loc_t * loc, const char * name, dict_t * xdata)
@@ -357,6 +410,14 @@ void ec_getxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    /* Special handling of an explicit self-heal request */
+    if ((name != NULL) && (strcmp(name, EC_XATTR_HEAL) == 0)) {
+        ec_heal(frame, this, target, EC_MINIMUM_ONE, ec_getxattr_heal_cbk,
+                func, loc, 0, NULL);
+
+        return;
+    }
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_GETXATTR,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
@@ -650,9 +711,8 @@ int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
             LOCK(&fop->fd->lock);
 
             ctx = __ec_fd_get(fop->fd, fop->xl);
-            if ((ctx == NULL) || !ec_loc_from_loc(fop->xl, &ctx->loc,
-                &fop->loc[0]))
-            {
+            if ((ctx == NULL) ||
+                (ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0])) != 0) {
                 UNLOCK(&fop->fd->lock);
 
                 fop->error = EIO;
@@ -692,24 +752,24 @@ int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
-                    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->fd->inode,
-                                   NULL);
+                if (cbk->op_ret >= 0) {
+                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->fd->inode,
+                                      NULL) != 0) {
+                        cbk->op_ret = -1;
+                        cbk->op_errno = EIO;
+                    } else {
+                        LOCK(&fop->fd->lock);
 
-                    LOCK(&fop->fd->lock);
+                        ctx = __ec_fd_get(fop->fd, fop->xl);
+                        if (ctx != NULL) {
+                            ctx->open |= cbk->mask;
+                        }
 
-                    ctx = __ec_fd_get(fop->fd, fop->xl);
-                    if (ctx != NULL)
-                    {
-                        ctx->open |= cbk->mask;
+                        UNLOCK(&fop->fd->lock);
                     }
-
-                    UNLOCK(&fop->fd->lock);
+                }
+                if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
             else

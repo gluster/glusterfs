@@ -324,218 +324,242 @@ int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
     return 1;
 }
 
-int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
+int32_t ec_loc_setup_inode(xlator_t *xl, loc_t *loc)
 {
-    char * str = NULL;
-    int32_t error = 0;
+    int32_t ret = -1;
 
-    memset(parent, 0, sizeof(loc_t));
-
-    if (loc->inode == NULL)
-    {
-        gf_log(xl->name, GF_LOG_ERROR, "Invalid loc");
-
-        error = EINVAL;
-
-        goto out;
+    if (loc->inode != NULL) {
+        if (!ec_loc_gfid_check(xl, loc->gfid, loc->inode->gfid)) {
+            goto out;
+        }
+    } else if (loc->parent != NULL) {
+        if (!uuid_is_null(loc->gfid)) {
+            loc->inode = inode_find(loc->parent->table, loc->gfid);
+        } else if (loc->path != NULL) {
+            loc->inode = inode_resolve(loc->parent->table, (char *)loc->path);
+        }
     }
 
-    if (__is_root_gfid(loc->inode->gfid) || __is_root_gfid(loc->gfid) ||
-        ((loc->path != NULL) && (strcmp(loc->path, "/") == 0)))
-    {
-        parent->path = gf_strdup("/");
-        if (parent->path == NULL) {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '/'");
+    ret = 0;
 
-            error = ENOMEM;
+out:
+    return ret;
+}
+
+int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
+{
+    char *path, *parent;
+    int32_t ret = -1;
+
+    if (loc->parent != NULL) {
+        if (!ec_loc_gfid_check(xl, loc->pargfid, loc->parent->gfid)) {
+            goto out;
+        }
+    } else if (loc->inode != NULL) {
+        if (!uuid_is_null(loc->pargfid)) {
+            loc->parent = inode_find(loc->inode->table, loc->pargfid);
+        } else if (loc->path != NULL) {
+            path = gf_strdup(loc->path);
+            if (path == NULL) {
+                gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
+                       loc->path);
+
+                goto out;
+            }
+            parent = dirname(path);
+            loc->parent = inode_resolve(loc->inode->table, parent);
+            GF_FREE(path);
+        }
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
+int32_t ec_loc_setup_path(xlator_t *xl, loc_t *loc)
+{
+    uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    char *name;
+    int32_t ret = -1;
+
+    if (loc->path != NULL) {
+        name = strrchr(loc->path, '/');
+        if (name == NULL) {
+            gf_log(xl->name, GF_LOG_ERROR, "Invalid path '%s' in loc",
+                   loc->path);
 
             goto out;
         }
+        if (name == loc->path) {
+            if (name[1] == 0) {
+                if (!ec_loc_gfid_check(xl, loc->gfid, root)) {
+                    goto out;
+                }
+            } else {
+                if (!ec_loc_gfid_check(xl, loc->pargfid, root)) {
+                    goto out;
+                }
+            }
+        }
+        name++;
 
-        parent->gfid[15] = 1;
-        parent->inode = inode_find(loc->inode->table, parent->gfid);
+        if (loc->name != NULL) {
+            if (strcmp(loc->name, name) != 0) {
+                gf_log(xl->name, GF_LOG_ERROR, "Invalid name '%s' in loc",
+                       loc->name);
 
-        return 0;
+                goto out;
+            }
+        } else {
+            loc->name = name;
+        }
     }
 
+    ret = 0;
+
+out:
+    return ret;
+}
+
+int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
+{
+    char *str = NULL;
+    int32_t ret = -1;
+
+    memset(parent, 0, sizeof(loc_t));
+
+    if (loc->parent != NULL) {
+        parent->inode = inode_ref(loc->parent);
+    }
+    if (!uuid_is_null(loc->pargfid)) {
+        uuid_copy(parent->gfid, loc->pargfid);
+    }
     if (loc->path != NULL) {
         str = gf_strdup(loc->path);
-        if (str == NULL)
-        {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path "
-                                           "'%s'", loc->path);
-
-            error = ENOMEM;
+        if (str == NULL) {
+            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
+                   loc->path);
 
             goto out;
         }
         parent->path = gf_strdup(dirname(str));
-        if (parent->path == NULL)
-        {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to get dirname of "
-                                           "'%s'", loc->path);
-
-            error = ENOMEM;
+        if (parent->path == NULL) {
+            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
+                   dirname(str));
 
             goto out;
         }
-        parent->name = strrchr(parent->path, '/');
-        if (parent->name == NULL)
-        {
-            gf_log(xl->name, GF_LOG_ERROR, "Invalid path name (%s)",
-                   parent->path);
-
-            error = EINVAL;
-
-            goto out;
-        }
-        parent->name++;
-    }
-    if (loc->parent != NULL) {
-        parent->inode = inode_ref(loc->parent);
-        uuid_copy(parent->gfid, loc->parent->gfid);
-    }
-    if (!uuid_is_null(loc->pargfid) && uuid_is_null(parent->gfid)) {
-        uuid_copy(parent->gfid, loc->pargfid);
     }
 
-    if ((parent->inode == NULL) && (parent->path != NULL))
-    {
-        if (strcmp(parent->path, "/") == 0) {
-            parent->inode = inode_ref(loc->inode->table->root);
-
-            goto out;
-        }
-        parent->inode = inode_resolve(loc->inode->table, (char *)parent->path);
-        if (parent->inode != NULL) {
-            goto out;
-        }
-
-        gf_log(xl->name, GF_LOG_WARNING, "Unable to resolve parent inode");
-    }
-
-    if ((parent->inode == NULL) && !uuid_is_null(parent->gfid)) {
-        if (__is_root_gfid(parent->gfid)) {
-            parent->inode = inode_ref(loc->inode->table->root);
-
-            goto out;
-        }
-        parent->inode = inode_find(loc->inode->table, parent->gfid);
-        if (parent->inode != NULL) {
-            goto out;
-        }
-
-        gf_log(xl->name, GF_LOG_WARNING, "Unable to find parent inode");
+    if ((ec_loc_setup_path(xl, parent) != 0) ||
+        (ec_loc_setup_inode(xl, parent) != 0) ||
+        (ec_loc_setup_parent(xl, parent) != 0)) {
+        goto out;
     }
 
     if ((parent->inode == NULL) && (parent->path == NULL) &&
         uuid_is_null(parent->gfid)) {
         gf_log(xl->name, GF_LOG_ERROR, "Parent inode missing for loc_t");
 
-        error = EINVAL;
-
         goto out;
     }
+
+    ret = 0;
 
 out:
     GF_FREE(str);
 
-    if (error != 0)
+    if (ret != 0)
     {
         loc_wipe(parent);
     }
 
-    return error;
+    return ret;
 }
 
-int32_t ec_loc_prepare(xlator_t * xl, loc_t * loc, inode_t * inode,
-                       struct iatt * iatt)
+int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
+                      struct iatt *iatt)
 {
-    if ((inode != NULL) && (loc->inode != inode))
-    {
-        if (loc->inode != NULL)
-        {
+    int32_t ret = -1;
+
+    if ((inode != NULL) && (loc->inode != inode)) {
+        if (loc->inode != NULL) {
             inode_unref(loc->inode);
         }
         loc->inode = inode_ref(inode);
-
         uuid_copy(loc->gfid, inode->gfid);
     }
-    else if (loc->inode != NULL)
-    {
-        if (!ec_loc_gfid_check(xl, loc->gfid, loc->inode->gfid))
-        {
-            return 0;
+
+    if (iatt != NULL) {
+        if (!ec_loc_gfid_check(xl, loc->gfid, iatt->ia_gfid)) {
+            goto out;
         }
     }
 
-    if (iatt != NULL)
-    {
-        if (!ec_loc_gfid_check(xl, loc->gfid, iatt->ia_gfid))
-        {
-            return 0;
-        }
+    if ((ec_loc_setup_path(xl, loc) != 0) ||
+        (ec_loc_setup_inode(xl, loc) != 0) ||
+        (ec_loc_setup_parent(xl, loc) != 0)) {
+        goto out;
     }
 
-    if (loc->parent != NULL)
-    {
-        if (!ec_loc_gfid_check(xl, loc->pargfid, loc->parent->gfid))
-        {
-            return 0;
-        }
+    ret = 0;
 
-    }
-
-    if (uuid_is_null(loc->gfid))
-    {
-        gf_log(xl->name, GF_LOG_WARNING, "GFID not available for inode");
-    }
-
-    return 1;
+out:
+    return ret;
 }
 
 int32_t ec_loc_from_fd(xlator_t * xl, loc_t * loc, fd_t * fd)
 {
     ec_fd_t * ctx;
+    int32_t ret = -1;
 
     memset(loc, 0, sizeof(*loc));
 
     ctx = ec_fd_get(fd, xl);
-    if (ctx != NULL)
-    {
-        if (loc_copy(loc, &ctx->loc) != 0)
-        {
-            return 0;
+    if (ctx != NULL) {
+        if (loc_copy(loc, &ctx->loc) != 0) {
+            goto out;
         }
     }
 
-    if (ec_loc_prepare(xl, loc, fd->inode, NULL))
-    {
-        return 1;
+    if (ec_loc_update(xl, loc, fd->inode, NULL) != 0) {
+        goto out;
     }
 
-    loc_wipe(loc);
+    ret = 0;
 
-    return 0;
+out:
+    if (ret != 0) {
+        loc_wipe(loc);
+    }
+
+    return ret;
 }
 
 int32_t ec_loc_from_loc(xlator_t * xl, loc_t * dst, loc_t * src)
 {
+    int32_t ret = -1;
+
     memset(dst, 0, sizeof(*dst));
 
-    if (loc_copy(dst, src) != 0)
-    {
-        return 0;
+    if (loc_copy(dst, src) != 0) {
+        goto out;
     }
 
-    if (ec_loc_prepare(xl, dst, NULL, NULL))
-    {
-        return 1;
+    if (ec_loc_update(xl, dst, NULL, NULL) != 0) {
+        goto out;
     }
 
-    loc_wipe(dst);
+    ret = 0;
 
-    return 0;
+out:
+    if (ret != 0) {
+        loc_wipe(dst);
+    }
+
+    return ret;
 }
 
 void ec_owner_set(call_frame_t * frame, void * owner)
@@ -560,6 +584,7 @@ ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
         if (ctx != NULL)
         {
             memset(ctx, 0, sizeof(*ctx));
+            INIT_LIST_HEAD(&ctx->heal);
 
             value = (uint64_t)(uintptr_t)ctx;
             if (__inode_ctx_set(inode, xl, &value) != 0)
