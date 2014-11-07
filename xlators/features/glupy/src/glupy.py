@@ -9,9 +9,10 @@
 ##
 
 import sys
+import os
 from ctypes import *
 
-dl = CDLL("",RTLD_GLOBAL)
+dl = CDLL(os.getenv("PATH_GLUSTERFS_GLUPY_MODULE", ""),RTLD_GLOBAL)
 
 
 class call_frame_t (Structure):

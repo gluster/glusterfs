@@ -31,12 +31,10 @@ pthread_key_t gil_init_key;
 PyGILState_STATE
 glupy_enter (void)
 {
-#if 0
         if (!pthread_getspecific(gil_init_key)) {
                 PyEval_ReleaseLock();
                 (void)pthread_setspecific(gil_init_key,(void *)1);
         }
-#endif
 
         return PyGILState_Ensure();
 }
@@ -2333,6 +2331,9 @@ init (xlator_t *this)
         PyObject                *py_args        = NULL;
         PyObject                *syspath        = NULL;
 	PyObject                *path           = NULL;
+	PyObject                *error_type     = NULL;
+	PyObject                *error_msg      = NULL;
+	PyObject                *error_bt       = NULL;
 	static gf_boolean_t      py_inited      = _gf_false;
         void *                   err_cleanup    = &&err_return;
 
@@ -2349,12 +2350,20 @@ init (xlator_t *this)
         err_cleanup = &&err_free_priv;
 
 	if (!py_inited) {
+	        /* 
+                 * This must be done before Py_Initialize(),
+                 * because it will duplicate the environment,
+                 * and fail to see later environment updates.
+                 */
+	        setenv("PATH_GLUSTERFS_GLUPY_MODULE",
+                       PATH_GLUSTERFS_GLUPY_MODULE, 1);
+
                 Py_Initialize();
                 PyEval_InitThreads();
-#if 0
+
                 (void)pthread_key_create(&gil_init_key,NULL);
                 (void)pthread_setspecific(gil_init_key,(void *)1);
-#endif
+
                 /* PyEval_InitThreads takes this "for" us.  No thanks. */
                 PyEval_ReleaseLock();
                 py_inited = _gf_true;
@@ -2370,7 +2379,9 @@ init (xlator_t *this)
         if (!py_mod_name) {
                 gf_log (this->name, GF_LOG_ERROR, "could not create name");
                 if (PyErr_Occurred()) {
-                        PyErr_Print();
+                        PyErr_Fetch (&error_type, &error_msg, &error_bt);
+                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
+                                PyString_AsString(error_msg));
                 }
                 goto *err_cleanup;
         }
@@ -2379,9 +2390,12 @@ init (xlator_t *this)
         priv->py_module = PyImport_Import(py_mod_name);
         Py_DECREF(py_mod_name);
         if (!priv->py_module) {
-                gf_log (this->name, GF_LOG_ERROR, "Python import failed");
+                gf_log (this->name, GF_LOG_ERROR, "Python import of %s failed",
+                        module_name);
                 if (PyErr_Occurred()) {
-                        PyErr_Print();
+                        PyErr_Fetch (&error_type, &error_msg, &error_bt);
+                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
+                                PyString_AsString(error_msg));
                 }
                 goto *err_cleanup;
         }
@@ -2392,7 +2406,9 @@ init (xlator_t *this)
         if (!py_init_func || !PyCallable_Check(py_init_func)) {
                 gf_log (this->name, GF_LOG_ERROR, "missing init func");
                 if (PyErr_Occurred()) {
-                        PyErr_Print();
+                        PyErr_Fetch (&error_type, &error_msg, &error_bt);
+                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
+                                PyString_AsString(error_msg));
                 }
                 goto *err_cleanup;
         }
@@ -2402,7 +2418,9 @@ init (xlator_t *this)
         if (!py_args) {
                 gf_log (this->name, GF_LOG_ERROR, "could not create args");
                 if (PyErr_Occurred()) {
-                        PyErr_Print();
+                        PyErr_Fetch (&error_type, &error_msg, &error_bt);
+                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
+                                PyString_AsString(error_msg));
                 }
                 goto *err_cleanup;
         }
@@ -2414,7 +2432,9 @@ init (xlator_t *this)
         if (!priv->py_xlator) {
                 gf_log (this->name, GF_LOG_ERROR, "Python init failed");
                 if (PyErr_Occurred()) {
-                        PyErr_Print();
+                        PyErr_Fetch (&error_type, &error_msg, &error_bt);
+                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
+                                PyString_AsString(error_msg));
                 }
                 goto *err_cleanup;
         }

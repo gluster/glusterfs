@@ -3,6 +3,7 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 
+echo $PYTHON_PATH >&2
 cleanup;
 
 TEST mkdir -p $B0/glupytest
