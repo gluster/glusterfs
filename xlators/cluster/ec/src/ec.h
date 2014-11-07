@@ -17,6 +17,7 @@
 #define EC_XATTR_CONFIG  "trusted.ec.config"
 #define EC_XATTR_SIZE    "trusted.ec.size"
 #define EC_XATTR_VERSION "trusted.ec.version"
+#define EC_XATTR_HEAL    "trusted.ec.heal"
 
 struct _ec;
 typedef struct _ec ec_t;
