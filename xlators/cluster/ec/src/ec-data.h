@@ -66,10 +66,11 @@ struct _ec_fd
 
 struct _ec_inode
 {
-    uintptr_t  bad;
-    ec_lock_t *entry_lock;
-    ec_lock_t *inode_lock;
-    ec_heal_t *heal;
+    uintptr_t         bad;
+    ec_lock_t        *entry_lock;
+    ec_lock_t        *inode_lock;
+    struct list_head  heal;
+
 };
 
 typedef int32_t (* fop_heal_cbk_t)(call_frame_t *, void * cookie, xlator_t *,
@@ -199,6 +200,7 @@ struct _ec_fop_data
     ec_resume_f        resume;
     ec_cbk_t           cbks;
     void *             data;
+    ec_heal_t         *heal;
 
     uint64_t           user_size;
     uint32_t           head;
@@ -255,25 +257,27 @@ struct _ec_cbk_data
 
 struct _ec_heal
 {
-    gf_lock_t       lock;
-    xlator_t *      xl;
-    ec_fop_data_t * fop;
-    ec_fop_data_t * lookup;
-    loc_t           loc;
-    struct iatt     iatt;
-    char *          symlink;
-    fd_t *          fd;
-    int32_t         partial;
-    int32_t         done;
-    uintptr_t       available;
-    uintptr_t       good;
-    uintptr_t       bad;
-    uintptr_t       open;
-    uintptr_t       fixed;
-    uint64_t        offset;
-    uint64_t        size;
-    uint64_t        version;
-    uint64_t        raw_size;
+    struct list_head  list;
+    gf_lock_t         lock;
+    xlator_t         *xl;
+    ec_fop_data_t    *fop;
+    void             *data;
+    ec_fop_data_t    *lookup;
+    loc_t             loc;
+    struct iatt       iatt;
+    char             *symlink;
+    fd_t             *fd;
+    int32_t           partial;
+    int32_t           done;
+    uintptr_t         available;
+    uintptr_t         good;
+    uintptr_t         bad;
+    uintptr_t         open;
+    uintptr_t         fixed;
+    uint64_t          offset;
+    uint64_t          size;
+    uint64_t          version;
+    uint64_t          raw_size;
 };
 
 ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,

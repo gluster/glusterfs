@@ -711,7 +711,12 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
     ec_dict_del_number(cbk->xdata, EC_XATTR_VERSION, &cbk->version);
 
-    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode, &cbk->iatt[0]);
+    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode, &cbk->iatt[0]) != 0) {
+        cbk->op_ret = -1;
+        cbk->op_errno = EIO;
+
+        return;
+    }
 
     LOCK(&cbk->inode->lock);
 

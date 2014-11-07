@@ -114,8 +114,8 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             LOCK(&fop->fd->lock);
 
             ctx = __ec_fd_get(fop->fd, fop->xl);
-            if ((ctx == NULL) || !ec_loc_from_loc(fop->xl, &ctx->loc,
-                &fop->loc[0])) {
+            if ((ctx == NULL) ||
+                (ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0])) != 0) {
                 UNLOCK(&fop->fd->lock);
 
                 fop->error = EIO;

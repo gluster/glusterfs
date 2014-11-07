@@ -116,18 +116,26 @@ int32_t ec_heal_report(call_frame_t * frame, void * cookie, xlator_t * this,
                        int32_t op_ret, int32_t op_errno, uintptr_t mask,
                        uintptr_t good, uintptr_t bad, dict_t * xdata)
 {
-    if (op_ret < 0)
-    {
-        gf_log(this->name, GF_LOG_WARNING, "Heal failed (error %d)", op_errno);
-    }
-    else
-    {
-        gf_log(this->name, GF_LOG_INFO, "Heal succeeded on %d/%d subvolumes",
-               ec_bits_count(mask & ~ (good | bad)),
-               ec_bits_count(mask & ~good));
+    if (op_ret < 0) {
+        gf_log(this->name, GF_LOG_WARNING, "Heal failed (error %d)",
+               op_errno);
+    } else {
+        if ((mask & ~good) != 0) {
+            gf_log(this->name, GF_LOG_INFO, "Heal succeeded on %d/%d "
+                                            "subvolumes",
+                   ec_bits_count(mask & ~(good | bad)),
+                   ec_bits_count(mask & ~good));
+        }
     }
 
     return 0;
+}
+
+int32_t ec_fop_needs_heal(ec_fop_data_t *fop)
+{
+    ec_t *ec = fop->xl->private;
+
+    return (ec->xl_up & ~(fop->remaining | fop->good)) != 0;
 }
 
 void ec_check_status(ec_fop_data_t * fop)
@@ -144,8 +152,7 @@ void ec_check_status(ec_fop_data_t * fop)
         }
     }
 
-    if ((ec->xl_up & ~(fop->remaining | fop->good)) == 0)
-    {
+    if (!ec_fop_needs_heal(fop)) {
         return;
     }
 
@@ -157,19 +164,19 @@ void ec_check_status(ec_fop_data_t * fop)
     if (fop->use_fd)
     {
         if (fop->fd != NULL) {
-            ec_fheal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report,
-                     NULL, fop->fd, partial, NULL);
+            ec_fheal(NULL, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
+                     fop->fd, partial, NULL);
         }
     }
     else
     {
-        ec_heal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
+        ec_heal(NULL, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
                 &fop->loc[0], partial, NULL);
 
         if (fop->loc[1].inode != NULL)
         {
-            ec_heal(fop->frame, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report,
-                    NULL, &fop->loc[1], partial, NULL);
+            ec_heal(NULL, fop->xl, -1, EC_MINIMUM_ONE, ec_heal_report, NULL,
+                    &fop->loc[1], partial, NULL);
         }
     }
 }
@@ -320,16 +327,12 @@ void ec_complete(ec_fop_data_t * fop)
 
     ec_trace("COMPLETE", fop, "");
 
-    if (--fop->winds == 0)
-    {
-        if (fop->answer == NULL)
-        {
-            if (!list_empty(&fop->cbk_list))
-            {
+    if (--fop->winds == 0) {
+        if (fop->answer == NULL) {
+            if (!list_empty(&fop->cbk_list)) {
                 cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
                 if ((cbk->count >= fop->minimum) &&
-                    ((cbk->op_ret >= 0) || (cbk->op_errno != ENOTCONN)))
-                {
+                    ((cbk->op_ret >= 0) || (cbk->op_errno != ENOTCONN))) {
                     fop->answer = cbk;
 
                     ec_update_bad(fop, cbk->mask);
@@ -600,7 +603,7 @@ ec_lock_t * ec_lock_allocate(xlator_t * xl, int32_t kind, loc_t * loc)
         lock->kind = kind;
         lock->good_mask = -1ULL;
         INIT_LIST_HEAD(&lock->waiting);
-        if (!ec_loc_from_loc(xl, &lock->loc, loc))
+        if (ec_loc_from_loc(xl, &lock->loc, loc) != 0)
         {
             mem_put(lock);
             lock = NULL;
@@ -665,7 +668,6 @@ void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update)
     ec_inode_t * ctx = NULL;
     ec_lock_link_t *link = NULL;
     loc_t tmp;
-    int32_t error;
 
     if ((fop->parent != NULL) || (fop->error != 0))
     {
@@ -677,14 +679,13 @@ void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update)
      */
     if (update)
     {
-        error = ec_loc_parent(fop->xl, loc, &tmp);
-        if (error != 0) {
-            ec_fop_set_error(fop, error);
+        if (ec_loc_parent(fop->xl, loc, &tmp) != 0) {
+            ec_fop_set_error(fop, EIO);
 
             return;
         }
     } else {
-        if (!ec_loc_from_loc(fop->xl, &tmp, loc)) {
+        if (ec_loc_from_loc(fop->xl, &tmp, loc) != 0) {
             ec_fop_set_error(fop, EIO);
 
             return;
@@ -805,7 +806,7 @@ void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update)
         return;
     }
 
-    if (ec_loc_from_fd(fop->xl, &loc, fd))
+    if (ec_loc_from_fd(fop->xl, &loc, fd) == 0)
     {
         ec_lock_prepare_inode(fop, &loc, update);
 
@@ -1074,7 +1075,7 @@ void ec_get_size_version(ec_fop_data_t * fop)
 
     if (!fop->use_fd)
     {
-        if (!ec_loc_from_loc(fop->xl, &loc, &fop->loc[0]))
+        if (ec_loc_from_loc(fop->xl, &loc, &fop->loc[0]) != 0)
         {
             goto out;
         }
@@ -1089,9 +1090,7 @@ void ec_get_size_version(ec_fop_data_t * fop)
             loc.path = NULL;
             loc.name = NULL;
         }
-    }
-    else if (!ec_loc_from_fd(fop->xl, &loc, fop->fd))
-    {
+    } else if (ec_loc_from_fd(fop->xl, &loc, fop->fd) != 0) {
         goto out;
     }
 
@@ -1317,11 +1316,6 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
 
         UNLOCK(&lock->loc.inode->lock);
     } else {
-        ec_trace("UNLOCK_DELAY", fop, "lock=%p", lock);
-
-        delay.tv_sec = 1;
-        delay.tv_nsec = 0;
-
         LOCK(&fop->lock);
 
         fop->jobs++;
@@ -1329,11 +1323,23 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
 
         UNLOCK(&fop->lock);
 
-        lock->timer = gf_timer_call_after(fop->xl->ctx, delay,
-                                          ec_unlock_timer_cbk, link);
-        if (lock->timer == NULL) {
-            gf_log(fop->xl->name, GF_LOG_WARNING, "Unable to delay an unlock");
+        /* If healing is needed, do not delay lock release to let self-heal
+         * start working as soon as possible. */
+        if (!ec_fop_needs_heal(fop)) {
+            ec_trace("UNLOCK_DELAY", fop, "lock=%p", lock);
 
+            delay.tv_sec = 1;
+            delay.tv_nsec = 0;
+            lock->timer = gf_timer_call_after(fop->xl->ctx, delay,
+                                              ec_unlock_timer_cbk, link);
+            if (lock->timer == NULL) {
+                gf_log(fop->xl->name, GF_LOG_WARNING, "Unable to delay an "
+                                                      "unlock");
+
+                *lock->plock = NULL;
+                refs = 0;
+            }
+        } else {
             *lock->plock = NULL;
             refs = 0;
         }

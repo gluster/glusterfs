@@ -62,8 +62,8 @@ void ec_heal_lookup_resume(ec_fop_data_t * fop)
                 heal->fop->post_size = cbk->iatt[0].ia_size;
                 heal->fop->have_size = 1;
 
-                if (!ec_loc_prepare(heal->xl, &heal->loc, cbk->inode,
-                                    &cbk->iatt[0]))
+                if (ec_loc_update(heal->xl, &heal->loc, cbk->inode,
+                                  &cbk->iatt[0]) != 0)
                 {
                     fop->answer = NULL;
                     fop->error = EIO;
@@ -383,6 +383,41 @@ int32_t ec_heal_create(ec_heal_t * heal, uintptr_t mask, int32_t try_link)
     return 0;
 }
 
+int32_t ec_heal_parent_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
+                           int32_t op_ret, int32_t op_errno, uintptr_t mask,
+                           uintptr_t good, uintptr_t bad, dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+    ec_heal_t *heal = fop->data;
+
+    /* Even if parent self-heal has failed, we try to heal the current entry */
+    ec_heal_create(heal, fop->mask, 0);
+
+    return 0;
+}
+
+void ec_heal_parent(ec_heal_t *heal, uintptr_t mask)
+{
+    loc_t parent;
+    int32_t healing = 0;
+
+    /* First we try to do a partial heal of the parent directory to avoid
+     * ENOENT/ENOTDIR errors caused by missing parents */
+    if (ec_loc_parent(heal->xl, &heal->loc, &parent) == 0) {
+        if (!__is_root_gfid(parent.gfid)) {
+            ec_heal(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
+                    ec_heal_parent_cbk, heal, &parent, 1, NULL);
+
+            healing = 1;
+        }
+        loc_wipe(&parent);
+    }
+
+    if (!healing) {
+        ec_heal_create(heal, mask, 0);
+    }
+}
+
 void ec_heal_recreate(ec_fop_data_t * fop)
 {
     ec_cbk_data_t * cbk;
@@ -405,7 +440,7 @@ void ec_heal_recreate(ec_fop_data_t * fop)
 
     if (mask != 0)
     {
-        ec_heal_create(heal, mask, 0);
+        ec_heal_parent(heal, mask);
     }
 }
 
@@ -458,8 +493,7 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
 
     memset(heal, 0, sizeof(ec_heal_t));
 
-    if (!ec_loc_from_loc(fop->xl, &heal->loc, &fop->loc[0]))
-    {
+    if (ec_loc_from_loc(fop->xl, &heal->loc, &fop->loc[0]) != 0) {
         error = ENOMEM;
 
         goto out;
@@ -472,6 +506,7 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
     pool = fop->xl->ctx->iobuf_pool;
     heal->size = iobpool_default_pagesize(pool) * ec->fragments;
     heal->partial = fop->int32;
+    fop->heal = heal;
 
     LOCK(&inode->lock);
 
@@ -483,20 +518,30 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
         goto unlock;
     }
 
-    if (ctx->heal != NULL)
-    {
+    if (list_empty(&ctx->heal)) {
+        gf_log("ec", GF_LOG_INFO, "Healing '%s', gfid %s", heal->loc.path,
+               uuid_utoa(heal->loc.gfid));
+    } else {
         error = EEXIST;
-
-        goto unlock;
     }
 
-    fop->data = heal;
-
-    ctx->heal = heal;
+    list_add_tail(&heal->list, &ctx->heal);
     heal = NULL;
 
 unlock:
     UNLOCK(&inode->lock);
+
+    if (error == EEXIST) {
+        LOCK(&fop->lock);
+
+        fop->jobs++;
+        fop->refs++;
+
+        UNLOCK(&fop->lock);
+
+        error = 0;
+    }
+
 out:
     GF_FREE(heal);
 
@@ -506,12 +551,9 @@ out:
 void ec_heal_entrylk(ec_heal_t * heal, entrylk_cmd cmd)
 {
     loc_t loc;
-    int32_t error;
 
-    error = ec_loc_parent(heal->xl, &heal->loc, &loc);
-    if (error != 0)
-    {
-        ec_fop_set_error(heal->fop, error);
+    if (ec_loc_parent(heal->xl, &heal->loc, &loc) != 0) {
+        ec_fop_set_error(heal->fop, EIO);
 
         return;
     }
@@ -605,7 +647,8 @@ void ec_heal_remove_others(ec_heal_t * heal)
 
         if (cbk->op_ret < 0)
         {
-            if ((cbk->op_errno != ENOENT) && (cbk->op_errno != ENOTDIR))
+            if ((cbk->op_errno != ENOENT) && (cbk->op_errno != ENOTDIR) &&
+                (cbk->op_errno != ESTALE))
             {
                 gf_log(heal->xl->name, GF_LOG_WARNING, "Don't know how to "
                                                        "remove inode with "
@@ -635,7 +678,7 @@ void ec_heal_prepare_others(ec_heal_t * heal)
 
         if (cbk->op_ret < 0)
         {
-            if (cbk->op_errno == ENOENT)
+            if ((cbk->op_errno == ENOENT) || (cbk->op_errno == ESTALE))
             {
                 ec_heal_create(heal, cbk->mask, 1);
             }
@@ -1061,35 +1104,61 @@ void ec_heal_data(ec_heal_t * heal)
     }
 }
 
-void ec_heal_dispatch(ec_heal_t * heal)
+void ec_heal_dispatch(ec_heal_t *heal)
 {
-    ec_fop_data_t * fop = heal->fop;
-    ec_cbk_data_t * cbk;
-    inode_t * inode;
-    ec_inode_t * ctx;
+    ec_fop_data_t *fop;
+    ec_cbk_data_t *cbk;
+    inode_t *inode;
+    ec_inode_t *ctx;
+    ec_heal_t *next = NULL;
+    struct list_head list;
     int32_t error;
 
     inode = heal->loc.inode;
 
+    INIT_LIST_HEAD(&list);
+
     LOCK(&inode->lock);
 
-    ctx = __ec_inode_get(inode, heal->xl);
-    if (ctx != NULL)
-    {
-        ctx->bad &= ~heal->good;
-        ctx->heal = NULL;
-    }
+    /* A heal object not belonging to any list means that it has not been fully
+     * executed. It got its information from a previous heal that was executing
+     * when this heal started. */
+    if (!list_empty(&heal->list)) {
+        list_del_init(&heal->list);
+        ctx = __ec_inode_get(inode, heal->xl);
+        if (ctx != NULL) {
+            ctx->bad &= ~heal->good;
 
-    fop->data = NULL;
+            if (heal->partial) {
+                /* Collect all partial heal requests. All of them will receive
+                 * the same answer. 'next' will contain a pointer to the first
+                 * full request (if any) after this partial heal request.*/
+                while (!list_empty(&ctx->heal)) {
+                    next = list_entry(ctx->heal.next, ec_heal_t, list);
+                    if (!next->partial) {
+                        break;
+                    }
+                    list_move_tail(&next->list, &list);
+                }
+                if (list_empty(&ctx->heal)) {
+                    next = NULL;
+                }
+            } else {
+                /* This is a full heal request, so take all received heal
+                 * requests to answer them now. */
+                list_splice_init(&ctx->heal, &list);
+            }
+        }
+    }
 
     UNLOCK(&inode->lock);
 
+    fop = heal->fop;
     error = fop->error;
 
     cbk = ec_cbk_data_allocate(fop->frame, heal->xl, fop, fop->id, 0,
                                error == 0 ? 0 : -1, error);
-    if (cbk != NULL)
-    {
+    if (cbk != NULL) {
         cbk->uintptr[0] = heal->available;
         cbk->uintptr[1] = heal->good;
         cbk->uintptr[2] = heal->fixed;
@@ -1097,9 +1166,7 @@ void ec_heal_dispatch(ec_heal_t * heal)
         ec_combine(cbk, NULL);
 
         fop->answer = cbk;
-    }
-    else if (error == 0)
-    {
+    } else if (error == 0) {
         error = ENOMEM;
     }
 
@@ -1119,16 +1186,38 @@ void ec_heal_dispatch(ec_heal_t * heal)
     GF_FREE(heal);
 
     ec_fop_set_error(fop, error);
+
+    /* Resume all pending heal requests, setting the same data obtained by
+     * this heal execution. */
+    while (!list_empty(&list)) {
+        heal = list_entry(list.next, ec_heal_t, list);
+        list_del_init(&heal->list);
+
+        heal->available = cbk->uintptr[0];
+        heal->good = cbk->uintptr[1];
+        heal->fixed = cbk->uintptr[2];
+
+        /* Setting 'done' to 1 avoids executing all heal logic and directly
+         * reports the result to the caller. */
+        heal->done = 1;
+
+        ec_resume(heal->fop, error);
+    }
+
+    /* If there is a pending full request, resume it. */
+    if (next != NULL) {
+        ec_resume(next->fop, 0);
+    }
 }
 
 void ec_wind_heal(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
     ec_cbk_data_t * cbk;
-    ec_heal_t * heal = fop->data;
+    ec_heal_t *heal = fop->heal;
 
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    cbk = ec_cbk_data_allocate(fop->req_frame, fop->xl, fop, EC_FOP_HEAL, idx,
+    cbk = ec_cbk_data_allocate(fop->frame, fop->xl, fop, EC_FOP_HEAL, idx,
                                fop->error == 0 ? 0 : -1, fop->error);
     if (cbk != NULL)
     {
@@ -1145,7 +1234,7 @@ void ec_wind_heal(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
-    ec_heal_t * heal = fop->data;
+    ec_heal_t *heal = fop->heal;
 
     switch (state)
     {
@@ -1158,10 +1247,14 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
-        /* Fall through */
+            return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
-            ec_heal_entrylk(fop->data, ENTRYLK_LOCK);
+            if (heal->done) {
+                return EC_STATE_HEAL_DISPATCH;
+            }
+
+            ec_heal_entrylk(heal, ENTRYLK_LOCK);
 
             return EC_STATE_HEAL_ENTRY_LOOKUP;
 
@@ -1405,10 +1498,9 @@ void ec_heal(call_frame_t * frame, xlator_t * this, uintptr_t target,
     gf_log("ec", GF_LOG_TRACE, "EC(HEAL) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-    fop = ec_fop_data_allocate(NULL, this, EC_FOP_HEAL,
+    fop = ec_fop_data_allocate(frame, this, EC_FOP_HEAL,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
                                ec_wind_heal, ec_manager_heal, callback, data);
     if (fop == NULL)
@@ -1457,11 +1549,11 @@ out:
 void ec_wind_fheal(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
     ec_cbk_data_t * cbk;
-    ec_heal_t * heal = fop->data;
+    ec_heal_t *heal = fop->heal;
 
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    cbk = ec_cbk_data_allocate(fop->req_frame, fop->xl, fop, EC_FOP_FHEAL, idx,
+    cbk = ec_cbk_data_allocate(fop->frame, fop->xl, fop, EC_FOP_FHEAL, idx,
                                fop->error == 0 ? 0 : -1, fop->error);
     if (cbk != NULL)
     {

@@ -149,9 +149,8 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             LOCK(&fop->fd->lock);
 
             ctx = __ec_fd_get(fop->fd, fop->xl);
-            if ((ctx == NULL) || !ec_loc_from_loc(fop->xl, &ctx->loc,
-                &fop->loc[0]))
-            {
+            if ((ctx == NULL) ||
+                (ec_loc_from_loc(fop->xl, &ctx->loc, &fop->loc[0])) != 0) {
                 UNLOCK(&fop->fd->lock);
 
                 fop->error = EIO;
@@ -194,6 +193,18 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
+            if (ec_dict_set_number(fop->xdata, EC_XATTR_VERSION, 0) != 0) {
+                fop->error = EIO;
+
+                return EC_STATE_REPORT;
+            }
+
+            if (ec_dict_set_number(fop->xdata, EC_XATTR_SIZE, 0) != 0) {
+                fop->error = EIO;
+
+                return EC_STATE_REPORT;
+            }
+
             fop->int32 &= ~O_ACCMODE;
             fop->int32 |= O_RDWR;
 
@@ -222,27 +233,27 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
+                if (cbk->op_ret >= 0) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
                                     cbk->count);
 
-                    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode,
-                                   &cbk->iatt[0]);
+                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                      &cbk->iatt[0]) != 0) {
+                        cbk->op_ret = -1;
+                        cbk->op_errno = EIO;
+                    } else {
+                        LOCK(&fop->fd->lock);
 
-                    LOCK(&fop->fd->lock);
+                        ctx = __ec_fd_get(fop->fd, fop->xl);
+                        if (ctx != NULL) {
+                            ctx->open |= cbk->mask;
+                        }
 
-                    ctx = __ec_fd_get(fop->fd, fop->xl);
-                    if (ctx != NULL)
-                    {
-                        ctx->open |= cbk->mask;
+                        UNLOCK(&fop->fd->lock);
                     }
-
-                    UNLOCK(&fop->fd->lock);
+                }
+                if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
             else
@@ -511,22 +522,21 @@ int32_t ec_manager_link(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
+                if (cbk->op_ret >= 0) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
                                     cbk->count);
-
-                    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode,
-                                   &cbk->iatt[0]);
-
-                    if (cbk->iatt[0].ia_type == IA_IFREG)
-                    {
+                    if (cbk->iatt[0].ia_type == IA_IFREG) {
                         cbk->iatt[0].ia_size = fop->pre_size;
                     }
+
+                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                      &cbk->iatt[0]) != 0) {
+                        cbk->op_ret = -1;
+                        cbk->op_errno = EIO;
+                    }
+                }
+                if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
             else
@@ -754,6 +764,23 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
     switch (state)
     {
         case EC_STATE_INIT:
+            if (fop->xdata == NULL) {
+                fop->xdata = dict_new();
+                if (fop->xdata == NULL) {
+                    fop->error = EIO;
+
+                    return EC_STATE_REPORT;
+                }
+            }
+
+            if (ec_dict_set_number(fop->xdata, EC_XATTR_VERSION, 0) != 0) {
+                fop->error = EIO;
+
+                return EC_STATE_REPORT;
+            }
+
+        /* Fall through */
+
         case EC_STATE_LOCK:
             ec_lock_prepare_entry(fop, &fop->loc[0], 1);
             ec_lock(fop);
@@ -777,17 +804,18 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
+                if (cbk->op_ret >= 0) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
                                     cbk->count);
 
-                    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode,
-                                   &cbk->iatt[0]);
+                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                      &cbk->iatt[0]) != 0) {
+                        cbk->op_ret = -1;
+                        cbk->op_errno = EIO;
+                    }
+                }
+                if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
             else
@@ -1037,6 +1065,18 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
 
                     return EC_STATE_REPORT;
                 }
+
+                if (ec_dict_set_number(fop->xdata, EC_XATTR_VERSION, 0) != 0) {
+                    fop->error = EIO;
+
+                    return EC_STATE_REPORT;
+                }
+
+                if (ec_dict_set_number(fop->xdata, EC_XATTR_SIZE, 0) != 0) {
+                    fop->error = EIO;
+
+                    return EC_STATE_REPORT;
+                }
             }
 
         /* Fall through */
@@ -1064,17 +1104,18 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
+                if (cbk->op_ret >= 0) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
                                     cbk->count);
 
-                    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode,
-                                   &cbk->iatt[0]);
+                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                      &cbk->iatt[0]) != 0) {
+                        cbk->op_ret = -1;
+                        cbk->op_errno = EIO;
+                    }
+                }
+                if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
             else
@@ -1822,17 +1863,18 @@ int32_t ec_manager_symlink(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
+                if (cbk->op_ret >= 0) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 3,
                                     cbk->count);
 
-                    ec_loc_prepare(fop->xl, &fop->loc[0], cbk->inode,
-                                   &cbk->iatt[0]);
+                    if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode,
+                                      &cbk->iatt[0]) != 0) {
+                        cbk->op_ret = -1;
+                        cbk->op_errno = EIO;
+                    }
+                }
+                if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
             else
