@@ -897,6 +897,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         struct gf_flock flock                = {0, };
         loc_t           tmp_loc              = {0, };
         gf_boolean_t    locked               = _gf_false;
+        int             lk_ret               = -1;
 
         gf_log (this->name, GF_LOG_INFO, "%s: attempting to move from %s to %s",
                 loc->path, from->name, to->name);
@@ -1184,13 +1185,13 @@ out:
         if (locked) {
                 flock.l_type = F_UNLCK;
 
-                ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc,
-                                      F_SETLK, &flock, NULL, NULL);
-                if (ret < 0) {
+                lk_ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN,
+                                         &tmp_loc, F_SETLK, &flock, NULL, NULL);
+                if (lk_ret < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: failed to unlock file on %s (%s)",
-                                loc->path, from->name, strerror (-ret));
+                                loc->path, from->name, strerror (-lk_ret));
                 }
         }
 
