@@ -1248,8 +1248,6 @@ int32_t ec_truncate_open_cbk(call_frame_t * frame, void * cookie,
 
 int32_t ec_truncate_clean(ec_fop_data_t * fop)
 {
-    ec_fd_t * ctx;
-
     if (fop->fd == NULL)
     {
         fop->fd = fd_create(fop->loc[0].inode, fop->frame->root->pid);
@@ -1257,13 +1255,6 @@ int32_t ec_truncate_clean(ec_fop_data_t * fop)
         {
             return 0;
         }
-        ctx = ec_fd_get(fop->fd, fop->xl);
-        if ((ctx == NULL) || (loc_copy(&ctx->loc, &fop->loc[0]) != 0))
-        {
-            return 0;
-        }
-
-        ctx->flags = O_RDWR;
 
         ec_open(fop->frame, fop->xl, fop->answer->mask, fop->minimum,
                 ec_truncate_open_cbk, fop, &fop->loc[0], O_RDWR, fop->fd,
@@ -1701,20 +1692,6 @@ out:
 
 /* FOP: writev */
 
-int32_t ec_writev_init(ec_fop_data_t * fop)
-{
-    ec_fd_t * ctx;
-
-    ctx = ec_fd_get(fop->fd, fop->xl);
-    if (ctx != NULL) {
-        if ((ctx->flags & O_ACCMODE) == O_RDONLY) {
-            return EBADF;
-        }
-    }
-
-    return 0;
-}
-
 int32_t ec_writev_merge_tail(call_frame_t * frame, void * cookie,
                              xlator_t * this, int32_t op_ret, int32_t op_errno,
                              struct iovec * vector, int32_t count,
@@ -1787,14 +1764,29 @@ int32_t ec_writev_merge_head(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-void ec_writev_start(ec_fop_data_t * fop)
+void ec_writev_start(ec_fop_data_t *fop)
 {
     ec_t *ec = fop->xl->private;
     struct iobref *iobref = NULL;
     struct iobuf *iobuf = NULL;
     void *ptr = NULL;
     ec_fd_t *ctx;
+    fd_t *fd;
     size_t tail;
+    uid_t uid;
+    gid_t gid;
+
+    fd = fd_anonymous(fop->fd->inode);
+    if (fd == NULL) {
+        ec_fop_set_error(fop, EIO);
+
+        return;
+    }
+
+    uid = fop->frame->root->uid;
+    fop->frame->root->uid = 0;
+    gid = fop->frame->root->gid;
+    fop->frame->root->gid = 0;
 
     ctx = ec_fd_get(fop->fd, fop->xl);
     if (ctx != NULL) {
@@ -1833,7 +1825,7 @@ void ec_writev_start(ec_fop_data_t * fop)
     if (fop->head > 0)
     {
         ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN, ec_writev_merge_head,
-                 NULL, fop->fd, ec->stripe_size, fop->offset, 0, NULL);
+                 NULL, fd, ec->stripe_size, fop->offset, 0, NULL);
     }
     tail = fop->size - fop->user_size - fop->head;
     if ((tail > 0) && ((fop->head == 0) || (fop->size > ec->stripe_size)))
@@ -1841,7 +1833,7 @@ void ec_writev_start(ec_fop_data_t * fop)
         if (fop->pre_size > fop->offset + fop->head + fop->user_size)
         {
             ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN,
-                     ec_writev_merge_tail, NULL, fop->fd, ec->stripe_size,
+                     ec_writev_merge_tail, NULL, fd, ec->stripe_size,
                      fop->offset + fop->size - ec->stripe_size, 0, NULL);
         }
         else
@@ -1849,6 +1841,11 @@ void ec_writev_start(ec_fop_data_t * fop)
             memset(fop->vector[0].iov_base + fop->size - tail, 0, tail);
         }
     }
+
+    fop->frame->root->uid = uid;
+    fop->frame->root->gid = gid;
+
+    fd_unref(fd);
 
     return;
 
@@ -1859,6 +1856,11 @@ out:
     if (iobref != NULL) {
         iobref_unref(iobref);
     }
+
+    fop->frame->root->uid = uid;
+    fop->frame->root->gid = gid;
+
+    fd_unref(fd);
 
     ec_fop_set_error(fop, EIO);
 }
@@ -2007,14 +2009,6 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
     switch (state)
     {
         case EC_STATE_INIT:
-            fop->error = ec_writev_init(fop);
-            if (fop->error != 0)
-            {
-                return EC_STATE_REPORT;
-            }
-
-        /* Fall through */
-
         case EC_STATE_LOCK:
             ec_lock_prepare_fd(fop, fop->fd, 1);
             ec_lock(fop);
