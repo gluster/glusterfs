@@ -1056,7 +1056,7 @@ void ec_heal_reopen_fd(ec_heal_t * heal)
                 }
                 else
                 {
-                    flags = ctx_fd->flags & ~O_TRUNC;
+                    flags = ctx_fd->flags & ~(O_TRUNC | O_APPEND);
                     if ((flags & O_ACCMODE) == O_WRONLY)
                     {
                         flags &= ~O_ACCMODE;

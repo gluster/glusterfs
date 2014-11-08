@@ -1703,64 +1703,16 @@ out:
 
 int32_t ec_writev_init(ec_fop_data_t * fop)
 {
-    ec_t * ec = fop->xl->private;
-    struct iobref * iobref = NULL;
-    struct iobuf * iobuf = NULL;
-    void * ptr = NULL;
     ec_fd_t * ctx;
 
     ctx = ec_fd_get(fop->fd, fop->xl);
-    if (ctx != NULL)
-    {
-        if ((ctx->flags & O_ACCMODE) == O_RDONLY)
-        {
+    if (ctx != NULL) {
+        if ((ctx->flags & O_ACCMODE) == O_RDONLY) {
             return EBADF;
         }
     }
 
-    fop->user_size = iov_length(fop->vector, fop->int32);
-    fop->head = ec_adjust_offset(ec, &fop->offset, 0);
-    fop->size = ec_adjust_size(ec, fop->user_size + fop->head, 0);
-
-    iobref = iobref_new();
-    if (iobref == NULL)
-    {
-        goto out;
-    }
-    iobuf = iobuf_get2(fop->xl->ctx->iobuf_pool, fop->size);
-    if (iobuf == NULL)
-    {
-        goto out;
-    }
-    if (iobref_add(iobref, iobuf) != 0)
-    {
-        goto out;
-    }
-
-    ptr = iobuf->ptr + fop->head;
-    ec_iov_copy_to(ptr, fop->vector, fop->int32, 0, fop->user_size);
-
-    fop->vector[0].iov_base = iobuf->ptr;
-    fop->vector[0].iov_len = fop->size;
-
-    iobuf_unref(iobuf);
-
-    iobref_unref(fop->buffers);
-    fop->buffers = iobref;
-
     return 0;
-
-out:
-    if (iobuf != NULL)
-    {
-        iobuf_unref(iobuf);
-    }
-    if (iobref != NULL)
-    {
-        iobref_unref(iobref);
-    }
-
-    return EIO;
 }
 
 int32_t ec_writev_merge_tail(call_frame_t * frame, void * cookie,
@@ -1837,8 +1789,46 @@ int32_t ec_writev_merge_head(call_frame_t * frame, void * cookie,
 
 void ec_writev_start(ec_fop_data_t * fop)
 {
-    ec_t * ec = fop->xl->private;
+    ec_t *ec = fop->xl->private;
+    struct iobref *iobref = NULL;
+    struct iobuf *iobuf = NULL;
+    void *ptr = NULL;
+    ec_fd_t *ctx;
     size_t tail;
+
+    ctx = ec_fd_get(fop->fd, fop->xl);
+    if (ctx != NULL) {
+        if ((ctx->flags & O_APPEND) != 0) {
+            fop->offset = fop->pre_size;
+        }
+    }
+
+    fop->user_size = iov_length(fop->vector, fop->int32);
+    fop->head = ec_adjust_offset(ec, &fop->offset, 0);
+    fop->size = ec_adjust_size(ec, fop->user_size + fop->head, 0);
+
+    iobref = iobref_new();
+    if (iobref == NULL) {
+        goto out;
+    }
+    iobuf = iobuf_get2(fop->xl->ctx->iobuf_pool, fop->size);
+    if (iobuf == NULL) {
+        goto out;
+    }
+    if (iobref_add(iobref, iobuf) != 0) {
+        goto out;
+    }
+
+    ptr = iobuf->ptr + fop->head;
+    ec_iov_copy_to(ptr, fop->vector, fop->int32, 0, fop->user_size);
+
+    fop->vector[0].iov_base = iobuf->ptr;
+    fop->vector[0].iov_len = fop->size;
+
+    iobuf_unref(iobuf);
+
+    iobref_unref(fop->buffers);
+    fop->buffers = iobref;
 
     if (fop->head > 0)
     {
@@ -1859,6 +1849,18 @@ void ec_writev_start(ec_fop_data_t * fop)
             memset(fop->vector[0].iov_base + fop->size - tail, 0, tail);
         }
     }
+
+    return;
+
+out:
+    if (iobuf != NULL) {
+        iobuf_unref(iobuf);
+    }
+    if (iobref != NULL) {
+        iobref_unref(iobref);
+    }
+
+    ec_fop_set_error(fop, EIO);
 }
 
 int32_t ec_combine_writev(ec_fop_data_t * fop, ec_cbk_data_t * dst,

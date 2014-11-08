@@ -205,7 +205,9 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
-            fop->int32 &= ~O_ACCMODE;
+            /* We need to write to specific offsets on the bricks, so we
+             * need to remove O_APPEND from flags (if present) */
+            fop->int32 &= ~(O_ACCMODE | O_APPEND);
             fop->int32 |= O_RDWR;
 
         /* Fall through */
