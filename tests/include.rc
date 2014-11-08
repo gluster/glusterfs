@@ -83,6 +83,11 @@ wc () {
    fi
 }
 ;;
+NetBSD)
+wc() {
+    /usr/bin/wc $@ | sed 's/^ *\([0-9]*\).*$/\1/g'
+}
+;;
 esac
 
 testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
