@@ -783,7 +783,6 @@ ec_cbk_data_t * ec_heal_lookup_check(ec_heal_t * heal, uintptr_t * pgood,
 void ec_heal_prepare(ec_heal_t * heal)
 {
     ec_cbk_data_t * cbk;
-    ec_fd_t * ctx;
     int32_t error = ENOMEM;
 
     heal->available = heal->good;
@@ -814,13 +813,6 @@ void ec_heal_prepare(ec_heal_t * heal)
 
                 goto out;
             }
-            ctx = ec_fd_get(heal->fd, heal->xl);
-            if ((ctx == NULL) || (loc_copy(&ctx->loc, &heal->loc) != 0))
-            {
-                goto out;
-            }
-
-            ctx->flags = O_RDWR;
         }
 
         if (heal->iatt.ia_type == IA_IFLNK)
@@ -1057,11 +1049,6 @@ void ec_heal_reopen_fd(ec_heal_t * heal)
                 else
                 {
                     flags = ctx_fd->flags & ~(O_TRUNC | O_APPEND);
-                    if ((flags & O_ACCMODE) == O_WRONLY)
-                    {
-                        flags &= ~O_ACCMODE;
-                        flags |= O_RDWR;
-                    }
 
                     ec_open(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
                             ec_heal_reopen_cbk, NULL, &heal->loc, flags, fd,

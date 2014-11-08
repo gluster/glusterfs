@@ -697,6 +697,26 @@ void ec_wind_open(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       &fop->loc[0], fop->int32, fop->fd, fop->xdata);
 }
 
+int32_t ec_open_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno,
+                             struct iatt *prebuf, struct iatt *postbuf,
+                             dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+    int32_t error = 0;
+
+    fop = fop->data;
+    if (op_ret >= 0) {
+        fop->answer->iatt[0] = *postbuf;
+    } else {
+        error = op_errno;
+    }
+
+    ec_resume(fop, error);
+
+    return 0;
+}
+
 int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
@@ -717,21 +737,18 @@ int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
-            if (ctx->flags == 0)
-            {
-                ctx->flags = fop->int32;
-            }
+            ctx->flags = fop->int32;
 
             UNLOCK(&fop->fd->lock);
 
-            if ((fop->int32 & O_ACCMODE) == O_WRONLY)
-            {
-                fop->int32 &= ~O_ACCMODE;
-                fop->int32 |= O_RDWR;
-            }
             /* We need to write to specific offsets on the bricks, so we
-             * need to remove O_APPEND from flags (if present) */
-            fop->int32 &= ~O_APPEND;
+               need to remove O_APPEND from flags (if present).
+               If O_TRUNC is specified, we remove it from open and an
+               ftruncate will be executed later, which will correctly update
+               the file size taking appropriate locks. O_TRUNC flag is saved
+               into fop->uint32 to use it later.*/
+            fop->uint32 = fop->int32 & O_TRUNC;
+            fop->int32 &= ~(O_APPEND | O_TRUNC);
 
         /* Fall through */
 
@@ -766,6 +783,17 @@ int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
                         }
 
                         UNLOCK(&fop->fd->lock);
+
+                        /* If O_TRUNC was specified, call ftruncate to
+                           effectively trunc the file with appropriate locks
+                           acquired. We don't use ctx->flags because self-heal
+                           can use the same fd with different flags. */
+                        if (fop->uint32 != 0) {
+                            ec_sleep(fop);
+                            ec_ftruncate(fop->req_frame, fop->xl, cbk->mask,
+                                         fop->minimum, ec_open_truncate_cbk,
+                                         fop, cbk->fd, 0, NULL);
+                        }
                     }
                 }
                 if (cbk->op_ret < 0) {
