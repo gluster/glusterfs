@@ -709,7 +709,12 @@ gf_store_unlock (gf_store_handle_t *sh)
         GF_ASSERT (sh->locked == F_LOCK);
 
         sh->locked = F_ULOCK;
-        lockf (sh->fd, F_ULOCK, 0);
+
+        /* does not matter if this fails, locks are released on close anyway */
+        if (lockf (sh->fd, F_ULOCK, 0) == -1)
+                gf_log ("", GF_LOG_ERROR, "Failed to release lock on '%s': %s",
+                        sh->path, strerror (errno));
+
         close (sh->fd);
 }
 
