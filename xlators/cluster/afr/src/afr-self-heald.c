@@ -276,6 +276,8 @@ afr_shd_index_opendir (xlator_t *this, int child)
 #ifdef GF_LINUX_HOST_OS
 		fd_unref (fd);
 		fd = fd_anonymous (inode);
+		if (!fd)
+		        goto out;
 #else /* GF_LINUX_HOST_OS */
 		gf_log(this->name, GF_LOG_ERROR,
 		       "opendir of %s for %s failed: %s",
@@ -429,7 +431,7 @@ afr_shd_index_sweep (struct subvol_healer *healer)
 	fd_t *fd = NULL;
 	xlator_t *subvol = NULL;
 	afr_private_t *priv = NULL;
-	off_t offset = 0;
+	uint64_t offset = 0;
 	gf_dirent_t entries;
 	gf_dirent_t *entry = NULL;
 	uuid_t gfid;
@@ -503,11 +505,12 @@ afr_shd_index_sweep (struct subvol_healer *healer)
 int
 afr_shd_full_sweep (struct subvol_healer *healer, inode_t *inode)
 {
+	loc_t loc = {0, };
 	fd_t *fd = NULL;
 	xlator_t *this = NULL;
 	xlator_t *subvol = NULL;
 	afr_private_t *priv = NULL;
-	off_t offset = 0;
+	uint64_t offset = 0;
 	gf_dirent_t entries;
 	gf_dirent_t *entry = NULL;
 	int ret = 0;
@@ -516,9 +519,38 @@ afr_shd_full_sweep (struct subvol_healer *healer, inode_t *inode)
 	priv = this->private;
 	subvol = priv->children[healer->subvol];
 
-	fd = fd_anonymous (inode);
-	if (!fd)
-		return -errno;
+	uuid_copy (loc.gfid, inode->gfid);
+	loc.inode = inode_ref(inode);
+
+	fd = fd_create (inode, GF_CLIENT_PID_AFR_SELF_HEALD);
+	if (!fd) {
+		gf_log(this->name, GF_LOG_ERROR,
+		       "fd_create of %s failed: %s",
+		       uuid_utoa (loc.gfid), strerror(errno));
+		ret = -errno;
+		goto out;
+	}
+
+	ret = syncop_opendir (subvol, &loc, fd);
+	if (ret) {
+#ifdef GF_LINUX_HOST_OS /* See comment in afr_shd_index_opendir() */
+		fd_unref(fd);
+		fd = fd_anonymous (inode);
+		if (!fd) {
+			gf_log(this->name, GF_LOG_ERROR,
+			       "fd_anonymous of %s failed: %s",
+			       uuid_utoa (loc.gfid), strerror(errno));
+			ret = -errno;
+			goto out;
+		}
+#else /* GF_LINUX_HOST_OS */
+		gf_log(this->name, GF_LOG_ERROR,
+		       "opendir of %s failed: %s",
+		       uuid_utoa (loc.gfid), strerror(errno));
+		ret = -errno;
+		goto out;
+#endif /* GF_LINUX_HOST_OS */
+	}
 
 	INIT_LIST_HEAD (&entries.list);
 
@@ -560,6 +592,8 @@ afr_shd_full_sweep (struct subvol_healer *healer, inode_t *inode)
 			break;
 	}
 
+out:
+	loc_wipe (&loc);
 	if (fd)
 		fd_unref (fd);
 	return ret;
@@ -949,7 +983,7 @@ afr_shd_gather_index_entries (xlator_t *this, int child, dict_t *output)
 	fd_t *fd = NULL;
 	xlator_t *subvol = NULL;
 	afr_private_t *priv = NULL;
-	off_t offset = 0;
+	uint64_t offset = 0;
 	gf_dirent_t entries;
 	gf_dirent_t *entry = NULL;
 	uuid_t gfid;
