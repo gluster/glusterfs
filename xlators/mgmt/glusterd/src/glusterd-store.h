@@ -95,20 +95,6 @@ typedef enum glusterd_store_ver_ac_{
 
 #define GLUSTERD_STORE_KEY_VOL_CAPS             "caps"
 
-#define glusterd_for_each_entry(entry, dir) \
-        do {\
-                entry = NULL;\
-                if (dir) {\
-                        entry = readdir (dir);\
-                        while (entry && (!strcmp (entry->d_name, ".") ||\
-                            !fnmatch ("*.tmp", entry->d_name, 0) ||\
-                            !strcmp (entry->d_name, ".."))) {\
-                                entry = readdir (dir);\
-                        }\
-                }\
-        } while (0); \
-
-
 int32_t
 glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac);
 

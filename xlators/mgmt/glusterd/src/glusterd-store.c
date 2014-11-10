@@ -636,7 +636,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
 
         dir = opendir (brickdir);
 
-        glusterd_for_each_entry (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
 
         while (entry) {
                 snprintf (path, sizeof (path), "%s/%s",
@@ -646,7 +646,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
                         gf_log (this->name, GF_LOG_DEBUG, "Unable to unlink %s, "
                                 "reason: %s", path, strerror(errno));
                 }
-                glusterd_for_each_entry (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
         closedir (dir);
@@ -1702,7 +1702,7 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        ret = glusterd_recursive_rmdir (trashdir);
+        ret = recursive_rmdir (trashdir);
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s, Reason:"
                         " %s", trashdir, strerror (errno));
@@ -1774,7 +1774,7 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                 goto out;
         }
 
-        glusterd_for_each_entry (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         while (entry) {
                 snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
                 ret = stat (path, &st);
@@ -1799,7 +1799,7 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                                 entry->d_name);
 stat_failed:
                 memset (path, 0, sizeof(path));
-                glusterd_for_each_entry (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
         ret = closedir (dir);
@@ -3050,7 +3050,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                 goto out;
         }
 
-        glusterd_for_each_entry (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
 
         while (entry) {
                 if (snap && ((!strcmp (entry->d_name, "geo-replication")) ||
@@ -3084,7 +3084,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
 
                 }
 next:
-                glusterd_for_each_entry (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
         ret = 0;
@@ -3584,7 +3584,7 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
                 goto out;
         }
 
-        glusterd_for_each_entry (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
 
         while (entry) {
                 if (strcmp (entry->d_name, GLUSTERD_MISSED_SNAPS_LIST_FILE)) {
@@ -3596,7 +3596,7 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
                                 goto out;
                         }
                 }
-                glusterd_for_each_entry (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
         /* Retrieve missed_snaps_list */
@@ -4010,7 +4010,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 goto out;
         }
 
-        glusterd_for_each_entry (entry, dir);
+        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
 
         while (entry) {
                 snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
@@ -4087,7 +4087,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 peerinfo->shandle = shandle;
                 peerinfo = NULL;
-                glusterd_for_each_entry (entry, dir);
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
         args.mode = GD_MODE_ON;

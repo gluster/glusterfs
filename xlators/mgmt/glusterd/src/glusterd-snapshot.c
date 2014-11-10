@@ -2493,7 +2493,7 @@ remove_brick_path:
         }
 
         if (is_brick_dir_present == _gf_true) {
-                ret = glusterd_recursive_rmdir (brick_dir);
+                ret = recursive_rmdir (brick_dir);
                 if (ret) {
                         if (errno == ENOTEMPTY) {
                                 /* Will occur when multiple glusterds
@@ -7208,7 +7208,7 @@ glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
         }
 
         /* Delete the backup copy of volume folder */
-        ret = glusterd_recursive_rmdir (delete_path);
+        ret = recursive_rmdir (delete_path);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
                         "backup dir (%s)", delete_path);
@@ -7255,7 +7255,7 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo,
         /* Since snapshot restore failed we cannot rely on the volume
          * data stored under vols folder. Therefore delete the origin
          * volume's backend folder.*/
-        ret = glusterd_recursive_rmdir (pathname);
+        ret = recursive_rmdir (pathname);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to remove "
                         "%s directory", pathname);

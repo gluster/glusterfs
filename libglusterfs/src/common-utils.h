@@ -28,6 +28,7 @@
 #include <alloca.h>
 #endif
 #include <limits.h>
+#include <fnmatch.h>
 
 void trap (void);
 
@@ -272,6 +273,19 @@ union gf_sock_union {
 #define GF_HIDDEN_PATH ".glusterfs"
 
 #define IOV_MIN(n) min(IOV_MAX,n)
+
+#define GF_FOR_EACH_ENTRY_IN_DIR(entry, dir) \
+        do {\
+                entry = NULL;\
+                if (dir) { \
+                        entry = readdir (dir); \
+                        while (entry && (!strcmp (entry->d_name, ".") || \
+                            !fnmatch ("*.tmp", entry->d_name, 0) || \
+                            !strcmp (entry->d_name, ".."))) { \
+                                entry = readdir (dir); \
+                        } \
+                } \
+        } while (0)
 
 static inline void
 iov_free (struct iovec *vector, int count)
@@ -659,5 +673,8 @@ fop_log_level (glusterfs_fop_t fop, int op_errno);
 
 int32_t
 gf_build_absolute_path (char *current_path, char *relative_path, char **path);
+
+int
+recursive_rmdir (const char *delete_path);
 
 #endif /* _COMMON_UTILS_H */
