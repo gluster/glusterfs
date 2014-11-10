@@ -29,6 +29,7 @@
 #include "nfs-generics.h"
 #include "acl3.h"
 #include "byte-order.h"
+#include "compat-errno.h"
 
 static int
 acl3_nfs_acl_to_xattr (aclentry *ace, void *xattrbuf,
@@ -244,7 +245,10 @@ acl3_setacl_reply (rpcsvc_request_t *req, setaclreply *reply)
         return 0;
 }
 
-
+/* acl3_getacl_cbk: fetch and decode the ACL in the POSIX_ACL_ACCESS_XATTR
+ *
+ * The POSIX_ACL_ACCESS_XATTR can be set on files and directories.
+ */
 int
 acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict,
@@ -260,17 +264,16 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!frame->local) {
                 gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
                        " frame->local NULL");
-                return  EINVAL;
+                return -EINVAL;
         }
         cs = frame->local;
         getaclreply = &cs->args.getaclreply;
-        if (op_ret < 0) {
+        if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
         }
 
         getaclreply->aclentry.aclentry_val = cs->aclentry;
-        getaclreply->daclentry.daclentry_val = cs->daclentry;
 
         /* getfacl: NFS USER ACL */
         data = dict_get (dict, POSIX_ACL_ACCESS_XATTR);
@@ -285,10 +288,58 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         stat = nfs3_errno_to_nfsstat3 (-aclcount);
                         goto err;
                 }
-
                 getaclreply->aclcount = aclcount;
                 getaclreply->aclentry.aclentry_len = aclcount;
         }
+
+        acl3_getacl_reply (cs->req, getaclreply);
+        nfs3_call_state_wipe (cs);
+        return 0;
+
+err:
+        if (getaclreply)
+                getaclreply->status = stat;
+        acl3_getacl_reply (cs->req, getaclreply);
+        nfs3_call_state_wipe (cs);
+        return 0;
+}
+
+/* acl3_default_getacl_cbk: fetch and decode the ACL set in the
+ * POSIX_ACL_DEFAULT_XATTR xattr.
+ *
+ * The POSIX_ACL_DEFAULT_XATTR xattr is only set on directories, not on files.
+ *
+ * When done with POSIX_ACL_DEFAULT_XATTR, we also need to get and decode the
+ * ACL that can be set in POSIX_ACL_DEFAULT_XATTR.
+ */
+int
+acl3_default_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *dict,
+                         dict_t *xdata)
+{
+        nfsstat3                 stat = NFS3ERR_SERVERFAULT;
+        nfs3_call_state_t        *cs = NULL;
+        data_t                   *data = NULL;
+        getaclreply              *getaclreply = NULL;
+        int                      aclcount = 0;
+        int                      defacl = 1; /* DEFAULT ACL */
+        nfs_user_t               nfu = {0, };
+        int                      ret = -1;
+
+        if (!frame->local) {
+                gf_log (GF_ACL, GF_LOG_ERROR, "Invalid argument,"
+                       " frame->local NULL");
+                return -EINVAL;
+        }
+        cs = frame->local;
+        getaclreply = &cs->args.getaclreply;
+        if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
+                stat = nfs3_cbk_errno_status (op_ret, op_errno);
+                goto err;
+        }
+
+
+        getaclreply->daclentry.daclentry_val = cs->daclentry;
 
         /* getfacl: NFS DEFAULT ACL */
         data = dict_get (dict, POSIX_ACL_DEFAULT_XATTR);
@@ -308,8 +359,15 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 getaclreply->daclentry.daclentry_len = aclcount;
         }
 
-        acl3_getacl_reply (cs->req, getaclreply);
-        nfs3_call_state_wipe (cs);
+        getaclreply->attr_follows = TRUE;
+        nfs_request_user_init (&nfu, cs->req);
+        ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                            POSIX_ACL_ACCESS_XATTR, NULL, acl3_getacl_cbk, cs);
+        if (ret < 0) {
+                stat = nfs3_errno_to_nfsstat3 (-ret);
+                goto err;
+        }
+
         return 0;
 
 err:
@@ -319,6 +377,7 @@ err:
         nfs3_call_state_wipe (cs);
         return 0;
 }
+
 
 int
 acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -353,12 +412,21 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply->attr = nfs3_stat_to_fattr3 (buf);
 
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
-                            NULL, NULL, acl3_getacl_cbk, cs);
+        if (buf->ia_type == IA_IFDIR) {
+                ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                    POSIX_ACL_DEFAULT_XATTR, NULL,
+                                    acl3_default_getacl_cbk, cs);
+        } else {
+                ret = nfs_getxattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                    POSIX_ACL_ACCESS_XATTR, NULL,
+                                    acl3_getacl_cbk, cs);
+        }
+
         if (ret < 0) {
                 stat = nfs3_errno_to_nfsstat3 (-ret);
                 goto err;
         }
+
         return 0;
 err:
         getaclreply->status = stat;
