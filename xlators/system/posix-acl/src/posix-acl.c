@@ -1973,11 +1973,13 @@ posix_acl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto green;
         else
                 goto red;
+
 green:
         STACK_WIND (frame, posix_acl_getxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->getxattr,
                     loc, name, xdata);
         return 0;
+
 red:
         STACK_UNWIND_STRICT (getxattr, frame, -1, EACCES, NULL, xdata);
 
