@@ -722,6 +722,9 @@ afr_handle_quorum (call_frame_t *frame)
 
         if (priv->quorum_count == 0)
                 return;
+        /* If the fop already failed return right away to preserve errno */
+        if (local->op_ret == -1)
+                return;
 
         /*
          * Network split may happen just after the fops are unwound, so check
