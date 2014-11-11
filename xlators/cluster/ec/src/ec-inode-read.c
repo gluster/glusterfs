@@ -72,6 +72,7 @@ int32_t ec_manager_access(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_REPORT;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_REPORT:
             if (fop->cbks.access != NULL)
             {
@@ -310,6 +311,7 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
@@ -792,6 +794,7 @@ int32_t ec_manager_open(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_END;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -957,6 +960,7 @@ int32_t ec_manager_readlink(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_REPORT;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_REPORT:
             if (fop->cbks.readlink != NULL)
             {
@@ -1344,6 +1348,7 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
@@ -1606,6 +1611,7 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:

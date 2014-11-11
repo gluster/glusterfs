@@ -1455,6 +1455,7 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_END;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:

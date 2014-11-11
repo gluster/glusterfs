@@ -149,6 +149,7 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
@@ -562,6 +563,7 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
@@ -938,6 +940,7 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
@@ -1465,6 +1468,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
@@ -2106,6 +2110,7 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:

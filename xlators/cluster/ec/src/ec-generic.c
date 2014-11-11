@@ -133,6 +133,7 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
@@ -383,6 +384,7 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
@@ -596,6 +598,7 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
@@ -997,6 +1000,7 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_END;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -1203,6 +1207,7 @@ int32_t ec_manager_statfs(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_END;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -1442,6 +1447,7 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:

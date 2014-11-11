@@ -155,8 +155,21 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
+                if (cbk->op_ret >= 0) {
+                    /* Save which subvolumes successfully opened the directory.
+                     * If ctx->open is 0, it means that readdir cannot be
+                     * processed in this directory.
+                     */
+                    LOCK(&fop->fd->lock);
+
+                    ctx = __ec_fd_get(fop->fd, fop->xl);
+                    if (ctx != NULL) {
+                        ctx->open |= cbk->mask;
+                    }
+
+                    UNLOCK(&fop->fd->lock);
+                }
+                if (cbk->op_ret < 0) {
                     ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
@@ -180,6 +193,7 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_LOCK_REUSE;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
@@ -360,9 +374,20 @@ void ec_wind_readdir(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 {
+    ec_fd_t *ctx;
+
     switch (state)
     {
         case EC_STATE_INIT:
+            /* Return error if opendir has not been successfully called on
+             * any subvolume. */
+            ctx = ec_fd_get(fop->fd, fop->xl);
+            if ((ctx == NULL) || (ctx->open == 0)) {
+                fop->error = EINVAL;
+
+                return EC_STATE_REPORT;
+            }
+
             if (fop->xdata == NULL)
             {
                 fop->xdata = dict_new();
@@ -402,6 +427,7 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_REPORT;
 
+        case -EC_STATE_INIT:
         case -EC_STATE_REPORT:
             if (fop->id == GF_FOP_READDIR)
             {
