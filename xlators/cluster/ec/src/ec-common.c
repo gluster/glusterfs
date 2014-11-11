@@ -306,6 +306,7 @@ void ec_resume_parent(ec_fop_data_t * fop, int32_t error)
     parent = fop->parent;
     if (parent != NULL)
     {
+        ec_trace("RESUME_PARENT", fop, "error=%u", error);
         fop->parent = NULL;
         ec_resume(parent, error);
     }
@@ -1137,7 +1138,7 @@ int32_t ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
 
 void ec_unlock_lock(ec_fop_data_t *fop, ec_lock_t *lock)
 {
-    if (lock->mask != 0) {
+    if ((lock->mask != 0) && lock->acquired) {
         ec_owner_set(fop->frame, lock);
 
         switch (lock->kind) {
@@ -1316,9 +1317,7 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
         lock->refs--;
 
         UNLOCK(&lock->loc.inode->lock);
-    } else {
-        ec_trace("UNLOCK_DELAY", fop, "lock=%p", lock);
-
+    } else if (lock->acquired) {
         delay.tv_sec = 1;
         delay.tv_nsec = 0;
 
@@ -1336,6 +1335,8 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
 
             *lock->plock = NULL;
             refs = 0;
+        } else {
+            ec_trace("UNLOCK_DELAY", fop, "lock=%p", lock);
         }
 
         UNLOCK(&lock->loc.inode->lock);
@@ -1343,6 +1344,12 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
         if (refs == 0) {
             ec_unlock_now(fop, lock);
         }
+    } else {
+        *lock->plock = NULL;
+
+        UNLOCK(&lock->loc.inode->lock);
+
+        ec_lock_destroy(lock);
     }
 }
 
@@ -1443,21 +1450,23 @@ void ec_lock_reuse(ec_fop_data_t *fop)
 
 void __ec_manager(ec_fop_data_t * fop, int32_t error)
 {
-    do
-    {
+    ec_t *ec = fop->xl->private;
+
+    do {
         ec_trace("MANAGER", fop, "error=%d", error);
 
-        if (fop->state == EC_STATE_END)
-        {
+        if (ec->xl_up_count < ec->fragments) {
+            error = ENOTCONN;
+        }
+        if (error != 0) {
+            fop->error = error;
+            fop->state = -fop->state;
+        }
+
+        if ((fop->state == EC_STATE_END) || (fop->state == -EC_STATE_END)) {
             ec_fop_data_release(fop);
 
             break;
-        }
-
-        if (error != 0)
-        {
-            fop->error = error;
-            fop->state = -fop->state;
         }
 
         fop->state = fop->handler(fop, fop->state);
