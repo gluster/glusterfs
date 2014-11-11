@@ -1164,13 +1164,14 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                local->skip_unlink.handle_valid_link = _gf_false;
 
                                gf_log (this->name, GF_LOG_DEBUG,
-                                       "Linkto file found on hashed subvol"
+                                       "Linkto file found on hashed subvol "
                                        "and data file found on cached "
                                        "subvolume. But linkto points to "
                                        "different cached subvolume (%s) "
                                        "path %s",
-                                       local->skip_unlink.hash_links_to->name,
-                                       local->loc.path);
+                                       (local->skip_unlink.hash_links_to ?
+                                       local->skip_unlink.hash_links_to->name :
+                                       " <nil>"), local->loc.path);
 
                                if (local->skip_unlink.opend_fd_count == 0) {
 
