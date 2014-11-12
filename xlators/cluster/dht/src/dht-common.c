@@ -28,6 +28,8 @@
 #include <libgen.h>
 #include <signal.h>
 
+int dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret);
+
 int
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
@@ -4490,52 +4492,154 @@ err:
         return 0;
 }
 
-
 int
 dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int op_ret, int op_errno,
               inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
               struct iatt *postparent, dict_t *xdata)
 {
-        call_frame_t *prev = NULL;
-        dht_layout_t *layout = NULL;
         dht_local_t  *local = NULL;
-
-        prev = cookie;
+        int           ret = -1;
+        gf_boolean_t  stbuf_merged = _gf_false;
+        xlator_t     *subvol = NULL;
 
         local = frame->local;
 
-        if (op_ret == -1)
-                goto out;
-
-        layout = dht_layout_for_subvol (this, prev->this);
-        if (!layout) {
-                gf_msg_debug (this->name, 0,
-                              "no pre-set layout for subvolume %s",
-                              prev->this->name);
-                op_ret   = -1;
-                op_errno = EINVAL;
+        if (op_ret == -1) {
+                /* No continuation on DHT inode missing errors, as we should
+                 * then have a good stbuf that states P2 happened. We would
+                 * get inode missing if, the file completed migrated between
+                 * the lookup and the link call */
                 goto out;
         }
 
+        /* Update parent on success, even if P1/2 checks are positve.
+         * The second call on success will further update the parent */
         if (local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            preparent, 0);
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
-        if (local->linked == _gf_true) {
-                local->stbuf = *stbuf;
+
+        /* Update linkto attrs, if this is the first call and non-P2,
+         * if we detect P2 then we need to trust the attrs from the
+         * second call, not the first */
+        if (local->linked == _gf_true &&
+            ((local->call_cnt == 1 && !IS_DHT_MIGRATION_PHASE2 (stbuf))
+             || (local->call_cnt != 1 &&
+                 IS_DHT_MIGRATION_PHASE2 (&local->stbuf)))) {
+                dht_iatt_merge (this, &local->stbuf, stbuf, NULL);
+                stbuf_merged = _gf_true;
                 dht_linkfile_attr_heal (frame, this);
+        }
+
+        /* No further P1/2 checks if we are in the second iteration of
+         * the call */
+        if (local->call_cnt != 1) {
+                goto out;
+        } else {
+                /* Preserve the return values, in case the migration decides
+                 * to recreate the link on the same subvol that the current
+                 * hased for the link was created on. */
+                dht_iatt_merge (this, &local->preparent,
+                                preparent, NULL);
+                dht_iatt_merge (this, &local->postparent,
+                                postparent, NULL);
+                if (!stbuf_merged) {
+                        dht_iatt_merge (this, &local->stbuf,
+                                        stbuf, NULL);
+                        stbuf_merged = _gf_true;
+                }
+
+                local->inode = inode_ref (inode);
+        }
+
+        local->op_errno = op_errno;
+        local->rebalance.target_op_fn = dht_link2;
+        /* Check if the rebalance phase2 is true */
+        if (IS_DHT_MIGRATION_PHASE2 (stbuf)) {
+                ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+                if (!subvol) {
+                        /* Phase 2 of migration */
+                        ret = dht_rebalance_complete_check (this, frame);
+                        if (!ret)
+                                return 0;
+                } else {
+                        dht_link2 (this, frame, 0);
+                        return 0;
+                }
+        }
+
+        /* Check if the rebalance phase1 is true */
+        if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
+                ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+                if (subvol) {
+                        dht_link2 (this, frame, 0);
+                        return 0;
+                }
+                ret = dht_rebalance_in_progress_check (this, frame);
+                if (!ret)
+                        return 0;
         }
 out:
         DHT_STRIP_PHASE1_FLAGS (stbuf);
-        DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
-                          postparent, NULL);
+
+        DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf,
+                          preparent, postparent, NULL);
 
         return 0;
 }
 
+
+int
+dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret)
+{
+        dht_local_t *local  = NULL;
+        xlator_t    *subvol = NULL;
+        int          op_errno = EINVAL;
+
+        local = frame->local;
+        if (!local)
+                goto err;
+
+        op_errno = local->op_errno;
+        if (op_ret == -1)
+                goto err;
+
+        dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+        if (!subvol) {
+                subvol = local->cached_subvol;
+                if (!subvol) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+        }
+
+        /* Second call to create link file could result in EEXIST as the
+         * first call created the linkto in the currently
+         * migrating subvol, which could be the new hashed subvol */
+        if (local->link_subvol == subvol) {
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+                DHT_STACK_UNWIND (link, frame, 0, 0, local->inode,
+                                  &local->stbuf, &local->preparent,
+                                  &local->postparent, NULL);
+
+                return 0;
+        }
+
+        local->call_cnt = 2;
+
+        STACK_WIND (frame, dht_link_cbk, subvol, subvol->fops->link,
+                    &local->loc, &local->loc2, NULL);
+
+        return 0;
+err:
+        DHT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL,
+                          NULL, NULL);
+
+        return 0;
+}
 
 int
 dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -4588,6 +4692,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 
                 goto err;
         }
+        local->call_cnt = 1;
 
         cached_subvol = local->cached_subvol;
         if (!cached_subvol) {
