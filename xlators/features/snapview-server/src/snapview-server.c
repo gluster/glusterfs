@@ -2159,6 +2159,7 @@ struct xlator_fops fops = {
         .fstat      = svs_fstat,
         .getxattr   = svs_getxattr,
         .access     = svs_access,
+        .readlink   = svs_readlink,
         /* entry fops */
 };
 
