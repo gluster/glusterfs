@@ -3975,12 +3975,15 @@ int
 generate_client_volfiles (glusterd_volinfo_t *volinfo,
                           glusterd_client_type_t client_type)
 {
+        int                i                  = 0;
+        int                ret                = -1;
         char               filepath[PATH_MAX] = {0,};
-        int                ret = -1;
-        char               *types[] = {NULL, NULL, NULL};
-        int                i = 0;
-        dict_t             *dict = NULL;
-        gf_transport_type  type = GF_TRANSPORT_TCP;
+        char               *types[]           = {NULL, NULL, NULL};
+        dict_t             *dict              = NULL;
+        xlator_t           *this              = NULL;
+        gf_transport_type  type               = GF_TRANSPORT_TCP;
+
+        this = THIS;
 
         enumerate_transport_reqs (volinfo->transport_type, types);
         dict = dict_new ();
@@ -3998,13 +4001,18 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
                         goto out;
 
                 if (client_type == GF_CLIENT_TRUSTED) {
-                        glusterd_get_trusted_client_filepath (filepath,
-                                                              volinfo,
-                                                              type);
+                        ret = glusterd_get_trusted_client_filepath (filepath,
+                                                                    volinfo,
+                                                                    type);
                 } else {
-                        glusterd_get_client_filepath (filepath,
-                                                      volinfo,
-                                                      type);
+                        ret = glusterd_get_client_filepath (filepath,
+                                                            volinfo,
+                                                            type);
+                }
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Received invalid transport-type");
+                        goto out;
                 }
 
                 ret = generate_single_transport_client_volfile (volinfo,
