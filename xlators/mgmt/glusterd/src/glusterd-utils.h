@@ -458,11 +458,11 @@ glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
 int
 glusterd_friend_remove_cleanup_vols (uuid_t uuid);
 
-void
+int
 glusterd_get_client_filepath (char *filepath,
                               glusterd_volinfo_t *volinfo,
                               gf_transport_type type);
-void
+int
 glusterd_get_trusted_client_filepath (char *filepath,
                                       glusterd_volinfo_t *volinfo,
                                       gf_transport_type type);

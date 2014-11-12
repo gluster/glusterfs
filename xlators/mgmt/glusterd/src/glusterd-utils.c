@@ -9053,47 +9053,65 @@ out:
         return ret;
 }
 
-void
+int
 glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
                               gf_transport_type type)
 {
-        char  path[PATH_MAX] = {0,};
+        int   ret             = 0;
+        char  path[PATH_MAX]  = {0,};
         glusterd_conf_t *priv = NULL;
 
         priv = THIS->private;
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
-        if ((volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) &&
-            (type == GF_TRANSPORT_RDMA))
-                snprintf (filepath, PATH_MAX, "%s/%s.rdma-fuse.vol",
-                          path, volinfo->volname);
-        else
-                snprintf (filepath, PATH_MAX, "%s/%s-fuse.vol",
-                          path, volinfo->volname);
+        switch (type) {
+        case GF_TRANSPORT_TCP:
+                snprintf (filepath, PATH_MAX,
+                          "%s/%s-fuse.vol", path, volinfo->volname);
+                break;
+
+        case GF_TRANSPORT_RDMA:
+                snprintf (filepath, PATH_MAX,
+                          "%s/%s.rdma-fuse.vol", path, volinfo->volname);
+                break;
+        default:
+                ret = -1;
+                break;
+        }
+
+        return ret;
 }
 
-void
+int
 glusterd_get_trusted_client_filepath (char *filepath,
                                       glusterd_volinfo_t *volinfo,
                                       gf_transport_type type)
 {
-        char  path[PATH_MAX] = {0,};
+        int   ret             = 0;
+        char  path[PATH_MAX]  = {0,};
         glusterd_conf_t *priv = NULL;
 
         priv = THIS->private;
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
-        if ((volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) &&
-            (type == GF_TRANSPORT_RDMA))
-                snprintf (filepath, PATH_MAX,
-                          "%s/trusted-%s.rdma-fuse.vol",
+        switch (type) {
+        case GF_TRANSPORT_TCP:
+                snprintf (filepath, PATH_MAX, "%s/trusted-%s-fuse.vol",
                           path, volinfo->volname);
-        else
-                snprintf (filepath, PATH_MAX,
-                          "%s/trusted-%s-fuse.vol",
+                break;
+
+        case GF_TRANSPORT_RDMA:
+                snprintf (filepath, PATH_MAX, "%s/trusted-%s.rdma-fuse.vol",
                           path, volinfo->volname);
+                break;
+        default:
+                ret = -1;
+                break;
+        }
+
+        return ret;
 }
 
 int
