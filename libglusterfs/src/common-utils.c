@@ -1449,8 +1449,7 @@ gf_string2bytesize_uint64 (const char *str, uint64_t *n)
 }
 
 int
-gf_string2percent_or_bytesize (const char *str,
-			       uint64_t *n,
+gf_string2percent_or_bytesize (const char *str, double *n,
 			       gf_boolean_t *is_percent)
 {
         double value = 0ULL;
@@ -1485,6 +1484,7 @@ gf_string2percent_or_bytesize (const char *str,
         if (errno == 0)
                 errno = old_errno;
 
+        /*Maximum accepted value for 64 bit OS will be (2^14 -1)PB*/
         if (tail[0] != '\0') {
                 if (strcasecmp (tail, GF_UNIT_KB_STRING) == 0)
                         value *= GF_UNIT_KB;
@@ -1508,7 +1508,7 @@ gf_string2percent_or_bytesize (const char *str,
                 return -1;
         }
 
-        *n = (uint64_t) value;
+        *n = value;
 
         return 0;
 }

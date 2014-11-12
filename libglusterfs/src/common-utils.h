@@ -580,7 +580,7 @@ int gf_string2uint64_base10 (const char *str, uint64_t *n);
 int gf_string2bytesize (const char *str, uint64_t *n);
 int gf_string2bytesize_size (const char *str, size_t *n);
 int gf_string2bytesize_uint64 (const char *str, uint64_t *n);
-int gf_string2percent_or_bytesize (const char *str, uint64_t *n,
+int gf_string2percent_or_bytesize (const char *str, double *n,
 				   gf_boolean_t *is_percent);
 
 int gf_string2boolean (const char *str, gf_boolean_t *b);

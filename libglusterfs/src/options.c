@@ -367,20 +367,58 @@ out:
 }
 
 static int
+xlator_option_validate_fractional_value (const char *value)
+{
+        const char *s   = NULL;
+        int        ret  = 0;
+
+        s = strchr (value, '.');
+        if (s) {
+                for (s = s+1; *s != '\0'; s++) {
+                        if (*s != '0') {
+                                return -1;
+                        }
+                }
+        }
+
+        return ret;
+}
+
+static int
 xlator_option_validate_percent_or_sizet (xlator_t *xl, const char *key,
                                          const char *value,
                                          volume_option_t *opt, char **op_errstr)
 {
-        int          ret = -1;
-        char         errstr[256];
-        uint64_t     size = 0;
+        int               ret = -1;
+        char              errstr[256];
+        double            size = 0;
 	gf_boolean_t is_percent = _gf_false;
 
 	if (gf_string2percent_or_bytesize (value, &size, &is_percent) == 0) {
 		if (is_percent) {
+                        if ((size < 0.0) || (size > 100.0)) {
+                                snprintf (errstr, sizeof (errstr),
+                                          "'%lf' in 'option %s %s' is out"
+                                          " of range [0 - 100]", size, key,
+                                          value);
+                                gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                                goto out;
+                        }
 			ret = 0;
 			goto out;
 		}
+
+                /*Input value of size(in byte) should not be fractional*/
+                ret = xlator_option_validate_fractional_value (value);
+                if (ret) {
+                        snprintf (errstr, sizeof (errstr), "'%lf' in 'option %s"
+                                  " %s' should not be fractional value. Use "
+                                  "valid unsigned integer value.", size, key,
+                                  value);
+                        gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
+                        goto out;
+                }
+
 		/* Check the range */
 		if ((opt->min == 0) && (opt->max == 0)) {
 			gf_log (xl->name, GF_LOG_TRACE,
@@ -392,7 +430,7 @@ xlator_option_validate_percent_or_sizet (xlator_t *xl, const char *key,
 		}
 		if ((size < opt->min) || (size > opt->max)) {
 			snprintf (errstr, 256,
-				  "'%"PRId64"' in 'option %s %s'"
+				  "'%lf' in 'option %s %s'"
 				  " is out of range [%.0f - %.0f]",
 				  size, key, value, opt->min, opt->max);
 			gf_log (xl->name, GF_LOG_ERROR, "%s", errstr);
