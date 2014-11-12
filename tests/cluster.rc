@@ -121,8 +121,17 @@ function define_clis() {
 
     for i in `seq 1 $count`; do
         b="B$i";
-        eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
-        eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock'";
+        #get the logdir
+        logdir=`gluster --print-logdir`
+        #Fetch the testcases name and prefix the cli log with it
+        logfile=`echo ${0##*/}`_cli$i.log
+        lopt="--log-file=$logdir/$logfile"
+        logfile1=`echo ${0##*/}`_cli_$i.log
+        lopt1="--log-file=$logdir/$logfile1"
+
+
+        eval "CLI_$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock $lopt'";
+        eval "CLI$i='$CLI --glusterd-sock=${!b}/glusterd/gd.sock $lopt1'";
     done
 }
 
