@@ -146,7 +146,8 @@ void ec_check_status(ec_fop_data_t * fop)
     int32_t partial = 0;
 
     if (fop->answer->op_ret >= 0) {
-        if (fop->id == GF_FOP_LOOKUP) {
+        if ((fop->id == GF_FOP_LOOKUP) ||
+            (fop->id == GF_FOP_STAT) || (fop->id == GF_FOP_FSTAT)) {
             partial = fop->answer->iatt[0].ia_type == IA_IFDIR;
         } else if (fop->id == GF_FOP_OPENDIR) {
             partial = 1;
