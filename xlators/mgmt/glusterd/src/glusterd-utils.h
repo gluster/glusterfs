@@ -918,4 +918,7 @@ glusterd_have_peers ();
 
 void
 glusterd_op_clear_xaction_peers ();
+
+gf_boolean_t
+mntopts_exists (const char *str, const char *opts);
 #endif
