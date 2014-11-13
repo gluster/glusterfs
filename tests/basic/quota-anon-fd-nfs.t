@@ -39,7 +39,12 @@ TEST $CLI volume quota $V0 hard-timeout 0
 TEST dd if=/dev/zero of=$N0/$deep/newfile_1 bs=512 count=10240
 # wait for write behind to complete.
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" usage "/"
-TEST ! dd if=/dev/zero of=$N0/$deep/newfile_2 bs=1k count=10240
+
+# compile the test write program and run it
+TEST $CC $(dirname $0)/quota-anon-fd-nfs.c -o $(dirname $0)/quota-anon-fd-nfs;
+# Try to create a 100Mb file which should fail
+TEST ! $(dirname $0)/quota-anon-fd-nfs $N0/$deep/newfile_2 "104857600"
+TEST rm -f $N0/$deep/newfile_2
 
 ## Before killing daemon to avoid deadlocks
 umount_nfs $N0
