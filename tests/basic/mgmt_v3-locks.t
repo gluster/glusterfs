@@ -70,7 +70,9 @@ function same_vol_remove_brick {
         local vol=$1
         local brick=$2
         $CLI_1 volume remove-brick $1 $2 start &
+        PID =$!
         $CLI_2 volume remove-brick $1 $2 start
+        wait $PID
 }
 
 cleanup;
@@ -100,7 +102,9 @@ same_vol_remove_brick $V1 $H2:$B2/$V1
 EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 
 $CLI_1 volume set $V0 diagnostics.client-log-level DEBUG &
+PID=$!
 $CLI_1 volume set $V1 diagnostics.client-log-level DEBUG
+wait $PID
 kill_glusterd 3
 $CLI_1 volume status $V0
 $CLI_2 volume status $V1
@@ -113,9 +117,4 @@ TEST $glusterd_3
 $CLI_1 volume status $V0
 $CLI_2 volume status $V1
 $CLI_1 peer status
-#EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
-#EXPECT 'Started' volinfo_field $V0 'Status';
-#EXPECT 'Started' volinfo_field $V1 'Status';
-#two_diff_vols_stop_force
-#EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 cleanup;
