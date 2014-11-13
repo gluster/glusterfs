@@ -211,13 +211,12 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
         GF_VALIDATE_OR_GOTO (this->name, parent_ctx, out);
         GF_VALIDATE_OR_GOTO (this->name, parent, out);
 
-        fs = svs_initialise_snapshot_volume (this, loc->name);
+        fs = svs_initialise_snapshot_volume (this, loc->name, op_errno);
         if (!fs) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to "
                         "create the fs instance for snap %s",
                         loc->name);
                 op_ret = -1;
-                *op_errno = ESTALE;
                 goto out;
         }
 
@@ -534,7 +533,7 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         dirent = svs_get_latest_snap_entry (this);
 
         if (dirent && !dirent->fs) {
-                fs = svs_initialise_snapshot_volume (this, dirent->name);
+                fs = svs_initialise_snapshot_volume (this, dirent->name, NULL);
         }
 
         /* lookup is on the entry point to the snapshot world */

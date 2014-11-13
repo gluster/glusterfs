@@ -212,10 +212,12 @@ glfs_t *
 svs_get_latest_snapshot (xlator_t *this);
 
 glfs_t *
-svs_initialise_snapshot_volume (xlator_t *this, const char *name);
+svs_initialise_snapshot_volume (xlator_t *this, const char *name,
+                                int32_t *op_errno);
 
 glfs_t *
-__svs_initialise_snapshot_volume (xlator_t *this, const char *name);
+__svs_initialise_snapshot_volume (xlator_t *this, const char *name,
+                                  int32_t *op_errno);
 
 snap_dirent_t *
 __svs_get_snap_dirent (xlator_t *this, const char *name);
