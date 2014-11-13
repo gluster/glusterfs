@@ -216,11 +216,14 @@ out:
 
 void
 afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
-                              const char *loc, afr_spb_state_t mdata,
+                              afr_local_t *local, afr_spb_state_t mdata,
                               afr_spb_state_t data)
 {
         char *buf      = NULL;
         char *free_ptr = NULL;
+
+        if (local->self_heal.dry_run)
+                return;
 
         buf = afr_get_pending_matrix_str (pending_matrix, this);
         if (buf)
@@ -231,8 +234,8 @@ afr_sh_print_split_brain_log (int32_t *pending_matrix[], xlator_t *this,
 
         gf_log (this->name, GF_LOG_ERROR, "Unable to self-heal contents of '%s'"
                 " (possible %s split-brain). Please delete the file from all but "
-                "the preferred subvolume.%s", loc, (mdata == SPB) ? "metadata" :
-                (data == SPB) ? "data" : "", buf);
+                "the preferred subvolume.%s", local->loc.path, (mdata == SPB) ?
+                "metadata" : (data == SPB) ? "data" : "", buf);
         GF_FREE (free_ptr);
         return;
 }

@@ -1923,6 +1923,12 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this,
         if (!xattr)
                 goto out;
 
+        if (afr_is_split_brain (this, local->cont.lookup.inode)) {
+                ret = dict_set_int32 (xattr, "split-brain", 1);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "%s: Failed to set "
+                                "split-brain to true", local->loc.path);
+        }
         if (sh_failed) {
                 ret = dict_set_int32 (xattr, "sh-failed", sh_failed);
                 if (ret)

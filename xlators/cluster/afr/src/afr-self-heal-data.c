@@ -1014,7 +1014,7 @@ afr_sh_data_fxattrop_fstat_done (call_frame_t *frame, xlator_t *this)
 
         if (nsources == -1) {
                 afr_sh_print_split_brain_log (sh->pending_matrix, this,
-                                              local->loc.path, DONT_KNOW,
+                                              local, DONT_KNOW,
                                               SPB);
                 afr_set_split_brain (this, sh->inode, DONT_KNOW, SPB);
 

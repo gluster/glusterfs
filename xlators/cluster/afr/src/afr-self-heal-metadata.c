@@ -486,7 +486,7 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this,
 
         if (nsources == -1) {
                 afr_sh_print_split_brain_log (sh->pending_matrix, this,
-                                              local->loc.path, SPB,
+                                              local, SPB,
                                               DONT_KNOW);
                 afr_set_split_brain (this, sh->inode, SPB, DONT_KNOW);
                 afr_sh_metadata_fail (frame, this);

@@ -141,6 +141,20 @@ _is_possibly_healing (dict_t *xattr_rsp)
         return _gf_false;
 }
 
+static gf_boolean_t
+_is_in_split_brain (dict_t *xattr_rsp)
+{
+        int     ret = 0;
+        int     spb = 0;
+
+        ret = dict_get_int32 (xattr_rsp, "split-brain", &spb);
+        if ((ret == 0) && spb) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 #define RESET_ENTRIES(loc, shf, ope, pth, rsp, grsp) \
         do {                                    \
                 loc_wipe (&loc);                \
@@ -240,9 +254,10 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
                         continue;
                 }
 
-                ret = dict_get_int32 (xattr_rsp, "sh-failed", &sh_failed);
-
-                sh_pending = _is_self_heal_pending (xattr_rsp);
+                if (xattr_rsp) {
+                        ret = dict_get_int32 (xattr_rsp, "sh-failed", &sh_failed);
+                        sh_pending = _is_self_heal_pending (xattr_rsp);
+                }
                 //File/dir is undergoing I/O
                 if (!op_errno && !sh_failed && !sh_pending)
                         continue;
@@ -260,7 +275,10 @@ glfsh_process_entries (xlator_t *xl, loc_t *parentloc, gf_dirent_t *entries,
                 ret = dict_get_str (getxattr_rsp, GFID_TO_PATH_KEY, &path);
 
                 (*num_entries)++;
-                if (_is_possibly_healing (xattr_rsp)) {
+                if (xattr_rsp && _is_in_split_brain (xattr_rsp)) {
+                        printf ("%s - Is in split-brain\n",
+                                path ? path : uuid_utoa (entry_loc.gfid));
+                } else if (xattr_rsp && _is_possibly_healing (xattr_rsp)) {
                         printf ("%s - Possibly undergoing heal\n",
                                 path ? path : uuid_utoa (entry_loc.gfid));
                 } else {
