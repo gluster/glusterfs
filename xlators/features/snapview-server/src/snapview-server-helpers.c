@@ -426,10 +426,12 @@ __svs_get_snap_dirent (xlator_t *this, const char *name)
 }
 
 glfs_t *
-__svs_initialise_snapshot_volume (xlator_t *this, const char *name)
+__svs_initialise_snapshot_volume (xlator_t *this, const char *name,
+                                  int32_t *op_errno)
 {
         svs_private_t      *priv                = NULL;
         int32_t             ret                 = -1;
+        int32_t             local_errno         = ESTALE;
         snap_dirent_t      *dirent              = NULL;
         char                volname[PATH_MAX]   = {0, };
         glfs_t             *fs                  = NULL;
@@ -446,6 +448,7 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name)
         if (!dirent) {
                 gf_log (this->name, GF_LOG_ERROR, "snap entry for "
                         "name %s not found", name);
+                local_errno = ENOENT;
                 goto out;
         }
 
@@ -464,6 +467,7 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name)
                 gf_log (this->name, GF_LOG_ERROR,
                         "glfs instance for snap volume %s "
                         "failed", dirent->name);
+                local_errno = ENOMEM;
                 goto out;
         }
 
@@ -497,8 +501,12 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name)
         ret = 0;
 
 out:
-        if (ret && fs) {
-                glfs_fini (fs);
+        if (ret) {
+                if (op_errno)
+                        *op_errno = local_errno;
+
+                if (fs)
+                        glfs_fini (fs);
                 fs = NULL;
         }
 
@@ -510,7 +518,8 @@ out:
 }
 
 glfs_t *
-svs_initialise_snapshot_volume (xlator_t *this, const char *name)
+svs_initialise_snapshot_volume (xlator_t *this, const char *name,
+                                int32_t *op_errno)
 {
         glfs_t             *fs   = NULL;
         svs_private_t      *priv = NULL;
@@ -523,7 +532,7 @@ svs_initialise_snapshot_volume (xlator_t *this, const char *name)
 
         LOCK (&priv->snaplist_lock);
         {
-                fs = __svs_initialise_snapshot_volume (this, name);
+                fs = __svs_initialise_snapshot_volume (this, name, op_errno);
         }
         UNLOCK (&priv->snaplist_lock);
 
