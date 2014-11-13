@@ -489,7 +489,7 @@ svc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                  valid, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -532,7 +532,7 @@ svc_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
                                  valid, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -639,7 +639,7 @@ svc_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                                  flags, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -683,7 +683,7 @@ svc_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                                  flags, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -728,7 +728,7 @@ svc_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
                                  xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -800,7 +800,7 @@ svc_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                             umask, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -871,7 +871,7 @@ svc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                             rdev, umask, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -885,7 +885,7 @@ out:
 }
 
 /* If the flags of the open call contain O_WRONLY or O_RDWR and the inode is
-   a virtual inode, then unwind the call back with EPERM. Otherwise simply
+   a virtual inode, then unwind the call back with EROFS. Otherwise simply
    STACK_WIND the call to the first child of svc xlator.
 */
 int32_t
@@ -994,7 +994,7 @@ svc_create (call_frame_t *frame, xlator_t *this,
                             mode, umask, fd, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -1066,7 +1066,7 @@ svc_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                             umask, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -1109,7 +1109,7 @@ svc_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
                                  xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -1368,7 +1368,7 @@ svc_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 gf_log (this->name, GF_LOG_ERROR, "rename happening on a entry"
                         " %s residing in snapshot", oldloc->name);
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -1379,7 +1379,7 @@ svc_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                                 "happening to a entry %s residing in snapshot",
                                 oldloc->name, newloc->name);
                         op_ret = -1;
-                        op_errno = EPERM;
+                        op_errno = EROFS;
                         goto out;
                 }
         }
@@ -1392,7 +1392,7 @@ svc_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                                 "happening to a entry %s residing in snapshot",
                                 oldloc->name, newloc->name);
                         op_ret = -1;
-                        op_errno = EPERM;
+                        op_errno = EROFS;
                         goto out;
                 }
         }
@@ -1436,7 +1436,7 @@ svc_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
                 gf_log (this->name, GF_LOG_ERROR, "rename happening on a entry"
                         " %s residing in snapshot", oldloc->name);
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -1446,7 +1446,7 @@ svc_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
                         "happening to a entry %s residing in snapshot",
                         oldloc->name, newloc->name);
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 
@@ -1493,7 +1493,7 @@ svc_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                  name, xdata);
         } else {
                 op_ret = -1;
-                op_errno = EPERM;
+                op_errno = EROFS;
                 goto out;
         }
 

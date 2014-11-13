@@ -6,6 +6,12 @@
 . $(dirname $0)/../fileio.rc
 . $(dirname $0)/../nfs.rc
 
+function check_readonly()
+{
+    $@ 2>&1 | grep -q 'Read-only file system'
+    return $?
+}
+
 cleanup;
 
 TEST init_n_bricks 3;
@@ -86,8 +92,8 @@ TEST ! fd_open $fd1 'w' $M0/.snaps/snap1/file2;
 TEST ! stat $M0/.snaps/snap1/.snaps
 
 # creating new entries in snapshots should fail
-TEST ! mkdir $M0/.snaps/new
-TEST ! touch $M0/.snaps/snap2/other;
+TEST check_readonly mkdir $M0/.snaps/new
+TEST check_readonly touch $M0/.snaps/snap2/other;
 
 TEST fd3=`fd_available`
 TEST fd_open $fd3 'r' $M0/dir1/.snaps/snap3/foo1
@@ -148,9 +154,9 @@ TEST ! fd_open $fd1 'w' $N0/.snaps/snap1/file2;
 
 TEST ! stat $N0/.snaps/snap1/.stat
 
-TEST ! mkdir $N0/.snaps/new
+TEST check_readonly mkdir $N0/.snaps/new
 
-TEST ! touch $N0/.snaps/snap2/other;
+TEST check_readonly touch $N0/.snaps/snap2/other;
 
 TEST fd3=`fd_available`
 TEST fd_open $fd3 'r' $N0/dir1/.snaps/snap3/foo1
@@ -200,8 +206,8 @@ TEST ! fd_open $fd1 'w' $M0/.history/snap1/file2;
 TEST ! stat $M0/.history/snap1/.history
 
 # creating new entries in snapshots should fail
-TEST ! mkdir $M0/.history/new
-TEST ! touch $M0/.history/snap2/other;
+TEST check_readonly mkdir $M0/.history/new
+TEST check_readonly touch $M0/.history/snap2/other;
 
 TEST fd3=`fd_available`
 TEST fd_open $fd3 'r' $M0/dir1/.history/snap3/foo1
@@ -246,9 +252,9 @@ TEST ! fd_open $fd1 'w' $N0/.history/snap1/file2;
 
 TEST ! stat $N0/.history/snap1/.stat
 
-TEST ! mkdir $N0/.history/new
+TEST check_readonly mkdir $N0/.history/new
 
-TEST ! touch $N0/.history/snap2/other;
+TEST check_readonly touch $N0/.history/snap2/other;
 
 TEST fd3=`fd_available`
 TEST fd_open $fd3 'r' $N0/dir1/.history/snap3/foo1
