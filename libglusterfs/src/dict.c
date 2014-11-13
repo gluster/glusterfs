@@ -1104,6 +1104,12 @@ dict_remove_foreach_fn (dict_t *d, char *k,
         return 0;
 }
 
+static inline gf_boolean_t
+match_everything (dict_t *d, char *k, data_t *v, void *data)
+{
+        return _gf_true;
+}
+
 int
 dict_foreach (dict_t *dict,
               int (*fn)(dict_t *this,
@@ -1112,26 +1118,14 @@ dict_foreach (dict_t *dict,
                         void *data),
               void *data)
 {
-        if (!dict) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING,
-                                  "dict is NULL");
-                return -1;
-        }
+        int     ret = 0;
 
-        int          ret   = -1;
-        data_pair_t *pairs = NULL;
-        data_pair_t *next  = NULL;
+        ret = dict_foreach_match (dict, match_everything, NULL, fn, data);
 
-        pairs = dict->members_list;
-        while (pairs) {
-                next = pairs->next;
-                ret = fn (dict, pairs->key, pairs->value, data);
-                if (ret < 0)
-                        return ret;
-                pairs = next;
-        }
+        if (ret > 0)
+                ret = 0;
 
-        return 0;
+        return ret;
 }
 
 /* return values:
@@ -1179,6 +1173,11 @@ dict_foreach_match (dict_t *dict,
         return count;
 }
 
+static gf_boolean_t
+dict_fnmatch (dict_t *d, char *k, data_t *val, void *match_data)
+{
+        return (fnmatch (match_data, k, 0) == 0);
+}
 /* return values:
    -1 = failure,
     0 = no matches found,
@@ -1192,30 +1191,7 @@ dict_foreach_fnmatch (dict_t *dict, char *pattern,
                                 void *data),
                       void *data)
 {
-        if (!dict) {
-                gf_log_callingfn ("dict", GF_LOG_WARNING,
-                                  "dict is NULL");
-                return 0;
-        }
-
-        int          ret = -1;
-        int          count = 0;
-        data_pair_t *pairs = NULL;
-        data_pair_t *next  = NULL;
-
-        pairs = dict->members_list;
-        while (pairs) {
-                next = pairs->next;
-                if (!fnmatch (pattern, pairs->key, 0)) {
-                        ret = fn (dict, pairs->key, pairs->value, data);
-                        if (ret == -1)
-                                return -1;
-                        count++;
-                }
-                pairs = next;
-        }
-
-        return count;
+        return dict_foreach_match (dict, dict_fnmatch, pattern, fn, data);
 }
 
 
@@ -1269,17 +1245,6 @@ _copy (dict_t *unused,
         return dict_set ((dict_t *)newdict, key, (value));
 }
 
-static int
-_remove (dict_t *dict,
-         char *key,
-         data_t *value,
-         void *unused)
-{
-        dict_del ((dict_t *)dict, key);
-        return 0;
-}
-
-
 dict_t *
 dict_copy (dict_t *dict,
            dict_t *new)
@@ -1305,7 +1270,7 @@ dict_reset (dict_t *dict)
                 gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 goto out;
         }
-        dict_foreach (dict, _remove, NULL);
+        dict_foreach (dict, dict_remove_foreach_fn, NULL);
         ret = 0;
 out:
         return ret;
