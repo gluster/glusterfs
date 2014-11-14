@@ -13,6 +13,7 @@ function check_readonly()
 }
 
 cleanup;
+TESTS_EXPECTED_IN_LOOP=10
 
 TEST init_n_bricks 3;
 TEST setup_lvm 3;
@@ -49,6 +50,13 @@ for i in {11..20} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {11..20} ; do echo "foo" > $M0/dir2/foo$i ; done
 
 TEST $CLI snapshot create snap4 $V0;
+
+## Test that features.uss takes only options enable/disable and throw error for
+## any other argument.
+for i in {1..10}; do
+        RANDOM_STRING=`cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1`
+        TEST_IN_LOOP ! $CLI volume set $V0 features.uss $RANDOM_STRING
+done
 
 TEST $CLI volume set $V0 features.uss enable;
 

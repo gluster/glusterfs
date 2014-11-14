@@ -2876,7 +2876,10 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        if (!volinfo->is_snap_volume && glusterd_is_snapd_enabled (volinfo)) {
+        ret = dict_get_str_boolean (set_dict, "features.uss", _gf_false);
+        if (ret == -1)
+                goto out;
+        if (ret && !volinfo->is_snap_volume) {
                 ret = volgen_graph_build_snapview_client
                                            (graph, volinfo, volname, set_dict);
                 if (ret == -1)
