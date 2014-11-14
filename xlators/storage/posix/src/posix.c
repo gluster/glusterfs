@@ -527,17 +527,6 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (valid & GF_SET_ATTR_MODE) {
-                op_ret = posix_do_fchmod (this, pfd->fd, stbuf);
-                if (op_ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "fsetattr (fchmod) failed on fd=%p: %s",
-                                fd, strerror (op_errno));
-                        goto out;
-                }
-        }
-
         if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
                 op_ret = posix_do_fchown (this, pfd->fd, stbuf, valid);
                 if (op_ret == -1) {
@@ -548,6 +537,17 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                         goto out;
                 }
 
+        }
+
+        if (valid & GF_SET_ATTR_MODE) {
+                op_ret = posix_do_fchmod (this, pfd->fd, stbuf);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsetattr (fchmod) failed on fd=%p: %s",
+                                fd, strerror (op_errno));
+                        goto out;
+                }
         }
 
         if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
