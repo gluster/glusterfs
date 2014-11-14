@@ -13117,14 +13117,12 @@ glusterd_is_snapd_enabled (glusterd_volinfo_t *volinfo)
         ret = dict_get_str_boolean (volinfo->dict, "features.uss", -2);
         if (ret == -2) {
                 gf_log (this->name, GF_LOG_DEBUG, "Key features.uss not "
-                        "present in the volinfo dict");
+                        "present in the dict for volume %s", volinfo->volname);
                 ret = 0;
 
         } else if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                        "'features.uss' from %s volume dict",
-                        volinfo->volname);
-                ret = 0;
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get 'features.uss'"
+                        " from dict for volume %s", volinfo->volname);
         }
 
         return ret;
@@ -13462,7 +13460,14 @@ glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo)
         if (volinfo->is_snap_volume)
                 return 0;
 
-        if (glusterd_is_snapd_enabled (volinfo)) {
+        ret = glusterd_is_snapd_enabled (volinfo);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to read volume "
+                        "options");
+                goto out;
+        }
+
+        if (ret) {
                 if (!glusterd_is_volume_started (volinfo)) {
                         if (glusterd_is_snapd_running (volinfo)) {
                                 ret = glusterd_snapd_stop (volinfo);
