@@ -224,6 +224,18 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                 goto out;
         }
 
+        /* To prevent blocked locks starvation, check if there are any blocked
+         * locks thay may conflict with this lock. If there is then don't grant
+         * the lock. BUT grant the lock if the owner already has lock to allow
+         * nested locks.
+         * Example:
+         * SHD from Machine1 takes (gfid, 0-infinity) and is granted.
+         * SHD from machine2 takes (gfid, 0-infinity) and is blocked.
+         * When SHD from Machine1 takes (gfid, 0-128KB) it
+         * needs to be granted, without which the earlier lock on 0-infinity
+         * will not be unlocked by SHD from Machine1.
+         * TODO: Find why 'owner_has_lock' is checked even for blocked locks.
+         */
         if (__blocked_lock_conflict (dom, lock) && !(__owner_has_lock (dom, lock))) {
                 ret = -EAGAIN;
                 if (can_block == 0)
