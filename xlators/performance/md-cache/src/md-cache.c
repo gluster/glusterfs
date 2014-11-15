@@ -411,9 +411,13 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
 		 */
 		if (IA_ISREG(inode->ia_type) &&
 		    ((iatt->ia_mtime != mdc->md_mtime) ||
-		    (iatt->ia_ctime != mdc->md_ctime)))
+		    (iatt->ia_mtime_nsec != mdc->md_mtime_nsec) ||
+		    (iatt->ia_ctime != mdc->md_ctime) ||
+		    (iatt->ia_ctime_nsec != mdc->md_ctime_nsec)))
 			if (!prebuf || (prebuf->ia_ctime != mdc->md_ctime) ||
-			    (prebuf->ia_mtime != mdc->md_mtime))
+			    (prebuf->ia_ctime_nsec != mdc->md_ctime_nsec) ||
+			    (prebuf->ia_mtime != mdc->md_mtime) ||
+			    (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec))
 				inode_invalidate(inode);
 
                 mdc_from_iatt (mdc, iatt);
