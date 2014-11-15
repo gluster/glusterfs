@@ -126,7 +126,7 @@ gf_changelog_parse_binary (xlator_t *this,
         char   *bname_start      = NULL;
         char   *bname_end        = NULL;
         char   *mover            = NULL;
-        char   *start            = NULL;
+        void   *start            = NULL;
         char    current_mover    = ' ';
         size_t  blen             = 0;
         int     parse_err        = 0;
@@ -134,9 +134,8 @@ gf_changelog_parse_binary (xlator_t *this,
 
         nleft = stbuf->st_size;
 
-        start = (char *) mmap (NULL, nleft,
-                               PROT_READ, MAP_PRIVATE, from_fd, 0);
-        if (!start) {
+        start = mmap (NULL, nleft, PROT_READ, MAP_PRIVATE, from_fd, 0);
+        if (start == MAP_FAILED) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "mmap() error (reason: %s)", strerror (errno));
                 goto out;
@@ -230,7 +229,7 @@ gf_changelog_parse_ascii (xlator_t *this,
         off_t         nleft         = 0;
         char         *ptr           = NULL;
         char         *eptr          = NULL;
-        char         *start         = NULL;
+        void         *start         = NULL;
         char         *mover         = NULL;
         int           parse_err     = 0;
         char          current_mover = ' ';
@@ -239,9 +238,8 @@ gf_changelog_parse_ascii (xlator_t *this,
 
         nleft = stbuf->st_size;
 
-        start = (char *) mmap (NULL, nleft,
-                               PROT_READ, MAP_PRIVATE, from_fd, 0);
-        if (!start) {
+        start = mmap (NULL, nleft, PROT_READ, MAP_PRIVATE, from_fd, 0);
+        if (start == MAP_FAILED) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "mmap() error (reason: %s)", strerror (errno));
                 goto out;
