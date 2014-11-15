@@ -501,6 +501,7 @@ gf_openlog (const char *ident, int option, int facility)
 
         /* TODO: Should check for errors here and return appropriately */
         setlocale(LC_ALL, "");
+        setlocale(LC_NUMERIC, "C"); /* C-locale for strtod, ... */
         /* close the previous syslog if open as we are changing settings */
         closelog ();
         openlog(ident, _option, _facility);
