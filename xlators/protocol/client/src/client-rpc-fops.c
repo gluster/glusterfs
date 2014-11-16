@@ -828,7 +828,7 @@ client3_3_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_truncate_rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_write_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
@@ -947,7 +947,7 @@ client3_3_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_truncate_rsp);
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_fsync_rsp);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
                 rsp.op_ret   = -1;
