@@ -19,6 +19,15 @@
 #include "byte-order.h"
 #include "afr-transaction.h"
 
+/* Max file name length is 255 this filename is of length 256. No file with
+ * this name can ever come, entry-lock with this name is going to prevent
+ * self-heals from older versions while the granular entry-self-heal is going
+ * on in newer version.*/
+#define LONG_FILENAME "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
+                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
+                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
+                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
+                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 static int
 afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
@@ -677,6 +686,7 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
 	afr_private_t *priv = NULL;
 	unsigned char *locked_on = NULL;
+        unsigned char *long_name_locked = NULL;
 	fd_t *fd = NULL;
 	int ret = 0;
 
@@ -687,6 +697,7 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 		return -EIO;
 
 	locked_on = alloca0 (priv->child_count);
+	long_name_locked = alloca0 (priv->child_count);
 
 	ret = afr_selfheal_tryentrylk (frame, this, inode, priv->sh_domain, NULL,
 				       locked_on);
@@ -705,7 +716,23 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 			goto unlock;
 		}
 
-		ret = __afr_selfheal_entry (frame, this, fd, locked_on);
+                ret = afr_selfheal_tryentrylk (frame, this, inode, this->name,
+                                               LONG_FILENAME, long_name_locked);
+                {
+                        if (ret < 1) {
+                                gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping"
+                                        " entry self-heal as only %d "
+                                        "sub-volumes could be locked in "
+                                        "special-filename domain",
+                                        uuid_utoa (fd->inode->gfid),
+                                        ret);
+                                ret = -ENOTCONN;
+                                goto unlock;
+                        }
+                        ret = __afr_selfheal_entry (frame, this, fd, locked_on);
+                }
+                afr_selfheal_unentrylk (frame, this, inode, this->name,
+                                        LONG_FILENAME, long_name_locked);
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain, NULL, locked_on);
