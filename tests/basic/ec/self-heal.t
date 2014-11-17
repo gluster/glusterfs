@@ -10,7 +10,7 @@ cleanup
 function check_mount_dir
 {
     for i in {1..20}; do
-        ls | grep "dir1"
+        ls -l | grep "dir1"
         if [ $? -ne 0 ]; then
             return 1
         fi
