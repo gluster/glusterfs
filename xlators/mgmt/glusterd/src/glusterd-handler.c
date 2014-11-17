@@ -4603,8 +4603,9 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 rpc_clnt_unset_connected (&rpc->conn);
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_PEER_DISCONNECTED,
-                        "Peer %s, in %s state, has disconnected from glusterd.",
-                        uuid_utoa (peerinfo->uuid),
+                        "Peer <%s> (<%s>), in state <%s>, has disconnected "
+                        "from glusterd.",
+                        peerinfo->hostname, uuid_utoa (peerinfo->uuid),
                         glusterd_friend_sm_state_name_get (peerinfo->state.state));
 
                 if (peerinfo->connected) {
