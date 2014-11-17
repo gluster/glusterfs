@@ -312,26 +312,14 @@ svc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         local->subvolume = subvolume;
                 }
         } else {
+                subvolume = SECOND_CHILD (this);
+                local->subvolume = subvolume;
                 if (parent_type == NORMAL_INODE) {
-                        subvolume = SECOND_CHILD (this);
-                        local->subvolume = subvolume;
                         /* Indication of whether the lookup is happening on the
                            entry point or not, to the snapview-server.
                         */
                         SVC_ENTRY_POINT_SET (this, xdata, op_ret, op_errno,
                                              new_xdata, priv, ret, out);
-                } else {
-                        /* Either error can be sent to application as
-                           the entry point directory can exist only within
-                           real directories and here the parent is a virtual
-                           directory or send the call all the way to svs and
-                           let it send the error back. For now it is sending
-                           the error to application itself. (Saves the
-                           network latency)
-                        */
-                        op_ret = -1;
-                        op_errno = ENOENT;
-                        goto out;
                 }
         }
 
