@@ -7319,7 +7319,7 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         runinit (&runner);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
 
-        for (fs = glusterd_fs ; glusterd_fs->fs_type_name; fs++) {
+        for (fs = glusterd_fs ; fs->fs_type_name; fs++) {
                 if (strcmp (fs_name, fs->fs_type_name) == 0) {
                         snprintf (fs_tool_name, sizeof (fs_tool_name),
                                   "/usr/sbin/%s", fs->fs_tool_name);
