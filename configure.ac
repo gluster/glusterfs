@@ -206,7 +206,6 @@ AC_CONFIG_FILES([Makefile
                 libgfchangelog.pc
                 api/Makefile
                 api/src/Makefile
-                api/src/gfapi.map
                 api/examples/Makefile
                 geo-replication/Makefile
                 geo-replication/src/Makefile
@@ -944,6 +943,15 @@ case $host_os in
         ;;
 esac
 
+case $host_os in
+     darwin*)
+        GFAPI_EXTRA_LDFLAGS='-Wl,-alias_list,$(top_srcdir)/api/src/gfapi.aliases'
+        ;;
+     *)
+        GFAPI_EXTRA_LDFLAGS='-Wl,--version-script=$(top_srcdir)/api/src/gfapi.map'
+        ;;
+esac
+
 # lazy umount emulation
 UMOUNTD_SUBDIR=""
 if test "x${GF_HOST_OS}" != "xGF_LINUX_HOST_OS" ; then
@@ -1141,6 +1149,7 @@ AC_SUBST(LIBGFRPC_LT_VERSION)
 AC_SUBST(LIBGLUSTERFS_LT_VERSION)
 AC_SUBST(LIBGFCHANGELOG_LT_VERSION)
 AC_SUBST(GFAPI_LT_VERSION)
+AC_SUBST(GFAPI_EXTRA_LDFLAGS)
 
 dnl this change necessary for run-tests.sh
 AC_CONFIG_FILES([tests/env.rc],[ln -s ${ac_abs_builddir}/env.rc ${ac_abs_srcdir}/env.rc 2>/dev/null])
