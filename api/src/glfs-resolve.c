@@ -353,8 +353,8 @@ out:
 
 int
 priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
-		 const char *origpath, loc_t *loc, struct iatt *iatt,
-		 int follow, int reval)
+		const char *origpath, loc_t *loc, struct iatt *iatt,
+		int follow, int reval)
 {
 	inode_t    *inode = NULL;
 	inode_t    *parent = NULL;
@@ -505,13 +505,14 @@ glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
 	inode_t *cwd = NULL;
 
 	if (origpath[0] == '/')
-		return priv_glfs_resolve_at (fs, subvol, NULL, origpath, loc,
+		return priv_glfs_resolve_at (fs, subvol, NULL,
+                                             origpath, loc,
                                              iatt, follow, reval);
 
 	cwd = glfs_cwd_get (fs);
 
-	ret = priv_glfs_resolve_at (fs, subvol, cwd, origpath, loc, iatt,
-                                    follow, reval);
+	ret = priv_glfs_resolve_at (fs, subvol, cwd, origpath, loc,
+                                    iatt, follow, reval);
 	if (cwd)
 		inode_unref (cwd);
 
@@ -837,6 +838,31 @@ __glfs_active_subvol (struct glfs *fs)
 	return new_subvol;
 }
 
+
+void
+priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
+{
+	int ref = 0;
+	xlator_t *active_subvol = NULL;
+
+	if (!subvol)
+		return;
+
+	glfs_lock (fs);
+	{
+		ref = (--subvol->winds);
+		active_subvol = fs->active_subvol;
+	}
+	glfs_unlock (fs);
+
+	if (ref == 0) {
+		assert (subvol != active_subvol);
+		xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, NULL);
+	}
+}
+
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_subvol_done, 3.4.0);
+
 xlator_t *
 priv_glfs_active_subvol (struct glfs *fs)
 {
@@ -865,30 +891,6 @@ priv_glfs_active_subvol (struct glfs *fs)
 }
 
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_active_subvol, 3.4.0);
-
-void
-priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
-{
-	int ref = 0;
-	xlator_t *active_subvol = NULL;
-
-	if (!subvol)
-		return;
-
-	glfs_lock (fs);
-	{
-		ref = (--subvol->winds);
-		active_subvol = fs->active_subvol;
-	}
-	glfs_unlock (fs);
-
-	if (ref == 0) {
-		assert (subvol != active_subvol);
-		xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, NULL);
-	}
-}
-
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_subvol_done, 3.4.0);
 
 int
 __glfs_cwd_set (struct glfs *fs, inode_t *inode)

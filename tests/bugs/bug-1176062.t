@@ -22,12 +22,13 @@ dd if=/dev/zero of=$M0/a/b/c/test bs=1024k &
 
 sleep 1
 
+ddpid=$(pidof dd)
+
 TEST gluster volume replace-brick $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}3 commit force
 
-sleep 10
+(sleep 10; kill -TERM $ddpid)&
 
-TEST kill -TERM %1
-wait %1
+wait $ddpid
 # Verify that the 'dd' process was terminated by the 'kill -TERM' and not by
 # any other error.
 TEST [ $? -eq 143 ]
