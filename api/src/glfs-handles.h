@@ -87,83 +87,106 @@ typedef struct glfs_object glfs_object_t;
 struct glfs_object *glfs_h_lookupat (struct glfs *fs,
 				     struct glfs_object *parent,
 				     const char *path,
-                                     struct stat *stat) __THROW;
+                                     struct stat *stat) __THROW
+        GFAPI_PUBLIC(glfs_h_lookupat, 3.4.0);
 
 struct glfs_object *glfs_h_creat (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, int flags, mode_t mode,
-				  struct stat *sb) __THROW;
+				  struct stat *sb) __THROW
+        GFAPI_PUBLIC(glfs_h_create, 3.4.0);
 
 struct glfs_object *glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, mode_t flags,
-				  struct stat *sb) __THROW;
+				  struct stat *sb) __THROW
+        GFAPI_PUBLIC(glfs_h_mkdir, 3.4.0);
 
 struct glfs_object *glfs_h_mknod (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, mode_t mode, dev_t dev,
-				  struct stat *sb) __THROW;
+				  struct stat *sb) __THROW
+        GFAPI_PUBLIC(glfs_h_mknod, 3.4.0);
 
 struct glfs_object *glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
 				    const char *name, const char *data,
-				    struct stat *stat) __THROW;
+				    struct stat *stat) __THROW
+        GFAPI_PUBLIC(glfs_h_symlink, 3.4.0);
 
 /* Operations on the actual objects */
 int glfs_h_unlink (struct glfs *fs, struct glfs_object *parent,
-		   const char *path) __THROW;
+		   const char *path) __THROW
+        GFAPI_PUBLIC(glfs_h_unlink, 3.4.0);
 
-int glfs_h_close (struct glfs_object *object) __THROW;
+int glfs_h_close (struct glfs_object *object) __THROW
+        GFAPI_PUBLIC(glfs_h_close, 3.4.0);
 
 int glfs_caller_specific_init (void *uid_caller_key, void *gid_caller_key,
-			       void *future) __THROW;
+			       void *future) __THROW
+        GFAPI_PUBLIC(glfs_h_lookupat, 3.5.0);
 
 int glfs_h_truncate (struct glfs *fs, struct glfs_object *object,
-                     off_t offset) __THROW;
+                     off_t offset) __THROW
+        GFAPI_PUBLIC(glfs_h_truncate, 3.4.0);
 
 int glfs_h_stat(struct glfs *fs, struct glfs_object *object,
-                struct stat *stat) __THROW;
+                struct stat *stat) __THROW
+        GFAPI_PUBLIC(glfs_h_stat, 3.4.0);
 
 int glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
-		     struct stat *stat) __THROW;
+		     struct stat *stat) __THROW
+        GFAPI_PUBLIC(glfs_h_getattrs, 3.4.0);
 
 int glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
 		      const char *name, void *value,
-		      size_t size) __THROW;
+		      size_t size) __THROW
+        GFAPI_PUBLIC(glfs_h_lookupat, 3.5.1);
 
 int glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
-		     struct stat *sb, int valid) __THROW;
+		     struct stat *sb, int valid) __THROW
+        GFAPI_PUBLIC(glfs_h_setattrs, 3.4.0);
 
 int glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
 		      const char *name, const void *value,
-		      size_t size, int flags) __THROW;
+		      size_t size, int flags) __THROW
+        GFAPI_PUBLIC(glfs_h_setxattrs, 3.5.0);
 
 int glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
-		     size_t bufsiz) __THROW;
+		     size_t bufsiz) __THROW
+        GFAPI_PUBLIC(glfs_h_readlink, 3.4.0);
 
 int glfs_h_link (struct glfs *fs, struct glfs_object *linktgt,
-		 struct glfs_object *parent, const char *name) __THROW;
+		 struct glfs_object *parent, const char *name) __THROW
+        GFAPI_PUBLIC(glfs_h_link, 3.4.0);
 
 int glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
 		   const char *oldname, struct glfs_object *newdir,
-		   const char *newname) __THROW;
+		   const char *newname) __THROW
+        GFAPI_PUBLIC(glfs_h_rename, 3.4.0);
 
 int glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object,
-			 const char *name) __THROW;
+			 const char *name) __THROW
+        GFAPI_PUBLIC(glfs_h_removexattrs, 3.5.1);
 
 /* Operations enabling opaque invariant handle to object transitions */
 ssize_t glfs_h_extract_handle (struct glfs_object *object,
-			       unsigned char *handle, int len) __THROW;
+			       unsigned char *handle, int len) __THROW
+        GFAPI_PUBLIC(glfs_h_extract_handle, 3.4.0);
 
 struct glfs_object *glfs_h_create_from_handle (struct glfs *fs,
 					       unsigned char *handle, int len,
-					       struct stat *stat) __THROW;
+					       struct stat *stat) __THROW
+        GFAPI_PUBLIC(glfs_h_create_from_handle, 3.4.0);
 
 /* Operations enabling object handles to fd transitions */
 struct glfs_fd *glfs_h_opendir (struct glfs *fs,
-                                struct glfs_object *object) __THROW;
+                                struct glfs_object *object) __THROW
+        GFAPI_PUBLIC(glfs_h_opendir, 3.4.0);
 
 struct glfs_fd *glfs_h_open (struct glfs *fs, struct glfs_object *object,
-			     int flags) __THROW;
+			     int flags) __THROW
+        GFAPI_PUBLIC(glfs_h_open, 3.4.0);
 
 int
-glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW;
+glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
+        GFAPI_PUBLIC(glfs_h_access, 3.6.0);
 
 __END_DECLS
 

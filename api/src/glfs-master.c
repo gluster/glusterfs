@@ -27,9 +27,6 @@
 #include "glfs-mem-types.h"
 
 
-extern void
-glfs_subvol_done (struct glfs *, xlator_t *);
-
 int
 graph_setup (struct glfs *fs, glusterfs_graph_t *graph)
 {
@@ -79,9 +76,6 @@ unlock:
 	return ret;
 }
 
-
-extern void
-glfs_init_done (struct glfs *fs, int ret);
 
 int
 notify (xlator_t *this, int event, void *data, ...)

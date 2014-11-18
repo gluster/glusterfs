@@ -805,9 +805,6 @@ pub_glfs_init (struct glfs *fs)
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_init, 3.4.0);
 
 
-extern xlator_t *
-priv_glfs_active_subvol (struct glfs *);
-
 int
 pub_glfs_fini (struct glfs *fs)
 {
@@ -849,7 +846,7 @@ pub_glfs_fini (struct glfs *fs)
         pthread_mutex_unlock (&fs->mutex);
 
         if (fs_init != 0) {
-                subvol = priv_glfs_active_subvol (fs);
+                subvol = glfs_active_subvol (fs);
                 if (subvol) {
                         /* PARENT_DOWN within glfs_subvol_done() is issued
                            only on graph switch (new graph should activiate
@@ -892,7 +889,7 @@ pub_glfs_fini (struct glfs *fs)
                                 goto fail;
                         }
                 }
-                priv_glfs_subvol_done (fs, subvol);
+                glfs_subvol_done (fs, subvol);
         }
 
         if (gf_log_fini(ctx) != 0)
