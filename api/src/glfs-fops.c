@@ -79,7 +79,7 @@ pub_glfs_open (struct glfs *fs, const char *path, int flags)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -141,7 +141,7 @@ out:
 		glfs_fd_bind (glfd);
 	}
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
@@ -159,7 +159,7 @@ pub_glfs_close (struct glfs_fd *glfd)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
         if (!subvol) {
                 ret = -1;
                 errno = EIO;
@@ -182,7 +182,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -201,7 +201,7 @@ pub_glfs_lstat (struct glfs *fs, const char *path, struct stat *stat)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -217,7 +217,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -236,7 +236,7 @@ pub_glfs_stat (struct glfs *fs, const char *path, struct stat *stat)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -252,7 +252,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -270,7 +270,7 @@ pub_glfs_fstat (struct glfs_fd *glfd, struct stat *stat)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -293,7 +293,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -315,7 +315,7 @@ pub_glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -433,7 +433,7 @@ out:
 		glfs_fd_bind (glfd);
 	}
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
@@ -486,7 +486,7 @@ pub_glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -521,7 +521,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -684,7 +684,7 @@ out:
 	GF_FREE (gio->iov);
 	GF_FREE (gio);
 	STACK_DESTROY (frame->root);
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return 0;
 }
@@ -704,7 +704,7 @@ pub_glfs_preadv_async (struct glfs_fd *glfd, const struct iovec *iovec,
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -764,7 +764,7 @@ out:
                 if (frame) {
                         STACK_DESTROY (frame->root);
                 }
-		priv_glfs_subvol_done (fs, subvol);
+		glfs_subvol_done (fs, subvol);
 	}
 
 	if (fd)
@@ -840,7 +840,7 @@ pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -900,7 +900,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -1062,7 +1062,7 @@ pub_glfs_fsync (struct glfs_fd *glfd)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1082,7 +1082,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -1141,7 +1141,7 @@ pub_glfs_fdatasync (struct glfs_fd *glfd)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1161,7 +1161,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -1187,7 +1187,7 @@ pub_glfs_ftruncate (struct glfs_fd *glfd, off_t offset)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1207,7 +1207,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -1260,7 +1260,7 @@ pub_glfs_access (struct glfs *fs, const char *path, int mode)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1281,7 +1281,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1302,7 +1302,7 @@ pub_glfs_symlink (struct glfs *fs, const char *data, const char *path)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1365,7 +1365,7 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1385,7 +1385,7 @@ pub_glfs_readlink (struct glfs *fs, const char *path, char *buf, size_t bufsiz)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1416,7 +1416,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1437,7 +1437,7 @@ pub_glfs_mknod (struct glfs *fs, const char *path, mode_t mode, dev_t dev)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1500,7 +1500,7 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1521,7 +1521,7 @@ pub_glfs_mkdir (struct glfs *fs, const char *path, mode_t mode)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1584,7 +1584,7 @@ out:
 	if (xattr_req)
 		dict_unref (xattr_req);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1603,7 +1603,7 @@ pub_glfs_unlink (struct glfs *fs, const char *path)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1633,7 +1633,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1652,7 +1652,7 @@ pub_glfs_rmdir (struct glfs *fs, const char *path)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1682,7 +1682,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1703,7 +1703,7 @@ pub_glfs_rename (struct glfs *fs, const char *oldpath, const char *newpath)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1758,7 +1758,7 @@ out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1779,7 +1779,7 @@ pub_glfs_link (struct glfs *fs, const char *oldpath, const char *newpath)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1834,7 +1834,7 @@ out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -1854,7 +1854,7 @@ pub_glfs_opendir (struct glfs *fs, const char *path)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -1910,7 +1910,7 @@ out:
 		glfs_fd_bind (glfd);
 	}
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return glfd;
 }
@@ -2072,7 +2072,7 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 	int              ret = -1;
 	fd_t            *fd = NULL;
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2121,7 +2121,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -2273,7 +2273,7 @@ pub_glfs_statvfs (struct glfs *fs, const char *path, struct statvfs *buf)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2294,7 +2294,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -2314,7 +2314,7 @@ glfs_setattr (struct glfs *fs, const char *path, struct iatt *iatt,
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2338,7 +2338,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -2353,7 +2353,7 @@ glfs_fsetattr (struct glfs_fd *glfd, struct iatt *iatt, int valid)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2373,7 +2373,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -2604,7 +2604,7 @@ glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2633,7 +2633,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -2670,7 +2670,7 @@ pub_glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2694,7 +2694,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -2743,7 +2743,7 @@ glfs_listxattr_common (struct glfs *fs, const char *path, void *value,
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2773,7 +2773,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -2807,7 +2807,7 @@ pub_glfs_flistxattr (struct glfs_fd *glfd, void *value, size_t size)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2831,7 +2831,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -2872,7 +2872,7 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2906,7 +2906,7 @@ out:
 	if (xattr)
 		dict_unref (xattr);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -2943,7 +2943,7 @@ pub_glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -2973,7 +2973,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -2993,7 +2993,7 @@ glfs_removexattr_common (struct glfs *fs, const char *path, const char *name,
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3018,7 +3018,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -3051,7 +3051,7 @@ pub_glfs_fremovexattr (struct glfs_fd *glfd, const char *name)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3071,7 +3071,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -3088,7 +3088,7 @@ pub_glfs_fallocate (struct glfs_fd *glfd, int keep_size, off_t offset, size_t le
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3108,7 +3108,7 @@ out:
 	if (fd)
 		fd_unref(fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -3125,7 +3125,7 @@ pub_glfs_discard (struct glfs_fd *glfd, off_t offset, size_t len)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3145,7 +3145,7 @@ out:
 	if (fd)
 		fd_unref(fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -3162,7 +3162,7 @@ pub_glfs_zerofill (struct glfs_fd *glfd, off_t offset, off_t len)
 
         __glfs_entry_fd (glfd);
 
-        subvol = priv_glfs_active_subvol (glfd->fs);
+        subvol = glfs_active_subvol (glfd->fs);
         if (!subvol) {
                 errno = EIO;
                 goto out;
@@ -3180,7 +3180,7 @@ out:
         if (fd)
                 fd_unref(fd);
 
-        priv_glfs_subvol_done (glfd->fs, subvol);
+        glfs_subvol_done (glfd->fs, subvol);
 
         return ret;
 }
@@ -3199,7 +3199,7 @@ pub_glfs_chdir (struct glfs *fs, const char *path)
 
 	__glfs_entry_fs (fs);
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3224,7 +3224,7 @@ retry:
 out:
 	loc_wipe (&loc);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return ret;
 }
@@ -3242,7 +3242,7 @@ pub_glfs_fchdir (struct glfs_fd *glfd)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3270,7 +3270,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -3302,7 +3302,7 @@ pub_glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
 		goto out;
 	}
 
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3330,7 +3330,7 @@ out:
 		retpath = NULL;
 	}
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return retpath;
 }
@@ -3418,7 +3418,7 @@ pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
 
 	__glfs_entry_fd (glfd);
 
-	subvol = priv_glfs_active_subvol (glfd->fs);
+	subvol = glfs_active_subvol (glfd->fs);
 	if (!subvol) {
 		ret = -1;
 		errno = EIO;
@@ -3444,7 +3444,7 @@ out:
 	if (fd)
 		fd_unref (fd);
 
-	priv_glfs_subvol_done (glfd->fs, subvol);
+	glfs_subvol_done (glfd->fs, subvol);
 
 	return ret;
 }
@@ -3463,7 +3463,7 @@ pub_glfs_dup (struct glfs_fd *glfd)
 	__glfs_entry_fd (glfd);
 
 	fs = glfd->fs;
-	subvol = priv_glfs_active_subvol (fs);
+	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
 		errno = EIO;
 		goto out;
@@ -3488,7 +3488,7 @@ out:
 	if (dupfd)
 		glfs_fd_bind (dupfd);
 
-	priv_glfs_subvol_done (fs, subvol);
+	glfs_subvol_done (fs, subvol);
 
 	return dupfd;
 }

@@ -51,6 +51,14 @@
 # endif
 #endif
 
+#ifndef GF_DARWIN_HOST_OS
+#define GFAPI_PUBLIC(sym, ver) /**/
+#define GFAPI_PRIVATE(sym, ver) /**/
+#else
+#define GFAPI_PUBLIC(sym, ver) __asm("_" __STRING(sym) "$GFAPI_" __STRING(ver))
+#define GFAPI_PRIVATE(sym, ver) __asm("_" __STRING(sym) "$GFAPI_PRIVATE_" __STRING(ver))
+#endif
+
 __BEGIN_DECLS
 
 /* The filesystem object. One object per 'virtual mount' */
@@ -88,7 +96,8 @@ typedef struct glfs glfs_t;
 
 */
 
-glfs_t *glfs_new (const char *volname) __THROW;
+glfs_t *glfs_new (const char *volname) __THROW
+        GFAPI_PUBLIC(glfs_new, 3.4.0);
 
 
 /*
@@ -118,7 +127,8 @@ glfs_t *glfs_new (const char *volname) __THROW;
 
 */
 
-int glfs_set_volfile (glfs_t *fs, const char *volfile);
+int glfs_set_volfile (glfs_t *fs, const char *volfile) __THROW
+        GFAPI_PUBLIC(glfs_set_volfile, 3.4.0);
 
 
 /*
@@ -170,9 +180,11 @@ int glfs_set_volfile (glfs_t *fs, const char *volfile);
 */
 
 int glfs_set_volfile_server (glfs_t *fs, const char *transport,
-                             const char *host, int port) __THROW;
+                             const char *host, int port) __THROW
+        GFAPI_PUBLIC(glfs_set_volfile_server, 3.4.0);
 int glfs_unset_volfile_server (glfs_t *fs, const char *transport,
-                               const char *host, int port) __THROW;
+                               const char *host, int port) __THROW
+        GFAPI_PUBLIC(glfs_unset_volfile_server, 3.5.1);
 /*
   SYNOPSIS
 
@@ -202,7 +214,8 @@ int glfs_unset_volfile_server (glfs_t *fs, const char *transport,
 
 */
 
-int glfs_set_logging (glfs_t *fs, const char *logfile, int loglevel) __THROW;
+int glfs_set_logging (glfs_t *fs, const char *logfile, int loglevel) __THROW
+        GFAPI_PUBLIC(glfs_set_logging, 3.4.0);
 
 
 /*
@@ -229,7 +242,8 @@ int glfs_set_logging (glfs_t *fs, const char *logfile, int loglevel) __THROW;
 
 */
 
-int glfs_init (glfs_t *fs) __THROW;
+int glfs_init (glfs_t *fs) __THROW
+        GFAPI_PUBLIC(glfs_init, 3.4.0);
 
 
 /*
@@ -262,7 +276,8 @@ int glfs_init (glfs_t *fs) __THROW;
    0 : Success.
 */
 
-int glfs_fini (glfs_t *fs) __THROW;
+int glfs_fini (glfs_t *fs) __THROW
+        GFAPI_PUBLIC(glfs_fini, 3.4.0);
 
 /*
   SYNOPSIS
@@ -292,7 +307,8 @@ int glfs_fini (glfs_t *fs) __THROW;
       <0: volfile length exceeds @len by N bytes (@buf unchanged)
 */
 
-ssize_t glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW;
+ssize_t glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW
+        GFAPI_PUBLIC(glfs_get_volfile, 3.6.0);
 
 
 /*
@@ -323,7 +339,8 @@ ssize_t glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW;
         Others : length of the volume UUID stored.
 */
 
-int glfs_get_volumeid (struct glfs *fs, char *volid, size_t size);
+int glfs_get_volumeid (struct glfs *fs, char *volid, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_get_volumeid, 3.5.0);
 
 
 /*
@@ -368,9 +385,12 @@ typedef struct glfs_fd glfs_fd_t;
  *    reverted to global process defaults as required.
  *
  */
-int glfs_setfsuid (uid_t fsuid) __THROW;
-int glfs_setfsgid (gid_t fsgid) __THROW;
-int glfs_setfsgroups (size_t size, const gid_t *list) __THROW;
+int glfs_setfsuid (uid_t fsuid) __THROW
+        GFAPI_PUBLIC(glfs_setfsuid, 3.4.2);
+int glfs_setfsgid (gid_t fsgid) __THROW
+        GFAPI_PUBLIC(glfs_setfsgid, 3.4.2);
+int glfs_setfsgroups (size_t size, const gid_t *list) __THROW
+        GFAPI_PUBLIC(glfs_setfsgroups, 3.4.2);
 
 /*
   SYNOPSIS
@@ -397,7 +417,8 @@ int glfs_setfsgroups (size_t size, const gid_t *list) __THROW;
 
  */
 
-glfs_fd_t *glfs_open (glfs_t *fs, const char *path, int flags) __THROW;
+glfs_fd_t *glfs_open (glfs_t *fs, const char *path, int flags) __THROW
+        GFAPI_PUBLIC(glfs_open, 3.4.0);
 
 
 /*
@@ -427,14 +448,18 @@ glfs_fd_t *glfs_open (glfs_t *fs, const char *path, int flags) __THROW;
  */
 
 glfs_fd_t *glfs_creat (glfs_t *fs, const char *path, int flags,
-		       mode_t mode) __THROW;
+		       mode_t mode) __THROW
+        GFAPI_PUBLIC(glfs_creat, 3.4.0);
 
-int glfs_close (glfs_fd_t *fd) __THROW;
+int glfs_close (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_close, 3.4.0);
 
-glfs_t *glfs_from_glfd (glfs_fd_t *fd) __THROW;
+glfs_t *glfs_from_glfd (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_from_glfd, 3.4.0);
 
 int glfs_set_xlator_option (glfs_t *fs, const char *xlator, const char *key,
-			    const char *value) __THROW;
+			    const char *value) __THROW
+        GFAPI_PUBLIC(glfs_set_xlator_options, 3.4.0);
 
 /*
 
@@ -464,88 +489,125 @@ typedef void (*glfs_io_cbk) (glfs_fd_t *fd, ssize_t ret, void *data);
 // glfs_{read,write}[_async]
 
 ssize_t glfs_read (glfs_fd_t *fd, void *buf,
-                   size_t count, int flags) __THROW;
+                   size_t count, int flags) __THROW
+        GFAPI_PUBLIC(glfs_read, 3.4.0);
 ssize_t glfs_write (glfs_fd_t *fd, const void *buf,
-                    size_t count, int flags) __THROW;
+                    size_t count, int flags) __THROW
+        GFAPI_PUBLIC(glfs_write, 3.4.0);
 int glfs_read_async (glfs_fd_t *fd, void *buf, size_t count, int flags,
-		     glfs_io_cbk fn, void *data) __THROW;
+		     glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_read_async, 3.4.0);
 int glfs_write_async (glfs_fd_t *fd, const void *buf, size_t count, int flags,
-		      glfs_io_cbk fn, void *data) __THROW;
+		      glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_write_async, 3.4.0);
 
 // glfs_{read,write}v[_async]
 
 ssize_t glfs_readv (glfs_fd_t *fd, const struct iovec *iov, int iovcnt,
-		    int flags) __THROW;
+		    int flags) __THROW
+        GFAPI_PUBLIC(glfs_readv, 3.4.0);
 ssize_t glfs_writev (glfs_fd_t *fd, const struct iovec *iov, int iovcnt,
-		     int flags) __THROW;
+		     int flags) __THROW
+        GFAPI_PUBLIC(glfs_writev, 3.4.0);
 int glfs_readv_async (glfs_fd_t *fd, const struct iovec *iov, int count,
-		      int flags, glfs_io_cbk fn, void *data) __THROW;
+		      int flags, glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_readv_async, 3.4.0);
 int glfs_writev_async (glfs_fd_t *fd, const struct iovec *iov, int count,
-		       int flags, glfs_io_cbk fn, void *data) __THROW;
+		       int flags, glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_writev_async, 3.4.0);
 
 // glfs_p{read,write}[_async]
 
 ssize_t glfs_pread (glfs_fd_t *fd, void *buf, size_t count, off_t offset,
-		    int flags) __THROW;
+		    int flags) __THROW
+        GFAPI_PUBLIC(glfs_pread, 3.4.0);
 ssize_t glfs_pwrite (glfs_fd_t *fd, const void *buf, size_t count,
-		     off_t offset, int flags) __THROW;
+		     off_t offset, int flags) __THROW
+        GFAPI_PUBLIC(glfs_pwrite, 3.4.0);
 int glfs_pread_async (glfs_fd_t *fd, void *buf, size_t count, off_t offset,
-		      int flags, glfs_io_cbk fn, void *data) __THROW;
+		      int flags, glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_pread_async, 3.4.0);
 int glfs_pwrite_async (glfs_fd_t *fd, const void *buf, int count, off_t offset,
-		       int flags, glfs_io_cbk fn, void *data) __THROW;
+		       int flags, glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_pwrite_async, 3.4.0);
 
 // glfs_p{read,write}v[_async]
 
 ssize_t glfs_preadv (glfs_fd_t *fd, const struct iovec *iov, int iovcnt,
-		     off_t offset, int flags) __THROW;
+		     off_t offset, int flags) __THROW
+        GFAPI_PUBLIC(glfs_preadv, 3.4.0);
 ssize_t glfs_pwritev (glfs_fd_t *fd, const struct iovec *iov, int iovcnt,
-		      off_t offset, int flags) __THROW;
+		      off_t offset, int flags) __THROW
+        GFAPI_PUBLIC(glfs_pwritev, 3.4.0);
 int glfs_preadv_async (glfs_fd_t *fd, const struct iovec *iov,
                        int count, off_t offset, int flags,
-                       glfs_io_cbk fn, void *data) __THROW;
+                       glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_preadv_async, 3.4.0);
 int glfs_pwritev_async (glfs_fd_t *fd, const struct iovec *iov,
                         int count, off_t offset, int flags,
-                        glfs_io_cbk fn, void *data) __THROW;
+                        glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_pwritev_async, 3.4.0);
 
 
-off_t glfs_lseek (glfs_fd_t *fd, off_t offset, int whence) __THROW;
+off_t glfs_lseek (glfs_fd_t *fd, off_t offset, int whence) __THROW
+        GFAPI_PUBLIC(glfs_lseek, 3.4.0);
 
-int glfs_truncate (glfs_t *fs, const char *path, off_t length) __THROW;
+int glfs_truncate (glfs_t *fs, const char *path, off_t length) __THROW
+        GFAPI_PUBLIC(glfs_truncate, 3.4.0);
 
-int glfs_ftruncate (glfs_fd_t *fd, off_t length) __THROW;
+int glfs_ftruncate (glfs_fd_t *fd, off_t length) __THROW
+        GFAPI_PUBLIC(glfs_ftruncate, 3.4.0);
 int glfs_ftruncate_async (glfs_fd_t *fd, off_t length, glfs_io_cbk fn,
-			  void *data) __THROW;
+			  void *data) __THROW
+        GFAPI_PUBLIC(glfs_ftruncate_async, 3.4.0);
 
-int glfs_lstat (glfs_t *fs, const char *path, struct stat *buf) __THROW;
-int glfs_stat (glfs_t *fs, const char *path, struct stat *buf) __THROW;
-int glfs_fstat (glfs_fd_t *fd, struct stat *buf) __THROW;
+int glfs_lstat (glfs_t *fs, const char *path, struct stat *buf) __THROW
+        GFAPI_PUBLIC(glfs_lstat, 3.4.0);
+int glfs_stat (glfs_t *fs, const char *path, struct stat *buf) __THROW
+        GFAPI_PUBLIC(glfs_stat, 3.4.0);
+int glfs_fstat (glfs_fd_t *fd, struct stat *buf) __THROW
+        GFAPI_PUBLIC(glfs_fstat, 3.4.0);
 
-int glfs_fsync (glfs_fd_t *fd) __THROW;
-int glfs_fsync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW;
+int glfs_fsync (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_fsync, 3.4.0);
+int glfs_fsync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_fsync_async, 3.4.0);
 
-int glfs_fdatasync (glfs_fd_t *fd) __THROW;
-int glfs_fdatasync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW;
+int glfs_fdatasync (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_fdatasync, 3.4.0);
+int glfs_fdatasync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_fdatasync_async, 3.4.0);
 
-int glfs_access (glfs_t *fs, const char *path, int mode) __THROW;
+int glfs_access (glfs_t *fs, const char *path, int mode) __THROW
+        GFAPI_PUBLIC(glfs_access, 3.4.0);
 
-int glfs_symlink (glfs_t *fs, const char *oldpath, const char *newpath) __THROW;
+int glfs_symlink (glfs_t *fs, const char *oldpath, const char *newpath) __THROW
+        GFAPI_PUBLIC(glfs_symlink, 3.4.0);
 
 int glfs_readlink (glfs_t *fs, const char *path,
-                   char *buf, size_t bufsiz) __THROW;
+                   char *buf, size_t bufsiz) __THROW
+        GFAPI_PUBLIC(glfs_readlink, 3.4.0);
 
-int glfs_mknod (glfs_t *fs, const char *path, mode_t mode, dev_t dev) __THROW;
+int glfs_mknod (glfs_t *fs, const char *path, mode_t mode, dev_t dev) __THROW
+        GFAPI_PUBLIC(glfs_mknod, 3.4.0);
 
-int glfs_mkdir (glfs_t *fs, const char *path, mode_t mode) __THROW;
+int glfs_mkdir (glfs_t *fs, const char *path, mode_t mode) __THROW
+        GFAPI_PUBLIC(glfs_mkdir, 3.4.0);
 
-int glfs_unlink (glfs_t *fs, const char *path) __THROW;
+int glfs_unlink (glfs_t *fs, const char *path) __THROW
+        GFAPI_PUBLIC(glfs_unlink, 3.4.0);
 
-int glfs_rmdir (glfs_t *fs, const char *path) __THROW;
+int glfs_rmdir (glfs_t *fs, const char *path) __THROW
+        GFAPI_PUBLIC(glfs_rmdir, 3.4.0);
 
-int glfs_rename (glfs_t *fs, const char *oldpath, const char *newpath) __THROW;
+int glfs_rename (glfs_t *fs, const char *oldpath, const char *newpath) __THROW
+        GFAPI_PUBLIC(glfs_rename, 3.4.0);
 
-int glfs_link (glfs_t *fs, const char *oldpath, const char *newpath) __THROW;
+int glfs_link (glfs_t *fs, const char *oldpath, const char *newpath) __THROW
+        GFAPI_PUBLIC(glfs_link, 3.4.0);
 
-glfs_fd_t *glfs_opendir (glfs_t *fs, const char *path) __THROW;
+glfs_fd_t *glfs_opendir (glfs_t *fs, const char *path) __THROW
+        GFAPI_PUBLIC(glfs_opendir, 3.4.0);
 
 /*
  * @glfs_readdir_r and @glfs_readdirplus_r ARE thread safe AND re-entrant,
@@ -556,10 +618,12 @@ glfs_fd_t *glfs_opendir (glfs_t *fs, const char *path) __THROW;
  */
 
 int glfs_readdir_r (glfs_fd_t *fd, struct dirent *dirent,
-		    struct dirent **result) __THROW;
+		    struct dirent **result) __THROW
+        GFAPI_PUBLIC(glfs_readdir_r, 3.4.0);
 
 int glfs_readdirplus_r (glfs_fd_t *fd, struct stat *stat, struct dirent *dirent,
-			struct dirent **result) __THROW;
+			struct dirent **result) __THROW
+        GFAPI_PUBLIC(glfs_readdirplus_r, 3.4.0);
 
 /*
  * @glfs_readdir and @glfs_readdirplus are NEITHER thread safe NOR re-entrant
@@ -568,96 +632,133 @@ int glfs_readdirplus_r (glfs_fd_t *fd, struct stat *stat, struct dirent *dirent,
  * referring to the same directory too.)
  */
 
-struct dirent *glfs_readdir (glfs_fd_t *fd) __THROW;
+struct dirent *glfs_readdir (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_readdir, 3.5.0);
 
-struct dirent *glfs_readdirplus (glfs_fd_t *fd, struct stat *stat) __THROW;
+struct dirent *glfs_readdirplus (glfs_fd_t *fd, struct stat *stat) __THROW
+        GFAPI_PUBLIC(glfs_readdirplus, 3.5.0);
 
-long glfs_telldir (glfs_fd_t *fd) __THROW;
+long glfs_telldir (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_telldir, 3.4.0);
 
-void glfs_seekdir (glfs_fd_t *fd, long offset) __THROW;
+void glfs_seekdir (glfs_fd_t *fd, long offset) __THROW
+        GFAPI_PUBLIC(glfs_seekdir, 3.4.0);
 
-int glfs_closedir (glfs_fd_t *fd) __THROW;
+int glfs_closedir (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_closedir, 3.4.0);
 
-int glfs_statvfs (glfs_t *fs, const char *path, struct statvfs *buf) __THROW;
+int glfs_statvfs (glfs_t *fs, const char *path, struct statvfs *buf) __THROW
+        GFAPI_PUBLIC(glfs_statvfs, 3.4.0);
 
-int glfs_chmod (glfs_t *fs, const char *path, mode_t mode) __THROW;
+int glfs_chmod (glfs_t *fs, const char *path, mode_t mode) __THROW
+        GFAPI_PUBLIC(glfs_chmod, 3.4.0);
 
-int glfs_fchmod (glfs_fd_t *fd, mode_t mode) __THROW;
+int glfs_fchmod (glfs_fd_t *fd, mode_t mode) __THROW
+        GFAPI_PUBLIC(glfs_fchmod, 3.4.0);
 
-int glfs_chown (glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW;
+int glfs_chown (glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW
+        GFAPI_PUBLIC(glfs_chown, 3.4.0);
 
-int glfs_lchown (glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW;
+int glfs_lchown (glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW
+        GFAPI_PUBLIC(glfs_lchown, 3.4.0);
 
-int glfs_fchown (glfs_fd_t *fd, uid_t uid, gid_t gid) __THROW;
+int glfs_fchown (glfs_fd_t *fd, uid_t uid, gid_t gid) __THROW
+        GFAPI_PUBLIC(glfs_fchown, 3.4.0);
 
 int glfs_utimens (glfs_t *fs, const char *path,
-                  struct timespec times[2]) __THROW;
+                  struct timespec times[2]) __THROW
+        GFAPI_PUBLIC(glfs_utimens, 3.4.0);
 
 int glfs_lutimens (glfs_t *fs, const char *path,
-                   struct timespec times[2]) __THROW;
+                   struct timespec times[2]) __THROW
+        GFAPI_PUBLIC(glfs_lutimens, 3.4.0);
 
-int glfs_futimens (glfs_fd_t *fd, struct timespec times[2]) __THROW;
+int glfs_futimens (glfs_fd_t *fd, struct timespec times[2]) __THROW
+        GFAPI_PUBLIC(glfs_futimens, 3.4.0);
 
 ssize_t glfs_getxattr (glfs_t *fs, const char *path, const char *name,
-		       void *value, size_t size) __THROW;
+		       void *value, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_getxattr, 3.4.0);
 
 ssize_t glfs_lgetxattr (glfs_t *fs, const char *path, const char *name,
-			void *value, size_t size) __THROW;
+			void *value, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_lgetxattr, 3.4.0);
 
 ssize_t glfs_fgetxattr (glfs_fd_t *fd, const char *name,
-			void *value, size_t size) __THROW;
+			void *value, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_fgetxattr, 3.4.0);
 
 ssize_t glfs_listxattr (glfs_t *fs, const char *path,
-                        void *value, size_t size) __THROW;
+                        void *value, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_listxattr, 3.4.0);
 
 ssize_t glfs_llistxattr (glfs_t *fs, const char *path, void *value,
-			 size_t size) __THROW;
+			 size_t size) __THROW
+        GFAPI_PUBLIC(glfs_llistxattr, 3.4.0);
 
-ssize_t glfs_flistxattr (glfs_fd_t *fd, void *value, size_t size) __THROW;
+ssize_t glfs_flistxattr (glfs_fd_t *fd, void *value, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_flistxattr, 3.4.0);
 
 int glfs_setxattr (glfs_t *fs, const char *path, const char *name,
-		   const void *value, size_t size, int flags) __THROW;
+		   const void *value, size_t size, int flags) __THROW
+        GFAPI_PUBLIC(glfs_setxattr, 3.4.0);
 
 int glfs_lsetxattr (glfs_t *fs, const char *path, const char *name,
-		    const void *value, size_t size, int flags) __THROW;
+		    const void *value, size_t size, int flags) __THROW
+        GFAPI_PUBLIC(glfs_lsetxattr, 3.4.0);
 
 int glfs_fsetxattr (glfs_fd_t *fd, const char *name,
-		    const void *value, size_t size, int flags) __THROW;
+		    const void *value, size_t size, int flags) __THROW
+        GFAPI_PUBLIC(glfs_fsetxattr, 3.4.0);
 
-int glfs_removexattr (glfs_t *fs, const char *path, const char *name) __THROW;
+int glfs_removexattr (glfs_t *fs, const char *path, const char *name) __THROW
+        GFAPI_PUBLIC(glfs_removexattr, 3.4.0);
 
-int glfs_lremovexattr (glfs_t *fs, const char *path, const char *name) __THROW;
+int glfs_lremovexattr (glfs_t *fs, const char *path, const char *name) __THROW
+        GFAPI_PUBLIC(glfs_lremovexattr, 3.4.0);
 
-int glfs_fremovexattr (glfs_fd_t *fd, const char *name) __THROW;
+int glfs_fremovexattr (glfs_fd_t *fd, const char *name) __THROW
+        GFAPI_PUBLIC(glfs_fremovexattr, 3.4.0);
 
 int glfs_fallocate(glfs_fd_t *fd, int keep_size,
-                   off_t offset, size_t len) __THROW;
+                   off_t offset, size_t len) __THROW
+        GFAPI_PUBLIC(glfs_fallocate, 3.5.0);
 
-int glfs_discard(glfs_fd_t *fd, off_t offset, size_t len) __THROW;
+int glfs_discard(glfs_fd_t *fd, off_t offset, size_t len) __THROW
+        GFAPI_PUBLIC(glfs_discard, 3.5.0);
 
 
 int glfs_discard_async (glfs_fd_t *fd, off_t length, size_t lent,
-			glfs_io_cbk fn, void *data) __THROW;
+			glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_discard_async, 3.5.0);
 
-int glfs_zerofill(glfs_fd_t *fd, off_t offset, off_t len) __THROW;
+int glfs_zerofill(glfs_fd_t *fd, off_t offset, off_t len) __THROW
+        GFAPI_PUBLIC(glfs_zerofill, 3.5.0);
 
 int glfs_zerofill_async (glfs_fd_t *fd, off_t length, off_t len,
-                        glfs_io_cbk fn, void *data) __THROW;
+                        glfs_io_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_zerofill_async, 3.5.0);
 
-char *glfs_getcwd (glfs_t *fs, char *buf, size_t size) __THROW;
+char *glfs_getcwd (glfs_t *fs, char *buf, size_t size) __THROW
+        GFAPI_PUBLIC(glfs_getcwd, 3.4.0);
 
-int glfs_chdir (glfs_t *fs, const char *path) __THROW;
+int glfs_chdir (glfs_t *fs, const char *path) __THROW
+        GFAPI_PUBLIC(glfs_chdir, 3.4.0);
 
-int glfs_fchdir (glfs_fd_t *fd) __THROW;
+int glfs_fchdir (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_fchdir, 3.4.0);
 
-char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path) __THROW;
+char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path) __THROW
+        GFAPI_PUBLIC(glfs_realpath, 3.4.0);
 
 /*
  * @cmd and @flock are as specified in man fcntl(2).
  */
-int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock) __THROW;
+int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock) __THROW
+        GFAPI_PUBLIC(glfs_posix_lock, 3.4.0);
 
-glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW;
+glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW
+        GFAPI_PUBLIC(glfs_dup, 3.4.0);
 
 __END_DECLS
 
