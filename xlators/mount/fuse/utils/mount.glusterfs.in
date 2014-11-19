@@ -232,9 +232,8 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --xlator-option=$xlator_option");
     fi
 
-    # for rdma volume, we have to fetch volfile with '.rdma' added
-    # to volume name, so that it fetches the right client vol file
-    volume_id_rdma="";
+    # if trasnport type is specified, we have to append it to
+    # volume name, so that it fetches the right client vol file
 
     if [ -z "$volfile_loc" ]; then
         if  [ -n "$server_ip" ]; then
@@ -272,16 +271,10 @@ start_glusterfs ()
                 cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
             fi
 
-            if [ -n "$transport" ]; then
-                cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
-                if [ "$transport" = "rdma" ]; then
-                    volume_id_rdma=".rdma";
-                fi
-            fi
-
             if [ -n "$volume_id" ]; then
-                if [ -n "$volume_id_rdma" ]; then
-                    volume_id="$volume_id$volume_id_rdma";
+                if [ -n "$transport" ]; then
+                    volume_id="$volume_id.$transport";
+                    cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
                 fi
                 cmd_line=$(echo "$cmd_line --volfile-id=$volume_id");
             fi
@@ -295,7 +288,6 @@ start_glusterfs ()
     fi
 
     cmd_line=$(echo "$cmd_line $mount_point");
-
     $cmd_line;
     if [ $? -ne 0 ]; then
         warn "Mount failed. Please check the log file for more details."
