@@ -9067,7 +9067,7 @@ glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
         switch (type) {
         case GF_TRANSPORT_TCP:
                 snprintf (filepath, PATH_MAX,
-                          "%s/%s-fuse.vol", path, volinfo->volname);
+                          "%s/%s.tcp-fuse.vol", path, volinfo->volname);
                 break;
 
         case GF_TRANSPORT_RDMA:
@@ -9097,7 +9097,7 @@ glusterd_get_trusted_client_filepath (char *filepath,
 
         switch (type) {
         case GF_TRANSPORT_TCP:
-                snprintf (filepath, PATH_MAX, "%s/trusted-%s-fuse.vol",
+                snprintf (filepath, PATH_MAX, "%s/trusted-%s.tcp-fuse.vol",
                           path, volinfo->volname);
                 break;
 

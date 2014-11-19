@@ -158,7 +158,8 @@ build_volfile_path (char *volume_id, char *path,
         char                    *free_ptr               = NULL;
         char                    *volname                = NULL;
         char                    *volid_ptr              = NULL;
-        char                     path_prefix [PATH_MAX] = {0,};
+        char                     dup_volid[PATH_MAX]    = {0,};
+        char                     path_prefix[PATH_MAX]  = {0,};
         xlator_t                *this                   = NULL;
         glusterd_volinfo_t      *volinfo                = NULL;
         glusterd_conf_t         *priv                   = NULL;
@@ -275,10 +276,27 @@ gotvolinfo:
         ret = stat (path, &stbuf);
 
         if ((ret == -1) && (errno == ENOENT)) {
+                strcpy (dup_volid, volid_ptr);
+                if (!strchr (dup_volid, '.')) {
+                        switch (volinfo->transport_type) {
+                        case GF_TRANSPORT_TCP:
+                                strcat (dup_volid, ".tcp");
+                                break;
+                        case GF_TRANSPORT_RDMA:
+                                strcat (dup_volid, ".rdma");
+                                break;
+                        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                                strcat (dup_volid, ".tcp");
+                                break;
+                        default:
+                                ret = -1;
+                                break;
+                        }
+                }
                 snprintf (path, path_len, "%s/%s/%s%s-fuse.vol",
                           path_prefix, volinfo->volname,
                           (trusted_str ? trusted_str : ""),
-                          volid_ptr);
+                          dup_volid);
                 ret = stat (path, &stbuf);
         }
 out:
