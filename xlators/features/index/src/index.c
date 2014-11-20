@@ -584,6 +584,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long)fctx);
         if (ret) {
+                closedir (fctx->dir);
                 GF_FREE (fctx);
                 fctx = NULL;
                 ret = -EINVAL;
