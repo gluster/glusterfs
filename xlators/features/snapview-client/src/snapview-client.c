@@ -147,16 +147,36 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
            is happening on a virtual inode (i.e history data residing in snaps).
            So if lookup fails with ENOENT and the inode context is not there,
            then send the lookup to the 2nd child of svc.
+
+           If there are any changes in volfile/client-restarted then inode-ctx
+           is lost. In this case if nameless lookup fails with ESTALE,
+           then send the lookup to the 2nd child of svc.
         */
         if (op_ret) {
-                if (op_errno == ENOENT &&
+                if (subvolume == FIRST_CHILD (this)) {
+                        gf_log (this->name,
+                                (op_errno == ENOENT || op_errno == ESTALE)
+                                ? GF_LOG_DEBUG:GF_LOG_ERROR,
+                                "Lookup failed on normal graph with error %s",
+                                strerror (op_errno));
+                } else {
+                        gf_log (this->name,
+                                (op_errno == ENOENT || op_errno == ESTALE)
+                                ? GF_LOG_DEBUG:GF_LOG_ERROR,
+                                "Lookup failed on snapview graph with error %s",
+                                strerror (op_errno));
+                }
+
+                if ((op_errno == ENOENT || op_errno == ESTALE) &&
                     !uuid_is_null (local->loc.gfid)) {
                         ret = svc_inode_ctx_get (this, inode, &inode_type);
                         if (ret < 0 && subvolume == FIRST_CHILD (this)) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "Lookup on normal graph failed. "
                                         "Sending lookup to snapview-server");
+
                                 subvolume = SECOND_CHILD (this);
+                                local->subvolume = subvolume;
                                 STACK_WIND (frame, svc_lookup_cbk, subvolume,
                                             subvolume->fops->lookup,
                                             &local->loc, xdata);
@@ -164,18 +184,7 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                if (subvolume == FIRST_CHILD (this)) {
-                        gf_log (this->name,
-                                (op_errno == ENOENT)?GF_LOG_DEBUG:GF_LOG_ERROR,
-                                "Lookup failed on normal graph with error %s",
-                                strerror (op_errno));
-                } else {
-                        gf_log (this->name,
-                                (op_errno == ENOENT)?GF_LOG_DEBUG:GF_LOG_ERROR,
-                                "Lookup failed on snapview graph with error %s",
-                                strerror (op_errno));
-                }
-                        goto out;
+                goto out;
         }
 
         if (local->loc.parent)

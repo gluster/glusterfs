@@ -3,11 +3,6 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../snapshot.rc
 
-function stat_testfile() {
-        stat $M0/snaps/snaps/testfile
-        echo $?
-}
-
 cleanup;
 TEST verify_lvm_version;
 TEST glusterd;
@@ -26,7 +21,7 @@ TEST $CLI snapshot activate snaps
 TEST $CLI volume set $V0 features.uss enable
 TEST $CLI volume set $V0 snapshot-directory snaps
 
-EXPECT_WITHIN 20 "0" stat_testfile
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/snaps/snaps/testfile
 
 umount -f $M0
 
