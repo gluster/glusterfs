@@ -826,3 +826,9 @@ function UMOUNT_LOOP ()
     ;;
   esac
 }
+
+function STAT()
+{
+        stat $1
+        echo $?
+}
