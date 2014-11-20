@@ -52,33 +52,32 @@ for idx in `seq 0 $LAST_BRICK`; do
     brick[$idx]=$(gf_get_gfid_backend_file_path $B0/$V0$idx)
 done
 
-cd $M0
-TEST stat .
-TEST mkdir dir1
-TEST [ -d dir1 ]
-TEST touch file1
-TEST [ -f file1 ]
+TEST stat $M0/
+TEST mkdir $M0/dir1
+TEST [ -d $M0/dir1 ]
+TEST touch $M0/file1
+TEST [ -f $M0/file1 ]
 
 for dir in . dir1; do
-    TEST cp $tmp/small $dir/small
-    TEST [ -f $dir/small ]
+    TEST cp $tmp/small $M0/$dir/small
+    TEST [ -f $M0/$dir/small ]
     fsize=$(fragment_size 1024)
-    EXPECT "1024" stat -c "%s" $dir/small
+    EXPECT "1024" stat -c "%s" $M0/$dir/small
     for idx in `seq 0 $LAST_BRICK`; do
         EXPECT "$fsize" stat -c "%s" ${brick[$idx]}/$dir/small
     done
 
-    EXPECT "$cs_small" echo $(sha1sum $dir/small | awk '{ print $1 }')
+    EXPECT "$cs_small" echo $(sha1sum $M0/$dir/small | awk '{ print $1 }')
 
-    TEST cp $tmp/big $dir/big
-    TEST [ -f $dir/big ]
+    TEST cp $tmp/big $M0/$dir/big
+    TEST [ -f $M0/$dir/big ]
     fsize=$(fragment_size 4194304)
-    EXPECT "4194304" stat -c "%s" $dir/big
+    EXPECT "4194304" stat -c "%s" $M0/$dir/big
     for idx in `seq 0 $LAST_BRICK`; do
         EXPECT "$fsize" stat -c "%s" ${brick[$idx]}/$dir/big
     done
 
-    EXPECT "$cs_big" echo $(sha1sum $dir/big | awk '{ print $1 }')
+    EXPECT "$cs_big" echo $(sha1sum $M0/$dir/big | awk '{ print $1 }')
 
 # Give enough time for current operations to complete. Otherwise the
 # following kill_brick can cause data corruption and self-heal will be
@@ -88,55 +87,55 @@ for dir in . dir1; do
     for idx in `seq 0 $LAST_BRICK`; do
         TEST kill_brick $V0 $H0 $B0/$V0$idx
 
-        EXPECT "1024" stat -c "%s" $dir/small
-        EXPECT "4194304" stat -c "%s" $dir/big
+        EXPECT "1024" stat -c "%s" $M0/$dir/small
+        EXPECT "4194304" stat -c "%s" $M0/$dir/big
 
         TEST $CLI volume start $V0 force
         EXPECT_WITHIN $CHILD_UP_TIMEOUT "$DISPERSE" ec_child_up_count $V0 0
     done
 
     for size in $SIZE_LIST; do
-        TEST truncate -s $size $dir/small
-        TEST [ -f $dir/small ]
+        TEST truncate -s $size $M0/$dir/small
+        TEST [ -f $M0/$dir/small ]
         fsize=$(fragment_size $size)
-        EXPECT "$size" stat -c "%s" $dir/small
+        EXPECT "$size" stat -c "%s" $M0/$dir/small
         for idx in `seq 0 $LAST_BRICK`; do
             EXPECT "$fsize" stat -c "%s" ${brick[$idx]}/$dir/small
         done
 
-        EXPECT "${cs_small_truncate[$size]}" echo $(sha1sum $dir/small | awk '{ print $1 }')
+        EXPECT "${cs_small_truncate[$size]}" echo $(sha1sum $M0/$dir/small | awk '{ print $1 }')
 
-        TEST truncate -s $size $dir/big
-        TEST [ -f $dir/big ]
-        EXPECT "$size" stat -c "%s" $dir/big
+        TEST truncate -s $size $M0/$dir/big
+        TEST [ -f $M0/$dir/big ]
+        EXPECT "$size" stat -c "%s" $M0/$dir/big
         for idx in `seq 0 $LAST_BRICK`; do
             EXPECT "$fsize" stat -c "%s" ${brick[$idx]}/$dir/big
         done
 
-        EXPECT "${cs_big_truncate[$size]}" echo $(sha1sum $dir/big | awk '{ print $1 }')
+        EXPECT "${cs_big_truncate[$size]}" echo $(sha1sum $M0/$dir/big | awk '{ print $1 }')
     done
 
-    TEST rm -f $dir/small
-    TEST [ ! -e $dir/small ]
+    TEST rm -f $M0/$dir/small
+    TEST [ ! -e $M0/$dir/small ]
     for idx in `seq 0 $LAST_BRICK`; do
         TEST [ ! -e ${brick[$idx]}/$dir/small ]
     done
 
-    TEST rm -f $dir/big
-    TEST [ ! -e $dir/big ]
+    TEST rm -f $M0/$dir/big
+    TEST [ ! -e $M0/$dir/big ]
     for idx in `seq 0 $LAST_BRICK`; do
         TEST [ ! -e ${brick[$idx]}/$dir/big ]
     done
 done
 
-TEST rmdir dir1
-TEST [ ! -e dir1 ]
+TEST rmdir $M0/dir1
+TEST [ ! -e $M0/dir1 ]
 for idx in `seq 0 $LAST_BRICK`; do
     TEST [ ! -e ${brick[$idx]}/dir1 ]
 done
 
-TEST rm -f file1
-TEST [ ! -e file1 ]
+TEST rm -f $M0/file1
+TEST [ ! -e $M0/file1 ]
 for idx in `seq 0 $LAST_BRICK`; do
     TEST [ ! -e ${brick[$idx]}/file1 ]
 done

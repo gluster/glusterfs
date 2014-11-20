@@ -10,7 +10,7 @@ cleanup
 function check_mount_dir
 {
     for i in {1..20}; do
-        ls -l | grep "dir1"
+        ls -l $M0/ | grep "dir1"
         if [ $? -ne 0 ]; then
             return 1
         fi
@@ -21,7 +21,7 @@ function check_mount_dir
 
 function check_size
 {
-    stat $1
+    stat $M0/$1
     for i in "${brick[@]}"; do
         res=`stat -c "%s" $i/$1`
         if [ "$res" != "$2" ]; then
@@ -35,7 +35,7 @@ function check_size
 
 function check_mode
 {
-    stat $1
+    stat $M0/$1
     for i in "${brick[@]}"; do
         res=`stat -c "%A" $i/$1`
         if [ "$res" != "$2" ]; then
@@ -49,7 +49,7 @@ function check_mode
 
 function check_date
 {
-    stat $1
+    stat $M0/$1
     for i in "${brick[@]}"; do
         res=`stat -c "%Y" $i/$1`
         if [ "$res" != "$2" ]; then
@@ -63,7 +63,7 @@ function check_date
 
 function check_xattr
 {
-    stat $1
+    stat $M0/$1
     for i in "${brick[@]}"; do
         getfattr -n $2 $i/$1 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -77,7 +77,7 @@ function check_xattr
 
 function check_dir
 {
-    getfattr -m. -d dir1
+    getfattr -m. -d $M0/dir1
     for i in "${brick[@]}"; do
         if [ ! -d $i/dir1 ]; then
             echo "N"
@@ -90,7 +90,7 @@ function check_dir
 
 function check_soft_link
 {
-    stat test3
+    stat $M0/test3
     for i in "${brick[@]}"; do
         if [ ! -h $i/test3 ]; then
             echo "N"
@@ -103,9 +103,10 @@ function check_soft_link
 
 function check_hard_link
 {
-    stat test4
+    stat $M0/test4
     for i in "${brick[@]}"; do
-        if [ `stat -c "%h" $i/test4` -ne 3 ]; then
+        res=`stat -c "%h" $i/test4`
+        if [ "$res" != "3" ]; then
             echo "N"
             return 0
         fi
@@ -142,19 +143,17 @@ for idx in {0..5}; do
     brick[$idx]=$(gf_get_gfid_backend_file_path $B0/$V0$idx)
 done
 
-
-cd $M0
-TEST cp $tmp/test test
-TEST chmod 644 test
-TEST touch -d "@946681200" test
-EXPECT "-rw-r--r--" stat -c "%A" test
-EXPECT "946681200" stat -c "%Y" test
+TEST cp $tmp/test $M0/test
+TEST chmod 644 $M0/test
+TEST touch -d "@946681200" $M0/test
+EXPECT "-rw-r--r--" stat -c "%A" $M0/test
+EXPECT "946681200" stat -c "%Y" $M0/test
 
 for idx1 in {0..5}; do
     TEST chmod 666 ${brick[$idx1]}/test
     TEST truncate -s 0 ${brick[$idx1]}/test
     TEST setfattr -n user.test -v "test1" ${brick[$idx1]}/test
-    EXPECT "-rw-r--r--" stat -c "%A" test
+    EXPECT "-rw-r--r--" stat -c "%A" $M0/test
     EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_size test "262144"
     EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mode test "-rw-r--r--"
     EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_date test "946681200"
@@ -170,7 +169,7 @@ for idx1 in {0..4}; do
             TEST truncate -s 2097152 ${brick[$idx2]}/test
             TEST setfattr -n user.test -v "test1" ${brick[$idx1]}/test
             TEST setfattr -n user.test -v "test2" ${brick[$idx2]}/test
-            EXPECT "-rw-r--r--" stat -c "%A" test
+            EXPECT "-rw-r--r--" stat -c "%A" $M0/test
             EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_size test "262144"
             EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mode test "-rw-r--r--"
             EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_date test "946681200"
@@ -183,21 +182,21 @@ sleep 2
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST cp $tmp/test test2
-EXPECT "1048576" stat -c "%s" test2
-TEST chmod 777 test2
-EXPECT "-rwxrwxrwx" stat -c "%A" test2
+TEST cp $tmp/test $M0/test2
+EXPECT "1048576" stat -c "%s" $M0/test2
+TEST chmod 777 $M0/test2
+EXPECT "-rwxrwxrwx" stat -c "%A" $M0/test2
 
-TEST mkdir dir1
-TEST ls -al dir1
+TEST mkdir $M0/dir1
+TEST ls -al $M0/dir1
 
-TEST ln -s test2 test3
-TEST [ -h test3 ]
+TEST ln -s test2 $M0/test3
+TEST [ -h $M0/test3 ]
 
-TEST ln test2 test4
-TEST [ -f test4 ]
-EXPECT "2" stat -c "%h" test2
-EXPECT "2" stat -c "%h" test4
+TEST ln $M0/test2 $M0/test4
+TEST [ -f $M0/test4 ]
+EXPECT "2" stat -c "%h" $M0/test2
+EXPECT "2" stat -c "%h" $M0/test4
 
 sleep 2
 
@@ -208,18 +207,18 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 
 TEST check_mount_dir
 
-EXPECT "1048576" stat -c "%s" test2
-EXPECT "-rwxrwxrwx" stat -c "%A" test2
+EXPECT "1048576" stat -c "%s" $M0/test2
+EXPECT "-rwxrwxrwx" stat -c "%A" $M0/test2
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_size test2 "262144"
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_mode test2 "-rwxrwxrwx"
 
-TEST ls -al dir1
+TEST ls -al $M0/dir1
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_dir
 
-TEST [ -h test3 ]
+TEST [ -h $M0/test3 ]
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_soft_link
 
-EXPECT "2" stat -c "%h" test4
+EXPECT "2" stat -c "%h" $M0/test4
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" check_hard_link
 
 TEST rm -rf $tmp
