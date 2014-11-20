@@ -423,15 +423,13 @@ sync_base_indices (void *index_priv)
 
                 }
         }
-        ret = closedir (xattrop_dir);
-        if (ret)
-                goto out;
-        ret = closedir (dir_base_holder);
-        if (ret)
-                goto out;
 
         ret = 0;
 out:
+        if (xattrop_dir)
+                closedir (xattrop_dir);
+        if (dir_base_holder)
+                closedir (dir_base_holder);
         return ret;
 
 }
@@ -501,7 +499,6 @@ sync_base_indices_from_xattrop (xlator_t *this)
                         if (ret)
                                 goto out;
                 }
-                closedir (dir);
         }
 
         /*At this point of time we have index/base_indicies_holder directory
@@ -519,9 +516,10 @@ sync_base_indices_from_xattrop (xlator_t *this)
         ret = synctask_new (this->ctx->env, sync_base_indices,
                             base_indices_syncing_done,frame, priv);
 
-
-
 out:
+        if (dir)
+                closedir (dir);
+
         return ret;
 
 }
@@ -775,6 +773,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long)fctx);
         if (ret) {
+                closedir (fctx->dir);
                 GF_FREE (fctx);
                 fctx = NULL;
                 ret = -EINVAL;
