@@ -70,7 +70,7 @@ function same_vol_remove_brick {
         local vol=$1
         local brick=$2
         $CLI_1 volume remove-brick $1 $2 start &
-        PID =$!
+        PID=$!
         $CLI_2 volume remove-brick $1 $2 start
         wait $PID
 }
