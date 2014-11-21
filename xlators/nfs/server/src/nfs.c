@@ -846,12 +846,13 @@ nfs_init_state (xlator_t *this)
                 }
         }
 
-        if (dict_get(this->options, "transport-type") == NULL) {
-                ret = dict_set_str (this->options, "transport-type", "socket");
-                if (ret == -1) {
-                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
-                        goto free_foppool;
-                }
+        /* Right only socket support exists between nfs client and
+         * gluster nfs, so we can set default value as socket
+         */
+        ret = dict_set_str (this->options, "transport-type", "socket");
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                goto free_foppool;
         }
 
         nfs->mount_udp = 0;
