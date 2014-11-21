@@ -1763,6 +1763,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = GD_OP_VERSION_3_7_0,
         },
+        { .key        = "features.shard",
+          .voltype    = "features/shard",
+          .value      = "off",
+          .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "features.shard-block-size",
+          .voltype    = "features/shard",
+          .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };
