@@ -934,7 +934,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 
         pfd->dir = dir;
         pfd->dir_eof = -1;
-        pfd->fd = dirfd (dir);
+        pfd->fd = op_ret;
 
         op_ret = fd_ctx_set (fd, this, (uint64_t)(long)pfd);
         if (op_ret)
