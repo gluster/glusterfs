@@ -3353,6 +3353,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret == -1)
                 goto out;
 
+        ret = dict_get_str_boolean (set_dict, "features.shard", _gf_false);
+        if (ret == -1)
+                goto out;
+
+        if (ret) {
+                xl = volgen_graph_add (graph, "features/shard", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         /* As of now snapshot volume is read-only. Read-only xlator is loaded
          * in client graph so that AFR & DHT healing can be done in server.
          */
@@ -3388,7 +3400,6 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         if (ret) {
                 xl = volgen_graph_add (graph, "encryption/crypt", volname);
-
                 if (!xl) {
                         ret = -1;
                         goto out;
