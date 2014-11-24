@@ -13136,6 +13136,19 @@ out:
         return ret;
 }
 
+void
+glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
+                                char *path, int path_len)
+{
+        char                    workdir[PATH_MAX]      = {0,};
+        glusterd_conf_t        *priv                   = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
+
+        snprintf (path, path_len, "%s/%s-rebalance.vol", workdir,
+                  volinfo->volname);
+}
+
 /* Snapd functions */
 int
 glusterd_is_snapd_enabled (glusterd_volinfo_t *volinfo)

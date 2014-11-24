@@ -2690,14 +2690,16 @@ static int
 client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        int              ret     = 0;
-        xlator_t        *xl      = NULL;
-        char            *volname = NULL;
-        glusterd_conf_t *conf    = THIS->private;
-        char            *tmp     = NULL;
-        gf_boolean_t     var     = _gf_false;
-        gf_boolean_t     ob      = _gf_false;
-        xlator_t        *this    = THIS;
+        int              ret           = 0;
+        xlator_t        *xl            = NULL;
+        char            *volname       = NULL;
+        glusterd_conf_t *conf          = THIS->private;
+        char            *tmp           = NULL;
+        gf_boolean_t     var           = _gf_false;
+        gf_boolean_t     ob            = _gf_false;
+        gf_boolean_t     uss_enabled   = _gf_false;
+        gf_boolean_t     rebal_volfile = _gf_false;
+        xlator_t        *this          = THIS;
 
         GF_ASSERT (this);
         GF_ASSERT (conf);
@@ -2881,14 +2883,24 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        ret = dict_get_str_boolean (set_dict, "features.uss", _gf_false);
-        if (ret == -1)
+        uss_enabled = dict_get_str_boolean (set_dict, "features.uss",
+                                            _gf_false);
+        if (uss_enabled == -1)
                 goto out;
-        if (ret && !volinfo->is_snap_volume) {
-                ret = volgen_graph_build_snapview_client
-                                           (graph, volinfo, volname, set_dict);
-                if (ret == -1)
+        if (uss_enabled && !volinfo->is_snap_volume) {
+                rebal_volfile = dict_get_str_boolean (set_dict,
+                                                   "rebalance-volfile-creation",
+                                                   _gf_false);
+                if (rebal_volfile == -1)
                         goto out;
+
+                if (!rebal_volfile) {
+                        ret = volgen_graph_build_snapview_client
+                                                   (graph, volinfo,
+                                                    volname, set_dict);
+                        if (ret == -1)
+                                goto out;
+                }
         }
 
         /* add debug translators depending on the options */
@@ -3895,6 +3907,27 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
         }
+
+        /* Generate volfile for rebalance process */
+        ret = dict_set_int32 (dict, "rebalance-volfile-creation", _gf_true);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set rebalance-volfile-creation");
+                goto out;
+        }
+
+        glusterd_get_rebalance_volfile (volinfo, filepath, PATH_MAX);
+
+        ret = generate_single_transport_client_volfile (volinfo,
+                                                        filepath,
+                                                        dict);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create rebalance volfile for %s",
+                        volinfo->volname);
+                goto out;
+        }
+
 out:
         if (dict)
                 dict_unref (dict);

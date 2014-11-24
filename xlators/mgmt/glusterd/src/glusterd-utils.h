@@ -921,4 +921,8 @@ glusterd_op_clear_xaction_peers ();
 
 gf_boolean_t
 mntopts_exists (const char *str, const char *opts);
+
+void
+glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
+                                char *path, int path_len);
 #endif
