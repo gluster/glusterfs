@@ -6722,12 +6722,15 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         cli_out ("Status of volume: %s", volname);
 
         if ((cmd & GF_CLI_STATUS_DETAIL) == 0) {
-                cli_out ("Gluster process\t\t\t\t\t\tPort\tOnline\tPid");
+                cli_out ("%-*s %s  %s  %s  %s", CLI_VOL_STATUS_BRICK_LEN,
+                         "Gluster process", "TCP Port", "RDMA Port",
+                         "Online", "Pid");
                 cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
         }
 
         for (i = 0; i <= index_max; i++) {
 
+                status.rdma_port = 0;
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
@@ -6751,9 +6754,15 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                     !strcmp (hostname, "Snapshot Daemon"))
                         snprintf (status.brick, PATH_MAX + 255, "%s on %s",
                                   hostname, path);
-                else
+                else {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "brick%d.rdma_port", i);
+                        ret = dict_get_int32 (dict, key, &(status.rdma_port));
+                        if (ret)
+                                continue;
                         snprintf (status.brick, PATH_MAX + 255, "Brick %s:%s",
                                   hostname, path);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.port", i);
@@ -6786,10 +6795,10 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
                         cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
                         cli_print_detailed_status (&status);
-
                 } else {
                         cli_print_brick_status (&status);
                 }
+
         }
         cli_out (" ");
 

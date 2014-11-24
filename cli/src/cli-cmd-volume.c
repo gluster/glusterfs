@@ -1778,10 +1778,15 @@ void
 cli_print_detailed_status (cli_volume_status_t *status)
 {
         cli_out ("%-20s : %-20s", "Brick", status->brick);
-        if (status->online)
-                cli_out ("%-20s : %-20d", "Port", status->port);
-        else
-                cli_out ("%-20s : %-20s", "Port", "N/A");
+
+        if (status->online) {
+                cli_out ("%-20s : %-20d", "TCP Port", status->port);
+                cli_out ("%-20s : %-20d", "RDMA Port", status->rdma_port);
+        } else {
+                cli_out ("%-20s : %-20s", "TCP Port", "N/A");
+                cli_out ("%-20s : %-20s", "RDMA Port", "N/A");
+        }
+
         cli_out ("%-20s : %-20c", "Online", (status->online) ? 'Y' : 'N');
         cli_out ("%-20s : %-20s", "Pid", status->pid_str);
 
@@ -1842,7 +1847,7 @@ cli_print_brick_status (cli_volume_status_t *status)
         int  fieldlen = CLI_VOL_STATUS_BRICK_LEN;
         int  bricklen = 0;
         char *p = NULL;
-        int  num_tabs = 0;
+        int  num_spaces = 0;
 
         p = status->brick;
         bricklen = strlen (p);
@@ -1852,25 +1857,27 @@ cli_print_brick_status (cli_volume_status_t *status)
                         p += fieldlen;
                         bricklen -= fieldlen;
                 } else {
-                        num_tabs = (fieldlen - bricklen) / CLI_TAB_LENGTH + 1;
+                        num_spaces = (fieldlen - bricklen) + 1;
                         printf ("%s", p);
-                        while (num_tabs-- != 0)
-                                printf ("\t");
-                        if (status->port) {
+                        while (num_spaces-- != 0)
+                                printf (" ");
+                        if (status->port || status->rdma_port) {
                                 if (status->online)
-                                        cli_out ("%d\t%c\t%s",
+                                        cli_out ("%-10d%-11d%-8c%-5s",
                                                  status->port,
+                                                 status->rdma_port,
                                                  status->online?'Y':'N',
                                                  status->pid_str);
                                 else
-                                        cli_out ("%s\t%c\t%s",
+                                        cli_out ("%-10s%-11s%-8c%-5s",
+                                                 "N/A",
                                                  "N/A",
                                                  status->online?'Y':'N',
                                                  status->pid_str);
                         }
                         else
-                                cli_out ("%s\t%c\t%s",
-                                         "N/A", status->online?'Y':'N',
+                                cli_out ("%-10s%-11s%-8c%-5s",
+                                         "N/A", "N/A", status->online?'Y':'N',
                                          status->pid_str);
                         bricklen = 0;
                 }

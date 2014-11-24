@@ -20,7 +20,7 @@ function port_field()
     if [ $opt -eq '0' ]; then
         $CLI volume status $vol | grep "brick0" | awk '{print $3}';
     else
-        $CLI volume status $vol detail | grep "^Port " | awk '{print $3}';
+        $CLI volume status $vol detail | grep "^TCP Port " | awk '{print $4}';
     fi
 }
 

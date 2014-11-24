@@ -6112,9 +6112,23 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.port", base_key);
-        ret = dict_set_int32 (dict, key, brickinfo->port);
+        ret = dict_set_int32 (dict, key, (volinfo->transport_type ==
+                              GF_TRANSPORT_RDMA) ? 0 : brickinfo->port);
         if (ret)
                 goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.rdma_port", base_key);
+        if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
+                ret = dict_set_int32 (dict, key, brickinfo->port);
+        } else if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
+                ret = dict_set_int32 (dict, key, brickinfo->rdma_port);
+        } else
+                ret = dict_set_int32 (dict, key, 0);
+
+        if (ret)
+                goto out;
+
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
 
