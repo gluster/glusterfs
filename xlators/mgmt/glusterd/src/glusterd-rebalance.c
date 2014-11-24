@@ -207,6 +207,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         char                   sockfile[PATH_MAX] = {0,};
         char                   pidfile[PATH_MAX] = {0,};
         char                   logfile[PATH_MAX] = {0,};
+        char                   volname[PATH_MAX] = {0,};
         char                   valgrind_logfile[PATH_MAX] = {0,};
 
         priv    = THIS->private;
@@ -264,8 +265,9 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                 runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
         }
 
+        snprintf (volname, sizeof(volname), "rebalance/%s", volinfo->volname);
         runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", "localhost", "--volfile-id", volinfo->volname,
+                         "-s", "localhost", "--volfile-id", volname,
                          "--xlator-option", "*dht.use-readdirp=yes",
                          "--xlator-option", "*dht.lookup-unhashed=yes",
                          "--xlator-option", "*dht.assert-no-child-down=yes",
@@ -804,19 +806,41 @@ out:
 int32_t
 glusterd_defrag_event_notify_handle (dict_t *dict)
 {
-        glusterd_volinfo_t      *volinfo = NULL;
-        char                    *volname = NULL;
-        int32_t                  ret     = -1;
+        glusterd_volinfo_t      *volinfo     = NULL;
+        char                    *volname     = NULL;
+        char                    *volname_ptr = NULL;
+        int32_t                  ret         = -1;
+        xlator_t                *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (dict);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Failed to get volname");
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get volname");
                 return ret;
+        }
+
+        volname_ptr = strstr (volname, "rebalance/");
+        if (volname_ptr) {
+                volname_ptr = strchr (volname_ptr, '/');
+                if (!volname_ptr) {
+                        ret = -1;
+                        goto out;
+                }
+                volname = volname_ptr + 1;
+        } else {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "volname recieved (%s) is not prefixed with rebalance.",
+                        volname);
+                ret = -1;
+                goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Failed to get volinfo for %s"
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get volinfo for %s"
                         , volname);
                 return ret;
         }
@@ -824,6 +848,8 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
         ret = glusterd_defrag_volume_status_update (volinfo, dict);
 
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "Failed to update status");
+                gf_log (this->name, GF_LOG_ERROR, "Failed to update status");
+
+out:
         return ret;
 }
