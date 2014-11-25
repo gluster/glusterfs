@@ -1010,7 +1010,7 @@ saved_LDFLAGS=$LDFLAGS
 
 CFLAGS="`${PYTHON}-config --cflags`"
 CPPFLAGS=$CFLAGS
-LDFLAGS="-L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+LDFLAGS="-L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
 
 AC_CHECK_HEADERS([python$PYTHON_VERSION/Python.h],[have_Python_h=yes],[])
 AC_ARG_ENABLE([glupy],
