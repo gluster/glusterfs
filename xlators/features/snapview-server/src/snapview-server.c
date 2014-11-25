@@ -2016,8 +2016,13 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
            fuse and nfs. So set frame->root->pid as fspid of the syncop
            if the call came from nfs
         */
-        if (!is_fuse_call)
+        if (!is_fuse_call) {
                 syncopctx_setfspid (&frame->root->pid);
+                syncopctx_setfsuid (&frame->root->uid);
+                syncopctx_setfsgid (&frame->root->gid);
+                syncopctx_setfsgroups (frame->root->ngrps,
+                                       frame->root->groups);
+        }
 
         ret = glfs_h_access (fs, object, mask);
         if (ret < 0) {
