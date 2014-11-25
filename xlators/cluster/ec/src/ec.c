@@ -23,7 +23,7 @@
  * using the rule that redundancy cannot be equal or greater than the number
  * of fragments.
  */
-#define EC_MAX_NODES     (EC_MAX_FRAGMENTS + ((EC_MAX_FRAGMENTS - 1) / 2))
+#define EC_MAX_NODES min(EC_MAX_FRAGMENTS * 2 - 1, EC_METHOD_MAX_NODES)
 
 int32_t ec_parse_options(xlator_t * this)
 {
