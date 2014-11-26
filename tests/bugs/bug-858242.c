@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#ifndef linux
+#define fstat64(fd, st) fstat(fd, st)
+#endif
+
 int
 main (int argc, char *argv[])
 {

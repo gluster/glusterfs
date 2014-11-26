@@ -30,8 +30,7 @@ function xml_port_field()
     local opt=$2;
         $CLI --xml volume status $vol $opt | tr -d '\n' |\
 #Find the first occurrence of the string between <port> and </port>
-        sed -r 's/<port>/&\n/;s/<\/port>/\n&/;s/^.*\n(.*)\n.*$/\1/'| \
-        grep -v xml | tr -d '\n';
+        sed -rn 's/<port>/&###/;s/<\/port>/###&/;s/^.*###(.*)###.*$/\1/p'
 }
 
 TEST $CLI volume status $V0;
