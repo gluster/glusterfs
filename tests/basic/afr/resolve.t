@@ -45,5 +45,7 @@ echo jkl > $M1/b
 TEST setfattr -x trusted.afr.$V0-client-0 $B0/${V0}1
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
-TEST ! cat $M0/b
+# The kernel knows nothing about the tricks done to the volume, and the file 
+# may still be in page cache. Wait for timeout.
+EXPECT_WITHIN 10 "" cat $M0/b
 cleanup
