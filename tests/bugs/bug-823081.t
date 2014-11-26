@@ -22,20 +22,20 @@ function set_tail ()
 set_tail $V0;
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2};
-tail=`tail --lines=1 $logdir/$cmd_log_history | cut -d " " -f 5-`
+tail=`tail -n 1 $logdir/$cmd_log_history | cut -d " " -f 5-`
 TEST [[ \"$tail\" == \"$tail_success\" ]]
 
 TEST ! $CLI volume create $V0 $H0:$B0/${V0}{1,2};
-tail=`tail --lines=1 $logdir/$cmd_log_history | cut -d " " -f 5-`
+tail=`tail -n 1 $logdir/$cmd_log_history | cut -d " " -f 5-`
 TEST [[ \"$tail\" == \"$tail_failure\" ]]
 
 set_tail $V1;
 TEST gluster volume create $V1 $H0:$B0/${V1}{1,2} force;
-tail=`tail --lines=1 $logdir/$cmd_log_history | cut -d " " -f 5-`
+tail=`tail -n 1 $logdir/$cmd_log_history | cut -d " " -f 5-`
 TEST [[ \"$tail\" == \"$tail_success_force\" ]]
 
 TEST ! gluster volume create $V1 $H0:$B0/${V1}{1,2} force;
-tail=`tail --lines=1 $logdir/$cmd_log_history | cut -d " " -f 5-`
+tail=`tail -n 1 $logdir/$cmd_log_history | cut -d " " -f 5-`
 TEST [[ \"$tail\" == \"$tail_failure_force\" ]]
 
 cleanup;

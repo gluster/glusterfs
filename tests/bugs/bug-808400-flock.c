@@ -7,6 +7,10 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 
+#ifndef linux
+#define fstat64(fd, st) fstat(fd, st)
+#endif
+
 int
 run_child (char *filename)
 {

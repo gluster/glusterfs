@@ -27,7 +27,7 @@ function get_layout()
 	fi
 
 	# Figure out where the join point is.
-	target=$(python -c "print '%08x' % (0x$layout1_e + 1)")
+	target=$( $PYTHON -c "print '%08x' % (0x$layout1_e + 1)")
 	#echo "target for layout2 = $target" > /dev/tty
 
 	# The second layout should cover everything that the first doesn't.

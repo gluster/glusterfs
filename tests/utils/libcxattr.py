@@ -9,6 +9,7 @@
 #
 
 import os
+import sys
 from ctypes import CDLL, c_int, create_string_buffer
 from ctypes.util import find_library
 
@@ -25,10 +26,18 @@ class Xattr(object):
          sizes we expect
     """
 
-    libc = CDLL(find_library("libc"))
+    if sys.hexversion >= 0x02060000:
+        from ctypes import DEFAULT_MODE
+        libc = CDLL(find_library("libc"), DEFAULT_MODE, None, True)
+    else:
+        libc = CDLL(find_library("libc"))
 
     @classmethod
     def geterrno(cls):
+        if sys.hexversion >= 0x02060000:
+            from ctypes import get_errno
+            return get_errno()
+        # breaks on NetBSD
         return c_int.in_dll(cls.libc, 'errno').value
 
     @classmethod

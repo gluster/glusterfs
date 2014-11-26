@@ -301,7 +301,7 @@ which killall > /dev/null || {
 
 which pidof > /dev/null || {
   pidof() {
-    pidof.py $@
+    $PYTHON pidof.py $@
   }
 }
 
@@ -612,13 +612,13 @@ which md5sum > /dev/null || {
 
 which setfattr > /dev/null || {
   setfattr() {
-    setfattr.py $@
+    $PYTHON setfattr.py $@
   }
 }
 
 which getfattr > /dev/null || {
   getfattr() {
-    getfattr.py $@
+    $PYTHON getfattr.py $@
   }
 }
 
@@ -659,6 +659,26 @@ useradd --help 2>/dev/null | grep -q -- '--no-create-home' || {
   }
 }
 
+userdel --help 2>/dev/null | grep -q -- '--force' || {
+  userdel() {
+    if [ "x$1" = "x--force" ]; then
+      user=$2
+    else
+      user=$1
+    fi
+    eval "$( which userdel ) $user"
+  }
+}
+
+useradd --help 2>/dev/null | grep -q -- '--no-create-home' || {
+  useradd() {
+    # Just remove -M (do not create home) which is the default
+    # other options are identical
+    args=`echo $*|sed 's/-M//'`
+    eval "$( which useradd ) $args"
+  }
+}
+
 alias EXPECT='_EXPECT $LINENO'
 alias EXPECT_NOT='_EXPECT_NOT $LINENO'
 alias TEST='_TEST $LINENO'
@@ -676,6 +696,156 @@ fi
 # probably the safest option there and on anything we don't recognize, but
 # if you want to reduce the noise level and know the correct option for
 # your favorite platform please feel free to add it here.
+
+function SETUP_LOOP ()
+{
+  if [ $# != 1 ] ; then
+    echo "SETUP_LOOP usage" >&2
+    exit 1;
+  fi
+
+  backend=$1
+
+  case ${OSTYPE} in
+  Linux)
+    losetup --find --show ${backend}
+    ;;
+  NetBSD)
+    vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
+    if [ "x${vnd}" = "x" ] ; then
+      echo "no more vnd" >&2
+      exit 1;
+    fi
+    vnconfig ${vnd} ${backend}
+    echo ${vnd}
+    ;;
+  *)
+    echo "Please define SETUP_LOOP for ${OSTYPE} in include.rc" >&2
+    exit 1;
+    ;;
+  esac
+}
+
+function MKFS_LOOP ()
+{
+  args=`getopt i: $*`
+  if [ $? -ne 0 ] ; then
+    echo "MKFS_LOOP usage" >&2
+    exit 1;
+  fi
+  set -- ${args}
+
+  isize=""
+  while test $# -gt 0; do
+    case "$1" in
+    -i)         isize=$2; shift ;;
+    --)         shift; break ;;
+    esac
+    shift
+  done
+
+  dev=$1
+
+  case ${OSTYPE} in
+  Linux)
+    test "x${isize}" != "x" && isize="-i size=${isize}"
+    mkfs.xfs  -f ${isize} ${dev}
+    ;;
+  NetBSD)
+    test "x${isize}" != "x" && isize="-i ${isize}"
+
+    echo ${dev} | grep -q '^vnd'
+    if [ $? -ne 0 ] ; then
+      vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
+      if [ "x${vnd}" = "x" ] ; then
+        echo "no more vnd" >&2
+        exit 1;
+      fi
+      vnconfig ${vnd} ${dev}
+    else
+      vnd=${dev}
+    fi
+    newfs ${isize} /dev/r${vnd}a
+    ;;
+  *)
+    echo "Please define MKFS_LOOP for ${OSTYPE} in include.rc" >&2
+    exit 1;
+    ;;
+  esac
+}
+
+function MOUNT_LOOP ()
+{
+  if [ $# != 2 ] ; then
+    echo "MOUNT_LOOP usage" >&2
+    exit 1;
+  fi
+
+  dev=$1
+  target=$2
+
+  case ${OSTYPE} in
+  Linux)
+    echo ${dev} | grep -q '^/dev/loop'
+    if [ $? -eq 0 ] ; then
+      mount -t xfs  ${dev} ${target}
+    else
+      mount -o loop  ${dev} ${target}
+    fi
+    ;;
+  NetBSD)
+    echo ${dev} | grep -q '^vnd'
+    if [ $? -ne 0 ] ; then
+      ino=`/usr/bin/stat -f %i ${dev}`
+      dev=`vnconfig -l | awk -v ino=${ino} -F'[: ]*' '($5 == ino) {print $1}'`
+    fi
+
+    mount /dev/${dev}a ${target} >&2
+    if [ $? -ne 0 ] ; then
+      echo "failed to mount  /dev/${dev}a on  ${target}" >&2
+      exit 1
+    fi
+
+    mkdir -p ${target}/.attribute/system  ${target}/.attribute/user
+    mount -u -o extattr ${target} >&2
+
+    ;;
+  *)
+    echo "Please define MOUNT_LOOP for ${OSTYPE} in include.rc" >&2
+    exit 1;
+    ;;
+  esac
+}
+
+function UMOUNT_LOOP ()
+{
+  case ${OSTYPE} in
+  Linux)
+    force_umount $*
+    ;;
+  NetBSD)
+    for target in $* ; do
+      dev=`mount | awk -v target=${target} '($3 == target) {print $1}'`
+      force_umount ${target}
+      echo ${dev} | grep -q '^/dev/vnd'
+      if [ $? -eq 0 ] ; then
+        dev=`echo ${dev} | sed 's|^/dev/||; s|a$||'`
+        vnconfig -u ${dev}
+      else
+        ino=`/usr/bin/stat -f %i ${dev}`
+        dev=`vnconfig -l | awk -v ino=${ino} -F'[: ]*' '($5 == ino) {print $1}'`
+        if [ "x${dev}" != "x" ] ; then
+          vnconfig -u ${dev}
+        fi
+      fi
+    done
+    ;;
+  *)
+    echo "Please define UMOUNT_LOOP for ${OSTYPE} in include.rc" >&2
+    exit 1;
+    ;;
+  esac
+}
 
 function SETUP_LOOP ()
 {
