@@ -396,10 +396,11 @@ cli_opt_parse (char *opt, struct cli_state *state)
 int
 parse_cmdline (int argc, char *argv[], struct cli_state *state)
 {
-        int         ret = 0;
-        int         i = 0;
-        int         j = 0;
-        char        *opt = NULL;
+        int                 ret            = 0;
+        int                 i              = 0;
+        int                 j              = 0;
+        char               *opt            = NULL;
+        gf_boolean_t       geo_rep_config  = _gf_false;
 
         state->argc=argc-1;
         state->argv=&argv[1];
@@ -409,9 +410,14 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
                 state->ctx->secure_mgmt = 1;
         }
 
+        if (state->argc >= GEO_REP_CMD_CONFIG_INDEX &&
+            strtail (state->argv[GEO_REP_CMD_INDEX], "geo") &&
+            strtail (state->argv[GEO_REP_CMD_CONFIG_INDEX], "co"))
+                geo_rep_config = _gf_true;
+
         for (i = 0; i < state->argc; i++) {
                 opt = strtail (state->argv[i], "--");
-                if (opt) {
+                if (opt && !geo_rep_config) {
                         ret = cli_opt_parse (opt, state);
                         if (ret == -1) {
                                 cli_out ("unrecognized option --%s", opt);
