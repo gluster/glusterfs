@@ -8,6 +8,7 @@ H0=${H0:=`hostname --fqdn`};  # hostname
 DEBUG=${DEBUG:=0}             # turn on debugging?
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 CLI="gluster --mode=script";
+CC=cc
 
 CHILD_UP_TIMEOUT=60
 NFS_EXPORT_TIMEOUT=20
@@ -15,6 +16,7 @@ UMOUNT_TIMEOUT=5
 PROCESS_UP_TIMEOUT=20
 REBALANCE_TIMEOUT=120
 HEAL_TIMEOUT=120
+MARKER_UPDATE_TIMEOUT=20
 
 mkdir -p $B0;
 mkdir -p $M0 $M1;
