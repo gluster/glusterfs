@@ -38,6 +38,10 @@
 #define CLI_TAB_LENGTH                         8
 #define CLI_BRICK_STATUS_LINE_LEN             78
 
+/* Geo-rep command positional arguments' index  */
+#define GEO_REP_CMD_INDEX                      1
+#define GEO_REP_CMD_CONFIG_INDEX               4
+
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
 	ARGP_PORT_KEY = 'p',
