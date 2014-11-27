@@ -1662,6 +1662,31 @@ fini (xlator_t *this)
         return;
 }
 
+int
+notify (xlator_t *this, int event, void *data, ...)
+{
+        xlator_t       *subvol     = NULL;
+        int             ret        = 0;
+
+        subvol = data;
+
+        /* As there are two subvolumes in snapview-client, there is
+         * a possibility that the regular subvolume is still down and
+         * snapd subvolume come up first. So if we don't handle this situation
+         * CHILD_UP event will be propagated upwards to fuse when
+         * regular subvolume is still down.
+         * This can cause data unavailable for the application.
+         * So for now send notifications up only for regular subvolume.
+         *
+         * TODO: In future if required we may need to handle
+         * notifications from virtual subvolume
+         */
+        if (subvol != SECOND_CHILD (this))
+                ret = default_notify (this, event, data);
+
+        return ret;
+}
+
 struct xlator_fops fops = {
         .lookup        = svc_lookup,
         .opendir       = svc_opendir,
