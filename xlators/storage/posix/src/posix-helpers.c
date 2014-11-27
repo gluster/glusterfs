@@ -580,7 +580,7 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path,
         ssize_t               size                  = 0;
         char                 *list                  = NULL;
         int32_t               list_offset           = 0;
-        size_t                remaining_size        = 0;
+        ssize_t               remaining_size        = 0;
         char                  *key                  = NULL;
 
         if (!real_path)
@@ -594,11 +594,10 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path,
         if (!list)
                 goto out;
 
-        size = sys_llistxattr (real_path, list, size);
-        if (size <= 0)
+        remaining_size = sys_llistxattr (real_path, list, size);
+        if (remaining_size <= 0)
                 goto out;
 
-        remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
                 key = list + list_offset;
