@@ -173,13 +173,7 @@ int32_t
 svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode);
 
 svs_inode_t *
-svs_inode_new ();
-
-svs_inode_t *
 svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode);
-
-svs_fd_t *
-svs_fd_new ();
 
 int
 __svs_fd_ctx_set (xlator_t *this, fd_t *fd, svs_fd_t *svs_fd);

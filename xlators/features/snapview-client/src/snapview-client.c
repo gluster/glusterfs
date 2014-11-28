@@ -546,17 +546,58 @@ int32_t
 svc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
               dict_t *xdata)
 {
-        int32_t        ret        = -1;
-        int            inode_type = -1;
-        xlator_t      *subvolume  = NULL;
-        int            op_ret     = -1;
-        int            op_errno   = EINVAL;
-        gf_boolean_t   wind       = _gf_false;
+        int32_t          ret                    = -1;
+        int              inode_type             = -1;
+        xlator_t        *subvolume              = NULL;
+        int              op_ret                 = -1;
+        int              op_errno               = EINVAL;
+        gf_boolean_t     wind                   = _gf_false;
+        svc_private_t   *priv                   = NULL;
+        char             attrname[PATH_MAX]     = "";
+        char             attrval[64]            = "";
+        dict_t          *dict                   = NULL;
 
         GF_VALIDATE_OR_GOTO ("svc", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        /*
+         * Samba sends this special key for case insensitive
+         * filename check. This request comes with a parent
+         * path and with a special key GF_XATTR_GET_REAL_FILENAME_KEY.
+         * e.g. "glusterfs.get_real_filename:.snaps".
+         * If the name variable matches this key then we have
+         * to send back .snaps as the real filename.
+         */
+        sscanf (name, "%[^:]:%[^@]", attrname, attrval);
+        strcat (attrname, ":");
+
+        if (!strcmp (attrname, GF_XATTR_GET_REAL_FILENAME_KEY)) {
+                if (!strcasecmp (attrval, priv->path)) {
+                        dict = dict_new ();
+                        if (NULL == dict) {
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
+
+                        ret = dict_set_dynstr_with_alloc (dict,
+                                        (char *)name,
+                                        priv->path);
+                        if (ret) {
+                                op_errno = ENOMEM;
+                                dict_unref (dict);
+                                goto out;
+                        }
+
+                        op_errno = 0;
+                        op_ret = strlen (priv->path) + 1;
+                        /* We should return from here */
+                        goto out;
+                }
+        }
 
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  loc->inode, subvolume, out);
@@ -569,7 +610,7 @@ svc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
 out:
         if (!wind)
                 SVC_STACK_UNWIND (getxattr, frame, op_ret, op_errno,
-                                  NULL, NULL);
+                                  dict, NULL);
 
         return 0;
 }
