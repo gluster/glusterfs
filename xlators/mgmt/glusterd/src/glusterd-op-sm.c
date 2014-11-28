@@ -191,8 +191,8 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
         GF_ASSERT (priv);
 
         if (!txn_id || !opinfo) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Empty transaction id or opinfo received.");
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "Empty transaction id or opinfo received.");
                 ret = -1;
                 goto out;
         }
@@ -201,7 +201,7 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
                            uuid_utoa (*txn_id),
                            (void **) &opinfo_obj);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
                         "Unable to get transaction opinfo "
                         "for transaction ID : %s",
                         uuid_utoa (*txn_id));
@@ -210,13 +210,13 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
 
         (*opinfo) = opinfo_obj->opinfo;
 
-        gf_log ("", GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Successfully got opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
 
         ret = 0;
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -234,7 +234,8 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
         GF_ASSERT (priv);
 
         if (!txn_id) {
-                gf_log ("", GF_LOG_ERROR, "Empty transaction id received.");
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "Empty transaction id received.");
                 ret = -1;
                 goto out;
         }
@@ -254,16 +255,16 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
                                    uuid_utoa (*txn_id), opinfo_obj,
                                    sizeof(glusterd_txn_opinfo_obj));
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Unable to set opinfo for transaction ID : %s",
-                                uuid_utoa (*txn_id));
+                        gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                          "Unable to set opinfo for transaction"
+                                          " ID : %s", uuid_utoa (*txn_id));
                         goto out;
                 }
         }
 
         opinfo_obj->opinfo = (*opinfo);
 
-        gf_log ("", GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_DEBUG,
                 "Successfully set opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
         ret = 0;
@@ -272,7 +273,7 @@ out:
                 if (opinfo_obj)
                         GF_FREE (opinfo_obj);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
