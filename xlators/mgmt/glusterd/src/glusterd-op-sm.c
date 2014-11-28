@@ -67,7 +67,7 @@
          } while (0)
 
 static struct list_head gd_op_sm_queue;
-pthread_mutex_t       gd_op_sm_lock;
+synclock_t gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
 
 int32_t
@@ -6572,7 +6572,9 @@ glusterd_op_sm ()
         this = THIS;
         GF_ASSERT (this);
 
-        if ((lock_err = pthread_mutex_trylock (&gd_op_sm_lock))) {
+        ret = synclock_trylock (&gd_op_sm_lock);
+        if (ret) {
+                lock_err = errno;
                 gf_log (this->name, GF_LOG_ERROR, "lock failed due to %s",
                         strerror (lock_err));
                 goto lock_failed;
@@ -6628,7 +6630,7 @@ glusterd_op_sm ()
                                         "state from '%s' to '%s'",
                          glusterd_op_sm_state_name_get(opinfo.state.state),
                          glusterd_op_sm_state_name_get(state[event_type].next_state));
-                                (void ) pthread_mutex_unlock (&gd_op_sm_lock);
+                                (void) synclock_unlock (&gd_op_sm_lock);
                                 return ret;
                         }
 
@@ -6657,7 +6659,7 @@ glusterd_op_sm ()
         }
 
 
-        (void ) pthread_mutex_unlock (&gd_op_sm_lock);
+        (void) synclock_unlock (&gd_op_sm_lock);
         ret = 0;
 
 lock_failed:
@@ -6756,6 +6758,6 @@ int
 glusterd_op_sm_init ()
 {
         INIT_LIST_HEAD (&gd_op_sm_queue);
-        pthread_mutex_init (&gd_op_sm_lock, NULL);
+        synclock_init (&gd_op_sm_lock);
         return 0;
 }
