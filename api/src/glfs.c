@@ -68,13 +68,20 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
 	if (!ctx) {
 		goto err;
-    }
-    ret = xlator_mem_acct_init (THIS, glfs_mt_end + 1);
-    if (ret != 0) {
-	    gf_log(THIS->name, GF_LOG_ERROR,
-              "Memory accounting init failed");
-	    return ret;
-    }
+        }
+
+        ret = xlator_mem_acct_init (THIS, glfs_mt_end + 1);
+        if (ret != 0) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                   "Memory accounting init failed");
+                return ret;
+        }
+
+        /* reset ret to -1 so that we don't need to explicitly
+         * set it in all error paths before "goto err"
+         */
+
+        ret = -1;
 
 	ctx->process_uuid = generate_glusterfs_ctx_id ();
 	if (!ctx->process_uuid) {

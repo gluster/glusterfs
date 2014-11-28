@@ -1319,6 +1319,12 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                 gf_msg(THIS->name, GF_LOG_CRITICAL, 0, glusterfsd_msg_34);
                 return ret;
         }
+
+        /* reset ret to -1 so that we don't need to explicitly
+         * set it in all error paths before "goto err"
+         */
+        ret = -1;
+
         ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid) {
                 gf_msg ("", GF_LOG_CRITICAL, 0, glusterfsd_msg_13);
