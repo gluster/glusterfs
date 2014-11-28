@@ -296,7 +296,7 @@ gotvolinfo:
         ret = stat (path, &stbuf);
 
         if ((ret == -1) && (errno == ENOENT)) {
-                strcpy (dup_volid, volid_ptr);
+                strncpy (dup_volid, volid_ptr, (PATH_MAX - 1));
                 if (!strchr (dup_volid, '.')) {
                         switch (volinfo->transport_type) {
                         case GF_TRANSPORT_TCP:
