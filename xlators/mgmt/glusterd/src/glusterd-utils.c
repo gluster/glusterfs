@@ -13521,6 +13521,9 @@ glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo)
                                                 "Couldn't stop snapd for "
                                                 "volume: %s",
                                                 volinfo->volname);
+                        } else {
+                                /* Since snapd is not running set ret to 0 */
+                                ret = 0;
                         }
                         goto out;
                 }
