@@ -1,4 +1,4 @@
-/*
+ /*
    Copyright (c) 2014 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
@@ -23,6 +23,10 @@ svc_local_free (svc_local_t *local)
 {
         if (local) {
                 loc_wipe (&local->loc);
+                if (local->fd)
+                        fd_unref (local->fd);
+                if (local->xdata)
+                        dict_unref (local->xdata);
                 mem_put (local);
         }
 }
@@ -114,6 +118,150 @@ svc_inode_ctx_set (xlator_t *this, inode_t *inode, int inode_type)
 out:
         return ret;
 }
+
+svc_fd_t *
+svc_fd_new (void)
+{
+        svc_fd_t    *svc_fd = NULL;
+
+        svc_fd = GF_CALLOC (1, sizeof (*svc_fd), gf_svc_mt_svc_fd_t);
+
+        return svc_fd;
+}
+
+svc_fd_t *
+__svc_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        svc_fd_t *svc_fd = NULL;
+        uint64_t  value  = 0;
+        int       ret    = -1;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        ret = __fd_ctx_get (fd, this, &value);
+        if (ret)
+                return NULL;
+
+        svc_fd = (svc_fd_t *) ((long) value);
+
+out:
+        return svc_fd;
+}
+
+svc_fd_t *
+svc_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        svc_fd_t *svc_fd = NULL;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        LOCK (&fd->lock);
+        {
+                svc_fd = __svc_fd_ctx_get (this, fd);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return svc_fd;
+}
+
+int
+__svc_fd_ctx_set (xlator_t *this, fd_t *fd, svc_fd_t *svc_fd)
+{
+        uint64_t    value = 0;
+        int         ret   = -1;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, svc_fd, out);
+
+        value = (uint64_t)(long) svc_fd;
+
+        ret = __fd_ctx_set (fd, this, value);
+
+out:
+        return ret;
+}
+
+int32_t
+svc_fd_ctx_set (xlator_t *this, fd_t *fd, svc_fd_t *svc_fd)
+{
+        int32_t    ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, svc_fd, out);
+
+        LOCK (&fd->lock);
+        {
+                ret = __svc_fd_ctx_set (this, fd, svc_fd);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return ret;
+}
+
+svc_fd_t *
+__svc_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
+{
+        svc_fd_t        *svc_fd    = NULL;
+        int              ret       = -1;
+        inode_t         *inode     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        inode = fd->inode;
+        svc_fd = __svc_fd_ctx_get (this, fd);
+        if (svc_fd) {
+                ret = 0;
+                goto out;
+        }
+
+        svc_fd = svc_fd_new ();
+        if (!svc_fd) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to allocate new fd "
+                        "context for gfid %s", uuid_utoa (inode->gfid));
+                goto out;
+        }
+
+        ret = __svc_fd_ctx_set (this, fd, svc_fd);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set fd context "
+                        "for gfid %s", uuid_utoa (inode->gfid));
+                ret = -1;
+        }
+
+out:
+        if (ret) {
+                GF_FREE (svc_fd);
+                svc_fd = NULL;
+        }
+
+        return svc_fd;
+}
+
+svc_fd_t *
+svc_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
+{
+        svc_fd_t  *svc_fd = NULL;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        LOCK (&fd->lock);
+        {
+                svc_fd = __svc_fd_ctx_get_or_new (this, fd);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return svc_fd;
+}
+
 
 int32_t
 svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -337,7 +485,7 @@ svc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 out:
         if (wind)
                 STACK_WIND (frame, svc_lookup_cbk,
-                             subvolume, subvolume->fops->lookup, loc, xdata);
+                            subvolume, subvolume->fops->lookup, loc, xdata);
         else
                 SVC_STACK_UNWIND (lookup, frame, op_ret, op_errno, NULL,
                                   NULL, NULL, NULL);
@@ -413,6 +561,63 @@ out:
         return ret;
 }
 
+int32_t
+svc_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+{
+        svc_fd_t        *svc_fd          = NULL;
+        svc_local_t     *local           = NULL;
+        svc_private_t   *priv            = NULL;
+        gf_boolean_t     special_dir     = _gf_false;
+        char             path[PATH_MAX]  = {0, };
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        if (op_ret)
+                goto out;
+
+        priv = this->private;
+        local = frame->local;
+
+        if (local->subvolume == FIRST_CHILD (this) && priv->special_dir
+            && strcmp (priv->special_dir, "")) {
+                if (!__is_root_gfid (fd->inode->gfid))
+                        snprintf (path, sizeof (path), "%s/.",
+                                  priv->special_dir);
+                else
+                        snprintf (path, sizeof (path), "/.");
+
+                if (!strcmp (local->loc.path, priv->special_dir) ||
+                    !strcmp (local->loc.path, path)) {
+                        gf_log_callingfn (this->name, GF_LOG_DEBUG,
+                                          "got opendir on special "
+                                          "directory %s (%s)", path,
+                                          uuid_utoa (fd->inode->gfid));
+                        special_dir = _gf_true;
+                }
+        }
+
+        if (special_dir) {
+                svc_fd = svc_fd_ctx_get_or_new (this, fd);
+                if (!svc_fd) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fd context not found for %s",
+                                uuid_utoa (fd->inode->gfid));
+                        goto out;
+                }
+
+                svc_fd->last_offset = -1;
+                svc_fd->special_dir = special_dir;
+        }
+
+out:
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd, xdata);
+
+        return 0;
+}
+
+
 /* If the inode represents a directory which is actually
    present in a snapshot, then opendir on that directory
    should be sent to the snap-view-server which opens
@@ -433,6 +638,7 @@ svc_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         int            op_ret     = -1;
         int            op_errno   = EINVAL;
         gf_boolean_t   wind       = _gf_false;
+        svc_local_t   *local      = NULL;
 
         GF_VALIDATE_OR_GOTO ("svc", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -440,11 +646,24 @@ svc_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to allocate memory "
+                        "for local (path: %s, gfid: %s)", loc->path,
+                        uuid_utoa (fd->inode->gfid));
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  loc->inode, subvolume, out);
 
-        STACK_WIND_TAIL (frame, subvolume, subvolume->fops->opendir, loc, fd,
-                         xdata);
+        loc_copy (&local->loc, loc);
+        local->subvolume = subvolume;
+        frame->local = local;
+
+        STACK_WIND (frame, svc_opendir_cbk, subvolume, subvolume->fops->opendir,
+                    loc, fd, xdata);
 
         wind = _gf_true;
 
@@ -586,6 +805,7 @@ svc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                         ret = dict_set_dynstr_with_alloc (dict,
                                         (char *)name,
                                         priv->path);
+
                         if (ret) {
                                 op_errno = ENOMEM;
                                 dict_unref (dict);
@@ -611,6 +831,9 @@ out:
         if (!wind)
                 SVC_STACK_UNWIND (getxattr, frame, op_ret, op_errno,
                                   dict, NULL);
+
+        if (dict)
+                dict_unref (dict);
 
         return 0;
 }
@@ -1264,11 +1487,28 @@ svc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int           op_ret     = -1;
         int           op_errno   = EINVAL;
         gf_boolean_t  wind       = _gf_false;
+        svc_fd_t     *svc_fd     = NULL;
+        gf_dirent_t   entries;
+
+        INIT_LIST_HEAD (&entries);
 
         GF_VALIDATE_OR_GOTO ("svc", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, out);
+
+        svc_fd = svc_fd_ctx_get_or_new (this,  fd);
+        if (!svc_fd)
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the fd "
+                        "context for the inode %s",
+                        uuid_utoa (fd->inode->gfid));
+        else {
+                if (svc_fd->entry_point_handled && off == svc_fd->last_offset) {
+                        op_ret = 0;
+                        op_errno = ENOENT;
+                        goto out;
+                }
+        }
 
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  fd->inode, subvolume, out);
@@ -1280,9 +1520,209 @@ svc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
         if (!wind)
-                SVC_STACK_UNWIND (readdir, frame, op_ret, op_errno, NULL,
+                SVC_STACK_UNWIND (readdir, frame, op_ret, op_errno, &entries,
                                   NULL);
+
+        gf_dirent_free (&entries);
+
         return 0;
+}
+
+/*
+ * This lookup if mainly for supporting USS for windows.
+ * Since the dentry for the entry-point directory is not sent in
+ * the readdir response, from windows explorer, there is no way
+ * to access the snapshots. If the explicit path of the entry-point
+ * directory is mentioned in the address bar, then windows sends
+ * readdir on the parent directory and compares if the entry point
+ * directory's name is there in readdir response. If it is not there
+ * then access to snapshot world is denied. And windows users cannot
+ * access snapshots via samba.
+ * So, to handle this a new option called special-directory is created,
+ * which if set, snapview-client will send the entry-point's dentry
+ * in readdirp o/p for the special directory, so that it will be
+ * visible from windows explorer.
+ * But to send that virtual entry, the following mechanism is used.
+ * 1) Check if readdir from posix is over.
+ * 2) If so, then send a lookup on entry point directory to snap daemon
+ * (this is needed because in readdirp inodes are linked, so we need to
+ * maintain 1:1 mapping between inodes (gfids) from snapview server to
+ * snapview client).
+ * 3) Once successful lookup response received, send a new entry to
+ * windows.
+ */
+
+int32_t
+svc_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         struct iatt *buf, dict_t *xdata,
+                         struct iatt *postparent)
+{
+        gf_dirent_t    entries;
+        gf_dirent_t   *entry      = NULL;
+        svc_private_t *private    = NULL;
+        svc_fd_t      *svc_fd     = NULL;
+        svc_local_t   *local      = NULL;
+        int            inode_type = -1;
+        int            ret        = -1;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        private = this->private;
+        INIT_LIST_HEAD (&entries.list);
+
+        local = frame->local;
+
+        if (op_ret) {
+                op_ret = 0;
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        svc_fd = svc_fd_ctx_get (this, local->fd);
+        if (!svc_fd) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the fd "
+                        "context for the inode %s",
+                        uuid_utoa (local->fd->inode->gfid));
+                op_ret = 0;
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        entry = gf_dirent_for_name (private->path);
+        if (!entry) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to allocate memory "
+                        "for the entry %s", private->path);
+                op_ret = 0;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        entry->inode = inode_ref (inode);
+        entry->d_off = svc_fd->last_offset + 22;
+        entry->d_ino = buf->ia_ino;
+        entry->d_type = DT_DIR;
+        entry->d_stat = *buf;
+        inode_type = VIRTUAL_INODE;
+        ret = svc_inode_ctx_set (this, entry->inode, inode_type);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "failed to set the inode "
+                        "context");
+
+        list_add_tail (&entry->list, &entries.list);
+        op_ret = 1;
+        svc_fd->last_offset = entry->d_off;
+        svc_fd->entry_point_handled = _gf_true;
+
+out:
+        SVC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, &entries,
+                          local->xdata);
+
+        gf_dirent_free (&entries);
+
+        return 0;
+}
+
+gf_boolean_t
+svc_readdir_on_special_dir (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno,
+                            gf_dirent_t *entries, dict_t *xdata)
+{
+        svc_local_t   *local      = NULL;
+        svc_private_t *private    = NULL;
+        inode_t       *inode      = NULL;
+        fd_t          *fd         = NULL;
+        char          *path       = NULL;
+        loc_t         *loc        = NULL;
+        dict_t        *tmp_xdata  = NULL;
+        int            ret        = -1;
+        gf_boolean_t   unwind     = _gf_true;
+        svc_fd_t      *svc_fd     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        private = this->private;
+        local = frame->local;
+
+        loc = &local->loc;
+        fd = local->fd;
+        svc_fd = svc_fd_ctx_get (this, fd);
+        if (!svc_fd) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the fd "
+                        "context for the inode %s",
+                        uuid_utoa (fd->inode->gfid));
+                goto out;
+        }
+
+        /*
+         * check if its end of readdir operation from posix, if special_dir
+         * option is set, if readdir is done on special directory and if
+         * readdirp is from normal regular graph.
+         */
+
+        if (!private->show_entry_point)
+                goto out;
+
+        if (op_ret == 0 && op_errno == ENOENT && private->special_dir &&
+            strcmp (private->special_dir, "") && svc_fd->special_dir &&
+            local->subvolume == FIRST_CHILD (this)) {
+                inode = inode_grep (fd->inode->table, fd->inode,
+                                    private->path);
+                if (!inode) {
+                        inode = inode_new (fd->inode->table);
+                        if (!inode) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "allocate new inode");
+                                goto out;
+                        }
+                }
+
+                uuid_copy (local->loc.pargfid, fd->inode->gfid);
+                uuid_copy (local->loc.gfid, inode->gfid);
+                if (uuid_is_null (inode->gfid))
+                        ret = inode_path (fd->inode, private->path, &path);
+                else
+                        ret = inode_path (inode, NULL, &path);
+
+                if (ret < 0)
+                        goto out;
+                loc->path = gf_strdup (path);
+                if (loc->path) {
+                        if (!loc->name ||
+                            (loc->name && !strcmp (loc->name, ""))) {
+                                loc->name = strrchr (loc->path, '/');
+                                if (loc->name)
+                                        loc->name++;
+                        }
+                }
+
+                loc->inode = inode;
+                loc->parent = inode_ref (fd->inode);
+                tmp_xdata = dict_new ();
+                if (!tmp_xdata)
+                        goto out;
+                ret = dict_set_str (tmp_xdata, "entry-point", "true");
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to set dict");
+                        goto out;
+                }
+
+                local->cookie = cookie;
+                local->xdata = dict_ref (xdata);
+                STACK_WIND (frame, svc_readdirp_lookup_cbk,
+                            SECOND_CHILD (this),
+                            SECOND_CHILD (this)->fops->lookup, loc, tmp_xdata);
+                unwind = _gf_false;
+        }
+
+out:
+        if (tmp_xdata)
+                dict_unref (tmp_xdata);
+
+        GF_FREE (path);
+        return unwind;
 }
 
 int32_t
@@ -1295,12 +1735,22 @@ svc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_boolean_t   real       = _gf_true;
         int            inode_type = -1;
         int            ret        = -1;
+        svc_fd_t      *svc_fd     = NULL;
+        gf_boolean_t   unwind     = _gf_true;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
 
         if (op_ret < 0)
                 goto out;
 
         local = frame->local;
-        frame->local = NULL;
+
+        svc_fd = svc_fd_ctx_get (this, local->fd);
+        if (!svc_fd) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to get the fd "
+                        "context for the gfid %s",
+                        uuid_utoa (local->fd->inode->gfid));
+        }
 
         if (local->subvolume == FIRST_CHILD (this))
                 real = _gf_true;
@@ -1320,11 +1770,16 @@ svc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "failed to set inode "
                                 "context");
+                svc_fd->last_offset = entry->d_off;
         }
 
+        unwind = svc_readdir_on_special_dir (frame, cookie, this, op_ret,
+                                             op_errno, entries, xdata);
 
 out:
-        SVC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, xdata);
+        if (unwind)
+                SVC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries,
+                                  xdata);
 
         return 0;
 }
@@ -1341,6 +1796,10 @@ svc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int            op_ret     = -1;
         int            op_errno   = EINVAL;
         gf_boolean_t   wind       = _gf_false;
+        svc_fd_t      *svc_fd     = NULL;
+        gf_dirent_t    entries;
+
+        INIT_LIST_HEAD (&entries.list);
 
         GF_VALIDATE_OR_GOTO ("svc", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -1350,13 +1809,37 @@ svc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local = mem_get0 (this->local_pool);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate local");
+                op_errno = ENOMEM;
                 goto out;
+        }
+
+        /*
+         * This is mainly for samba shares (or windows clients). As part of
+         * readdirp on the directory used as samba share, the entry point
+         * directory would have been added at the end. So when a new readdirp
+         * request comes, we have to check if the entry point has been handled
+         * or not in readdirp. That information and the offset used for it
+         * is remembered in fd context. If it has been handled, then simply
+         * unwind indication end of readdir operation.
+         */
+        svc_fd = svc_fd_ctx_get_or_new (this,  fd);
+        if (!svc_fd)
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the fd "
+                        "context for the inode %s",
+                        uuid_utoa (fd->inode->gfid));
+        else {
+                if (svc_fd->entry_point_handled && off == svc_fd->last_offset) {
+                        op_ret = 0;
+                        op_errno = ENOENT;
+                        goto out;
+                }
         }
 
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  fd->inode, subvolume, out);
 
         local->subvolume = subvolume;
+        local->fd = fd_ref (fd);
         frame->local = local;
 
         STACK_WIND (frame, svc_readdirp_cbk, subvolume,
@@ -1366,7 +1849,10 @@ svc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
         if (!wind)
-                SVC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, NULL, NULL);
+                SVC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, &entries,
+                                  NULL);
+
+        gf_dirent_free (&entries);
 
         return 0;
 }
@@ -1576,6 +2062,29 @@ out:
 }
 
 int32_t
+svc_releasedir (xlator_t *this, fd_t *fd)
+{
+        svc_fd_t *sfd      = NULL;
+        uint64_t          tmp_pfd  = 0;
+        int               ret      = 0;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        ret = fd_ctx_del (fd, this, &tmp_pfd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pfd from fd=%p is NULL", fd);
+                goto out;
+        }
+
+        GF_FREE (sfd);
+
+out:
+        return 0;
+}
+
+int32_t
 svc_forget (xlator_t *this, inode_t *inode)
 {
         int            ret      = -1;
@@ -1603,6 +2112,8 @@ reconfigure (xlator_t *this, dict_t *options)
         priv = this->private;
 
         GF_OPTION_RECONF ("snapshot-directory", priv->path, options, str, out);
+        GF_OPTION_RECONF ("show-snapshot-directory", priv->show_entry_point,
+                          options, bool, out);
 
 out:
         return 0;
@@ -1665,6 +2176,18 @@ init (xlator_t *this)
                 goto out;
 
         GF_OPTION_INIT ("snapshot-directory", private->path, str, out);
+        GF_OPTION_INIT ("snapdir-entry-path", private->special_dir, str,
+                        out);
+        GF_OPTION_INIT ("show-snapshot-directory", private->show_entry_point,
+                        bool, out);
+
+        if (strstr (private->special_dir, private->path)) {
+                gf_log (this->name, GF_LOG_ERROR, "entry point directory "
+                        "cannot be part of the special directory");
+                GF_FREE (private->special_dir);
+                private->special_dir = NULL;
+                goto out;
+        }
 
         this->private = private;
         this->local_pool = mem_pool_new (svc_local_t, 128);
@@ -1698,6 +2221,7 @@ fini (xlator_t *this)
         this->private = NULL;
 
         GF_FREE (priv->path);
+        GF_FREE (priv->special_dir);
         GF_FREE (priv);
 
         return;
@@ -1757,12 +2281,28 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .forget = svc_forget,
+        .releasedir = svc_releasedir,
 };
 
 struct volume_options options[] = {
         { .key = {"snapshot-directory"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = ".snaps",
+        },
+        { .key = {"snapdir-entry-path"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "An option to set the path of a directory on which "
+                         "when readdir comes, dentry for the snapshot-directory"
+                         " should be created and added in the readdir response",
+          .default_value = "",
+        },
+        { .key = {"show-snapshot-directory"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "If this option is set, and the option "
+                         "\"snapdir-entry-path\" is set (which is set by samba "
+                         "vfs plugin for glusterfs, then send the entry point "
+                         "when readdir comes on the snapdir-entry-path",
+          .default_value = "off",
         },
         { .key  = {NULL} },
 };
