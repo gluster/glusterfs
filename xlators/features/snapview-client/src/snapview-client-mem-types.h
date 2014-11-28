@@ -17,6 +17,7 @@ enum svc_mem_types {
         gf_svc_mt_svc_private_t = gf_common_mt_end + 1,
         gf_svc_mt_svc_local_t,
         gf_svc_mt_svc_inode_t,
+        gf_svc_mt_svc_fd_t,
         gf_svc_mt_end
 };
 

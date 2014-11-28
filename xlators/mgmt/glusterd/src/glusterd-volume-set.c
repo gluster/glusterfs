@@ -1152,6 +1152,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "Entry point directory for entering snapshot world"
         },
 
+        { .key         = "features.show-snapshot-directory",
+          .voltype     = "features/snapview-client",
+          .op_version  = GD_OP_VERSION_3_6_0,
+          .value       = "off",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
+          .description = "show entry point in readdir output of "
+                         "snapdir-entry-path which is set by samba"
+        },
+
 #ifdef HAVE_LIB_Z
         /* Compressor-decompressor xlator options
          * defaults used from xlator/features/compress/src/cdc.h

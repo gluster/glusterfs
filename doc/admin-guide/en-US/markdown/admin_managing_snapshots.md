@@ -248,4 +248,52 @@ world) can be changed using the below command.
 
 *gluster volume set <volname> snapshot-directory <new-name>*
 
+3) Accessing from windows:
+The glusterfs volumes can be made accessible by windows via samba. (the
+glusterfs plugin for samba helps achieve this, without having to re-export
+a fuse mounted glusterfs volume). The snapshots of a glusterfs volume can
+also be viewed in the windows explorer.
+
+There are 2 ways:
+* Give the path of the entry point directory
+(\\<hostname>\<samba-share>\<directory>\<entry-point path>) in the run command
+window
+* Go to the samba share via windows explorer. Make hidden files and folders
+visible so that in the root of the samba share a folder icon for the entry point
+can be seen.
+
+NOTE: From the explorer, snapshot world can be entered via entry point only from
+the root of the samba share. If snapshots have to be seen from subfolders, then
+the path should be provided in the run command window.
+
+For snapshots to be accessible from windows, below 2 options can be used.
+A) The glusterfs plugin for samba should give the option "snapdir-entry-path"
+while starting. The option is an indication to glusterfs, that samba is loading
+it and the value of the option should be the path that is being used as the
+share for windows.
+Ex: Say, there is a glusterfs volume and a directory called "export" from the
+root of the volume is being used as the samba share, then samba has to load
+glusterfs with this option as well.
+
+        ret = glfs_set_xlator_option(fs, "*-snapview-client",
+                                     "snapdir-entry-path", "/export");
+The xlator option "snapdir-entry-path" is not exposed via volume set options,
+cannot be changed from CLI. Its an option that has to be provded at the time of
+mounting glusterfs or when samba loads glusterfs.
+B) The accessibility of snapshots via root of the samba share from windows
+is configurable. By default it is turned off. It is a volume set option which can
+be changed via CLI.
+
+gluster volume set <volname> features.show-snapshot-directory "on/off". By
+default it is off.
+
+Only when both the above options have been provided (i.e snapdir-entry-path
+contains a valid unix path that is exported and show-snapshot-directory option
+is set to true), snapshots can accessed via windows explorer.
+
+If only 1st option (i.e. snapdir-entry-path) is set via samba and 2nd option
+(i.e. show-snapshot-directory) is off, then snapshots can be accessed from
+windows via the run command window, but not via the explorer.
+
+
 --------------------------------------------------------------------------------------

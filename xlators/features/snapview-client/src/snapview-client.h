@@ -25,6 +25,9 @@
 struct __svc_local {
         loc_t loc;
         xlator_t *subvolume;
+        fd_t     *fd;
+        void *cookie;
+        dict_t *xdata;
 };
 typedef struct __svc_local svc_local_t;
 
@@ -81,9 +84,18 @@ svc_local_free (svc_local_t *local);
         }  while (0);
 
 struct svc_private {
-        char *path; //might be helpful for samba
+        char *path;
+        char *special_dir; /* needed for samba */
+        gf_boolean_t show_entry_point;
 };
 typedef struct svc_private svc_private_t;
+
+struct svc_fd {
+        off_t last_offset;
+        gf_boolean_t entry_point_handled;
+        gf_boolean_t special_dir;
+};
+typedef struct svc_fd svc_fd_t;
 
 typedef enum {
         NORMAL_INODE = 1,
@@ -107,4 +119,8 @@ svc_inode_ctx_set (xlator_t *this, inode_t *inode, int inode_type);
 void
 svc_local_free (svc_local_t *local);
 
+gf_boolean_t
+svc_readdir_on_special_dir (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno,
+                            gf_dirent_t *entries, dict_t *xdata);
 #endif /* __SNAP_VIEW_CLIENT_H__ */

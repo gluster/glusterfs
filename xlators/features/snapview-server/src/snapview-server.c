@@ -1062,6 +1062,8 @@ svs_releasedir (xlator_t *this, fd_t *fd)
                                 uuid_utoa (fd->inode->gfid));
         }
 
+        GF_FREE (sfd);
+
 out:
         return 0;
 }
@@ -1132,6 +1134,7 @@ svs_release (xlator_t *this, fd_t *fd)
                 }
         }
 
+        GF_FREE (sfd);
 out:
         return 0;
 }
