@@ -14,6 +14,7 @@
 
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
+#include "compat-errno.h"
 
 #include "xlator.h"
 #include "rpc-clnt.h"
@@ -746,7 +747,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                 goto out;
         }
 
-        /* EINVAL is sent if the getxattr is on entry point directory
+        /* ENODATA is sent if the getxattr is on entry point directory
            or the inode is SNAP_VIEW_ENTRY_POINT_INODE. Entry point is
            a virtual directory on which setxattr operations are not
            allowed. If getxattr has to be faked as success, then a value
@@ -754,7 +755,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_ret = -1;
-                op_errno = EINVAL;
+                op_errno = ENODATA;
                 goto out;
         }
         else {
@@ -1032,17 +1033,27 @@ int32_t
 svs_flush (call_frame_t *frame, xlator_t *this,
            fd_t *fd, dict_t *xdata)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        int               ret      = -1;
-        uint64_t          value    = 0;
+        int32_t          op_ret         = -1;
+        int32_t          op_errno       = 0;
+        int              ret            = -1;
+        uint64_t         value          = 0;
+        svs_inode_t     *inode_ctx      = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
+        inode_ctx = svs_inode_ctx_get (this, fd->inode);
+        if (!inode_ctx) {
+                gf_log (this->name, GF_LOG_ERROR, "inode context not found for"
+                        " the inode %s", uuid_utoa (fd->inode->gfid));
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         ret = fd_ctx_get (fd, this, &value);
-        if (ret < 0) {
+        if (ret < 0 && inode_ctx->type != SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_WARNING,
                         "pfd is NULL on fd=%p", fd);
