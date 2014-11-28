@@ -284,7 +284,7 @@ glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
         char   subkey[50]               = {0,};
         char   key[GF_DUMP_MAX_BUF_LEN] = {0,};
 
-        strcpy (key, input_key);
+        strncpy (key, input_key, (GF_DUMP_MAX_BUF_LEN - 1));
 
         snprintf (subkey, sizeof (subkey), "%s%d", key, index);
 
@@ -327,7 +327,7 @@ glusterd_dump_peer_rpcstat (glusterd_peerinfo_t *peerinfo, char *input_key,
         char                   subkey[50]                          = {0,};
         char                   key[GF_DUMP_MAX_BUF_LEN]            = {0,};
 
-        strcpy (key, input_key);
+        strncpy (key, input_key, (GF_DUMP_MAX_BUF_LEN - 1));
 
         /* Dump the rpc connection statistics */
         rpc = peerinfo->rpc;
