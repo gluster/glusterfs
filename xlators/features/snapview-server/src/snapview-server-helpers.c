@@ -98,7 +98,7 @@ out:
 }
 
 svs_inode_t *
-svs_inode_new ()
+svs_inode_new (void)
 {
         svs_inode_t    *svs_inode = NULL;
 
@@ -120,7 +120,7 @@ svs_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
         {
                 svs_inode = __svs_inode_ctx_get (this, inode);
                 if (!svs_inode) {
-                        svs_inode = svs_inode_new (this, inode);
+                        svs_inode = svs_inode_new ();
                         if (svs_inode) {
                                 ret = __svs_inode_ctx_set (this, inode,
                                                            svs_inode);
@@ -138,7 +138,7 @@ out:
 }
 
 svs_fd_t *
-svs_fd_new ()
+svs_fd_new (void)
 {
         svs_fd_t    *svs_fd = NULL;
 
@@ -243,7 +243,7 @@ __svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        svs_fd = svs_fd_new (this, fd);
+        svs_fd = svs_fd_new ();
         if (!svs_fd) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate new fd "
                         "context for gfid %s", uuid_utoa (inode->gfid));
