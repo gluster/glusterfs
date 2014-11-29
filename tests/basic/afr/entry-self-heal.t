@@ -194,7 +194,7 @@ TEST ! stat spb_me/0
 TEST ! stat source_deletions_me/fifo
 TEST ! stat $B0/${V0}0/source_deletions_me/fifo
 TEST ! stat $B0/${V0}1/source_deletions_me/fifo
-TEST ! stat source_deletions_me/block b 0 0
+TEST ! stat source_deletions_me/block
 TEST ! stat $B0/${V0}0/source_deletions_me/block
 TEST ! stat $B0/${V0}1/source_deletions_me/block
 TEST ! stat source_deletions_me/char
