@@ -324,6 +324,16 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
       exit 2;
     fi
 
+    # %t/%T should return 0 for non devices.
+    case "${format}" in
+    *%t*|*%T*)
+      `which stat` -f '%HT' $f | grep -q 'Device$' || \
+         format=`echo "${format}" | sed 's/%t/0/g; s/%T/0/g;'`
+      ;;
+    *)
+      ;;
+    esac
+
     if [ "x${format}" = "x" ] ; then
       `which stat` $f
     else
