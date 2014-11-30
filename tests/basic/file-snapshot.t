@@ -24,6 +24,7 @@ TEST $CLI volume set $V0 performance.io-cache off;
 TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 TEST touch $M0/big-file;
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "$M0/big-file" ls $M0/big-file
 
 TEST setfattr -n trusted.glusterfs.block-format -v qcow2:10GB $M0/big-file;
 
@@ -38,6 +39,10 @@ echo '1234567890' > $M0/data-file2
 TEST dd if=$M0/data-file2 of=$M0/big-file conv=notrunc;
 TEST setfattr -n trusted.glusterfs.block-snapshot-create -v image2 $M0/big-file;
 
+# big-file may still be in kernel page cache, this will fail to umount
+# but it will purge vnode and therefore invalidate the cache.
+( cd $M0 && umount $M0 )
+
 TEST setfattr -n trusted.glusterfs.block-snapshot-goto -v image1 $M0/big-file;
 TEST dd if=$M0/big-file of=$M0/out-file1 bs=11 count=1;
 
@@ -46,6 +51,8 @@ TEST dd if=$M0/big-file of=$M0/out-file2 bs=11 count=1;
 
 TEST cmp $M0/data-file1 $M0/out-file1;
 TEST cmp $M0/data-file2 $M0/out-file2;
+
+force_umount $M0
 
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';
