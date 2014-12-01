@@ -611,6 +611,12 @@ AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
+# only install scripts from extras/geo-rep when enabled
+if test "x$enable_georeplication" != "xno"; then
+  GEOREP_EXTRAS_SUBDIR=geo-rep
+fi
+AC_SUBST(GEOREP_EXTRAS_SUBDIR)
+
 # CDC xlator - check if libz is present if so enable HAVE_LIB_Z
 BUILD_CDC=yes
 PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
