@@ -45,6 +45,7 @@ TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
 
 TEST ! dd if=/dev/urandom of=$M0/test/file1.txt bs=1024k count=12
+sleep 5
 TEST rm $M0/test/file1.txt
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test"
