@@ -350,6 +350,8 @@ out:
                 inode_unref (inode);
         }
 
+        if (frame)
+                AFR_STACK_DESTROY (frame);
         GF_FREE (path);
         return ret;
 }
