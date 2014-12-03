@@ -321,7 +321,7 @@ void ec_resume_parent(ec_fop_data_t * fop, int32_t error)
 void ec_complete(ec_fop_data_t * fop)
 {
     ec_cbk_data_t * cbk = NULL;
-    int32_t resume = 0;
+    int32_t resume = 0, update = 0;
 
     LOCK(&fop->lock);
 
@@ -335,7 +335,7 @@ void ec_complete(ec_fop_data_t * fop)
                     ((cbk->op_ret >= 0) || (cbk->op_errno != ENOTCONN))) {
                     fop->answer = cbk;
 
-                    ec_update_bad(fop, cbk->mask);
+                    update = 1;
                 }
             }
 
@@ -348,6 +348,14 @@ void ec_complete(ec_fop_data_t * fop)
     }
 
     UNLOCK(&fop->lock);
+
+    /* ec_update_bad() locks inode->lock. This may cause deadlocks with
+       fop->lock when used in another order. Since ec_update_bad() will not
+       be called more than once for each fop, it can be called from outside
+       the fop->lock locked region. */
+    if (update) {
+        ec_update_bad(fop, cbk->mask);
+    }
 
     if (resume)
     {
@@ -861,8 +869,12 @@ void ec_lock(ec_fop_data_t * fop)
 
             list_add_tail(&fop->locks[fop->locked].wait_list, &lock->waiting);
 
+            LOCK(&fop->lock);
+
             fop->jobs++;
             fop->refs++;
+
+            UNLOCK(&fop->lock);
 
             UNLOCK(&lock->loc.inode->lock);
 
