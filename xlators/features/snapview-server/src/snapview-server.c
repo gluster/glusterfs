@@ -214,9 +214,10 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
 
         fs = svs_initialise_snapshot_volume (this, loc->name, op_errno);
         if (!fs) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                gf_log (this->name, GF_LOG_DEBUG, "failed to "
                         "create the fs instance for snap %s",
                         loc->name);
+                *op_errno = ENOENT;
                 op_ret = -1;
                 goto out;
         }
@@ -226,7 +227,7 @@ svs_lookup_snapshot (xlator_t *this, loc_t *loc, struct iatt *buf,
         object = glfs_h_create_from_handle (fs, handle_obj, GFAPI_HANDLE_LENGTH,
                                             &statbuf);
         if (!object) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to do lookup and "
+                gf_log (this->name, GF_LOG_DEBUG, "failed to do lookup and "
                         "get the handle on the snapshot %s", loc->name);
                 op_ret = -1;
                 *op_errno = errno;
@@ -294,7 +295,7 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
         object = glfs_h_lookupat (fs, parent_object, loc->name,
                                   &statbuf);
         if (!object) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to do lookup and "
+                gf_log (this->name, GF_LOG_DEBUG, "failed to do lookup and "
                         "get the handle for entry %s (path: %s)", loc->name,
                         loc->path);
                 op_ret = -1;
@@ -479,6 +480,7 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         inode_t       *parent                         = NULL;
         glfs_t        *fs                             = NULL;
         snap_dirent_t *dirent                         = NULL;
+        gf_boolean_t   entry_point_key                = _gf_false;
         gf_boolean_t   entry_point                    = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("svs", this, out);
@@ -507,15 +509,21 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 }
         }
 
+        ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "failed to get the "
+                        "entry point info");
+                entry_point_key = _gf_false;
+        } else {
+                entry_point_key = ret;
+        }
+
         if (loc->name && strlen (loc->name)) {
-                ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG, "failed to get the "
-                                "entry point info");
-                        entry_point = _gf_false;
-                } else {
-                        entry_point = ret;
-                }
+                /* lookup can come with the entry-point set in the dict
+                 * for the parent directory of the entry-point as well.
+                 * So consider entry_point only for named lookup
+                 */
+                entry_point = entry_point_key;
         }
 
         if (loc->parent)
@@ -567,8 +575,37 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
            the server does not have the inode in the inode table.
         */
         if (!inode_ctx && !parent_ctx) {
-                op_ret = svs_lookup_gfid (this, loc, &buf, &postparent,
-                                          &op_errno);
+                if (uuid_is_null (loc->gfid) &&
+                    uuid_is_null (loc->inode->gfid)) {
+                        gf_log (this->name, GF_LOG_ERROR, "gfid is NULL");
+                        op_ret = -1;
+                        op_errno = ESTALE;
+                        goto out;
+                }
+
+                if (!entry_point_key) {
+                        /* This can happen when there is no inode_ctx available.
+                        * snapview-server might have restarted or
+                        * graph change might have happened
+                        */
+                        op_ret = -1;
+                        op_errno = ESTALE;
+                        goto out;
+                }
+
+                /* lookup is on the parent directory of entry-point.
+                 * this would have already looked up by snap-view client
+                 * so return success
+                 */
+                if (!uuid_is_null (loc->gfid))
+                        uuid_copy (buf.ia_gfid, loc->gfid);
+                else
+                        uuid_copy (buf.ia_gfid, loc->inode->gfid);
+
+                svs_iatt_fill (buf.ia_gfid, &buf);
+                svs_iatt_fill (buf.ia_gfid, &postparent);
+
+                op_ret = 0;
                 goto out;
         }
 
