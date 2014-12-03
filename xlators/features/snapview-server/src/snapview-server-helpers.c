@@ -446,7 +446,7 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name,
 
         dirent = __svs_get_snap_dirent (this, name);
         if (!dirent) {
-                gf_log (this->name, GF_LOG_ERROR, "snap entry for "
+                gf_log (this->name, GF_LOG_DEBUG, "snap entry for "
                         "name %s not found", name);
                 local_errno = ENOENT;
                 goto out;
