@@ -712,7 +712,7 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        cli_default_conn_timeout = 120;
+        cli_default_conn_timeout = 600;
         cli_ten_minutes_timeout = 600;
 
         ret = cli_state_init (&state);
