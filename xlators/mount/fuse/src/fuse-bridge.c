@@ -5032,10 +5032,16 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
         if (priv->active_subvol == graph->top)
                 return 0; /* This is a valid case */
 
-        if (graph->used)
-                return 0;
+        pthread_mutex_lock (&priv->sync_mutex);
+        {
+                if (graph->used) {
+                        pthread_mutex_unlock (&priv->sync_mutex);
+                        return 0;
+                }
 
-        graph->used = 1;
+                graph->used = 1;
+        }
+        pthread_mutex_unlock (&priv->sync_mutex);
 
         itable = inode_table_new (0, graph->top);
         if (!itable)
