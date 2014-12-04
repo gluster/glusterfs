@@ -311,63 +311,62 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
     local f=""
 
     if [ "x$1" = "x-c" ] ; then
-      argc=3
-      format=$2
-      f=$3
+      oformat=$2
+      shift
+      shift
+      files=$@
     else
-      argc=1
-      f=$1
+      files=$@
     fi
 
-    if [ $# -ne $argc ] ; then
-      echo 'Usage: stat [-c format] file'
-      exit 2;
-    fi
+    for f in $files ; do
+        format=$oformat
 
-    # %t/%T should return 0 for non devices.
-    case "${format}" in
-    *%t*|*%T*)
-      `which stat` -f '%HT' $f | grep -q 'Device$' || \
-         format=`echo "${format}" | sed 's/%t/0/g; s/%T/0/g;'`
-      ;;
-    *)
-      ;;
-    esac
+      # %t/%T should return 0 for non devices.
+      case "${format}" in
+      *%t*|*%T*)
+        `which stat` -f '%HT' $f | grep -q 'Device$' || \
+           format=`echo "${format}" | sed 's/%t/0/g; s/%T/0/g;'`
+        ;;
+      *)
+        ;;
+      esac
 
-    if [ "x${format}" = "x" ] ; then
-      `which stat` $f
-    else
-       cmd=""
-       case $format in 
-       *%u*) cmd="${cmd} s/%u/`$( which stat ) -f %u $f`/g;" ;& 
-       *%g*) cmd="${cmd} s/%g/`$( which stat ) -f %g $f`/g;" ;&
-       *%a*) cmd="${cmd} s/%a/`$( which stat ) -f %p $f |
-                  sed 's/^..//; s/^0//'`/g;" ;&
-       *%A*) cmd="${cmd} s/%A/`ls -ld $f|awk '{print $1}'`/g;" ;&
-       *%s*) cmd="${cmd} s/%s/`$( which stat ) -f %z $f`/g;" ;&
-       *%h*) cmd="${cmd} s/%h/`$( which stat ) -f %l $f`/g;" ;&
-       *%F*) cmd="${cmd} s/%F/`$( which stat ) -f %HT $f | sed '
-          s/Directory/directory/;
-          s/Fifo File/fifo/;
-          s/Symbolic Link/symbolic link/;
-          s/Regular File/regular file/;
-          s/Block Device/block special file/;
-          s/Character Device/character special file/;
-         ' | sed \"$(
-           test -s $f || echo 's/regular file/regular empty file/g'
-          )\"`/g;" ;&
-       *%n*) cmd="${cmd} s|%n|`$( which stat ) -f %N $f`|g;" ;&
-       *%Y*) cmd="${cmd} s/%Y/`$( which stat ) -f %m $f`/g;" ;&
-       *%X*) cmd="${cmd} s/%X/`$( which stat ) -f %a $f`/g;" ;&
-       *%Z*) cmd="${cmd} s/%Z/`$( which stat ) -f %c $f`/g;" ;&
-       *%b*) cmd="${cmd} s/%b/`$( which stat ) -f %b $f`/g;" ;&
-       *%B*) cmd="${cmd} s/%B/512/g;" ;&
-       *%t*) cmd="${cmd} s/%t/`$( which stat ) -f %XHr $f`/g;" ;&
-       *%T*) cmd="${cmd} s/%T/`$( which stat ) -f %XLr $f`/g;" ;&
-       esac
+      if [ "x${format}" = "x" ] ; then
+        `which stat` $f
+      else
+         cmd=""
+         case $format in
+         *%u*) cmd="${cmd} s/%u/`$( which stat ) -f %u $f`/g;" ;&
+         *%g*) cmd="${cmd} s/%g/`$( which stat ) -f %g $f`/g;" ;&
+         *%a*) cmd="${cmd} s/%a/`$( which stat ) -f %p $f |
+                    sed 's/^..//; s/^0//'`/g;" ;&
+         *%A*) cmd="${cmd} s/%A/`ls -ld $f|awk '{print $1}'`/g;" ;&
+         *%s*) cmd="${cmd} s/%s/`$( which stat ) -f %z $f`/g;" ;&
+         *%h*) cmd="${cmd} s/%h/`$( which stat ) -f %l $f`/g;" ;&
+         *%F*) cmd="${cmd} s/%F/`$( which stat ) -f %HT $f | sed '
+            s/Directory/directory/;
+            s/Fifo File/fifo/;
+            s/Symbolic Link/symbolic link/;
+            s/Regular File/regular file/;
+            s/Block Device/block special file/;
+            s/Character Device/character special file/;
+           ' | sed \"$(
+             test -s $f || echo 's/regular file/regular empty file/g'
+            )\"`/g;" ;&
+         *%n*) cmd="${cmd} s|%n|`$( which stat ) -f %N $f`|g;" ;&
+         *%Y*) cmd="${cmd} s/%Y/`$( which stat ) -f %m $f`/g;" ;&
+         *%X*) cmd="${cmd} s/%X/`$( which stat ) -f %a $f`/g;" ;&
+         *%Z*) cmd="${cmd} s/%Z/`$( which stat ) -f %c $f`/g;" ;&
+         *%b*) cmd="${cmd} s/%b/`$( which stat ) -f %b $f`/g;" ;&
+         *%B*) cmd="${cmd} s/%B/512/g;" ;&
+         *%t*) cmd="${cmd} s/%t/`$( which stat ) -f %XHr $f`/g;" ;&
+         *%T*) cmd="${cmd} s/%T/`$( which stat ) -f %XLr $f`/g;" ;&
+         esac
 
-       `which stat` -f "`echo $format|sed \"$cmd\"`" $f
-    fi
+         `which stat` -f "`echo $format|sed \"$cmd\"`" $f
+      fi
+    done
   }
 }
 
