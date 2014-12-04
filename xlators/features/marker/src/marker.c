@@ -2792,7 +2792,7 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 ret = marker_inode_loc_fill (entry->inode,
                                              entry->d_name, &loc);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "Couln't build "
+                        gf_log (this->name, GF_LOG_WARNING, "Couldn't build "
                                 "loc for %s/%s",
                                 uuid_utoa (local->loc.inode->gfid),
                                 entry->d_name);
