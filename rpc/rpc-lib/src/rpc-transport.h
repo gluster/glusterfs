@@ -163,7 +163,7 @@ typedef struct rpc_request_info rpc_request_info_t;
 
 
 struct rpc_transport_pollin {
-        struct iovec vector[2];
+        struct iovec vector[MAX_IOVEC];
         int count;
         char vectored;
         void *private;
