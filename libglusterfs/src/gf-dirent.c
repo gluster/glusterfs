@@ -78,6 +78,7 @@ gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
 {
         gf_dirent_t *entry      = NULL;
         inode_t     *link_inode = NULL;
+        inode_t     *tmp        = NULL;
 
         list_for_each_entry (entry, &entries->list, list) {
                 if (entry->inode) {
@@ -86,7 +87,9 @@ gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
 			if (!link_inode)
 				continue;
                         inode_lookup (link_inode);
-                        inode_unref (link_inode);
+                        tmp = entry->inode;
+                        entry->inode = link_inode;
+                        inode_unref (tmp);
                 }
         }
 
