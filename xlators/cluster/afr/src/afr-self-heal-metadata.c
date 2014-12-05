@@ -244,9 +244,8 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	return source;
 }
 
-static int
-__afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode,
-			 unsigned char *locked_on)
+int
+afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
 	afr_private_t *priv = NULL;
 	int ret = -1;
@@ -307,37 +306,5 @@ unlock:
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
-	return ret;
-}
-
-
-int
-afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
-{
-	afr_private_t *priv = NULL;
-	unsigned char *locked_on = NULL;
-	int ret = 0;
-
-	priv = this->private;
-
-	locked_on = alloca0 (priv->child_count);
-
-	ret = afr_selfheal_tryinodelk (frame, this, inode, priv->sh_domain, 0, 0,
-				       locked_on);
-	{
-		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-			/* Either less than two subvols available, or another
-			   selfheal (from another server) is in progress. Skip
-			   for now in any case there isn't anything to do.
-			*/
-			ret = -ENOTCONN;
-			goto unlock;
-		}
-
-		ret = __afr_selfheal_metadata (frame, this, inode, locked_on);
-	}
-unlock:
-	afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0, locked_on);
-
 	return ret;
 }
