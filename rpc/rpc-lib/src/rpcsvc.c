@@ -401,9 +401,9 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
         req->msg[0] = progmsg;
         req->iobref = iobref_ref (msg->iobref);
         if (msg->vectored) {
-                /* msg->vector[2] is defined in structure. prevent a
+                /* msg->vector[MAX_IOVEC] is defined in structure. prevent a
                    out of bound access */
-                for (i = 1; i < min (msg->count, 2); i++) {
+                for (i = 1; i < min (msg->count, MAX_IOVEC); i++) {
                         req->msg[i] = msg->vector[i];
                 }
         }
