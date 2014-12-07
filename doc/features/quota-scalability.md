@@ -45,7 +45,7 @@ Quotad queries the disk usage information from all the bricks in that volume and
 Benefit to GlusterFS
 ---------------------------------
 
-* Support upto 65536 quota configurations per volume.
+* Support up to 65536 quota configurations per volume.
 * More quotas can be configured in a single volume thereby leading to support GlusterFS for use cases like home directory.
 
 ###For more information on quota usability refer the following link :

@@ -33,7 +33,7 @@ BD xlator needs lvm2 development library. –enable-bd-xlator option can be used
 
 ###Creating a BD volume
 
-BD supports hosting of both linear LV and thin LV within the same volume. However seperate examples are provided below. As noted above, the prerequisite for a BD volume is VG which is created from a loop device here, but it can be any other device too.
+BD supports hosting of both linear LV and thin LV within the same volume. However separate examples are provided below. As noted above, the prerequisite for a BD volume is VG which is created from a loop device here, but it can be any other device too.
 
 
 * Creating BD volume with linear LV backend

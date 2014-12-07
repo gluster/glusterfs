@@ -77,7 +77,7 @@ and heal is stopped. *BUT* there is **yet another** issue:
 * shd does steps 1 to 4. Let's assume source is brick b1, sink is brick b2 . i.e xattrs are (0,1) and (0,0) on b1 and b2 respectively. Now before shd takes (0-128kb) lock, a client FOP takes it.
 It modifies data but the FOP succeeds only on brick 2. writev returns success, and the attrs now read (0,1) (1,0). SHD takes over and heals. It had observed (0,1),(0,0) earlier
 and thus goes ahead and copies stale 128Kb from brick 1 to brick2. Thus as far as application is concerned, `writev` returned success but bricks have stale data.
-What needs to be done is `writev` must return success only if it succeeded on atleast one source brick (brick b1 in this case). Otherwise  The heal still happens in reverse direction but as far as the application is concerned, it received an error.  
+What needs to be done is `writev` must return success only if it succeeded on at least one source brick (brick b1 in this case). Otherwise  The heal still happens in reverse direction but as far as the application is concerned, it received an error.  
 
 ###Note on lock **domains**
 We have used conceptual names in this document like DATA_DOMAIN/ METADATA_DOMAIN/ SELF_HEAL_DOMAIN. In the code, these are mapped to strings that are based on the AFR xlator name like so:

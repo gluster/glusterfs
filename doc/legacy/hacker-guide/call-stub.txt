@@ -461,7 +461,7 @@ fop_lk_stub (call_frame_t *frame,
 @fd       - fd parameter to gf_lk fop.
 	    NOTE: @fd is fd_ref()ed while creating stub, if not NULL.
 @cmd      - cmd parameter to gf_lk fop.
-@lock     - lock paramater to gf_lk fop.
+@lock     - lock parameter to gf_lk fop.
 	    NOTE: @lock is copied to a different memory location while creating
 	          stub.
 call_stub_t *

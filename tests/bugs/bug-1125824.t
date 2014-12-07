@@ -78,7 +78,7 @@ TEST ls -lR
 TEST $CLI volume rebalance $V0 start force
 EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" rebalance_status_field $V0
 
-# tests to check post rebalance if layouts and entires are fine and
+# tests to check post rebalance if layouts and entries are fine and
 # accessible by NFS to clear the volume
 TEST ls -lR
 rm -rf ./*

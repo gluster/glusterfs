@@ -223,7 +223,7 @@ struct changelog_priv {
         /*  lock to synchronize CSNAP updation */
         gf_lock_t c_snap_lock;
 
-        /* writen end of the pipe */
+        /* written end of the pipe */
         int wfd;
 
         /* rollover time */

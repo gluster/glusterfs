@@ -1259,7 +1259,7 @@ files are mostly similar in size and I/O access pattern, this
 scheduler is a good choice. RR scheduler checks for free disk space
 on the server before scheduling, so you can know when to add
 another server node. The default value of min-free-disk is 5% and is
-checked on file creation calls, with atleast 10 seconds (by default)
+checked on file creation calls, with at least 10 seconds (by default)
 elapsing between two checks.
 
 Options:
@@ -1351,7 +1351,7 @@ Enable/disable self-heal. Unless you know what you are doing, do not disable sel
 @cindex self heal (unify)
 @subsubsection Self Heal
     * When a 'lookup()/stat()' call is made on directory for the first
-time, a self-heal call is made, which checks for the consistancy of
+time, a self-heal call is made, which checks for the consistency of
 its child nodes. If an entry is present in storage node, but not in
 namespace, that entry is created in namespace, and vica-versa. There
 is an writedir() API introduced which is used for the same. It also

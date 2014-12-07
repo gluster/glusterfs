@@ -1701,7 +1701,7 @@ static int32_t crypt_ftruncate_finodelk_cbk(call_frame_t *frame,
 
 /*
  * ftruncate is performed in 2 steps:
- * . recieve file size;
+ * . receive file size;
  * . expand or prune file.
  */
 static int32_t crypt_ftruncate(call_frame_t *frame,
@@ -3529,7 +3529,7 @@ static int32_t __crypt_writev_done(call_frame_t *frame,
 	if (local->xattr)
 		dict_unref(local->xattr);
 	/*
-	 * Calculate amout of butes to be returned
+	 * Calculate amount of butes to be returned
 	 * to user. We need to subtract paddings that
 	 * have been written as a part of atom.
 	 */

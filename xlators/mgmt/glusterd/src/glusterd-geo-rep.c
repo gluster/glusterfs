@@ -2945,7 +2945,7 @@ out:
 
 /*
  * glusterd_gsync_op_already_set:
- *      This funcion checks whether the op_value is same as in the
+ *      This function checks whether the op_value is same as in the
  *      gsyncd.conf file.
  *
  * RETURN VALUE:

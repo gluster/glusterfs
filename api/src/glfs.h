@@ -306,7 +306,7 @@ ssize_t glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW;
        the management server (glusterd) to fetch volume uuid and stores it
        in the glusterfs_context linked to the glfs object fs which can be used
        in the subsequent calls. Later it parses that UUID to convert it from
-       cannonical string format into an opaque byte array and copy it into
+       canonical string format into an opaque byte array and copy it into
        the volid array. Incase if either of the input parameters, volid or size,
        is NULL, number of bytes required to copy the volume UUID is returned.
 

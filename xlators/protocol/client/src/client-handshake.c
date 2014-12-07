@@ -744,7 +744,7 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = 0;
 
         if (attempt_lock_recovery) {
-                /* Delay decrementing the reopen fd count untill all the
+                /* Delay decrementing the reopen fd count until all the
                    locks corresponding to this fd are acquired.*/
                 gf_log (this->name, GF_LOG_DEBUG, "acquiring locks "
                         "on %s", local->loc.path);
@@ -1299,7 +1299,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
          * When lock-heal is disabled, connection-id should always be unique so
          * that server never gets to reuse the previous connection resources
          * so it cleans up the resources on every disconnect. Otherwise
-         * it may lead to stale resources, i.e. leaked file desciptors,
+         * it may lead to stale resources, i.e. leaked file descriptors,
          * inode/entry locks
         */
         if (!conf->lk_heal) {

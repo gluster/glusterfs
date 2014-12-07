@@ -1850,7 +1850,7 @@ valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
         /*
          * To prevent cases where last character is '.' and which have
          * consecutive dots like ".." as strtok ignore consecutive
-         * delimeters.
+         * delimiters.
          */
         if (length <= 0 ||
             (strstr (address, "..")) ||

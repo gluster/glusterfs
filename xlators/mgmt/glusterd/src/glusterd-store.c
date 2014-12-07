@@ -3448,7 +3448,7 @@ glusterd_store_retrieve_snap (char *snapname)
                 goto out;
         }
 
-        /* TODO: list_add_order can do 'N-square' comparisions and
+        /* TODO: list_add_order can do 'N-square' comparisons and
            is not efficient. Find a better solution to store the snap
            in order */
         list_add_order (&snap->snap_list, &priv->snapshots,

@@ -166,7 +166,7 @@ xlator_option_init_##type (xlator_t *this, dict_t *options, char *key,  \
         THIS = old_THIS;                                                \
         if (ret) {							\
                 gf_log (this->name, GF_LOG_INFO,                        \
-                        "option %s convertion failed value %s",         \
+                        "option %s conversion failed value %s",         \
                         key, value);                                    \
                 return ret;                                             \
 	}                                                               \

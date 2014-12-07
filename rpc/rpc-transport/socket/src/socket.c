@@ -3102,7 +3102,7 @@ err:
                 /* Cleaup requires to send notification to upper layer which
                    intern holds the big_lock. There can be dead-lock situation
                    if big_lock is already held by the current thread.
-                   So transfer the ownership to seperate thread for cleanup.
+                   So transfer the ownership to separate thread for cleanup.
                 */
                 arg = GF_CALLOC (1, sizeof (*arg),
                                  gf_sock_connect_error_state_t);

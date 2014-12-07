@@ -10,7 +10,7 @@ The next section gives a brief introduction about how changelogs are organized a
 Changelogs
 ==========
 
-Changelogs can be thought as a running history for an entity in the file system from the time the entity came into existance. The goal is to capture all possible transitions the entity underwent till the time it got purged. The transition namespace is broken up into three categories with each category represented by a specific changelog format. Changes are recorded in a flat file in the filesystem and are rolled over after a specific time interval. All three types of categories are recorded in a single changelog file (sequentially) with a type for each entry. Having a single file reduces disk seeks and fragmentation and less number of files to deal with. Stratergy for pruning of old logs is still undecided.
+Changelogs can be thought as a running history for an entity in the file system from the time the entity came into existence. The goal is to capture all possible transitions the entity underwent till the time it got purged. The transition namespace is broken up into three categories with each category represented by a specific changelog format. Changes are recorded in a flat file in the filesystem and are rolled over after a specific time interval. All three types of categories are recorded in a single changelog file (sequentially) with a type for each entry. Having a single file reduces disk seeks and fragmentation and less number of files to deal with. Stratergy for pruning of old logs is still undecided.
 
 
 Changelog Transition Namespace
@@ -106,7 +106,7 @@ The following points mention some of the features that the library could provide
   - Consumer could choose the update type when it registers with the library. 'types' could be:
     - Streaming: The consumer is updated via stream of changes, ie. the library would just replay the logs
     - Consolidated: The consumer is provided with a consolidated view of the changelog, eg. if <gfid> had an DATA and a METADATA operation, it would be presented as a single update. Similarly for ENTRY operations.
-    - Raw: This mode provides the consumer with the pathnames of the changelog files itself (after processing). The changelogs should be strictly treated as read-only. This gives the flexibility to the consumer to extract updates using thier own preferred way (eg. using command line tools like sed, awk, sort | uniq etc.).
+    - Raw: This mode provides the consumer with the pathnames of the changelog files itself (after processing). The changelogs should be strictly treated as read-only. This gives the flexibility to the consumer to extract updates using their own preferred way (eg. using command line tools like sed, awk, sort | uniq etc.).
   - Application may choose to adopt a synchronous (blocking) or an asynchronous (callback) notification mechanism.
   - Provide a unified view of changelogs from multiple peers (replication scenario) or a global changelog view of the entire cluster.
 

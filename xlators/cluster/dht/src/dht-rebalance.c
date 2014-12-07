@@ -544,7 +544,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
            During rebalance `migrate-data` - Destination subvol experiences
            a `reduction` in 'blocks' of free space, at the same time source
            subvol gains certain 'blocks' of free space. A valid check is
-           necessary here to avoid errorneous move to destination where
+           necessary here to avoid erroneous move to destination where
            the space could be scantily available.
          */
         if (stbuf) {

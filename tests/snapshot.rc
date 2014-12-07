@@ -38,7 +38,7 @@ function init_lvm() {
         b="B$i"
         if [ "${!b}" = "" ]; then
             echo "Error: $b not defined."
-            echo "Please run launch_cluster with atleast $LVM_COUNT nodes"
+            echo "Please run launch_cluster with at least $LVM_COUNT nodes"
             return 1
         fi
 
@@ -264,7 +264,7 @@ function delete_n_snapshots() {
          return $ret
 }
 
-#Check for the existance of N number of snaps in a given volume
+#Check for the existence of N number of snaps in a given volume
 #Arg1 : <Volume Name>
 #Arg2 : <Count of snaps to be checked>
 #Arg3 : <Snap Name Pattern>

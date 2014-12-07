@@ -77,7 +77,7 @@ bd_local_init (call_frame_t *frame, xlator_t *this)
 
 /*
  * VG are set with the tag in GF_XATTR_VOL_ID_KEY:<uuid> format.
- * This function validates this tag agains volume-uuid. Also goes
+ * This function validates this tag against volume-uuid. Also goes
  * through LV list to find out if a thin-pool is configured or not.
  */
 int bd_scan_vg (xlator_t *this, bd_priv_t *priv)

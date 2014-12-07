@@ -1,6 +1,6 @@
 This is an example application which uses libgfapi. It is
 a complete autotools based build system which demonstrates the
-required changes in configure.ac, Makefile.am etc to successfuly
+required changes in configure.ac, Makefile.am etc to successfully
 detect for and build an application against libgfapi.
 
 There are two approaches to building a libgfapi based application:

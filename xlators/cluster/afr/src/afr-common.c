@@ -3589,7 +3589,7 @@ afr_notify (xlator_t *this, int32_t event,
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         AFR_MSG_ALL_SUBVOLS_DOWN,
                                         "All subvolumes are down. Going offline "
-                                        "until atleast one of them comes back up.");
+                                        "until at least one of them comes back up.");
                         } else {
                                 event = GF_EVENT_CHILD_MODIFIED;
                         }

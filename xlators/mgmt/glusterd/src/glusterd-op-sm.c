@@ -1929,7 +1929,7 @@ glusterd_op_set_volume (dict_t *dict)
                 goto out;
         }
 
-        // TODO: Remove this once v3.3 compatability is not required
+        // TODO: Remove this once v3.3 compatibility is not required
         check_op_version = dict_get_str_boolean (dict, "check-op-version",
                                                  _gf_false);
 
@@ -4471,7 +4471,7 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         /* Based on the op-version, we release the cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_3_6_0) {
                 ret = glusterd_unlock (MY_UUID);
-                /* unlock cant/shouldnt fail here!! */
+                /* unlock cant/should not fail here!! */
                 if (ret)
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Unable to clear local lock, ret: %d", ret);
@@ -6334,7 +6334,7 @@ glusterd_op_sm_t glusterd_op_state_brick_committed [] = {
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_commit_op}, //EVENT_ALL_ACK
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_commit_op}, //EVENT_ALL_ACK
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
         {GD_OP_STATE_BRICK_COMMITTED, glusterd_op_ac_none}, //EVENT_MAX
 };
@@ -6394,21 +6394,21 @@ glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
 };
 
 glusterd_op_sm_t glusterd_op_state_committed [] = {
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_NONE
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none},//EVENT_START_LOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_lock}, //EVENT_LOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_ALL_ACC
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_RCVD_RJT
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_OP
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_NONE
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none},//EVENT_START_LOCK
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_lock}, //EVENT_LOCK
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_RCVD_RJT
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_STAGE_OP
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_ALL_ACK
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_ALL_ACK
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_local_unlock}, //EVENT_LOCAL_UNLOCK_NO_RESP
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_MAX
+        {GD_OP_STATE_COMMITTED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
 glusterd_op_sm_t glusterd_op_state_unlock_sent [] = {

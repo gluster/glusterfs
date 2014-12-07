@@ -2413,7 +2413,7 @@ out:
  *
  * @this: dict to serialize
  * @buf:  buffer to serialize into. This must be
- *        atleast dict_serialized_length (this) large
+ *        at least dict_serialized_length (this) large
  *
  * @return: success: 0
  *          failure: -errno
@@ -2529,7 +2529,7 @@ out:
  *
  * @this: dict to serialize
  * @buf:  buffer to serialize into. This must be
- *        atleast dict_serialized_length (this) large
+ *        at least dict_serialized_length (this) large
  *
  * @return: success: 0
  *          failure: -errno

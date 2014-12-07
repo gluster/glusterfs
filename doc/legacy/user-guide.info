@@ -1225,7 +1225,7 @@ mostly similar in size and I/O access pattern, this scheduler is a good
 choice. RR scheduler checks for free disk space on the server before
 scheduling, so you can know when to add another server node. The
 default value of min-free-disk is 5% and is checked on file creation
-calls, with atleast 10 seconds (by default) elapsing between two checks.
+calls, with at least 10 seconds (by default) elapsing between two checks.
 
    Options:
 `rr.limits.min-free-disk <%> (5)'
@@ -1306,7 +1306,7 @@ exists even when node is down.
 .................
 
 * When a 'lookup()/stat()' call is made on directory for the first
-time, a self-heal call is made, which checks for the consistancy of its
+time, a self-heal call is made, which checks for the consistency of its
 child nodes. If an entry is present in storage node, but not in
 namespace, that entry is created in namespace, and vica-versa. There is
 an writedir() API introduced which is used for the same. It also checks

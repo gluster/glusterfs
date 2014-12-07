@@ -16,7 +16,7 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-## Enable a protected and a resettable/unprotected option
+## Enable a protected and a resetable/unprotected option
 TEST $CLI volume quota $V0 enable
 TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 

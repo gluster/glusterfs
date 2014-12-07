@@ -49,7 +49,7 @@ gluster volume set <vol_name> network.compression.min-size 50
 
 Data is compressed only when its size exceeds the above value in bytes.
 
-**Other paramaters**
+**Other parameters**
 
 Other less frequently used parameters include `network.compression.mem-level`
 and `network.compression.window-size`. More details can about these options

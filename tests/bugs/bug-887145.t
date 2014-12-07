@@ -50,7 +50,7 @@ cp $N0/file $N0/tmp_file 2>/dev/null;
 TEST [ $? -ne 0 ]
 cat $M0/file 2>/dev/null;
 TEST [ $? -ne 0 ]
-# here read should be allowed because eventhough file "passwd" is owned
+# here read should be allowed because even though file "passwd" is owned
 # by root, the permissions if the file allow other users to read it.
 cat $M0/passwd 1>/dev/null;
 TEST [ $? -eq 0 ]

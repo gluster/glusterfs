@@ -44,11 +44,11 @@ Consider the directory tree above. Assume that master and slave were in sync and
 ```
 touch /d0/d1/d2/file0
 ```
-This would trigger a xtime marking (xtime being the current timestamp) from the leaf (*file0*) upto the root (*/*), i.e. an *xattr* of *file0*, *d2*, *d1*, *d0* and finally */*. Geo-replication daemon would crawl the file system based the condition mentioned before and hence would only crawl the **left** part of the directory tree (as the **right** part would hve equal xtimes).
+This would trigger a xtime marking (xtime being the current timestamp) from the leaf (*file0*) up to the root (*/*), i.e. an *xattr* of *file0*, *d2*, *d1*, *d0* and finally */*. Geo-replication daemon would crawl the file system based the condition mentioned before and hence would only crawl the **left** part of the directory tree (as the **right** part would hve equal xtimes).
 
 Although the above crawling algorithm is fast, it still has to crawl a good part of the file system. Also, to decide whether to crawl a particular subdirectory, geo-rep need to compare xtime -- which is basically a **getxattr()** call on the master and slave (remember, *slave* is over a WAN).
 
-Therefore, in 3.5 the need arised to take crawling to the next level. Geo-replication now uses the changelogging infrastructure to idenitify changes in the filesystem. Actually, there is absolutely no crawl involved. Changelogging based detection is notification based. Geo-replication daemon registers itself with the changelog consumer library (*libgfchangelog*) and basically invokes a set of APIs to get the list of changes in the filesystem and replays them onto the slave. There is absolutely no crawl or any kind of extended attribute gets involved.
+Therefore, in 3.5 the need arose to take crawling to the next level. Geo-replication now uses the changelogging infrastructure to idenitify changes in the filesystem. Actually, there is absolutely no crawl involved. Changelogging based detection is notification based. Geo-replication daemon registers itself with the changelog consumer library (*libgfchangelog*) and basically invokes a set of APIs to get the list of changes in the filesystem and replays them onto the slave. There is absolutely no crawl or any kind of extended attribute gets involved.
 
 Distributed Geo-Replication
 ---------------------------

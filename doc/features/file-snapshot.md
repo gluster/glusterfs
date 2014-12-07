@@ -76,7 +76,7 @@ Now read the contents of the files and compare as below:
     # cat <data_file1>, <out_file1>  and compare contents.
     # cat <data_file2>, <out_file2>  and compare contents.
 ##one line description for the variables used
-file_name = File which will be creating in the mount point intially.
+file_name = File which will be creating in the mount point initially.
 
 data_file1 = File which contains data 'ABCDEFGHIJ'
 
@@ -88,4 +88,4 @@ image2 = second file snapshot which has '1234567890' + some null values.
 
 out_file1 = After reverting image1 this contains 'ABCDEFGHIJ'
 
-out_file2 = After reverting image2 this contians '1234567890'
+out_file2 = After reverting image2 this contains '1234567890'

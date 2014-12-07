@@ -69,7 +69,7 @@ In general a file/directory is considered to be existing if there is a
 corresponding inode present in the inode table. If a inode for a file/directory
 cannot be found in the inode table, glusterfs tries to resolve it by sending a
 lookup on the entry for which the inode is needed. If lookup is successful, then
-a new inode correponding to the entry is added to the hash table present in the
+a new inode corresponding to the entry is added to the hash table present in the
 inode table. Thus an inode present in the hash-table means, its an existing
 file/directory within the filesystem. The inode table also contains the hash
 size of the hash table (as of now it is hard coded to 14057. The hash value of

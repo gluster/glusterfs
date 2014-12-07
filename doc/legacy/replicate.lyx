@@ -72,7 +72,7 @@ The replicate translator of GlusterFS aims to keep identical copies of a file
  on all its subvolumes, as far as possible.
  It tries to do this by performing all filesystem mutation operations (writing
  data, creating files, changing ownership, etc.) on all its subvolumes in
- such a way that if an operation succeeds on atleast one subvolume, all
+ such a way that if an operation succeeds on at least one subvolume, all
  other subvolumes can later be brought up to date.
 \end_layout
 

@@ -246,7 +246,7 @@ function check_ganesha_dir()
 function stop_ganesha()
 {
         dynamic_export_remove $VOL
-        #Remove the specfic export configuration file
+        #Remove the specific export configuration file
         rm -rf $GANESHA_DIR/exports/export.$VOL.conf
         #Remove that entry from nfs-ganesha.conf
         sed -i /$VOL.conf/d  $CONF1

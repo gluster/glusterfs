@@ -311,7 +311,7 @@ out:
  * Eight field is description of option: If NULL, tried to fetch from
  * translator code's xlator_options table.
  *
- * Nineth field is validation function: If NULL, xlator's option specific
+ * Ninth field is validation function: If NULL, xlator's option specific
  * validation will be tried, otherwise tried at glusterd code itself.
  *
  * There are two type of entries: basic and special.

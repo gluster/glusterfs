@@ -3382,7 +3382,7 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                 break;
 
                         case GF_PROBE_VOLUME_CONFLICT:
-                                snprintf (errstr, len, "Atleast one volume on "
+                                snprintf (errstr, len, "At least one volume on "
                                           "%s conflicts with existing volumes "
                                           "in the cluster", hostname);
                                 break;

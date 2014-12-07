@@ -46,8 +46,8 @@
    args))
 
 ;; define volumes with names/type/options and bind to a symbol
-;; relate them seperately (see below)
-;; more convinient to seperate volume definition and relation
+;; relate them separately (see below)
+;; more convinient to separate volume definition and relation
 
 (define wb (volume '(wb0
 		     performance/write-behind

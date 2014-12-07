@@ -528,7 +528,7 @@ class IpaddrUnitTest(unittest.TestCase):
         ip4 = ipaddr.IPv4Address('1.1.1.3')
         ip5 = ipaddr.IPv4Address('1.1.1.4')
         ip6 = ipaddr.IPv4Address('1.1.1.0')
-        # check that addreses are subsumed properly.
+        # check that addresses are subsumed properly.
         collapsed = ipaddr.collapse_address_list([ip1, ip2, ip3, ip4, ip5, ip6])
         self.assertEqual(collapsed, [ipaddr.IPv4Network('1.1.1.0/30'),
                                      ipaddr.IPv4Network('1.1.1.4/32')])
@@ -540,7 +540,7 @@ class IpaddrUnitTest(unittest.TestCase):
         ip4 = ipaddr.IPv4Address('1.1.1.3')
         ip5 = ipaddr.IPv4Network('1.1.1.4/30')
         ip6 = ipaddr.IPv4Network('1.1.1.4/30')
-        # check that addreses are subsumed properly.
+        # check that addresses are subsumed properly.
         collapsed = ipaddr.collapse_address_list([ip5, ip1, ip2, ip3, ip4, ip6])
         self.assertEqual(collapsed, [ipaddr.IPv4Network('1.1.1.0/29')])
 
@@ -552,7 +552,7 @@ class IpaddrUnitTest(unittest.TestCase):
         ip5 = ipaddr.IPv4Network('1.1.4.0/24')
         # stored in no particular order b/c we want CollapseAddr to call [].sort
         ip6 = ipaddr.IPv4Network('1.1.0.0/22')
-        # check that addreses are subsumed properly.
+        # check that addresses are subsumed properly.
         collapsed = ipaddr.collapse_address_list([ip1, ip2, ip3, ip4, ip5, ip6])
         self.assertEqual(collapsed, [ipaddr.IPv4Network('1.1.0.0/22'),
                                      ipaddr.IPv4Network('1.1.4.0/24')])
@@ -981,7 +981,7 @@ class IpaddrUnitTest(unittest.TestCase):
                          hex(self.ipv6))
 
     # backwards compatibility
-    def testBackwardsCompability(self):
+    def testBackwardsCompatibility(self):
         self.assertEqual(ipaddr.CollapseAddrList(
             [ipaddr.IPNetwork('1.1.0.0/24'), ipaddr.IPNetwork('1.1.1.0/24')]),
                          [ipaddr.IPNetwork('1.1.0.0/23')])

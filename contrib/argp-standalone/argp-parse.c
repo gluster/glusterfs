@@ -208,7 +208,7 @@ struct group
   /* Which argp this group is from.  */
   const struct argp *argp;
 
-  /* The number of non-option args sucessfully handled by this parser.  */
+  /* The number of non-option args successfully handled by this parser.  */
   unsigned args_processed;
 
   /* This group's parser's parent's group.  */

@@ -1018,7 +1018,7 @@ _limits_set_on_volume (char *volname) {
         if (ret)
                 goto out;
 
-        /* Try to read atleast one gfid */
+        /* Try to read at least one gfid */
         ret = read (fd, (void *)buf, 16);
         if (ret == 16)
                 limits_set = _gf_true;

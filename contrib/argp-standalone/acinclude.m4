@@ -519,9 +519,9 @@ dnl the "ISO C9X: 7.18 Integer types <stdint.h>" section requires the
 dnl existence of an include file <stdint.h> that defines a set of 
 dnl typedefs, especially uint8_t,int32_t,uintptr_t.
 dnl Many older installations will not provide this file, but some will
-dnl have the very same definitions in <inttypes.h>. In other enviroments
+dnl have the very same definitions in <inttypes.h>. In other environments
 dnl we can use the inet-types in <sys/types.h> which would define the
-dnl typedefs int8_t and u_int8_t respectivly.
+dnl typedefs int8_t and u_int8_t respectively.
 dnl
 dnl This macros will create a local "_stdint.h" or the headerfile given as 
 dnl an argument. In many cases that file will just "#include <stdint.h>" 
@@ -900,7 +900,7 @@ typedef u_int32_t uint32_t;
 #endif
 
 #ifdef _STDINT_NEED_INT_MODEL_T
-/* we must guess all the basic types. Apart from byte-adressable system, */
+/* we must guess all the basic types. Apart from byte-addressable system, */
 /* there a few 32-bit-only dsp-systems that we guard with BYTE_MODEL 8-} */
 /* (btw, those nibble-addressable systems are way off, or so we assume) */
 

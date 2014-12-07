@@ -384,7 +384,7 @@ __iobuf_arena_prune (struct iobuf_pool *iobuf_pool,
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         /* code flow comes here only if the arena is in purge list and we can
-         * free the arena only if we have atleast one arena in 'arenas' list
+         * free the arena only if we have at least one arena in 'arenas' list
          * (ie, at least few iobufs free in arena), that way, there won't
          * be spurious mmap/unmap of buffers
          */

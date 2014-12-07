@@ -4932,7 +4932,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
 		* .attribute file located at the root of the filesystem
 		* We hide it to glusterfs clients, since chaos will occur
 		* when the cluster/dht xlator decides to distribute
-		* exended attribute backing file accross storage servers.
+		* exended attribute backing file across storage servers.
 		*/
 		if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
 		    && (!strcmp(entry->d_name, ".attribute")))
@@ -6128,7 +6128,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .default_value = "none",
           .description = "Option to control XATTR user namespace on the raw filesystem: "
-	  "\t- None: Will use the user namespace, so files will be exchangable with Linux.\n"
+	  "\t- None: Will use the user namespace, so files will be exchangeable with Linux.\n"
 	  " The raw filesystem will not be compatible with OS X Finder.\n"
 	  "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n"
         },

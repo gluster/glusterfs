@@ -366,7 +366,7 @@ def main_i():
     r = rconf.get('resource_remote')
     if r:
         if len(args) == 0:
-            raise GsyncdError('local resource unspecfied')
+            raise GsyncdError('local resource unspecified')
         elif len(args) == 1:
             args.append(None)
         args[1] = r

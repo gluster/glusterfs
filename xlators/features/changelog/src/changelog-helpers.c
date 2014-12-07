@@ -717,7 +717,7 @@ changelog_drain_black_fops (xlator_t *this, changelog_priv_t *priv)
                         " Error:%d", ret);
         while (priv->dm.black_fop_cnt > 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Condtional wait on black fops: %ld",
+                        "Conditional wait on black fops: %ld",
                         priv->dm.black_fop_cnt);
                 priv->dm.drain_wait_black = _gf_true;
                 ret = pthread_cond_wait (&priv->dm.drain_black_cond,
@@ -754,7 +754,7 @@ changelog_drain_white_fops (xlator_t *this, changelog_priv_t *priv)
                         " Error:%d", ret);
         while (priv->dm.white_fop_cnt > 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Condtional wait on white fops : %ld",
+                        "Conditional wait on white fops : %ld",
                         priv->dm.white_fop_cnt);
                 priv->dm.drain_wait_white = _gf_true;
                 ret = pthread_cond_wait (&priv->dm.drain_white_cond,
@@ -838,7 +838,7 @@ changelog_rollover (void *data)
                                 "select wokeup on timeout");
                 }
 
-               /* Reading curent_color without lock is fine here
+               /* Reading current_color without lock is fine here
                 * as it is only modified here and is next to reading.
                 */
                 if (priv->current_color == FOP_COLOR_BLACK) {
@@ -860,7 +860,7 @@ changelog_rollover (void *data)
                 /* Adding delay of 1 second only during explicit rollover:
                  *
                  * Changelog rollover can happen either due to actual
-                 * or the explict rollover during snapshot. Actual
+                 * or the explicit rollover during snapshot. Actual
                  * rollover is controlled by tuneable called 'rollover-time'.
                  * The minimum granularity for rollover-time is 1 second.
                  * Explicit rollover is asynchronous in nature and happens

@@ -151,7 +151,7 @@ static struct argp_option gf_options[] = {
         {"acl", ARGP_ACL_KEY, 0, 0,
          "Mount the filesystem with POSIX ACL support"},
         {"selinux", ARGP_SELINUX_KEY, 0, 0,
-         "Enable SELinux label (extened attributes) support on inodes"},
+         "Enable SELinux label (extended attributes) support on inodes"},
         {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS, "0",
          OPTION_HIDDEN, "Maximum number of attempts to fetch the volfile"},
         {"aux-gfid-mount", ARGP_AUX_GFID_MOUNT_KEY, 0, 0,
@@ -189,7 +189,7 @@ static struct argp_option gf_options[] = {
          "Set attribute timeout to SECONDS for inodes in fuse kernel module "
          "[default: 1]"},
 	{"gid-timeout", ARGP_GID_TIMEOUT_KEY, "SECONDS", 0,
-	 "Set auxilary group list timeout to SECONDS for fuse translator "
+	 "Set auxiliary group list timeout to SECONDS for fuse translator "
 	 "[default: 0]"},
 	{"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
 	 "Set fuse module's background queue length to N "

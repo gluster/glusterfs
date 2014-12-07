@@ -134,7 +134,7 @@ then the arena moves back to the 'arenas' list.
 - purge:  
 If there are no active iobufs in the arena(active_cnt = 0), the arena is moved
 to purge list. iobuf_put() triggers destruction of the arenas in this list. The
-arenas in the purge list are destroyed only if there is  atleast one arena in
+arenas in the purge list are destroyed only if there is  at least one arena in
 'arenas' list, that way there won't be spurious mmap/unmap of buffers.
 (e.g: If there is an arena (page_size=128KB, count=32) in purge list, this arena
 is destroyed(munmap) only if there is an arena in 'arenas' list with page_size=128KB).

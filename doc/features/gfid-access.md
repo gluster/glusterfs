@@ -12,7 +12,7 @@ A new virtual directory called '.gfid' is exposed in the aux-gfid mount
 point when gluster volume is mounted with 'aux-gfid-mount' option.
 All the gfids of files are exposed in one level under the '.gfid' directory.
 No matter at what level the file resides, it is accessed using its
-gfid under this virutal directory as shown in example below. All access
+gfid under this virtual directory as shown in example below. All access
 protocols work seemlessly, as the complexities are handled internally.
 
 ###Testing

@@ -68,7 +68,7 @@ fops to be implemented:
      fds opened on parent inode.
   2. remove the entire cache from all fds opened on inode corresponding to
      directory being removed.
-  3. delete the entry correspondig to basename of parent from cache stored in
+  3. delete the entry corresponding to basename of parent from cache stored in
      grand-parent.
 
 * readv
@@ -82,7 +82,7 @@ fops to be implemented:
 
 * fsync
   there is a confusion here as to whether fsync updates mtime/ctimes. Disk based
-  filesystems (atleast ext2) just writes the times stored in inode to disk
+  filesystems (at least ext2) just writes the times stored in inode to disk
   during fsync and not the time at which fsync is being done. But in glusterfs,
   a translator like write-behind actually sends writes during fsync which will
   change mtime/ctime. Hence stat-prefetch implements fsync to delete the entry

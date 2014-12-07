@@ -1763,7 +1763,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         glusterd_set_socket_filepath (sock_filepath, sockpath, len);
 }
 
-/* connection happens only if it is not aleady connected,
+/* connection happens only if it is not already connected,
  * reconnections are taken care by rpc-layer
  */
 int32_t
@@ -3791,7 +3791,7 @@ out:
 
 /* Imports the snapshot details of a brick if required and available
  *
- * Snapshot details will be imported only if the cluster op-verison is >= 4
+ * Snapshot details will be imported only if the cluster op-version is >= 4
  */
 int
 gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
@@ -11640,7 +11640,7 @@ op_version_check (xlator_t *this, int min_op_version, char *msg, int msglen)
        if (priv->op_version < min_op_version) {
                 snprintf (msg, msglen, "One or more nodes do not support "
                           "the required op-version. Cluster op-version must "
-                          "atleast be %d.", min_op_version);
+                          "at least be %d.", min_op_version);
                 gf_log (this->name, GF_LOG_ERROR, "%s", msg);
                 ret = -1;
       }
@@ -13096,7 +13096,7 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
  * @option  - option to be set to default. If NULL, all possible options will be
  *            set to default
  *
- * Returns 0 on sucess and -1 on failure. If @option is given, but doesn't match
+ * Returns 0 on success and -1 on failure. If @option is given, but doesn't match
  * any of the options that could be set, it is a success.
  */
 /*

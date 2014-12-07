@@ -1,5 +1,5 @@
 
-* Authentication is provided by two modules addr and login. Login based authentication uses username/password from client for authentication. Each module returns either ACCEPT, REJCET or DONT_CARE. DONT_CARE is returned if the input authentication information to the module is not concerned to its working. The theory behind authentication is that "none of the auth modules should return REJECT and atleast one of them should return ACCEPT"
+* Authentication is provided by two modules addr and login. Login based authentication uses username/password from client for authentication. Each module returns either ACCEPT, REJCET or DONT_CARE. DONT_CARE is returned if the input authentication information to the module is not concerned to its working. The theory behind authentication is that "none of the auth modules should return REJECT and at least one of them should return ACCEPT"
 
 * Currently all the authentication related information is passed un-encrypted over the network from client to server.
 

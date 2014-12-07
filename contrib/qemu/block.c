@@ -3584,7 +3584,7 @@ static bool bdrv_exceed_bps_limits(BlockDriverState *bs, int nb_sectors,
      *             it is obtained from the history statistic info.
      * bytes_res: the remaining bytes of data which need to be read/written.
      * (bytes_base + bytes_res) / bps_limit: used to calcuate
-     *             the total time for completing reading/writting all data.
+     *             the total time for completing reading/writing all data.
      */
     bytes_res   = (unsigned) nb_sectors * BDRV_SECTOR_SIZE;
 

@@ -41,7 +41,7 @@ typedef enum glusterd_op_sm_state_ {
         GD_OP_STATE_STAGE_OP_SENT,
         GD_OP_STATE_STAGED,
         GD_OP_STATE_COMMIT_OP_SENT,
-        GD_OP_STATE_COMMITED,
+        GD_OP_STATE_COMMITTED,
         GD_OP_STATE_UNLOCK_SENT,
         GD_OP_STATE_STAGE_OP_FAILED,
         GD_OP_STATE_COMMIT_OP_FAILED,

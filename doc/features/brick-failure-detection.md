@@ -6,7 +6,7 @@ This feature attempts to identify storage/file system failures and disable the f
 
 Detecting failures on the filesystem that a brick uses makes it possible to handle errors that are caused from outside of the Gluster environment.
 
-There have been hanging brick processes when the underlying storage of a brick went unavailable. A hanging brick process can still use the network and repond to clients, but actual I/O to the storage is impossible and can cause noticible delays on the client side.
+There have been hanging brick processes when the underlying storage of a brick went unavailable. A hanging brick process can still use the network and repond to clients, but actual I/O to the storage is impossible and can cause noticeable delays on the client side.
 
 Provide better detection of storage subsytem failures and prevent bricks from hanging. It should prevent hanging brick processes when storage-hardware or the filesystem fails.
 
