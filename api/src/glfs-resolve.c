@@ -246,12 +246,10 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
            Fill loc.name so that we make use md-cache.
            md-cache is not valid for nameless lookups.
         */
-        if (__is_root_gfid (parent->gfid)) {
-                if ((strcmp (component, ".") == 0) ||
-                    (strcmp (component, "..") == 0)) {
-                        loc.inode = inode_ref (parent);
-                        loc.name = ".";
-                }
+        if (__is_root_gfid (parent->gfid) &&
+            (strcmp (component, "..") == 0)) {
+                loc.inode = inode_ref (parent);
+                loc.name = ".";
         } else {
                 if (strcmp (component, ".") == 0)
                         loc.inode = inode_ref (parent);
