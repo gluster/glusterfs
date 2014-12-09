@@ -2031,6 +2031,50 @@ out:
         return 0;
 }
 
+int
+svc_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
+           dict_t *xdata)
+{
+        int             inode_type = -1;
+        int             ret        = -1;
+        int             op_ret     = -1;
+        int             op_errno   = EINVAL;
+        gf_boolean_t    wind       = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("svc", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd->inode, out);
+
+        ret = svc_inode_ctx_get (this, fd->inode, &inode_type);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get inode context "
+                        "for %s", uuid_utoa (fd->inode->gfid));
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (inode_type == NORMAL_INODE) {
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->fsync, fd, datasync,
+                                 xdata);
+        } else {
+                op_ret = -1;
+                op_errno = EROFS;
+                goto out;
+        }
+
+        wind = _gf_true;
+
+out:
+        if (!wind)
+                SVC_STACK_UNWIND (fsync, frame, op_ret, op_errno, NULL, NULL,
+                                  NULL);
+
+        return 0;
+}
+
 int32_t
 svc_flush (call_frame_t *frame, xlator_t *this,
            fd_t *fd, dict_t *xdata)
@@ -2277,6 +2321,7 @@ struct xlator_fops fops = {
         .link          = svc_link,
         .access        = svc_access,
         .removexattr   = svc_removexattr,
+        .fsync         = svc_fsync,
 };
 
 struct xlator_cbks cbks = {
