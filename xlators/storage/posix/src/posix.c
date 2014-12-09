@@ -4537,6 +4537,8 @@ unlock:
         array = NULL;
 
 out:
+        if (op_ret < 0)
+                filler->op_errno = op_errno;
         return op_ret;
 }
 
@@ -4592,6 +4594,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
         op_ret = dict_foreach (xattr, _posix_handle_xattr_keyvalue_pair,
                                &filler);
+        op_errno = filler.op_errno;
 
 out:
 
