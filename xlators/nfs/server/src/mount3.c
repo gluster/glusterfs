@@ -1078,8 +1078,12 @@ mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return ret;
 
 mnterr:
-        mntstat = mnt3svc_errno_to_mnterr (-ret);
-        mnt3svc_mnt_error_reply (mres->req, mntstat);
+        if (mres) {
+                mntstat = mnt3svc_errno_to_mnterr (-ret);
+                mnt3svc_mnt_error_reply (mres->req, mntstat);
+        } else
+                gf_log (GF_MNT, GF_LOG_CRITICAL,
+                        "mres == NULL, this should *never* happen");
         if (absolute_path)
                 GF_FREE (absolute_path);
         if (parent_path)
