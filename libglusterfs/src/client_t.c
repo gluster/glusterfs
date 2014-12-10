@@ -291,9 +291,10 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
 unlock:
         UNLOCK (&clienttable->lock);
 
-        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d",
-                          client->client_uid, client->ref.bind,
-                          client->ref.count);
+        if (client)
+                gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, "
+                                  "ref: %d", client->client_uid,
+                                  client->ref.bind, client->ref.count);
         return client;
 }
 
