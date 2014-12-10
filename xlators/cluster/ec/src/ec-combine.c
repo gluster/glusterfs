@@ -851,11 +851,8 @@ void ec_combine(ec_cbk_data_t * cbk, ec_combine_f combine)
     ec_trace("ANSWER", fop, "combine=%s[%d]",
              ec_bin(str, sizeof(str), cbk->mask, 0), cbk->count);
 
-    if ((cbk->count == fop->expected) && (fop->answer == NULL))
-    {
+    if ((cbk->count == fop->expected) && (fop->answer == NULL)) {
         fop->answer = cbk;
-
-        ec_update_bad(fop, cbk->mask);
 
         resume = 1;
     }
@@ -865,12 +862,11 @@ void ec_combine(ec_cbk_data_t * cbk, ec_combine_f combine)
 
     UNLOCK(&fop->lock);
 
-    if (needed > 0)
-    {
+    if (needed > 0) {
         ec_dispatch_next(fop, cbk->idx);
-    }
-    else if (resume)
-    {
+    } else if (resume) {
+        ec_update_bad(fop, cbk->mask);
+
         ec_resume(fop, 0);
     }
 }
