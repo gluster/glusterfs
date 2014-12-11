@@ -64,41 +64,22 @@ M: Pranith Karampuri <pkarampu@redhat.com>
 S: Maintained
 F: xlators/cluster/afr/
 
-Distributed Hashing Table (DHT)
-M: Shishir Gowda <gowda.shishir@gmail.com>
+Block Device
+M: M. Mohan Kumar <mohan@in.ibm.com>
 S: Maintained
-F: xlators/cluster/dht/
-
-Performance
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-S: Maintained
-F: xlators/performance/
-
-Index
-M: Pranith Karampuri <pkarampu@redhat.com>
-S: Maintained
-F: xlators/features/index/
-
-Quota
-M: Krishnan Parthasarathi <kparthas@redhat.com>
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-S: Maintained
-F: xlators/features/quota/
-
-Marker
-M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-S: Maintained
-F: xlators/features/marker/
+F: xlators/storage/bd/
 
 Changelog
 M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
 
-Block Device
-M: M. Mohan Kumar <mohan@in.ibm.com>
+Distributed Hashing Table (DHT)
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+M: Shyamsundar Ranganathan <srangana@redhat.com>
+M: Shishir Gowda <gowda.shishir@gmail.com>
 S: Maintained
-F: xlators/storage/bd/
+F: xlators/cluster/dht/
 
 FUSE Bridge
 M: Anand Avati <avati@redhat.com>
@@ -107,23 +88,64 @@ M: Csaba Henk <chenk@redhat.com>
 S: Maintained
 F: xlators/mount/
 
-NFS
-M: Niels de Vos <ndevos@redhat.com>
+Index
+M: Pranith Karampuri <pkarampu@redhat.com>
 S: Maintained
-F: xlators/nfs/server/
+F: xlators/features/index/
+
+IO threads
+M: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/performance/io-threads/
 
 Locks
 M: Pranith Karampuri <pkarampu@redhat.com>
 S: Maintained
 F: xlators/features/locks/
 
+Marker
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+S: Maintained
+F: xlators/features/marker/
+
+NFS
+M: Niels de Vos <ndevos@redhat.com>
+S: Maintained
+F: xlators/nfs/server/
+
+Performance
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+S: Maintained
+F: xlators/performance/
+
+Posix:
+M: Pranith Karampuri <pkarampu@redhat.com>
+M: Raghavendra Bhat <raghavendra@redhat.com>
+S: Maintained
+F: xlators/storage/posix/
+
+Quota
+M: Krishnan Parthasarathi <kparthas@redhat.com>
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+S: Maintained
+F: xlators/features/quota/
+
+
 
 Other bits of code:
 -------------------
+
+Doc
+M: Humble Chirammal <hchiramm@redhat.com>
+M: Lalatendu Mohanty <lmohanty@redhat.com>
+S: Maintained
+F: doc/
+
 Geo Replication
 M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
 F: geo-replication/
+
 
 Glupy
 M: Justin Clift <justin@gluster.org>
@@ -132,6 +154,8 @@ F: xlators/features/glupy/
 
 libgfapi
 M: Anand Avati <avati@redhat.com>
+M: Niels de Vos <ndevos@redhat.com>
+M: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: api/
 
@@ -152,6 +176,11 @@ F: rpc/
 
 Distribution Specific:
 ----------------------
+Build:
+M: Kaleb Keithley <kkeithle@redhat.com>
+M: Niels de Vos <ndevos@redhat.com>
+S: Maintained
+
 Debian Packaging
 M: Patrick Matthäi <pmatthaei@debian.org>
 M: Louis Zuckerman <me@louiszuckerman.com>
