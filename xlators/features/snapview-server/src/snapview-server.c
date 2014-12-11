@@ -509,23 +509,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 }
         }
 
-        ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "failed to get the "
-                        "entry point info");
-                entry_point_key = _gf_false;
-        } else {
-                entry_point_key = ret;
-        }
-
-        if (loc->name && strlen (loc->name)) {
-                /* lookup can come with the entry-point set in the dict
-                 * for the parent directory of the entry-point as well.
-                 * So consider entry_point only for named lookup
-                 */
-                entry_point = entry_point_key;
-        }
-
         if (loc->parent)
                 parent = inode_ref (loc->parent);
         else {
@@ -543,6 +526,25 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         if (dirent && !dirent->fs) {
                 fs = svs_initialise_snapshot_volume (this, dirent->name, NULL);
+        }
+
+        if (xdata && !inode_ctx) {
+                ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG, "failed to get the "
+                                "entry point info");
+                        entry_point_key = _gf_false;
+                } else {
+                        entry_point_key = ret;
+                }
+
+                if (loc->name && strlen (loc->name)) {
+                        /* lookup can come with the entry-point set in the dict
+                        * for the parent directory of the entry-point as well.
+                        * So consider entry_point only for named lookup
+                        */
+                        entry_point = entry_point_key;
+                }
         }
 
         if (inode_ctx && inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
