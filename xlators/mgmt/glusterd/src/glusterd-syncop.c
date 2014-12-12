@@ -1030,6 +1030,9 @@ gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers,
         glusterd_peerinfo_t *peerinfo = NULL;
         int                 npeers      = 0;
 
+        GF_ASSERT (peers);
+        GF_ASSERT (xact_peers);
+
         list_for_each_entry (peerinfo, peers, uuid_list) {
                 if (!peerinfo->connected)
                         continue;
@@ -1044,18 +1047,65 @@ gd_build_peers_list (struct list_head *peers, struct list_head *xact_peers,
 }
 
 int
-gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
-                  char **op_errstr, int npeers, uuid_t txn_id)
+gd_build_local_xaction_peers_list (struct list_head *peers,
+                                   struct list_head *xact_peers,
+                                   glusterd_op_t op)
 {
-        int                 ret         = -1;
-        int                 peer_cnt    = 0;
-        uuid_t              peer_uuid   = {0};
-        xlator_t            *this       = NULL;
-        glusterd_peerinfo_t *peerinfo   = NULL;
-        struct syncargs     args        = {0};
-        struct list_head   *peers       = NULL;
+        glusterd_peerinfo_t    *peerinfo    = NULL;
+        glusterd_local_peers_t *local_peers = NULL;
+        int                     npeers      = 0;
 
-        peers = &conf->xaction_peers;
+        GF_ASSERT (peers);
+        GF_ASSERT (xact_peers);
+
+        list_for_each_entry (peerinfo, peers, uuid_list) {
+                if (!peerinfo->connected)
+                        continue;
+                if (op != GD_OP_SYNC_VOLUME &&
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                        continue;
+
+                local_peers = GF_CALLOC (1, sizeof (*local_peers),
+                                         gf_gld_mt_local_peers_t);
+                if (!local_peers) {
+                        return -1;
+                }
+                INIT_LIST_HEAD (&local_peers->op_peers_list);
+                local_peers->peerinfo = peerinfo;
+                list_add_tail (&local_peers->op_peers_list, xact_peers);
+                npeers++;
+        }
+        return npeers;
+}
+
+void
+gd_cleanup_local_xaction_peers_list (struct list_head *xact_peers)
+{
+        GF_ASSERT (xact_peers);
+
+        if (list_empty (xact_peers))
+                return;
+
+        glusterd_local_peers_t *local_peers = NULL;
+
+        list_for_each_entry (local_peers, xact_peers, op_peers_list) {
+                GF_FREE (local_peers);
+                /*  local_peers->peerinfo need not be freed because it does not
+                 *  ownership of peerinfo, but merely refer it */
+        }
+}
+
+int
+gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
+                  char **op_errstr, int npeers, uuid_t txn_id,
+                  struct list_head *peers)
+{
+        int                     ret         = -1;
+        int                     peer_cnt    = 0;
+        uuid_t                  peer_uuid   = {0};
+        xlator_t               *this        = NULL;
+        glusterd_peerinfo_t    *peerinfo    = NULL;
+        struct syncargs         args        = {0};
 
         if (!npeers) {
                 ret = 0;
@@ -1065,7 +1115,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         this = THIS;
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 if (conf->op_version < GD_OP_VERSION_3_6_0) {
                         /* Reset lock status */
                         peerinfo->locked = _gf_false;
@@ -1106,16 +1156,16 @@ int
 gd_stage_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                    dict_t *req_dict, char **op_errstr, int npeers)
 {
-        int                 ret             = -1;
-        int                 peer_cnt           = 0;
-        dict_t              *rsp_dict       = NULL;
-        char                *hostname       = NULL;
-        xlator_t            *this           = NULL;
-        glusterd_peerinfo_t *peerinfo       = NULL;
-        uuid_t              tmp_uuid        = {0};
-        char                *errstr         = NULL;
-        struct syncargs     args            = {0};
-        dict_t              *aggr_dict      = NULL;
+        int                     ret             = -1;
+        int                     peer_cnt        = 0;
+        dict_t                 *rsp_dict        = NULL;
+        char                   *hostname        = NULL;
+        xlator_t               *this            = NULL;
+        glusterd_peerinfo_t    *peerinfo        = NULL;
+        uuid_t                  tmp_uuid        = {0};
+        char                   *errstr          = NULL;
+        struct syncargs         args            = {0};
+        dict_t                 *aggr_dict       = NULL;
 
         this = THIS;
         rsp_dict = dict_new ();
@@ -1165,7 +1215,8 @@ stage_done:
         gd_syncargs_init (&args, aggr_dict);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 ret = gd_syncop_mgmt_stage_op (peerinfo, &args,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, op_ctx);
@@ -1202,16 +1253,16 @@ int
 gd_commit_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                     dict_t *req_dict, char **op_errstr, int npeers)
 {
-        dict_t              *rsp_dict       = NULL;
-        int                 peer_cnt           = -1;
-        int                 ret             = -1;
-        char                *hostname       = NULL;
-        glusterd_peerinfo_t *peerinfo       = NULL;
-        xlator_t            *this           = NULL;
-        uuid_t              tmp_uuid        = {0};
-        char                *errstr         = NULL;
-        struct syncargs     args            = {0};
-        int                 type            = GF_QUOTA_OPTION_TYPE_NONE;
+        dict_t                 *rsp_dict      = NULL;
+        int                     peer_cnt      = -1;
+        int                     ret           = -1;
+        char                   *hostname      = NULL;
+        glusterd_peerinfo_t    *peerinfo      = NULL;
+        xlator_t               *this          = NULL;
+        uuid_t                  tmp_uuid      = {0};
+        char                   *errstr        = NULL;
+        struct syncargs         args          = {0};
+        int                     type          = GF_QUOTA_OPTION_TYPE_NONE;
 
         this = THIS;
         rsp_dict = dict_new ();
@@ -1269,7 +1320,8 @@ commit_done:
         gd_syncargs_init (&args, op_ctx);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 ret = gd_syncop_mgmt_commit_op (peerinfo, &args,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, op_ctx);
@@ -1301,18 +1353,15 @@ int
 gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                     rpcsvc_request_t *req, dict_t *op_ctx, char *op_errstr,
                     int npeers, char *volname, gf_boolean_t is_acquired,
-                    uuid_t txn_id)
+                    uuid_t txn_id, struct list_head *peers)
 {
-        glusterd_peerinfo_t *peerinfo   = NULL;
-        glusterd_peerinfo_t *tmp        = NULL;
-        uuid_t              tmp_uuid    = {0};
-        int                 peer_cnt    = 0;
-        int                 ret         = -1;
-        xlator_t            *this       = NULL;
-        struct syncargs     args        = {0};
-        struct list_head   *peers       = NULL;
+        glusterd_peerinfo_t    *peerinfo    = NULL;
+        uuid_t                  tmp_uuid    = {0};
+        int                     peer_cnt    = 0;
+        int                     ret         = -1;
+        xlator_t               *this        = NULL;
+        struct syncargs         args        = {0};
 
-        peers = &conf->xaction_peers;
         this = THIS;
         GF_ASSERT (this);
 
@@ -1330,25 +1379,23 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
 
         synctask_barrier_init((&args));
         peer_cnt = 0;
+
         if (conf->op_version < GD_OP_VERSION_3_6_0) {
-                list_for_each_entry_safe (peerinfo, tmp, peers, op_peers_list) {
+                list_for_each_local_xaction_peers (peerinfo, peers) {
                         /* Only unlock peers that were locked */
                         if (peerinfo->locked) {
                                 gd_syncop_mgmt_unlock (peerinfo, &args,
                                                        MY_UUID, tmp_uuid);
                                 peer_cnt++;
-                                list_del_init (&peerinfo->op_peers_list);
                         }
                 }
         } else {
                 if (volname) {
-                        list_for_each_entry_safe (peerinfo, tmp,
-                                                  peers, op_peers_list) {
+                        list_for_each_local_xaction_peers (peerinfo, peers) {
                                 gd_syncop_mgmt_v3_unlock (op_ctx, peerinfo,
                                                           &args, MY_UUID,
                                                           tmp_uuid, txn_id);
                                 peer_cnt++;
-                                list_del_init (&peerinfo->op_peers_list);
                         }
                 }
         }
@@ -1502,12 +1549,15 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *txn_id          = NULL;
+        struct list_head            xaction_peers    = {0,};
         glusterd_op_info_t          txn_opinfo;
 
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
         GF_ASSERT (conf);
+
+        INIT_LIST_HEAD (&xaction_peers);
 
         ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
         if (ret) {
@@ -1591,15 +1641,20 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
 local_locking_done:
 
-        INIT_LIST_HEAD (&conf->xaction_peers);
-
-        npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers, op);
+        /* Maintain xaction_peers on per transaction basis */
+        npeers = gd_build_local_xaction_peers_list (&conf->peers,
+                                                    &xaction_peers, op);
+        if (npeers == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "building local peers list "
+                        "failed");
+                goto out;
+        }
 
         /* If no volname is given as a part of the command, locks will
          * not be held */
         if (volname || (conf->op_version < GD_OP_VERSION_3_6_0)) {
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr,
-                                        npeers, *txn_id);
+                                        npeers, *txn_id, &xaction_peers);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Locking Peers Failed.");
@@ -1616,7 +1671,7 @@ local_locking_done:
                 goto out;
         }
 
-        ret = gd_stage_op_phase (&conf->xaction_peers, op, op_ctx, req_dict,
+        ret = gd_stage_op_phase (&xaction_peers, op, op_ctx, req_dict,
                                  &op_errstr, npeers);
         if (ret)
                 goto out;
@@ -1625,7 +1680,7 @@ local_locking_done:
         if (ret)
                 goto out;
 
-        ret = gd_commit_op_phase (&conf->xaction_peers, op, op_ctx, req_dict,
+        ret = gd_commit_op_phase (&xaction_peers, op, op_ctx, req_dict,
                                   &op_errstr, npeers);
         if (ret)
                 goto out;
@@ -1637,7 +1692,8 @@ out:
                 (void) gd_unlock_op_phase (conf, op, &op_ret, req,
                                            op_ctx, op_errstr,
                                            npeers, volname,
-                                           is_acquired, *txn_id);
+                                           is_acquired, *txn_id,
+                                           &xaction_peers);
 
                 /* Clearing the transaction opinfo */
                 ret = glusterd_clear_txn_opinfo (txn_id);
@@ -1649,6 +1705,8 @@ out:
         }
 
         glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
+
+        gd_cleanup_local_xaction_peers_list (&xaction_peers);
 
         if (volname)
                 GF_FREE (volname);

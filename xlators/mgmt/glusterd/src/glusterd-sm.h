@@ -103,6 +103,11 @@ struct glusterd_peerinfo_ {
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
 
+typedef struct glusterd_local_peers_ {
+        glusterd_peerinfo_t   *peerinfo;
+        struct list_head       op_peers_list;
+} glusterd_local_peers_t;
+
 typedef enum glusterd_ev_gen_mode_ {
         GD_MODE_OFF,
         GD_MODE_ON,
