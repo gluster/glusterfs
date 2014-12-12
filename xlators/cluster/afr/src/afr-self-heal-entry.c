@@ -357,11 +357,11 @@ __afr_selfheal_entry_finalize_source (xlator_t *this, unsigned char *sources,
 	return source;
 }
 
-
-static int
-__afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
-			      unsigned char *locked_on, unsigned char *sources,
-			      unsigned char *sinks, unsigned char *healed_sinks,
+int
+__afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
+                              inode_t *inode, unsigned char *locked_on,
+                              unsigned char *sources, unsigned char *sinks,
+                              unsigned char *healed_sinks,
 			      struct afr_reply *replies, int *source_p)
 {
 	int ret = -1;
@@ -371,11 +371,8 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	priv = this->private;
 
-	ret = afr_selfheal_unlocked_discover (frame, fd->inode, fd->inode->gfid,
+	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
 					      replies);
-	if (ret)
-		return ret;
-
         witness = alloca0 (sizeof (*witness) * priv->child_count);
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_ENTRY_TRANSACTION,
@@ -406,7 +403,6 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	return ret;
 }
-
 
 static int
 afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
@@ -445,7 +441,8 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
 			goto unlock;
 		}
 
-                ret = __afr_selfheal_entry_prepare (frame, this, fd, locked_on,
+                ret = __afr_selfheal_entry_prepare (frame, this, fd->inode,
+                                                    locked_on,
                                                     sources, sinks,
                                                     healed_sinks, par_replies,
                                                     &source);
@@ -593,8 +590,9 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			goto unlock;
 		}
 
-		ret = __afr_selfheal_entry_prepare (frame, this, fd, data_lock,
-						    sources, sinks, healed_sinks,
+		ret = __afr_selfheal_entry_prepare (frame, this, fd->inode,
+                                                    data_lock, sources, sinks,
+                                                    healed_sinks,
 						    locked_replies, &source);
 	}
 unlock:

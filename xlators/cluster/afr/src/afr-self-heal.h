@@ -200,6 +200,28 @@ gf_boolean_t
 afr_does_witness_exist (xlator_t *this, uint64_t *witness);
 
 int
+__afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
+                             inode_t *inode, unsigned char *locked_on,
+                             unsigned char *sources,
+                             unsigned char *sinks, unsigned char *healed_sinks,
+                             struct afr_reply *replies);
+
+int
+__afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this,
+                                 inode_t *inode, unsigned char *locked_on,
+                                 unsigned char *sources,
+                                 unsigned char *sinks,
+                                 unsigned char *healed_sinks,
+                                 struct afr_reply *replies);
+int
+__afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
+                              inode_t *inode, unsigned char *locked_on,
+                              unsigned char *sources,
+                              unsigned char *sinks,
+                              unsigned char *healed_sinks,
+                              struct afr_reply *replies, int *source_p);
+
+int
 afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                                uuid_t gfid, inode_t **link_inode,
                                gf_boolean_t *data_selfheal,

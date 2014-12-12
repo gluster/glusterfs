@@ -1011,4 +1011,8 @@ afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2);
 
 gf_boolean_t
 afr_is_xattr_ignorable (char *key);
+
+int
+afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                   dict_t *xdata);
 #endif /* __AFR_H__ */
