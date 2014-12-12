@@ -3489,7 +3489,8 @@ _does_quorum_meet (int active_count, int quorum_count)
 int
 glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                                     int *quorum_count,
-                                    gf_boolean_t _xaction_peers)
+                                    struct list_head *peer_list,
+                                    gf_boolean_t _local_xaction_peers)
 {
         glusterd_peerinfo_t *peerinfo      = NULL;
         glusterd_conf_t     *conf          = NULL;
@@ -3499,25 +3500,34 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
         double              quorum_percentage = 0.0;
         gf_boolean_t        ratio          = _gf_false;
         int                 count          = 0;
-        struct list_head    *peer_list      = NULL;
 
         conf = this->private;
+
+        GF_ASSERT (conf);
+
         //Start with counting self
         inquorum_count = 1;
         if (active_count)
                 *active_count = 1;
 
-        peer_list = (_xaction_peers) ? &conf->xaction_peers : &conf->peers;
-
-        if (_xaction_peers) {
-                list_for_each_entry (peerinfo, peer_list, op_peers_list) {
+        if (!peer_list) {
+                list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
                         glusterd_quorum_count(peerinfo, inquorum_count,
                                                 active_count, out);
                 }
         } else {
-                list_for_each_entry (peerinfo, peer_list, uuid_list) {
-                        glusterd_quorum_count(peerinfo, inquorum_count,
-                                                active_count, out);
+                if (_local_xaction_peers) {
+                        list_for_each_local_xaction_peers (peerinfo,
+                                                           peer_list) {
+                                glusterd_quorum_count(peerinfo, inquorum_count,
+                                                      active_count, out);
+                        }
+                } else {
+                        list_for_each_entry (peerinfo, peer_list,
+                                             op_peers_list) {
+                                glusterd_quorum_count(peerinfo, inquorum_count,
+                                                      active_count, out);
+                        }
                 }
         }
 
@@ -3574,7 +3584,8 @@ glusterd_is_any_volume_in_server_quorum (xlator_t *this)
 }
 
 gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this, gf_boolean_t _xaction_peers)
+does_gd_meet_server_quorum (xlator_t *this, struct list_head *peers_list,
+                            gf_boolean_t _local_xaction_peers)
 {
         int                     quorum_count = 0;
         int                     active_count   = 0;
@@ -3585,7 +3596,8 @@ does_gd_meet_server_quorum (xlator_t *this, gf_boolean_t _xaction_peers)
         conf = this->private;
         ret = glusterd_get_quorum_cluster_counts (this, &active_count,
                                                   &quorum_count,
-                                                  _xaction_peers);
+                                                  peers_list,
+                                                  _local_xaction_peers);
         if (ret)
                 goto out;
 
@@ -3701,7 +3713,7 @@ glusterd_do_quorum_action ()
 
         {
                 ret = glusterd_get_quorum_cluster_counts (this, &active_count,
-                                                          &quorum_count,
+                                                          &quorum_count, NULL,
                                                           _gf_false);
                 if (ret)
                         goto unlock;
@@ -12795,7 +12807,8 @@ out:
 
 int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr)
+                                       char **op_errstr,
+                                       struct list_head *peers_list)
 {
         int8_t              snap_force        = 0;
         int32_t             force             = 0;
@@ -12848,7 +12861,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                    by glusterd and if glusterds are not in
                    quorum, then better fail the snapshot
                 */
-                if (!does_gd_meet_server_quorum (this,_gf_true)) {
+                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
                         snprintf (err_str, sizeof (err_str),
                                   "glusterds are not in quorum");
                         gf_log (this->name, GF_LOG_WARNING, "%s",
@@ -12989,7 +13002,8 @@ out:
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr)
+                            char **op_errstr,
+                            struct list_head *peers_list)
 {
         int32_t             ret               = -1;
         xlator_t           *this              = NULL;
@@ -13015,7 +13029,8 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         switch (snap_command) {
         case GF_SNAP_OPTION_TYPE_CREATE:
                 ret = glusterd_snap_quorum_check_for_create (dict, snap_volume,
-                                                             op_errstr);
+                                                             op_errstr,
+                                                             peers_list);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING, "Quorum check"
                                 "failed during snapshot create command");
@@ -13024,7 +13039,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
         case GF_SNAP_OPTION_TYPE_RESTORE:
-                if (!does_gd_meet_server_quorum (this, _gf_true)) {
+                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str),
                                   "glusterds are not in quorum");
