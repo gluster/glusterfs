@@ -384,27 +384,24 @@ out:
 }
 
 int
-glusterd_mgmt_v3_initiate_lockdown (glusterd_conf_t  *conf, glusterd_op_t op,
-                                    dict_t *dict, char **op_errstr, int npeers,
-                                    gf_boolean_t  *is_acquired)
+glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
+                                    char **op_errstr, int npeers,
+                                    gf_boolean_t  *is_acquired,
+                                    struct list_head *peers)
 {
         char                *volname    = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
         struct syncargs      args       = {0};
-        struct list_head    *peers      = NULL;
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (conf);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
         GF_ASSERT (is_acquired);
-
-        peers = &conf->xaction_peers;
 
         /* Trying to acquire multiple mgmt_v3 locks on local node */
         ret = glusterd_multiple_mgmt_v3_lock (dict, MY_UUID);
@@ -425,7 +422,7 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_conf_t  *conf, glusterd_op_t op,
         gd_syncargs_init (&args, NULL);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 gd_mgmt_v3_lock (op, dict, peerinfo, &args,
                                  MY_UUID, peer_uuid);
                 peer_cnt++;
@@ -639,25 +636,22 @@ out:
 }
 
 int
-glusterd_mgmt_v3_pre_validate (glusterd_conf_t  *conf, glusterd_op_t op,
-                               dict_t *req_dict, char **op_errstr, int npeers)
+glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
+                               char **op_errstr, int npeers,
+                               struct list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
         dict_t              *rsp_dict   = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         struct syncargs      args       = {0};
-        struct list_head    *peers      = NULL;
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (conf);
         GF_ASSERT (req_dict);
         GF_ASSERT (op_errstr);
-
-        peers = &conf->xaction_peers;
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -710,7 +704,7 @@ glusterd_mgmt_v3_pre_validate (glusterd_conf_t  *conf, glusterd_op_t op,
         gd_syncargs_init (&args, req_dict);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 gd_mgmt_v3_pre_validate_req (op, req_dict, peerinfo, &args,
                                              MY_UUID, peer_uuid);
                 peer_cnt++;
@@ -878,25 +872,22 @@ out:
 }
 
 int
-glusterd_mgmt_v3_brick_op (glusterd_conf_t  *conf, glusterd_op_t op,
-                           dict_t *req_dict, char **op_errstr, int npeers)
+glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict,
+                           char **op_errstr, int npeers,
+                           struct list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
         dict_t              *rsp_dict   = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         struct syncargs      args       = {0};
-        struct list_head    *peers      = NULL;
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (conf);
         GF_ASSERT (req_dict);
         GF_ASSERT (op_errstr);
-
-        peers = &conf->xaction_peers;
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -940,7 +931,7 @@ glusterd_mgmt_v3_brick_op (glusterd_conf_t  *conf, glusterd_op_t op,
         gd_syncargs_init (&args, NULL);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 gd_mgmt_v3_brick_op_req (op, req_dict, peerinfo, &args,
                                          MY_UUID, peer_uuid);
                 peer_cnt++;
@@ -1103,27 +1094,23 @@ out:
 }
 
 int
-glusterd_mgmt_v3_commit (glusterd_conf_t  *conf, glusterd_op_t op,
-                         dict_t *op_ctx, dict_t *req_dict,
-                         char **op_errstr, int npeers)
+glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx,
+                         dict_t *req_dict, char **op_errstr,
+                         int npeers, struct list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
         dict_t              *rsp_dict   = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         struct syncargs      args       = {0};
-        struct list_head    *peers      = NULL;
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (conf);
         GF_ASSERT (op_ctx);
         GF_ASSERT (req_dict);
         GF_ASSERT (op_errstr);
-
-        peers = &conf->xaction_peers;
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -1176,7 +1163,7 @@ glusterd_mgmt_v3_commit (glusterd_conf_t  *conf, glusterd_op_t op,
         gd_syncargs_init (&args, op_ctx);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 gd_mgmt_v3_commit_req (op, req_dict, peerinfo, &args,
                                        MY_UUID, peer_uuid);
                 peer_cnt++;
@@ -1307,28 +1294,23 @@ out:
 }
 
 int
-glusterd_mgmt_v3_post_validate (glusterd_conf_t  *conf, glusterd_op_t op,
-                                int32_t op_ret, dict_t *dict, dict_t *req_dict,
-                                char **op_errstr, int npeers)
+glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
+                                dict_t *req_dict, char **op_errstr, int npeers,
+                                struct list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
         dict_t              *rsp_dict   = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         struct syncargs      args       = {0};
-        struct list_head    *peers      = NULL;
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (conf);
         GF_ASSERT (dict);
         GF_VALIDATE_OR_GOTO (this->name, req_dict, out);
         GF_ASSERT (op_errstr);
-
-        peers = &conf->xaction_peers;
-        GF_ASSERT (peers);
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -1375,7 +1357,7 @@ glusterd_mgmt_v3_post_validate (glusterd_conf_t  *conf, glusterd_op_t op,
         gd_syncargs_init (&args, req_dict);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 gd_mgmt_v3_post_validate_req (op, op_ret, req_dict, peerinfo,
                                               &args, MY_UUID, peer_uuid);
                 peer_cnt++;
@@ -1502,10 +1484,11 @@ out:
 }
 
 int
-glusterd_mgmt_v3_release_peer_locks (glusterd_conf_t  *conf, glusterd_op_t op,
+glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op,
                                      dict_t *dict, int32_t op_ret,
                                      char **op_errstr, int npeers,
-                                     gf_boolean_t  is_acquired)
+                                     gf_boolean_t  is_acquired,
+                                     struct list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1513,15 +1496,11 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_conf_t  *conf, glusterd_op_t op,
         xlator_t            *this       = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         struct syncargs      args       = {0};
-        struct list_head    *peers      = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        GF_ASSERT (conf);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
-
-        peers = &conf->xaction_peers;
 
         /* If the lock has not been held during this
          * transaction, do not send unlock requests */
@@ -1537,7 +1516,7 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_conf_t  *conf, glusterd_op_t op,
         gd_syncargs_init (&args, NULL);
         synctask_barrier_init((&args));
         peer_cnt = 0;
-        list_for_each_entry (peerinfo, peers, op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo, peers) {
                 gd_mgmt_v3_unlock (op, dict, peerinfo, &args,
                                    MY_UUID, peer_uuid);
                 peer_cnt++;
@@ -1575,6 +1554,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
+        struct list_head             xaction_peers   = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1582,6 +1562,15 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (dict);
         conf = this->private;
         GF_ASSERT (conf);
+
+        INIT_LIST_HEAD (&xaction_peers);
+        npeers = gd_build_local_xaction_peers_list  (&conf->peers,
+                                                     &xaction_peers, op);
+        if (npeers == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "building local peers list "
+                        "failed");
+                goto rsp;
+        }
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
@@ -1619,13 +1608,10 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
         dict_copy (dict, tmp_dict);
 
-        /* BUILD PEERS LIST */
-        INIT_LIST_HEAD (&conf->xaction_peers);
-        npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers, op);
-
         /* LOCKDOWN PHASE - Acquire mgmt_v3 locks */
-        ret = glusterd_mgmt_v3_initiate_lockdown (conf, op, dict, &op_errstr,
-                                                  npeers, &is_acquired);
+        ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
+                                                  npeers, &is_acquired,
+                                                  &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "mgmt_v3 lockdown failed.");
                 goto out;
@@ -1642,16 +1628,17 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         /* PRE-COMMIT VALIDATE PHASE */
-        ret = glusterd_mgmt_v3_pre_validate (conf, op, req_dict,
-                                             &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_pre_validate (op, req_dict,
+                                             &op_errstr, npeers,
+                                             &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Pre Validation Failed");
                 goto out;
         }
 
         /* COMMIT OP PHASE */
-        ret = glusterd_mgmt_v3_commit (conf, op, dict, req_dict,
-                                       &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_commit (op, dict, req_dict,
+                                       &op_errstr, npeers, &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Commit Op Failed");
                 goto out;
@@ -1662,8 +1649,9 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
            commands other than snapshot. So as of now, I am
            sending 0 (op_ret as 0).
         */
-        ret = glusterd_mgmt_v3_post_validate (conf, op, 0, dict, req_dict,
-                                              &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_post_validate (op, 0, dict, req_dict,
+                                              &op_errstr, npeers,
+                                              &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Post Validation Failed");
                 goto out;
@@ -1673,9 +1661,10 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 out:
         op_ret = ret;
         /* UNLOCK PHASE FOR PEERS*/
-        (void) glusterd_mgmt_v3_release_peer_locks (conf, op, dict,
+        (void) glusterd_mgmt_v3_release_peer_locks (op, dict,
                                                     op_ret, &op_errstr,
-                                                    npeers, is_acquired);
+                                                    npeers, is_acquired,
+                                                    &xaction_peers);
 
         /* LOCAL VOLUME(S) UNLOCK */
         if (is_acquired) {
@@ -1687,9 +1676,11 @@ out:
                         op_ret = ret;
                 }
         }
-
+rsp:
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
+
+        gd_cleanup_local_xaction_peers_list (&xaction_peers);
 
         if (req_dict)
                 dict_unref (req_dict);
@@ -1783,6 +1774,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
+        struct list_head            xaction_peers    = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1790,6 +1782,15 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (dict);
         conf = this->private;
         GF_ASSERT (conf);
+
+        INIT_LIST_HEAD (&xaction_peers);
+        npeers = gd_build_local_xaction_peers_list  (&conf->peers,
+                                                     &xaction_peers, op);
+        if (npeers == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "building local peers list "
+                        "failed");
+                goto rsp;
+        }
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
@@ -1827,13 +1828,10 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
         dict_copy (dict, tmp_dict);
 
-        /* BUILD PEERS LIST */
-        INIT_LIST_HEAD (&conf->xaction_peers);
-        npeers = gd_build_peers_list  (&conf->peers, &conf->xaction_peers, op);
-
         /* LOCKDOWN PHASE - Acquire mgmt_v3 locks */
-        ret = glusterd_mgmt_v3_initiate_lockdown (conf, op, dict, &op_errstr,
-                                                  npeers, &is_acquired);
+        ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
+                                                  npeers, &is_acquired,
+                                                  &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "mgmt_v3 lockdown failed.");
                 goto out;
@@ -1850,8 +1848,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         /* PRE-COMMIT VALIDATE PHASE */
-        ret = glusterd_mgmt_v3_pre_validate (conf, op, req_dict,
-                                            &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_pre_validate (op, req_dict,
+                                            &op_errstr, npeers, &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Pre Validation Failed");
                 goto out;
@@ -1875,8 +1873,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        ret = glusterd_mgmt_v3_brick_op (conf, op, req_dict,
-                                        &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_brick_op (op, req_dict,
+                                        &op_errstr, npeers, &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
                 goto unbarrier;
@@ -1906,8 +1904,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
                 goto unbarrier;
         }
 
-        ret = glusterd_mgmt_v3_commit (conf, op, dict, req_dict,
-                                       &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_commit (op, dict, req_dict,
+                                       &op_errstr, npeers, &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Commit Op Failed");
                 /* If the main op fails, we should save the error string.
@@ -1932,8 +1930,8 @@ unbarrier:
                 goto out;
         }
 
-        ret = glusterd_mgmt_v3_brick_op (conf, op, req_dict,
-                                         &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_brick_op (op, req_dict,
+                                         &op_errstr, npeers, &xaction_peers);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
@@ -1960,17 +1958,19 @@ out:
                 op_ret = -1;
 
         /* POST-COMMIT VALIDATE PHASE */
-        ret = glusterd_mgmt_v3_post_validate (conf, op, op_ret, dict, req_dict,
-                                              &op_errstr, npeers);
+        ret = glusterd_mgmt_v3_post_validate (op, op_ret, dict, req_dict,
+                                              &op_errstr, npeers,
+                                              &xaction_peers);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Post Validation Failed");
                 op_ret = -1;
         }
 
         /* UNLOCK PHASE FOR PEERS*/
-        (void) glusterd_mgmt_v3_release_peer_locks (conf, op, dict,
+        (void) glusterd_mgmt_v3_release_peer_locks (op, dict,
                                                     op_ret, &op_errstr,
-                                                    npeers, is_acquired);
+                                                    npeers, is_acquired,
+                                                    &xaction_peers);
 
         /* If the commit op (snapshot taking) failed, then the error is stored
            in cli_errstr and unbarrier is called. Suppose, if unbarrier also
@@ -1994,9 +1994,11 @@ out:
                         op_ret = ret;
                 }
         }
-
+rsp:
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
+
+        gd_cleanup_local_xaction_peers_list (&xaction_peers);
 
         if (req_dict)
                 dict_unref (req_dict);
