@@ -6,12 +6,43 @@
 cleanup;
 START_TIMESTAMP=`date +%s`
 
+function kill_multiple_bricks {
+        local vol=$1
+        local host=$2
+        local brickpath=$3
+
+        if [ $decide_kill == 0 ]
+        then
+                for ((i=0; i<=4; i=i+2)) do
+                        TEST kill_brick $vol $host $brickpath/${vol}$i
+                done
+        else
+                for ((i=1; i<=5; i=i+2)) do
+                        TEST kill_brick $vol $host $brickpath/${vol}$i
+                done
+        fi
+}
+function check_bricks_up {
+        local vol=$1
+        if [ $decide_kill == 0 ]
+        then
+                for ((i=0; i<=4; i=i+2)) do
+                        EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $vol $i
+                done
+        else
+                for ((i=1; i<=5; i=i+2)) do
+                        EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $vol $i
+                done
+        fi
+}
+
 function disconnected_brick_count {
         local vol=$1
         $CLI volume heal $vol info | \
             egrep -i '(transport|Socket is not connected)' | wc -l
 }
 
+TESTS_EXPECTED_IN_LOOP=20
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1,2,3,4,5}
@@ -19,9 +50,10 @@ TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
-TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST kill_brick $V0 $H0 $B0/${V0}2
-TEST kill_brick $V0 $H0 $B0/${V0}4
+
+decide_kill=$((`date +"%j"`))%2
+
+kill_multiple_bricks $V0 $H0 $B0
 cd $M0
 HEAL_FILES=0
 for i in {1..10}
@@ -61,9 +93,9 @@ TEST ! $CLI volume heal $V0 full
 TEST $CLI volume start $V0 force
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 2
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 4
+
+check_bricks_up $V0
+
 TEST $CLI volume heal $V0
 sleep 5 #Until the heal-statistics command implementation
 #check that this heals the contents partially
@@ -98,16 +130,13 @@ TEST mkdir $M0/d
 #DATA
 TEST $CLI volume set $V0 cluster.data-self-heal off
 EXPECT "off" volume_option $V0 cluster.data-self-heal
-TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST kill_brick $V0 $H0 $B0/${V0}2
-TEST kill_brick $V0 $H0 $B0/${V0}4
+kill_multiple_bricks $V0 $H0 $B0
 echo abc > $M0/f
 EXPECT 1 afr_get_pending_heal_count $V0
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 2
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 4
+check_bricks_up $V0
+
 TEST $CLI volume heal $V0
 EXPECT_WITHIN 30 "0" afr_get_pending_heal_count $V0
 TEST $CLI volume set $V0 cluster.data-self-heal on
@@ -115,16 +144,14 @@ TEST $CLI volume set $V0 cluster.data-self-heal on
 #METADATA
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 EXPECT "off" volume_option $V0 cluster.metadata-self-heal
-TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST kill_brick $V0 $H0 $B0/${V0}2
-TEST kill_brick $V0 $H0 $B0/${V0}4
+kill_multiple_bricks $V0 $H0 $B0
+
 TEST chmod 777 $M0/f
 EXPECT 1 afr_get_pending_heal_count $V0
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 2
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 4
+check_bricks_up $V0
+
 TEST $CLI volume heal $V0
 EXPECT_WITHIN 30 "0" afr_get_pending_heal_count $V0
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
@@ -132,9 +159,7 @@ TEST $CLI volume set $V0 cluster.metadata-self-heal on
 #ENTRY
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 EXPECT "off" volume_option $V0 cluster.entry-self-heal
-TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST kill_brick $V0 $H0 $B0/${V0}2
-TEST kill_brick $V0 $H0 $B0/${V0}4
+kill_multiple_bricks $V0 $H0 $B0
 TEST touch $M0/d/a
 # 4 if mtime/ctime is modified for d in bricks without a
 # 2 otherwise
@@ -142,9 +167,7 @@ PENDING=$( afr_get_pending_heal_count $V0 )
 TEST test $PENDING -eq 2 -o $PENDING -eq 4
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN 20 "Y" glustershd_up_status
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 0
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 2
-EXPECT_WITHIN 20 "1" afr_child_up_status_in_shd $V0 4
+check_bricks_up $V0
 TEST $CLI volume heal $V0
 EXPECT_WITHIN 30 "0" afr_get_pending_heal_count $V0
 TEST $CLI volume set $V0 cluster.entry-self-heal on

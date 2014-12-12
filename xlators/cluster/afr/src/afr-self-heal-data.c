@@ -569,10 +569,11 @@ out:
  * The return value is the index of the subvolume to be used as the source
  * for self-healing, or -1 if no healing is necessary/split brain.
  */
-static int
-__afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
-			     unsigned char *locked_on, unsigned char *sources,
-			     unsigned char *sinks, unsigned char *healed_sinks,
+int
+__afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
+                             inode_t *inode, unsigned char *locked_on,
+                             unsigned char *sources, unsigned char *sinks,
+                             unsigned char *healed_sinks,
 			     struct afr_reply *replies)
 {
 	int ret = -1;
@@ -582,10 +583,8 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	priv = this->private;
 
-	ret = afr_selfheal_unlocked_discover (frame, fd->inode, fd->inode->gfid,
+	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
 					      replies);
-	if (ret)
-		return ret;
 
         witness = alloca0(priv->child_count * sizeof (*witness));
 	ret = afr_selfheal_find_direction (frame, this, replies,
@@ -650,8 +649,9 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			goto unlock;
 		}
 
-		ret = __afr_selfheal_data_prepare (frame, this, fd, data_lock,
-						   sources, sinks, healed_sinks,
+		ret = __afr_selfheal_data_prepare (frame, this, fd->inode,
+                                                   data_lock, sources, sinks,
+                                                   healed_sinks,
 						   locked_replies);
 		if (ret < 0)
 			goto unlock;
@@ -678,7 +678,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 unlock:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
 				data_lock);
-	if (ret < 0)
+        if (ret < 0)
 		goto out;
 
 	ret = afr_selfheal_data_do (frame, this, fd, source, healed_sinks,
@@ -730,7 +730,6 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode)
 
 	return fd;
 }
-
 
 int
 afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)

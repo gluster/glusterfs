@@ -136,6 +136,8 @@
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
 #define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
 
+#define GF_AFR_HEAL_INFO "glusterfs.heal-info"
+
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
 #define RB_PUMP_CMD_START       "glusterfs.pump.start"

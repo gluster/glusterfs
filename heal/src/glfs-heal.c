@@ -17,9 +17,6 @@
 #include "syncop.h"
 #include <string.h>
 #include <time.h>
-#include "afr.h"
-#include "afr-self-heal.h"
-#include "afr-self-heald.h"
 
 #define DEFAULT_HEAL_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
 
@@ -88,183 +85,6 @@ out:
         return ret;
 }
 
-int
-afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
-                                      inode_t *inode,
-                                      gf_boolean_t *metadata_selfheal)
-{
-        int ret = -1;
-        unsigned char *locked_on = NULL;
-        afr_private_t *priv = this->private;
-
-        locked_on = alloca0 (priv->child_count);
-
-        ret = afr_selfheal_inodelk (frame, this, inode, this->name,
-                                    LLONG_MAX - 1, 0, locked_on);
-        {
-                if (ret == 0) {
-                        /* Not a single lock */
-                        ret = -afr_final_errno (frame->local, priv);
-                        if (ret == 0)
-                                ret = -ENOTCONN;/* all invalid responses */
-                        goto out;
-                }
-                ret = afr_selfheal_unlocked_inspect (frame, this, inode->gfid,
-                                                     NULL, NULL,
-                                                     metadata_selfheal, NULL);
-        }
-        afr_selfheal_uninodelk (frame, this, inode, this->name,
-                                LLONG_MAX - 1, 0, locked_on);
-out:
-        return ret;
-}
-
-int
-afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
-                                  inode_t *inode, gf_boolean_t *data_selfheal)
-{
-        int ret = -1;
-        afr_private_t   *priv = NULL;
-        unsigned char *locked_on = NULL;
-        unsigned char *data_lock = NULL;
-
-        priv = this->private;
-        locked_on = alloca0 (priv->child_count);
-        data_lock = alloca0 (priv->child_count);
-
-        ret = afr_selfheal_tryinodelk (frame, this, inode, priv->sh_domain,
-                                       0, 0, locked_on);
-        {
-                if (ret == 0) {
-                        ret = -afr_final_errno (frame->local, priv);
-                        if (ret == 0)
-                                ret = -ENOTCONN;/* all invalid responses */
-                        goto out;
-                }
-                ret = afr_selfheal_inodelk (frame, this, inode, this->name,
-                                            0, 0, data_lock);
-                {
-                        if (ret == 0) {
-                                ret = -afr_final_errno (frame->local, priv);
-                                if (ret == 0)
-                                        ret = -ENOTCONN;
-                                /* all invalid responses */
-                                goto unlock;
-                        }
-                        ret = afr_selfheal_unlocked_inspect (frame, this,
-                                                             inode->gfid, NULL,
-                                                             data_selfheal,
-                                                             NULL, NULL);
-                }
-                afr_selfheal_uninodelk (frame, this, inode, this->name, 0, 0,
-                                        data_lock);
-        }
-unlock:
-        afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0,
-                                locked_on);
-out:
-        return ret;
-}
-
-int
-afr_selfheal_locked_entry_inspect (call_frame_t *frame, xlator_t *this,
-                                   inode_t *inode, gf_boolean_t *entry_selfheal)
-{
-        int ret = -1;
-        afr_private_t   *priv = NULL;
-        unsigned char *locked_on = NULL;
-        unsigned char *data_lock = NULL;
-
-        priv = this->private;
-        locked_on = alloca0 (priv->child_count);
-        data_lock = alloca0 (priv->child_count);
-
-        ret = afr_selfheal_tryentrylk (frame, this, inode, priv->sh_domain,
-                                       NULL, locked_on);
-        {
-                if (ret == 0) {
-                        ret = -afr_final_errno (frame->local, priv);
-                        if (ret == 0)
-                                ret = -ENOTCONN;/* all invalid responses */
-                        goto out;
-                }
-
-                ret = afr_selfheal_entrylk (frame, this, inode, this->name,
-                                            NULL, data_lock);
-                {
-                        if (ret == 0) {
-                                ret = -afr_final_errno (frame->local, priv);
-                                if (ret == 0)
-                                        ret = -ENOTCONN;
-                                /* all invalid responses */
-                                goto unlock;
-                        }
-                        ret = afr_selfheal_unlocked_inspect (frame, this,
-                                                             inode->gfid,
-                                                             NULL, NULL, NULL,
-                                                             entry_selfheal);
-                }
-                afr_selfheal_unentrylk (frame, this, inode, this->name, NULL,
-                                        data_lock);
-        }
-unlock:
-        afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain, NULL,
-                                locked_on);
-out:
-        return ret;
-}
-
-int
-afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
-                             inode_t **inode,
-                             gf_boolean_t *data_selfheal,
-                             gf_boolean_t *metadata_selfheal,
-                             gf_boolean_t *entry_selfheal)
-{
-        int ret = -1;
-        gf_boolean_t    dsh = _gf_false;
-        gf_boolean_t    msh = _gf_false;
-        gf_boolean_t    esh = _gf_false;
-
-        ret = afr_selfheal_unlocked_inspect (frame, this, gfid, inode,
-                                             &dsh, &msh, &esh);
-        if (ret)
-                goto out;
-
-        /* For every heal type hold locks and check if it indeed needs heal */
-
-        if (msh) {
-                msh = _gf_false;
-                ret = afr_selfheal_locked_metadata_inspect (frame, this,
-                                                            *inode, &msh);
-                if (msh || ret < 0)
-                        goto out;
-        }
-
-        if (dsh) {
-                dsh = _gf_false;
-                ret = afr_selfheal_locked_data_inspect (frame, this, *inode,
-                                                        &dsh);
-                if (dsh || ret < 0)
-                        goto out;
-        }
-
-        if (esh) {
-                esh = _gf_false;
-                ret = afr_selfheal_locked_entry_inspect (frame, this, *inode,
-                                                         &esh);
-        }
-
-out:
-        if (entry_selfheal)
-                *entry_selfheal = esh;
-        if (data_selfheal)
-                *data_selfheal = dsh;
-        if (metadata_selfheal)
-                *metadata_selfheal = msh;
-        return ret;
-}
-
 static xlator_t*
 _get_afr_ancestor (xlator_t *xl)
 {
@@ -282,6 +102,90 @@ _get_afr_ancestor (xlator_t *xl)
         return NULL;
 }
 
+int
+glfsh_index_purge (xlator_t *subvol, inode_t *inode, char *name)
+{
+        loc_t loc = {0, };
+        int ret = 0;
+
+        loc.parent = inode_ref (inode);
+        loc.name = name;
+
+        ret = syncop_unlink (subvol, &loc);
+
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+glfsh_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p)
+{
+        int      ret   = 0;
+        char    *path  = NULL;
+        loc_t    loc   = {0,};
+        dict_t  *xattr = NULL;
+
+        uuid_copy (loc.gfid, gfid);
+        loc.inode = inode_new (this->itable);
+
+        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
+        if (ret || !path) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        *path_p = gf_strdup (path);
+        if (!*path_p) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (xattr)
+                dict_unref (xattr);
+        loc_wipe (&loc);
+
+        return ret;
+}
+
+void
+glfsh_print_heal_status (dict_t *dict, char *path, uuid_t gfid,
+                         uint64_t *num_entries)
+{
+       char *value  = NULL;
+       int   ret    = 0;
+       char *status = NULL;
+
+       ret = dict_get_str (dict, "heal-info", &value);
+       if (ret || (!strcmp (value, "no-heal")))
+               return;
+
+       (*num_entries)++;
+       if (!strcmp (value, "heal")) {
+               ret = gf_asprintf (&status, " ");
+       } else if (!strcmp (value, "possibly-healing")) {
+               ret = gf_asprintf (&status, " - Possibly undergoing heal\n");
+       } else if (!strcmp (value, "split-brain")) {
+               ret = gf_asprintf (&status, " - Is in split-brain\n");
+       }
+       if (ret == -1)
+               status = NULL;
+
+       printf ("%s%s\n",
+               path ? path : uuid_utoa (gfid),
+               status);
+
+       if (status)
+               GF_FREE (status);
+       return;
+}
+
 static int
 glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                        uint64_t *offset, uint64_t *num_entries)
@@ -291,19 +195,10 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
         int              ret = 0;
         char            *path = NULL;
         uuid_t          gfid = {0};
-        inode_t         *inode = NULL;
-        call_frame_t    *frame = NULL;
         xlator_t        *this = NULL;
-        gf_boolean_t data_selfheal = _gf_false;
-        gf_boolean_t metadata_selfheal = _gf_false;
-        gf_boolean_t entry_selfheal = _gf_false;
-
+        dict_t          *dict = NULL;
+        loc_t           loc   = {0,};
         this = THIS;
-        frame = afr_frame_create (this);
-        if (!frame) {
-                ret = -1;
-                goto out;
-        }
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
                 *offset = entry->d_off;
@@ -314,44 +209,25 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                 uuid_clear (gfid);
                 GF_FREE (path);
                 path = NULL;
-                if (inode) {
-                        inode_forget (inode, 1);
-                        inode_unref (inode);
-                        inode = NULL;
-                }
 
-                AFR_STACK_RESET (frame);
                 uuid_parse (entry->d_name, gfid);
-                ret = afr_selfheal_locked_inspect (frame, this, gfid, &inode,
-                                                   &data_selfheal,
-                                                   &metadata_selfheal,
-                                                   &entry_selfheal);
-                if (ret == 0) {
-                        if (!entry_selfheal && !metadata_selfheal &&
-                            !data_selfheal)
-                                continue;
-                }
+                uuid_copy (loc.gfid, gfid);
+                ret = syncop_getxattr (this, &loc, &dict, GF_AFR_HEAL_INFO);
+                if (ret)
+                        continue;
 
-                ret = afr_shd_gfid_to_path (this, xl, gfid, &path);
+                ret = glfsh_gfid_to_path (this, xl, gfid, &path);
 
                 if (ret == -ENOENT || ret == -ESTALE) {
-                        afr_shd_index_purge (xl, fd->inode, entry->d_name);
+                        glfsh_index_purge (xl, fd->inode, entry->d_name);
                         ret = 0;
                         continue;
                 }
-
-                (*num_entries)++;
-                printf ("%s\n", path ? path : uuid_utoa (inode->gfid));
+                if (dict)
+                        glfsh_print_heal_status (dict, path, gfid,
+                                                 num_entries);
         }
         ret = 0;
-out:
-        if (inode) {
-                inode_forget (inode, 1);
-                inode_unref (inode);
-        }
-
-        if (frame)
-                AFR_STACK_DESTROY (frame);
         GF_FREE (path);
         return ret;
 }

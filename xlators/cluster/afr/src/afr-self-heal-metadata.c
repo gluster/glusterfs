@@ -294,7 +294,8 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	return source;
 }
 
-static int
+
+int
 __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *inode,
 				 unsigned char *locked_on, unsigned char *sources,
 				 unsigned char *sinks, unsigned char *healed_sinks,
@@ -310,9 +311,6 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
 					      replies);
-	if (ret)
-		return ret;
-
         witness = alloca0 (sizeof (*witness) * priv->child_count);
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_METADATA_TRANSACTION,

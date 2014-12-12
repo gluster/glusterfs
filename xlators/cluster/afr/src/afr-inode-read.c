@@ -1373,6 +1373,11 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+        if (!strcmp (name, GF_AFR_HEAL_INFO)) {
+                afr_get_heal_info (frame, this, loc, xdata);
+                return 0;
+        }
+
         /*
          * if we are doing getxattr with pathinfo as the key then we
          * collect information from all childs
