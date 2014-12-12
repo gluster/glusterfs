@@ -849,6 +849,7 @@ fi
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache*
+%dir %{_datadir}/glusterfs/scripts
 %{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
 %{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
 
@@ -937,7 +938,8 @@ fi
 %endif
 
 %files regression-tests
-%{_prefix}/share/glusterfs/*
+%{_prefix}/share/glusterfs/run-tests.sh
+%{_prefix}/share/glusterfs/tests
 %exclude %{_prefix}/share/glusterfs/tests/basic/rpm.t
 
 %if ( 0%{!?_without_ocf:1} )
@@ -1018,6 +1020,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Dec 12 2014 Niels de Vos <ndevos@redhat.com>
+- do not package all /usr/share/glusterfs/* files in regression-tests (#1169005)
+
 * Fri Sep 26 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - smarter logic in %%post server (#1146426)
 
