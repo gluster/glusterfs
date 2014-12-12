@@ -297,6 +297,11 @@ start_glusterfs ()
     cmd_line=$(echo "$cmd_line $mount_point");
 
     $cmd_line;
+    if [ $? -ne 0 ]; then
+        warn "Mount failed. Please check the log file for more details."
+        exit 1;
+    fi
+
 
     inode=$( ${getinode} $mount_point 2>/dev/null);
     # this is required if the stat returns error
