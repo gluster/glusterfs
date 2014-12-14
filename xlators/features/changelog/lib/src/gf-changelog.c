@@ -336,6 +336,11 @@ gf_changelog_next_change (char *bufptr, size_t maxlen)
         gf_changelog_t *gfc        = NULL;
         char buffer[PATH_MAX]      = {0,};
 
+        if (maxlen > PATH_MAX) {
+                errno = ENAMETOOLONG;
+                goto out;
+        }
+
         errno = EINVAL;
 
         this = THIS;
