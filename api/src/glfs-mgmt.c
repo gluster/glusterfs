@@ -478,8 +478,8 @@ glusterfs_oldvolfile_update (struct glfs *fs, char *volfile, ssize_t size)
 
 
 int
-mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
-		  void *myframe)
+glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                       void *myframe)
 {
 	gf_getspec_rsp		 rsp   = {0,};
 	call_frame_t		*frame = NULL;
@@ -660,7 +660,7 @@ glfs_volfile_fetch (struct glfs *fs)
         }
 
 	ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
-				   GF_HNDSK_GETSPEC, mgmt_getspec_cbk,
+				   GF_HNDSK_GETSPEC, glfs_mgmt_getspec_cbk,
 				   (xdrproc_t)xdr_gf_getspec_req);
 out:
         return ret;
