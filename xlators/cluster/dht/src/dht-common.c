@@ -3164,8 +3164,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         local->call_cnt = call_cnt = layout->cnt;
 
-        tmp = dict_get (xattr, "distribute.migrate-data");
+        tmp = dict_get (xattr, GF_XATTR_FILE_MIGRATE_KEY);
         if (tmp) {
+
                 if (IA_ISDIR (loc->inode->ia_type)) {
                         op_errno = ENOTSUP;
                         goto err;
@@ -3181,7 +3182,25 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 if (conf->decommission_in_progress)
                         forced_rebalance = GF_DHT_MIGRATE_HARDLINK;
 
-                local->rebalance.target_node = dht_subvol_get_hashed (this, loc);
+                if (!loc->path) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                if (!local->loc.name)
+                        local->loc.name = strrchr (local->loc.path, '/')+1;
+
+                if (!local->loc.parent)
+                        local->loc.parent =
+                                inode_parent(local->loc.inode, NULL, NULL);
+
+                if ((!local->loc.name) || (!local->loc.parent)) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                local->rebalance.target_node =
+                        dht_subvol_get_hashed (this, &local->loc);
                 if (!local->rebalance.target_node) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_HASHED_SUBVOL_GET_FAILED,

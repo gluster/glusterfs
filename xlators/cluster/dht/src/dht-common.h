@@ -25,11 +25,11 @@
 #define _DHT_H
 
 #define GF_XATTR_FIX_LAYOUT_KEY     "distribute.fix.layout"
+#define GF_XATTR_FILE_MIGRATE_KEY   "trusted.distribute.migrate-data"
 #define GF_DHT_LOOKUP_UNHASHED_ON   1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
 #define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
-
 #include <fnmatch.h>
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
