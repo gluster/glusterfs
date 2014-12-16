@@ -1952,10 +1952,11 @@ gf_defrag_start_crawl (void *data)
                 }
                 if (defrag->cmd == GF_DEFRAG_CMD_START_FORCE)
                         ret = dict_set_str (migrate_data,
-                                            "distribute.migrate-data", "force");
+                                            GF_XATTR_FILE_MIGRATE_KEY,
+                                            "force");
                 else
                         ret = dict_set_str (migrate_data,
-                                            "distribute.migrate-data",
+                                            GF_XATTR_FILE_MIGRATE_KEY,
                                             "non-force");
                 if (ret)
                         goto out;
