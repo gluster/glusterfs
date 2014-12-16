@@ -6737,6 +6737,9 @@ glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo)
         int (*nfs_op) () = NULL;
         int (*qd_op)  () = NULL;
 
+        if (volinfo && volinfo->is_snap_volume)
+                return 0;
+
         shd_op = glusterd_check_generate_start_shd;
         nfs_op = glusterd_check_generate_start_nfs;
         qd_op  = glusterd_check_generate_start_quotad;
