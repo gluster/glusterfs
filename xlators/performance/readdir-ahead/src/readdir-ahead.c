@@ -83,6 +83,7 @@ rda_reset_ctx(struct rda_fd_ctx *ctx)
 	ctx->cur_offset = 0;
 	ctx->cur_size = 0;
 	ctx->next_offset = 0;
+        ctx->op_errno = 0;
 	gf_dirent_free(&ctx->entries);
 }
 
@@ -142,7 +143,7 @@ rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	gf_dirent_t entries;
 	int32_t ret;
 	struct rda_fd_ctx *ctx;
-	int op_errno = 0;
+        int op_errno = 0;
 
 	ctx = get_rda_fd_ctx(fd, this);
 	INIT_LIST_HEAD(&entries.list);
@@ -150,7 +151,6 @@ rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 	if (!ret && (ctx->state & RDA_FD_ERROR)) {
 		ret = -1;
-		op_errno = ctx->op_errno;
 		ctx->state &= ~RDA_FD_ERROR;
 
 		/*
@@ -159,6 +159,12 @@ rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 		 */
 		ctx->state |= RDA_FD_BYPASS;
 	}
+
+        /*
+         * Use the op_errno sent by lower layers as xlators above will check
+         * the op_errno for identifying whether readdir is completed or not.
+         */
+        op_errno = ctx->op_errno;
 
 	STACK_UNWIND_STRICT(readdirp, frame, ret, op_errno, &entries, xdata);
 	gf_dirent_free(&entries);
@@ -282,6 +288,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		/* we've hit eod */
 		ctx->state &= ~RDA_FD_RUNNING;
 		ctx->state |= RDA_FD_EOD;
+                ctx->op_errno = op_errno;
 	} else if (op_ret == -1) {
 		/* kill the preload and pend the error */
 		ctx->state &= ~RDA_FD_RUNNING;
