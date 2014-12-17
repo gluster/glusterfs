@@ -147,7 +147,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 if (op_errno != ENOENT) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "lstat on %s failed: %s",
-                                real_path, strerror (op_errno));
+                                real_path ? real_path : "null",
+                                strerror (op_errno));
                 }
 
                 entry_ret = -1;
@@ -243,7 +244,8 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 op_errno = errno;
                 gf_log (this->name, (op_errno == ENOENT)?
                         GF_LOG_DEBUG:GF_LOG_ERROR,
-                        "lstat on %s failed: %s", real_path,
+                        "lstat on %s failed: %s",
+                        real_path ? real_path : "<null>",
                         strerror (op_errno));
                 goto out;
         }
@@ -378,8 +380,8 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "setattr (lstat) on %s failed: %s", real_path,
-                        strerror (op_errno));
+                        "setattr (lstat) on %s failed: %s",
+                        real_path ? real_path : "<null>", strerror (op_errno));
                 goto out;
         }
 
@@ -905,6 +907,10 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+        if (!real_path) {
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = -1;
         dir = opendir (real_path);
@@ -1025,7 +1031,8 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
-                        "lstat on %s failed: %s", real_path,
+                        "lstat on %s failed: %s",
+                        loc->path ? loc->path : "<null>",
                         strerror (op_errno));
                 goto out;
         }
@@ -1083,6 +1090,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         gid = frame->root->gid;
 
         SET_FS_ID (frame->root->uid, gid);
+
+        if (!real_path || !par_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
+
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
@@ -1276,6 +1290,11 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
+        if (!real_path || !par_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         gid = frame->root->gid;
 
@@ -1466,6 +1485,11 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
+        if (!real_path || !par_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
@@ -1634,6 +1658,11 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
+        if (!real_path || !par_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
@@ -1730,6 +1759,11 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
         gid = frame->root->gid;
+        if (!real_path || !par_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         SET_FS_ID (frame->root->uid, gid);
 
@@ -1874,7 +1908,18 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_ENTRY_HANDLE (real_oldpath, par_oldpath, this, oldloc, NULL);
+        if (!real_oldpath || !par_oldpath) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
+
         MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
+        if (!real_newpath || !par_newpath) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = posix_pstat (this, oldloc->pargfid, par_oldpath, &preoldparent);
         if (op_ret == -1) {
@@ -2067,8 +2112,17 @@ posix_link (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_INODE_HANDLE (real_oldpath, this, oldloc, &stbuf);
+        if (!real_oldpath) {
+                op_errno = errno;
+                goto out;
+        }
 
         MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
+        if (!real_newpath || !par_newpath) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &preparent);
         if (op_ret == -1) {
@@ -2174,7 +2228,7 @@ posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "pre-operation lstat on %s failed: %s",
-                        real_path, strerror (op_errno));
+                        real_path ? real_path : "<null>", strerror (op_errno));
                 goto out;
         }
 
@@ -2246,6 +2300,11 @@ posix_create (call_frame_t *frame, xlator_t *this,
         gid = frame->root->gid;
 
         SET_FS_ID (frame->root->uid, gid);
+        if (!real_path || !par_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
@@ -2421,6 +2480,11 @@ posix_open (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
 
         MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
+        if (!real_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         if (IA_ISLNK (stbuf.ia_type)) {
                 op_ret = -1;
@@ -2842,6 +2906,11 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this->private, out);
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+        if (!real_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         priv = this->private;
 
@@ -3116,6 +3185,11 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (dict, out);
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+        if (!real_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
 
         op_ret = -1;
         dict_del (dict, GFID_XATTR_KEY);
@@ -3157,6 +3231,9 @@ posix_xattr_get_real_filename (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	int op_ret = -1;
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+        if (!real_path) {
+                return -ESTALE;
+        }
 
 	fd = opendir (real_path);
 	if (!fd)
@@ -3375,7 +3452,10 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
         uuid_copy (loc->gfid, leaf_inode->gfid);
 
         MAKE_INODE_HANDLE (leaf_path, this, loc, NULL);
-
+        if (!leaf_path) {
+                GF_FREE (loc);
+                goto out;
+        }
         GF_FREE (loc);
 
         size = sys_llistxattr (leaf_path, NULL, 0);
@@ -4217,6 +4297,12 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
         DECLARE_OLD_FS_ID_VAR;
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+        if (!real_path) {
+                op_ret = -1;
+                op_errno = ESTALE;
+                goto out;
+        }
+
 
         if (!strcmp (GFID_XATTR_KEY, name)) {
                 gf_log (this->name, GF_LOG_WARNING, "Remove xattr called"
@@ -4642,6 +4728,11 @@ posix_access (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, out);
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+        if (!real_path) {
+                op_ret = -1;
+                op_errno = errno;
+                goto out;
+        }
 
         op_ret = access (real_path, mask & 07);
         if (op_ret == -1) {
@@ -4887,8 +4978,20 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
 
         if (skip_dirs) {
                 len = posix_handle_path (this, fd->inode->gfid, NULL, NULL, 0);
+                if (len <= 0) {
+                        errno = ESTALE;
+                        count = -1;
+                        goto out;
+                }
                 hpath = alloca (len + 256); /* NAME_MAX */
-                posix_handle_path (this, fd->inode->gfid, NULL, hpath, len);
+
+                if (posix_handle_path (this, fd->inode->gfid, NULL, hpath,
+                                       len) <= 0) {
+                        errno = ESTALE;
+                        count = -1;
+                        goto out;
+                }
+
                 len = strlen (hpath);
                 hpath[len] = '/';
         }
@@ -5033,7 +5136,13 @@ posix_entry_xattr_fill (xlator_t *this, inode_t *inode,
         tmp_loc.inode = inode;
 
         MAKE_HANDLE_PATH (entry_path, this, fd->inode->gfid, name);
+        if (!entry_path) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to create handle path for %s (%s)",
+                        name, uuid_utoa (fd->inode->gfid));
 
+                return NULL;
+        }
         return posix_lookup_xattr_fill (this, entry_path,
                                         &tmp_loc, dict, stbuf);
 
@@ -5057,8 +5166,11 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
         itable = fd->inode->table;
 
 	len = posix_handle_path (this, fd->inode->gfid, NULL, NULL, 0);
+        if (len <= 0)
+                return -1;
 	hpath = alloca (len + 256); /* NAME_MAX */
-	posix_handle_path (this, fd->inode->gfid, NULL, hpath, len);
+	if (posix_handle_path (this, fd->inode->gfid, NULL, hpath, len) <= 0)
+                return -1;
 	len = strlen (hpath);
 	hpath[len] = '/';
 
@@ -5089,7 +5201,8 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
                                 posix_entry_xattr_fill (this, entry->inode,
                                                         fd, entry->d_name,
                                                         dict, &stbuf);
-                        dict_ref (entry->dict);
+                        if (entry->dict)
+                                dict_ref (entry->dict);
                 }
 
                 entry->d_stat = stbuf;

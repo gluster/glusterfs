@@ -465,10 +465,17 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
         int          ret = 0;
         struct posix_private *priv = NULL;
 
-
         priv = this->private;
 
         MAKE_HANDLE_PATH (real_path, this, gfid, basename);
+        if (!real_path) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create handle path for %s/%s",
+                        uuid_utoa (gfid), basename ? basename : "");
+                errno = ESTALE;
+                ret = -1;
+                goto out;
+        }
 
         ret = lstat (real_path, &lstatbuf);
 
@@ -819,6 +826,13 @@ posix_get_file_contents (xlator_t *this, uuid_t pargfid,
 
 
         MAKE_HANDLE_PATH (real_path, this, pargfid, name);
+        if (!real_path) {
+                op_ret = -ESTALE;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create handle path for %s/%s",
+                        uuid_utoa (pargfid), name);
+                goto out;
+        }
 
         op_ret = posix_istat (this, pargfid, name, &stbuf);
         if (op_ret == -1) {
@@ -1018,10 +1032,12 @@ del_stale_dir_handle (xlator_t *this, uuid_t gfid)
         }
 
         size = posix_handle_path (this, gfid, NULL, newpath, sizeof (newpath));
-        if (size <= 0 && errno == ENOENT) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
-                        strerror (ENOENT));
-                stale = _gf_true;
+        if (size <= 0) {
+                if (errno == ENOENT) {
+                        gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
+                                strerror (ENOENT));
+                        stale = _gf_true;
+                }
                 goto out;
         }
 
@@ -1380,6 +1396,13 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                 goto out;
 
         MAKE_HANDLE_PATH (real_path, this, fd->inode->gfid, NULL);
+        if (!real_path) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to create handle path (%s)",
+                        uuid_utoa (fd->inode->gfid));
+                ret = -1;
+                goto out;
+        }
 
         pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
         if (!pfd) {

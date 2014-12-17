@@ -296,8 +296,12 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
 
         blen = link_len - 48;
 
-        if(len + blen >= maxlen)
+        if (len + blen >= maxlen) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to form handle path for %s (maxlen = %d)",
+                        buf, maxlen);
                 goto err;
+        }
 
         memmove (buf + base_len + blen, buf + base_len,
                  (strlen (buf) - base_len) + 1);
@@ -371,10 +375,10 @@ posix_handle_path (xlator_t *this, uuid_t gfid, const char *basename,
                 errno = 0;
                 ret = posix_handle_pump (this, buf, len, maxlen,
                                          base_str, base_len, pfx_len);
+                len = ret;
+
                 if (ret == -1)
                         break;
-
-                len = ret;
 
                 ret = lstat (buf, &stat);
         } while ((ret == -1) && errno == ELOOP);
@@ -841,13 +845,18 @@ posix_handle_unset (xlator_t *this, uuid_t gfid, const char *basename)
         struct iatt  stat;
         char        *path = NULL;
 
-
         if (!basename) {
                 ret = posix_handle_unset_gfid (this, gfid);
                 return ret;
         }
 
         MAKE_HANDLE_PATH (path, this, gfid, basename);
+        if (!path) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to create handle path for %s (%s)",
+                        basename, uuid_utoa(gfid));
+                return -1;
+        }
 
         ret = posix_istat (this, gfid, basename, &stat);
 
@@ -872,6 +881,12 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
         char *newpath = NULL;
 
         MAKE_HANDLE_PATH (newpath, this, gfid, NULL);
+        if (!newpath) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to create handle path (%s)", uuid_utoa(gfid));
+                return ret;
+        }
+
         ret = lstat (newpath, &stbuf);
         if (!ret) {
                 ret = sys_link (newpath, real_path);
