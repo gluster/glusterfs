@@ -3789,6 +3789,12 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
+
+                if (IA_ISINVAL(orig_entry->d_stat.ia_type)) {
+                        /*stat failed somewhere- ignore this entry*/
+                        continue;
+                }
+
                 if (check_is_dir (NULL, (&orig_entry->d_stat), NULL)) {
 
                 /*Directory entries filtering :
