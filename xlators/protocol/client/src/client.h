@@ -57,6 +57,8 @@ typedef enum {
         } while (0)
 
 #define CLIENT_STACK_UNWIND(op, frame, params ...) do {             \
+                if (!frame)                                         \
+                        break;                                      \
                 clnt_local_t *__local = frame->local;               \
                 frame->local = NULL;                                \
                 STACK_UNWIND_STRICT (op, frame, params);            \
