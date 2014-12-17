@@ -73,3 +73,10 @@ cli/src/gluster
 contrib/fuse-util/fusermount-glusterfs
 geo-replication/src/gsyncd
 api/src/gfapi.map
+geo-replication/syncdaemon.egg-info
+geo-replication/tests/unit/cover
+geo-replication/tests/unit/coverage.xml
+geo-replication/tests/unit/nosetests.xml
+geo-replication/tests/unit/results.html
+geo-replication/.tox
+geo-replication/tests/unit/.coverage
