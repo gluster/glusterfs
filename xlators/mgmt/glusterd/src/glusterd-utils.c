@@ -4574,21 +4574,34 @@ int32_t
 glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
                                       glusterd_volinfo_t *old_volinfo)
 {
-        glusterd_brickinfo_t *new_brickinfo = NULL;
-        glusterd_brickinfo_t *old_brickinfo = NULL;
+        char                    pidfile[PATH_MAX+1] = {0,};
+        glusterd_brickinfo_t   *new_brickinfo       = NULL;
+        glusterd_brickinfo_t   *old_brickinfo       = NULL;
+        glusterd_conf_t        *priv                = NULL;
+        int                     ret                 = 0;
+        xlator_t               *this                = NULL;
 
-        int             ret = 0;
         GF_ASSERT (new_volinfo);
         GF_ASSERT (old_volinfo);
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
         if (_gf_false == glusterd_is_volume_started (new_volinfo))
                 goto out;
+
         list_for_each_entry (new_brickinfo, &new_volinfo->bricks, brick_list) {
                 ret = glusterd_volume_brickinfo_get (new_brickinfo->uuid,
                                                      new_brickinfo->hostname,
                                                      new_brickinfo->path,
                                                      old_volinfo, &old_brickinfo);
-                if ((0 == ret) && glusterd_is_brick_started (old_brickinfo)) {
-                        new_brickinfo->port = old_brickinfo->port;
+                if (ret == 0) {
+                        GLUSTERD_GET_BRICK_PIDFILE (pidfile, old_volinfo,
+                                                    old_brickinfo, priv);
+                        if (gf_is_service_running (pidfile, NULL))
+                                new_brickinfo->port = old_brickinfo->port;
+
                 }
         }
 out:
