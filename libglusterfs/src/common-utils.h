@@ -115,6 +115,7 @@ enum _gf_client_pid
         GF_CLIENT_PID_NO_ROOT_SQUASH    = -4,
         GF_CLIENT_PID_QUOTA_MOUNT       = -5,
         GF_CLIENT_PID_AFR_SELF_HEALD    = -6,
+        GF_CLIENT_PID_GLFS_HEAL         = -7,
 };
 
 typedef enum _gf_boolean gf_boolean_t;

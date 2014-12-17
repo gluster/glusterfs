@@ -4,6 +4,7 @@
 . $(dirname $0)/../volume.rc
 
 cleanup;
+START_TIMESTAMP=`date +%s`
 
 TEST glusterd
 TEST pidof glusterd
@@ -40,5 +41,8 @@ do
 done
 
 EXPECT "" echo $files
+
+# Check for non Linux systems that we did not mess with directory offsets
+TEST ! log_newer $START_TIMESTAMP "offset reused from another DIR"
 
 cleanup

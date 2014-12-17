@@ -34,6 +34,7 @@ typedef struct index_inode_ctx {
 
 typedef struct index_fd_ctx {
         DIR *dir;
+        off_t dir_eof;
 } index_fd_ctx_t;
 
 typedef struct index_priv {

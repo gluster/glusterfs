@@ -268,10 +268,11 @@ check_delete_stale_index_file (xlator_t *this, char *filename)
 }
 
 static int
-index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
+index_fill_readdir (fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
                     size_t size, gf_dirent_t *entries)
 {
         off_t     in_case = -1;
+        off_t     last_off = 0;
         size_t    filled = 0;
         int       count = 0;
         char      entrybuf[sizeof(struct dirent) + 256 + 8];
@@ -286,11 +287,11 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
         } else {
                 seekdir (dir, off);
 #ifndef GF_LINUX_HOST_OS
-                if (telldir(dir) != off) {
+                if ((u_long)telldir(dir) != off && off != fctx->dir_eof) {
                         gf_log (THIS->name, GF_LOG_ERROR,
-                                "seekdir(%ld) failed on dir=%p: "
+                                "seekdir(0x%llx) failed on dir=%p: "
 				"Invalid argument (offset reused from "
-				"another DIR * structure?)", (long)off, dir);
+				"another DIR * structure?)", off, dir);
                         errno = EINVAL;
                         count = -1;
                         goto out;
@@ -299,7 +300,7 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
         }
 
         while (filled <= size) {
-                in_case = telldir (dir);
+                in_case = (u_long)telldir (dir);
 
                 if (in_case == -1) {
                         gf_log (THIS->name, GF_LOG_ERROR,
@@ -335,12 +336,13 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
                 if (this_size + filled > size) {
                         seekdir (dir, in_case);
 #ifndef GF_LINUX_HOST_OS
-                        if (telldir(dir) != in_case) {
+                        if ((u_long)telldir(dir) != in_case &&
+                            in_case != fctx->dir_eof) {
 				gf_log (THIS->name, GF_LOG_ERROR,
-					"seekdir(%ld) failed on dir=%p: "
+					"seekdir(0x%llx) failed on dir=%p: "
 					"Invalid argument (offset reused from "
 					"another DIR * structure?)",
-					(long)in_case, dir);
+					in_case, dir);
 				errno = EINVAL;
 				count = -1;
 				goto out;
@@ -357,7 +359,14 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
                                 entry->d_name, strerror (errno));
                         goto out;
                 }
-                this_entry->d_off = telldir (dir);
+                /*
+                 * we store the offset of next entry here, which is
+                 * probably not intended, but code using syncop_readdir()
+                 * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+                 * for directory read resumption.
+                 */
+                last_off = (u_long)telldir(dir);
+                this_entry->d_off = last_off;
                 this_entry->d_ino = entry->d_ino;
 
                 list_add_tail (&this_entry->list, &entries->list);
@@ -366,9 +375,12 @@ index_fill_readdir (fd_t *fd, DIR *dir, off_t off,
                 count ++;
         }
 
-        if ((!readdir (dir) && (errno == 0)))
+        if ((!readdir (dir) && (errno == 0))) {
                 /* Indicate EOF */
                 errno = ENOENT;
+                /* Remember EOF offset for later detection */
+                fctx->dir_eof = last_off;
+        }
 out:
         return count;
 }
@@ -581,6 +593,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
                 fctx = NULL;
                 goto out;
         }
+        fctx->dir_eof = -1;
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long)fctx);
         if (ret) {
@@ -950,7 +963,7 @@ index_readdir_wrapper (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
-        count = index_fill_readdir (fd, dir, off, size, &entries);
+        count = index_fill_readdir (fd, fctx, dir, off, size, &entries);
 
         /* pick ENOENT to indicate EOF */
         op_errno = errno;
@@ -1271,8 +1284,11 @@ index_releasedir (xlator_t *this, fd_t *fd)
                 goto out;
 
         fctx = (index_fd_ctx_t*) (long) ctx;
-        if (fctx->dir)
-                closedir (fctx->dir);
+        if (fctx->dir) {
+                ret = closedir (fctx->dir);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "closedir error: %s", strerror (errno));
+        }
 
         GF_FREE (fctx);
 out:
