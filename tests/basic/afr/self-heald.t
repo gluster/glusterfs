@@ -4,6 +4,7 @@
 . $(dirname $0)/../../volume.rc
 
 cleanup;
+START_TIMESTAMP=`date +%s`
 
 function disconnected_brick_count {
         local vol=$1
@@ -161,5 +162,8 @@ TEST $CLI volume delete $V0
 TEST $CLI volume create $V0 $H0:$B0/${V0}{6}
 TEST $CLI volume start $V0
 TEST ! $CLI volume heal $V0 info
+
+# Check for non Linux systems that we did not mess with directory offsets
+TEST ! log_newer $START_TIMESTAMP "offset reused from another DIR"
 
 cleanup

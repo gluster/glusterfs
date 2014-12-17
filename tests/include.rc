@@ -783,6 +783,24 @@ function MKFS_LOOP ()
   esac
 }
 
+# usage: log_newer timestamp "string"
+# search in glusterfs logs for "string" logged after timestamp seconds
+# since the Epoch (usually obtained by date +%s)
+log_newer()
+{
+        ts=$1
+        msg=$2
+        logdir=`$CLI --print-logdir`
+
+        IFS="["
+        for date in `grep -hr "$msg" $logdir | awk -F '[\]]' '{print $1}'` ; do
+                if [ `date -d "$date" +%s` -gt $ts ] ; then
+                        return 0;
+                fi
+        done 2>/dev/null
+        return 1
+}
+
 function MOUNT_LOOP ()
 {
   if [ $# != 2 ] ; then

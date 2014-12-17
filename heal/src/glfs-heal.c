@@ -284,7 +284,7 @@ _get_afr_ancestor (xlator_t *xl)
 
 static int
 glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
-                       off_t *offset, uint64_t *num_entries)
+                       uint64_t *offset, uint64_t *num_entries)
 {
         gf_dirent_t      *entry = NULL;
         gf_dirent_t      *tmp = NULL;
@@ -359,7 +359,7 @@ out:
 static int
 glfsh_crawl_directory (xlator_t   *readdir_xl, fd_t *fd, loc_t *loc)
 {
-        off_t           offset   = 0;
+        uint64_t        offset = 0;
         gf_dirent_t     entries;
         int             ret = 0;
         gf_boolean_t    free_entries = _gf_false;
@@ -472,7 +472,27 @@ glfsh_print_pending_heals (xlator_t *xl, loc_t *rootloc)
                 goto out;
         }
 
-        fd = fd_anonymous (dirloc.inode);
+        fd = fd_create (dirloc.inode, GF_CLIENT_PID_GLFS_HEAL);
+        if (!fd) {
+                printf ("fd_create failed: %s", strerror(errno));
+                goto out;
+        }
+        ret = syncop_opendir (xl, &dirloc, fd);
+        if (ret) {
+                fd_unref(fd);
+#ifdef GF_LINUX_HOST_OS /* See comment in afr_shd_index_opendir() */
+                fd = fd_anonymous (dirloc.inode);
+                if (!fd) {
+                        printf ("fd_anonymous failed: %s",
+                                strerror(errno));
+                        goto out;
+                }
+#else
+                printf ("opendir failed: %s", strerror(errno));
+                goto out;
+#endif
+        }
+
         ret = glfsh_crawl_directory (xl, fd, &dirloc);
         if (fd)
                 fd_unref (fd);

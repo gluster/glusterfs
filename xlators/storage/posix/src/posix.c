@@ -4857,6 +4857,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                     gf_dirent_t *entries, xlator_t *this, int32_t skip_dirs)
 {
         off_t     in_case = -1;
+        off_t     last_off = 0;
         size_t    filled = 0;
         int             count = 0;
         char      entrybuf[sizeof(struct dirent) + 256 + 8];
@@ -4892,11 +4893,11 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
         } else {
                 seekdir (dir, off);
 #ifndef GF_LINUX_HOST_OS
-                if (telldir(dir) != (long)off && off != pfd->dir_eof) {
+                if ((u_long)telldir(dir) != off && off != pfd->dir_eof) {
                         gf_log (THIS->name, GF_LOG_ERROR,
-                                "seekdir(%ld) failed on dir=%p: "
+                                "seekdir(0x%llx) failed on dir=%p: "
                                 "Invalid argument (offset reused from "
-                                "another DIR * structure?)", (long)off, dir);
+                                "another DIR * structure?)", off, dir);
                         errno = EINVAL;
                         count = -1;
                         goto out;
@@ -4905,7 +4906,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
         }
 
         while (filled <= size) {
-                in_case = telldir (dir);
+                in_case = (u_long)telldir (dir);
 
                 if (in_case == -1) {
                         gf_log (THIS->name, GF_LOG_ERROR,
@@ -4965,13 +4966,13 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 if (this_size + filled > size) {
                         seekdir (dir, in_case);
 #ifndef GF_LINUX_HOST_OS
-                        if (telldir(dir) != (long)in_case &&
+                        if ((u_long)telldir(dir) != in_case &&
                             in_case != pfd->dir_eof) {
                                 gf_log (THIS->name, GF_LOG_ERROR,
-                                        "seekdir(%ld) failed on dir=%p: "
+                                        "seekdir(0x%llx) failed on dir=%p: "
                                         "Invalid argument (offset reused from "
                                         "another DIR * structure?)",
-                                        (long)in_case, dir);
+                                        in_case, dir);
                                 errno = EINVAL;
                                 count = -1;
                                 goto out;
@@ -4988,7 +4989,14 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                                 entry->d_name, strerror (errno));
                         goto out;
                 }
-                this_entry->d_off = telldir (dir);
+                /*
+                 * we store the offset of next entry here, which is
+                 * probably not intended, but code using syncop_readdir()
+                 * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+                 * for directory read resumption.
+                 */
+                last_off = (u_long)telldir(dir);
+                this_entry->d_off = last_off;
                 this_entry->d_ino = entry->d_ino;
                 this_entry->d_type = entry->d_type;
 
@@ -5002,7 +5010,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
                 /* Indicate EOF */
                 errno = ENOENT;
                 /* Remember EOF offset for later detection */
-                pfd->dir_eof = telldir (dir);
+                pfd->dir_eof = (u_long)last_off;
         }
 out:
         return count;
