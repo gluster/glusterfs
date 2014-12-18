@@ -418,26 +418,9 @@ out:
 gf_boolean_t
 glusterd_check_volume_exists (char *volname)
 {
-        char pathname[1024] = {0,};
-        struct stat stbuf = {0,};
-        int32_t ret = -1;
-        glusterd_conf_t *priv = NULL;
+        glusterd_volinfo_t *volinfo = NULL;
 
-        priv = THIS->private;
-
-        snprintf (pathname, 1024, "%s/vols/%s", priv->workdir,
-                  volname);
-
-        ret = stat (pathname, &stbuf);
-
-        if (ret) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "Volume %s does not exist."
-                        "stat failed with errno : %d on path: %s",
-                        volname, errno, pathname);
-                return _gf_false;
-        }
-
-        return _gf_true;
+        return (glusterd_volinfo_find (volname, &volinfo) == 0);
 }
 
 glusterd_volinfo_t *
