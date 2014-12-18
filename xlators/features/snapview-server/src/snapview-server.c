@@ -536,6 +536,14 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 fs = svs_initialise_snapshot_volume (this, dirent->name, NULL);
         }
 
+        if (inode_ctx && inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
+                /* entry-point may not be set in the dictonary.
+                 * This can happen if snap-view client is restarted where
+                 * inode-ctx not available and a nameless lookup has come
+                 */
+                entry_point = _gf_true;
+        }
+
         /* lookup is on the entry point to the snapshot world */
         if (entry_point) {
                 op_ret = svs_lookup_entry_point (this, loc, parent, &buf,
