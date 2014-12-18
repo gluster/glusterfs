@@ -12086,7 +12086,8 @@ glusterd_mount_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
          * Therefore to mount such a snapshot in XFS we need to pass nouuid
          * option
          */
-        if (!strcmp (brickinfo->fstype, "xfs")) {
+        if (!strcmp (brickinfo->fstype, "xfs") &&
+            !mntopts_exists (mnt_opts, "nouuid")) {
                 if ( strlen (mnt_opts) > 0 )
                         strcat (mnt_opts, ",");
                 strcat (mnt_opts, "nouuid");
@@ -13652,4 +13653,35 @@ glusterd_have_peers ()
         GF_ASSERT (conf);
 
         return !list_empty (&conf->peers);
+}
+
+gf_boolean_t
+mntopts_exists (const char *str, const char *opts)
+{
+        char          *dup_val     = NULL;
+        char          *savetok     = NULL;
+        char          *token       = NULL;
+        gf_boolean_t   exists      = _gf_false;
+
+        GF_ASSERT (opts);
+
+        if (!str || !strlen(str))
+                goto out;
+
+        dup_val = gf_strdup (str);
+        if (!dup_val)
+                goto out;
+
+        token = strtok_r (dup_val, ",", &savetok);
+        while (token) {
+                if (!strcmp (token, opts)) {
+                        exists = _gf_true;
+                        goto out;
+                }
+                token = strtok_r (NULL, ",", &savetok);
+        }
+
+out:
+        GF_FREE (dup_val);
+        return exists;
 }

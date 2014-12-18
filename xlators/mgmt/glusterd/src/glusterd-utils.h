@@ -903,4 +903,7 @@ gd_get_snap_conf_values_if_present (dict_t *opts, uint64_t *sys_hard_limit,
 
 gf_boolean_t
 glusterd_have_peers ();
+
+gf_boolean_t
+mntopts_exists (const char *str, const char *opts);
 #endif
