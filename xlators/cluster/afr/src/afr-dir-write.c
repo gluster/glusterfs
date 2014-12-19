@@ -314,7 +314,6 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
                 goto out;
 
         new_local->pending = changelog;
-        changelog = NULL;
         uuid_copy (new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
         new_local->loc.inode = inode_ref (local->inode);
 
@@ -335,8 +334,6 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
 
         new_frame = NULL;
 out:
-        if (changelog)
-                afr_matrix_cleanup (changelog, priv->child_count);
         if (new_frame)
                 AFR_STACK_DESTROY (new_frame);
 	if (xattr)
@@ -1103,8 +1100,10 @@ afr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         priv = this->private;
 
         transaction_frame = copy_frame (frame);
-        if (!transaction_frame)
+        if (!transaction_frame) {
                 op_errno = ENOMEM;
+                goto out;
+        }
 
 	local = AFR_FRAME_INIT (transaction_frame, op_errno);
 	if (!local)

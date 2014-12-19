@@ -648,7 +648,7 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         int op_errno = ENOMEM;
 
 	transaction_frame = copy_frame (frame);
-	if (!frame)
+	if (!transaction_frame)
 		goto out;
 
         local = AFR_FRAME_INIT (transaction_frame, op_errno);

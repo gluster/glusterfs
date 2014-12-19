@@ -1327,10 +1327,10 @@ afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this)
                 return;
 
         local = frame->local;
-        if (!local->transaction.eager_lock_on)
+        if (!local)
                 return;
 
-        if (!local)
+        if (!local->transaction.eager_lock_on)
                 return;
 
         if (!local->fd)
