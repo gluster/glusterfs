@@ -1076,13 +1076,4 @@ glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
-
-void
-glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *key, int index,
-                    gf_boolean_t xpeers);
-
-void
-glusterd_dump_peer_rpcstat (glusterd_peerinfo_t *peerinfo, char *key,
-                            int index);
-
 #endif
