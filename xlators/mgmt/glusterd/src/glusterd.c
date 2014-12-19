@@ -1300,6 +1300,8 @@ glusterd_stop_uds_listener (xlator_t *this)
         glusterd_conf_t         *conf = NULL;
         rpcsvc_listener_t       *listener = NULL;
         rpcsvc_listener_t       *next = NULL;
+        data_t                  *sock_data = NULL;
+        char                     sockfile[UNIX_PATH_MAX+1] = {0,};
 
         GF_ASSERT (this);
         conf = this->private;
@@ -1312,10 +1314,17 @@ glusterd_stop_uds_listener (xlator_t *this)
                 rpcsvc_listener_destroy (listener);
         }
 
-        (void) rpcsvc_unregister_notify (conf->uds_rpc, glusterd_rpcsvc_notify,
+        (void) rpcsvc_unregister_notify (conf->uds_rpc,
+                                         glusterd_uds_rpcsvc_notify,
                                          this);
 
-        unlink (DEFAULT_GLUSTERD_SOCKFILE);
+        sock_data = dict_get (this->options, "glusterd-sockfile");
+        if (!sock_data) {
+                strncpy (sockfile, DEFAULT_GLUSTERD_SOCKFILE, PATH_MAX);
+        } else {
+                strncpy (sockfile, sock_data->data, PATH_MAX);
+        }
+        unlink (sockfile);
 
         GF_FREE (conf->uds_rpc);
         conf->uds_rpc = NULL;
