@@ -666,7 +666,7 @@ out:
         if (xattr_req)
                 dict_unref (xattr_req);
 
-        if (ret && glfd) {
+        if (glfd) {
                 glfs_fd_destroy (glfd);
                 glfd = NULL;
         }
