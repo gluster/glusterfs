@@ -485,10 +485,12 @@ afr_selfheal_enabled (xlator_t *this)
 {
 	afr_private_t *priv = NULL;
 	gf_boolean_t data = _gf_false;
+        int ret = 0;
 
 	priv = this->private;
 
-	gf_string2boolean (priv->data_self_heal, &data);
+	ret = gf_string2boolean (priv->data_self_heal, &data);
+        GF_ASSERT (!ret);
 
 	return data || priv->metadata_self_heal || priv->entry_self_heal;
 }

@@ -766,7 +766,7 @@ unlock:
                 }
 
                 len = dict_serialized_length (local->dict);
-                if (len == 0) {
+                if (len <= 0) {
                         goto unwind;
                 }
 
@@ -957,7 +957,7 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                 }
 
                 if (!dict || (op_ret < 0))
-                        goto out;
+                        goto unlock;
 
                 if (!local->dict)
                         local->dict = dict_new ();
@@ -967,7 +967,7 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                             local->cont.getxattr.name,
                                             &xattr);
                         if (ret)
-                                goto out;
+                                goto unlock;
 
                         xattr = gf_strdup (xattr);
 
@@ -978,14 +978,14 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Cannot set xattr cookie key");
-                                goto out;
+                                goto unlock;
                         }
 
                         local->cont.getxattr.xattr_len
                                 += strlen (xattr) + 1;
                 }
         }
-out:
+unlock:
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
@@ -1040,6 +1040,7 @@ out:
                         dict_unref (nxattr);
         }
 
+out:
         return ret;
 }
 
@@ -1080,7 +1081,7 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                         }
 
                         if (!dict || (op_ret < 0))
-                                goto out;
+                                goto unlock;
 
                         if (!local->dict)
                                 local->dict = dict_new ();
@@ -1090,7 +1091,7 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                                     local->cont.getxattr.name,
                                                     &xattr);
                                 if (ret)
-                                        goto out;
+                                        goto unlock;
 
                                 xattr = gf_strdup (xattr);
 
@@ -1101,13 +1102,13 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                 if (ret) {
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Cannot set xattr cookie key");
-                                        goto out;
+                                        goto unlock;
                                 }
 
                                 local->cont.getxattr.xattr_len += strlen (xattr) + 1;
                         }
                 }
- out:
+unlock:
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
@@ -1160,6 +1161,7 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                         dict_unref (nxattr);
         }
 
+out:
         return ret;
 }
 
