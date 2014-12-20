@@ -6126,6 +6126,9 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 }
                 UNLOCK (&conf->subvolume_lock);
 
+                for (i = 0; i < conf->subvolume_cnt; i++)
+                        if (conf->last_event[i] != event)
+                                event = GF_EVENT_CHILD_MODIFIED;
                 break;
 
         case GF_EVENT_CHILD_CONNECTING:
