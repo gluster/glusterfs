@@ -2774,6 +2774,7 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         marker_local_t *local = NULL;
         loc_t           loc   = {0, };
         int             ret   = -1;
+        char           *resolvedpath = NULL;
 
         if (op_ret <= 0)
                 goto unwind;
@@ -2790,19 +2791,30 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     (strcmp (entry->d_name, "..") == 0))
                         continue;
 
-                ret = marker_inode_loc_fill (entry->inode,
-                                             entry->d_name, &loc);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "Couldn't build "
-                                "loc for %s/%s",
-                                uuid_utoa (local->loc.inode->gfid),
-                                entry->d_name);
+                loc.parent = inode_ref (local->loc.inode);
+                loc.inode = inode_ref (entry->inode);
+                ret = inode_path (loc.parent, entry->d_name, &resolvedpath);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to get the "
+                                "path for the entry %s", entry->d_name);
+                        loc_wipe (&loc);
+                        continue;
+                }
+
+                loc.path = gf_strdup (resolvedpath);
+                if (!loc.path) {
+                        gf_log (this->name, GF_LOG_ERROR, "strdup of path "
+                                "failed for the entry %s (path: %s)",
+                                entry->d_name, resolvedpath);
+                        loc_wipe (&loc);
                         continue;
                 }
 
                 mq_xattr_state (this, &loc, entry->dict, entry->d_stat);
 
                 loc_wipe (&loc);
+                GF_FREE (resolvedpath);
+                resolvedpath = NULL;
         }
 
 unwind:
