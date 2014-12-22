@@ -3990,6 +3990,16 @@ gf_rdma_handle_successful_send_completion (gf_rdma_peer_t *peer,
                 post->ctx.count = 1;
                 post->ctx.vector[0].iov_len += post->ctx.vector[1].iov_len;
         }
+        /*
+         * if reads performed as vectored, then all the buffers are actually
+         * contiguous memory, so that we can use it as single vector, instead
+         * of multiple.
+         */
+        while (post->ctx.count > 2) {
+                post->ctx.vector[1].iov_len +=
+                        post->ctx.vector[post->ctx.count-1].iov_len;
+                post->ctx.count--;
+        }
 
         ret = gf_rdma_pollin_notify (peer, post);
         if ((ret == -1) && (peer != NULL)) {
