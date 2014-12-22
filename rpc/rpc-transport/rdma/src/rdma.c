@@ -3329,57 +3329,17 @@ gf_rdma_decode_header (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
 
 
 int32_t
-__gf_rdma_read (gf_rdma_peer_t *peer, gf_rdma_post_t *post, struct iovec *to,
-                gf_rdma_read_chunk_t *readch)
-{
-        int32_t            ret  = -1;
-        struct ibv_sge     list = {0, };
-        struct ibv_send_wr wr   = {0, }, *bad_wr = NULL;
-
-        ret = __gf_rdma_register_local_mr_for_rdma (peer, to, 1, &post->ctx);
-        if (ret == -1) {
-                gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
-                        "registering local memory for rdma read failed");
-                goto out;
-        }
-
-        list.addr = (unsigned long) to->iov_base;
-        list.length = to->iov_len;
-        list.lkey = post->ctx.mr[post->ctx.mr_count - 1]->lkey;
-
-        wr.wr_id      = (unsigned long) gf_rdma_post_ref (post);
-        wr.sg_list    = &list;
-        wr.num_sge    = 1;
-        wr.opcode     = IBV_WR_RDMA_READ;
-        wr.send_flags = IBV_SEND_SIGNALED;
-        wr.wr.rdma.remote_addr = readch->rc_target.rs_offset;
-        wr.wr.rdma.rkey = readch->rc_target.rs_handle;
-
-        ret = ibv_post_send (peer->qp, &wr, &bad_wr);
-        if (ret) {
-                gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
-                        "rdma read from client "
-                        "(%s) failed with ret = %d (%s)",
-                        peer->trans->peerinfo.identifier,
-                        ret, (ret > 0) ? strerror (ret) : "");
-                ret = -1;
-                gf_rdma_post_unref (post);
-        }
-out:
-        return ret;
-}
-
-
-int32_t
 gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                   gf_rdma_read_chunk_t *readch)
 {
-        int32_t            ret   = -1, i = 0, count = 0;
-        size_t             size  = 0;
-        char              *ptr   = NULL;
-        struct iobuf      *iobuf = NULL;
-        gf_rdma_private_t *priv  = NULL;
-
+        int32_t             ret       = -1, i = 0, count = 0;
+        size_t              size      = 0;
+        char               *ptr       = NULL;
+        struct iobuf       *iobuf     = NULL;
+        gf_rdma_private_t  *priv      = NULL;
+        struct ibv_sge     *list      = NULL;
+        struct ibv_send_wr *wr        = NULL, *bad_wr = NULL;
+        int                 total_ref = 0;
         priv = peer->trans->private;
 
         for (i = 0; readch[i].rc_discrim != 0; i++) {
@@ -3394,7 +3354,7 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
         }
 
         post->ctx.gf_rdma_reads = i;
-
+        i = 0;
         iobuf = iobuf_get2 (peer->trans->ctx->iobuf_pool, size);
         if (iobuf == NULL) {
                 goto out;
@@ -3424,32 +3384,82 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                         goto unlock;
                 }
 
+                list = GF_CALLOC (post->ctx.gf_rdma_reads,
+                                sizeof (struct ibv_sge), gf_common_mt_sge);
+                wr   = GF_CALLOC (post->ctx.gf_rdma_reads,
+                                sizeof (struct ibv_send_wr), gf_common_mt_wr);
                 for (i = 0; readch[i].rc_discrim != 0; i++) {
                         count = post->ctx.count++;
                         post->ctx.vector[count].iov_base = ptr;
                         post->ctx.vector[count].iov_len
                                 = readch[i].rc_target.rs_length;
 
-                        ret = __gf_rdma_read (peer, post,
-                                              &post->ctx.vector[count],
-                                              &readch[i]);
+                        ret = __gf_rdma_register_local_mr_for_rdma (peer,
+                                &post->ctx.vector[count], 1, &post->ctx);
                         if (ret == -1) {
                                 gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
-                                        "rdma read from peer (%s) failed",
-                                        peer->trans->peerinfo.identifier);
+                                        "registering local memory"
+                                       " for rdma read failed");
                                 goto unlock;
                         }
 
+                        list[i].addr = (unsigned long)
+                                       post->ctx.vector[count].iov_base;
+                        list[i].length = post->ctx.vector[count].iov_len;
+                        list[i].lkey =
+                                post->ctx.mr[post->ctx.mr_count - 1]->lkey;
+
+                        wr[i].wr_id      =
+                                (unsigned long) gf_rdma_post_ref (post);
+                        wr[i].sg_list    = &list[i];
+                        wr[i].next       = &wr[i+1];
+                        wr[i].num_sge    = 1;
+                        wr[i].opcode     = IBV_WR_RDMA_READ;
+                        wr[i].send_flags = IBV_SEND_SIGNALED;
+                        wr[i].wr.rdma.remote_addr =
+                                readch->rc_target.rs_offset;
+                        wr[i].wr.rdma.rkey = readch->rc_target.rs_handle;
+
                         ptr += readch[i].rc_target.rs_length;
+                        total_ref++;
+                }
+                wr[i-1].next = NULL;
+                ret = ibv_post_send (peer->qp, wr, &bad_wr);
+                if (ret) {
+                        gf_log (GF_RDMA_LOG_NAME, GF_LOG_WARNING,
+                                "rdma read from client "
+                                "(%s) failed with ret = %d (%s)",
+                                peer->trans->peerinfo.identifier,
+                                ret, (ret > 0) ? strerror (ret) : "");
+
+                        if (!bad_wr) {
+                                ret = -1;
+                                goto out;
+                        }
+
+                        for (i = 0; i < post->ctx.gf_rdma_reads; i++) {
+                                if (&wr[i] != bad_wr)
+                                        total_ref--;
+                                else
+                                        break;
+                        }
+
+                        ret = -1;
                 }
 
-                ret = 0;
         }
 unlock:
         pthread_mutex_unlock (&priv->write_mutex);
 out:
+        if (list)
+                GF_FREE (list);
+        if (wr)
+                GF_FREE (wr);
 
         if (ret == -1) {
+                while (total_ref-- > 0)
+                        gf_rdma_post_unref (post);
+
                 if (iobuf != NULL) {
                         iobuf_unref (iobuf);
                 }

@@ -126,6 +126,7 @@ enum gf_common_mem_types_ {
 	gf_common_mt_strfd_data_t         = 110,
         gf_common_mt_regex_t              = 111,
         gf_common_mt_ereg                 = 112,
+        gf_common_mt_wr                   = 113,
         gf_common_mt_end
 };
 #endif
