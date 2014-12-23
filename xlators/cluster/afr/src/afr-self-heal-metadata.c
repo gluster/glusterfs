@@ -99,6 +99,96 @@ out:
 	return ret;
 }
 
+static inline uint64_t
+mtime_ns(struct iatt *ia)
+{
+        uint64_t ret;
+
+        ret = (((uint64_t)(ia->ia_mtime)) * 1000000000)
+            + (uint64_t)(ia->ia_mtime_nsec);
+
+        return ret;
+}
+
+/*
+ * When directory content is modified, [mc]time is updated. On
+ * Linux, the filesystem does it, while at least on NetBSD, the
+ * kernel file-system independant code does it. This means that
+ * when entries are added while bricks are down, the kernel sends
+ * a SETATTR [mc]time which will cause metadata split brain for
+ * the directory. In this case, clear the split brain by finding
+ * the source with the most recent modification date.
+ */
+static int
+afr_dirtime_splitbrain_source (call_frame_t *frame, xlator_t *this,
+                               struct afr_reply *replies,
+                               unsigned char *locked_on)
+{
+        afr_private_t *priv  = NULL;
+        int            source = -1;
+        struct iatt    source_ia;
+        struct iatt    child_ia;
+        uint64_t       mtime = 0;
+        int            i;
+        int            ret   = -1;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!locked_on[i])
+                        continue;
+
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret != 0)
+                        continue;
+
+                if (mtime_ns(&replies[i].poststat) <= mtime)
+                        continue;
+
+                mtime = mtime_ns(&replies[i].poststat);
+                source = i;
+        }
+
+        if (source == -1)
+                goto out;
+
+        source_ia = replies[source].poststat;
+        if (source_ia.ia_type != IA_IFDIR)
+                goto out;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (i == source)
+                        continue;
+
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret != 0)
+                        continue;
+
+                child_ia = replies[i].poststat;
+
+                if (!IA_EQUAL(source_ia, child_ia, gfid) ||
+                    !IA_EQUAL(source_ia, child_ia, type) ||
+                    !IA_EQUAL(source_ia, child_ia, prot) ||
+                    !IA_EQUAL(source_ia, child_ia, uid) ||
+                    !IA_EQUAL(source_ia, child_ia, gid) ||
+                    !afr_xattrs_are_equal (replies[source].xdata,
+                                           replies[i].xdata))
+                        goto out;
+        }
+
+        /*
+         * Metadata split brain is just about [amc]time
+         * We return our source.
+         */
+        ret = source;
+out:
+        return ret;
+}
+
 
 /*
  * Look for mismatching uid/gid or mode or user xattrs even if
@@ -122,10 +212,34 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	sources_count = AFR_COUNT (sources, priv->child_count);
 
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
-            || !sources_count) {
+	    || !sources_count) {
+		/* If this is a directory mtime/ctime only split brain
+		   use the most recent */
+		source = afr_dirtime_splitbrain_source (frame, this,
+							replies, locked_on);
+		if (source != -1) {
+			gf_log (this->name, GF_LOG_NOTICE, "clear time "
+				"split brain on %s",
+				 uuid_utoa (replies[source].poststat.ia_gfid));
+			sources[source] = 1;
+
+			for (i = 0; i < priv->child_count; i++) {
+				if (i == source)
+					continue;
+
+				if (!locked_on[i])
+					continue;
+
+				healed_sinks[i] = 1;
+			}
+
+			return source;
+		}
+
 		if (!priv->metadata_splitbrain_forced_heal) {
 			return -EIO;
 		}
+
 		/* Metadata split brain, select one subvol
 		   arbitrarily */
 		for (i = 0; i < priv->child_count; i++) {
