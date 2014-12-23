@@ -124,132 +124,6 @@ out:
 }
 
 
-#define BACKEND_D_OFF_BITS 63
-#define PRESENT_D_OFF_BITS 63
-
-#define ONE 1ULL
-#define MASK (~0ULL)
-#define PRESENT_MASK (MASK >> (64 - PRESENT_D_OFF_BITS))
-#define BACKEND_MASK (MASK >> (64 - BACKEND_D_OFF_BITS))
-
-#define TOP_BIT (ONE << (PRESENT_D_OFF_BITS - 1))
-#define SHIFT_BITS (max (0, (BACKEND_D_OFF_BITS - PRESENT_D_OFF_BITS + 1)))
-
-static uint64_t
-afr_bits_for (uint64_t num)
-{
-	uint64_t bits = 0, ctrl = 1;
-
-	while (ctrl < num) {
-		ctrl *= 2;
-		bits ++;
-	}
-
-	return bits;
-}
-
-int
-afr_itransform (xlator_t *this, int subvol, uint64_t x, uint64_t *y_p)
-{
-        afr_private_t *conf = NULL;
-        int         cnt = 0;
-        int         max = 0;
-        uint64_t    y = 0;
-        uint64_t    hi_mask = 0;
-        uint64_t    off_mask = 0;
-        int         max_bits = 0;
-
-        if (x == ((uint64_t) -1)) {
-                y = (uint64_t) -1;
-                goto out;
-        }
-
-        conf = this->private;
-        if (!conf)
-                goto out;
-
-        max = conf->child_count;
-        cnt = subvol;
-
-	if (max == 1) {
-		y = x;
-		goto out;
-	}
-
-        max_bits = afr_bits_for (max);
-
-        hi_mask = ~(PRESENT_MASK >> (max_bits + 1));
-
-        if (x & hi_mask) {
-                /* HUGE d_off */
-                off_mask = MASK << max_bits;
-                y = TOP_BIT | ((x >> SHIFT_BITS) & off_mask) | cnt;
-        } else {
-                /* small d_off */
-                y = ((x * max) + cnt);
-        }
-
-out:
-        if (y_p)
-                *y_p = y;
-
-        return 0;
-}
-
-
-int
-afr_deitransform (xlator_t *this, uint64_t y, int *subvol_p,
-                  uint64_t *x_p)
-{
-        afr_private_t *conf = NULL;
-        int         cnt = 0;
-        int         max = 0;
-        uint64_t    x = 0;
-        int         subvol = 0;
-        int         max_bits = 0;
-        uint64_t    off_mask = 0;
-        uint64_t    host_mask = 0;
-
-        if (!this->private)
-                return -1;
-
-        conf = this->private;
-        max = conf->child_count;
-
-	if (max == 1) {
-		x = y;
-		cnt = 0;
-		goto out;
-	}
-
-        if (y & TOP_BIT) {
-                /* HUGE d_off */
-                max_bits = afr_bits_for (max);
-                off_mask = (MASK << max_bits);
-                host_mask = ~(off_mask);
-
-                x = ((y & ~TOP_BIT) & off_mask) << SHIFT_BITS;
-
-                cnt = y & host_mask;
-	} else {
-                /* small d_off */
-                cnt = y % max;
-                x = y / max;
-        }
-
-out:
-        subvol = cnt;
-
-        if (subvol_p)
-                *subvol_p = subvol;
-
-        if (x_p)
-                *x_p = x;
-
-        return 0;
-}
-
-
 static void
 afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
 			       gf_dirent_t *entries, fd_t *fd)
@@ -273,7 +147,6 @@ afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
                 }
 
 		list_del_init (&entry->list);
-		afr_itransform (THIS, subvol, entry->d_off, &entry->d_off);
 		list_add_tail (&entry->list, &entries->list);
 
 		if (entry->inode) {
@@ -333,15 +206,19 @@ afr_readdir_wind (call_frame_t *frame, xlator_t *this, int subvol)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+	afr_fd_ctx_t *fd_ctx = NULL;
 
 	priv = this->private;
 	local = frame->local;
+	fd_ctx = afr_fd_ctx_get (local->fd, this);
 
 	if (subvol == -1) {
 		AFR_STACK_UNWIND (readdir, frame, local->op_ret,
 				  local->op_errno, 0, 0);
 		return 0;
 	}
+
+	fd_ctx->readdir_subvol = subvol;
 
         if (local->op == GF_FOP_READDIR)
                 STACK_WIND_COOKIE (frame, afr_readdir_cbk,
@@ -370,10 +247,17 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         afr_local_t   *local     = NULL;
         int32_t       op_errno   = 0;
 	int           subvol = -1;
+	afr_fd_ctx_t *fd_ctx = NULL;
 
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
 		goto out;
+
+	fd_ctx = afr_fd_ctx_get (fd, this);
+	if (!fd_ctx) {
+	        op_errno = EINVAL;
+		goto out;
+        }
 
 	local->op = whichop;
         local->fd = fd_ref (fd);
@@ -381,7 +265,9 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	local->cont.readdir.offset = offset;
         local->xdata_req = (dict)? dict_ref (dict) : NULL;
 
-	if (offset == 0) {
+	subvol = fd_ctx->readdir_subvol;
+
+	if (offset == 0 || subvol == -1) {
 		/* First readdir has option of failing over and selecting
 		   an appropriate read subvolume */
 		afr_read_txn (frame, this, fd->inode, afr_readdir_wind,
@@ -389,8 +275,6 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	} else {
 		/* But continued readdirs MUST stick to the same subvolume
 		   without an option to failover */
-		afr_deitransform (this, offset, &subvol,
-				  (uint64_t *)&local->cont.readdir.offset);
 		afr_readdir_wind (frame, this, subvol);
 	}
 

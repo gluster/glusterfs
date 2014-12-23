@@ -301,6 +301,12 @@ typedef struct {
 
 	/* list of frames currently in progress */
 	struct list_head  eager_locked;
+
+	/* the subvolume on which the latest sequence of readdirs (starting
+	   at offset 0) has begun. Till the next readdir request with 0 offset
+	   arrives, we continue to read off this subvol.
+	*/
+	int readdir_subvol;
 } afr_fd_ctx_t;
 
 
