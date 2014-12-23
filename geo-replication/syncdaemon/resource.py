@@ -669,9 +669,13 @@ class Server(object):
             mode = e['stat']['mode']
             uid = e['stat']['uid']
             gid = e['stat']['gid']
+            atime = e['stat']['atime']
+            mtime = e['stat']['mtime']
             go = e['go']
             errno_wrap(os.chmod, [go, mode], [ENOENT], [ESTALE, EINVAL])
             errno_wrap(os.chown, [go, uid, gid], [ENOENT], [ESTALE, EINVAL])
+            errno_wrap(os.utime, [go, (atime, mtime)],
+                       [ENOENT], [ESTALE, EINVAL])
 
     @classmethod
     @_pathguard

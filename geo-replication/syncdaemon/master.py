@@ -742,10 +742,12 @@ class GMasterCommon(object):
 
 
 class XCrawlMetadata(object):
-    def __init__(self, st_uid, st_gid, st_mode):
+    def __init__(self, st_uid, st_gid, st_mode, st_atime, st_mtime):
         self.st_uid = int(st_uid)
         self.st_gid = int(st_gid)
         self.st_mode = int(st_mode)
+        self.st_atime = float(st_atime)
+        self.st_mtime = float(st_mtime)
 
 
 class GMasterChangelogMixin(GMasterCommon):
@@ -816,6 +818,8 @@ class GMasterChangelogMixin(GMasterCommon):
                         dst['uid'] = st.st_uid
                         dst['gid'] = st.st_gid
                         dst['mode'] = st.st_mode
+                        dst['atime'] = st.st_atime
+                        dst['mtime'] = st.st_mtime
                 else:
                     dct[k] = ed[k]
             return dct
@@ -907,7 +911,9 @@ class GMasterChangelogMixin(GMasterCommon):
                         meta_gfid.add((os.path.join(pfx, ec[0]),
                                        XCrawlMetadata(st_uid=ec[2],
                                                       st_gid=ec[3],
-                                                      st_mode=ec[4])))
+                                                      st_mode=ec[4],
+                                                      st_atime=ec[5],
+                                                      st_mtime=ec[6])))
                     else:
                         meta_gfid.add((os.path.join(pfx, ec[0]), ))
             else:
@@ -1482,7 +1488,9 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                     st.st_uid), str(st.st_gid), escape(os.path.join(pargfid,
                                                                     bname))])
                 self.write_entry_change("M", [gfid, "SETATTR", str(st.st_uid),
-                                              str(st.st_gid), str(st.st_mode)])
+                                              str(st.st_gid), str(st.st_mode),
+                                              str(st.st_atime),
+                                              str(st.st_mtime)])
                 self.Xcrawl(e, xtr_root)
                 stime_to_update = xte
                 if self.xsync_upper_limit:
