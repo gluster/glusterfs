@@ -3836,13 +3836,16 @@ gf_rdma_recv_completion_proc (void *data)
         gf_rdma_post_t          *post      = NULL;
         gf_rdma_peer_t          *peer      = NULL;
         struct ibv_cq           *event_cq  = NULL;
-        struct ibv_wc            wc        = {0, };
+        struct ibv_wc            wc[10]    = {{0},};
         void                    *event_ctx = NULL;
         int32_t                  ret       = 0;
+        int32_t                  num_wr    = 0, index = 0;
+        uint8_t                  failed    = 0;
 
         chan = data;
 
         while (1) {
+                failed = 0;
                 ret = ibv_get_cq_event (chan, &event_cq, &event_ctx);
                 if (ret) {
                         gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
@@ -3864,32 +3867,40 @@ gf_rdma_recv_completion_proc (void *data)
 
                 device = (gf_rdma_device_t *) event_ctx;
 
-                while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
-                        post = (gf_rdma_post_t *) (long) wc.wr_id;
+                while (!failed &&
+                       (num_wr = ibv_poll_cq (event_cq, 10, wc)) > 0) {
 
-                        pthread_mutex_lock (&device->qpreg.lock);
-                        {
-                                peer = __gf_rdma_lookup_peer (device,
-                                                              wc.qp_num);
+                        for (index = 0; index < num_wr && !failed; index++) {
+                                post = (gf_rdma_post_t *) (long)
+                                        wc[index].wr_id;
+
+                                pthread_mutex_lock (&device->qpreg.lock);
+                                {
+                                        peer = __gf_rdma_lookup_peer (device,
+                                                           wc[index].qp_num);
 
                                 /*
                                  * keep a refcount on transport so that it
                                  * does not get freed because of some error
                                  * indicated by wc.status till we are done
-                                 * with usage of peer and thereby that of trans.
+                                 * with usage of peer and thereby that of
+                                 * trans.
                                  */
                                 if (peer != NULL) {
                                         rpc_transport_ref (peer->trans);
                                 }
-                        }
-                        pthread_mutex_unlock (&device->qpreg.lock);
+                                }
+                                pthread_mutex_unlock (&device->qpreg.lock);
 
-                        if (wc.status != IBV_WC_SUCCESS) {
-                                gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
-                                        "recv work request on `%s' returned "
-                                        "error (%d)", device->device_name,
-                                        wc.status);
+                                if (wc[index].status != IBV_WC_SUCCESS) {
+                                        gf_log (GF_RDMA_LOG_NAME,
+                                        GF_LOG_ERROR, "recv work request "
+                                        "on `%s' returned error (%d)",
+                                        device->device_name,
+                                        wc[index].status);
+                                        failed = 1;
                                 if (peer) {
+                                        ibv_ack_cq_events (event_cq, num_wr);
                                         rpc_transport_unref (peer->trans);
                                         rpc_transport_disconnect (peer->trans);
                                 }
@@ -3898,19 +3909,21 @@ gf_rdma_recv_completion_proc (void *data)
                                         gf_rdma_post_unref (post);
                                 }
                                 continue;
-                        }
+                                }
 
-                        if (peer) {
-                                gf_rdma_process_recv (peer, &wc);
-                                rpc_transport_unref (peer->trans);
-                        } else {
-                                gf_log (GF_RDMA_LOG_NAME,
+                                if (peer) {
+                                        gf_rdma_process_recv (peer,
+                                                        &wc[index]);
+                                        rpc_transport_unref (peer->trans);
+                                } else {
+                                        gf_log (GF_RDMA_LOG_NAME,
                                         GF_LOG_DEBUG,
                                         "could not lookup peer for qp_num: %d",
-                                        wc.qp_num);
-                        }
+                                        wc[index].qp_num);
+                                }
 
-                        gf_rdma_post_unref (post);
+                                gf_rdma_post_unref (post);
+                        }
                 }
 
                 if (ret < 0) {
@@ -3921,7 +3934,8 @@ gf_rdma_recv_completion_proc (void *data)
                                 device->device_name, ret, errno);
                         continue;
                 }
-                ibv_ack_cq_events (event_cq, 1);
+                if (!failed)
+                        ibv_ack_cq_events (event_cq, num_wr);
         }
 
         return NULL;
@@ -4030,12 +4044,13 @@ gf_rdma_send_completion_proc (void *data)
         struct ibv_cq           *event_cq   = NULL;
         void                    *event_ctx  = NULL;
         gf_rdma_device_t        *device     = NULL;
-        struct ibv_wc            wc         = {0, };
+        struct ibv_wc            wc[10]     = {{0},};
         char                     is_request = 0;
-        int32_t                  ret        = 0, quota_ret = 0;
-
+        int32_t                  ret        = 0, quota_ret = 0, num_wr = 0;
+        int32_t                  index      = 0, failed = 0;
         chan = data;
         while (1) {
+                failed = 0;
                 ret = ibv_get_cq_event (chan, &event_cq, &event_ctx);
                 if (ret) {
                         gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
@@ -4055,12 +4070,16 @@ gf_rdma_send_completion_proc (void *data)
                         continue;
                 }
 
-                while ((ret = ibv_poll_cq (event_cq, 1, &wc)) > 0) {
-                        post = (gf_rdma_post_t *) (long) wc.wr_id;
+                while (!failed &&
+                       (num_wr = ibv_poll_cq (event_cq, 10, wc)) > 0) {
+                        for (index = 0; index < num_wr && !failed; index++) {
+                                post = (gf_rdma_post_t *) (long)
+                                        wc[index].wr_id;
 
-                        pthread_mutex_lock (&device->qpreg.lock);
-                        {
-                                peer = __gf_rdma_lookup_peer (device, wc.qp_num);
+                                pthread_mutex_lock (&device->qpreg.lock);
+                                {
+                                        peer = __gf_rdma_lookup_peer (device,
+                                                        wc[index].qp_num);
 
                                 /*
                                  * keep a refcount on transport so that it
@@ -4068,28 +4087,31 @@ gf_rdma_send_completion_proc (void *data)
                                  * indicated by wc.status, till we are done
                                  * with usage of peer and thereby that of trans.
                                  */
-                                if (peer != NULL) {
-                                        rpc_transport_ref (peer->trans);
+                                        if (peer != NULL) {
+                                                rpc_transport_ref (peer->trans);
+                                        }
                                 }
-                        }
-                        pthread_mutex_unlock (&device->qpreg.lock);
+                                pthread_mutex_unlock (&device->qpreg.lock);
 
-                        if (wc.status != IBV_WC_SUCCESS) {
-                                gf_rdma_handle_failed_send_completion (peer, &wc);
-                        } else {
-                                gf_rdma_handle_successful_send_completion (peer,
-                                                                           &wc);
-                        }
+                                if (wc[index].status != IBV_WC_SUCCESS) {
+                                        ibv_ack_cq_events (event_cq, num_wr);
+                                        failed = 1;
+                                        gf_rdma_handle_failed_send_completion
+                                                (peer, &wc[index]);
+                                } else {
+                                      gf_rdma_handle_successful_send_completion
+                                                (peer, &wc[index]);
+                                }
 
-                        if (post) {
-                                is_request = post->ctx.is_request;
+                                if (post) {
+                                        is_request = post->ctx.is_request;
 
-                                ret = gf_rdma_post_unref (post);
-                                if ((ret == 0)
-                                    && (wc.status == IBV_WC_SUCCESS)
-                                    && !is_request
-                                    && (post->type == GF_RDMA_SEND_POST)
-                                    && (peer != NULL)) {
+                                        ret = gf_rdma_post_unref (post);
+                                        if ((ret == 0)
+                                        && (wc[index].status == IBV_WC_SUCCESS)
+                                        && !is_request
+                                        && (post->type == GF_RDMA_SEND_POST)
+                                        && (peer != NULL)) {
                                         /* An GF_RDMA_RECV_POST can end up in
                                          * gf_rdma_send_completion_proc for
                                          * rdma-reads, and we do not take
@@ -4100,33 +4122,37 @@ gf_rdma_send_completion_proc (void *data)
                                          * if it is request, quota is returned
                                          * after reply has come.
                                          */
-                                        quota_ret = gf_rdma_quota_put (peer);
-                                        if (quota_ret < 0) {
-                                                gf_log ("rdma", GF_LOG_DEBUG,
-                                                        "failed to send "
-                                                        "message");
+                                                quota_ret = gf_rdma_quota_put
+                                                        (peer);
+                                                if (quota_ret < 0) {
+                                                        gf_log ("rdma",
+                                                                GF_LOG_DEBUG,
+                                                            "failed to send "
+                                                            "message");
+                                                }
                                         }
                                 }
-                        }
 
-                        if (peer) {
-                                rpc_transport_unref (peer->trans);
-                        } else {
-                                gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
+                                if (peer) {
+                                        rpc_transport_unref (peer->trans);
+                                } else {
+                                        gf_log (GF_RDMA_LOG_NAME, GF_LOG_DEBUG,
                                         "could not lookup peer for qp_num: %d",
-                                        wc.qp_num);
+                                        wc[index].qp_num);
+
+                                }
                         }
                 }
 
                 if (ret < 0) {
                         gf_log (GF_RDMA_LOG_NAME, GF_LOG_ERROR,
-                                "ibv_poll_cq on `%s' returned error (ret = %d,"
-                                " errno = %d)",
-                                device->device_name, ret, errno);
+                        "ibv_poll_cq on `%s' returned error (ret = %d,"
+                        " errno = %d)",
+                        device->device_name, ret, errno);
                         continue;
-                }
-
-                ibv_ack_cq_events (event_cq, 1);
+               }
+               if (!failed)
+                       ibv_ack_cq_events (event_cq, num_wr);
         }
 
         return NULL;
