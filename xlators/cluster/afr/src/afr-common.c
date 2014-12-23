@@ -741,7 +741,7 @@ afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
                uuid_copy (gfid_copy, inode->gfid);
         }
 
-        if (hashmode > 1) {
+        if (hashmode > 1 && inode->ia_type != IA_IFDIR) {
                 /*
                  * Why getpid?  Because it's one of the cheapest calls
                  * available - faster than gethostname etc. - and returns a
@@ -2217,6 +2217,8 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 ret = -ENOMEM;
                 goto out;
         }
+
+	fd_ctx->readdir_subvol = -1;
 
 	pthread_mutex_init (&fd_ctx->delay_lock, NULL);
 
