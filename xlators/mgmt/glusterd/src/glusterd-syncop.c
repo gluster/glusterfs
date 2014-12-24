@@ -20,6 +20,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-messages.h"
 
 extern glusterd_op_info_t opinfo;
 
@@ -1211,6 +1212,8 @@ gd_stage_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
         dict_t                 *aggr_dict       = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
+
         rsp_dict = dict_new ();
         if (!rsp_dict)
                 goto out;
@@ -1220,6 +1223,14 @@ gd_stage_op_phase (struct list_head *peers, glusterd_op_t op, dict_t *op_ctx,
                 aggr_dict = req_dict;
         else
                 aggr_dict = op_ctx;
+
+        ret = glusterd_validate_quorum (this, op, req_dict, op_errstr);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SERVER_QUORUM_NOT_MET,
+                        "Server quorum not met. Rejecting operation.");
+                goto out;
+        }
 
         ret = glusterd_op_stage_validate (op, req_dict, op_errstr, rsp_dict);
         if (ret) {

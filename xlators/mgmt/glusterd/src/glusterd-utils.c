@@ -1096,6 +1096,107 @@ out:
 }
 #endif
 
+gf_boolean_t
+glusterd_is_get_op (xlator_t *this, glusterd_op_t op, dict_t *dict)
+{
+        char            *key = NULL;
+        char            *volname = NULL;
+        int             ret = 0;
+
+        if (op == GD_OP_STATUS_VOLUME)
+                return _gf_true;
+
+        if (op == GD_OP_SET_VOLUME) {
+                /*check for set volume help*/
+                ret = dict_get_str (dict, "volname", &volname);
+                if (volname &&
+                    ((strcmp (volname, "help") == 0) ||
+                     (strcmp (volname, "help-xml") == 0))) {
+                        ret = dict_get_str (dict, "key1", &key);
+                        if (ret < 0)
+                                return _gf_true;
+                }
+        }
+        return _gf_false;
+}
+
+gf_boolean_t
+glusterd_is_quorum_validation_required (xlator_t *this, glusterd_op_t op,
+                                        dict_t *dict)
+{
+        gf_boolean_t    required = _gf_true;
+        char            *key = NULL;
+        char            *key_fixed = NULL;
+        int             ret = -1;
+
+        if (glusterd_is_get_op (this, op, dict)) {
+                required = _gf_false;
+                goto out;
+        }
+        if ((op != GD_OP_SET_VOLUME) && (op != GD_OP_RESET_VOLUME))
+                goto out;
+        if (op == GD_OP_SET_VOLUME)
+                ret = dict_get_str (dict, "key1", &key);
+        else if (op == GD_OP_RESET_VOLUME)
+                ret = dict_get_str (dict, "key", &key);
+        if (ret)
+                goto out;
+        ret = glusterd_check_option_exists (key, &key_fixed);
+        if (ret <= 0)
+                goto out;
+        if (key_fixed)
+                key = key_fixed;
+        if (glusterd_is_quorum_option (key))
+                required = _gf_false;
+out:
+        GF_FREE (key_fixed);
+        return required;
+}
+
+/* This function should not be used when the quorum validation needs to happen
+ * on non-global peer list */
+int
+glusterd_validate_quorum (xlator_t *this, glusterd_op_t op,
+                             dict_t *dict, char **op_errstr)
+{
+        int                      ret     = 0;
+        char                    *volname = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    *errstr  = NULL;
+
+        errstr = "Quorum not met. Volume operation not allowed.";
+        if (!glusterd_is_quorum_validation_required (this, op, dict))
+                goto out;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        /* Passing NULL implies quorum calculation will happen on global peer
+         * list */
+        if (does_gd_meet_server_quorum (this, NULL, _gf_false)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (glusterd_is_volume_in_server_quorum (volinfo)) {
+                ret = -1;
+                *op_errstr = gf_strdup (errstr);
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                         uuid_t volume_id, char **op_errstr,
