@@ -1326,6 +1326,17 @@ changelog_setxattr (call_frame_t *frame,
         CHANGELOG_INIT (this, frame->local,
                         loc->inode, loc->inode->gfid, 1);
 
+        /* On setting this virtual xattr on a file, an explicit data
+           sync is triggered from geo-rep as DATA entry is recorded
+           in changelog. */
+        if (dict_get (dict, GF_XATTR_TRIGGER_SYNC)
+            && loc->inode->ia_type != IA_IFDIR) {
+                changelog_update (this, priv, frame->local,
+                                  CHANGELOG_TYPE_DATA);
+                CHANGELOG_STACK_UNWIND (setxattr, frame, 0, 0, xdata);
+                return 0;
+        }
+
         co = changelog_get_usable_buffer (frame->local);
         if (!co)
                 goto wind;
