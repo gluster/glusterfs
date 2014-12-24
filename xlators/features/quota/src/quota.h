@@ -181,6 +181,9 @@ typedef void
 (*quota_ancestry_built_t) (struct list_head *parents, inode_t *inode,
                            int32_t op_ret, int32_t op_errno, void *data);
 
+typedef void
+(*quota_fop_continue_t) (call_frame_t *frame);
+
 struct quota_local {
         gf_lock_t               lock;
         uint32_t                validate_count;
@@ -196,7 +199,9 @@ struct quota_local {
         gf_boolean_t            skip_check;
         char                    just_validated;
         fop_lookup_cbk_t        validate_cbk;
+        quota_fop_continue_t    fop_continue_cbk;
         inode_t                *inode;
+        uuid_t                  common_ancestor; /* Used by quota_rename */
         call_stub_t            *stub;
         struct iobref          *iobref;
         quota_limit_t           limit;
@@ -234,5 +239,20 @@ quota_enforcer_init (xlator_t *this, dict_t *options);
 void
 quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
                  int64_t delta);
+
+int
+quota_build_ancestry (inode_t *inode, quota_ancestry_built_t ancestry_cbk,
+                      void *data);
+
+void
+quota_get_limit_dir (call_frame_t *frame, inode_t *cur_inode, xlator_t *this);
+
+int32_t
+quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
+                   char *name, uuid_t par);
+
+int
+quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
+                     loc_t *loc, struct iatt *buf, int32_t *op_errno);
 
 #endif
