@@ -251,9 +251,11 @@ fuse_mnt_umount (const char *progname, const char *abs_mnt,
                        lazy ? "-l" : NULL, NULL);
                 GFFUSE_LOGERR ("%s: failed to execute /bin/umount: %s",
                                progname, strerror (errno));
+#elif __NetBSD__
+                /* exitting the filesystem causes the umount */
+                exit (0);
 #else
-                execl ("/sbin/umount", "/sbin/umount", rel_mnt,
-                       lazy ? "-l" : NULL, NULL);
+                execl ("/sbin/umount", "/sbin/umount", "-f", rel_mnt, NULL);
                 GFFUSE_LOGERR ("%s: failed to execute /sbin/umount: %s",
                                progname, strerror (errno));
 #endif /* GF_LINUX_HOST_OS */
