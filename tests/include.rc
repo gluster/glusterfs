@@ -471,7 +471,7 @@ function cleanup()
                 echo
                 echo "Please correct the problem and try again."
                 echo
-                exit 1
+                return 1;
         fi >&2
         mkdir -p $WORKDIRS
 }
@@ -710,7 +710,7 @@ function SETUP_LOOP ()
 {
   if [ $# != 1 ] ; then
     echo "SETUP_LOOP usage" >&2
-    exit 1;
+    return 1;
   fi
 
   backend=$1
@@ -723,14 +723,14 @@ function SETUP_LOOP ()
     vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
     if [ "x${vnd}" = "x" ] ; then
       echo "no more vnd" >&2
-      exit 1;
+      return 1;
     fi
     vnconfig ${vnd} ${backend}
     echo ${vnd}
     ;;
   *)
     echo "Please define SETUP_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -740,7 +740,7 @@ function MKFS_LOOP ()
   args=`getopt i: $*`
   if [ $? -ne 0 ] ; then
     echo "MKFS_LOOP usage" >&2
-    exit 1;
+    return 1;
   fi
   set -- ${args}
 
@@ -768,7 +768,7 @@ function MKFS_LOOP ()
       vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
       if [ "x${vnd}" = "x" ] ; then
         echo "no more vnd" >&2
-        exit 1;
+        return 1;
       fi
       vnconfig ${vnd} ${dev}
     else
@@ -778,7 +778,7 @@ function MKFS_LOOP ()
     ;;
   *)
     echo "Please define MKFS_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -805,7 +805,7 @@ function MOUNT_LOOP ()
 {
   if [ $# != 2 ] ; then
     echo "MOUNT_LOOP usage" >&2
-    exit 1;
+    return 1;
   fi
 
   dev=$1
@@ -830,7 +830,7 @@ function MOUNT_LOOP ()
     mount /dev/${dev}a ${target} >&2
     if [ $? -ne 0 ] ; then
       echo "failed to mount  /dev/${dev}a on  ${target}" >&2
-      exit 1
+      return 1;
     fi
 
     mkdir -p ${target}/.attribute/system  ${target}/.attribute/user
@@ -839,7 +839,7 @@ function MOUNT_LOOP ()
     ;;
   *)
     echo "Please define MOUNT_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -869,7 +869,7 @@ function UMOUNT_LOOP ()
     ;;
   *)
     echo "Please define UMOUNT_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -878,7 +878,7 @@ function SETUP_LOOP ()
 {
   if [ $# != 1 ] ; then
     echo "SETUP_LOOP usage" >&2
-    exit 1;
+    return 1;
   fi
 
   backend=$1
@@ -891,14 +891,14 @@ function SETUP_LOOP ()
     vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
     if [ "x${vnd}" = "x" ] ; then
       echo "no more vnd" >&2
-      exit 1;
+      return 1;
     fi
     vnconfig ${vnd} ${backend}
     echo ${vnd}
     ;;
   *)
     echo "Please define SETUP_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -908,7 +908,7 @@ function MKFS_LOOP ()
   args=`getopt i: $*`
   if [ $? -ne 0 ] ; then
     echo "MKFS_LOOP usage" >&2
-    exit 1;
+    return 1;
   fi
   set -- ${args}
 
@@ -936,7 +936,7 @@ function MKFS_LOOP ()
       vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
       if [ "x${vnd}" = "x" ] ; then
         echo "no more vnd" >&2
-        exit 1;
+        return 1;
       fi
       vnconfig ${vnd} ${dev}
     else
@@ -946,7 +946,7 @@ function MKFS_LOOP ()
     ;;
   *)
     echo "Please define MKFS_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -955,7 +955,7 @@ function MOUNT_LOOP ()
 {
   if [ $# != 2 ] ; then
     echo "MOUNT_LOOP usage" >&2
-    exit 1;
+    return 1;
   fi
 
   dev=$1
@@ -980,7 +980,7 @@ function MOUNT_LOOP ()
     mount /dev/${dev}a ${target} >&2
     if [ $? -ne 0 ] ; then
       echo "failed to mount  /dev/${dev}a on  ${target}" >&2
-      exit 1
+      return 1;
     fi
 
     mkdir -p ${target}/.attribute/system  ${target}/.attribute/user
@@ -989,7 +989,7 @@ function MOUNT_LOOP ()
     ;;
   *)
     echo "Please define MOUNT_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
@@ -1019,7 +1019,7 @@ function UMOUNT_LOOP ()
     ;;
   *)
     echo "Please define UMOUNT_LOOP for ${OSTYPE} in include.rc" >&2
-    exit 1;
+    return 1;
     ;;
   esac
 }
