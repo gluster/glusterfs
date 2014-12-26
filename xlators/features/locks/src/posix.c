@@ -2592,6 +2592,20 @@ pl_client_destroy_cbk (xlator_t *this, client_t *client)
         return 0;
 }
 
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        posix_locks_private_t *priv = NULL;
+        int                   ret = -1;
+
+        priv = this->private;
+
+        GF_OPTION_RECONF ("trace", priv->trace, options, bool, out);
+
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 init (xlator_t *this)
@@ -2599,7 +2613,6 @@ init (xlator_t *this)
         posix_locks_private_t *priv = NULL;
         xlator_list_t         *trav = NULL;
         data_t                *mandatory = NULL;
-        data_t                *trace = NULL;
         int                   ret = -1;
 
         if (!this->children || this->children->next) {
@@ -2632,15 +2645,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "mandatory locks not supported in this minor release.");
 
-        trace = dict_get (this->options, "trace");
-        if (trace) {
-                if (gf_string2boolean (trace->data,
-                                       &priv->trace) == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "'trace' takes on only boolean values.");
-                        goto out;
-                }
-        }
+        GF_OPTION_INIT ("trace", priv->trace, bool, out);
 
         this->local_pool = mem_pool_new (pl_local_t, 32);
         if (!this->local_pool) {
