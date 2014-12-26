@@ -13,15 +13,18 @@ OSTYPE=$(uname -s)
 ENV_RC=$(dirname $0)/../env.rc
 if [ ! -f $ENV_RC ]; then
    ENV_RC=$(dirname $0)/../../env.rc
+   if [ ! -f $ENV_RC ]; then
+      ENV_RC=$(dirname $0)/../../../env.rc
+   fi
 fi
 
 if [ ! -f $ENV_RC ]; then
-   echo "Aborting."
-   echo
-   echo "env.rc not found"
-   echo
-   echo "Please correct the problem and try again."
-   echo
+   echo "Aborting." | tee /dev/stderr
+   echo | tee /dev/stderr
+   echo "env.rc not found" | tee /dev/stderr
+   echo | tee /dev/stderr
+   echo "Please correct the problem and try again." | tee /dev/stderr
+   echo | tee /dev/stderr
    exit 1
 fi
 . $ENV_RC
