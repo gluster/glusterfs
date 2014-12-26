@@ -1678,6 +1678,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "mgmt/glusterd",
           .op_version  = GD_OP_VERSION_3_6_0,
         },
+        { .key         = "locks.trace",
+          .voltype     = "features/locks",
+          .value       = "disable",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
         { .key         = NULL
         }
 };
