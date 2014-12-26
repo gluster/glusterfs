@@ -1225,7 +1225,7 @@ glusterd_init_uds_listener (xlator_t *this)
         dict_t          *options = NULL;
         rpcsvc_t        *rpc = NULL;
         data_t          *sock_data = NULL;
-        char            sockfile[PATH_MAX+1] = {0,};
+        char            sockfile[UNIX_PATH_MAX+1] = {0,};
         int             i = 0;
 
 
@@ -1233,9 +1233,9 @@ glusterd_init_uds_listener (xlator_t *this)
 
         sock_data = dict_get (this->options, "glusterd-sockfile");
         if (!sock_data) {
-                strncpy (sockfile, DEFAULT_GLUSTERD_SOCKFILE, PATH_MAX);
+                strncpy (sockfile, DEFAULT_GLUSTERD_SOCKFILE, UNIX_PATH_MAX);
         } else {
-                strncpy (sockfile, sock_data->data, PATH_MAX);
+                strncpy (sockfile, sock_data->data, UNIX_PATH_MAX);
         }
 
         options = dict_new ();
@@ -1320,9 +1320,9 @@ glusterd_stop_uds_listener (xlator_t *this)
 
         sock_data = dict_get (this->options, "glusterd-sockfile");
         if (!sock_data) {
-                strncpy (sockfile, DEFAULT_GLUSTERD_SOCKFILE, PATH_MAX);
+                strncpy (sockfile, DEFAULT_GLUSTERD_SOCKFILE, UNIX_PATH_MAX);
         } else {
-                strncpy (sockfile, sock_data->data, PATH_MAX);
+                strncpy (sockfile, sock_data->data, UNIX_PATH_MAX);
         }
         unlink (sockfile);
 
