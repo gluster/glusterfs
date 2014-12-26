@@ -566,7 +566,8 @@ glusterd_do_quorum_action ();
 int
 glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                                     int *quorum_count,
-                                    gf_boolean_t _xaction_peers);
+                                    struct list_head *peer_list,
+                                    gf_boolean_t _local__xaction_peers);
 
 int
 glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str);
@@ -577,7 +578,9 @@ glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
 gf_boolean_t
 glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this, gf_boolean_t _xaction_peers);
+does_gd_meet_server_quorum (xlator_t *this,
+                            struct list_head *peers_list,
+                            gf_boolean_t _local__xaction_peers);
 
 int
 glusterd_generate_and_set_task_id (dict_t *dict, char *key);
@@ -785,11 +788,13 @@ glusterd_take_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr);
+                            char **op_errstr,
+                            struct list_head *peers_list);
 
 int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr);
+                                       char **op_errstr,
+                                       struct list_head *peers_list);
 
 int32_t
 glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
