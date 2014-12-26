@@ -255,10 +255,11 @@ class TarSSHEngine(object):
                     # stat check for file presence
                     st = lstat(se)
                     if isinstance(st, int):
+                        # file got unlinked in the interim
                         self.unlinked_gfids.append(se)
                         return True
-                    logging.warn('tar+ssh: %s [errcode: %d]' % (se, rv[1]))
-                    se_list = se.split('/');
+
+                    se_list = se.split('/')
                     self.current_files_skipped_count += 1
                     self.skipped_gfid_list.append(se_list[1])
             self.add_job(self.FLAT_DIR_HIERARCHY, 'reg', regjob, f, None, pb)
@@ -291,15 +292,14 @@ class RsyncEngine(object):
                     logging.debug('synced ' + se)
                     return True
                 else:
-                    if rv[1] in [23, 24]:
-                        # stat to check if the file exist
-                        st = lstat(se)
-                        if isinstance(st, int):
-                            # file got unlinked in the interim
-                            self.unlinked_gfids.append(se)
-                            return True
-                    logging.warn('Rsync: %s [errcode: %d]' % (se, rv[1]))
-                    se_list = se.split('/');
+                    # stat to check if the file exist
+                    st = lstat(se)
+                    if isinstance(st, int):
+                        # file got unlinked in the interim
+                        self.unlinked_gfids.append(se)
+                        return True
+
+                    se_list = se.split('/')
                     self.current_files_skipped_count += 1
                     self.skipped_gfid_list.append(se_list[1])
             self.add_job(self.FLAT_DIR_HIERARCHY, 'reg', regjob, f, None, pb)
@@ -408,7 +408,7 @@ class GMasterCommon(object):
         self.jobtab = {}
         if boolify(gconf.use_tarssh):
             logging.info("using 'tar over ssh' as the sync engine")
-            self.syncer = Syncer(slave, self.slave.tarssh)
+            self.syncer = Syncer(slave, self.slave.tarssh, [2])
         else:
             logging.info("using 'rsync' as the sync engine")
             # partial transfer (cf. rsync(1)), that's normal
