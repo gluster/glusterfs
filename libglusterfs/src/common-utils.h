@@ -677,4 +677,6 @@ gf_build_absolute_path (char *current_path, char *relative_path, char **path);
 int
 recursive_rmdir (const char *delete_path);
 
+int
+gf_get_index_by_elem (char **array, char *elem);
 #endif /* _COMMON_UTILS_H */

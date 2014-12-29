@@ -7270,6 +7270,30 @@ out:
         return;
 }
 
+int
+gf_is_cli_heal_get_command (gf_xl_afr_op_t heal_op)
+{
+        /* If the command is get command value is 1 otherwise 0, for
+           invalid commands -1 */
+        int    get_cmds[GF_AFR_OP_HEAL_DISABLE + 1] = {
+                       [GF_AFR_OP_INVALID] = -1,
+                       [GF_AFR_OP_HEAL_INDEX] = 0,
+                       [GF_AFR_OP_HEAL_FULL] = 0,
+                       [GF_AFR_OP_INDEX_SUMMARY] = 1,
+                       [GF_AFR_OP_HEALED_FILES] = 1,
+                       [GF_AFR_OP_HEAL_FAILED_FILES] = 1,
+                       [GF_AFR_OP_SPLIT_BRAIN_FILES] = 1,
+                       [GF_AFR_OP_STATISTICS] = 1,
+                       [GF_AFR_OP_STATISTICS_HEAL_COUNT] = 1,
+                       [GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA] = 1,
+                       [GF_AFR_OP_HEAL_ENABLE] = 0,
+                       [GF_AFR_OP_HEAL_DISABLE] = 0,
+                };
+
+        if (heal_op > GF_AFR_OP_INVALID && heal_op <= GF_AFR_OP_HEAL_DISABLE)
+                return get_cmds[heal_op] == 1;
+        return _gf_false;
+}
 
 int
 gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
@@ -7330,12 +7354,20 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_INFO, "Received resp to heal volume");
 
+        operation = "Gathering ";
+        substr = "";
         switch (heal_op) {
                 case    GF_AFR_OP_HEAL_INDEX:
+                        operation   = "Launching heal operation ";
                         heal_op_str = "to perform index self heal";
+                        substr      = "\nUse heal info commands to check"
+                                      " status";
                         break;
                 case    GF_AFR_OP_HEAL_FULL:
+                        operation   = "Launching heal operation ";
                         heal_op_str = "to perform full self heal";
+                        substr      = "\nUse heal info commands to check"
+                                      " status";
                         break;
                 case    GF_AFR_OP_INDEX_SUMMARY:
                         heal_op_str = "list of entries to be healed";
@@ -7367,35 +7399,33 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 case    GF_AFR_OP_INVALID:
                         heal_op_str = "invalid heal op";
                         break;
-        }
-
-        if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
-            (heal_op == GF_AFR_OP_HEAL_INDEX)) {
-                operation = "Launching heal operation";
-                substr = "\nUse heal info commands to check status";
-        } else {
-                operation = "Gathering";
-                substr = "";
+                case    GF_AFR_OP_HEAL_ENABLE:
+                        operation   = "";
+                        heal_op_str = "Enable heal";
+                        break;
+                case    GF_AFR_OP_HEAL_DISABLE:
+                        operation   = "";
+                        heal_op_str = "Disable heal";
+                        break;
         }
 
         if (rsp.op_ret) {
                 if (strcmp (rsp.op_errstr, "")) {
                         cli_err ("%s", rsp.op_errstr);
                 } else {
-                        cli_err ("%s %s on volume %s has been unsuccessful",
+                        cli_err ("%s%s on volume %s has been unsuccessful",
                                  operation, heal_op_str, volname);
                 }
 
                 ret = rsp.op_ret;
                 goto out;
         } else {
-                cli_out ("%s %s on volume %s has been successful %s", operation,
+                cli_out ("%s%s on volume %s has been successful %s", operation,
                          heal_op_str, volname, substr);
         }
 
         ret = rsp.op_ret;
-        if ((heal_op == GF_AFR_OP_HEAL_FULL) ||
-            (heal_op == GF_AFR_OP_HEAL_INDEX))
+        if (!gf_is_cli_heal_get_command (heal_op))
                 goto out;
 
         dict = dict_new ();
