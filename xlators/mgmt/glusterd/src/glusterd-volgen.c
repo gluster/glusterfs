@@ -889,6 +889,37 @@ glusterd_check_option_exists (char *key, char **completion)
         return ret;
 }
 
+int
+glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                          char *value, char **op_errstr)
+{
+        struct volopt_map_entry *vme     = NULL;
+        char                    *volname = NULL;
+        int                     ret = 0;
+        xlator_t                *this = THIS;
+
+        if (!dict || !key || !value) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING, "Invalid "
+                                  "Arguments (dict=%p, key=%s, value=%s)", dict,
+                                  key, value);
+                return -1;
+        }
+
+        for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
+                if ((vme->validate_fn) &&
+                    ((!strcmp (key, vme->key)) ||
+                     (!strcmp (key, strchr (vme->key, '.') + 1)))) {
+                        ret = vme->validate_fn (volinfo, dict, key, value,
+                                                op_errstr);
+                        if (ret)
+                                goto out;
+                        break;
+                }
+        }
+out:
+        return ret;
+}
+
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype)
 {
@@ -2556,6 +2587,41 @@ out:
 }
 
 static int
+volgen_graph_build_ec_clusters (volgen_graph_t *graph,
+                                glusterd_volinfo_t *volinfo)
+{
+        int                     i = 0;
+        int                     ret = 0;
+        int                     clusters            = 0;
+        char                    *disperse_args[]    = {"cluster/disperse",
+                                                       "%s-disperse-%d"};
+        xlator_t                *ec                 = NULL;
+        char                    option[32]          = {0};
+
+        clusters = volgen_graph_build_clusters (graph, volinfo,
+                                                disperse_args[0],
+                                                disperse_args[1],
+                                                volinfo->brick_count,
+                                                volinfo->disperse_count);
+        if (clusters < 0)
+                goto out;
+
+        sprintf(option, "%d", volinfo->redundancy_count);
+        ec = first_of (graph);
+        for (i = 0; i < clusters; i++) {
+                ret = xlator_set_option (ec, "redundancy", option);
+                if (ret) {
+                        clusters = -1;
+                        goto out;
+                }
+
+                ec = ec->next;
+        }
+out:
+        return clusters;
+}
+
+static int
 volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                     glusterd_volinfo_t *volinfo,
                                     gf_boolean_t is_quotad)
@@ -2564,14 +2630,10 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                                        "%s-replicate-%d"};
         char                    *stripe_args[]      = {"cluster/stripe",
                                                        "%s-stripe-%d"};
-        char                    *disperse_args[]    = {"cluster/disperse",
-                                                       "%s-disperse-%d"};
-        char                    option[32]          = "";
         int                     rclusters           = 0;
         int                     clusters            = 0;
         int                     dist_count          = 0;
         int                     ret                 = -1;
-        xlator_t *              ec                  = NULL;
 
         if (!volinfo->dist_leaf_count)
                 goto out;
@@ -2621,24 +2683,11 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                 if (clusters < 0)
                         goto out;
                 break;
+
         case GF_CLUSTER_TYPE_DISPERSE:
-                clusters = volgen_graph_build_clusters (graph, volinfo,
-                                                        disperse_args[0],
-                                                        disperse_args[1],
-                                                        volinfo->brick_count,
-                                                        volinfo->disperse_count);
+                clusters = volgen_graph_build_ec_clusters (graph, volinfo);
                 if (clusters < 0)
                         goto out;
-
-                sprintf(option, "%d", volinfo->redundancy_count);
-                ec = first_of (graph);
-                while (clusters-- > 0) {
-                        ret = xlator_set_option (ec, "redundancy", option);
-                        if (ret)
-                                goto out;
-
-                        ec = ec->next;
-                }
 
                 break;
         default:
@@ -2685,6 +2734,52 @@ static int client_graph_set_perf_options(volgen_graph_t *graph,
                 return volgen_graph_set_options_generic(graph, set_dict,
                                                         volname,
                                                         &nfsperfxl_option_handler);
+}
+
+static int
+graph_set_generic_options (xlator_t *this, volgen_graph_t *graph,
+                           dict_t *set_dict, char *identifier)
+{
+        int     ret = 0;
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &loglevel_option_handler);
+
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "changing %s log level"
+                        " failed", identifier);
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &sys_loglevel_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "changing %s syslog "
+                        "level failed", identifier);
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &logger_option_handler);
+
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "changing %s logger"
+                        " failed", identifier);
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &log_format_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "changing %s log format"
+                        " failed", identifier);
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &log_buf_size_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
+                        "log-buf-size option");
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                            &log_flush_timeout_option_handler);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
+                        "log-flush-timeout option");
+        return 0;
 }
 
 static int
@@ -2915,44 +3010,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 goto out;
 
-        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                                &loglevel_option_handler);
-
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing client log level"
-                        " failed");
-
-        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                                &sys_loglevel_option_handler);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing client syslog "
-                        "level failed");
-
-        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                                &logger_option_handler);
-
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing client logger"
-                        " failed");
-
-        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                                &log_format_option_handler);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "changing client log format"
-                        " failed");
-
-        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                                &log_buf_size_option_handler);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
-                        "log-buf-size option");
-
-        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
-                                            &log_flush_timeout_option_handler);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to change "
-                        "log-flush-timeout option");
-
+        ret = graph_set_generic_options (this, graph, set_dict, "client");
 out:
         return ret;
 }
@@ -3210,6 +3268,38 @@ nfs_option_handler (volgen_graph_t *graph,
         return 0;
 }
 
+char*
+volgen_get_shd_key (glusterd_volinfo_t *volinfo)
+{
+        char    *key = NULL;
+
+        switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                key = "cluster.self-heal-daemon";
+                break;
+        case GF_CLUSTER_TYPE_DISPERSE:
+                key = "cluster.disperse-self-heal-daemon";
+                break;
+        default:
+                key = NULL;
+                break;
+        }
+
+        return key;
+}
+
+static gf_boolean_t
+volgen_is_shd_compatible_xl (char *xl_type)
+{
+        char            *shd_xls[] = {"cluster/replicate", "cluster/disperse",
+                                      NULL};
+        if (gf_get_index_by_elem (shd_xls, xl_type) != -1)
+                return _gf_true;
+
+        return _gf_false;
+}
+
 static int
 volgen_graph_set_iam_shd (volgen_graph_t *graph)
 {
@@ -3217,7 +3307,7 @@ volgen_graph_set_iam_shd (volgen_graph_t *graph)
         int             ret = 0;
 
         for (trav = first_of (graph); trav; trav = trav->next) {
-                if (strcmp (trav->type, "cluster/replicate") != 0)
+                if (!volgen_is_shd_compatible_xl (trav->type))
                         continue;
 
                 ret = xlator_set_option (trav, "iam-self-heal-daemon", "yes");
@@ -3228,9 +3318,125 @@ volgen_graph_set_iam_shd (volgen_graph_t *graph)
 }
 
 static int
-build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+prepare_shd_volume_options (glusterd_volinfo_t *volinfo,
+                            dict_t *mod_dict, dict_t *set_dict)
+{
+        char    *key = NULL;
+        int     ret = 0;
+
+        key = volgen_get_shd_key (volinfo);
+        if (!key) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_str (set_dict, key, "enable");
+        if (ret)
+                goto out;
+
+        ret = dict_set_uint32 (set_dict, "trusted-client", GF_CLIENT_TRUSTED);
+        if (ret)
+                goto out;
+
+        dict_copy (volinfo->dict, set_dict);
+        if (mod_dict)
+                dict_copy (mod_dict, set_dict);
+out:
+        return ret;
+}
+
+static int
+volgen_graph_build_replicate_clusters (volgen_graph_t *graph,
+                                       glusterd_volinfo_t *volinfo)
+{
+        char               *replicate_args[]   = {"cluster/replicate",
+                                                  "%s-replicate-%d"};
+
+        return volgen_graph_build_clusters (graph, volinfo, "cluster/replicate",
+                                            "%s-replicate-%d",
+                                            volinfo->brick_count,
+                                            volinfo->replica_count);
+}
+
+static int
+build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                    dict_t *set_dict)
+{
+        int     ret = 0;
+        int     clusters = -1;
+
+        ret = volgen_graph_build_clients (graph, volinfo, set_dict, NULL);
+        if (ret)
+                goto out;
+
+        switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                clusters = volgen_graph_build_replicate_clusters (graph,
+                                                                  volinfo);
+                break;
+
+        case GF_CLUSTER_TYPE_DISPERSE:
+                clusters = volgen_graph_build_ec_clusters (graph, volinfo);
+                break;
+        }
+out:
+        return clusters;
+}
+
+static int
+build_shd_volume_graph (xlator_t *this, volgen_graph_t *graph,
+                        glusterd_volinfo_t *volinfo,
+                        dict_t *mod_dict, dict_t *set_dict,
+                        gf_boolean_t graph_check, gf_boolean_t *valid_config)
 {
         volgen_graph_t     cgraph         = {0};
+        int     ret = 0;
+        int     clusters = -1;
+
+        if (!graph_check && (volinfo->status != GLUSTERD_STATUS_STARTED))
+                goto out;
+
+        if (!glusterd_is_shd_compatible_volume (volinfo))
+                goto out;
+
+        /* Shd graph is valid only when there is at least one
+         * replica/disperse volume is present
+         */
+        *valid_config = _gf_true;
+
+        ret = prepare_shd_volume_options (volinfo, mod_dict, set_dict);
+        if (ret)
+                goto out;
+
+        clusters = build_shd_clusters (&cgraph, volinfo, set_dict);
+        if (clusters < 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = volgen_graph_set_options_generic (&cgraph, set_dict,
+                                                volinfo, shd_option_handler);
+        if (ret)
+                goto out;
+
+        ret = volgen_graph_set_iam_shd (&cgraph);
+        if (ret)
+                goto out;
+
+        ret = volgen_graph_merge_sub (graph, &cgraph, clusters);
+        if (ret)
+                goto out;
+
+        ret = graph_set_generic_options (this, graph, set_dict,
+                                         "self-heal daemon");
+out:
+        return ret;
+}
+
+static int
+build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+{
         glusterd_volinfo_t *voliter       = NULL;
         xlator_t           *this          = NULL;
         glusterd_conf_t    *priv          = NULL;
@@ -3238,8 +3444,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         int                ret            = 0;
         gf_boolean_t       valid_config   = _gf_false;
         xlator_t           *iostxl        = NULL;
-        int                rclusters      = 0;
-        int                replica_count  = 0;
+        int                clusters      = 0;
         gf_boolean_t       graph_check    = _gf_false;
 
         this = THIS;
@@ -3259,104 +3464,9 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         }
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (!graph_check &&
-                   (voliter->status != GLUSTERD_STATUS_STARTED))
-                        continue;
-
-                if (!glusterd_is_volume_replicate (voliter))
-                        continue;
-
-                replica_count = voliter->replica_count;
-
-                valid_config = _gf_true;
-
-                ret = dict_set_str (set_dict, "cluster.self-heal-daemon", "on");
-                if (ret)
-                        goto out;
-
-                ret = dict_set_uint32 (set_dict, "trusted-client",
-                                       GF_CLIENT_TRUSTED);
-                if (ret)
-                        goto out;
-
-                dict_copy (voliter->dict, set_dict);
-                if (mod_dict)
-                        dict_copy (mod_dict, set_dict);
-
-                memset (&cgraph, 0, sizeof (cgraph));
-                ret = volgen_graph_build_clients (&cgraph, voliter, set_dict,
-                                                  NULL);
-                if (ret)
-                        goto out;
-
-                rclusters = volgen_graph_build_clusters (&cgraph, voliter,
-                                                        "cluster/replicate",
-                                                        "%s-replicate-%d",
-                                                        voliter->brick_count,
-                                                        replica_count);
-                if (rclusters < 0) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = volgen_graph_set_options_generic (&cgraph, set_dict, voliter,
-                                                        shd_option_handler);
-                if (ret)
-                        goto out;
-
-                ret = volgen_graph_set_iam_shd (&cgraph);
-                if (ret)
-                        goto out;
-
-                ret = volgen_graph_merge_sub (graph, &cgraph, rclusters);
-                if (ret)
-                        goto out;
-
-                ret = volgen_graph_set_options_generic (graph, set_dict,
-                                                        "client",
-                                                 &loglevel_option_handler);
-
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "changing loglevel "
-                                "of self-heal daemon failed");
-
-                ret = volgen_graph_set_options_generic (graph, set_dict,
-                                                        "client",
-                                                 &sys_loglevel_option_handler);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "changing syslog "
-                                "level of self-heal daemon failed");
-
-                ret = volgen_graph_set_options_generic (graph, set_dict,
-                                                        "client",
-                                                 &logger_option_handler);
-
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "changing logger "
-                                "of self-heal daemon failed");
-
-                ret = volgen_graph_set_options_generic (graph, set_dict,
-                                                        "client",
-                                                 &log_format_option_handler);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "changing log "
-                                "format of self-heal daemon failed");
-
-                ret = volgen_graph_set_options_generic (graph, set_dict,
-                                                        "client",
-                                                 &log_buf_size_option_handler);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "changing "
-                                "log-buf-size for self-heal daemon failed");
-
-                ret = volgen_graph_set_options_generic (graph, set_dict,
-                                                        "client",
-                                             &log_flush_timeout_option_handler);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "changing "
-                                "log-flush-timeout for self-heal daemon "
-                                "failed");
-
+                ret = build_shd_volume_graph (this, graph, voliter, mod_dict,
+                                              set_dict, graph_check,
+                                              &valid_config);
 
                 ret = dict_reset (set_dict);
                 if (ret)
@@ -4324,7 +4434,7 @@ validate_shdopts (glusterd_volinfo_t *volinfo,
 
         graph.errstr = op_errstr;
 
-        if (!glusterd_is_volume_replicate (volinfo)) {
+        if (!glusterd_is_shd_compatible_volume (volinfo)) {
                 ret = 0;
                 goto out;
         }

@@ -100,8 +100,8 @@ typedef enum {
 
 typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
 
-typedef int (*vme_option_validation) (dict_t *dict, char *key, char *value,
-                                      char **op_errstr);
+typedef int (*vme_option_validation) (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                      char *key, char *value, char **op_errstr);
 
 struct volopt_map_entry {
         char *key;
@@ -230,4 +230,10 @@ gd_is_xlator_option (char *key);
 gf_boolean_t
 gd_is_boolean_option (char *key);
 
+char*
+volgen_get_shd_key (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                          char *value, char **op_errstr);
 #endif

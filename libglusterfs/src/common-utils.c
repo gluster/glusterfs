@@ -3630,3 +3630,21 @@ recursive_rmdir (const char *delete_path)
 out:
         return ret;
 }
+/*
+ * Input: Array of strings 'array' terminating in NULL
+ *        string 'elem' to be searched in the array
+ *
+ * Output: Index of the element in the array if found, '-1' otherwise
+ */
+int
+gf_get_index_by_elem (char **array, char *elem)
+{
+        int     i = 0;
+
+        for (i = 0; array[i]; i++) {
+                if (strcmp (elem, array[i]) == 0)
+                        return i;
+        }
+
+        return -1;
+}

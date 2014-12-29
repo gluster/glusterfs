@@ -2356,10 +2356,11 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},
 
-        { "volume heal <VOLNAME> [full | statistics [heal-count "\
-          "[replica <HOSTNAME:BRICKNAME>]] |info [healed | heal-failed | "\
-          "split-brain]| split-brain {bigger-file <FILE> |source-brick "\
-          "<HOSTNAME:BRICKNAME> [<FILE>]}]",
+        { "volume heal <VOLNAME> [enable | disable | full |"
+          "statistics [heal-count [replica <HOSTNAME:BRICKNAME>]] |"
+          "info [healed | heal-failed | split-brain] |"
+          "split-brain {bigger-file <FILE> |"
+                       "source-brick <HOSTNAME:BRICKNAME> [<FILE>]}]",
           cli_cmd_volume_heal_cbk,
           "self-heal commands on volume specified by <VOLNAME>"},
 

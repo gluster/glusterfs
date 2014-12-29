@@ -181,12 +181,18 @@ int32_t mem_acct_init(xlator_t * this)
     return 0;
 }
 
-int32_t reconfigure(xlator_t * this, dict_t * options)
+int32_t
+reconfigure (xlator_t *this, dict_t *options)
 {
-    gf_log(this->name, GF_LOG_ERROR, "Online volume reconfiguration is not "
-                                     "supported.");
+        ec_t *ec = this->private;
 
-    return -1;
+        GF_OPTION_RECONF ("self-heal-daemon", ec->shd, options, bool, failed);
+        GF_OPTION_RECONF ("iam-self-heal-daemon", ec->iamshd, options,
+                          bool, failed);
+
+        return 0;
+failed:
+        return -1;
 }
 
 void ec_up(xlator_t * this, ec_t * ec)
@@ -336,9 +342,10 @@ int32_t notify(xlator_t * this, int32_t event, void * data, ...)
     return 0;
 }
 
-int32_t init(xlator_t * this)
+int32_t
+init (xlator_t *this)
 {
-    ec_t * ec;
+    ec_t *ec = NULL;
 
     if (this->parents == NULL)
     {
@@ -385,6 +392,8 @@ int32_t init(xlator_t * this)
     }
 
     ec_method_initialize();
+    GF_OPTION_INIT ("self-heal-daemon", ec->shd, bool, failed);
+    GF_OPTION_INIT ("iam-self-heal-daemon", ec->iamshd, bool, failed);
 
     gf_log(this->name, GF_LOG_DEBUG, "Disperse translator initialized.");
 
@@ -976,6 +985,19 @@ struct volume_options options[] =
         .type = GF_OPTION_TYPE_INT,
         .description = "Maximum number of bricks that can fail "
                        "simultaneously without losing data."
+    },
+    {
+        .key = { "self-heal-daemon" },
+        .type = GF_OPTION_TYPE_BOOL,
+        .description = "self-heal daemon enable/disable",
+        .default_value = "enable",
+    },
+    { .key = {"iam-self-heal-daemon"},
+      .type = GF_OPTION_TYPE_BOOL,
+      .default_value = "off",
+      .description = "This option differentiates if the disperse "
+                     "translator is running as part of self-heal-daemon "
+                     "or not."
     },
     { }
 };

@@ -4964,7 +4964,7 @@ glusterd_nodesvcs_batch_op (glusterd_volinfo_t *volinfo, int (*nfs_op) (),
         if (ret)
                 goto out;
 
-        if (volinfo && !glusterd_is_volume_replicate (volinfo)) {
+        if (volinfo && !glusterd_is_shd_compatible_volume (volinfo)) {
                 ; //do nothing
         } else {
                 ret = shd_op ();
@@ -5026,7 +5026,7 @@ glusterd_are_all_volumes_stopped ()
 }
 
 gf_boolean_t
-glusterd_all_replicate_volumes_stopped ()
+glusterd_all_shd_compatible_volumes_stopped ()
 {
         glusterd_conf_t                         *priv = NULL;
         xlator_t                                *this = NULL;
@@ -5038,7 +5038,7 @@ glusterd_all_replicate_volumes_stopped ()
         GF_ASSERT (priv);
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (!glusterd_is_volume_replicate (voliter))
+                if (!glusterd_is_shd_compatible_volume (voliter))
                         continue;
                 if (voliter->status == GLUSTERD_STATUS_STARTED)
                         return _gf_false;
@@ -5088,7 +5088,7 @@ glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo)
                 nfs_op = glusterd_nfs_server_stop;
                 qd_op  = glusterd_quotad_stop;
         } else {
-                if (glusterd_all_replicate_volumes_stopped()) {
+                if (glusterd_all_shd_compatible_volumes_stopped()) {
                         shd_op = glusterd_shd_stop;
                 }
                 if (glusterd_all_volumes_with_quota_stopped ()) {
@@ -6995,6 +6995,19 @@ glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
             (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)))
                 replicates = _gf_true;
         return replicates;
+}
+
+gf_boolean_t
+glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo)
+{
+        switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+        case GF_CLUSTER_TYPE_DISPERSE:
+                return _gf_true;
+
+        }
+        return _gf_false;
 }
 
 int

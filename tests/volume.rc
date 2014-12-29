@@ -135,18 +135,15 @@ function ec_child_up_count {
 }
 
 function get_shd_process_pid {
-        local vol=$1
         ps auxww | grep glusterfs | grep -E "glustershd/run/glustershd.pid" | awk '{print $2}' | head -1
 }
 
 function generate_shd_statedump {
-        local vol=$1
-        generate_statedump $(get_shd_process_pid $vol)
+        generate_statedump $(get_shd_process_pid)
 }
 
 function generate_nfs_statedump {
-        local vol=$1
-        generate_statedump $(get_nfs_pid $vol)
+        generate_statedump $(get_nfs_pid)
 }
 
 function generate_brick_statedump {
@@ -424,4 +421,27 @@ function assign_gfid {
 
 function get_random_gfid {
         echo "0x"$(uuidgen | awk -F '-' 'BEGIN {OFS=""} {print $1,$2,$3,$4,$5}')
+}
+
+function volgen_volume_exists {
+        local volfile="$1"
+        local xl_vol="$2"
+        local xl_type="$3"
+        local xl_feature="$4"
+        xl=$(sed -e "/./{H;\$!d;}" -e "x;/volume $xl_vol/!d;/type $xl_type\/$xl_feature/!d" $volfile)
+        if [ -z "$xl" ];
+        then
+                echo "N"
+        else
+                echo "Y"
+        fi
+}
+
+function volgen_volume_option {
+        local volfile="$1"
+        local xl_vol="$2"
+        local xl_type="$3"
+        local xl_feature="$4"
+        local xl_option="$5"
+        sed -e "/./{H;\$!d;}" -e "x;/volume $xl_vol/!d;/type $xl_type\/$xl_feature/!d;/option $xl_option/!d" $volfile | grep " $xl_option " | awk '{print $3}'
 }

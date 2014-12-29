@@ -666,7 +666,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         gf_boolean_t                    origin_glusterd         = _gf_true;
         gf_boolean_t                    check_op_version        = _gf_true;
         gf_boolean_t                    all_vol                 = _gf_false;
-        struct volopt_map_entry         *vme                    = NULL;
 
         GF_ASSERT (dict);
         this = THIS;
@@ -826,17 +825,10 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (is_key_glusterd_hooks_friendly (key))
                         continue;
 
-                for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
-                        if ((vme->validate_fn) &&
-                            ((!strcmp (key, vme->key)) ||
-                             (!strcmp (key, strchr (vme->key, '.') + 1)))) {
-                                ret = vme->validate_fn (dict, key, value,
-                                                        op_errstr);
-                                if (ret)
-                                        goto out;
-                                break;
-                        }
-                }
+                ret = glusterd_volopt_validate (volinfo, dict, key, value,
+                                                op_errstr);
+                if (ret)
+                        goto out;
 
                 exists = glusterd_check_option_exists (key, &key_fixed);
                 if (exists == -1) {
