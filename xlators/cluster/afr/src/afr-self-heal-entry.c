@@ -382,6 +382,9 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
 					      replies);
+        if (ret)
+                return ret;
+
         witness = alloca0 (sizeof (*witness) * priv->child_count);
 	ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_ENTRY_TRANSACTION,

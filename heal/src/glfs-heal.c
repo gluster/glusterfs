@@ -206,6 +206,10 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                     (strcmp (entry->d_name, "..") == 0))
                         continue;
 
+                if (dict) {
+                        dict_unref (dict);
+                        dict = NULL;
+                }
                 uuid_clear (gfid);
                 GF_FREE (path);
                 path = NULL;
@@ -229,6 +233,10 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
         }
         ret = 0;
         GF_FREE (path);
+        if (dict) {
+                dict_unref (dict);
+                dict = NULL;
+        }
         return ret;
 }
 

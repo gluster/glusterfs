@@ -311,8 +311,11 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
 					      replies);
+        if (ret)
+                return ret;
+
         witness = alloca0 (sizeof (*witness) * priv->child_count);
-	ret = afr_selfheal_find_direction (frame, this, replies,
+        ret = afr_selfheal_find_direction (frame, this, replies,
 					   AFR_METADATA_TRANSACTION,
 					   locked_on, sources, sinks, witness);
 	if (ret)
