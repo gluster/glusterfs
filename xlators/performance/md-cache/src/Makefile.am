@@ -23,3 +23,6 @@ stat-prefetch-compat:
 
 
 install-exec-local: stat-prefetch-compat
+
+uninstall-local:
+	rm -f $(DESTDIR)$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance/stat-prefetch.so
