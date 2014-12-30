@@ -17,7 +17,7 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0 --aux-gfid-mount
 # create file with specific gfid
 uuid=`uuidgen`
 EXPECT "File creation OK" $PYTHON $(dirname $0)/../utils/gfid-access.py \
-                                  $M0 ROOT file0 $uuid file
+                                  $M0 ROOT file0 $uuid file 10 10 0644
 
 # check gfid
 EXPECT "$uuid" getfattr --only-values -n glusterfs.gfid.string $M0/file0
@@ -29,6 +29,6 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0 --aux-gfid-mount
 
 # touch the file again (gfid-access.py handles errno)
 EXPECT "File creation OK" $PYTHON  $(dirname $0)/../utils/gfid-access.py \
-                                   $M0 ROOT file0 $uuid file
+                                   $M0 ROOT file0 $uuid file 10 10 0644
 
 cleanup;
