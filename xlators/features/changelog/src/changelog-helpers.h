@@ -456,6 +456,9 @@ void chlog_barrier_dequeue_all (xlator_t *this, struct list_head *queue);
 call_stub_t *__chlog_barrier_dequeue (xlator_t *this, struct list_head *queue);
 int __chlog_barrier_enable (xlator_t *this, changelog_priv_t *priv);
 
+int32_t
+changelog_fill_entry_buf (call_frame_t *frame, xlator_t *this,
+                          loc_t *loc, changelog_local_t **local);
 
 /* macros */
 
