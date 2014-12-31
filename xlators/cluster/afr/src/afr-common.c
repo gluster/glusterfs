@@ -1019,6 +1019,10 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                         dict_unref (local->cont.readdir.dict);
         }
 
+        {/* inodelk */
+                GF_FREE (local->cont.inodelk.volume);
+        }
+
         if (local->xdata_req)
                 dict_unref (local->xdata_req);
 
@@ -3477,8 +3481,9 @@ out:
 /* }}} */
 
 int32_t
-afr_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+afr_unlock_partial_inodelk_cbk (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno, dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
@@ -3528,7 +3533,7 @@ afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
                 if (local->child_errno[i])
                         continue;
 
-                STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
+                STACK_WIND_COOKIE (frame, afr_unlock_partial_inodelk_cbk,
                                    (void*) (long) i,
                                    priv->children[i],
                                    priv->children[i]->fops->inodelk,
@@ -3544,22 +3549,89 @@ afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
 }
 
 int32_t
-afr_inodelk_cbk (call_frame_t *frame, void *cookie,
-                 xlator_t *this, int32_t op_ret, int32_t op_errno, dict_t *xdata)
-
+afr_inodelk_done (call_frame_t *frame, xlator_t *this)
 {
+        int i = 0;
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        int call_count = -1;
-        int child_index = (long)cookie;
-        int i = 0;
         int lock_count = 0;
 
         local = frame->local;
         priv = this->private;
 
+        for (i = 0; i < priv->child_count; i++) {
+                /*
+                 * The idea is to not allow lock even if at least one of
+                 * the bricks already have a competing lock granted. If
+                 * there is a competing lock the errno returned is
+                 * EAGAIN.  so in this loop the following criteria
+                 * should be met.
+                 * 1) If the errno is anything other than EAGAIN
+                 * on some of the subvols but there is at least one
+                 * success, the fop should be considered success.
+                 * 2) If the errno is EAGAIN on at least one of the
+                 * subvols the fop should fail with -1, EAGAIN.
+                 */
+                if (!local->child_up[i])
+                        continue;
+
+                if (local->child_errno[i] == 0)
+                        lock_count++;
+
+                if (local->op_ret == -1 && local->op_errno == EAGAIN)
+                        continue;
+                /*
+                 * For meeting '2)' we set op_ret to -1, op_errno to
+                 * EAGAIN if any of the bricks give that error. Check
+                 * above prevents any more modifications to
+                 * local->op_ret, local->op_errno
+                 * (i.e.  final status of the fop).
+                */
+                if (local->child_errno[i] == EAGAIN) {
+                        local->op_ret = -1;
+                        local->op_errno = EAGAIN;
+                        continue;
+                }
+
+                /*
+                 * For meeting '1)'
+                 * Here we set the op_ret to 0 if the fop succeeds on
+                 * any of the bricks provided we haven't witnessed
+                 * any -1, EAGAIN from other bricks. So if the bricks
+                 * fail with some other reason other than EAGAIN but
+                 * succeed on at least one of the bricks the final
+                 * result is SUCCESS for the fop.
+                 */
+
+                if (local->child_errno[i] == 0)
+                        local->op_ret = 0;
+
+                local->op_errno = local->child_errno[i];
+        }
+
+        if (lock_count && local->cont.inodelk.flock.l_type != F_UNLCK &&
+            (local->op_ret == -1 && local->op_errno == EAGAIN)) {
+                afr_unlock_inodelks_and_unwind (frame, this,
+                                                lock_count);
+        } else {
+                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
+                                  local->op_errno, local->xdata_rsp);
+        }
+        return 0;
+}
+
+int32_t
+afr_common_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        afr_local_t *local = NULL;
+        int child_index = (long)cookie;
+
+        local = frame->local;
+
         if (op_ret < 0)
                 local->child_errno[child_index] = op_errno;
+
         if (op_ret == 0 && xdata) {
                 LOCK (&frame->lock);
                 {
@@ -3569,72 +3641,135 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
                 UNLOCK (&frame->lock);
         }
 
+        return 0;
+}
+
+int32_t
+afr_parallel_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
+
+{
+        int call_count = -1;
+
+        afr_common_inodelk_cbk (frame, cookie, this, op_ret, op_errno, xdata);
+
         call_count = afr_frame_return (frame);
+        if (call_count == 0)
+                afr_inodelk_done (frame, this);
 
-        if (call_count == 0) {
-                for (i = 0; i < priv->child_count; i++) {
-                        /*
-                         * The idea is to not allow lock even if at least one of
-                         * the bricks already have a competing lock granted. If
-                         * there is a competing lock the errno returned is
-                         * EAGAIN.  so in this loop the following criteria
-                         * should be met.
-                         * 1) If the errno is anything other than EAGAIN
-                         * on some of the subvols but there is at least one
-                         * success, the fop should be considered success.
-                         * 2) If the errno is EAGAIN on at least one of the
-                         * subvols the fop should fail with -1, EAGAIN.
-                         */
-                        if (!local->child_up[i])
-                                continue;
+        return 0;
+}
 
-                        if (local->child_errno[i] == 0)
-                                lock_count++;
+static inline gf_boolean_t
+afr_is_conflicting_lock_present (int32_t op_ret, int32_t op_errno)
+{
+        if (op_ret == -1 && op_errno == EAGAIN)
+                return _gf_true;
+        return _gf_false;
+}
 
-                        if (local->op_ret == -1 && local->op_errno == EAGAIN)
-                                continue;
-                        /*
-                         * For meeting '2)' we set op_ret to -1, op_errno to
-                         * EAGAIN if any of the bricks give that error. Check
-                         * above prevents any more modifications to
-                         * local->op_ret, local->op_errno
-                         * (i.e.  final status of the fop).
-                        */
-                        if (local->child_errno[i] == EAGAIN) {
-                                local->op_ret = -1;
-                                local->op_errno = EAGAIN;
-                                continue;
-                        }
+int32_t
+afr_serialized_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        int next_child = 0;
+        int child_index = (long)cookie;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
 
-                        /*
-                         * For meeting '1)'
-                         * Here we set the op_ret to 0 if the fop succeeds on
-                         * any of the bricks provided we haven't witnessed
-                         * any -1, EAGAIN from other bricks. So if the bricks
-                         * fail with some other reason other than EAGAIN but
-                         * succeed on at least one of the bricks the final
-                         * result is SUCCESS for the fop.
-                         */
+        local = frame->local;
+        priv = this->private;
 
-                        if (local->child_errno[i] == 0)
-                                local->op_ret = 0;
+        afr_common_inodelk_cbk (frame, cookie, this, op_ret, op_errno, xdata);
 
-                        local->op_errno = local->child_errno[i];
+        for (next_child = child_index + 1; next_child < priv->child_count;
+             next_child++) {
+                if (local->child_up[next_child])
+                        break;
+        }
+
+        if (afr_is_conflicting_lock_present (op_ret, op_errno)) {
+                /* Mark the rest of the children as failed nodes */
+                for (; next_child < priv->child_count; next_child++) {
+                        local->child_errno[next_child] = ENOTCONN;
                 }
 
-                if (lock_count && local->cont.inodelk.flock.l_type != F_UNLCK &&
-                    (local->op_ret == -1 && local->op_errno == EAGAIN)) {
-                        afr_unlock_inodelks_and_unwind (frame, this,
-                                                        lock_count);
-                } else {
-                        AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
-                                          local->op_errno, local->xdata_rsp);
+                afr_inodelk_done (frame, this);
+        } else if (next_child == priv->child_count) {
+                afr_inodelk_done (frame, this);
+        } else {
+                STACK_WIND_COOKIE (frame, afr_serialized_inodelk_cbk,
+                                   (void*) (long) next_child,
+                                   priv->children[next_child],
+                                   priv->children[next_child]->fops->inodelk,
+                                   local->cont.inodelk.volume, &local->loc,
+                                   local->cont.inodelk.cmd,
+                                   &local->cont.inodelk.flock,
+                                   local->xdata_req);
+        }
+
+        return 0;
+}
+
+int32_t
+afr_serialized_inodelk_wind (call_frame_t *frame, xlator_t *this)
+{
+        int i = 0;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, afr_serialized_inodelk_cbk,
+                                           (void*) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->inodelk,
+                                           local->cont.inodelk.volume,
+                                           &local->loc, local->cont.inodelk.cmd,
+                                           &local->cont.inodelk.flock,
+                                           local->xdata_req);
+                        break;
                 }
         }
 
         return 0;
 }
 
+int32_t
+afr_parallel_inodelk_wind (call_frame_t *frame, xlator_t *this)
+{
+        int     i = 0;
+        int     call_count = 0;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        call_count = local->call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
+                        continue;
+
+                STACK_WIND_COOKIE (frame, afr_parallel_inodelk_cbk,
+                                   (void*) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->inodelk,
+                                   local->cont.inodelk.volume,
+                                   &local->loc, local->cont.inodelk.cmd,
+                                   &local->cont.inodelk.flock,
+                                   local->xdata_req);
+
+                if (!--call_count)
+                        break;
+        }
+
+        return 0;
+}
 
 int32_t
 afr_inodelk (call_frame_t *frame, xlator_t *this,
@@ -3644,8 +3779,6 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
         int ret = -1;
-        int i = 0;
-        int32_t call_count = 0;
         int32_t op_errno = 0;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -3662,23 +3795,34 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         loc_copy (&local->loc, loc);
-        local->cont.inodelk.volume = volume;
+        local->cont.inodelk.volume = gf_strdup (volume);
+        if (!local->cont.inodelk.volume) {
+                ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         local->cont.inodelk.cmd = cmd;
         local->cont.inodelk.flock = *flock;
+        if (xdata)
+                local->xdata_req = dict_ref (xdata);
 
-        call_count = local->call_count;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame, afr_inodelk_cbk,
-                                           (void*) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->inodelk,
-                                           volume, loc, cmd, flock, xdata);
-
-                        if (!--call_count)
-                                break;
-                }
+        /* At least one child is up */
+        /*
+         * Non-blocking locks also need to be serialized. Otherwise there is
+         * a chance that both the mounts which issued same non-blocking inodelk
+         * may endup not acquiring the lock on any-brick.
+         * Ex: Mount1 and Mount2
+         * request for full length lock on file f1. Mount1 afr may acquire the
+         * partial lock on brick-1 and may not acquire the lock on brick-2
+         * because Mount2 already got the lock on brick-2, vice versa. Since
+         * both the mounts only got partial locks, afr treats them as failure in
+         * gaining the locks and unwinds with EAGAIN errno.
+         */
+        if (flock->l_type == F_UNLCK) {
+                afr_parallel_inodelk_wind (frame, this);
+        } else {
+                afr_serialized_inodelk_wind (frame, this);
         }
 
         ret = 0;
