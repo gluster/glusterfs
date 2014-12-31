@@ -623,7 +623,7 @@ typedef struct _afr_local {
                 } zerofill;
 
                 struct {
-                        const char *volume;
+                        char *volume;
                         int32_t cmd;
                         struct gf_flock flock;
                 } inodelk;
