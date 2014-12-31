@@ -88,6 +88,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
         char            *brick          = NULL;
         char            *brick_list     = NULL;
         char            *brick_list_dup = NULL;
+        char            *brick_list_ptr = NULL;
         char            *tmpptr         = NULL;
         char            *volname        = NULL;
         int32_t         brick_count     = 0;
@@ -160,12 +161,12 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                         " found. Checking brick order.");
         }
 
-        brick_list_dup = gf_strdup(brick_list);
+        brick_list_dup = brick_list_ptr = gf_strdup(brick_list);
         /* Resolve hostnames and get addrinfo */
         while (i < brick_count) {
                 ++i;
                 brick = strtok_r (brick_list_dup, " \n", &tmpptr);
-                brick_list = tmpptr;
+                brick_list_dup = tmpptr;
                 if (brick == NULL)
                         goto check_failed;
                 brick = strtok_r (brick, ":", &tmpptr);
@@ -234,7 +235,7 @@ found_bad_brick_order:
         ret = -1;
 out:
         ai_list_tmp2 = NULL;
-        GF_FREE (brick_list_dup);
+        GF_FREE (brick_list_ptr);
         list_for_each_entry (ai_list_tmp1, &ai_list->list, list) {
                 if (ai_list_tmp1->info)
                           freeaddrinfo (ai_list_tmp1->info);
