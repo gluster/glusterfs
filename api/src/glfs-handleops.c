@@ -266,7 +266,7 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
         /* populate loc */
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
-        ret = syncop_getxattr (subvol, &loc, &xattr, name);
+        ret = syncop_getxattr (subvol, &loc, &xattr, name, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret)

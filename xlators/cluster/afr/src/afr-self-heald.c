@@ -89,7 +89,7 @@ afr_shd_is_subvol_local (xlator_t *this, int subvol)
 	uuid_copy (loc.gfid, loc.inode->gfid);
 
 	ret = syncop_getxattr (priv->children[subvol], &loc, &xattr,
-			       GF_XATTR_PATHINFO_KEY);
+			       GF_XATTR_PATHINFO_KEY, NULL);
 	if (ret) {
 		is_local = _gf_false;
                 goto out;
@@ -236,7 +236,7 @@ afr_shd_index_opendir (xlator_t *this, int child)
 	uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
 	ret = syncop_getxattr (subvol, &rootloc, &xattr,
-			       GF_XATTROP_INDEX_GFID);
+			       GF_XATTROP_INDEX_GFID, NULL);
 	if (ret || !xattr) {
 		errno = -ret;
 		goto out;
@@ -948,7 +948,7 @@ afr_shd_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path
 	uuid_copy (loc.gfid, gfid);
 	loc.inode = inode_new (this->itable);
 
-	ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY);
+	ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);
 	if (ret)
 		goto out;
 
@@ -1192,7 +1192,7 @@ afr_shd_get_index_count (xlator_t *this, int i, uint64_t *count)
 	uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
 	ret = syncop_getxattr (subvol, &rootloc, &xattr,
-			       GF_XATTROP_INDEX_COUNT);
+			       GF_XATTROP_INDEX_COUNT, NULL);
 	if (ret < 0)
 		goto out;
 

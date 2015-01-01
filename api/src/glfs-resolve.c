@@ -557,7 +557,7 @@ glfs_migrate_fd_locks_safe (struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
 	newfd->lk_ctx = fd_lk_ctx_ref (oldfd->lk_ctx);
 
 	ret = syncop_fgetxattr (oldsubvol, oldfd, &lockinfo,
-				GF_XATTR_LOCKINFO_KEY);
+				GF_XATTR_LOCKINFO_KEY, NULL);
         DECODE_SYNCOP_ERR (ret);
 	if (ret < 0) {
 		gf_log (fs->volname, GF_LOG_WARNING,

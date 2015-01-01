@@ -53,7 +53,8 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	gf_log (this->name, GF_LOG_INFO, "performing metadata selfheal on %s",
 		uuid_utoa (inode->gfid));
 
-	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL);
+	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL,
+                               NULL);
 	if (ret < 0) {
 		ret = -EIO;
                 goto out;
@@ -76,7 +77,8 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		if (ret)
 			healed_sinks[i] = 0;
 
-		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0);
+		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0,
+                                       NULL);
 		if (old_xattr) {
 			afr_delete_ignorable_xattrs (old_xattr);
 			ret = syncop_removexattr (priv->children[i], &loc, "",
