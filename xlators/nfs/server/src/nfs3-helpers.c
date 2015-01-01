@@ -27,6 +27,7 @@
 #include "nfs-mem-types.h"
 #include "iatt.h"
 #include "common-utils.h"
+#include "mount3.h"
 #include <string.h>
 
 extern int
@@ -3844,6 +3845,54 @@ out:
         return ret;
 }
 
+/**
+ * __nfs3_fh_auth_get_peer -- Get a peer name from the rpc request object
+ *
+ * @peer: Char * to write to
+ * @req : The request to get host/peer from
+ */
+int
+__nfs3_fh_auth_get_peer (const rpcsvc_request_t *req, char *peer)
+{
+        struct sockaddr_storage sastorage       = {0, };
+        rpc_transport_t         *trans          = NULL;
+        int                     ret             = 0;
+
+        /* Why do we pass in the peer here and then
+         * store it rather than malloc() and return a char * ? We want to avoid
+         * heap allocations in the IO path as much as possible for speed
+         * so we try to keep all allocations on the stack.
+         */
+        trans = rpcsvc_request_transport (req);
+        ret = rpcsvc_transport_peeraddr (trans, peer, RPCSVC_PEER_STRLEN,
+                                         &sastorage, sizeof (sastorage));
+        if (ret != 0) {
+                gf_log (GF_NFS3, GF_LOG_WARNING, "Failed to get peer addr: %s",
+                        gai_strerror (ret));
+        }
+        return ret;
+}
+
+/*
+ * nfs3_fh_auth_nfsop () -- Checks if an nfsop is authorized.
+ *
+ * @cs: The NFS call state containing all the relevant information
+ *
+ * @return: 0 if authorized
+ *          -EACCES for completely unauthorized fop
+ *          -EROFS  for unauthorized write operations (rm, mkdir, write)
+ */
+inline int
+nfs3_fh_auth_nfsop (nfs3_call_state_t *cs, gf_boolean_t is_write_op)
+{
+        struct nfs_state    *nfs = NULL;
+        struct mount3_state *ms  = NULL;
+
+        nfs = (struct nfs_state *)cs->nfsx->private;
+        ms  = (struct mount3_state *)nfs->mstate;
+        return  mnt3_authenticate_request (ms, cs->req, &cs->resolvefh, NULL,
+                                           NULL, NULL, NULL, is_write_op);
+}
 
 int
 nfs3_fh_resolve_and_resume (nfs3_call_state_t *cs, struct nfs3_fh *fh,

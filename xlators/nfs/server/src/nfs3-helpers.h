@@ -334,6 +334,9 @@ nfs3_is_parentdir_entry (char *entry);
 uint32_t
 nfs3_request_to_accessbits (int32_t accbits);
 
+extern int
+nfs3_fh_auth_nfsop (nfs3_call_state_t *cs, gf_boolean_t is_write_op);
+
 void
 nfs3_map_deviceid_to_statdev (struct iatt *ia, uint64_t deviceid);
 

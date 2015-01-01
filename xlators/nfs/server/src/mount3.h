@@ -26,6 +26,9 @@
 #include "locking.h"
 #include "nfs3-fh.h"
 #include "uuid.h"
+#include "exports.h"
+#include "mount3-auth.h"
+#include "auth-cache.h"
 
 /* Registered with portmap */
 #define GF_MOUNTV3_PORT         38465
@@ -41,6 +44,9 @@ mnt3svc_init (xlator_t *nfsx);
 extern rpcsvc_program_t *
 mnt1svc_init (xlator_t *nfsx);
 
+extern void
+mnt3svc_deinit (xlator_t *nfsx);
+
 extern int
 mount_init_state (xlator_t *nfsx);
 
@@ -49,6 +55,20 @@ mount_reconfigure_state (xlator_t *nfsx, dict_t *options);
 
 void
 mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab);
+
+struct mnt3_export *
+mnt3_mntpath_to_export (struct mount3_state *ms, const char *dirpath,
+                        gf_boolean_t export_parsing_match);
+
+extern int
+mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
+                          const char *expname, const char *fullpath);
+
+int
+mnt3_authenticate_request (struct mount3_state *ms, rpcsvc_request_t *req,
+                           struct nfs3_fh *fh, const char *volname,
+                           const char *path, char **authorized_path,
+                           char **authorized_host, gf_boolean_t is_write_op);
 
 /* Data structure used to store the list of mounts points currently
  * in use by NFS clients.
@@ -60,6 +80,15 @@ struct mountentry {
         /* The export name */
         char                    exname[MNTPATHLEN];
         char                    hostname[MNTPATHLEN];
+        char                    fullpath[MNTPATHLEN];
+
+        gf_boolean_t            has_full_path;
+
+        /* Since this is stored in a dict, we want to be able
+         * to find easily get the key we used to store
+         * the struct in our dict
+         */
+        char                    hashkey[MNTPATHLEN*2+2];
 };
 
 #define MNT3_EXPTYPE_VOLUME     1
@@ -87,13 +116,22 @@ struct mnt3_export {
         xlator_t                *vol;
         int                     exptype;
 
+        /* This holds the full path that the client requested including
+         * the volume name AND the subdirectory in the volume.
+         */
+        char                    *fullpath;
+
         /* Extracted from nfs volume options if nfs.dynamicvolumes is on.
          */
         uuid_t                  volumeid;
+        uuid_t                  mountid;
 };
 
 struct mount3_state {
         xlator_t                *nfsx;
+
+        /* The NFS state that this belongs to */
+        struct nfs_state        *nfs;
 
         /* The buffers for all network IO are got from this pool. */
         struct iobuf_pool       *iobpool;
@@ -106,8 +144,17 @@ struct mount3_state {
          */
         struct list_head        mountlist;
 
-        /* Used to protect the mountlist. */
-        gf_lock_t               mountlock;
+        /* Dict of current mount points over all the exports from this
+         * server. Mirrors the mountlist above, but can be used for
+         * faster lookup in the event that there are several mounts.
+         * Currently, each NFSOP is validated against this dict: each
+         * op is checked to see if the host that operates on the path
+         * does in fact have an entry in the mount dict.
+         */
+        dict_t                  *mountdict;
+
+        /* Used to protect the mountlist & the mount dict */
+        pthread_spinlock_t       mountlock;
 
         /* Used to insert additional authentication parameters */
         struct mnt3_auth_params      *auth_params;
@@ -115,6 +162,11 @@ struct mount3_state {
         /* Set to 0 if exporting full volumes is disabled. On by default. */
         gf_boolean_t            export_volumes;
         gf_boolean_t            export_dirs;
+
+        pthread_t               auth_refresh_thread;
+        gf_boolean_t            stop_refresh;
+
+        struct auth_cache       *authcache;
 };
 
 #define gf_mnt3_export_dirs(mst)        ((mst)->export_dirs)

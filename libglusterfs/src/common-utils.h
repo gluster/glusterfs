@@ -609,6 +609,8 @@ int get_checksum_for_file (int fd, uint32_t *checksum);
 int log_base2 (unsigned long x);
 
 int get_checksum_for_path (char *path, uint32_t *checksum);
+int get_file_mtime (const char *path, time_t *stamp);
+char *gf_resolve_path_parent (const char *path);
 
 char *strtail (char *str, const char *pattern);
 void skipwhite (char **s);
@@ -627,6 +629,7 @@ gf_boolean_t valid_mount_auth_address (char *address);
 gf_boolean_t valid_ipv4_subnetwork (const char *address);
 gf_boolean_t gf_sock_union_equal_addr (union gf_sock_union *a,
                                        union gf_sock_union *b);
+char *gf_rev_dns_lookup (const char *ip);
 
 char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);

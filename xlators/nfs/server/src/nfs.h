@@ -85,6 +85,15 @@ struct nfs_state {
         int                     enable_nlm;
         int                     enable_acl;
         int                     mount_udp;
+
+        /* Enable exports auth model */
+        int                     exports_auth;
+        /* Refresh auth params from disk periodically */
+        int                     refresh_auth;
+
+        unsigned int            auth_refresh_time_secs;
+        unsigned int            auth_cache_ttl_sec;
+
         char                    *rmtab;
         struct rpc_clnt         *rpc_clnt;
         gf_boolean_t            server_aux_gids;

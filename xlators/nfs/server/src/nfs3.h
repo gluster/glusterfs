@@ -232,7 +232,7 @@ struct nfs3_local {
         mode_t                  mode;
 
         /* NFSv3 FH resolver state */
-	int			hardresolved;
+        int                     hardresolved;
         struct nfs3_fh          resolvefh;
         loc_t                   resolvedloc;
         int                     resolve_ret;
