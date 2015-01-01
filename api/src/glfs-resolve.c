@@ -520,7 +520,7 @@ glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
 
 
 int
-glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
+priv_glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 	      loc_t *loc, struct iatt *iatt, int reval)
 {
 	int ret = -1;
@@ -529,7 +529,7 @@ glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
 
 	return ret;
 }
-
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_resolve, 3.7.0);
 
 int
 glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *origpath,
