@@ -1527,6 +1527,26 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = 3
         },
 
+        /* Cli options for Export authentication on nfs mount */
+        { .key         = "nfs.exports-auth-enable",
+          .voltype     = "nfs/server",
+          .option      = "nfs.exports-auth-enable",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+        { .key         = "nfs.auth-refresh-interval-sec",
+          .voltype     = "nfs/server",
+          .option      = "nfs.auth-refresh-interval-sec",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+        { .key         = "nfs.auth-cache-ttl-sec",
+          .voltype     = "nfs/server",
+          .option      = "nfs.auth-cache-ttl-sec",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+
         /* Other options which don't fit any place above */
         { .key        = "features.read-only",
           .voltype    = "features/read-only",
