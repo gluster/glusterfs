@@ -1,0 +1,9 @@
+#$Id$
+#/0838586658093758013308385866580937580133083858665809375801330838586658093758013308385866580937580133083858665809375801330838586658093758013308385866580937580133   @test(sec=sys,rw,anonuid=0) 10.35.11.32(sec=sys,rw,anonuid=0)
+
+/test  @test(sec=sys,rw,anonuid=0) shreyas.facebook.com(sec=sys,rw,anonuid=0) shreyas.s(sec=sys,rw,anonuid=595)
+çççßåßåƒƒ
+/asdf @ObVyg571RJaorkGbgVerI9esrck8yiVD7NVqqJvj2H9DuPH3SzHnYLIXjd4zZjuuh2N0O0bYYQf7VYNrYHoxc1llgRU1iEsQRy2XaWnUlhTHKVEL8tt1TrbZCi8qXyg0l058rTnW4msvU5hW83ESwyOE4bBSz4VsW0sJaVd8Gv4waZqojemLN8AIlAoChVOfP1yhuAP1298ejkaf2fjhdfa4t4effhgadff342fdddgasdg42gahgdmnui24290hfjdjadgdkjhg2nvncms(sec=sys,rw,anonuid=1)
+#/vol/root   -sec=sys,rw=@storage.prn1:@storage.ash4:@storage.frc1,anon=0
+#/vol/home107    -sec=sys,rw,nosuid,root=@storage.prn1:@storage.ash4:@storage.frc1:@hr.ash3:@hr.prn1:ldap001.prn1.facebook.com:ldap001.frc1.facebook.com
+#/vol/home109    -sec=sys,rw,nosuid,root=@storage.prn1:@storage.ash4:@storage.frc1:@hr.ash3:@hr.prn1:ldap001.prn1.facebook.com:ldap001.frc1.facebook.com

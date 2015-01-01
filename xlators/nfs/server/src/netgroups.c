@@ -73,7 +73,7 @@ static struct netgroups_file *
 _netgroups_file_init ()
 {
         struct netgroups_file *file  = GF_MALLOC (sizeof (*file),
-                                                  gf_nfs_mt_netgroups);
+                                                  gf_common_mt_nfs_netgroups);
 
         if (!file)
                 goto out;
@@ -179,7 +179,7 @@ static struct netgroup_entry *
 _netgroup_entry_init ()
 {
         struct netgroup_entry *entry = GF_CALLOC (1, sizeof (*entry),
-                                                  gf_nfs_mt_netgroups);
+                                                  gf_common_mt_nfs_netgroups);
         return entry;
 }
 
@@ -324,7 +324,7 @@ static struct netgroup_host *
 _netgroup_host_init ()
 {
         struct netgroup_host *host = GF_CALLOC (1, sizeof (*host),
-                                                gf_nfs_mt_netgroups);
+                                                gf_common_mt_nfs_netgroups);
         return host;
 }
 

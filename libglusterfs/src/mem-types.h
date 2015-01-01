@@ -145,6 +145,9 @@ enum gf_common_mem_types_ {
         gf_common_mt_rbuf_t               = 127,
         gf_common_mt_rlist_t              = 128,
         gf_common_mt_rvec_t               = 129,
+        /* glusterd can load the nfs-xlator dynamically and needs these two */
+        gf_common_mt_nfs_netgroups        = 130,
+        gf_common_mt_nfs_exports          = 131,
         gf_common_mt_end
 };
 #endif

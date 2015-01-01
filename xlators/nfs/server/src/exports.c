@@ -77,7 +77,7 @@ _exports_file_init ()
 {
         struct exports_file *file = NULL;
 
-        file = GF_CALLOC (1, sizeof (*file), gf_nfs_mt_exports);
+        file = GF_CALLOC (1, sizeof (*file), gf_common_mt_nfs_exports);
         if (!file) {
                 gf_log (GF_EXP, GF_LOG_CRITICAL,
                         "Failed to allocate file struct!");
@@ -123,8 +123,10 @@ _exp_file_dict_destroy (dict_t *dict, char *key, data_t *val, void *tmp)
         if (val) {
                 dir = (struct export_dir *)val->data;
 
-                _export_dir_deinit (dir);
-                val->data = NULL;
+                if (dir) {
+                        _export_dir_deinit (dir);
+                        val->data = NULL;
+                }
                 dict_del (dict, key);
         }
 
@@ -175,7 +177,7 @@ static struct export_dir *
 _export_dir_init ()
 {
         struct export_dir *expdir  = GF_CALLOC (1, sizeof (*expdir),
-                                                gf_nfs_mt_exports);
+                                                gf_common_mt_nfs_exports);
 
         if (!expdir)
                 gf_log (GF_EXP, GF_LOG_CRITICAL,
@@ -234,7 +236,7 @@ static struct export_item *
 _export_item_init ()
 {
         struct export_item *item = GF_CALLOC (1, sizeof (*item),
-                                              gf_nfs_mt_exports);
+                                              gf_common_mt_nfs_exports);
 
         if (!item)
                 gf_log (GF_EXP, GF_LOG_CRITICAL,
@@ -273,7 +275,7 @@ static struct export_options *
 _export_options_init ()
 {
         struct export_options *opts = GF_CALLOC (1, sizeof (*opts),
-                                                 gf_nfs_mt_exports);
+                                                 gf_common_mt_nfs_exports);
 
         if (!opts)
                 gf_log (GF_EXP, GF_LOG_CRITICAL,
