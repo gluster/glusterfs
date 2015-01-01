@@ -875,8 +875,58 @@ nfs_init_state (xlator_t *this)
         }
 
         nfs->exports_auth = GF_NFS_DEFAULT_EXPORT_AUTH;
+        if (dict_get(this->options, "nfs.exports-auth-enable")) {
+                ret = dict_get_str (this->options, "nfs.exports-auth-enable",
+                                    &optstr);
+                if (ret == -1) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_true)
+                        nfs->exports_auth = 1;
+        }
+
         nfs->auth_refresh_time_secs = GF_NFS_DEFAULT_AUTH_REFRESH_INTERVAL_SEC;
+        if (dict_get (this->options, "nfs.auth-refresh-interval-sec")) {
+                ret = dict_get_str (this->options,
+                                    "nfs.auth-refresh-interval-sec", &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2uint (optstr, &nfs->auth_refresh_time_secs);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
+                                "string");
+                        goto free_foppool;
+                }
+        }
+
         nfs->auth_cache_ttl_sec = GF_NFS_DEFAULT_AUTH_CACHE_TTL_SEC;
+        if (dict_get (this->options, "nfs.auth-cache-ttl-sec")) {
+                ret = dict_get_str (this->options,
+                                    "nfs.auth-cache-ttl-sec", &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2uint (optstr, &nfs->auth_cache_ttl_sec);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
+                                "string");
+                        goto free_foppool;
+                }
+        }
 
         /* TODO: Make this a configurable option in case we don't want to read
          * exports/netgroup files off disk when they change. */
@@ -1905,5 +1955,23 @@ struct volume_options options[] = {
           .description = "Sets the number of non-idempotent "
                          "requests to cache in drc"
         },
+        { .key = {"nfs.exports-auth-enable"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "Set the option to 'on' to enable exports/netgroup "
+                         "authentication in the NFS server and mount daemon."
+        },
+
+        { .key = {"nfs.auth-refresh-interval-sec"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Frequency in seconds that the daemon should check for"
+                         " changes in the exports/netgroups file."
+        },
+
+       { .key = {"nfs.auth-cache-ttl-sec"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Sets the TTL of an entry in the auth cache. Value is "
+                         "in seconds."
+        },
+
         { .key  = {NULL} },
 };
