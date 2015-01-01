@@ -41,6 +41,9 @@
 /* Disable using the exports file by default */
 #define GF_NFS_DEFAULT_EXPORT_AUTH      0
 
+#define GF_NFS_DEFAULT_AUTH_REFRESH_INTERVAL_SEC       2
+#define GF_NFS_DEFAULT_AUTH_CACHE_TTL_SEC              300 /* 5 min */
+
 /* This corresponds to the max 16 number of group IDs that are sent through an
  * RPC request. Since NFS is the only one going to set this, we can be safe
  * in keeping this size hardcoded.
