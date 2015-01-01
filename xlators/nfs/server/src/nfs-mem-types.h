@@ -47,6 +47,7 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_inode_ctx,
         gf_nfs_mt_auth_spec,
         gf_nfs_mt_netgroups,
+        gf_nfs_mt_exports,
         gf_nfs_mt_arr,
         gf_nfs_mt_end
 };

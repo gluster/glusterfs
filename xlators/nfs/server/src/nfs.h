@@ -38,6 +38,9 @@
 #define GF_NFS_DVM_ON                   1
 #define GF_NFS_DVM_OFF                  0
 
+/* Disable using the exports file by default */
+#define GF_NFS_DEFAULT_EXPORT_AUTH      0
+
 /* This corresponds to the max 16 number of group IDs that are sent through an
  * RPC request. Since NFS is the only one going to set this, we can be safe
  * in keeping this size hardcoded.
