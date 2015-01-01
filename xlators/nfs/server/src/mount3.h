@@ -109,6 +109,9 @@ struct mount3_state {
         /* Used to protect the mountlist. */
         gf_lock_t               mountlock;
 
+        /* Used to insert additional authentication parameters */
+        struct mnt3_auth_params      *auth_params;
+
         /* Set to 0 if exporting full volumes is disabled. On by default. */
         gf_boolean_t            export_volumes;
         gf_boolean_t            export_dirs;

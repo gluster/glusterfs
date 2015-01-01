@@ -1688,6 +1688,75 @@ out:
         return ret;
 }
 
+/**
+ * gf_is_ip_in_net -- Checks if an IP Address is in a network.
+ *                    A network should be specified by something like
+ *                    '10.5.153.0/24' (in CIDR notation).
+ *
+ * @result : Sets to true if the IP is in the network
+ * @ip_str : The IP to check
+ * @network: The network to check the IP against.
+ *
+ * @return: success: 0
+ *          failure: -EINVAL for bad args, retval of inet_pton otherwise
+ */
+gf_boolean_t
+gf_is_ip_in_net (const char *network, const char *ip_str)
+{
+        unsigned long ip_buf       = 0;
+        unsigned long net_ip_buf   = 0;
+        unsigned long subnet_mask  = 0;
+        int           ret          = -EINVAL;
+        char          *slash       = NULL;
+        char          *net_ip      = NULL;
+        char          *subnet      = NULL;
+        char          *net_str     = NULL;
+        int           family       = AF_INET;
+        gf_boolean_t  result       = _gf_false;
+
+        GF_ASSERT (network);
+        GF_ASSERT (ip_str);
+
+        if (strchr (network, ':'))
+                family = AF_INET6;
+        else if (strchr (network, '.'))
+                family = AF_INET;
+        else {
+                family = -1;
+                goto out;
+        }
+
+        net_str = strdupa (network);
+        slash = strchr (net_str, '/');
+        if (!slash)
+                goto out;
+        *slash = '\0';
+
+        subnet = slash + 1;
+        net_ip = net_str;
+
+        /* Convert IP address to a long */
+        ret = inet_pton (family, ip_str, &ip_buf);
+        if (ret < 0)
+                gf_log ("common-utils", GF_LOG_ERROR,
+                        "inet_pton() failed with %s", strerror (errno));
+
+        /* Convert network IP address to a long */
+        ret = inet_pton (family, net_ip, &net_ip_buf);
+        if (ret < 0) {
+                gf_log ("common-utils", GF_LOG_ERROR,
+                        "inet_pton() failed with %s", strerror (errno));
+                goto out;
+        }
+
+        /* Converts /x into a mask */
+        subnet_mask = (1 << atoi (subnet)) - 1;
+
+        result = ((ip_buf & subnet_mask) == (net_ip_buf & subnet_mask));
+out:
+        return result;
+}
+
 char *
 strtail (char *str, const char *pattern)
 {
