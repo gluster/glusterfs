@@ -1541,7 +1541,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         }
 
                         ret = syncop_getxattr (this, &entry_loc, &dict,
-                                               GF_XATTR_NODE_UUID_KEY);
+                                               GF_XATTR_NODE_UUID_KEY, NULL);
                         if(ret < 0) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -1588,7 +1588,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                          * migrated */
 
                         ret = syncop_getxattr (this, &entry_loc, NULL,
-                                               GF_XATTR_LINKINFO_KEY);
+                                               GF_XATTR_LINKINFO_KEY, NULL);
                         if (ret < 0) {
                                 if (-ret != ENODATA) {
                                         loglevel = GF_LOG_ERROR;

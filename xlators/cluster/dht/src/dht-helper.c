@@ -921,11 +921,11 @@ dht_migration_complete_check_task (void *data)
 
         if (!local->loc.inode) {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
-                                        conf->link_xattr_name);
+                                        conf->link_xattr_name, NULL);
         } else {
                 SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
-                                       conf->link_xattr_name);
+                                       conf->link_xattr_name, NULL);
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         }
 
@@ -1136,11 +1136,11 @@ dht_rebalance_inprogress_task (void *data)
         if (local->loc.inode) {
                 SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
-                                       conf->link_xattr_name);
+                                       conf->link_xattr_name, NULL);
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         } else {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
-                                        conf->link_xattr_name);
+                                        conf->link_xattr_name, NULL);
         }
 
         if (ret < 0) {

@@ -4319,7 +4319,7 @@ fuse_migrate_locks (xlator_t *this, fd_t *basefd, fd_t *oldfd,
         UNLOCK (&basefd->lock);
 
         ret = syncop_fgetxattr (old_subvol, oldfd, &lockinfo,
-                                GF_XATTR_LOCKINFO_KEY);
+                                GF_XATTR_LOCKINFO_KEY, NULL);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
 			"getting lockinfo failed while migrating locks"

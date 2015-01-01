@@ -51,7 +51,8 @@ glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
         struct iatt   iattr = {0};
         struct iatt   parent = {0};
 
-        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTROP_INDEX_GFID);
+        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTROP_INDEX_GFID,
+                               NULL);
         if (ret < 0) {
                 *op_errno = -ret;
                 goto out;
@@ -128,7 +129,7 @@ glfsh_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p
         uuid_copy (loc.gfid, gfid);
         loc.inode = inode_new (this->itable);
 
-        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY);
+        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);
         if (ret)
                 goto out;
 
@@ -216,7 +217,8 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
 
                 uuid_parse (entry->d_name, gfid);
                 uuid_copy (loc.gfid, gfid);
-                ret = syncop_getxattr (this, &loc, &dict, GF_AFR_HEAL_INFO);
+                ret = syncop_getxattr (this, &loc, &dict, GF_AFR_HEAL_INFO,
+                                       NULL);
                 if (ret)
                         continue;
 
@@ -292,7 +294,8 @@ glfsh_print_brick (xlator_t *xl, loc_t *rootloc)
         char    *brick_start = NULL;
         char    *brick_end = NULL;
 
-        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTR_PATHINFO_KEY);
+        ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTR_PATHINFO_KEY,
+                               NULL);
         if (ret < 0)
                 goto out;
 

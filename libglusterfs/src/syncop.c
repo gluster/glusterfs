@@ -1388,12 +1388,13 @@ syncop_listxattr (xlator_t *subvol, loc_t *loc, dict_t **dict)
 }
 
 int
-syncop_getxattr (xlator_t *subvol, loc_t *loc, dict_t **dict, const char *key)
+syncop_getxattr (xlator_t *subvol, loc_t *loc, dict_t **dict, const char *key,
+                 dict_t *xdata)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_getxattr_cbk, subvol->fops->getxattr,
-                loc, key, NULL);
+                loc, key, xdata);
 
         if (dict)
                 *dict = args.xattr;
@@ -1406,12 +1407,13 @@ syncop_getxattr (xlator_t *subvol, loc_t *loc, dict_t **dict, const char *key)
 }
 
 int
-syncop_fgetxattr (xlator_t *subvol, fd_t *fd, dict_t **dict, const char *key)
+syncop_fgetxattr (xlator_t *subvol, fd_t *fd, dict_t **dict, const char *key,
+                  dict_t *xdata)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_getxattr_cbk, subvol->fops->fgetxattr,
-                fd, key, NULL);
+                fd, key, xdata);
 
         if (dict)
                 *dict = args.xattr;

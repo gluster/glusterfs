@@ -2621,7 +2621,7 @@ retry:
 	if (ret)
 		goto out;
 
-	ret = syncop_getxattr (subvol, &loc, &xattr, name);
+	ret = syncop_getxattr (subvol, &loc, &xattr, name, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
@@ -2684,7 +2684,7 @@ pub_glfs_fgetxattr (struct glfs_fd *glfd, const char *name, void *value,
 		goto out;
 	}
 
-	ret = syncop_fgetxattr (subvol, fd, &xattr, name);
+	ret = syncop_fgetxattr (subvol, fd, &xattr, name, NULL);
         DECODE_SYNCOP_ERR (ret);
 	if (ret)
 		goto out;
@@ -2761,7 +2761,7 @@ retry:
 	if (ret)
 		goto out;
 
-	ret = syncop_getxattr (subvol, &loc, &xattr, NULL);
+	ret = syncop_getxattr (subvol, &loc, &xattr, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
@@ -2821,7 +2821,7 @@ pub_glfs_flistxattr (struct glfs_fd *glfd, void *value, size_t size)
 		goto out;
 	}
 
-	ret = syncop_fgetxattr (subvol, fd, &xattr, NULL);
+	ret = syncop_fgetxattr (subvol, fd, &xattr, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 	if (ret)
 		goto out;
