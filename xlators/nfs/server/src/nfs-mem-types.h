@@ -50,6 +50,8 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_netgroups,
         gf_nfs_mt_exports,
         gf_nfs_mt_arr,
+        gf_nfs_mt_auth_cache,
+        gf_nfs_mt_auth_cache_entry,
         gf_nfs_mt_end
 };
 #endif
