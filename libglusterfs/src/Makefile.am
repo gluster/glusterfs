@@ -28,7 +28,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	event-history.c gidcache.c ctx.c client_t.c event-poll.c event-epoll.c \
 	syncop-utils.c \
 	$(CONTRIBDIR)/libgen/basename_r.c $(CONTRIBDIR)/libgen/dirname_r.c \
-	$(CONTRIBDIR)/stdlib/gf_mkostemp.c strfd.c \
+	$(CONTRIBDIR)/stdlib/gf_mkostemp.c strfd.c parse-utils.c \
 	$(CONTRIBDIR)/mount/mntent.c $(CONTRIBDIR)/libexecinfo/execinfo.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
@@ -45,7 +45,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	$(CONTRIB_BUILDDIR)/uuid/uuid_types.h syncop.h graph-utils.h trie.h \
 	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
 	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
-	template-component-messages.h strfd.h syncop-utils.h \
+	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h
 

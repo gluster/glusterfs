@@ -166,6 +166,21 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                 }                                                       \
         }while (0)
 
+#define GF_CHECK_ALLOC(arg, retval, label)   do {                       \
+                if (!(arg)) {                                           \
+                        retval = -ENOMEM;                               \
+                        goto label;                                     \
+                }                                                       \
+        } while (0)                                                     \
+
+#define GF_CHECK_ALLOC_AND_LOG(name, item, retval, msg, errlabel) do {  \
+                if (!(item)) {                                          \
+                        (retval) = -ENOMEM;                             \
+                        gf_log (name, GF_LOG_CRITICAL, (msg));          \
+                        goto errlabel;                                  \
+                }                                                       \
+        } while (0)
+
 #define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
                 if (!arg) {                                             \
                         GF_ASSERT (0);                                  \
