@@ -81,7 +81,7 @@ nfs3_fh_build_indexed_root_fh (xlator_list_t *cl, xlator_t *xl)
 
 
 struct nfs3_fh
-nfs3_fh_build_uuid_root_fh (uuid_t volumeid)
+nfs3_fh_build_uuid_root_fh (uuid_t volumeid, uuid_t mountid)
 {
         struct nfs3_fh  fh = {{0}, };
         struct iatt     buf = {0, };
@@ -90,6 +90,7 @@ nfs3_fh_build_uuid_root_fh (uuid_t volumeid)
         uuid_copy (buf.ia_gfid, root);
         nfs3_fh_init (&fh, &buf);
         uuid_copy (fh.exportid, volumeid);
+        uuid_copy (fh.mountid, mountid);
 
         return fh;
 }
@@ -115,13 +116,15 @@ nfs3_fh_to_str (struct nfs3_fh *fh, char *str, size_t len)
 {
         char            gfid[GF_UUID_BUF_SIZE];
         char            exportid[GF_UUID_BUF_SIZE];
+        char            mountid[GF_UUID_BUF_SIZE];
 
         if ((!fh) || (!str))
                 return;
 
-        snprintf (str, len, "FH: exportid %s, gfid %s",
+        snprintf (str, len, "FH: exportid %s, gfid %s, mountid %s",
                   uuid_utoa_r (fh->exportid, exportid),
-                  uuid_utoa_r (fh->gfid, gfid));
+                  uuid_utoa_r (fh->gfid, gfid),
+                  uuid_utoa_r (fh->mountid, mountid));
 }
 
 void
@@ -148,7 +151,6 @@ nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,
 
         nfs3_fh_init (newfh, newstat);
         uuid_copy (newfh->exportid, child->exportid);
-
         return 0;
 }
 
@@ -164,6 +166,7 @@ nfs3_build_fh (inode_t *inode, uuid_t exportid, struct nfs3_fh *newfh)
         newfh->ident[3] = GF_NFSFH_IDENT3;
         uuid_copy (newfh->gfid, inode->gfid);
         uuid_copy (newfh->exportid, exportid);
+        /*uuid_copy (newfh->mountid, mountid);*/
         return 0;
 }
 
@@ -176,7 +179,7 @@ nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,
 
         nfs3_fh_init (newfh, newstat);
         uuid_copy (newfh->exportid, parent->exportid);
-
+        uuid_copy (newfh->mountid, parent->mountid);
         return 0;
 }
 

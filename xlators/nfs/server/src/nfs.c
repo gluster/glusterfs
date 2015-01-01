@@ -874,6 +874,14 @@ nfs_init_state (xlator_t *this)
                         nfs->mount_udp = 1;
         }
 
+        nfs->exports_auth = GF_NFS_DEFAULT_EXPORT_AUTH;
+        nfs->auth_refresh_time_secs = GF_NFS_DEFAULT_AUTH_REFRESH_INTERVAL_SEC;
+        nfs->auth_cache_ttl_sec = GF_NFS_DEFAULT_AUTH_CACHE_TTL_SEC;
+
+        /* TODO: Make this a configurable option in case we don't want to read
+         * exports/netgroup files off disk when they change. */
+        nfs->refresh_auth = 1;
+
         nfs->rmtab = gf_strdup (NFS_DATADIR "/rmtab");
         if (dict_get(this->options, "nfs.mount-rmtab")) {
                 ret = dict_get_str (this->options, "nfs.mount-rmtab", &nfs->rmtab);
@@ -1390,6 +1398,7 @@ fini (xlator_t *this)
 
         struct nfs_state        *nfs = NULL;
 
+        mnt3svc_deinit (this);
         nfs = (struct nfs_state *)this->private;
         gf_log (GF_NFS, GF_LOG_DEBUG, "NFS service going down");
         nfs_deinit_versions (&nfs->versions, this);

@@ -34,6 +34,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <assert.h>
+#include <libgen.h> /* for dirname() */
 
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
@@ -171,6 +172,86 @@ log_base2 (unsigned long x)
         return val;
 }
 
+/**
+ * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
+ *
+ * @ip: The IP address to perform a reverse lookup on
+ *
+ * @return: success: Allocated string containing the hostname
+ *          failure: NULL
+ */
+char *
+gf_rev_dns_lookup (const char *ip)
+{
+        char               *fqdn = NULL;
+        int                ret  = 0;
+        struct sockaddr_in sa   = {0};
+        char               host_addr[256] = {0, };
+
+        GF_VALIDATE_OR_GOTO ("resolver", ip, out);
+
+        sa.sin_family = AF_INET;
+        inet_pton (AF_INET, ip, &sa.sin_addr);
+        ret = getnameinfo ((struct sockaddr *)&sa, sizeof (sa), host_addr,
+                          sizeof (host_addr), NULL, 0, 0);
+
+        if (ret != 0) {
+                gf_log ("resolver", GF_LOG_INFO, "could not resolve hostname "
+                        "for %s: %s", ip, strerror (errno));
+                goto out;
+        }
+
+        /* Get the FQDN */
+        fqdn = gf_strdup (host_addr);
+        if (!fqdn)
+                gf_log ("resolver", GF_LOG_CRITICAL, "Allocation failed for "
+                        "the host address");
+
+out:
+       return fqdn;
+}
+
+/**
+ * gf_resolve_parent_path -- Given a path, returns an allocated string
+ *                           containing the parent's path.
+ * @path: Path to parse
+ * @return: The parent path if found, NULL otherwise
+ */
+char *
+gf_resolve_path_parent (const char *path)
+{
+        char    *parent = NULL;
+        char    *tmp    = NULL;
+        char    *pathc  = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, path, out);
+
+        if (strlen (path) <= 0) {
+                gf_log_callingfn (THIS->name, GF_LOG_DEBUG,
+                                  "invalid string for 'path'");
+                goto out;
+        }
+
+        /* dup the parameter, we don't want to modify it */
+        pathc = strdupa (path);
+        if (!pathc) {
+                gf_log (THIS->name, GF_LOG_CRITICAL,
+                        "Allocation failed for the parent");
+                goto out;
+        }
+
+        /* Get the parent directory */
+        tmp = dirname (pathc);
+        if (strcmp (tmp, "/") == 0)
+                goto out;
+
+        parent = gf_strdup (tmp);
+        if (!parent)
+                gf_log (THIS->name, GF_LOG_CRITICAL,
+                        "Allocation failed for the parent");
+out:
+        return parent;
+}
 
 int32_t
 gf_resolve_ip6 (const char *hostname,
@@ -1685,6 +1766,37 @@ out:
         if (fd != -1)
                 close (fd);
 
+        return ret;
+}
+
+/**
+ * get_file_mtime -- Given a path, get the mtime for the file
+ *
+ * @path: The filepath to check the mtime on
+ * @stamp: The parameter to set after we get the mtime
+ *
+ * @returns: success: 0
+ *           errors : Errors returned by the stat () call
+ */
+int
+get_file_mtime (const char *path, time_t *stamp)
+{
+        struct stat     f_stat  = {0};
+        int             ret     = -EINVAL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, path, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, stamp, out);
+
+        ret = stat (path, &f_stat);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to stat %s: %s",
+                        path, strerror (errno));
+                goto out;
+        }
+
+        /* Set the mtime */
+        *stamp = f_stat.st_mtime;
+out:
         return ret;
 }
 

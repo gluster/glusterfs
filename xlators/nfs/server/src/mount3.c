@@ -33,6 +33,8 @@
 #include "store.h"
 #include "glfs-internal.h"
 #include "glfs.h"
+#include "mount3-auth.h"
+#include "hashfn.h"
 
 #include <errno.h>
 #include <sys/socket.h>
@@ -55,6 +57,10 @@
                 exp->hostspec = NULL;                           \
         } while (0)
 
+/* Paths for export and netgroup files */
+const char *exports_file_path   = GLUSTERD_DEFAULT_WORKDIR "/nfs/exports";
+const char *netgroups_file_path = GLUSTERD_DEFAULT_WORKDIR "/nfs/netgroups";
+
 typedef ssize_t (*mnt3_serializer) (struct iovec outmsg, void *args);
 
 extern void *
@@ -69,6 +75,7 @@ mnt3_export_free (struct mnt3_export *exp)
         if (exp->exptype == MNT3_EXPTYPE_DIR)
                 FREE_HOSTSPEC (exp);
         GF_FREE (exp->expname);
+        GF_FREE (exp->fullpath);
         GF_FREE (exp);
 }
 
@@ -141,7 +148,64 @@ ret:
 
         return ret;
 }
+/**
+ * __mountdict_insert -- Insert a mount entry into the mount state
+ *
+ * @ms: The mount state holding the entries
+ * @me: The mount entry to insert
+ *
+ * Not for external use.
+ */
+void
+__mountdict_insert (struct mount3_state *ms, struct mountentry *me)
+{
+        char   *exname = NULL;
+        char   *fpath  = NULL;
+        data_t *medata = NULL;
 
+        GF_VALIDATE_OR_GOTO (GF_MNT, ms, out);
+        GF_VALIDATE_OR_GOTO (GF_MNT, me, out);
+
+        /* We don't want export names with leading slashes */
+        exname = me->exname;
+        while (exname[0] == '/')
+                exname++;
+
+        /* Get the fullpath for the export */
+        fpath = me->fullpath;
+        if (me->has_full_path) {
+                while (fpath[0] == '/')
+                        fpath++;
+
+                /* Export names can either be just volumes or paths inside that
+                 * volume. */
+                exname = fpath;
+        }
+
+        snprintf (me->hashkey, sizeof (me->hashkey), "%s:%s", exname,
+                  me->hostname);
+
+        medata = bin_to_data (me, sizeof (*me));
+        dict_set (ms->mountdict, me->hashkey, medata);
+        gf_log (GF_MNT, GF_LOG_TRACE, "Inserted into mountdict: %s",
+                me->hashkey);
+out:
+        return;
+}
+
+/**
+ * __mountdict_remove -- Remove a mount entry from the mountstate.
+ *
+ * @ms: The mount state holding the entries
+ * @me: The mount entry to remove
+ *
+ * Not for external use.
+ */
+inline void
+__mountdict_remove (struct mount3_state *ms, struct mountentry *me)
+{
+        dict_del (ms->mountdict, me->hashkey);
+}
 
 /* Generic error reply function, just pass the err status
  * and it will do the rest, including transmission.
@@ -487,7 +551,7 @@ free_sh:
  */
 int
 mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
-                          char  *expname)
+                          const char *expname, const char *fullpath)
 {
         struct mountentry       *me = NULL;
         struct mountentry       *cur = NULL;
@@ -514,6 +578,16 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         }
 
         strncpy (me->exname, expname, MNTPATHLEN);
+        /* Sometimes we don't care about the full path
+         * so a NULL value for fullpath is valid.
+         */
+        if (fullpath) {
+                if (strlen (fullpath) < MNTPATHLEN) {
+                        strcpy (me->fullpath, fullpath);
+                        me->has_full_path = _gf_true;
+                }
+        }
+
 
         INIT_LIST_HEAD (&me->mlist);
         /* Must get the IP or hostname of the client so we
@@ -546,6 +620,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
                         }
                 }
                 list_add_tail (&me->mlist, &ms->mountlist);
+                __mountdict_insert (ms, me);
 
                 /* only write the rmtab in case it was locked */
                 if (gf_store_locked_local (sh))
@@ -592,6 +667,58 @@ out:
         return ret;
 }
 
+int
+__mnt3_build_mountid_from_path (const char *path, uuid_t mountid)
+{
+        uint32_t hashed_path = 0;
+        int      ret = -1;
+        size_t length;
+
+        length = sizeof(mountid);
+        while (strlen (path) > 0 && path[0] == '/')
+                path++;
+
+        /* Clear the mountid */
+        memset (mountid, 0, length);
+
+        hashed_path = SuperFastHash (path,  strlen (path));
+        if (hashed_path == 1) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "failed to hash path: %s",
+                        path);
+                goto out;
+        }
+
+        memcpy (mountid, &hashed_path, sizeof (hashed_path));
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+__mnt3_get_mount_id (xlator_t *mntxl, uuid_t mountid)
+{
+        int ret = -1;
+        uint32_t hashed_path = 0;
+        size_t length;
+
+        length = sizeof(mountid);
+
+        /* first clear the mountid */
+        memset (mountid, 0, length);
+
+        hashed_path = SuperFastHash (mntxl->name, strlen (mntxl->name));
+        if (hashed_path == 1) {
+                gf_log (GF_MNT, GF_LOG_WARNING, "failed to hash xlator name: %s",
+                        mntxl->name);
+                goto out;
+        }
+
+        memcpy (mountid, &hashed_path, sizeof (hashed_path));
+        ret = 0;
+out:
+        return ret;
+}
+
 
 int32_t
 mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
@@ -609,7 +736,9 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         rpcsvc_t                *svc = NULL;
         xlator_t                *mntxl = NULL;
         uuid_t                  volumeid = {0, };
-        char                    fhstr[1024], *path = NULL;
+        char                    *path = NULL;
+        uuid_t                  mountid = {1, };
+        char                    fhstr[1536];
 
         req = (rpcsvc_request_t *)frame->local;
 
@@ -638,15 +767,16 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         }
 
         snprintf (path, PATH_MAX, "/%s", mntxl->name);
-        mnt3svc_update_mountlist (ms, req, path);
+        mnt3svc_update_mountlist (ms, req, path, NULL);
         GF_FREE (path);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx))) {
                 fh = nfs3_fh_build_indexed_root_fh (ms->nfsx->children, mntxl);
                 goto xmit_res;
         }
 
+        __mnt3_get_mount_id (mntxl, mountid);
         __mnt3_get_volume_id (ms, mntxl, volumeid);
-        fh = nfs3_fh_build_uuid_root_fh (volumeid);
+        fh = nfs3_fh_build_uuid_root_fh (volumeid, mountid);
 
 xmit_res:
         nfs3_fh_to_str (&fh, fhstr, sizeof (fhstr));
@@ -667,27 +797,49 @@ xmit_res:
 
 
 int
-mnt3_match_dirpath_export (char *expname, char *dirpath)
+mnt3_match_dirpath_export (const char *expname, const char *dirpath,
+                           gf_boolean_t export_parsing_match)
 {
         int     ret = 0;
         size_t  dlen;
+        char    *fullpath = NULL;
+        char    *second_slash = NULL;
+        char    *dirdup = NULL;
 
         if ((!expname) || (!dirpath))
                 return 0;
+
+        dirdup = strdupa (dirpath);
 
         /* Some clients send a dirpath for mount that includes the slash at the
          * end. String compare for searching the export will fail because our
          * exports list does not include that slash. Remove the slash to
          * compare.
          */
-        dlen = strlen (dirpath);
-        if (dlen && dirpath [dlen - 1] == '/')
-                dirpath [dlen - 1] = '\0';
+        dlen = strlen (dirdup);
+        if (dlen && dirdup[dlen - 1] == '/')
+                dirdup[dlen - 1] = '\0';
 
-        if (dirpath[0] != '/')
+        /* Here we try to match fullpaths with export names */
+        fullpath = dirdup;
+
+        if (export_parsing_match) {
+                if (dirdup[0] == '/')
+                        fullpath = dirdup + 1;
+
+                second_slash = strchr (fullpath, '/');
+                if (second_slash)
+                        *second_slash = '\0';
+        }
+
+        /* The export name begins with a slash so move it forward by one
+         * to ignore the slash when we want to compare the fullpath and
+         * export.
+         */
+        if (fullpath[0] != '/')
                 expname++;
 
-        if (strcmp (expname, dirpath) == 0)
+        if (strcmp (expname, fullpath) == 0)
                 ret = 1;
 
         return ret;
@@ -919,8 +1071,13 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mountres3               res = {0, };
         xlator_t                *mntxl = NULL;
         char                    *path = NULL;
+        struct mount3_state     *ms = NULL;
+        int                     authcode = 0;
+        char                    *authorized_host = NULL;
+        char                    *authorized_path = NULL;
 
         mres = frame->local;
+        ms = mres->mstate;
         mntxl = (xlator_t *)cookie;
         if (op_ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "path=%s (%s)",
@@ -934,18 +1091,52 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         nfs3_fh_build_child_fh (&mres->parentfh, buf, &fh);
         if (strlen (mres->remainingdir) <= 0) {
+                size_t alloclen;
                 op_ret = -1;
                 mntstat = MNT3_OK;
+
+                /* Construct the full path */
+                alloclen = strlen (mres->exp->expname) +
+                                   strlen (mres->resolveloc.path) + 1;
+                mres->exp->fullpath = GF_CALLOC (alloclen, sizeof (char),
+                                                gf_nfs_mt_char);
+                if (!mres->exp->fullpath) {
+                        gf_log (GF_MNT, GF_LOG_CRITICAL, "Allocation failed.");
+                        goto err;
+                }
+                snprintf (mres->exp->fullpath, alloclen, "%s%s",
+                                mres->exp->expname, mres->resolveloc.path);
+
+                /* Check if this path is authorized to be mounted */
+                authcode = mnt3_authenticate_request (ms, mres->req, NULL, NULL,
+                                                      mres->exp->fullpath,
+                                                      &authorized_path,
+                                                      &authorized_host,
+                                                      FALSE);
+                if (authcode != 0) {
+                        mntstat = MNT3ERR_ACCES;
+                        gf_log (GF_MNT, GF_LOG_DEBUG,
+                                "Client mount not allowed");
+                        op_ret = -1;
+                        goto err;
+                }
+
                 path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
                 if (!path) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation "
                                 "failed");
                         goto err;
                 }
+                /* Build mountid from the authorized path and stick it in the
+                 * filehandle that will get passed back to the client
+                 */
+                __mnt3_build_mountid_from_path (authorized_path, fh.mountid);
+
                 snprintf (path, PATH_MAX, "/%s%s", mres->exp->vol->name,
                          mres->resolveloc.path);
+
                 mnt3svc_update_mountlist (mres->mstate, mres->req,
-                                          path);
+                                          path, mres->exp->fullpath);
                 GF_FREE (path);
         } else {
                 mres->parentfh = fh;
@@ -966,6 +1157,9 @@ err:
                                       (mnt3_serializer)xdr_serialize_mountres3);
                 mnt3_resolve_state_wipe (mres);
         }
+
+        GF_FREE (authorized_path);
+        GF_FREE (authorized_host);
 
         return 0;
 }
@@ -1300,7 +1494,7 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
                                             mres->mstate->nfsx->children,
                                             mres->exp->vol);
         else
-                pfh = nfs3_fh_build_uuid_root_fh (exp->volumeid);
+                pfh = nfs3_fh_build_uuid_root_fh (exp->volumeid, exp->mountid);
 
         mres->parentfh = pfh;
         ret = __mnt3_resolve_subdir (mres);
@@ -1361,9 +1555,15 @@ mnt3svc_mount (rpcsvc_request_t *req, struct mount3_state *ms,
 
 /* mnt3_mntpath_to_xlator sets this to 1 if the mount is for a full
 * volume or 2 for a subdir in the volume.
+*
+* The parameter 'export_parsing_match' indicates whether this function
+* is being called by an exports parser or whether it is being called
+* during mount. The behavior is different since we don't have to resolve
+* the path when doing the parse.
 */
 struct mnt3_export *
-mnt3_mntpath_to_export (struct mount3_state *ms, char *dirpath)
+mnt3_mntpath_to_export (struct mount3_state *ms, const char *dirpath,
+                        gf_boolean_t export_parsing_match)
 {
         struct mnt3_export      *exp = NULL;
         struct mnt3_export      *found = NULL;
@@ -1375,7 +1575,8 @@ mnt3_mntpath_to_export (struct mount3_state *ms, char *dirpath)
         list_for_each_entry (exp, &ms->exportlist, explist) {
 
                 /* Search for the an exact match with the volume */
-                if (mnt3_match_dirpath_export (exp->expname, dirpath)) {
+                if (mnt3_match_dirpath_export (exp->expname, dirpath,
+                                               export_parsing_match)) {
                         found = exp;
                         gf_log (GF_MNT, GF_LOG_DEBUG, "Found export volume: "
                                 "%s", exp->vol->name);
@@ -1507,7 +1708,7 @@ mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
         if (!subdir)
                 goto err;
 
-        exp = mnt3_mntpath_to_export (ms, volname);
+        exp = mnt3_mntpath_to_export (ms, volname, _gf_false);
         if (!exp)
                 goto err;
 
@@ -1558,7 +1759,7 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
         }
 
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
-        exp = mnt3_mntpath_to_export (ms, path);
+        exp = mnt3_mntpath_to_export (ms, path, _gf_false);
         if (exp) {
                 ret = 0;
                 *e = exp;
@@ -1576,6 +1777,282 @@ err:
         return ret;
 }
 
+/**
+ * _mnt3_get_peer_addr -- Take an rpc request object and return an allocated
+ *                        peer address. A peer address is host:port.
+ *
+ * @req: An rpc svc request object to extract the peer address from
+ *
+ * @return: success: Pointer to an allocated string containing the peer address
+ *          failure: NULL
+ */
+char *
+_mnt3_get_peer_addr (const rpcsvc_request_t *req)
+{
+        rpc_transport_t         *trans = NULL;
+        struct sockaddr_storage sastorage = {0, };
+        char                    peer[RPCSVC_PEER_STRLEN] = {0, };
+        char                    *peerdup = NULL;
+        int                     ret = 0;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS, req, out);
+
+        trans = rpcsvc_request_transport (req);
+        ret = rpcsvc_transport_peeraddr (trans, peer, RPCSVC_PEER_STRLEN,
+                                         &sastorage, sizeof (sastorage));
+        if (ret != 0)
+                goto out;
+
+        peerdup = gf_strdup (peer);
+out:
+        return peerdup;
+}
+
+/**
+ * _mnt3_get_host_from_peer -- Take a peer address and get an allocated
+ *                             hostname. The hostname is the string on the
+ *                             left side of the colon.
+ *
+ * @peer_addr: The peer address to get a hostname from
+ *
+ * @return: success: Allocated string containing the hostname
+ *          failure: NULL
+ *
+ */
+char *
+_mnt3_get_host_from_peer (const char *peer_addr)
+{
+        char   *part       = NULL;
+        size_t host_len    = 0;
+        char   *colon      = NULL;
+
+        colon = strchr (peer_addr, ':');
+        if (!colon) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Bad peer %s", peer_addr);
+                goto out;
+        }
+
+        host_len = colon - peer_addr;
+        if (host_len < RPCSVC_PEER_STRLEN)
+                part = gf_strndup (peer_addr, host_len);
+        else
+                gf_log (GF_MNT, GF_LOG_ERROR, "Peer too long %s", peer_addr);
+out:
+        return part;
+}
+
+/**
+ * mnt3_check_cached_fh -- Check if FH is cached.
+ *
+ * Calls auxiliary functions based on whether we are checking
+ * a write operation.
+ *
+ */
+inline int
+mnt3_check_cached_fh (struct mount3_state *ms, struct nfs3_fh *fh,
+                      const char *host_addr, gf_boolean_t is_write_op)
+{
+        if (!is_write_op)
+                return is_nfs_fh_cached (ms->authcache, fh, host_addr);
+
+        return is_nfs_fh_cached_and_writeable (ms->authcache, fh, host_addr);
+}
+
+/**
+ * _mnt3_authenticate_req -- Given an RPC request and a path OR a filehandle
+ *                           check if the host is authorized to make the
+ *                           request. Uses exports/netgroups auth model to
+ *                           do this check.
+ *
+ * @ms  : The mount state
+ * @req : The RPC request
+ * @fh  : The NFS FH to authenticate (set when authenticating an FOP)
+ * @path: The path to authenticate (set when authenticating a mount req)
+ * @authorized_export: Allocate and fill this value when an export is authorized
+ * @authorized_host: Allocate and fill this value when a host is authorized
+ * @is_write_op: Is this a write op that we are authenticating?
+ *
+ * @return: 0 if authorized
+ *          -EACCES for completely unauthorized fop
+ *          -EROFS  for unauthorized write operations (rm, mkdir, write)
+ */
+int
+_mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
+                        struct nfs3_fh *fh, const char *path,
+                        char **authorized_export, char **authorized_host,
+                        gf_boolean_t is_write_op)
+{
+        char                    *peer_addr       = NULL;
+        char                    *host_addr_ip    = NULL;
+        char                    *host_addr_fqdn  = NULL;
+        int                     auth_status_code = -EACCES;
+        char                    *pathdup         = NULL;
+        size_t                  dlen             = 0;
+        char                    *auth_host       = NULL;
+        gf_boolean_t            fh_cached        = _gf_false;
+        struct export_item      *expitem         = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_MNT, ms, out);
+        GF_VALIDATE_OR_GOTO (GF_MNT, req, out);
+
+        peer_addr    = _mnt3_get_peer_addr (req);
+        host_addr_ip = _mnt3_get_host_from_peer (peer_addr);
+
+        if (!host_addr_ip || !peer_addr)
+                goto free_and_out;
+
+        if (path) {
+                /* Need to strip out trailing '/' */
+                pathdup = strdupa (path);
+                dlen = strlen (pathdup);
+                if (dlen > 0 && pathdup[dlen-1] == '/')
+                        pathdup[dlen-1] = '\0';
+        }
+
+        /* Check if the filehandle is cached */
+        fh_cached = mnt3_check_cached_fh (ms, fh, host_addr_ip, is_write_op);
+        if (fh_cached) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Found cached FH for %s",
+                        host_addr_ip);
+                auth_status_code = 0;
+                goto free_and_out;
+        }
+
+        /* Check if the IP is authorized */
+        auth_status_code = mnt3_auth_host (ms->auth_params, host_addr_ip,
+                                           fh, pathdup, is_write_op, &expitem);
+        if (auth_status_code != 0) {
+                /* If not, check if the FQDN is authorized */
+                host_addr_fqdn = gf_rev_dns_lookup (host_addr_ip);
+                auth_status_code = mnt3_auth_host (ms->auth_params,
+                                                   host_addr_fqdn,
+                                                   fh, pathdup, is_write_op,
+                                                   &expitem);
+                if (auth_status_code == 0)
+                        auth_host = host_addr_fqdn;
+        } else
+                auth_host = host_addr_ip;
+
+        /* Skip the lines that set authorized export &
+         * host if they are null.
+         */
+        if (!authorized_export || !authorized_host) {
+                /* Cache the file handle if it was authorized */
+                if (fh && auth_status_code == 0)
+                        cache_nfs_fh (ms->authcache, fh, host_addr_ip, expitem);
+
+                goto free_and_out;
+        }
+
+        if (!fh && auth_status_code == 0) {
+                *authorized_export = gf_strdup (pathdup);
+                if (!*authorized_export)
+                        gf_log (GF_MNT, GF_LOG_CRITICAL,
+                                "Allocation error when copying "
+                                "authorized path");
+
+                *authorized_host = gf_strdup (auth_host);
+                if (!*authorized_host)
+                        gf_log (GF_MNT, GF_LOG_CRITICAL,
+                                "Allocation error when copying "
+                                "authorized host");
+        }
+
+free_and_out:
+        /* Free allocated strings after doing the auth */
+        GF_FREE (peer_addr);
+        GF_FREE (host_addr_fqdn);
+        GF_FREE (host_addr_ip);
+out:
+        return auth_status_code;
+}
+
+/**
+ * mnt3_authenticate_request -- Given an RPC request and a path, check if the
+ *                              host is authorized to make the request. This
+ *                              function calls _mnt3_authenticate_req_path ()
+ *                              in a loop for the parent of each path while
+ *                              the authentication check for that path is
+ *                              failing.
+ *
+ * E.g. If the requested path is /patchy/L1, and /patchy is authorized, but
+ * /patchy/L1 is not, it follows this code path :
+ *
+ * _mnt3_authenticate_req ("/patchy/L1") -> F
+ * _mnt3_authenticate_req ("/patchy");   -> T
+ * return T;
+ *
+ * @ms  : The mount state
+ * @req : The RPC request
+ * @path: The requested path
+ * @authorized_path: This gets allocated and populated with the authorized path
+ * @authorized_host: This gets allocated and populated with the authorized host
+ * @return: 0 if authorized
+ *          -EACCES for completely unauthorized fop
+ *          -EROFS  for unauthorized write operations (rm, mkdir, write)
+ */
+int
+mnt3_authenticate_request (struct mount3_state *ms, rpcsvc_request_t *req,
+                           struct nfs3_fh *fh, const char *volname,
+                           const char *path, char **authorized_path,
+                           char **authorized_host, gf_boolean_t is_write_op)
+{
+        int          auth_status_code       = -EACCES;
+        char         *parent_path = NULL;
+        const char   *parent_old  = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_MNT, ms, out);
+        GF_VALIDATE_OR_GOTO (GF_MNT, req, out);
+
+        /* If this option is not set, just allow it through */
+        if (!ms->nfs->exports_auth) {
+                /* This function is called in a variety of use-cases (mount
+                 * + each fop) so path/authorized_path are not always present.
+                 * For the cases which it _is_ present we need to populate the
+                 * authorized_path. */
+                if (path && authorized_path)
+                        *authorized_path = gf_strdup (path);
+
+                auth_status_code = 0;
+                goto out;
+        }
+
+        /* First check if the path is allowed */
+        auth_status_code = _mnt3_authenticate_req (ms, req, fh, path,
+                                                   authorized_path,
+                                                   authorized_host,
+                                                   is_write_op);
+
+        /* If the filehandle is set, just exit since we have to make only
+         * one call to the function above
+         */
+        if (fh)
+                goto out;
+
+        parent_old = path;
+        while (auth_status_code != 0) {
+                /* Get the path's parent */
+                parent_path = gf_resolve_path_parent (parent_old);
+                if (!parent_path) /* Nothing left in the path to resolve */
+                        goto out;
+
+                /* Authenticate it */
+                auth_status_code = _mnt3_authenticate_req (ms, req, fh,
+                                                           parent_path,
+                                                           authorized_path,
+                                                           authorized_host,
+                                                           is_write_op);
+
+                parent_old = strdupa (parent_path); /* Copy the parent onto the
+                                                     * stack.
+                                                     */
+
+                GF_FREE (parent_path); /* Free the allocated parent string */
+        }
+
+out:
+        return auth_status_code;
+}
 
 int
 mnt3svc_mnt (rpcsvc_request_t *req)
@@ -1587,6 +2064,7 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         mountstat3              mntstat = MNT3ERR_SERVERFAULT;
         struct mnt3_export      *exp = NULL;
         struct nfs_state        *nfs = NULL;
+        int                     authcode = 0;
 
         if (!req)
                 return -1;
@@ -1646,7 +2124,20 @@ mnt3svc_mnt (rpcsvc_request_t *req)
                 goto mnterr;
         }
 
+        /* The second authentication check is the exports/netgroups
+         * check.
+         */
+        authcode = mnt3_authenticate_request (ms, req, NULL, NULL, path, NULL,
+                                              NULL, _gf_false);
+        if (authcode != 0) {
+                mntstat = MNT3ERR_ACCES;
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
+                ret = -1;
+                goto mnterr;
+        }
+
         ret = mnt3svc_mount (req, ms, exp);
+
         if (ret < 0)
                 mntstat = mnt3svc_errno_to_mnterr (-ret);
 mnterr:
@@ -1952,9 +2443,12 @@ __mnt3svc_umountall (struct mount3_state *ms)
                 return 0;
 
         list_for_each_entry_safe (me, tmp, &ms->mountlist, mlist) {
-                list_del (&me->mlist);
+                list_del (&me->mlist);       /* Remove from the mount list */
+                __mountdict_remove (ms, me); /* Remove from the mount dict */
                 GF_FREE (me);
         }
+
+        dict_unref (ms->mountdict);
 
         return 0;
 }
@@ -2284,7 +2778,7 @@ nfs3_rootfh (struct svc_req *req, xlator_t *nfsx,
                 return NULL;
         }
 
-        exp = mnt3_mntpath_to_export (ms, path);
+        exp = mnt3_mntpath_to_export (ms, path , _gf_false);
         if (exp != NULL)
                 mnt3type = exp->exptype;
 
@@ -2300,7 +2794,7 @@ nfs3_rootfh (struct svc_req *req, xlator_t *nfsx,
 
                 path = __volume_subdir (path, &volptr);
                 if (exp == NULL)
-                        exp = mnt3_mntpath_to_export (ms, volname);
+                        exp = mnt3_mntpath_to_export (ms, volname , _gf_false);
         }
 
         if (exp == NULL) {
@@ -2685,11 +3179,7 @@ __mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
         if ((!ms) || (!xlator) || (!optstr))
                 return -1;
 
-        dupopt = gf_strdup (optstr);
-        if (!dupopt) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "gf_strdup failed");
-                goto err;
-        }
+        dupopt = strdupa (optstr);
 
         token = strtok_r (dupopt, ",", &savptr);
         while (token) {
@@ -2707,8 +3197,6 @@ __mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
 
         ret = 0;
 err:
-        GF_FREE (dupopt);
-
         return ret;
 }
 
@@ -2914,11 +3402,11 @@ mnt3_init_options (struct mount3_state *ms, dict_t *options)
                 volentry = volentry->next;
         }
 
+
         ret = 0;
 err:
         return ret;
 }
-
 
 struct mount3_state *
 mnt3_init_state (xlator_t *nfsx)
@@ -2999,7 +3487,286 @@ rpcsvc_program_t        mnt3prog = {
                         .synctask       = _gf_true,
 };
 
+/**
+ * __mnt3_mounted_exports_walk -- Walk through the mounted export directories
+ *                                and unmount the directories that are no
+ *                                longer authorized to be mounted.
+ * @dict: The dict to walk
+ * @key : The key we are on
+ * @val : The value associated with that key
+ * @tmp : Additional params (pointer to an auth params struct passed here)
+ *
+ */
+int
+__mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
+{
+        char                     *path             = NULL;
+        char                     *host_addr_ip     = NULL;
+        char                     *keydup           = NULL;
+        char                     *colon            = NULL;
+        struct mnt3_auth_params  *auth_params      = NULL;
+        int                       auth_status_code = 0;
 
+        gf_log (GF_MNT, GF_LOG_TRACE, "Checking if key %s is authorized.", key);
+
+        auth_params = (struct mnt3_auth_params *)tmp;
+
+        /* Since we haven't obtained a lock around the mount dict
+         * here, we want to duplicate the key and then process it.
+         * Otherwise we would potentially have a race condition
+         * by modifying the key in the dict when other threads
+         * are accessing it.
+         */
+        keydup = strdupa (key);
+
+        colon = strchr (keydup, ':');
+        if (!colon)
+                return 0;
+
+        *colon = '\0';
+
+        path = alloca (strlen (keydup) + 2);
+        snprintf (path, strlen (keydup) + 2, "/%s", keydup);
+
+        /* Host is one character after ':' */
+        host_addr_ip = colon + 1;
+        auth_status_code = mnt3_auth_host (auth_params, host_addr_ip, NULL,
+                                           path, _gf_false, NULL);
+        if (auth_status_code != 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                                "%s is no longer authorized for %s",
+                                host_addr_ip, path);
+                mnt3svc_umount (auth_params->ms, path, host_addr_ip);
+        }
+        return 0;
+}
+
+/**
+ * _mnt3_invalidate_old_mounts -- Calls __mnt3_mounted_exports_walk which checks
+ *                                checks if hosts are authorized to be mounted
+ *                                and umounts them.
+ *
+ * @ms: The mountstate for this service that holds all the information we need
+ *
+ */
+void
+_mnt3_invalidate_old_mounts (struct mount3_state *ms)
+{
+        gf_log (GF_MNT, GF_LOG_DEBUG, "Invalidating old mounts ...");
+        dict_foreach (ms->mountdict, __mnt3_mounted_exports_walk,
+                      ms->auth_params);
+}
+
+
+/**
+ * _mnt3_has_file_changed -- Checks if a file has changed on disk
+ *
+ * @path: The path of the file on disk
+ * @oldmtime: The previous mtime of the file
+ *
+ * @return: file changed: TRUE
+ *          otherwise   : FALSE
+ *
+ * Uses get_file_mtime () in common-utils.c
+ */
+gf_boolean_t
+_mnt3_has_file_changed (const char *path, time_t *oldmtime)
+{
+        gf_boolean_t    changed = _gf_false;
+        time_t          mtime   = {0};
+        int             ret     = 0;
+
+        GF_VALIDATE_OR_GOTO (GF_MNT, path, out);
+        GF_VALIDATE_OR_GOTO (GF_MNT, oldmtime, out);
+
+        ret = get_file_mtime (path, &mtime);
+        if (ret < 0)
+                goto out;
+
+        if (mtime != *oldmtime) {
+                changed = _gf_true;
+                *oldmtime = mtime;
+        }
+out:
+        return changed;
+}
+
+/**
+ * _mnt_auth_param_refresh_thread - Started using pthread_create () in
+ *                                  mnt3svc_init (). Reloads exports/netgroups
+ *                                  files from disk and sets the auth params
+ *                                  structure in the mount state to reflect
+ *                                  any changes from disk.
+ * @argv: Unused argument
+ * @return: Always returns NULL
+ */
+void *
+_mnt3_auth_param_refresh_thread (void *argv)
+{
+        struct          mount3_state *mstate    = (struct mount3_state *)argv;
+        char            *exp_file_path          = NULL;
+        char            *ng_file_path           = NULL;
+        size_t          nbytes                  = 0;
+        time_t          exp_time                = 0;
+        time_t          ng_time                 = 0;
+        gf_boolean_t    any_file_changed        = _gf_false;
+        int             ret                     = 0;
+
+        nbytes = strlen (exports_file_path) + 1;
+        exp_file_path = alloca (nbytes);
+        snprintf (exp_file_path, nbytes, "%s", exports_file_path);
+
+        nbytes = strlen (netgroups_file_path) + 1;
+        ng_file_path = alloca (nbytes);
+        snprintf (ng_file_path, nbytes, "%s", netgroups_file_path);
+
+        /* Set the initial timestamps to avoid reloading right after
+         * mnt3svc_init () spawns this thread */
+        get_file_mtime (exp_file_path, &exp_time);
+        get_file_mtime (ng_file_path, &ng_time);
+
+        while (_gf_true) {
+                if (mstate->stop_refresh)
+                        break;
+                any_file_changed = _gf_false;
+
+                /* Sleep before checking the file again */
+                sleep (mstate->nfs->auth_refresh_time_secs);
+
+                if (_mnt3_has_file_changed (exp_file_path, &exp_time)) {
+                        gf_log (GF_MNT, GF_LOG_INFO, "File %s changed, "
+                                                     "updating exports,",
+                                exp_file_path);
+
+                        ret = mnt3_auth_set_exports_auth (mstate->auth_params,
+                                                          exp_file_path);
+                        if (ret)
+                                gf_log (GF_MNT, GF_LOG_ERROR,
+                                        "Failed to set export auth params.");
+                        else
+                                any_file_changed = _gf_true;
+                }
+
+                if (_mnt3_has_file_changed (ng_file_path, &ng_time)) {
+                        gf_log (GF_MNT, GF_LOG_INFO, "File %s changed,"
+                                                     "updating netgroups",
+                                ng_file_path);
+
+                        ret = mnt3_auth_set_netgroups_auth (mstate->auth_params,
+                                                            ng_file_path);
+                        if (ret)
+                                gf_log (GF_MNT, GF_LOG_ERROR,
+                                        "Failed to set netgroup auth params.");
+                        else
+                                any_file_changed = _gf_true;
+                }
+
+                /* If no files changed, go back to sleep */
+                if (!any_file_changed)
+                        continue;
+
+                gf_log (GF_MNT, GF_LOG_INFO, "Purging auth cache.");
+                auth_cache_purge (mstate->authcache);
+
+                /* Walk through mounts that are no longer authorized
+                 * and unmount them on the server side. This will
+                 * cause subsequent file ops to fail with access denied.
+                 */
+                _mnt3_invalidate_old_mounts (mstate);
+        }
+
+        return NULL;
+}
+
+/**
+ * _mnt3_init_auth_params -- Initialize authentication parameters by allocating
+ *                           the struct and setting the exports & netgroups
+ *                           files as parameters.
+ *
+ * @mstate : The mount state we are going to set the auth parameters in it.
+ *
+ * @return : success: 0 for success
+ *           failure: -EINVAL for bad args, -ENOMEM for allocation errors, < 0
+ *                    for other errors (parsing the files, etc.) These are
+ *                    bubbled up from the functions we call to set the params.
+ */
+int
+_mnt3_init_auth_params (struct mount3_state *mstate)
+{
+        int      ret            = -EINVAL;
+        char     *exp_file_path = NULL;
+        char     *ng_file_path  = NULL;
+        size_t   nbytes         = 0;
+
+        GF_VALIDATE_OR_GOTO (GF_MNT, mstate, out);
+
+        mstate->auth_params = mnt3_auth_params_init (mstate);
+        if (!mstate->auth_params) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Failed to init mount auth params.");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        nbytes = strlen (exports_file_path) + 1;
+        exp_file_path = alloca (nbytes);
+        snprintf (exp_file_path, nbytes, "%s", exports_file_path);
+
+        ret = mnt3_auth_set_exports_auth (mstate->auth_params, exp_file_path);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Failed to set export auth params.");
+                goto out;
+        }
+
+        nbytes = strlen (netgroups_file_path) + 1;
+        ng_file_path = alloca (nbytes);
+        snprintf (ng_file_path, nbytes, "%s", netgroups_file_path);
+
+        ret = mnt3_auth_set_netgroups_auth (mstate->auth_params, ng_file_path);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Failed to set netgroup auth params.");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+/**
+ * mnt3svc_deinit -- Function called by the nfs translator to cleanup all state
+ *
+ * @nfsx : The NFS translator used to perform the cleanup
+ *         This structure holds all the pointers to memory that we need to free
+ *         as well as the threads that have been started.
+ */
+void
+mnt3svc_deinit (xlator_t *nfsx)
+{
+        struct mount3_state *mstate = NULL;
+        struct nfs_state    *nfs    = NULL;
+
+        if (!nfsx || !nfsx->private)
+                return;
+
+        nfs = (struct nfs_state *)nfsx->private;
+        mstate = (struct mount3_state *)nfs->mstate;
+
+        if (nfs->refresh_auth) {
+                /* Mark as true and wait for thread to exit */
+                mstate->stop_refresh = _gf_true;
+                pthread_join (mstate->auth_refresh_thread, NULL);
+        }
+
+        if (nfs->exports_auth)
+                mnt3_auth_params_deinit (mstate->auth_params);
+
+        /* Unmount everything and clear mountdict */
+        mnt3svc_umountall (mstate);
+}
 
 rpcsvc_program_t *
 mnt3svc_init (xlator_t *nfsx)
@@ -3023,6 +3790,33 @@ mnt3svc_init (xlator_t *nfsx)
                 goto err;
         }
 
+        mstate->nfs = nfs;
+
+        mstate->mountdict = dict_new ();
+        if (!mstate->mountdict) {
+                gf_log (GF_MNT, GF_LOG_ERROR,
+                        "Failed to setup mount dict. Allocation error.");
+                goto err;
+        }
+
+        if (nfs->exports_auth) {
+                ret = _mnt3_init_auth_params (mstate);
+                if (ret < 0)
+                        goto err;
+
+                mstate->authcache = auth_cache_init (nfs->auth_cache_ttl_sec);
+                if (!mstate->authcache) {
+                        ret = -ENOMEM;
+                        goto err;
+                }
+
+                mstate->stop_refresh = _gf_false; /* Allow thread to run */
+                pthread_create (&mstate->auth_refresh_thread, NULL,
+                                _mnt3_auth_param_refresh_thread, mstate);
+        } else
+                gf_log (GF_MNT, GF_LOG_WARNING, "Exports auth has been "
+                                                "disabled!");
+
         mnt3prog.private = mstate;
         options = dict_new ();
 
@@ -3030,9 +3824,11 @@ mnt3svc_init (xlator_t *nfsx)
         if (ret == -1)
                 goto err;
 
-        ret = dict_set_dynstr (options, "transport.socket.listen-port", portstr);
+        ret = dict_set_dynstr (options, "transport.socket.listen-port",
+                               portstr);
         if (ret == -1)
                 goto err;
+
         ret = dict_set_str (options, "transport-type", "socket");
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");

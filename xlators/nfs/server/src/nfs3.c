@@ -246,6 +246,29 @@ out:
                 }                                                       \
         } while (0)                                                     \
 
+
+#define nfs3_check_fh_auth_status(cst, nfstat, is_write_op, erlabl)     \
+        do {                                                            \
+                xlator_t *xlatorp = NULL;                               \
+                char buf[256], gfid[256];                               \
+                rpc_transport_t *trans = NULL;                          \
+                cst->resolve_ret = cst->resolve_errno =                 \
+                        nfs3_fh_auth_nfsop (cst, is_write_op);          \
+                if ((cst)->resolve_ret < 0) {                           \
+                        trans = rpcsvc_request_transport (cst->req);    \
+                        xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
+                                                     &cst->resolvefh);  \
+                        uuid_unparse (cst->resolvefh.gfid, gfid);       \
+                        sprintf (buf, "(%s) %s : %s",                   \
+                                 trans->peerinfo.identifier,            \
+                        xlatorp ? xlatorp->name : "ERR", gfid);         \
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Unable to resolve FH"\
+                                ": %s", buf);                           \
+                        nfstat = nfs3_errno_to_nfsstat3 (-cst->resolve_errno);\
+                        goto erlabl;                                    \
+                }                                                       \
+        } while (0)                                                     \
+
 #define nfs3_check_fh_resolve_status(cst, nfstat, erlabl)               \
         do {                                                            \
                 xlator_t *xlatorp = NULL;                               \
@@ -711,7 +734,7 @@ nfs3svc_getattr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_GETATTR,
-                             status, op_errno);
+                        status, op_errno);
 
         nfs3_getattr_reply (cs->req, status, buf);
         nfs3_call_state_wipe (cs);
@@ -738,7 +761,7 @@ nfs3svc_getattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_GETATTR,
-                             status, op_errno);
+                        status, op_errno);
 
         nfs3_getattr_reply (cs->req, status, buf);
         nfs3_call_state_wipe (cs);
@@ -762,6 +785,7 @@ nfs3_getattr_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         /* If inode which is to be getattr'd is the root, we need to do a
@@ -777,11 +801,11 @@ nfs3_getattr_resume (void *carg)
                 ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
         */
 
-	if (cs->hardresolved) {
-		ret = -EFAULT;
-		stat = NFS3_OK;
-		goto nfs3err;
-	}
+        if (cs->hardresolved) {
+                ret = -EFAULT;
+                stat = NFS3_OK;
+                goto nfs3err;
+        }
 
         /*
          * If brick state changed, we need to force a proper lookup cycle (as
@@ -1242,8 +1266,8 @@ xmit_res:
                 goto out;
         }
 
-        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP, status,
-                            op_errno, &newfh);
+        nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP,
+                        status, op_errno, &newfh);
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
         nfs3_call_state_wipe (cs);
 out:
@@ -1265,6 +1289,7 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfsstat3                        status = NFS3_OK;
         nfs3_call_state_t               *cs = NULL;
         uuid_t                          volumeid = {0, };
+        uuid_t                          mountid = {1, };
         struct nfs3_state               *nfs3 = NULL;
 
         cs = frame->local;
@@ -1291,7 +1316,7 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                        cs->vol);
         else {
                 __nfs3_get_volume_id (nfs3, cs->vol, volumeid);
-                newfh = nfs3_fh_build_uuid_root_fh (volumeid);
+                newfh = nfs3_fh_build_uuid_root_fh (volumeid, mountid);
         }
 
 xmit_res:
@@ -1321,6 +1346,7 @@ nfs3_lookup_parentdir_resume (void *carg)
         }
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
 
         /* At this point now, the loc in cs is for the directory file handle
@@ -1396,6 +1422,7 @@ nfs3_lookup_resume (void *carg)
         }
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->parent = cs->resolvefh;
 
@@ -1416,7 +1443,7 @@ nfs3err:
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_LOOKUP,
                                      stat, -ret);
                 nfs3_lookup_reply (cs->req, stat, &newfh, &cs->stbuf,
-				   &cs->postparent);
+                                   &cs->postparent);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -1532,8 +1559,9 @@ nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         cs->resolvedloc.path, strerror (op_errno));
                 status = nfs3_cbk_errno_status (op_ret, op_errno);
         }
-        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS, status,
-                             op_errno);
+
+        nfs3_log_common_res (rpcsvc_request_xid (cs->req), NFS3_ACCESS,
+                        status, op_errno);
         nfs3_access_reply (cs->req, status, op_errno, cs->accessbits);
         nfs3_call_state_wipe (cs);
 
@@ -1555,6 +1583,18 @@ nfs3_access_resume (void *carg)
         }
 
         cs = (nfs3_call_state_t *)carg;
+
+        /* Additional checks on the NFS file handle
+         * go here. The path for an NFS ACCESS call
+         * goes like this:
+         * nfs3_access -> nfs3_fh_resolve_and_resume -> nfs3_resolve_resume ->
+         * nfs3_access_resume -> <macro/function performs check on FH> ->
+         * <continue or return from function based on check.> ('goto nfs3err'
+         * terminates this function and writes the appropriate response to the
+         * client). It is important that you do NOT stick any sort of check
+         * on the file handle outside of the nfs3_##OP_resume functions.
+         */
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->fh = cs->resolvefh;
         nfs_request_user_init (&nfu, cs->req);
@@ -1698,6 +1738,7 @@ nfs3_readlink_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         ret = nfs_readlink (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
@@ -1898,6 +1939,7 @@ nfs3_read_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_false, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         fd = fd_anonymous (cs->resolvedloc.inode);
         if (!fd) {
@@ -2145,6 +2187,7 @@ nfs3_write_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_true, nfs3err);
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         fd = fd_anonymous (cs->resolvedloc.inode);
         if (!fd) {
@@ -2216,7 +2259,6 @@ nfs3_write (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         cs->writetype = stable;
         cs->iobref = iobref;
         cs->datavec = payload;
-
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_write_resume);
         if (ret < 0)
@@ -2361,7 +2403,7 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                     ret = -EFAULT;
         nfs_user_t              nfu = {0, };
         nfs3_call_state_t       *cs = NULL;
-	inode_t			*oldinode = NULL;
+        inode_t                 *oldinode = NULL;
 
         cs = frame->local;
         if (op_ret == -1) {
@@ -2553,6 +2595,7 @@ nfs3_create_resume (void *carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
+        nfs3_check_fh_auth_status (cs, stat, _gf_true, nfs3err);
         nfs3_check_new_fh_resolve_status (cs, stat, nfs3err);
         if (cs->createmode == EXCLUSIVE)
                 ret = nfs3_create_exclusive (cs);
