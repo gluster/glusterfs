@@ -29,7 +29,7 @@
 #define GF_NFSFH_IDENT2         'G'
 #define GF_NFSFH_IDENT3         'L'
 #define GF_NFSFH_IDENT_SIZE     (sizeof(char) * 4)
-#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (2*sizeof (uuid_t)))
+#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (3*sizeof (uuid_t)))
 
 #define nfs3_fh_exportid_to_index(exprtid)      ((uint16_t)exprtid[15])
 /* ATTENTION: Change in size of the structure below should be reflected in the
@@ -56,6 +56,7 @@ struct nfs3_fh {
 
         /* File/dir gfid. */
         uuid_t                  gfid;
+        uuid_t                  mountid;
         /* This structure must be exactly NFS3_FHSIZE (64) bytes long.
            Having the structure shorter results in buffer overflows
            during XDR decoding.

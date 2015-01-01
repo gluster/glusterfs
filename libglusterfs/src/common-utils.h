@@ -618,6 +618,7 @@ void skip_word (char **str);
 char *get_nth_word (const char *str, int n);
 
 gf_boolean_t mask_match (const uint32_t a, const uint32_t b, const uint32_t m);
+gf_boolean_t gf_is_ip_in_net (const char *network, const char *ip_str);
 char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc);
 char valid_ipv6_address (char *address, int length, gf_boolean_t wildcard_acc);
