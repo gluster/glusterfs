@@ -791,6 +791,9 @@ svc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
          * If the name variable matches this key then we have
          * to send back .snaps as the real filename.
          */
+        if (!name)
+                goto stack_wind;
+
         sscanf (name, "%[^:]:%[^@]", attrname, attrval);
         strcat (attrname, ":");
 
@@ -818,7 +821,7 @@ svc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
                         goto out;
                 }
         }
-
+stack_wind:
         SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
                                  loc->inode, subvolume, out);
 
