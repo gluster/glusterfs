@@ -195,9 +195,10 @@ int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
     }
 }
 
-void ec_removexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                    int32_t minimum, fop_removexattr_cbk_t func, void * data,
-                    loc_t * loc, const char * name, dict_t * xdata)
+void
+ec_removexattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
+                int32_t minimum, fop_removexattr_cbk_t func, void *data,
+                loc_t *loc, const char *name, dict_t *xdata)
 {
     ec_cbk_t callback = { .removexattr = func };
     ec_fop_data_t * fop = NULL;
@@ -205,9 +206,9 @@ void ec_removexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     gf_log("ec", GF_LOG_TRACE, "EC(REMOVEXATTR) %p", frame);
 
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+    VALIDATE_OR_GOTO (this, out);
+    GF_VALIDATE_OR_GOTO (this->name, frame, out);
+    GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_REMOVEXATTR,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
@@ -252,13 +253,10 @@ void ec_removexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
-        ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    if (fop != NULL) {
+        ec_manager (fop, error);
+    } else {
+        func (frame, NULL, this, -1, error, NULL);
     }
 }
 
@@ -319,9 +317,10 @@ void ec_wind_fremovexattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       fop->fd, fop->str[0], fop->xdata);
 }
 
-void ec_fremovexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                     int32_t minimum, fop_fremovexattr_cbk_t func, void * data,
-                     fd_t * fd, const char * name, dict_t * xdata)
+void
+ec_fremovexattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
+                 int32_t minimum, fop_fremovexattr_cbk_t func, void *data,
+                 fd_t *fd, const char *name, dict_t *xdata)
 {
     ec_cbk_t callback = { .fremovexattr = func };
     ec_fop_data_t * fop = NULL;
@@ -329,9 +328,9 @@ void ec_fremovexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     gf_log("ec", GF_LOG_TRACE, "EC(FREMOVEXATTR) %p", frame);
 
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+    VALIDATE_OR_GOTO (this, out);
+    GF_VALIDATE_OR_GOTO (this->name, frame, out);
+    GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_FREMOVEXATTR,
                                EC_FLAG_UPDATE_FD_INODE, target, minimum,
@@ -380,13 +379,10 @@ void ec_fremovexattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
-        ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    if (fop != NULL) {
+        ec_manager (fop, error);
+    } else {
+        func (frame, NULL, this, -1, error, NULL);
     }
 }
 
@@ -986,9 +982,10 @@ int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
     }
 }
 
-void ec_setxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                 int32_t minimum, fop_setxattr_cbk_t func, void * data,
-                 loc_t * loc, dict_t * dict, int32_t flags, dict_t * xdata)
+void
+ec_setxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
+             int32_t minimum, fop_setxattr_cbk_t func, void *data,
+             loc_t *loc, dict_t *dict, int32_t flags, dict_t *xdata)
 {
     ec_cbk_t callback = { .setxattr = func };
     ec_fop_data_t * fop = NULL;
@@ -1046,29 +1043,27 @@ void ec_setxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
-        ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    if (fop != NULL) {
+        ec_manager (fop, error);
+    } else {
+        func (frame, NULL, this, -1, error, NULL);
     }
 }
 
 /* FOP: fsetxattr */
 
-int32_t ec_fsetxattr_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                         int32_t op_ret, int32_t op_errno, dict_t * xdata)
+int32_t
+ec_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     ec_fop_data_t * fop = NULL;
     ec_cbk_data_t * cbk = NULL;
     int32_t idx = (int32_t)(uintptr_t)cookie;
 
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+    VALIDATE_OR_GOTO (this, out);
+    GF_VALIDATE_OR_GOTO (this->name, frame, out);
+    GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
+    GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
     fop = frame->local;
 
@@ -1112,9 +1107,10 @@ void ec_wind_fsetxattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       fop->fd, fop->dict, fop->int32, fop->xdata);
 }
 
-void ec_fsetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                  int32_t minimum, fop_fsetxattr_cbk_t func, void * data,
-                  fd_t * fd, dict_t * dict, int32_t flags, dict_t * xdata)
+void
+ec_fsetxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
+              int32_t minimum, fop_fsetxattr_cbk_t func, void *data,
+              fd_t *fd, dict_t *dict, int32_t flags, dict_t *xdata)
 {
     ec_cbk_t callback = { .fsetxattr = func };
     ec_fop_data_t * fop = NULL;
@@ -1176,13 +1172,10 @@ void ec_fsetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
-        ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL);
+    if (fop != NULL) {
+        ec_manager (fop, error);
+    } else {
+        func (frame, NULL, this, -1, error, NULL);
     }
 }
 

@@ -280,15 +280,10 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
                 else
                 {
                     if (cbk->xdata != NULL)
-                    {
-                        dict_del(cbk->xdata, EC_XATTR_SIZE);
-                        dict_del(cbk->xdata, EC_XATTR_VERSION);
-                    }
+                            ec_filter_internal_xattrs (cbk->xdata);
+
                     if (cbk->dict != NULL)
-                    {
-                        dict_del(cbk->dict, EC_XATTR_SIZE);
-                        dict_del(cbk->dict, EC_XATTR_VERSION);
-                    }
+                            ec_filter_internal_xattrs (cbk->dict);
                 }
             }
             else
@@ -399,9 +394,10 @@ out:
     return 0;
 }
 
-void ec_getxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                 int32_t minimum, fop_getxattr_cbk_t func, void * data,
-                 loc_t * loc, const char * name, dict_t * xdata)
+void
+ec_getxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
+             int32_t minimum, fop_getxattr_cbk_t func, void *data,
+             loc_t *loc, const char *name, dict_t *xdata)
 {
     ec_cbk_t callback = { .getxattr = func };
     ec_fop_data_t * fop = NULL;
@@ -464,13 +460,10 @@ void ec_getxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
-        ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL);
+    if (fop != NULL) {
+        ec_manager (fop, error);
+    } else {
+        func (frame, NULL, this, -1, error, NULL, NULL);
     }
 }
 
@@ -536,7 +529,8 @@ out:
     return 0;
 }
 
-void ec_wind_fgetxattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
+void
+ec_wind_fgetxattr (ec_t *ec, ec_fop_data_t *fop, int32_t idx)
 {
     ec_trace("WIND", fop, "idx=%d", idx);
 
@@ -545,9 +539,10 @@ void ec_wind_fgetxattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       fop->fd, fop->str[0], fop->xdata);
 }
 
-void ec_fgetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                  int32_t minimum, fop_fgetxattr_cbk_t func, void * data,
-                  fd_t * fd, const char * name, dict_t * xdata)
+void
+ec_fgetxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
+              int32_t minimum, fop_fgetxattr_cbk_t func, void *data,
+              fd_t *fd, const char *name, dict_t *xdata)
 {
     ec_cbk_t callback = { .fgetxattr = func };
     ec_fop_data_t * fop = NULL;
@@ -606,13 +601,10 @@ void ec_fgetxattr(call_frame_t * frame, xlator_t * this, uintptr_t target,
     error = 0;
 
 out:
-    if (fop != NULL)
-    {
-        ec_manager(fop, error);
-    }
-    else
-    {
-        func(frame, NULL, this, -1, EIO, NULL, NULL);
+    if (fop != NULL) {
+        ec_manager (fop, error);
+    } else {
+        func (frame, NULL, this, -1, error, NULL, NULL);
     }
 }
 
