@@ -694,3 +694,20 @@ uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale)
 
     return size;
 }
+
+inline gf_boolean_t
+ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data)
+{
+        if (key &&
+            (strncmp (key, EC_XATTR_PREFIX, strlen (EC_XATTR_PREFIX)) == 0))
+                return _gf_true;
+
+        return _gf_false;
+}
+
+void
+ec_filter_internal_xattrs (dict_t *xattr)
+{
+        dict_foreach_match (xattr, ec_is_internal_xattr, NULL,
+                            dict_remove_foreach_fn, NULL);
+}

@@ -10,6 +10,7 @@
 
 #include "defaults.h"
 #include "statedump.h"
+#include "compat-errno.h"
 
 #include "ec-mem-types.h"
 #include "ec-helpers.h"
@@ -24,6 +25,19 @@
  * of fragments.
  */
 #define EC_MAX_NODES min(EC_MAX_FRAGMENTS * 2 - 1, EC_METHOD_MAX_NODES)
+
+#define EC_INTERNAL_XATTR_OR_GOTO(name, xattr, op_errno, label)                \
+        do {                                                                   \
+                if (ec_is_internal_xattr (NULL, (char *)name, NULL, NULL)) {   \
+                        op_errno = EPERM;                                      \
+                        goto label;                                            \
+                }                                                              \
+                if (name && (strlen (name) == 0) && xattr) {                   \
+                        /* Bulk [f]removexattr/[f]setxattr */                  \
+                        GF_IF_INTERNAL_XATTR_GOTO (EC_XATTR_PREFIX"*", xattr,  \
+                                                   op_errno, label);           \
+                }                                                              \
+        } while (0)
 
 int32_t ec_parse_options(xlator_t * this)
 {
@@ -470,22 +484,41 @@ int32_t ec_gf_fsyncdir(call_frame_t * frame, xlator_t * this, fd_t * fd,
     return 0;
 }
 
-int32_t ec_gf_getxattr(call_frame_t * frame, xlator_t * this, loc_t * loc,
-                       const char * name, dict_t * xdata)
+int32_t
+ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                const char *name, dict_t *xdata)
 {
-    ec_getxattr(frame, this, -1, EC_MINIMUM_MIN, default_getxattr_cbk, NULL,
-                loc, name, xdata);
+        int     error = 0;
 
-    return 0;
+        if (name && strcmp (name, EC_XATTR_HEAL) != 0) {
+                EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
+        }
+
+        ec_getxattr (frame, this, -1, EC_MINIMUM_MIN, default_getxattr_cbk,
+                     NULL, loc, name, xdata);
+
+        return 0;
+out:
+        error = ENODATA;
+        STACK_UNWIND_STRICT (getxattr, frame, -1, error, NULL, NULL);
+        return 0;
 }
 
-int32_t ec_gf_fgetxattr(call_frame_t * frame, xlator_t * this, fd_t * fd,
-                        const char * name, dict_t * xdata)
+int32_t
+ec_gf_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 const char *name, dict_t *xdata)
 {
-    ec_fgetxattr(frame, this, -1, EC_MINIMUM_MIN, default_fgetxattr_cbk, NULL,
-                 fd, name, xdata);
+        int     error = 0;
 
-    return 0;
+        EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
+
+        ec_fgetxattr (frame, this, -1, EC_MINIMUM_MIN, default_fgetxattr_cbk,
+                      NULL, fd, name, xdata);
+        return 0;
+out:
+        error = ENODATA;
+        STACK_UNWIND_STRICT (fgetxattr, frame, -1, error, NULL, NULL);
+        return 0;
 }
 
 int32_t ec_gf_inodelk(call_frame_t * frame, xlator_t * this,
@@ -607,22 +640,38 @@ int32_t ec_gf_readv(call_frame_t * frame, xlator_t * this, fd_t * fd,
     return 0;
 }
 
-int32_t ec_gf_removexattr(call_frame_t * frame, xlator_t * this, loc_t * loc,
-                          const char * name, dict_t * xdata)
+int32_t
+ec_gf_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                   const char *name, dict_t *xdata)
 {
-    ec_removexattr(frame, this, -1, EC_MINIMUM_MIN, default_removexattr_cbk,
-                   NULL, loc, name, xdata);
+        int     error  = 0;
 
-    return 0;
+        EC_INTERNAL_XATTR_OR_GOTO (name, xdata, error, out);
+
+        ec_removexattr (frame, this, -1, EC_MINIMUM_MIN,
+                        default_removexattr_cbk, NULL, loc, name, xdata);
+
+        return 0;
+out:
+        STACK_UNWIND_STRICT (removexattr, frame, -1, error, NULL);
+        return 0;
 }
 
-int32_t ec_gf_fremovexattr(call_frame_t * frame, xlator_t * this, fd_t * fd,
-                           const char * name, dict_t * xdata)
+int32_t
+ec_gf_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                    const char *name, dict_t *xdata)
 {
-    ec_fremovexattr(frame, this, -1, EC_MINIMUM_MIN, default_fremovexattr_cbk,
-                    NULL, fd, name, xdata);
+        int     error  = 0;
 
-    return 0;
+        EC_INTERNAL_XATTR_OR_GOTO (name, xdata, error, out);
+
+        ec_fremovexattr (frame, this, -1, EC_MINIMUM_MIN,
+                         default_fremovexattr_cbk, NULL, fd, name, xdata);
+
+        return 0;
+out:
+        STACK_UNWIND_STRICT (fremovexattr, frame, -1, error, NULL);
+        return 0;
 }
 
 int32_t ec_gf_rename(call_frame_t * frame, xlator_t * this, loc_t * oldloc,
@@ -661,22 +710,38 @@ int32_t ec_gf_fsetattr(call_frame_t * frame, xlator_t * this, fd_t * fd,
     return 0;
 }
 
-int32_t ec_gf_setxattr(call_frame_t * frame, xlator_t * this, loc_t * loc,
-                       dict_t * dict, int32_t flags, dict_t * xdata)
+int32_t
+ec_gf_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                dict_t *dict, int32_t flags, dict_t *xdata)
 {
-    ec_setxattr(frame, this, -1, EC_MINIMUM_MIN, default_setxattr_cbk, NULL,
-                loc, dict, flags, xdata);
+        int     error = 0;
 
-    return 0;
+        EC_INTERNAL_XATTR_OR_GOTO ("", dict, error, out);
+
+        ec_setxattr (frame, this, -1, EC_MINIMUM_MIN, default_setxattr_cbk,
+                     NULL, loc, dict, flags, xdata);
+
+        return 0;
+out:
+        STACK_UNWIND_STRICT (setxattr, frame, -1, error, NULL);
+        return 0;
 }
 
-int32_t ec_gf_fsetxattr(call_frame_t * frame, xlator_t * this, fd_t * fd,
-                        dict_t * dict, int32_t flags, dict_t * xdata)
+int32_t
+ec_gf_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                 dict_t *dict, int32_t flags, dict_t *xdata)
 {
-    ec_fsetxattr(frame, this, -1, EC_MINIMUM_MIN, default_fsetxattr_cbk, NULL,
-                 fd, dict, flags, xdata);
+        int     error = 0;
 
-    return 0;
+        EC_INTERNAL_XATTR_OR_GOTO ("", dict, error, out);
+
+        ec_fsetxattr (frame, this, -1, EC_MINIMUM_MIN, default_fsetxattr_cbk,
+                      NULL, fd, dict, flags, xdata);
+
+        return 0;
+out:
+        STACK_UNWIND_STRICT (fsetxattr, frame, -1, error, NULL);
+        return 0;
 }
 
 int32_t ec_gf_stat(call_frame_t * frame, xlator_t * this, loc_t * loc,
