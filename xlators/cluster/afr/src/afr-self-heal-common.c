@@ -932,13 +932,14 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		if (replies[i].op_ret == -1)
 			continue;
 
-		if (afr_is_data_set (this, replies[i].xdata))
+		if (data_selfheal && afr_is_data_set (this, replies[i].xdata))
 			*data_selfheal = _gf_true;
 
-		if (afr_is_metadata_set (this, replies[i].xdata))
+		if (metadata_selfheal &&
+                    afr_is_metadata_set (this, replies[i].xdata))
 			*metadata_selfheal = _gf_true;
 
-		if (afr_is_entry_set (this, replies[i].xdata))
+		if (entry_selfheal && afr_is_entry_set (this, replies[i].xdata))
 			*entry_selfheal = _gf_true;
 
 		valid_cnt ++;
@@ -967,7 +968,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
 
-			*metadata_selfheal = _gf_true;
+                        if (metadata_selfheal)
+                                *metadata_selfheal = _gf_true;
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, gid)) {
@@ -978,7 +980,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
 
-			*metadata_selfheal = _gf_true;
+                        if (metadata_selfheal)
+                                *metadata_selfheal = _gf_true;
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, prot)) {
@@ -989,7 +992,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
 
-			*metadata_selfheal = _gf_true;
+                        if (metadata_selfheal)
+                                *metadata_selfheal = _gf_true;
 		}
 
 		if (IA_ISREG(first.ia_type) &&
@@ -1001,11 +1005,12 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 				priv->children[i]->name,
 				uuid_utoa (replies[i].poststat.ia_gfid));
 
-			*data_selfheal = _gf_true;
+                        if (data_selfheal)
+                                *data_selfheal = _gf_true;
 		}
 	}
 
-	if (valid_cnt > 0) {
+	if (valid_cnt > 0 && link_inode) {
 		*link_inode = afr_inode_link (inode, &first);
                 if (!*link_inode) {
                         ret = -EINVAL;

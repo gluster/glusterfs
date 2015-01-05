@@ -17,7 +17,7 @@ do
 	fi
 done
 
-gluster volume heal $V0 info | grep "Status: self-heal-daemon is not running on $uuid";
-EXPECT "0" echo $?
+#Command execution should fail reporting that the bricks are not running.
+TEST ! $CLI volume heal $V0 info
 
 cleanup;
