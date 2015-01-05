@@ -2856,7 +2856,7 @@ cli_xml_output_vol_info_end (cli_local_t *local)
         ret = cli_end_xml_output (local->writer, local->doc);
 
 out:
-        gf_log ("cli", GF_LOG_ERROR, "Returning %d", ret);
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 #else
         return 0;
