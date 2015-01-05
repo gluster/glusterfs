@@ -455,7 +455,7 @@ cli_state_init (struct cli_state *state)
         int                   ret = 0;
 
 
-        state->log_level = -1;
+        state->log_level = GF_LOG_NONE;
 
         tree = &state->tree;
         tree->state = state;
