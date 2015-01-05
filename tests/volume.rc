@@ -412,7 +412,7 @@ function path_exists {
 }
 
 function force_umount {
-        umount -f $1
+        umount -f $*
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
 
