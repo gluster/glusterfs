@@ -861,7 +861,7 @@ out:
 
         free (rsp.op_errstr);
 
-        gf_log ("cli", GF_LOG_INFO, "Returning: %d", ret);
+        gf_log ("cli", GF_LOG_DEBUG, "Returning: %d", ret);
         return ret;
 }
 
@@ -1010,7 +1010,7 @@ out:
         cli_cmd_broadcast_response (ret);
         free (rsp.dict.dict_val);
 
-        gf_log ("", GF_LOG_INFO, "Returning with %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
@@ -1148,7 +1148,7 @@ out:
         if (dict)
                 dict_unref (dict);
 
-        gf_log ("", GF_LOG_INFO, "Returning with %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
