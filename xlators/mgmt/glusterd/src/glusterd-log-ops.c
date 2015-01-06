@@ -211,7 +211,7 @@ cont:
                 goto out;
 
         ret = -1;
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 

@@ -3640,7 +3640,7 @@ fetch_data:
         if (ret)
                 gsync_count = 0;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
@@ -4056,7 +4056,7 @@ glusterd_get_gsync_status_all (dict_t *rsp_dict, char *node)
 
         GF_ASSERT (priv);
 
-        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 ret = glusterd_get_gsync_status_mst (volinfo, rsp_dict, node);
                 if (ret)
                         goto out;
