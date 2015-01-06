@@ -40,6 +40,7 @@ AC_CONFIG_FILES([Makefile
                 libglusterfs/src/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_add_secret_pub
+                geo-replication/src/peer_mountbroker
                 geo-replication/syncdaemon/configinterface.py
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
@@ -887,6 +888,14 @@ else
    LOCALSTATEDIR=$(eval echo ${localstatedir})
 fi
 
+old_prefix=$prefix
+if test "x$prefix" = xNONE; then
+    prefix=$ac_default_prefix
+fi
+GLUSTERD_VOLFILE="$(eval echo ${sysconfdir})/glusterfs/glusterd.vol"
+prefix=$old_prefix
+
+
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
@@ -1175,6 +1184,7 @@ AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
+AC_SUBST(GLUSTERD_VOLFILE)
 
 dnl pkg-config versioning
 dnl

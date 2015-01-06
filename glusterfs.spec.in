@@ -943,6 +943,7 @@ fi
 %{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_libexecdir}/glusterfs/peer_gsec_create
+%{_libexecdir}/glusterfs/peer_mountbroker
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
 %dir %{_sharedstatedir}/glusterd/hooks
 %dir %{_sharedstatedir}/glusterd/hooks/1
@@ -1077,6 +1078,9 @@ fi
 
 * Fri Jan 16 2015 Niels de Vos <ndevos@redhat.com>
 - add support for /run/gluster through a tmpfiles.d config file (#1182934)
+
+* Tue Jan 6 2015 Aravinda VK<avishwan@redhat.com>
+- Added new libexec script for mountbroker user management (peer_mountbroker)
 
 * Fri Dec 12 2014 Niels de Vos <ndevos@redhat.com>
 - do not package all /usr/share/glusterfs/* files in regression-tests (#1169005)
