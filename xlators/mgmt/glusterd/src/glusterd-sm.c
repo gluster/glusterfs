@@ -37,7 +37,7 @@
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
 
-static struct list_head gd_friend_sm_queue;
+static struct cds_list_head gd_friend_sm_queue;
 
 static  char *glusterd_friend_sm_state_names[] = {
         "Establishing Connection",
@@ -156,7 +156,7 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
         if (ret)
                 goto out;
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        cds_list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 if (!peerinfo->connected || !peerinfo->peer)
                         continue;
 
@@ -479,7 +479,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         if (ret)
                 goto out;
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        cds_list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
                         continue;
 
@@ -496,7 +496,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         if (ret)
                 goto out;
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        cds_list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 if (!peerinfo->connected || !peerinfo->peer)
                         continue;
 
@@ -536,8 +536,8 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
 
         GF_ASSERT (priv);
 
-        list_for_each_entry_safe (volinfo,tmp_volinfo,
-                                  &priv->volumes, vol_list) {
+        cds_list_for_each_entry_safe (volinfo, tmp_volinfo, &priv->volumes,
+                                      vol_list) {
                 /* The peer detach checks make sure that, at this point in the
                  * detach process, there are only volumes contained completely
                  * within or completely outside the detached peer.
@@ -583,7 +583,7 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
         ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
                                                 ev_ctx->port);
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+        cds_list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
 
                 ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
                                                     &new_event);
@@ -963,7 +963,7 @@ glusterd_friend_sm_new_event (glusterd_friend_sm_event_type_t event_type,
 
         *new_event = event;
         event->event = event_type;
-        INIT_LIST_HEAD (&event->list);
+        CDS_INIT_LIST_HEAD (&event->list);
 
         return 0;
 }
@@ -974,7 +974,7 @@ glusterd_friend_sm_inject_event (glusterd_friend_sm_event_t *event)
         GF_ASSERT (event);
         gf_log ("glusterd", GF_LOG_DEBUG, "Enqueue event: '%s'",
                 glusterd_friend_sm_event_name_get (event->event));
-        list_add_tail (&event->list, &gd_friend_sm_queue);
+        cds_list_add_tail (&event->list, &gd_friend_sm_queue);
 
         return 0;
 }
@@ -1043,10 +1043,11 @@ glusterd_friend_sm ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        while (!list_empty (&gd_friend_sm_queue)) {
-                list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
+        while (!cds_list_empty (&gd_friend_sm_queue)) {
+                cds_list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue,
+                                              list) {
 
-                        list_del_init (&event->list);
+                        cds_list_del_init (&event->list);
                         event_type = event->event;
                         peerinfo = event->peerinfo;
                         if (!peerinfo) {
@@ -1152,6 +1153,6 @@ out:
 int
 glusterd_friend_sm_init ()
 {
-        INIT_LIST_HEAD (&gd_friend_sm_queue);
+        CDS_INIT_LIST_HEAD (&gd_friend_sm_queue);
         return 0;
 }

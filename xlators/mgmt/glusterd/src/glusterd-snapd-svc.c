@@ -210,7 +210,7 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
         }
 
         /* Get volinfo->snapd from svc object */
-        snapd = list_entry (svc, glusterd_snapdsvc_t, svc);
+        snapd = cds_list_entry (svc, glusterd_snapdsvc_t, svc);
         if (!snapd) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get snapd object "
                         "from snapd service");
@@ -218,7 +218,7 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
         }
 
         /* Get volinfo from snapd */
-        volinfo = list_entry (snapd, glusterd_volinfo_t, snapd);
+        volinfo = cds_list_entry (snapd, glusterd_volinfo_t, snapd);
         if (!volinfo) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get volinfo from "
                         "from snapd");
@@ -318,7 +318,7 @@ glusterd_snapdsvc_restart ()
         conf = this->private;
         GF_ASSERT (conf);
 
-        list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 /* Init per volume snapd svc */
                 ret = glusterd_snapdsvc_init (volinfo);
                 if (ret) {
@@ -359,7 +359,7 @@ glusterd_snapdsvc_rpc_notify (glusterd_conn_t *conn, rpc_clnt_event_t event)
         this = THIS;
         GF_ASSERT (this);
 
-        svc = list_entry (conn, glusterd_svc_t, conn);
+        svc = cds_list_entry (conn, glusterd_svc_t, conn);
         if (!svc) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get the service");
                 return -1;
@@ -382,14 +382,14 @@ glusterd_snapdsvc_rpc_notify (glusterd_conn_t *conn, rpc_clnt_event_t event)
                 break;
 
         case RPC_CLNT_DESTROY:
-                snapd = list_entry (svc, glusterd_snapdsvc_t, svc);
+                snapd = cds_list_entry (svc, glusterd_snapdsvc_t, svc);
                 if (!snapd) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to get the "
                                 "snapd object");
                         return -1;
                 }
 
-                volinfo = list_entry (snapd, glusterd_volinfo_t, snapd);
+                volinfo = cds_list_entry (snapd, glusterd_volinfo_t, snapd);
                 if (!volinfo) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to get the "
                                 "volinfo object");

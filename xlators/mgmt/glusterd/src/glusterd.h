@@ -127,8 +127,8 @@ struct glusterd_volgen {
 typedef struct {
         struct _volfile_ctx     *volfile;
         pthread_mutex_t          mutex;
-        struct list_head         peers;
-        struct list_head         xaction_peers;
+        struct cds_list_head     peers;
+        struct cds_list_head     xaction_peers;
         gf_boolean_t             verify_volfile_checksum;
         gf_boolean_t             trace;
         uuid_t                   uuid;
@@ -138,8 +138,8 @@ typedef struct {
         glusterd_svc_t           nfs_svc;
         glusterd_svc_t           quotad_svc;
         struct pmap_registry    *pmap;
-        struct list_head         volumes;
-        struct list_head         snapshots; /*List of snap volumes */
+        struct cds_list_head     volumes;
+        struct cds_list_head     snapshots; /*List of snap volumes */
         pthread_mutex_t          xprt_lock;
         struct list_head         xprt_list;
         gf_store_handle_t       *handle;
@@ -155,7 +155,7 @@ typedef struct {
                                                  * cluster with no
                                                  * transaction ids */
 
-        struct list_head           mount_specs;
+        struct cds_list_head       mount_specs;
         gf_boolean_t               valgrind;
         pthread_t                  brick_thread;
         void                      *hooks_priv;
@@ -171,7 +171,7 @@ typedef struct {
         uint32_t                   base_port;
         char                      *snap_bricks_directory;
         gf_store_handle_t         *missed_snaps_list_shandle;
-        struct list_head           missed_snaps_list;
+        struct cds_list_head       missed_snaps_list;
         int           ping_timeout;
 } glusterd_conf_t;
 
@@ -189,7 +189,7 @@ struct glusterd_brickinfo {
         char               brick_id[1024];/*Client xlator name, AFR changelog name*/
         char               fstype [NAME_MAX]; /* Brick file-system type */
         char               mnt_opts [1024]; /* Brick mount options */
-        struct list_head   brick_list;
+        struct cds_list_head   brick_list;
         uuid_t             uuid;
         int                port;
         int                rdma_port;
@@ -313,17 +313,17 @@ struct glusterd_volinfo_ {
         int                       brick_count;
         uint64_t                  snap_count;
         uint64_t                  snap_max_hard_limit;
-        struct list_head          vol_list;
+        struct cds_list_head      vol_list;
                                       /* In case of a snap volume
                                          i.e (is_snap_volume == TRUE) this
                                          is linked to glusterd_snap_t->volumes.
                                          In case of a non-snap volume, this is
                                          linked to glusterd_conf_t->volumes */
-        struct list_head          snapvol_list;
+        struct cds_list_head      snapvol_list;
                                       /* This is a current pointer for
                                          glusterd_volinfo_t->snap_volumes */
-        struct list_head          bricks;
-        struct list_head          snap_volumes;
+        struct cds_list_head      bricks;
+        struct cds_list_head      snap_volumes;
                                       /* TODO : Need to remove this, as this
                                        * is already part of snapshot object.
                                        */
@@ -390,8 +390,8 @@ typedef enum gd_snap_status_ {
 
 struct glusterd_snap_ {
         gf_lock_t                lock;
-        struct  list_head        volumes;
-        struct  list_head        snap_list;
+        struct  cds_list_head    volumes;
+        struct  cds_list_head    snap_list;
         char                     snapname[GLUSTERD_MAX_SNAP_NAME];
         uuid_t                   snap_id;
         char                    *description;
@@ -407,14 +407,14 @@ typedef struct glusterd_snap_op_ {
         char                  *brick_path;
         int32_t                op;
         int32_t                status;
-        struct list_head       snap_ops_list;
+        struct cds_list_head   snap_ops_list;
 } glusterd_snap_op_t;
 
 typedef struct glusterd_missed_snap_ {
         char                   *node_uuid;
         char                   *snap_uuid;
-        struct list_head        missed_snaps;
-        struct list_head        snap_ops;
+        struct cds_list_head    missed_snaps;
+        struct cds_list_head    snap_ops;
 } glusterd_missed_snap_info;
 
 typedef enum gd_node_type_ {
@@ -434,7 +434,7 @@ typedef enum missed_snap_stat {
 } missed_snap_stat;
 
 typedef struct glusterd_pending_node_ {
-        struct list_head list;
+        struct cds_list_head list;
         void   *node;
         gd_node_type type;
         int32_t index;
@@ -459,7 +459,7 @@ enum glusterd_vol_comp_status_ {
 };
 
 typedef struct addrinfo_list {
-        struct list_head list;
+        struct cds_list_head list;
         struct addrinfo *info;
 } addrinfo_list_t;
 
@@ -629,7 +629,7 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                         snprintf (key, sizeof (key),                         \
                                   "glusterd.xaction_peer");                  \
                                                                              \
-                list_for_each_entry (_peerinfo, head, member) {              \
+                cds_list_for_each_entry (_peerinfo, head, member) {          \
                         glusterd_dump_peer (_peerinfo, key, index, xpeers);  \
                         if (!xpeers)                                         \
                                 glusterd_dump_peer_rpcstat (_peerinfo, key,  \

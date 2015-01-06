@@ -307,7 +307,7 @@ glusterd_svc_common_rpc_notify (glusterd_conn_t *conn,
         GF_ASSERT (this);
 
         /* Get the parent onject i.e. svc using list_entry macro */
-        svc = list_entry (conn, glusterd_svc_t, conn);
+        svc = cds_list_entry (conn, glusterd_svc_t, conn);
         if (!svc) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get the service");
                 return -1;

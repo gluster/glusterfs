@@ -29,6 +29,8 @@
 #include "rpcsvc.h"
 #include "store.h"
 
+#include <urcu/rculist.h>
+
 typedef enum gd_quorum_contribution_ {
         QUORUM_NONE,
         QUORUM_WAITING,
@@ -58,7 +60,7 @@ typedef struct glusterd_peer_state_info_ {
 
 typedef struct glusterd_peer_hostname_ {
         char                    *hostname;
-        struct list_head        hostname_list;
+        struct cds_list_head     hostname_list;
 } glusterd_peer_hostname_t;
 
 typedef struct glusterd_sm_transition_ {
@@ -84,10 +86,10 @@ struct glusterd_peerinfo_ {
                                                        */
         glusterd_peer_state_info_t      state;
         char                            *hostname;
-        struct list_head                hostnames;
+        struct cds_list_head            hostnames;
         int                             port;
-        struct list_head                uuid_list;
-        struct list_head                op_peers_list;
+        struct cds_list_head            uuid_list;
+        struct cds_list_head            op_peers_list;
         struct rpc_clnt                 *rpc;
         rpc_clnt_prog_t                 *mgmt;
         rpc_clnt_prog_t                 *peer;
@@ -105,7 +107,7 @@ typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
 
 typedef struct glusterd_local_peers_ {
         glusterd_peerinfo_t   *peerinfo;
-        struct list_head       op_peers_list;
+        struct cds_list_head  op_peers_list;
 } glusterd_local_peers_t;
 
 typedef enum glusterd_ev_gen_mode_ {
@@ -151,7 +153,7 @@ typedef enum glusterd_friend_update_op_ {
 
 
 struct glusterd_friend_sm_event_ {
-        struct list_head        list;
+        struct cds_list_head    list;
         glusterd_peerinfo_t     *peerinfo;
         void                    *ctx;
         glusterd_friend_sm_event_type_t event;

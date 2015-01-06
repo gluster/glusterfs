@@ -1556,8 +1556,8 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
                          sizeof(new_brickinfo->mount_dir));
         }
 
-        list_add_tail (&new_brickinfo->brick_list,
-                       &old_brickinfo->brick_list);
+        cds_list_add_tail (&new_brickinfo->brick_list,
+                           &old_brickinfo->brick_list);
 
         volinfo->brick_count++;
 

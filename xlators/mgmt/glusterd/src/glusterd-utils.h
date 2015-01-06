@@ -295,9 +295,9 @@ int
 glusterd_sm_tr_log_add_to_dict (dict_t *dict,
                                 glusterd_sm_tr_log_t *circular_log);
 int
-glusterd_remove_pending_entry (struct list_head *list, void *elem);
+glusterd_remove_pending_entry (struct cds_list_head *list, void *elem);
 int
-glusterd_clear_pending_nodes (struct list_head *list);
+glusterd_clear_pending_nodes (struct cds_list_head *list);
 int32_t
 glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                         glusterd_brickinfo_t  *brickinfo, char *socketpath);
@@ -476,7 +476,7 @@ glusterd_do_quorum_action ();
 int
 glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                                     int *quorum_count,
-                                    struct list_head *peer_list,
+                                    struct cds_list_head *peer_list,
                                     gf_boolean_t _local__xaction_peers);
 
 int
@@ -488,8 +488,7 @@ glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
 gf_boolean_t
 glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this,
-                            struct list_head *peers_list,
+does_gd_meet_server_quorum (xlator_t *this, struct cds_list_head *peers_list,
                             gf_boolean_t _local__xaction_peers);
 
 int
@@ -581,7 +580,7 @@ rpc_clnt_t *
 glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
 
 int32_t
-glusterd_compare_volume_name(struct list_head *, struct list_head *);
+glusterd_compare_volume_name(struct cds_list_head *, struct cds_list_head *);
 
 char*
 glusterd_get_brick_mount_device (char *brick_path);
@@ -688,5 +687,10 @@ glusterd_nfs_pmap_deregister ();
 
 gf_boolean_t
 glusterd_is_volume_started (glusterd_volinfo_t  *volinfo);
+
+void
+glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
+                        int (*compare)(struct cds_list_head *,
+                                       struct cds_list_head *));
 
 #endif

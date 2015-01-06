@@ -80,7 +80,7 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         if (!xl->options)
                 goto error;
         xl->name = volname;
-        INIT_LIST_HEAD (&xl->volume_options);
+        CDS_INIT_LIST_HEAD (&xl->volume_options);
 
         xl->ctx = THIS->ctx;
 
@@ -2555,7 +2555,7 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 strcpy (transt, "tcp");
 
         i = 0;
-        list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 xl = volgen_graph_build_client (graph, volinfo,
                                                 brick->hostname, brick->path,
                                                 brick->brick_id,
@@ -3721,7 +3721,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 goto out;
         }
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 ret = build_shd_volume_graph (this, graph, voliter, mod_dict,
                                               set_dict, graph_check,
                                               &valid_config);
@@ -3782,7 +3782,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
         if (ret)
                 goto out;
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
 
@@ -3880,7 +3880,7 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                         goto out;
         }
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
 
                 if (mod_dict) {
                         ret = volgen_graph_set_options_generic (graph, mod_dict, voliter,
@@ -4016,7 +4016,7 @@ build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 goto out;
         }
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
 
@@ -4175,7 +4175,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
                 }
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Found a brick - %s:%s", brickinfo->hostname,
                         brickinfo->path);
@@ -4659,7 +4659,7 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t *brickinfo = NULL;
         int                   ret = -1;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Validating %s", brickinfo->hostname);
 
@@ -4864,7 +4864,7 @@ _gd_get_option_type (char *key)
         vmep = _gd_get_vmep (key);
 
         if (vmep) {
-                INIT_LIST_HEAD (&vol_opt_list.list);
+                CDS_INIT_LIST_HEAD (&vol_opt_list.list);
                 ret = xlator_volopt_dynload (vmep->voltype, &dl_handle,
                                              &vol_opt_list);
                 if (ret)
