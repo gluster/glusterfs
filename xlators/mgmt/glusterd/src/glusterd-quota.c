@@ -1222,7 +1222,7 @@ glusterd_get_gfid_from_brick (dict_t *dict, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,

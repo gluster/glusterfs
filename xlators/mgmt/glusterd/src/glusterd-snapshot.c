@@ -147,7 +147,7 @@ out:
 /* Look for disconnected peers, for missed snap creates or deletes */
 static int32_t
 glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
-                           struct list_head *peers, int32_t op)
+                           struct cds_list_head *peers, int32_t op)
 {
         int32_t                   brick_count          = -1;
         int32_t                   ret                  = -1;
@@ -162,14 +162,14 @@ glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
         GF_ASSERT (vol);
 
         brick_count = 0;
-        list_for_each_entry (brickinfo, &vol->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &vol->bricks, brick_list) {
                 if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
                         /* If the brick belongs to the same node */
                         brick_count++;
                         continue;
                 }
 
-                list_for_each_entry (peerinfo, peers, uuid_list) {
+                cds_list_for_each_entry (peerinfo, peers, uuid_list) {
                         if (uuid_compare (peerinfo->uuid, brickinfo->uuid)) {
                                 /* If the brick doesnt belong to this peer */
                                 continue;
@@ -244,7 +244,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
 
         if (!volname) {
                 /* For system limit */
-                list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                         if (volinfo->is_snap_volume == _gf_true)
                                 continue;
 
@@ -764,7 +764,8 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         volcount = 0;
-        list_for_each_entry_safe (snap_volinfo, tmp, &snap->volumes, vol_list) {
+        cds_list_for_each_entry_safe (snap_volinfo, tmp, &snap->volumes,
+                                      vol_list) {
                 volcount++;
                 ret = glusterd_volinfo_find (snap_volinfo->parent_volname,
                                              &parent_volinfo);
@@ -854,7 +855,7 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 /* Detach the volinfo from priv->volumes, so that no new
                  * command can ref it any more and then unref it.
                  */
-                list_del_init (&parent_volinfo->vol_list);
+                cds_list_del_init (&parent_volinfo->vol_list);
                 glusterd_volinfo_unref (parent_volinfo);
         }
 
@@ -985,10 +986,11 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
 
         /* Get brickinfo for snap_volumes */
         volcount = 0;
-        list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                 volcount++;
                 brick_count = 0;
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         brick_count++;
                         if (uuid_compare (brickinfo->uuid, MY_UUID))
                                 continue;
@@ -1984,7 +1986,8 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                 brick_count = 0;
                 brick_order = 0;
                 /* Adding snap bricks mount paths to the dict */
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         if (uuid_compare (brickinfo->uuid, MY_UUID)) {
                                 brick_order++;
                                 continue;
@@ -2167,8 +2170,8 @@ glusterd_new_snap_object()
                         return NULL;
                 }
 
-                INIT_LIST_HEAD (&snap->snap_list);
-                INIT_LIST_HEAD (&snap->volumes);
+                CDS_INIT_LIST_HEAD (&snap->snap_list);
+                CDS_INIT_LIST_HEAD (&snap->volumes);
                 snap->snapname[0] = 0;
                 snap->snap_status = GD_SNAP_STATUS_INIT;
         }
@@ -2192,12 +2195,13 @@ glusterd_list_add_snapvol (glusterd_volinfo_t *origin_vol,
         snap = snap_vol->snapshot;
         GF_ASSERT (snap);
 
-        list_add_tail (&snap_vol->vol_list, &snap->volumes);
+        cds_list_add_tail (&snap_vol->vol_list, &snap->volumes);
         LOCK (&origin_vol->lock);
         {
-                list_add_order (&snap_vol->snapvol_list,
-                               &origin_vol->snap_volumes,
-                               glusterd_compare_snap_vol_time);
+                glusterd_list_add_order (&snap_vol->snapvol_list,
+                                         &origin_vol->snap_volumes,
+                                         glusterd_compare_snap_vol_time);
+
                 origin_vol->snap_count++;
         }
         UNLOCK (&origin_vol->lock);
@@ -2219,7 +2223,7 @@ glusterd_find_snap_by_name (char *snapname)
         GF_ASSERT (priv);
         GF_ASSERT (snapname);
 
-        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
                 if (!strcmp (snap->snapname, snapname)) {
                         gf_log (THIS->name, GF_LOG_DEBUG, "Found "
                                 "snap %s (%s)", snap->snapname,
@@ -2244,7 +2248,7 @@ glusterd_find_snap_by_id (uuid_t snap_id)
         if (uuid_is_null(snap_id))
                 goto out;
 
-        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
                 if (!uuid_compare (snap->snap_id, snap_id)) {
                         gf_log (THIS->name, GF_LOG_DEBUG, "Found "
                                 "snap %s (%s)", snap->snapname,
@@ -2391,7 +2395,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         }
 
         brick_count = -1;
-        list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
                 brick_count++;
                 if (uuid_compare (brickinfo->uuid, MY_UUID)) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -2568,7 +2572,7 @@ glusterd_snap_volume_remove (dict_t *rsp_dict,
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
                 if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
@@ -2606,7 +2610,7 @@ glusterd_snap_volume_remove (dict_t *rsp_dict,
                         goto out;
         }
 
-        if (!list_empty(&snap_vol->snapvol_list)) {
+        if (!cds_list_empty (&snap_vol->snapvol_list)) {
                 ret = glusterd_volinfo_find (snap_vol->parent_volname,
                                              &origin_vol);
                 if (ret) {
@@ -2644,8 +2648,8 @@ glusterd_snapobject_delete (glusterd_snap_t *snap)
                 return -1;
         }
 
-        list_del_init (&snap->snap_list);
-        list_del_init (&snap->volumes);
+        cds_list_del_init (&snap->snap_list);
+        cds_list_del_init (&snap->volumes);
         if (LOCK_DESTROY(&snap->lock))
                 gf_log (THIS->name, GF_LOG_WARNING, "Failed destroying lock"
                         "of snap %s", snap->snapname);
@@ -2679,7 +2683,7 @@ glusterd_snap_remove (dict_t *rsp_dict,
                 goto out;
         }
 
-        list_for_each_entry_safe (snap_vol, tmp, &snap->volumes, vol_list) {
+        cds_list_for_each_entry_safe (snap_vol, tmp, &snap->volumes, vol_list) {
                 ret = glusterd_snap_volume_remove (rsp_dict, snap_vol,
                                                    remove_lvm, force);
                 if (ret && !force) {
@@ -2992,7 +2996,8 @@ glusterd_snapshot_get_snap_detail (dict_t *dict, glusterd_snap_t *snap,
                 goto done;
         }
 
-        list_for_each_entry_safe (snap_vol, tmp_vol, &snap->volumes, vol_list) {
+        cds_list_for_each_entry_safe (snap_vol, tmp_vol, &snap->volumes,
+                                      vol_list) {
                 volcount++;
                 snprintf (key, sizeof (key), "%s.vol%d", keyprefix, volcount);
                 ret = glusterd_snapshot_get_snapvol_detail (dict,
@@ -3040,7 +3045,8 @@ glusterd_snapshot_get_all_snap_info (dict_t *dict)
         /* General parameter validation */
         GF_ASSERT (dict);
 
-        list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots,
+                                      snap_list) {
                 snapcount++;
                 snprintf (key, sizeof (key), "snap%d", snapcount);
                 ret = glusterd_snapshot_get_snap_detail (dict, snap, key, NULL);
@@ -3142,8 +3148,8 @@ glusterd_snapshot_get_info_by_volume (dict_t *dict, char *volname,
         }
         value = NULL;
 
-        list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
-                                  snapvol_list) {
+        cds_list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
+                                      snapvol_list) {
                 snapcount++;
                 snprintf (key, sizeof (key), "snap%d", snapcount);
                 ret = glusterd_snapshot_get_snap_detail (dict,
@@ -3316,7 +3322,8 @@ glusterd_snapshot_get_all_snapnames (dict_t *dict)
         GF_ASSERT (priv);
         GF_ASSERT (dict);
 
-        list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots,
+                                      snap_list) {
                 snapcount++;
                 snapname = gf_strdup (snap->snapname);
                 if (!snapname) {
@@ -3363,7 +3370,7 @@ glusterd_snapshot_get_vol_snapnames (dict_t *dict, glusterd_volinfo_t *volinfo)
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
 
-        list_for_each_entry_safe (snap_vol, tmp_vol,
+        cds_list_for_each_entry_safe (snap_vol, tmp_vol,
                                   &volinfo->snap_volumes, snapvol_list) {
                 snapcount++;
                 snprintf (key, sizeof (key), "snapname%d", snapcount);
@@ -3695,7 +3702,7 @@ glusterd_handle_snapshot_restore (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        list_for_each_entry (snap_volinfo, &snap->volumes, vol_list) {
+        cds_list_for_each_entry (snap_volinfo, &snap->volumes, vol_list) {
                 i++;
                 snprintf (key, sizeof (key), "volname%d", i);
                 buf = gf_strdup (snap_volinfo->parent_volname);
@@ -3780,7 +3787,7 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        list_for_each_entry (snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
                 if (!strcmp (snap->snapname, snapname) ||
                     !uuid_compare (snap->snap_id, *snap_id)) {
                         gf_log (THIS->name, GF_LOG_ERROR,
@@ -3828,8 +3835,8 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        list_add_order (&snap->snap_list, &priv->snapshots,
-                        glusterd_compare_snap_time);
+        glusterd_list_add_order (&snap->snap_list, &priv->snapshots,
+                                 glusterd_compare_snap_time);
 
         gf_log (this->name, GF_LOG_TRACE, "Snapshot %s added to the list",
                 snap->snapname);
@@ -4221,7 +4228,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         /* AFR changelog names are based on brick_id and hence the snap
          * volume's bricks must retain the same ID */
         strcpy (snap_brickinfo->brick_id, original_brickinfo->brick_id);
-        list_add_tail (&snap_brickinfo->brick_list, &snap_vol->bricks);
+        cds_list_add_tail (&snap_brickinfo->brick_list, &snap_vol->bricks);
 
 out:
         if (ret && snap_brickinfo)
@@ -4464,7 +4471,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
 
         /* Adding snap brickinfos to the snap volinfo */
         brick_count = 0;
-        list_for_each_entry (brickinfo, &origin_vol->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &origin_vol->bricks, brick_list) {
                 ret = glusterd_add_brick_to_snap_volume (dict, rsp_dict,
                                                          snap_vol, brickinfo,
                                                          volcount, brick_count);
@@ -4602,8 +4609,8 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
         /* TODO : As of now there is only volume in snapshot.
         * Change this when multiple volume snapshot is introduced
         */
-        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
-                        vol_list);
+        snap_volinfo = cds_list_entry (snap->volumes.next, glusterd_volinfo_t,
+                                       vol_list);
         if (!snap_volinfo) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unable to fetch snap_volinfo");
@@ -4710,7 +4717,8 @@ glusterd_handle_snapshot_delete_all (dict_t *dict)
 
         GF_ASSERT (dict);
 
-        list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots,
+                                      snap_list) {
                 /* indexing from 1 to n, to keep it uniform with other code
                  * paths
                  */
@@ -4780,7 +4788,7 @@ glusterd_handle_snapshot_delete_type_snap (rpcsvc_request_t *req,
         }
 
         /* Set volnames in the dict to get mgmt_v3 lock */
-        list_for_each_entry_safe (snap_vol, tmp, &snap->volumes, vol_list) {
+        cds_list_for_each_entry_safe (snap_vol, tmp, &snap->volumes, vol_list) {
                 volcount++;
                 volname = gf_strdup (snap_vol->parent_volname);
                 if (!volname) {
@@ -5086,8 +5094,8 @@ glusterd_snapshot_activate_commit (dict_t *dict, char **op_errstr,
         /* TODO : As of now there is only volume in snapshot.
         * Change this when multiple volume snapshot is introduced
         */
-        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
-                        vol_list);
+        snap_volinfo = cds_list_entry (snap->volumes.next, glusterd_volinfo_t,
+                                       vol_list);
         if (!snap_volinfo) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to fetch snap_volinfo");
@@ -5157,8 +5165,8 @@ glusterd_snapshot_deactivate_commit (dict_t *dict, char **op_errstr,
         /* TODO : As of now there is only volume in snapshot.
         * Change this when multiple volume snapshot is introduced
         */
-        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
-                        vol_list);
+        snap_volinfo = cds_list_entry (snap->volumes.next, glusterd_volinfo_t,
+                                       vol_list);
         if (!snap_volinfo) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to fetch snap_volinfo");
@@ -5254,9 +5262,9 @@ glusterd_snapshot_remove_commit (dict_t *dict, char **op_errstr,
                 /* TODO : As of now there is only volume in snapshot.
                  * Change this when multiple volume snapshot is introduced
                  */
-                snap_volinfo = list_entry (snap->volumes.next,
-                                           glusterd_volinfo_t,
-                                           vol_list);
+                snap_volinfo = cds_list_entry (snap->volumes.next,
+                                               glusterd_volinfo_t,
+                                               vol_list);
                 if (!snap_volinfo) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to fetch snap_volinfo");
@@ -5482,11 +5490,12 @@ glusterd_schedule_brick_snapshot (dict_t *dict, dict_t *rsp_dict,
         GF_ASSERT(snap);
 
         synctask_barrier_init ((&args));
-        list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+        cds_list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
                 volcount++;
                 brickcount = 0;
                 brickorder = 0;
-                list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &snap_vol->bricks,
+                                         brick_list) {
                         snprintf (key, sizeof(key) - 1,
                                   "snap-vol%d.brick%d.order", volcount,
                                   brickcount);
@@ -5698,7 +5707,7 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                                               GLUSTERD_STORE_KEY_SNAP_ACTIVATE,
                                               _gf_false);
         if (!snap_activate) {
-                list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+                cds_list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
                         snap_vol->status = GLUSTERD_STATUS_STOPPED;
                         ret = glusterd_store_volinfo (snap_vol,
                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -5713,8 +5722,9 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
-                list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+        cds_list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
+                cds_list_for_each_entry (brickinfo, &snap_vol->bricks,
+                                         brick_list) {
                         ret = glusterd_brick_start (snap_vol, brickinfo,
                                                     _gf_false);
                         if (ret) {
@@ -6287,15 +6297,15 @@ glusterd_get_single_snap_status (char **op_errstr, dict_t *rsp_dict,
         GF_ASSERT (keyprefix);
         GF_ASSERT (snap);
 
-        list_for_each_entry_safe (snap_volinfo, tmp_volinfo, &snap->volumes,
-                                  vol_list) {
+        cds_list_for_each_entry_safe (snap_volinfo, tmp_volinfo, &snap->volumes,
+                                      vol_list) {
                 ret = snprintf (key, sizeof (key), "%s.vol%d", keyprefix,
                                 volcount);
                 if (ret < 0) {
                         goto out;
                 }
-                list_for_each_entry (brickinfo, &snap_volinfo->bricks,
-                                     brick_list) {
+                cds_list_for_each_entry (brickinfo, &snap_volinfo->bricks,
+                                         brick_list) {
                         if (!glusterd_is_local_brick (this, snap_volinfo,
                             brickinfo)) {
                                 brickcount++;
@@ -6457,8 +6467,8 @@ glusterd_get_snap_status_of_volume (char **op_errstr, dict_t *rsp_dict,
                 goto out;
         }
 
-        list_for_each_entry_safe (snap_volinfo, temp_volinfo,
-                             &volinfo->snap_volumes, snapvol_list) {
+        cds_list_for_each_entry_safe (snap_volinfo, temp_volinfo,
+                                      &volinfo->snap_volumes, snapvol_list) {
                 ret = snprintf (key, sizeof (key),
                                 "status.snap%d.snapname", i);
                 if (ret < 0) {
@@ -6506,8 +6516,8 @@ glusterd_get_all_snapshot_status (dict_t *dict, char **op_errstr,
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
 
-        list_for_each_entry_safe (snap, tmp_snap,
-                                  &priv->snapshots, snap_list) {
+        cds_list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots,
+                                      snap_list) {
                 ret = snprintf (key, sizeof (key),
                                 "status.snap%d.snapname", i);
                 if (ret < 0) {
@@ -6717,8 +6727,8 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
                 if (count <= 0)
                         goto out;
 
-                tmp_volinfo = list_entry (volinfo->snap_volumes.next,
-                                          glusterd_volinfo_t, snapvol_list);
+                tmp_volinfo = cds_list_entry (volinfo->snap_volumes.next,
+                                              glusterd_volinfo_t, snapvol_list);
                 snap = tmp_volinfo->snapshot;
                 GF_ASSERT (snap);
 
@@ -7280,10 +7290,10 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
 
         /* Retrieve the snap_volumes list from the older volinfo */
         reverted_vol->snap_count = volinfo->snap_count;
-        list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
-                                  snapvol_list) {
-                list_add_tail (&snap_vol->snapvol_list,
-                               &reverted_vol->snap_volumes);
+        cds_list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
+                                      snapvol_list) {
+                cds_list_add_tail (&snap_vol->snapvol_list,
+                                   &reverted_vol->snap_volumes);
         }
 
         /* Since we retrieved the volinfo from store now we don't
@@ -7323,8 +7333,8 @@ glusterd_snapshot_revert_restore_from_snap (glusterd_snap_t *snap)
         /* TODO : As of now there is only one volume in snapshot.
          * Change this when multiple volume snapshot is introduced
          */
-        snap_volinfo = list_entry (snap->volumes.next, glusterd_volinfo_t,
-                                   vol_list);
+        snap_volinfo = cds_list_entry (snap->volumes.next, glusterd_volinfo_t,
+                                       vol_list);
 
         strcpy (volname, snap_volinfo->parent_volname);
 
@@ -7798,9 +7808,9 @@ glusterd_free_missed_snapinfo (glusterd_missed_snap_info *missed_snapinfo)
         glusterd_snap_op_t *tmp         = NULL;
 
         if (missed_snapinfo) {
-                list_for_each_entry_safe (snap_opinfo, tmp,
-                                          &missed_snapinfo->snap_ops,
-                                          snap_ops_list) {
+                cds_list_for_each_entry_safe (snap_opinfo, tmp,
+                                              &missed_snapinfo->snap_ops,
+                                              snap_ops_list) {
                         glusterd_free_snap_op (snap_opinfo);
                         snap_opinfo = NULL;
                 }
@@ -7830,8 +7840,8 @@ glusterd_update_missed_snap_entry (glusterd_missed_snap_info *missed_snapinfo,
         GF_ASSERT(missed_snapinfo);
         GF_ASSERT(missed_snap_op);
 
-        list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
-                             snap_ops_list) {
+        cds_list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
+                                 snap_ops_list) {
                 /* If the entry is not for the same snap_vol_id
                  * then continue
                  */
@@ -7894,8 +7904,8 @@ glusterd_update_missed_snap_entry (glusterd_missed_snap_info *missed_snapinfo,
                         "Duplicate entry. Not updating");
                 glusterd_free_snap_op (missed_snap_op);
         } else {
-                list_add_tail (&missed_snap_op->snap_ops_list,
-                               &missed_snapinfo->snap_ops);
+                cds_list_add_tail (&missed_snap_op->snap_ops_list,
+                                   &missed_snapinfo->snap_ops);
         }
 
         ret = 0;
@@ -7955,8 +7965,8 @@ glusterd_add_new_entry_to_list (char *missed_info, char *snap_vol_id,
         missed_snap_op->status = snap_status;
 
         /* Look for other entries for the same node and same snap */
-        list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
-                             missed_snaps) {
+        cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                                 missed_snaps) {
                 snprintf (node_snap_info, sizeof(node_snap_info),
                           "%s:%s", missed_snapinfo->node_uuid,
                           missed_snapinfo->snap_uuid);
@@ -7999,10 +8009,10 @@ glusterd_add_new_entry_to_list (char *missed_info, char *snap_vol_id,
                         goto out;
                 }
 
-                list_add_tail (&missed_snap_op->snap_ops_list,
-                               &missed_snapinfo->snap_ops);
-                list_add_tail (&missed_snapinfo->missed_snaps,
-                               &priv->missed_snaps_list);
+                cds_list_add_tail (&missed_snap_op->snap_ops_list,
+                                   &missed_snapinfo->snap_ops);
+                cds_list_add_tail (&missed_snapinfo->missed_snaps,
+                                   &priv->missed_snaps_list);
 
                 ret = 0;
                 goto out;
@@ -8253,7 +8263,7 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
          * set the status to the original volume's status. */
         glusterd_set_volume_status (new_volinfo, orig_vol->status);
 
-        list_add_tail (&new_volinfo->vol_list, &conf->volumes);
+        cds_list_add_tail (&new_volinfo->vol_list, &conf->volumes);
 
         ret = glusterd_store_volinfo (new_volinfo,
                                       GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -8272,10 +8282,11 @@ out:
                 if (new_volinfo)
                         (void)glusterd_volinfo_delete (new_volinfo);
         } else {
-                list_for_each_entry_safe (voliter, temp_volinfo,
-                                 &orig_vol->snap_volumes, snapvol_list) {
-                        list_add_tail (&voliter->snapvol_list,
-                                       &new_volinfo->snap_volumes);
+                cds_list_for_each_entry_safe (voliter, temp_volinfo,
+                                              &orig_vol->snap_volumes,
+                                              snapvol_list) {
+                        cds_list_add_tail (&voliter->snapvol_list,
+                                           &new_volinfo->snap_volumes);
                 }
         }
 
@@ -8317,8 +8328,8 @@ glusterd_snapshot_get_volnames_uuids (dict_t *dict,
                 goto out;
         }
 
-        list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
-                                  snapvol_list) {
+        cds_list_for_each_entry_safe (snap_vol, tmp_vol, &volinfo->snap_volumes,
+                                      snapvol_list) {
 
                 if (GLUSTERD_STATUS_STARTED != snap_vol->status)
                         continue;

@@ -113,7 +113,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
 
         ai_list = malloc (sizeof (addrinfo_list_t));
         ai_list->info = NULL;
-        INIT_LIST_HEAD (&ai_list->list);
+        CDS_INIT_LIST_HEAD (&ai_list->list);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -189,19 +189,20 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                         goto out;
                 }
                 ai_list_tmp1->info = ai_info;
-                list_add_tail (&ai_list_tmp1->list, &ai_list->list);
+                cds_list_add_tail (&ai_list_tmp1->list, &ai_list->list);
                 ai_list_tmp1 = NULL;
         }
 
         i = 0;
-        ai_list_tmp1 = list_entry (ai_list->list.next, addrinfo_list_t, list);
+        ai_list_tmp1 = cds_list_entry (ai_list->list.next,
+                                       addrinfo_list_t, list);
 
         /* Check for bad brick order */
         while (i < brick_count) {
                 ++i;
                 ai_info = ai_list_tmp1->info;
-                ai_list_tmp1 = list_entry (ai_list_tmp1->list.next,
-                                           addrinfo_list_t, list);
+                ai_list_tmp1 = cds_list_entry (ai_list_tmp1->list.next,
+                                               addrinfo_list_t, list);
                 if (0 == i % sub_count) {
                         j = 0;
                         continue;
@@ -216,8 +217,8 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                                 goto check_failed;
                         if (GF_AI_COMPARE_MATCH == ret)
                                 goto found_bad_brick_order;
-                        ai_list_tmp2 = list_entry (ai_list_tmp2->list.next,
-                                                   addrinfo_list_t, list);
+                        ai_list_tmp2 = cds_list_entry (ai_list_tmp2->list.next,
+                                                       addrinfo_list_t, list);
                 }
                 ++j;
         }
@@ -238,7 +239,7 @@ found_bad_brick_order:
 out:
         ai_list_tmp2 = NULL;
         GF_FREE (brick_list_ptr);
-        list_for_each_entry (ai_list_tmp1, &ai_list->list, list) {
+        cds_list_for_each_entry (ai_list_tmp1, &ai_list->list, list) {
                 if (ai_list_tmp1->info)
                           freeaddrinfo (ai_list_tmp1->info);
                 free (ai_list_tmp2);
@@ -1328,7 +1329,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                 }
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 brick_count++;
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
@@ -1585,7 +1586,8 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if (volinfo->snap_count > 0 || !list_empty(&volinfo->snap_volumes)) {
+        if (volinfo->snap_count > 0 ||
+            !cds_list_empty (&volinfo->snap_volumes)) {
                 snprintf (msg, sizeof (msg), "Cannot delete Volume %s ,"
                         "as it has %"PRIu64" snapshots. "
                         "To delete the volume, "
@@ -2122,7 +2124,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
 #endif
 
-                list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
+                cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
         }
@@ -2159,8 +2161,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         }
 
         volinfo->rebal.defrag_status = 0;
-        list_add_order (&volinfo->vol_list, &priv->volumes,
-                         glusterd_compare_volume_name);
+        glusterd_list_add_order (&volinfo->vol_list, &priv->volumes,
+                                 glusterd_compare_volume_name);
         vol_added = _gf_true;
 
 out:
@@ -2184,7 +2186,7 @@ glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
         GF_ASSERT (this);
         GF_ASSERT (volinfo);
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_brick_start (volinfo, brickinfo, wait);
                 /* If 'force' try to start all bricks regardless of success or
                  * failure
@@ -2252,7 +2254,8 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
          * introduced in gluster-3.6.0
          */
         if (conf->op_version >= GD_OP_VERSION_3_6_0) {
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         brick_count++;
                         /* Don't check bricks that are not owned by you
                          */
@@ -2308,7 +2311,7 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
 
         GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_brick_stop (volinfo, brickinfo, _gf_false);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to stop "
@@ -2471,8 +2474,8 @@ glusterd_op_statedump_volume (dict_t *dict, char **op_errstr)
                 if (ret)
                         goto out;
         } else {
-                list_for_each_entry (brickinfo, &volinfo->bricks,
-                                                        brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         ret = glusterd_brick_statedump (volinfo, brickinfo,
                                                         options, option_cnt,
                                                         op_errstr);
@@ -2663,7 +2666,7 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
         priv = THIS->private;
 
         index = -1;
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 index++;
                 if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;

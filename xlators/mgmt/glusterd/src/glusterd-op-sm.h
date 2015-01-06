@@ -70,7 +70,7 @@ typedef enum glusterd_op_sm_event_type_ {
 
 
 struct glusterd_op_sm_event_ {
-        struct list_head                list;
+        struct cds_list_head            list;
         void                            *ctx;
         glusterd_op_sm_event_type_t     event;
         uuid_t                          txn_id;
@@ -96,13 +96,13 @@ struct glusterd_op_info_ {
         int32_t                         brick_pending_count;
         int32_t                         op_count;
         glusterd_op_t                   op;
-        struct list_head                op_peers;
+        struct cds_list_head            op_peers;
         void                            *op_ctx;
         rpcsvc_request_t                *req;
         int32_t                         op_ret;
         int32_t                         op_errno;
         char                            *op_errstr;
-        struct  list_head               pending_bricks;
+        struct  cds_list_head           pending_bricks;
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
@@ -239,7 +239,7 @@ char*
 glusterd_op_sm_event_name_get (int event);
 int32_t
 glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
-                           struct list_head *selected, dict_t *rsp_dict);
+                           struct cds_list_head *selected, dict_t *rsp_dict);
 int
 glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
                                  gd1_mgmt_brick_op_req **req, dict_t *dict);

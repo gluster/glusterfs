@@ -969,7 +969,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         } else if (parse_mount_pattern_desc (mspec, pdesc) != 0)
                 goto err;
 
-        list_add_tail (&mspec->speclist, &priv->mount_specs);
+        cds_list_add_tail (&mspec->speclist, &priv->mount_specs);
 
         return 0;
  err:
@@ -1507,11 +1507,11 @@ init (xlator_t *this)
                           gf_gld_mt_glusterd_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-        INIT_LIST_HEAD (&conf->peers);
-        INIT_LIST_HEAD (&conf->xaction_peers);
-        INIT_LIST_HEAD (&conf->volumes);
-        INIT_LIST_HEAD (&conf->snapshots);
-        INIT_LIST_HEAD (&conf->missed_snaps_list);
+        CDS_INIT_LIST_HEAD (&conf->peers);
+        CDS_INIT_LIST_HEAD (&conf->xaction_peers);
+        CDS_INIT_LIST_HEAD (&conf->volumes);
+        CDS_INIT_LIST_HEAD (&conf->snapshots);
+        CDS_INIT_LIST_HEAD (&conf->missed_snaps_list);
 
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
@@ -1567,7 +1567,7 @@ init (xlator_t *this)
                 }
         }
 
-        INIT_LIST_HEAD (&conf->mount_specs);
+        CDS_INIT_LIST_HEAD (&conf->mount_specs);
 
         ret = dict_foreach (this->options, _install_mount_spec, NULL);
         if (ret)
@@ -1613,7 +1613,7 @@ init (xlator_t *this)
          * spawn process/bricks that may need (re)starting since last
          * time (this) glusterd was up.*/
 
-        if (list_empty (&conf->peers)) {
+        if (cds_list_empty (&conf->peers)) {
                 glusterd_launch_synctask (glusterd_spawn_daemons, NULL);
         }
         ret = glusterd_options_init (this);

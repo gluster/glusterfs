@@ -465,7 +465,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         }
 #endif
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 char    brick_uuid[64] = {0,};
                 snprintf (key, 256, "volume%d.brick%d", count, i);
@@ -609,7 +609,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
 
 local_locking_done:
 
-        INIT_LIST_HEAD (&priv->xaction_peers);
+        CDS_INIT_LIST_HEAD (&priv->xaction_peers);
 
         npeers = gd_build_peers_list (&priv->peers, &priv->xaction_peers, op);
 
@@ -1162,8 +1162,8 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         * detached. It's not a problem if a volume contains none or all
         * of its bricks on the peer being detached
         */
-        list_for_each_entry_safe (volinfo, tmp, &priv->volumes,
-                                  vol_list) {
+        cds_list_for_each_entry_safe (volinfo, tmp, &priv->volumes,
+                                      vol_list) {
                 ret = glusterd_friend_contains_vol_bricks (volinfo,
                                                            uuid);
                 if (ret == 1) {
@@ -1379,7 +1379,7 @@ __glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
          */
         ret = -1;
         // Do not allow peer reset if there are any volumes in the cluster
-        if (!list_empty (&priv->volumes)) {
+        if (!cds_list_empty (&priv->volumes)) {
                 snprintf (msg_str, sizeof (msg_str), "volumes are already "
                           "present in the cluster. Resetting uuid is not "
                           "allowed");
@@ -1388,7 +1388,7 @@ __glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
         }
 
         // Do not allow peer reset if trusted storage pool is already formed
-        if (!list_empty (&priv->peers)) {
+        if (!cds_list_empty (&priv->peers)) {
                 snprintf (msg_str, sizeof (msg_str),"trusted storage pool "
                           "has been already formed. Please detach this peer "
                           "from the pool and reset its uuid.");
@@ -1550,7 +1550,7 @@ __glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
         if (!dict)
                 goto out;
 
-        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d", count);
                 ret = dict_set_str (dict, key, volinfo->volname);
@@ -2550,7 +2550,7 @@ __glusterd_handle_probe_query (rpcsvc_request_t *req)
                 goto out;
         }
         peerinfo = glusterd_peerinfo_find (probe_req.uuid, remote_hostname);
-        if ((peerinfo == NULL) && (!list_empty (&conf->peers))) {
+        if ((peerinfo == NULL) && (!cds_list_empty (&conf->peers))) {
                 rsp.op_ret = -1;
                 rsp.op_errno = GF_PROBE_ANOTHER_CLUSTER;
         } else if (peerinfo == NULL) {
@@ -3079,7 +3079,7 @@ glusterd_friend_add (const char *hoststr, int port,
          * invalid peer name).  That would mean we're adding something that had
          * just been free, and we're likely to crash later.
          */
-        list_add_tail (&(*friend)->uuid_list, &conf->peers);
+        cds_list_add_tail (&(*friend)->uuid_list, &conf->peers);
 
         //restore needs to first create the list of peers, then create rpcs
         //to keep track of quorum in race-free manner. In restore for each peer
@@ -3132,7 +3132,7 @@ glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
          * invalid peer name).  That would mean we're adding something that had
          * just been free, and we're likely to crash later.
          */
-        list_add_tail (&friend->uuid_list, &conf->peers);
+        cds_list_add_tail (&friend->uuid_list, &conf->peers);
 
         //restore needs to first create the list of peers, then create rpcs
         //to keep track of quorum in race-free manner. In restore for each peer
@@ -3590,8 +3590,8 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 gf_log ("", GF_LOG_WARNING, "Out of Memory");
                 goto out;
         }
-        if (!list_empty (&priv->peers)) {
-                list_for_each_entry (entry, &priv->peers, uuid_list) {
+        if (!cds_list_empty (&priv->peers)) {
+                cds_list_for_each_entry (entry, &priv->peers, uuid_list) {
                         count++;
                         ret = gd_add_peer_detail_to_dict (entry,
                                                                 friends, count);
@@ -3665,13 +3665,13 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 goto out;
         }
 
-        if (list_empty (&priv->volumes)) {
+        if (cds_list_empty (&priv->volumes)) {
                 ret = 0;
                 goto respond;
         }
 
         if (flags == GF_CLI_GET_VOLUME_ALL) {
-                list_for_each_entry (entry, &priv->volumes, vol_list) {
+                cds_list_for_each_entry (entry, &priv->volumes, vol_list) {
                         ret = glusterd_add_volume_detail_to_dict (entry,
                                                         volumes, count);
                         if (ret)
@@ -3686,17 +3686,17 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
 
                 if (ret) {
                         if (priv->volumes.next) {
-                                entry = list_entry (priv->volumes.next,
-                                                    typeof (*entry),
-                                                    vol_list);
+                                entry = cds_list_entry (priv->volumes.next,
+                                                        typeof (*entry),
+                                                        vol_list);
                         }
                 } else {
                         ret = glusterd_volinfo_find (volname, &entry);
                         if (ret)
                                 goto respond;
-                        entry = list_entry (entry->vol_list.next,
-                                            typeof (*entry),
-                                            vol_list);
+                        entry = cds_list_entry (entry->vol_list.next,
+                                                typeof (*entry),
+                                                vol_list);
                 }
 
                 if (&entry->vol_list == &priv->volumes) {
@@ -4508,8 +4508,9 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                     !uuid_compare (peerinfo->uuid, uuid))
                                         glusterd_unlock (peerinfo->uuid);
                         } else {
-                                list_for_each_entry (volinfo, &conf->volumes,
-                                                     vol_list) {
+                                cds_list_for_each_entry (volinfo,
+                                                         &conf->volumes,
+                                                         vol_list) {
                                         ret = glusterd_mgmt_v3_unlock
                                                     (volinfo->volname,
                                                      peerinfo->uuid,

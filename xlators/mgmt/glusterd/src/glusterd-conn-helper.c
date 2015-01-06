@@ -11,8 +11,11 @@
 #include "glusterd-conn-mgmt.h"
 #include "glusterd-svc-mgmt.h"
 
+#define _LGPL_SOURCE
+#include <urcu/rculist.h>
+
 glusterd_svc_t *
 glusterd_conn_get_svc_object (glusterd_conn_t *conn)
 {
-        return list_entry (conn, glusterd_svc_t, conn);
+        return cds_list_entry (conn, glusterd_svc_t, conn);
 }

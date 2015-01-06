@@ -213,8 +213,7 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
         int                     ret              = -1;
 
         priv = THIS->private;
-        list_for_each_entry (voliter, &priv->volumes,
-                             vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (glusterd_is_volume_started (voliter))
                         vol_count++;
         }
@@ -419,7 +418,7 @@ glusterd_hooks_post_stub_enqueue (char *scriptdir, glusterd_op_t op,
         pthread_mutex_lock (&hooks_priv->mutex);
         {
                 hooks_priv->waitcount++;
-                list_add_tail (&stub->all_hooks, &hooks_priv->list);
+                cds_list_add_tail (&stub->all_hooks, &hooks_priv->list);
                 pthread_cond_signal (&hooks_priv->cond);
         }
         pthread_mutex_unlock (&hooks_priv->mutex);
@@ -445,7 +444,7 @@ glusterd_hooks_stub_init (glusterd_hooks_stub_t **stub, char *scriptdir,
         if (!hooks_stub)
                 goto out;
 
-        INIT_LIST_HEAD (&hooks_stub->all_hooks);
+        CDS_INIT_LIST_HEAD (&hooks_stub->all_hooks);
         hooks_stub->op = op;
         hooks_stub->scriptdir = gf_strdup (scriptdir);
         if (!hooks_stub->scriptdir)
@@ -498,14 +497,14 @@ hooks_worker (void *args)
         for (;;) {
                 pthread_mutex_lock (&hooks_priv->mutex);
                 {
-                        while (list_empty (&hooks_priv->list)) {
+                        while (cds_list_empty (&hooks_priv->list)) {
                                 pthread_cond_wait (&hooks_priv->cond,
                                                    &hooks_priv->mutex);
                         }
-                        stub = list_entry (hooks_priv->list.next,
-                                           glusterd_hooks_stub_t,
-                                           all_hooks);
-                        list_del_init (&stub->all_hooks);
+                        stub = cds_list_entry (hooks_priv->list.next,
+                                               glusterd_hooks_stub_t,
+                                               all_hooks);
+                        cds_list_del_init (&stub->all_hooks);
                         hooks_priv->waitcount--;
 
                 }
@@ -535,7 +534,7 @@ glusterd_hooks_priv_init (glusterd_hooks_private_t **new)
 
         pthread_mutex_init (&hooks_priv->mutex, NULL);
         pthread_cond_init (&hooks_priv->cond, NULL);
-        INIT_LIST_HEAD (&hooks_priv->list);
+        CDS_INIT_LIST_HEAD (&hooks_priv->list);
         hooks_priv->waitcount = 0;
 
         *new = hooks_priv;

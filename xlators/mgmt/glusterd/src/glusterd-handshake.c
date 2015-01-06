@@ -446,7 +446,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         /* Find the snap_vol */
-        list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                 if (!strcmp (volinfo->volname,
                              snap_opinfo->snap_vol_id)) {
                         snap_vol = volinfo;
@@ -464,7 +464,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         /* Find the missed brick in the snap volume */
-        list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &snap_vol->bricks, brick_list) {
                 i++;
                 if (i == snap_opinfo->brick_num)
                         break;
@@ -589,16 +589,17 @@ glusterd_take_missing_brick_snapshots (char *brick_name)
 
         my_node_uuid = uuid_utoa (MY_UUID);
 
-        list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
-                             missed_snaps) {
+        cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                                 missed_snaps) {
                 /* If the missed snap op is not for the local node
                  * then continue
                  */
                 if (strcmp (my_node_uuid, missed_snapinfo->node_uuid))
                         continue;
 
-                list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
-                                     snap_ops_list) {
+                cds_list_for_each_entry (snap_opinfo,
+                                         &missed_snapinfo->snap_ops,
+                                         snap_ops_list) {
                         /* Check if the missed snap's op is a create for
                          * the brick name in question
                          */
@@ -936,7 +937,7 @@ gd_validate_cluster_op_version (xlator_t *this, int cluster_op_version,
          * lead to inconsistencies in the cluster
          */
         if ((cluster_op_version < conf->op_version) &&
-            !list_empty (&conf->volumes)) {
+            !cds_list_empty (&conf->volumes)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot reduce operating version to %d from current "
                         "version %d as volumes exist (as per peer request from "

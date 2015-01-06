@@ -28,10 +28,10 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
                             dict_t  *dict, int32_t count);
 
 int
-glusterd_compare_snap_time(struct list_head *, struct list_head *);
+glusterd_compare_snap_time (struct cds_list_head *, struct cds_list_head *);
 
 int
-glusterd_compare_snap_vol_time(struct list_head *, struct list_head *);
+glusterd_compare_snap_vol_time (struct cds_list_head *, struct cds_list_head *);
 
 int32_t
 glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
@@ -120,12 +120,12 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                             char **op_errstr,
-                            struct list_head *peers_list);
+                            struct cds_list_head *peers_list);
 
 int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                                        char **op_errstr,
-                                       struct list_head *peers_list);
+                                       struct cds_list_head *peers_list);
 
 int32_t
 glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
