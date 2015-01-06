@@ -20,7 +20,7 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		     $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		     $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-		     $(XML_LIBS) -lcrypto
+		     $(XML_LIBS) -lcrypto $(URCU_LIBS) $(URCU_CDS_LIBS)
 if ENABLE_BD_XLATOR
 glusterd_la_LIBADD += -llvm2app
 endif
@@ -34,19 +34,21 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-conn-mgmt.h glusterd-conn-helper.h glusterd-proc-mgmt.h \
 	glusterd-svc-mgmt.h glusterd-shd-svc.h glusterd-nfs-svc.h \
 	glusterd-quotad-svc.h glusterd-svc-helper.h glusterd-snapd-svc.h \
-	glusterd-snapd-svc-helper.h
+	glusterd-snapd-svc-helper.h \
+	$(CONTRIBDIR)/userspace-rcu/rculist-extra.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(CONTRIBDIR)/uuid -I$(CONTRIBDIR)/mount \
+	-I$(CONTRIBDIR)/userspace-rcu \
 	-DSBIN_DIR=\"$(sbindir)\" -DDATADIR=\"$(localstatedir)\" \
-	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
-        -DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) $(XML_CPPFLAGS)
+	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\" \
+	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) $(XML_CPPFLAGS)
 
-AM_CFLAGS = -Wall $(GF_CFLAGS)
+AM_CFLAGS = -Wall $(GF_CFLAGS) $(URCU_CFLAGS) $(URCU_CDS_CFLAGS)
 
-AM_LDFLAGS = -L$(xlatordir)
+AM_LDFLAGS = -L$(xlatordir) $(URCU_LIBS) $(URCU_CDS_LIBS)
 
 CLEANFILES =
 
