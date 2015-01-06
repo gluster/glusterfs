@@ -33,6 +33,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 #include "glusterd-locks.h"
+#include "glusterd-snapshot-utils.h"
 
 #include "glusterd1-xdr.h"
 #include "cli1-xdr.h"

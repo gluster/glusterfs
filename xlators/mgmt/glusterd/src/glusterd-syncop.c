@@ -19,6 +19,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
+#include "glusterd-snapshot-utils.h"
 
 extern glusterd_op_info_t opinfo;
 

@@ -35,6 +35,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
+#include "glusterd-snapshot-utils.h"
 
 static struct list_head gd_friend_sm_queue;
 
