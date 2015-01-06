@@ -15,9 +15,6 @@
 #include "config.h"
 #endif
 
-#ifndef GSYNC_CONF_TEMPLATE
-#define GSYNC_CONF_TEMPLATE GEOREP"/gsyncd_template.conf"
-#endif
 
 #include <pthread.h>
 #include <uuid/uuid.h>
@@ -160,16 +157,6 @@ typedef struct glusterd_status_rsp_conv_ {
         dict_t *dict;
 } glusterd_status_rsp_conv_t;
 
-typedef struct glusterd_gsync_status_temp {
-        dict_t *rsp_dict;
-        glusterd_volinfo_t *volinfo;
-        char *node;
-}glusterd_gsync_status_temp_t;
-
-typedef struct gsync_status_param {
-        int is_active;
-        glusterd_volinfo_t *volinfo;
-}gsync_status_param_t;
 
 typedef struct glusterd_txn_opinfo_object_ {
         glusterd_op_info_t    opinfo;
@@ -284,13 +271,6 @@ gf_boolean_t
 glusterd_are_all_volumes_stopped ();
 int
 glusterd_stop_bricks (glusterd_volinfo_t *volinfo);
-int
-gsync_status (char *master, char *slave, char *conf_path,
-              int *status, gf_boolean_t *is_template_in_use);
-
-int
-glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag);
-
 int
 glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                                  dict_t *op_ctx);

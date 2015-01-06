@@ -26,7 +26,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-pmap.h glusterd-volgen.h glusterd-mountbroker.h \
 	glusterd-syncop.h glusterd-hooks.h glusterd-locks.h \
 	glusterd-mgmt.h glusterd-messages.h glusterd-peer-utils.h \
-	glusterd-statedump.h glusterd-snapshot-utils.h
+	glusterd-statedump.h glusterd-snapshot-utils.h glusterd-geo-rep.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \

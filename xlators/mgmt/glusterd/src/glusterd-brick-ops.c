@@ -17,6 +17,7 @@
 #include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
@@ -1467,6 +1468,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         char                    key[256]    = {0,};
         char                   *brick       = NULL;
         glusterd_brickinfo_t   *brickinfo   = NULL;
+        gsync_status_param_t    param       = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1656,6 +1658,16 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                                 ret = -1;
                                 goto out;
                         }
+                }
+
+                /* If geo-rep is configured, for this volume, it should be
+                 * stopped.
+                 */
+                param.volinfo = volinfo;
+                ret = glusterd_check_geo_rep_running (&param, op_errstr);
+                if (ret || param.is_active) {
+                        ret = -1;
+                        goto out;
                 }
 
                 break;

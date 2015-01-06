@@ -22,6 +22,7 @@
 #include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
@@ -38,9 +39,6 @@
 
 #define glusterd_op_start_volume_args_get(dict, volname, flags) \
         glusterd_op_stop_volume_args_get (dict, volname, flags)
-
-extern int
-_get_slave_status (dict_t *this, char *key, data_t *value, void *data);
 
 gf_ai_compare_t
 glusterd_compare_addrinfo (struct addrinfo *first, struct addrinfo *next)
@@ -1452,7 +1450,6 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
         char                                    *volname = NULL;
         int                                     flags = 0;
         gf_boolean_t                            exists = _gf_false;
-        gf_boolean_t                            is_run = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048] = {0};
         xlator_t                                *this = NULL;
@@ -1496,33 +1493,11 @@ glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
                 ret = -1;
                 goto out;
         }
-        ret = glusterd_check_gsync_running (volinfo, &is_run);
-        if (ret && (is_run == _gf_false))
-                gf_log (this->name, GF_LOG_WARNING, "Unable to get the status"
-                        " of active "GEOREP" session");
 
+        /* If geo-rep is configured, for this volume, it should be stopped. */
         param.volinfo = volinfo;
-        ret = dict_foreach (volinfo->gsync_slaves, _get_slave_status, &param);
-
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "_get_slave_satus failed");
-                snprintf (msg, sizeof(msg), GEOREP" Unable to get the status "
-                          "of active "GEOREP" session for the volume '%s'.\n"
-                          "Please check the log file for more info. Use "
-                          "'force' option to ignore and stop the volume.",
-                          volname);
-                ret = -1;
-                goto out;
-        }
-
-        if (is_run && param.is_active) {
-                gf_log (this->name, GF_LOG_WARNING, GEOREP" sessions active "
-                        "for the volume %s ", volname);
-                snprintf (msg, sizeof(msg), GEOREP" sessions are active "
-                          "for the volume '%s'.\nUse 'volume "GEOREP" "
-                          "status' command for more info. Use 'force' "
-                          "option to ignore and stop the volume.",
-                          volname);
+        ret = glusterd_check_geo_rep_running (&param, op_errstr);
+        if (ret || param.is_active) {
                 ret = -1;
                 goto out;
         }
