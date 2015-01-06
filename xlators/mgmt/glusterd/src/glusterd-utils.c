@@ -42,6 +42,7 @@
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-geo-rep.h"
 #include "glusterd-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
