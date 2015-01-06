@@ -387,7 +387,7 @@ int
 glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
                                     char **op_errstr, int npeers,
                                     gf_boolean_t  *is_acquired,
-                                    struct list_head *peers)
+                                    struct cds_list_head *peers)
 {
         char                *volname    = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
@@ -638,7 +638,7 @@ out:
 int
 glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
                                char **op_errstr, int npeers,
-                               struct list_head *peers)
+                               struct cds_list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -874,7 +874,7 @@ out:
 int
 glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict,
                            char **op_errstr, int npeers,
-                           struct list_head *peers)
+                           struct cds_list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1096,7 +1096,7 @@ out:
 int
 glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx,
                          dict_t *req_dict, char **op_errstr,
-                         int npeers, struct list_head *peers)
+                         int npeers, struct cds_list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1296,7 +1296,7 @@ out:
 int
 glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                 dict_t *req_dict, char **op_errstr, int npeers,
-                                struct list_head *peers)
+                                struct cds_list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1488,7 +1488,7 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op,
                                      dict_t *dict, int32_t op_ret,
                                      char **op_errstr, int npeers,
                                      gf_boolean_t  is_acquired,
-                                     struct list_head *peers)
+                                     struct cds_list_head *peers)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1554,7 +1554,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
-        struct list_head             xaction_peers   = {0,};
+        struct cds_list_head             xaction_peers   = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1774,7 +1774,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
-        struct list_head            xaction_peers    = {0,};
+        struct cds_list_head            xaction_peers    = {0,};
 
         this = THIS;
         GF_ASSERT (this);

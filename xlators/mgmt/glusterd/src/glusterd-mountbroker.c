@@ -545,7 +545,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         }
 
         /* look up spec for label */
-        list_for_each_entry (mspec, &priv->mount_specs,
+        cds_list_for_each_entry(mspec, &priv->mount_specs,
                              speclist) {
                 if (strcmp (mspec->label, label) != 0)
                         continue;

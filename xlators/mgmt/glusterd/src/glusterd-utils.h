@@ -379,9 +379,9 @@ int
 glusterd_sm_tr_log_add_to_dict (dict_t *dict,
                                 glusterd_sm_tr_log_t *circular_log);
 int
-glusterd_remove_pending_entry (struct list_head *list, void *elem);
+glusterd_remove_pending_entry (struct cds_list_head *list, void *elem);
 int
-glusterd_clear_pending_nodes (struct list_head *list);
+glusterd_clear_pending_nodes (struct cds_list_head *list);
 int32_t
 glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                         glusterd_brickinfo_t  *brickinfo, char *socketpath);
@@ -671,7 +671,7 @@ rpc_clnt_t *
 glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc);
 
 int32_t
-glusterd_compare_volume_name(struct list_head *, struct list_head *);
+glusterd_compare_volume_name(struct cds_list_head *, struct cds_list_head *);
 
 char*
 glusterd_get_brick_mount_device (char *brick_path);
@@ -685,10 +685,10 @@ glusterd_get_brick_root (char *path, char **mount_point);
 
 
 int
-glusterd_compare_snap_time(struct list_head *, struct list_head *);
+glusterd_compare_snap_time(struct cds_list_head *, struct cds_list_head *);
 
 int
-glusterd_compare_snap_vol_time(struct list_head *, struct list_head *);
+glusterd_compare_snap_vol_time(struct cds_list_head *, struct cds_list_head *);
 
 int32_t
 glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,

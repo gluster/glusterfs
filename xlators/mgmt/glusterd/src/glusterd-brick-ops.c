@@ -72,14 +72,14 @@ add_brick_at_right_order (glusterd_brickinfo_t *brickinfo,
 
 insert_brick:
         i = 0;
-        list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brick, &volinfo->bricks, brick_list) {
                 i++;
                 if (i < idx)
                         continue;
                 gf_log (THIS->name, GF_LOG_DEBUG, "brick:%s index=%d, count=%d",
                         brick->path, idx, count);
 
-                list_add (&brickinfo->brick_list, &brick->brick_list);
+                cds_list_add (&brickinfo->brick_list, &brick->brick_list);
                 break;
         }
 
@@ -579,7 +579,7 @@ subvol_matcher_update (int *subvols, glusterd_volinfo_t *volinfo,
         int32_t               sub_volume = 0;
         int                   pos        = 0;
 
-        list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(tmp, &volinfo->bricks, brick_list) {
 
                 if (strcmp (tmp->hostname, brickinfo->hostname) ||
                     strcmp (tmp->path, brickinfo->path)) {
@@ -1083,7 +1083,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         add_brick_at_right_order (brickinfo, volinfo, (i - 1),
                                                   stripe_count, replica_count);
                 } else {
-                        list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
+                        cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 }
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
@@ -1694,7 +1694,7 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
                 break;
         case GF_DEFRAG_STATUS_STOPPED:
                 /* Fall back to the old volume file */
-                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         brickinfo->decommissioned = 0;
@@ -1704,7 +1704,7 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
         case GF_DEFRAG_STATUS_COMPLETE:
                 /* Done with the task, you can remove the brick from the
                    volume file */
-                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         gf_log (THIS->name, GF_LOG_INFO, "removing the brick %s",
@@ -1896,7 +1896,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_OP_CMD_STOP:
         {
                 /* Fall back to the old volume file */
-                list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
                                           brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;

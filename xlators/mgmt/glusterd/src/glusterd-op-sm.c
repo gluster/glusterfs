@@ -66,7 +66,7 @@
                 }                                                              \
          } while (0)
 
-static struct list_head gd_op_sm_queue;
+static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
 
@@ -963,7 +963,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         ret = glusterd_validate_reconfopts (volinfo, val_dict, op_errstr);
                 else if (!all_vol) {
                         voliter = NULL;
-                        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                        cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
                                 ret = glusterd_validate_globalopts (voliter, val_dict, op_errstr);
                                 if (ret)
                                         break;
@@ -1718,7 +1718,7 @@ glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
 {
         glusterd_brickinfo_t                    *brickinfo = NULL;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
             /*TODO: Need to change @del_brick in brick_stop to _gf_true
              * once we enable synctask in peer rpc prog */
                 if (glusterd_brick_stop (volinfo, brickinfo, _gf_false))
@@ -1736,7 +1736,7 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_brick_start (volinfo, brickinfo, _gf_false);
                 if (ret) {
                         gf_log (THIS->name, GF_LOG_ERROR,
@@ -2014,7 +2014,7 @@ glusterd_op_set_volume (dict_t *dict)
                         quorum_action = _gf_true;
 
                 if (global_opt) {
-                       list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                       cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
                                value = gf_strdup (value);
                                ret = dict_set_dynstr (voliter->dict, key, value);
                                if (ret)
@@ -2081,7 +2081,7 @@ glusterd_op_set_volume (dict_t *dict)
                 }
 
         } else {
-                list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
                         volinfo = voliter;
                         gd_update_volume_op_versions (volinfo);
 
@@ -2177,7 +2177,7 @@ glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
                                                    1, "volume");
                 vol_count = 1;
         } else {
-                list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
                         ret = glusterd_add_volume_to_dict (volinfo, rsp_dict,
                                                            count, "volume");
                         if (ret)
@@ -2676,7 +2676,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 goto out;
 
         } else {
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                         brick_index++;
                         if (uuid_compare (brickinfo->uuid, MY_UUID))
                                 continue;
@@ -2825,7 +2825,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
+        cds_list_for_each_entry(peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -2914,7 +2914,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
+        cds_list_for_each_entry(peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt ||
@@ -3558,7 +3558,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         if (op == GD_OP_REPLACE_BRICK)
                 glusterd_rb_use_rsp_dict (NULL, rsp_dict);
 
-        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
+        cds_list_for_each_entry(peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -4151,7 +4151,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
 
-        list_for_each_entry (peerinfo, &priv->xaction_peers, op_peers_list) {
+        cds_list_for_each_entry(peerinfo, &priv->xaction_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -5001,7 +5001,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
 static int
 glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
-                                    struct list_head *selected)
+                                    struct cds_list_head *selected)
 {
         int                                     ret = 0;
         int                                     flags = 0;
@@ -5022,7 +5022,7 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 if (glusterd_is_brick_started (brickinfo)) {
                         pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                   gf_gld_mt_pending_node_t);
@@ -5032,7 +5032,7 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
                         } else {
                                 pending_node->node = brickinfo;
                                 pending_node->type = GD_NODE_BRICK;
-                                list_add_tail (&pending_node->list, selected);
+                                cds_list_add_tail (&pending_node->list, selected);
                                 pending_node = NULL;
                         }
                 }
@@ -5044,7 +5044,7 @@ out:
 
 static int
 glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
-                                     struct list_head *selected)
+                                     struct cds_list_head *selected)
 {
         int                                     ret = -1;
         char                                    *volname = NULL;
@@ -5107,7 +5107,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
                         } else {
                                 pending_node->node = brickinfo;
                                 pending_node->type = GD_NODE_BRICK;
-                                list_add_tail (&pending_node->list, selected);
+                                cds_list_add_tail (&pending_node->list, selected);
                                 pending_node = NULL;
                         }
                 }
@@ -5120,7 +5120,7 @@ out:
 
 static int
 glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
-                                       struct list_head *selected)
+                                       struct cds_list_head *selected)
 {
         int                                     ret = -1;
         char                                    *volname = NULL;
@@ -5185,14 +5185,14 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                         }
                         pending_node->node = priv->nfs;
                         pending_node->type = GD_NODE_NFS;
-                        list_add_tail (&pending_node->list, selected);
+                        cds_list_add_tail (&pending_node->list, selected);
                         pending_node = NULL;
 
                         ret = 0;
                         goto out;
 
                 }
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
@@ -5202,7 +5202,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                                 } else {
                                         pending_node->node = brickinfo;
                                         pending_node->type = GD_NODE_BRICK;
-                                        list_add_tail (&pending_node->list,
+                                        cds_list_add_tail (&pending_node->list,
                                                        selected);
                                         pending_node = NULL;
                                 }
@@ -5227,7 +5227,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                         }
                         pending_node->node = priv->nfs;
                         pending_node->type = GD_NODE_NFS;
-                        list_add_tail (&pending_node->list, selected);
+                        cds_list_add_tail (&pending_node->list, selected);
                         pending_node = NULL;
 
                         ret = 0;
@@ -5252,14 +5252,14 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                         } else {
                                 pending_node->node = brickinfo;
                                 pending_node->type = GD_NODE_BRICK;
-                                list_add_tail (&pending_node->list,
+                                cds_list_add_tail (&pending_node->list,
                                                selected);
                                 pending_node = NULL;
                                 goto out;
                         }
                 }
                 ret = 0;
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
@@ -5269,7 +5269,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                                 } else {
                                         pending_node->node = brickinfo;
                                         pending_node->type = GD_NODE_BRICK;
-                                        list_add_tail (&pending_node->list,
+                                        cds_list_add_tail (&pending_node->list,
                                                        selected);
                                         pending_node = NULL;
                                 }
@@ -5340,7 +5340,7 @@ get_replica_index_for_per_replica_cmd (glusterd_volinfo_t *volinfo,
 
         replica_count = volinfo->replica_count;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
                 if (!strcmp (brickinfo->path,  path) &&
@@ -5387,7 +5387,7 @@ _select_rxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
 
         index = 1;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
@@ -5438,7 +5438,7 @@ _select_rxlators_for_full_self_heal (xlator_t *this,
         priv = this->private;
         replica_count = volinfo->replica_count;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
@@ -5463,7 +5463,7 @@ _select_rxlators_for_full_self_heal (xlator_t *this,
 
 static int
 glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
-                             struct list_head *selected)
+                             struct cds_list_head *selected)
 {
         int                        ret           = -1;
         glusterd_conf_t            *priv         = NULL;
@@ -5489,7 +5489,7 @@ glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 brick_index++;
                 if (uuid_compare (brickinfo->uuid, MY_UUID) ||
                     !glusterd_is_brick_started (brickinfo)) {
@@ -5504,7 +5504,7 @@ glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
                 pending_node->node = brickinfo;
                 pending_node->type = GD_NODE_BRICK;
                 pending_node->index = brick_index;
-                list_add_tail (&pending_node->list,
+                cds_list_add_tail (&pending_node->list,
                                selected);
                 pending_node = NULL;
         }
@@ -5543,7 +5543,7 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                 }
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
@@ -5587,7 +5587,7 @@ out:
 
 static int
 glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
-                                    struct list_head *selected,
+                                    struct cds_list_head *selected,
                                     dict_t *rsp_dict)
 {
         int                                     ret = -1;
@@ -5713,7 +5713,7 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         } else {
                 pending_node->node = priv->shd;
                 pending_node->type = GD_NODE_SHD;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
                 pending_node = NULL;
         }
 
@@ -5725,7 +5725,7 @@ out:
 
 static int
 glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
-                                         struct list_head *selected)
+                                         struct cds_list_head *selected)
 {
         int                                     ret = -1;
         char                                    *volname = NULL;
@@ -5760,7 +5760,7 @@ glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
         } else {
                 pending_node->node = volinfo;
                 pending_node->type = GD_NODE_REBALANCE;
-                list_add_tail (&pending_node->list,
+                cds_list_add_tail (&pending_node->list,
                                &opinfo.pending_bricks);
                 pending_node = NULL;
         }
@@ -5771,7 +5771,7 @@ out:
 
 static int
 glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
-                                      struct list_head *selected)
+                                      struct cds_list_head *selected)
 {
         int                     ret = -1;
         int                     cmd = 0;
@@ -5851,7 +5851,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 pending_node->node = brickinfo;
                 pending_node->type = GD_NODE_BRICK;
                 pending_node->index = 0;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
 
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_NFS) != 0) {
@@ -5870,7 +5870,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 pending_node->node = priv->nfs;
                 pending_node->type = GD_NODE_NFS;
                 pending_node->index = 0;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
 
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
@@ -5889,7 +5889,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 pending_node->node = priv->shd;
                 pending_node->type = GD_NODE_SHD;
                 pending_node->index = 0;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
 
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
@@ -5908,7 +5908,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 pending_node->node = priv->quotad;
                 pending_node->type = GD_NODE_QUOTAD;
                 pending_node->index = 0;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
 
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
@@ -5930,11 +5930,11 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 pending_node->node = (void *)(&volinfo->snapd);
                 pending_node->type = GD_NODE_SNAPD;
                 pending_node->index = 0;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
 
                 ret = 0;
         } else {
-                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                         brick_index++;
                         if (uuid_compare (brickinfo->uuid, MY_UUID) ||
                             !glusterd_is_brick_started (brickinfo)) {
@@ -5951,7 +5951,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                         pending_node->node = brickinfo;
                         pending_node->type = GD_NODE_BRICK;
                         pending_node->index = brick_index;
-                        list_add_tail (&pending_node->list, selected);
+                        cds_list_add_tail (&pending_node->list, selected);
                         pending_node = NULL;
                 }
         }
@@ -5964,7 +5964,7 @@ out:
  * and are running
  */
 static int
-glusterd_bricks_select_barrier (dict_t *dict, struct list_head *selected)
+glusterd_bricks_select_barrier (dict_t *dict, struct cds_list_head *selected)
 {
         int                       ret           = -1;
         char                      *volname      = NULL;
@@ -5987,7 +5987,7 @@ glusterd_bricks_select_barrier (dict_t *dict, struct list_head *selected)
                 goto out;
         }
 
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_compare (brickinfo->uuid, MY_UUID) ||
                     !glusterd_is_brick_started (brickinfo)) {
                         continue;
@@ -6000,7 +6000,7 @@ glusterd_bricks_select_barrier (dict_t *dict, struct list_head *selected)
                 }
                 pending_node->node = brickinfo;
                 pending_node->type = GD_NODE_BRICK;
-                list_add_tail (&pending_node->list, selected);
+                cds_list_add_tail (&pending_node->list, selected);
                 pending_node = NULL;
         }
 
@@ -6122,7 +6122,7 @@ out:
 
 int32_t
 glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
-                           struct list_head *selected, dict_t *rsp_dict)
+                           struct cds_list_head *selected, dict_t *rsp_dict)
 {
         int     ret = 0;
 
@@ -6509,7 +6509,7 @@ glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Enqueue event: '%s'",
                 glusterd_op_sm_event_name_get (event->event));
-        list_add_tail (&event->list, &gd_op_sm_queue);
+        cds_list_add_tail (&event->list, &gd_op_sm_queue);
 
 out:
         return ret;
@@ -6580,11 +6580,11 @@ glusterd_op_sm ()
                 goto lock_failed;
         }
 
-        while (!list_empty (&gd_op_sm_queue)) {
+        while (!cds_list_empty (&gd_op_sm_queue)) {
 
-                list_for_each_entry_safe (event, tmp, &gd_op_sm_queue, list) {
+                cds_list_for_each_entry_safe (event, tmp, &gd_op_sm_queue, list) {
 
-                        list_del_init (&event->list);
+                        cds_list_del_init (&event->list);
                         event_type = event->event;
                         gf_log (this->name, GF_LOG_DEBUG, "Dequeued event of "
                                 "type: '%s'",

@@ -2025,7 +2025,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        list_for_each_entry (pending_node, &opinfo.pending_bricks, list) {
+        cds_list_for_each_entry(pending_node, &opinfo.pending_bricks, list) {
                 dummy_frame = create_frame (this, this->ctx->pool);
                 if (!dummy_frame)
                         continue;

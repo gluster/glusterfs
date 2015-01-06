@@ -115,7 +115,7 @@ glusterd_dump_client_details (glusterd_conf_t *conf)
 
         pthread_mutex_lock (&conf->xprt_lock);
         {
-                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                cds_list_for_each_entry(xprt, &conf->xprt_list, list) {
                         snprintf (subkey, sizeof (subkey), "glusterd.client%d",
                                   index);
 

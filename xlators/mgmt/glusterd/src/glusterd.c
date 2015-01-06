@@ -228,7 +228,7 @@ glusterd_fetchspec_notify (xlator_t *this)
 
         pthread_mutex_lock (&priv->xprt_lock);
         {
-                list_for_each_entry (trans, &priv->xprt_list, list) {
+                cds_list_for_each_entry(trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_FETCHSPEC, NULL, 0);
@@ -264,7 +264,7 @@ glusterd_fetchsnap_notify (xlator_t *this)
          */
         pthread_mutex_lock (&priv->xprt_lock);
         {
-                list_for_each_entry (trans, &priv->xprt_list, list) {
+                cds_list_for_each_entry(trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_GET_SNAPS, NULL, 0);
@@ -322,14 +322,14 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 INIT_LIST_HEAD (&xprt->list);
 
                 pthread_mutex_lock (&priv->xprt_lock);
-                list_add_tail (&xprt->list, &priv->xprt_list);
+                cds_list_add_tail (&xprt->list, &priv->xprt_list);
                 pthread_mutex_unlock (&priv->xprt_lock);
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
         {
                 pthread_mutex_lock (&priv->xprt_lock);
-                list_del (&xprt->list);
+                cds_list_del (&xprt->list);
                 pthread_mutex_unlock (&priv->xprt_lock);
                 pmap_registry_remove (this, 0, NULL, GF_PMAP_PORT_NONE, xprt);
                 break;
@@ -964,7 +964,7 @@ _install_mount_spec (dict_t *opts, char *key, data_t *value, void *data)
         } else if (parse_mount_pattern_desc (mspec, pdesc) != 0)
                 goto err;
 
-        list_add_tail (&mspec->speclist, &priv->mount_specs);
+        cds_list_add_tail (&mspec->speclist, &priv->mount_specs);
 
         return 0;
  err:
@@ -1088,7 +1088,7 @@ glusterd_stop_uds_listener (xlator_t *this)
         (void) rpcsvc_program_unregister (conf->uds_rpc, &gd_svc_cli_prog);
         (void) rpcsvc_program_unregister (conf->uds_rpc, &gluster_handshake_prog);
 
-        list_for_each_entry_safe (listener, next, &conf->uds_rpc->listeners,
+        cds_list_for_each_entry_safe (listener, next, &conf->uds_rpc->listeners,
                                   list) {
                 rpcsvc_listener_destroy (listener);
         }
@@ -1534,7 +1534,7 @@ init (xlator_t *this)
          * spawn process/bricks that may need (re)starting since last
          * time (this) glusterd was up.*/
 
-        if (list_empty (&conf->peers)) {
+        if (cds_list_empty (&conf->peers)) {
                 glusterd_launch_synctask (glusterd_spawn_daemons, NULL);
         }
         ret = glusterd_options_init (this);
