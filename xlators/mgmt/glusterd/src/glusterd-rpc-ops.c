@@ -27,6 +27,7 @@
 #include "glusterd-utils.h"
 #include "common-utils.h"
 #include "glusterd-messages.h"
+#include "glusterd-snapshot-utils.h"
 #include <sys/uio.h>
 
 

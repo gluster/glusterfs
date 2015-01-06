@@ -126,22 +126,10 @@ int32_t
 glusterd_brickinfo_new_from_brick (char *brick, glusterd_brickinfo_t **brickinfo);
 
 int32_t
-glusterd_snap_volinfo_find (char *volname, glusterd_snap_t *snap,
-                            glusterd_volinfo_t **volinfo);
-int32_t
-glusterd_snap_volinfo_find_from_parent_volname (char *origin_volname,
-                                      glusterd_snap_t *snap,
-                                      glusterd_volinfo_t **volinfo);
-
-int32_t
 glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
 
 int
 glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volinfo);
-
-int
-glusterd_snap_volinfo_find_by_volume_id (uuid_t volume_id,
-                                         glusterd_volinfo_t **volinfo);
 
 int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
@@ -427,10 +415,6 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                             dict_t  *dict, int32_t count);
 
 int32_t
-glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
-                            dict_t  *dict, int32_t count);
-
-int32_t
 glusterd_get_all_volnames (dict_t *dict);
 
 gf_boolean_t
@@ -525,8 +509,6 @@ int
 glusterd_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int
 glusterd_sys_exec_output_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
-int
-glusterd_snap_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 int32_t
 glusterd_handle_node_rsp (dict_t *req_ctx, void *pending_entry,
                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
@@ -686,92 +668,11 @@ glusterd_get_mnt_entry_info (char *mnt_pt, char *buff, int buflen,
 int
 glusterd_get_brick_root (char *path, char **mount_point);
 
-
-int
-glusterd_compare_snap_time(struct list_head *, struct list_head *);
-
-int
-glusterd_compare_snap_vol_time(struct list_head *, struct list_head *);
-
-int32_t
-glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
-                               glusterd_volinfo_t *new_volinfo,
-                               glusterd_volinfo_t *snap_volinfo,
-                               int32_t volcount);
-
 int32_t
 glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
 
-int32_t
-glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo);
-
-int32_t
-glusterd_missed_snap_op_new (glusterd_snap_op_t **snap_op);
-
-int32_t
-glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict,
-                                   glusterd_volinfo_t *snap_vol,
-                                   glusterd_brickinfo_t *brickinfo,
-                                   int32_t brick_number, int32_t op);
-
-int32_t
-glusterd_add_missed_snaps_to_export_dict (dict_t *peer_data);
-
-int32_t
-glusterd_import_friend_missed_snap_list (dict_t *peer_data);
-
-int
-gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
-                        glusterd_volinfo_t *orig_vol,
-                        glusterd_volinfo_t *snap_vol,
-                        int32_t volcount);
-
-int32_t
-glusterd_mount_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
-                             char *brick_mount_path);
-
-int32_t
-glusterd_umount (const char *path);
-
-int32_t
-glusterd_add_snapshots_to_export_dict (dict_t *peer_data);
-
-int32_t
-glusterd_compare_friend_snapshots (dict_t *peer_data,
-                                   glusterd_peerinfo_t *peerinfo);
-
-int32_t
-glusterd_snapobject_delete (glusterd_snap_t *snap);
-
-int32_t
-glusterd_snap_volume_remove (dict_t *rsp_dict,
-                             glusterd_volinfo_t *snap_vol,
-                             gf_boolean_t remove_lvm,
-                             gf_boolean_t force);
-
-int32_t
-glusterd_store_create_snap_dir (glusterd_snap_t *snap);
-
-int32_t
-glusterd_copy_file (const char *source, const char *destination);
-
-int32_t
-glusterd_copy_folder (const char *source, const char *destination);
-
-int32_t
-glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
-                              dict_t *gsync_slaves_dict, char *session,
-                              char *slave);
-
-int32_t
-glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
-
 gf_boolean_t
 gd_vol_is_geo_rep_active (glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
-                           glusterd_volinfo_t *dest_vol);
 
 int
 glusterd_recursive_rmdir (const char *delete_path);
@@ -786,36 +687,6 @@ int32_t
 glusterd_take_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
                             char *origin_brick_path);
 
-int32_t
-glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr,
-                            struct list_head *peers_list);
-
-int32_t
-glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr,
-                                       struct list_head *peers_list);
-
-int32_t
-glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
-                              dict_t *dict, char *key_prefix,
-                              int8_t snap_force, int32_t quorum_count,
-                              char *quorum_type, char **op_errstr);
-
-gf_boolean_t
-glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
-                                  int down_count, gf_boolean_t first_brick_on,
-                                  int8_t snap_force, int32_t quorum_count,
-                                  char *quorum_type, char **op_errstr);
-
-int
-glusterd_merge_brick_status (dict_t *dst, dict_t *src);
-
-int32_t
-glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
-                            glusterd_brickinfo_t *brickinfo,
-                            int32_t brick_count);
-
 void
 glusterd_launch_synctask (synctask_fn_t fn, void *opaque);
 
@@ -823,69 +694,7 @@ int
 glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option);
 
 int
-glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
-                                   glusterd_volinfo_t *volinfo,
-                                   glusterd_snap_t *snap);
-
-int
 glusterd_unlink_file (char *sock_file_path);
-
-/* Snapd functions */
-int
-glusterd_handle_snapd_option (glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_snapd_disconnect (glusterd_volinfo_t *volinfo);
-
-void
-glusterd_get_snapd_dir (glusterd_volinfo_t *volinfo,
-                        char *path, int path_len);
-
-void
-glusterd_get_snapd_rundir (glusterd_volinfo_t *volinfo,
-                           char *path, int path_len);
-
-void
-glusterd_get_snapd_volfile (glusterd_volinfo_t *volinfo,
-                            char *path, int path_len);
-
-void
-glusterd_get_snapd_pidfile (glusterd_volinfo_t *volinfo,
-                            char *path, int path_len);
-
-void
-glusterd_set_snapd_socket_filepath (glusterd_volinfo_t *volinfo,
-                                    char *path, int path_len);
-
-gf_boolean_t
-glusterd_is_snapd_running (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_snapd_stop (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait);
-
-int
-glusterd_is_snapd_enabled (glusterd_volinfo_t *volinfo);
-
-gf_boolean_t
-glusterd_is_snapd_online (glusterd_volinfo_t *volinfo);
-
-void
-glusterd_snapd_set_online_status (glusterd_volinfo_t *volinfo,
-                                  gf_boolean_t status);
-
-int
-glusterd_restart_snapds (glusterd_conf_t *priv);
-/* End snapd functions */
-
-int32_t
-glusterd_check_and_set_config_limit (glusterd_conf_t *priv);
-
-int32_t
-glusterd_is_snap_soft_limit_reached (glusterd_volinfo_t *volinfo,
-                                     dict_t *dict);
 
 int32_t
 glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
@@ -902,17 +711,13 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo);
 int
 glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo);
 
-void
-gd_get_snap_conf_values_if_present (dict_t *opts, uint64_t *sys_hard_limit,
-                                    uint64_t *sys_soft_limit);
-
 int
 glusterd_get_volopt_content (dict_t *dict, gf_boolean_t xml_out);
 
 int
 glusterd_get_default_val_for_volopt (dict_t *dict, gf_boolean_t all_opts,
-                                         char *key, char *orig_key,
-                                         dict_t *vol_dict, char **err_str);
+                                     char *key, char *orig_key,
+                                     dict_t *vol_dict, char **err_str);
 
 int
 glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
@@ -924,10 +729,25 @@ glusterd_have_peers ();
 void
 glusterd_op_clear_xaction_peers ();
 
-gf_boolean_t
-mntopts_exists (const char *str, const char *opts);
-
 void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
                                 char *path, int path_len);
+
+int32_t
+glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
+                        glusterd_brickinfo_t *dup_brickinfo);
+
+int
+glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t *load,
+                                     int vol_idx, char *prefix);
+
+int32_t
+glusterd_import_volinfo (dict_t *peer_data, int count,
+                         glusterd_volinfo_t **volinfo,
+                         char *prefix);
+
+int
+glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
+                            glusterd_volinfo_t *new_volinfo,
+                            char *prefix);
 #endif

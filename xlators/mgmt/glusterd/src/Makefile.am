@@ -10,7 +10,8 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-volume-ops.c glusterd-brick-ops.c glusterd-mountbroker.c \
 	glusterd-syncop.c glusterd-hooks.c glusterd-volume-set.c \
 	glusterd-locks.c glusterd-snapshot.c glusterd-mgmt-handler.c \
-	glusterd-mgmt.c glusterd-peer-utils.c glusterd-statedump.c
+	glusterd-mgmt.c glusterd-peer-utils.c glusterd-statedump.c \
+        glusterd-snapshot-utils.c
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		     $(top_builddir)/rpc/xdr/src/libgfxdr.la \
@@ -25,7 +26,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-pmap.h glusterd-volgen.h glusterd-mountbroker.h \
 	glusterd-syncop.h glusterd-hooks.h glusterd-locks.h \
 	glusterd-mgmt.h glusterd-messages.h glusterd-peer-utils.h \
-	glusterd-statedump.h
+	glusterd-statedump.h glusterd-snapshot-utils.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \

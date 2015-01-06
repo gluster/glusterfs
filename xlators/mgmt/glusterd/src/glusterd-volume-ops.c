@@ -27,6 +27,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
 #include "run.h"
+#include "glusterd-snapshot-utils.h"
 
 #include <stdint.h>
 #include <sys/socket.h>

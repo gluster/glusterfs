@@ -22,6 +22,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
+#include "glusterd-snapshot-utils.h"
 
 #include "glusterfs3.h"
 #include "protocol-common.h"

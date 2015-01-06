@@ -34,6 +34,7 @@
 #include "glusterd-utils.h"
 #include "run.h"
 #include "options.h"
+#include "glusterd-snapshot-utils.h"
 
 extern struct volopt_map_entry glusterd_volopt_map[];
 

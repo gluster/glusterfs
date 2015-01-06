@@ -54,6 +54,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-mgmt.h"
 #include "glusterd-syncop.h"
+#include "glusterd-snapshot-utils.h"
 
 #include "glusterfs3.h"
 

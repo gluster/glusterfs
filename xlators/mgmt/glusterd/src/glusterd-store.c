@@ -37,6 +37,7 @@
 #include "glusterd-hooks.h"
 #include "store.h"
 #include "glusterd-store.h"
+#include "glusterd-snapshot-utils.h"
 
 #include "rpc-clnt.h"
 #include "common-utils.h"
