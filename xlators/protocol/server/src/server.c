@@ -380,6 +380,12 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
         if (!tail)
                 goto out;
 
+        if (strncmp(tail, "addr.", 5) != 0) {
+                gf_log (xl->name, GF_LOG_INFO,
+                        "skip format check for non-addr auth option %s", k);
+                goto out;
+        }
+
         /* fast fwd thru module type */
         tail = strchr (tail, '.');
         if (!tail)
