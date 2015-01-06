@@ -228,7 +228,7 @@ glusterd_fetchspec_notify (xlator_t *this)
 
         pthread_mutex_lock (&priv->xprt_lock);
         {
-                cds_list_for_each_entry(trans, &priv->xprt_list, list) {
+                list_for_each_entry(trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_FETCHSPEC, NULL, 0);
@@ -264,7 +264,7 @@ glusterd_fetchsnap_notify (xlator_t *this)
          */
         pthread_mutex_lock (&priv->xprt_lock);
         {
-                cds_list_for_each_entry(trans, &priv->xprt_list, list) {
+                list_for_each_entry(trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_GET_SNAPS, NULL, 0);
@@ -322,14 +322,14 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 INIT_LIST_HEAD (&xprt->list);
 
                 pthread_mutex_lock (&priv->xprt_lock);
-                cds_list_add_tail (&xprt->list, &priv->xprt_list);
+                list_add_tail (&xprt->list, &priv->xprt_list);
                 pthread_mutex_unlock (&priv->xprt_lock);
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
         {
                 pthread_mutex_lock (&priv->xprt_lock);
-                cds_list_del (&xprt->list);
+                list_del (&xprt->list);
                 pthread_mutex_unlock (&priv->xprt_lock);
                 pmap_registry_remove (this, 0, NULL, GF_PMAP_PORT_NONE, xprt);
                 break;

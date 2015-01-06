@@ -4805,8 +4805,11 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         /* TODO: Re-enable ordered insertion after implementing it for rculist
          */
-        cds_list_add_tail (&new_volinfo->vol_list, &priv->volumes,
-                        glusterd_compare_volume_name);
+        cds_list_add_tail (&new_volinfo->vol_list, &priv->volumes);
+        /*
+         *list_add_order (&new_volinfo->vol_list, &priv->volumes,
+         *                glusterd_compare_volume_name);
+         */
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
         return ret;
@@ -5463,8 +5466,11 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
 
         /* TODO: Re-enable ordered insertion after implementing it for rculist
          */
-        cds_list_add_tail (&snap->snap_list, &priv->snapshots,
-                        glusterd_compare_snap_time);
+        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
+        /*
+         *list_add_order (&snap->snap_list, &priv->snapshots,
+         *                glusterd_compare_snap_time);
+         */
 
         for (i = 1; i <= volcount; i++) {
                 ret = glusterd_import_volinfo (peer_data, i,
@@ -14014,7 +14020,7 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
         GF_ASSERT(priv);
 
         pthread_mutex_lock (&priv->xprt_lock);
-        cds_list_for_each_entry(xprt, &priv->xprt_list, list) {
+        list_for_each_entry(xprt, &priv->xprt_list, list) {
                 if ((!strcmp(volname, xprt->peerinfo.volname)) &&
                     ((op_version > xprt->peerinfo.max_op_version) ||
                      (op_version < xprt->peerinfo.min_op_version))) {

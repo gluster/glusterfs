@@ -29,6 +29,8 @@
 #include "rpcsvc.h"
 #include "store.h"
 
+#include <urcu/rculist.h>
+
 typedef enum gd_quorum_contribution_ {
         QUORUM_NONE,
         QUORUM_WAITING,

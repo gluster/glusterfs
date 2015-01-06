@@ -149,7 +149,7 @@ typedef struct {
         struct cds_list_head         volumes;
         struct cds_list_head         snapshots; /*List of snap volumes */
         pthread_mutex_t          xprt_lock;
-        struct cds_list_head         xprt_list;
+        struct list_head         xprt_list;
         gf_store_handle_t       *handle;
         gf_timer_t              *timer;
         glusterd_sm_tr_log_t     op_sm_log;

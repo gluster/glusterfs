@@ -2104,8 +2104,11 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         volinfo->rebal.defrag_status = 0;
         /* TODO: Re-enable ordered insertion after implementing it for rculist
          */
-        cds_list_add_tail (&volinfo->vol_list, &priv->volumes,
-                         glusterd_compare_volume_name);
+        cds_list_add_tail (&volinfo->vol_list, &priv->volumes);
+        /*
+         *list_add_order (&volinfo->vol_list, &priv->volumes,
+         *                 glusterd_compare_volume_name);
+         */
         vol_added = _gf_true;
 
 out:
