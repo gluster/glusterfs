@@ -20,6 +20,12 @@
 #include <pthread.h>
 #include <libgen.h>
 
+#include <urcu-bp.h>
+#include <urcu/rculist.h>
+#ifdef URCU_0_7
+#include "rculist-extra.h"
+#endif
+
 #include "uuid.h"
 
 #include "rpc-clnt.h"
@@ -1057,4 +1063,5 @@ glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
+
 #endif

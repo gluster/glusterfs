@@ -197,6 +197,7 @@ BuildRequires:    libaio-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 BuildRequires:    cmockery2-devel
+BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{!?_without_systemtap:1} )
 BuildRequires:    systemtap-sdt-devel
 %endif
@@ -1038,6 +1039,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Wed Feb 18 2015 Kaushal M <kaushal@redhat.com>
+- add userspace-rcu as a requirement
+
 * Fri Feb 13 2015 Gaurav Kumar Garg <ggarg@redhat.com>
 - .cmd_log_history file should be renamed to cmd_history.log post
   upgrade (#1165996)

@@ -1098,6 +1098,13 @@ if test "x$BUILD_GLUPY" = "xyes"; then
 fi
 # end glupy section
 
+dnl Check for userspace-rcu
+PKG_CHECK_MODULES([URCU], [liburcu-bp])
+PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.8], [],
+  [PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.7],
+    [AC_DEFINE(URCU_0_7, 1, [Define if liburcu 0.7 is found])],
+    [AC_MSG_ERROR([liburcu >= 0.7 required])])])
+
 AC_SUBST(CFLAGS)
 # end enable debug section
 
