@@ -1,0 +1,177 @@
+#!/usr/bin/env python
+import os
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+import json
+import sys
+
+
+PROG_DESCRIPTION = """
+GlusterFS Mountbroker user management
+"""
+
+args = None
+
+
+def ok(message=""):
+    if (not args and "-j" in sys.argv) or (args and args.json):
+        print json.dumps({"ok": True, "message": message})
+    else:
+        if message:
+            print message
+
+    sys.exit(0)
+
+
+def notok(message=""):
+    if (not args and "-j" in sys.argv) or (args and args.json):
+        print json.dumps({"ok": False, "message": message})
+    else:
+        print "error: %s" % message
+
+    # Always return zero due to limitation while executing
+    # as `gluster system:: execute`
+    sys.exit(0)
+
+
+class NoStdErrParser(ArgumentParser):
+    """
+    with gluster system:: execute, stderr gives
+    "Unable to end. Error : Bad file descriptor" error,
+    so deriving new class, prints error message and
+    exits with zero.
+    """
+    def error(self, message):
+        notok(message)
+
+
+class MountbrokerUserMgmt(object):
+    def __init__(self, volfile):
+        self.volfile = volfile
+        self._options = {}
+        self.commented_lines = []
+        self._parse()
+
+    def _parse(self):
+        with open(self.volfile, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("option "):
+                    key, value = line.split(" ")[1:]
+                    self._options[key] = value
+                if line.startswith("#"):
+                    self.commented_lines.append(line)
+
+    def _get_write_data(self):
+        op = "volume management\n"
+        op += "    type mgmt/glusterd\n"
+        for k, v in self._options.iteritems():
+            op += "    option %s %s\n" % (k, v)
+        for line in self.commented_lines:
+            op += "    %s\n" % line
+        op += "end-volume"
+        return op
+
+    def save(self):
+        with open(self.volfile + "_tmp", "w") as f:
+            f.write(self._get_write_data())
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(self.volfile + "_tmp", self.volfile)
+
+    def set_opt(self, key, value):
+        self._options[key] = value.strip()
+
+    def remove_opt(self, key):
+        if key in self._options:
+            del(self._options[key])
+
+    def add_user(self, user, volumes):
+        self.set_opt("mountbroker-geo-replication.%s" % user,
+                     ",".join(volumes))
+
+    def remove_user(self, user):
+        self.remove_opt("mountbroker-geo-replication.%s" % user)
+
+    def info(self):
+        data = {"users": []}
+
+        for k, v in self._options.iteritems():
+            if k.startswith("mountbroker-geo-replication."):
+                data["users"].append(
+                    {"name": k.split(".")[-1], "volumes": v.split(",")}
+                )
+            else:
+                data[k] = v
+
+        return data
+
+
+def format_info(data):
+    op = "%s %s\n" % ("Option".ljust(50), "Value".ljust(50))
+    op += ("-" * 101) + "\n"
+    for key, value in data.iteritems():
+        if key != "users":
+            op += "%s %s\n" % (key.ljust(50), value)
+
+    op += "\nUsers: %s\n" % ("None" if not data["users"] else "")
+    for user in data["users"]:
+        op += "%s: %s\n" % (user["name"], ", ".join(user["volumes"]))
+    op += "\n\n"
+    return op
+
+
+def _get_args():
+    parser = NoStdErrParser(formatter_class=RawDescriptionHelpFormatter,
+                            description=PROG_DESCRIPTION)
+
+    parser.add_argument('-j', dest="json", help="JSON output",
+                        action="store_true")
+    subparsers = parser.add_subparsers(title='subcommands', dest='cmd')
+    parser_useradd = subparsers.add_parser('user')
+    parser_userdel = subparsers.add_parser('userdel')
+    subparsers.add_parser('info')
+    parser_opt = subparsers.add_parser('opt')
+    parser_optdel = subparsers.add_parser('optdel')
+
+    parser_useradd.add_argument('username', help="Username", type=str)
+    parser_useradd.add_argument('volumes', type=str, default='',
+                                help="Volumes list. ',' seperated")
+
+    parser_userdel.add_argument('username', help="Username", type=str)
+
+    parser_opt.add_argument('opt_name', help="Name", type=str)
+    parser_opt.add_argument('opt_value', help="Value", type=str)
+
+    parser_optdel.add_argument('opt_name', help="Name", type=str)
+
+    return parser.parse_args()
+
+
+def main():
+    global args
+    args = _get_args()
+
+    m = MountbrokerUserMgmt("/etc/glusterfs/glusterd.vol")
+
+    if args.cmd == "opt":
+        m.set_opt(args.opt_name, args.opt_value)
+    elif args.cmd == "optdel":
+        m.remove_opt(args.opt_name)
+    elif args.cmd == "userdel":
+        m.remove_user(args.username)
+    elif args.cmd == "user":
+        volumes = [v.strip() for v in args.volumes.split(",")
+                   if v.strip() != ""]
+        m.add_user(args.username, volumes)
+    elif args.cmd == "info":
+        info = m.info()
+        if not args.json:
+            info = format_info(info)
+        ok(info)
+
+    if args.cmd != "info":
+        m.save()
+        ok()
+
+if __name__ == "__main__":
+    main()
