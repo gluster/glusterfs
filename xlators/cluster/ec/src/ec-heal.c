@@ -486,16 +486,6 @@ ec_heal_init (ec_fop_data_t * fop)
     ec_heal_t * heal = NULL;
     int32_t error = 0;
 
-    inode = fop->loc[0].inode;
-    if (inode == NULL)
-    {
-        gf_log(fop->xl->name, GF_LOG_WARNING, "Unable to start inode healing "
-                                              "because there is not enough "
-                                              "information");
-
-        return ENODATA;
-    }
-
     heal = GF_MALLOC(sizeof(ec_heal_t), ec_mt_ec_heal_t);
     if (heal == NULL)
     {
@@ -506,6 +496,16 @@ ec_heal_init (ec_fop_data_t * fop)
 
     if (ec_loc_from_loc(fop->xl, &heal->loc, &fop->loc[0]) != 0) {
         error = ENOMEM;
+        goto out;
+    }
+
+    inode = heal->loc.inode;
+    if (inode == NULL) {
+        gf_log(fop->xl->name, GF_LOG_WARNING, "Unable to start inode healing "
+                                              "because there is not enough "
+                                              "information");
+
+        error = ENODATA;
         goto out;
     }
 
@@ -532,7 +532,12 @@ ec_heal_init (ec_fop_data_t * fop)
         gf_log("ec", GF_LOG_INFO, "Healing '%s', gfid %s", heal->loc.path,
                uuid_utoa(heal->loc.gfid));
     } else {
-        error = EEXIST;
+        LOCK(&fop->lock);
+
+        fop->jobs++;
+        fop->refs++;
+
+        UNLOCK(&fop->lock);
     }
 
     list_add_tail(&heal->list, &ctx->heal);
@@ -540,17 +545,6 @@ ec_heal_init (ec_fop_data_t * fop)
 
 unlock:
     UNLOCK(&inode->lock);
-
-    if (error == EEXIST) {
-        LOCK(&fop->lock);
-
-        fop->jobs++;
-        fop->refs++;
-
-        UNLOCK(&fop->lock);
-
-        error = 0;
-    }
 
 out:
     GF_FREE(heal);
@@ -563,6 +557,7 @@ void ec_heal_entrylk(ec_heal_t * heal, entrylk_cmd cmd)
     loc_t loc;
 
     if (ec_loc_parent(heal->xl, &heal->loc, &loc) != 0) {
+        gf_log("ec", GF_LOG_NOTICE, "ec_loc_parent() failed");
         ec_fop_set_error(heal->fop, EIO);
 
         return;
@@ -1164,10 +1159,11 @@ void ec_heal_dispatch(ec_heal_t *heal)
 
     LOCK(&inode->lock);
 
-    /* A heal object not belonging to any list means that it has not been fully
-     * executed. It got its information from a previous heal that was executing
-     * when this heal started. */
-    if (!list_empty(&heal->list)) {
+    /* done == 0 means that self-heal is still running (it shouldn't happen)
+     * done == 1 means that self-heal has just completed
+     * done == 2 means that self-heal has completed and reported */
+    if (heal->done == 1) {
+        heal->done = 2;
         list_del_init(&heal->list);
         ctx = __ec_inode_get(inode, heal->xl);
         if (ctx != NULL) {
@@ -1182,6 +1178,11 @@ void ec_heal_dispatch(ec_heal_t *heal)
                     if (!next->partial) {
                         break;
                     }
+
+                    /* Setting 'done' to 2 avoids executing all heal logic and
+                     * directly reports the result to the caller. */
+                    next->done = 2;
+
                     list_move_tail(&next->list, &list);
                 }
                 if (list_empty(&ctx->heal)) {
@@ -1240,10 +1241,6 @@ void ec_heal_dispatch(ec_heal_t *heal)
         heal->available = cbk->uintptr[0];
         heal->good = cbk->uintptr[1];
         heal->fixed = cbk->uintptr[2];
-
-        /* Setting 'done' to 1 avoids executing all heal logic and directly
-         * reports the result to the caller. */
-        heal->done = 1;
 
         ec_resume(heal->fop, error);
     }
@@ -1304,11 +1301,14 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
             }
 
         case EC_STATE_DISPATCH:
-            if (heal->done) {
+            if (heal->done != 0) {
+                gf_log("ec", GF_LOG_NOTICE, "heal already done");
                 return EC_STATE_HEAL_DISPATCH;
             }
 
+            gf_log("ec", GF_LOG_NOTICE, "heal before entrylk");
             ec_heal_entrylk(heal, ENTRYLK_LOCK);
+            gf_log("ec", GF_LOG_NOTICE, "heal after entrylk");
 
             return EC_STATE_HEAL_ENTRY_LOOKUP;
 
@@ -1403,7 +1403,7 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
             return EC_STATE_HEAL_DISPATCH;
 
         case EC_STATE_HEAL_DATA_LOCK:
-            if (heal->done)
+            if (heal->done != 0)
             {
                 return EC_STATE_HEAL_POST_INODELK_LOCK;
             }

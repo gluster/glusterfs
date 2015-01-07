@@ -29,8 +29,6 @@ typedef enum {
 #define EC_FLAG_UPDATE_FD         0x0004
 #define EC_FLAG_UPDATE_FD_INODE   0x0008
 
-#define EC_FLAG_WAITING_WINDS     0x0010
-
 #define EC_SELFHEAL_BIT 62
 
 #define EC_MINIMUM_ONE   -1
@@ -98,8 +96,6 @@ void ec_dispatch_all(ec_fop_data_t * fop);
 void ec_dispatch_inc(ec_fop_data_t * fop);
 void ec_dispatch_min(ec_fop_data_t * fop);
 void ec_dispatch_one(ec_fop_data_t * fop);
-
-void ec_wait_winds(ec_fop_data_t * fop);
 
 void ec_sleep(ec_fop_data_t *fop);
 void ec_resume(ec_fop_data_t * fop, int32_t error);
