@@ -21,6 +21,29 @@
 #include "ec-mem-types.h"
 #include "ec-data.h"
 
+static char *ec_ignore_xattrs[] = {
+        GF_SELINUX_XATTR_KEY,
+        QUOTA_SIZE_KEY,
+        NULL
+};
+
+static gf_boolean_t
+ec_ignorable_key_match (dict_t *dict, char *key, data_t *val, void *mdata)
+{
+        int i = 0;
+
+        if (!key)
+                goto out;
+
+        for (i = 0; ec_ignore_xattrs[i]; i++) {
+                if (!strcmp (key, ec_ignore_xattrs[i]))
+                       return _gf_true;
+        }
+
+out:
+        return _gf_false;
+}
+
 /* FOP: heal */
 
 void ec_heal_exclude(ec_heal_t * heal, uintptr_t mask)
@@ -864,6 +887,10 @@ void ec_heal_setxattr_others(ec_heal_t * heal)
         cbk = heal->lookup->answer;
         xdata = cbk->xdata;
 
+        if (dict_foreach_match (xdata, ec_ignorable_key_match, NULL,
+                                dict_remove_foreach_fn, NULL) == -1)
+                goto out;
+
         if ((cbk->iatt[0].ia_type == IA_IFREG) ||
             (cbk->iatt[0].ia_type == IA_IFDIR))
         {
@@ -891,24 +918,21 @@ out:
     ec_fop_set_error(heal->fop, error);
 }
 
-int32_t ec_heal_xattr_clean(dict_t * dict, char * key, data_t * data,
-                            void * arg)
+int32_t
+ec_heal_xattr_clean (dict_t *dict, char *key, data_t *data,
+                     void *arg)
 {
-    dict_t * base = arg;
+        dict_t *base = arg;
 
-    if (dict_get(base, key) == NULL)
-    {
-        if (dict_set_static_bin(dict, key, dict, 0) != 0)
-        {
-            return -1;
+        if (ec_ignorable_key_match (NULL, key, NULL, NULL)) {
+                dict_del (dict, key);
+                return 0;
         }
-    }
-    else
-    {
-        dict_del(dict, key);
-    }
 
-    return 0;
+        if (dict_get (base, key) != NULL)
+                dict_del (dict, key);
+
+        return 0;
 }
 
 void ec_heal_removexattr_others(ec_heal_t * heal)
