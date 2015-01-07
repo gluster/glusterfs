@@ -41,6 +41,7 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-nfs-svc.h"
+#include "glusterd-bitd-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "common-utils.h"
@@ -1217,6 +1218,16 @@ glusterd_svc_init_all ()
                 goto out;
         }
         gf_log (THIS->name, GF_LOG_DEBUG, "quotad service initialized");
+
+        /* Init BitD svc */
+        ret = glusterd_bitdsvc_init (&(priv->bitd_svc));
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialized BitD "
+                        "service");
+                goto out;
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "BitD service initialized");
+
 
 out:
         return ret;

@@ -26,6 +26,7 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-snapd-svc-helper.h"
 #include "glusterd-quotad-svc.h"
+#include "glusterd-bitd-svc.h"
 
 #include "glusterfs3.h"
 #include "protocol-common.h"
@@ -195,8 +196,6 @@ build_volfile_path (char *volume_id, char *path,
                 goto out;
 
         }
-
-        volid_ptr = strstr (volume_id, "gluster/");
         if (volid_ptr) {
                 volid_ptr = strchr (volid_ptr, '/');
                 if (!volid_ptr) {

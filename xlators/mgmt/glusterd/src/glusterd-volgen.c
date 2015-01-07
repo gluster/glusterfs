@@ -3742,7 +3742,10 @@ build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
         char               *skey          = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
+
         priv = this->private;
+        GF_ASSERT (priv);
 
         set_dict = dict_new ();
         if (!set_dict) {
@@ -4139,6 +4142,107 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
                  (xlator && loglevel) ?
                  &server_spec_extended_option_handler:
                  &server_spec_option_handler);
+
+        return ret;
+}
+
+int
+build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+{
+        volgen_graph_t     cgraph         = {0};
+        glusterd_volinfo_t *voliter       = NULL;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *priv          = NULL;
+        dict_t             *set_dict      = NULL;
+        int                ret            = 0;
+        xlator_t           *bitd_xl       = NULL;
+        char               *skey          = NULL;
+        char               transt[16]     = {0,};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        set_dict = dict_new ();
+        if (!set_dict) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        bitd_xl = volgen_graph_add_as (graph, "features/bit-rot", "bit-rot");
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                /*To do: check whether bitd is enable or not if not then
+                 *              continue;                             */
+
+                /*
+                 * Since bitd is a service running within the trusted storage
+                 * pool, it is treated as a trusted client.
+                 */
+                ret = dict_set_uint32 (set_dict, "trusted-client",
+                                       GF_CLIENT_TRUSTED);
+                if (ret)
+                        goto out;
+
+                get_transport_type (voliter, mod_dict, transt, _gf_false);
+                if (!strcmp (transt, "tcp,rdma"))
+                        strcpy (transt, "tcp");
+
+                dict_copy (voliter->dict, set_dict);
+                if (mod_dict)
+                        dict_copy (mod_dict, set_dict);
+
+                ret = gf_asprintf(&skey, "%s.volume-id", voliter->volname);
+                if (ret == -1) {
+                        gf_log("", GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                }
+                ret = xlator_set_option(bitd_xl, skey, voliter->volname);
+                GF_FREE (skey);
+                if (ret)
+                        goto out;
+
+                memset (&cgraph, 0, sizeof (cgraph));
+                ret = volgen_graph_build_clients (&cgraph, voliter, set_dict,
+                                                  NULL);
+                if (ret) {
+                        ret = -1;
+                        goto out;
+                }
+
+                if (mod_dict) {
+                        dict_copy (mod_dict, set_dict);
+                        ret = volgen_graph_set_options_generic (&cgraph, set_dict,
+                                                          voliter,
+                                                          basic_option_handler);
+                } else {
+                        ret = volgen_graph_set_options_generic (&cgraph,
+                                                                voliter->dict,
+                                                                voliter,
+                                                                basic_option_handler);
+                }
+                if (ret)
+                        goto out;
+
+                ret = volgen_graph_merge_sub (graph, &cgraph, 1);
+                if (ret)
+                        goto out;
+
+                ret = dict_reset (set_dict);
+                if (ret)
+                        goto out;
+        }
+
+out:
+        if (set_dict)
+                dict_unref (set_dict);
+
+        gf_log(this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }

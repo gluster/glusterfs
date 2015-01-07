@@ -150,6 +150,31 @@ glusterd_store_snapd_path_set (glusterd_volinfo_t *volinfo,
         snprintf (snapd_path, len, "%s/snapd.info", volpath);
 }
 
+/*
+ * As  of now, bitd is per node, per volume. But in future if
+ * bitd is made per node only (i.e. one bitd on a peer will
+ * take care of all the bricks from all the volumes on that node),
+ * then the below things such as the location of the info file for
+ * the bitd has to change.
+ */
+static void
+glusterd_store_bitd_path_set (glusterd_volinfo_t *volinfo,
+                              char *bitd_path, size_t len)
+{
+        char                    volpath[PATH_MAX] = {0, };
+        glusterd_conf_t         *priv = NULL;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (len >= PATH_MAX);
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        GLUSTERD_GET_VOLUME_DIR (volpath, volinfo, priv);
+
+        snprintf (bitd_path, len, "%s/bitd.info", volpath);
+}
+
 gf_boolean_t
 glusterd_store_is_valid_brickpath (char *volname, char *brick)
 {
@@ -280,6 +305,28 @@ glusterd_store_create_snapd_shandle_on_absence (glusterd_volinfo_t *volinfo)
                                        sizeof (snapd_path));
         ret = gf_store_handle_create_on_absence (&volinfo->snapd.handle,
                                                  snapd_path);
+        return ret;
+}
+
+/*
+ * As  of now, bitd is per node, per volume. But in future if
+ * bitd is made per node only (i.e. one bitd on a peer will
+ * take care of all the bricks from all the volumes on that node),
+ * then the below things such as the location of the info file for
+ * the bitd has to change.
+ */
+int32_t
+glusterd_store_create_bitd_shandle_on_absence (glusterd_volinfo_t *volinfo)
+{
+        char                    bitd_path[PATH_MAX] = {0,};
+        int32_t                 ret = 0;
+
+        GF_ASSERT (volinfo);
+
+        glusterd_store_bitd_path_set (volinfo, bitd_path,
+                                       sizeof (bitd_path));
+        ret = gf_store_handle_create_on_absence (&volinfo->bitd.handle,
+                                                 bitd_path);
         return ret;
 }
 
@@ -492,6 +539,49 @@ out:
         return ret;
 }
 
+/*
+ * As  of now, bitd is per node, per volume. But in future if
+ * bitd is made per node only (i.e. one bitd on a peer will
+ * take care of all the bricks from all the volumes on that node),
+ * then the below things such as the location of the info file for
+ * the bitd has to change.
+ */
+int32_t
+glusterd_store_perform_bitd_store (glusterd_volinfo_t *volinfo)
+{
+        int                         fd  = -1;
+        int32_t                     ret = -1;
+        xlator_t                  *this = NULL;
+
+        GF_ASSERT (volinfo);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        fd = gf_store_mkstemp (volinfo->bitd.handle);
+        if (fd <= 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to create the "
+                        "temporary file for the bitd store handle of volume "
+                        "%s", volinfo->volname);
+                goto out;
+        }
+
+        /* ret = glusterd_store_snapd_write (fd, volinfo); */
+        /* if (ret) { */
+        /*         gf_log (this->name, GF_LOG_ERROR, "failed to write snapd port " */
+        /*                 "info to store handle (volume: %s", volinfo->volname); */
+        /*         goto out; */
+        /* } */
+
+        ret = gf_store_rename_tmppath (volinfo->bitd.handle);
+
+out:
+        if (ret && (fd > 0))
+                gf_store_unlink_tmppath (volinfo->bitd.handle);
+        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 int32_t
 glusterd_store_brickinfo (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *brickinfo, int32_t brick_count,
@@ -548,6 +638,44 @@ glusterd_store_snapd_info (glusterd_volinfo_t *volinfo)
 out:
         if (ret)
                 gf_store_unlink_tmppath (volinfo->snapd.handle);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+/*
+ * As  of now, bitd is per node, per volume. But in future if
+ * bitd is made per node only (i.e. one bitd on a peer will
+ * take care of all the bricks from all the volumes on that node),
+ * then the below things such as the location of the info file for
+ * the bitd has to change.
+ */
+int32_t
+glusterd_store_bitd_info (glusterd_volinfo_t *volinfo)
+{
+        int32_t                 ret  = -1;
+        xlator_t               *this = NULL;
+
+        GF_ASSERT (volinfo);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = glusterd_store_create_bitd_shandle_on_absence (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to create store "
+                        "handle for snapd (volume: %s)", volinfo->volname);
+                goto out;
+        }
+
+        ret = glusterd_store_perform_bitd_store (volinfo);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "failed to store snapd info "
+                        "of the volume %s", volinfo->volname);
+
+out:
+        if (ret)
+                gf_store_unlink_tmppath (volinfo->bitd.handle);
 
         gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
@@ -1495,6 +1623,15 @@ glusterd_store_volume_cleanup_tmp (glusterd_volinfo_t *volinfo)
         gf_store_unlink_tmppath (volinfo->node_state_shandle);
 
         gf_store_unlink_tmppath (volinfo->snapd.handle);
+
+        /*
+         * As  of now, bitd is per node, per volume. But in future if
+         * bitd is made per node only (i.e. one bitd on a peer will
+         * take care of all the bricks from all the volumes on that node),
+         * then the below things such as the location of the info file for
+         * the bitd has to change.
+         */
+        gf_store_unlink_tmppath (volinfo->bitd.handle);
 }
 
 int32_t
@@ -1641,6 +1778,17 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
                 goto out;
 
         ret = glusterd_store_perform_node_state_store (volinfo);
+        if (ret)
+                goto out;
+
+      /*
+       * As  of now, bitd is per node, per volume. But in future if
+       * bitd is made per node only (i.e. one bitd on a peer will
+       * take care of all the bricks from all the volumes on that node),
+       * then the below things such as the location of the info file for
+       * the bitd has to change.
+       */
+        ret = glusterd_store_bitd_info (volinfo);
         if (ret)
                 goto out;
 
@@ -2189,6 +2337,104 @@ glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
                         volinfo->snapd.port = atoi (value);
                 }
 
+                ret = gf_store_iter_get_next (iter, &key, &value,
+                                              &op_errno);
+        }
+
+        if (op_errno != GD_STORE_EOF)
+                goto out;
+
+        ret = gf_store_iter_destroy (iter);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to destroy store "
+                        "iter");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+/*
+ * As  of now, bitd is per node, per volume. But in future if
+ * bitd is made per node only (i.e. one bitd on a peer will
+ * take care of all the bricks from all the volumes on that node),
+ * then the below things such as the location of the info file for
+ * the bitd has to change.
+ */
+int
+glusterd_store_retrieve_bitd (glusterd_volinfo_t *volinfo)
+{
+        int                     ret                     = -1;
+        int                     exists                  = 0;
+        char                    *key                    = NULL;
+        char                    *value                  = NULL;
+        char                    volpath[PATH_MAX]       = {0,};
+        char                    path[PATH_MAX]          = {0,};
+        xlator_t                *this                   = NULL;
+        glusterd_conf_t         *conf                   = NULL;
+        gf_store_iter_t         *iter                   = NULL;
+        gf_store_op_errno_t     op_errno                = GD_STORE_SUCCESS;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = THIS->private;
+        GF_ASSERT (volinfo);
+
+        if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                ret = 0;
+                goto out;
+        }
+
+        /*
+         * This is needed for upgrade situations. Say a volume is created with
+         * older version of glusterfs and upgraded to a glusterfs version equal
+         * to or greater than GD_OP_VERSION_3_7_0. The older glusterd would not
+         * have created the snapd.info file related to snapshot daemon for user
+         * serviceable snapshots. So as part of upgrade when the new glusterd
+         * starts, as part of restore (restoring the volume to be precise), it
+         * tries to snapd related info from snapd.info file. But since there was
+         * no such file till now, the restore operation fails. Thus, to prevent
+         * it from happening check whether user serviceable snapshots features
+         * is enabled before restoring snapd. If its disbaled, then simply
+         * exit by returning success (without even checking for the snapd.info).
+         */
+
+        /* if (!dict_get_str_boolean (volinfo->dict, "features.bit-rot", _gf_false)) { */
+        /*         ret = 0; */
+        /*         goto out; */
+        /* } */
+
+        GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, conf);
+
+        snprintf (path, sizeof (path), "%s/%s", volpath,
+                  GLUSTERD_VOLUME_BITD_INFO_FILE);
+
+        ret = gf_store_handle_retrieve (path, &volinfo->bitd.handle);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "volinfo handle is NULL");
+                goto out;
+        }
+
+        ret = gf_store_iter_new (volinfo->bitd.handle, &iter);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get new store "
+                        "iter");
+                goto out;
+        }
+
+        ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
+        if (ret) {
+                if (op_errno != GD_STORE_EOF) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get next store "
+                                "iter");
+                        goto out;
+                }
+        }
+
+        while (!ret) {
                 ret = gf_store_iter_get_next (iter, &key, &value,
                                               &op_errno);
         }
@@ -2876,6 +3122,10 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
                 goto out;
 
         ret = glusterd_store_retrieve_snapd (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_retrieve_bitd (volinfo);
         if (ret)
                 goto out;
 

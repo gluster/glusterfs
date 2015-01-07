@@ -689,4 +689,48 @@ glusterd_nfs_pmap_deregister ();
 gf_boolean_t
 glusterd_is_volume_started (glusterd_volinfo_t  *volinfo);
 
+int
+glusterd_get_bitd_filepath (char *filepath, glusterd_volinfo_t *volinfo);
+
+int
+glusterd_is_bitd_enabled (glusterd_volinfo_t *volinfo);
+
+void
+glusterd_get_bitd_rundir (glusterd_volinfo_t *volinfo,
+                          char *path, int path_len);
+
+void
+glusterd_get_bitd_volfile (glusterd_volinfo_t *volinfo,
+                           char *path, int path_len);
+
+void
+glusterd_get_bitd_pidfile (glusterd_volinfo_t *volinfo,
+                           char *path, int path_len);
+
+void
+glusterd_set_bitd_socket_filepath (glusterd_volinfo_t *volinfo,
+                                   char *path, int path_len);
+
+gf_boolean_t
+glusterd_is_bitd_running (glusterd_volinfo_t *volinfo);
+
+int32_t
+glusterd_bitd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait);
+
+int
+glusterd_bitd_stop (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_handle_bitd_option (glusterd_volinfo_t *volinfo);
+
+gf_boolean_t
+glusterd_is_bitd_online (glusterd_volinfo_t *volinfo);
+
+void
+glusterd_bitd_set_online_status (glusterd_volinfo_t *volinfo,
+                                 gf_boolean_t status);
+
+int
+glusterd_restart_bitds (glusterd_conf_t *priv);
+
 #endif
