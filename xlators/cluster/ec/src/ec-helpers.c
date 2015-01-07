@@ -332,7 +332,7 @@ int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
     return 1;
 }
 
-int32_t ec_loc_setup_inode(xlator_t *xl, loc_t *loc)
+int32_t ec_loc_setup_inode(xlator_t *xl, inode_table_t *table, loc_t *loc)
 {
     int32_t ret = -1;
 
@@ -340,11 +340,11 @@ int32_t ec_loc_setup_inode(xlator_t *xl, loc_t *loc)
         if (!ec_loc_gfid_check(xl, loc->gfid, loc->inode->gfid)) {
             goto out;
         }
-    } else if (loc->parent != NULL) {
+    } else if (table != NULL) {
         if (!gf_uuid_is_null(loc->gfid)) {
-            loc->inode = inode_find(loc->parent->table, loc->gfid);
+            loc->inode = inode_find(table, loc->gfid);
         } else if (loc->path && strchr (loc->path, '/')) {
-            loc->inode = inode_resolve(loc->parent->table, (char *)loc->path);
+            loc->inode = inode_resolve(table, (char *)loc->path);
         }
     }
 
@@ -354,7 +354,7 @@ out:
     return ret;
 }
 
-int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
+int32_t ec_loc_setup_parent(xlator_t *xl, inode_table_t *table, loc_t *loc)
 {
     char *path, *parent;
     int32_t ret = -1;
@@ -363,9 +363,9 @@ int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
         if (!ec_loc_gfid_check(xl, loc->pargfid, loc->parent->gfid)) {
             goto out;
         }
-    } else if (loc->inode != NULL) {
+    } else if (table != NULL) {
         if (!gf_uuid_is_null(loc->pargfid)) {
-            loc->parent = inode_find(loc->inode->table, loc->pargfid);
+            loc->parent = inode_find(table, loc->pargfid);
         } else if (loc->path && strchr (loc->path, '/')) {
             path = gf_strdup(loc->path);
             if (path == NULL) {
@@ -375,9 +375,18 @@ int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
                 goto out;
             }
             parent = dirname(path);
-            loc->parent = inode_resolve(loc->inode->table, parent);
+            loc->parent = inode_resolve(table, parent);
+            if (loc->parent != NULL) {
+                gf_uuid_copy(loc->pargfid, loc->parent->gfid);
+            }
             GF_FREE(path);
         }
+    }
+
+    /* If 'pargfid' has not been determined, clear 'name' to avoid resolutions
+       based on <gfid:pargfid>/name. */
+    if (gf_uuid_is_null(loc->pargfid)) {
+        loc->name = NULL;
     }
 
     ret = 0;
@@ -431,13 +440,17 @@ out:
 
 int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
 {
+    inode_table_t *table = NULL;
     char *str = NULL;
     int32_t ret = -1;
 
     memset(parent, 0, sizeof(loc_t));
 
     if (loc->parent != NULL) {
+        table = loc->parent->table;
         parent->inode = inode_ref(loc->parent);
+    } else if (loc->inode != NULL) {
+        table = loc->inode->table;
     }
     if (!gf_uuid_is_null(loc->pargfid)) {
         gf_uuid_copy(parent->gfid, loc->pargfid);
@@ -460,8 +473,8 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
     }
 
     if ((ec_loc_setup_path(xl, parent) != 0) ||
-        (ec_loc_setup_inode(xl, parent) != 0) ||
-        (ec_loc_setup_parent(xl, parent) != 0)) {
+        (ec_loc_setup_inode(xl, table, parent) != 0) ||
+        (ec_loc_setup_parent(xl, table, parent) != 0)) {
         goto out;
     }
 
@@ -488,14 +501,22 @@ out:
 int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
                       struct iatt *iatt)
 {
+    inode_table_t *table = NULL;
     int32_t ret = -1;
 
-    if ((inode != NULL) && (loc->inode != inode)) {
-        if (loc->inode != NULL) {
-            inode_unref(loc->inode);
+    if (inode != NULL) {
+        table = inode->table;
+        if (loc->inode != inode) {
+            if (loc->inode != NULL) {
+                inode_unref(loc->inode);
+            }
+            loc->inode = inode_ref(inode);
+            gf_uuid_copy(loc->gfid, inode->gfid);
         }
-        loc->inode = inode_ref(inode);
-        gf_uuid_copy(loc->gfid, inode->gfid);
+    } else if (loc->inode != NULL) {
+        table = loc->inode->table;
+    } else if (loc->parent != NULL) {
+        table = loc->parent->table;
     }
 
     if (iatt != NULL) {
@@ -505,8 +526,8 @@ int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
     }
 
     if ((ec_loc_setup_path(xl, loc) != 0) ||
-        (ec_loc_setup_inode(xl, loc) != 0) ||
-        (ec_loc_setup_parent(xl, loc) != 0)) {
+        (ec_loc_setup_inode(xl, table, loc) != 0) ||
+        (ec_loc_setup_parent(xl, table, loc) != 0)) {
         goto out;
     }
 

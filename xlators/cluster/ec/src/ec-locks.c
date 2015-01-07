@@ -21,57 +21,52 @@
 #define EC_LOCK_MODE_INC  1
 #define EC_LOCK_MODE_ALL  2
 
-int32_t ec_lock_check(ec_fop_data_t * fop, ec_cbk_data_t ** cbk,
-                      uintptr_t * mask)
+int32_t ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
 {
-    ec_t * ec = fop->xl->private;
-    ec_cbk_data_t * ans = NULL;
+    ec_t *ec = fop->xl->private;
+    ec_cbk_data_t *ans = NULL;
+    ec_cbk_data_t *cbk = NULL;
     uintptr_t locked = 0, notlocked = 0;
     int32_t error = -1;
 
-    list_for_each_entry(ans, &fop->cbk_list, list)
-    {
-        if (ans->op_ret >= 0)
-        {
-            if (locked != 0)
-            {
+    list_for_each_entry(ans, &fop->cbk_list, list) {
+        if (ans->op_ret >= 0) {
+            if (locked != 0) {
                 error = EIO;
             }
             locked |= ans->mask;
-            *cbk = ans;
-        }
-        else if (ans->op_errno == EAGAIN)
-        {
+            cbk = ans;
+        } else {
             notlocked |= ans->mask;
         }
     }
 
-    if (error == -1)
-    {
-        if (ec_bits_count(locked | notlocked) >= ec->fragments)
-        {
-            if (notlocked == 0)
-            {
-                fop->answer = *cbk;
+    if (error == -1) {
+        if (ec_bits_count(locked | notlocked) >= ec->fragments) {
+            if (ec_bits_count (locked) >= ec->fragments) {
+                if (fop->answer == NULL) {
+                    fop->answer = cbk;
+                }
 
                 ec_update_bad(fop, locked);
 
                 error = 0;
-            }
-            else
-            {
-                if (fop->uint32 == EC_LOCK_MODE_NONE)
-                {
+            } else {
+                switch (fop->uint32) {
+                case EC_LOCK_MODE_NONE:
                     error = EAGAIN;
-                }
-                else
-                {
+                    break;
+
+                case EC_LOCK_MODE_ALL:
                     fop->uint32 = EC_LOCK_MODE_INC;
+                    break;
+
+                default:
+                    error = EIO;
+                    break;
                 }
             }
-        }
-        else
-        {
+        } else {
             error = EIO;
         }
     }
@@ -79,28 +74,6 @@ int32_t ec_lock_check(ec_fop_data_t * fop, ec_cbk_data_t ** cbk,
     *mask = locked;
 
     return error;
-}
-
-uintptr_t ec_lock_handler(ec_fop_data_t * fop, ec_cbk_data_t * cbk,
-                          ec_combine_f combine)
-{
-    uintptr_t mask = 0;
-
-    if (fop->uint32 == EC_LOCK_MODE_INC)
-    {
-        if (cbk->op_ret < 0)
-        {
-            if (cbk->op_errno != ENOTCONN)
-            {
-                mask = fop->mask & ~fop->remaining & ~cbk->mask;
-                fop->remaining = 0;
-            }
-        }
-    }
-
-    ec_combine(cbk, combine);
-
-    return mask;
 }
 
 int32_t ec_lock_unlocked(call_frame_t * frame, void * cookie,
@@ -150,8 +123,6 @@ int32_t ec_entrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -164,13 +135,7 @@ int32_t ec_entrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_entrylk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                       NULL, fop->str[0], &fop->loc[0], fop->str[1],
-                       ENTRYLK_UNLOCK, fop->entrylk_type, fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -213,45 +178,41 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if ((cbk == NULL) ||
-                ((cbk->op_ret < 0) && (cbk->op_errno == EAGAIN)))
-            {
+            if (fop->entrylk_cmd != ENTRYLK_UNLOCK) {
                 uintptr_t mask;
 
-                fop->error = ec_lock_check(fop, &cbk, &mask);
-                if (fop->error != 0)
-                {
-                    if (mask != 0)
-                    {
-                        if (fop->id == GF_FOP_ENTRYLK)
-                        {
-                            ec_entrylk(fop->req_frame, fop->xl, mask, 1,
+                fop->error = ec_lock_check(fop, &mask);
+                if (fop->error != 0) {
+                    if (mask != 0) {
+                        if (fop->id == GF_FOP_ENTRYLK) {
+                            ec_entrylk(fop->frame, fop->xl, mask, 1,
                                        ec_lock_unlocked, NULL, fop->str[0],
                                        &fop->loc[0], fop->str[1],
                                        ENTRYLK_UNLOCK, fop->entrylk_type,
                                        fop->xdata);
-                        }
-                        else
-                        {
-                            ec_fentrylk(fop->req_frame, fop->xl, mask, 1,
+                        } else {
+                            ec_fentrylk(fop->frame, fop->xl, mask, 1,
                                         ec_lock_unlocked, NULL, fop->str[0],
                                         fop->fd, fop->str[1], ENTRYLK_UNLOCK,
                                         fop->entrylk_type, fop->xdata);
                         }
                     }
-                    if (fop->error > 0)
-                    {
-                        return EC_STATE_REPORT;
+                    if (fop->error < 0) {
+                        fop->error = 0;
+
+                        fop->entrylk_cmd = ENTRYLK_LOCK;
+
+                        ec_dispatch_inc(fop);
+
+                        return EC_STATE_PREPARE_ANSWER;
                     }
-
-                    fop->error = 0;
-
-                    fop->entrylk_cmd = ENTRYLK_LOCK;
-
-                    ec_dispatch_inc(fop);
-
-                    return EC_STATE_PREPARE_ANSWER;
+                }
+            } else {
+                cbk = fop->answer;
+                if (cbk == NULL) {
+                    ec_fop_set_error(fop, EIO);
+                } else if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
 
@@ -279,8 +240,6 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            ec_wait_winds(fop);
-
             return EC_STATE_END;
 
         case -EC_STATE_INIT:
@@ -305,8 +264,6 @@ int32_t ec_manager_entrylk(ec_fop_data_t * fop, int32_t state)
                                        fop->error, NULL);
                 }
             }
-
-            ec_wait_winds(fop);
 
             return EC_STATE_END;
 
@@ -422,8 +379,6 @@ int32_t ec_fentrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -436,13 +391,7 @@ int32_t ec_fentrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_fentrylk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                        NULL, fop->str[0], fop->fd, fop->str[1],
-                        ENTRYLK_UNLOCK, fop->entrylk_type, fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -572,8 +521,6 @@ int32_t ec_inodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -586,23 +533,7 @@ int32_t ec_inodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_t * ec = fop->xl->private;
-            struct gf_flock flock;
-
-            flock.l_type = F_UNLCK;
-            flock.l_whence = fop->flock.l_whence;
-            flock.l_start = fop->flock.l_start * ec->fragments;
-            flock.l_len = fop->flock.l_len * ec->fragments;
-            flock.l_pid = 0;
-            flock.l_owner.len = 0;
-
-            ec_inodelk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                       NULL, fop->str[0], &fop->loc[0], F_SETLK, &flock,
-                       fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -649,18 +580,13 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if ((cbk == NULL) ||
-                ((cbk->op_ret < 0) && (cbk->op_errno == EAGAIN)))
-            {
+            if (fop->flock.l_type != F_UNLCK) {
                 uintptr_t mask;
 
-                fop->error = ec_lock_check(fop, &cbk, &mask);
-                if (fop->error != 0)
-                {
-                    if (mask != 0)
-                    {
-                        ec_t * ec = fop->xl->private;
+                fop->error = ec_lock_check(fop, &mask);
+                if (fop->error != 0) {
+                    if (mask != 0) {
+                        ec_t *ec = fop->xl->private;
                         struct gf_flock flock;
 
                         flock.l_type = F_UNLCK;
@@ -670,32 +596,33 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                         flock.l_pid = 0;
                         flock.l_owner.len = 0;
 
-                        if (fop->id == GF_FOP_INODELK)
-                        {
-                            ec_inodelk(fop->req_frame, fop->xl, mask, 1,
+                        if (fop->id == GF_FOP_INODELK) {
+                            ec_inodelk(fop->frame, fop->xl, mask, 1,
                                        ec_lock_unlocked, NULL, fop->str[0],
                                        &fop->loc[0], F_SETLK, &flock,
                                        fop->xdata);
-                        }
-                        else
-                        {
-                            ec_finodelk(fop->req_frame, fop->xl, mask, 1,
+                        } else {
+                            ec_finodelk(fop->frame, fop->xl, mask, 1,
                                         ec_lock_unlocked, NULL, fop->str[0],
                                         fop->fd, F_SETLK, &flock, fop->xdata);
                         }
                     }
-                    if (fop->error > 0)
-                    {
-                        return EC_STATE_REPORT;
+                    if (fop->error < 0) {
+                        fop->error = 0;
+
+                        fop->int32 = F_SETLKW;
+
+                        ec_dispatch_inc(fop);
+
+                        return EC_STATE_PREPARE_ANSWER;
                     }
-
-                    fop->error = 0;
-
-                    fop->int32 = F_SETLKW;
-
-                    ec_dispatch_inc(fop);
-
-                    return EC_STATE_PREPARE_ANSWER;
+                }
+            } else {
+                cbk = fop->answer;
+                if (cbk == NULL) {
+                    ec_fop_set_error(fop, EIO);
+                } else if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
 
@@ -723,8 +650,6 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            ec_wait_winds(fop);
-
             return EC_STATE_END;
 
         case -EC_STATE_INIT:
@@ -749,8 +674,6 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                                        fop->error, NULL);
                 }
             }
-
-            ec_wait_winds(fop);
 
             return EC_STATE_END;
 
@@ -869,8 +792,6 @@ int32_t ec_finodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -883,23 +804,7 @@ int32_t ec_finodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_t * ec = fop->xl->private;
-            struct gf_flock flock;
-
-            flock.l_type = F_UNLCK;
-            flock.l_whence = fop->flock.l_whence;
-            flock.l_start = fop->flock.l_start * ec->fragments;
-            flock.l_len = fop->flock.l_len * ec->fragments;
-            flock.l_pid = 0;
-            flock.l_owner.len = 0;
-
-            ec_finodelk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                        NULL, fop->str[0], fop->fd, F_SETLK, &flock,
-                        fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -1047,8 +952,6 @@ int32_t ec_lk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (op_ret >= 0)
         {
             if (flock != NULL)
@@ -1078,22 +981,7 @@ int32_t ec_lk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, ec_combine_lk);
-        if (mask != 0)
-        {
-            ec_t * ec = fop->xl->private;
-            struct gf_flock flock;
-
-            flock.l_type = F_UNLCK;
-            flock.l_whence = fop->flock.l_whence;
-            flock.l_start = fop->flock.l_start * ec->fragments;
-            flock.l_len = fop->flock.l_len * ec->fragments;
-            flock.l_pid = 0;
-            flock.l_owner.len = 0;
-
-            ec_lk(fop->req_frame, fop->xl, mask, 1, ec_lock_lk_unlocked, NULL,
-                  fop->fd, F_SETLK, &flock, fop->xdata);
-        }
+        ec_combine(cbk, ec_combine_lk);
     }
 
 out:
@@ -1139,18 +1027,13 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if ((cbk == NULL) ||
-                ((cbk->op_ret < 0) && (cbk->op_errno == EAGAIN)))
-            {
+            if (fop->flock.l_type != F_UNLCK) {
                 uintptr_t mask;
 
-                fop->error = ec_lock_check(fop, &cbk, &mask);
-                if (fop->error != 0)
-                {
-                    if (mask != 0)
-                    {
-                        ec_t * ec = fop->xl->private;
+                fop->error = ec_lock_check(fop, &mask);
+                if (fop->error != 0) {
+                    if (mask != 0) {
+                        ec_t *ec = fop->xl->private;
                         struct gf_flock flock;
 
                         flock.l_type = F_UNLCK;
@@ -1160,22 +1043,26 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                         flock.l_pid = 0;
                         flock.l_owner.len = 0;
 
-                        ec_lk(fop->req_frame, fop->xl, mask, 1,
+                        ec_lk(fop->frame, fop->xl, mask, 1,
                               ec_lock_lk_unlocked, NULL, fop->fd, F_SETLK,
                               &flock, fop->xdata);
                     }
-                    if (fop->error > 0)
-                    {
-                        return EC_STATE_REPORT;
+                    if (fop->error < 0) {
+                        fop->error = 0;
+
+                        fop->int32 = F_SETLKW;
+
+                        ec_dispatch_inc(fop);
+
+                        return EC_STATE_PREPARE_ANSWER;
                     }
-
-                    fop->error = 0;
-
-                    fop->int32 = F_SETLKW;
-
-                    ec_dispatch_inc(fop);
-
-                    return EC_STATE_PREPARE_ANSWER;
+                }
+            } else {
+                cbk = fop->answer;
+                if (cbk == NULL) {
+                    ec_fop_set_error(fop, EIO);
+                } else if (cbk->op_ret < 0) {
+                    ec_fop_set_error(fop, cbk->op_errno);
                 }
             }
 
@@ -1192,8 +1079,6 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                              cbk->op_errno, &cbk->flock, cbk->xdata);
             }
 
-            ec_wait_winds(fop);
-
             return EC_STATE_END;
 
         case -EC_STATE_INIT:
@@ -1207,8 +1092,6 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                 fop->cbks.lk(fop->req_frame, fop, fop->xl, -1, fop->error,
                              NULL, NULL);
             }
-
-            ec_wait_winds(fop);
 
             return EC_STATE_END;
 

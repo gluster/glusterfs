@@ -267,21 +267,6 @@ int32_t ec_check_complete(ec_fop_data_t * fop, ec_resume_f resume)
     return error;
 }
 
-void ec_wait_winds(ec_fop_data_t * fop)
-{
-    LOCK(&fop->lock);
-
-    if (fop->winds > 0)
-    {
-        fop->jobs++;
-        fop->refs++;
-
-        fop->flags |= EC_FLAG_WAITING_WINDS;
-    }
-
-    UNLOCK(&fop->lock);
-}
-
 void ec_resume(ec_fop_data_t * fop, int32_t error)
 {
     ec_resume_f resume = NULL;
@@ -355,10 +340,6 @@ void ec_complete(ec_fop_data_t * fop)
                 }
             }
 
-            resume = 1;
-        }
-        else if ((fop->flags & EC_FLAG_WAITING_WINDS) != 0)
-        {
             resume = 1;
         }
     }
