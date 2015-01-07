@@ -4027,18 +4027,19 @@ get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
         case 0:  return (sts_val->node);
         case 1:  return (sts_val->master);
         case 2:  return (sts_val->brick);
-        case 3:  return (sts_val->slave_node);
-        case 4:  return (sts_val->worker_status);
-        case 5:  return (sts_val->checkpoint_status);
-        case 6:  return (sts_val->crawl_status);
-        case 7:  return (sts_val->files_syncd);
-        case 8:  return (sts_val->files_remaining);
-        case 9:  return (sts_val->bytes_remaining);
-        case 10: return (sts_val->purges_remaining);
-        case 11: return (sts_val->total_files_skipped);
-        case 12: return (sts_val->brick_host_uuid);
-        case 13: return (sts_val->slavekey);
-        case 14: return (sts_val->session_slave);
+        case 3:  return (sts_val->slave_user);
+        case 4:  return (sts_val->slave_node);
+        case 5:  return (sts_val->worker_status);
+        case 6:  return (sts_val->checkpoint_status);
+        case 7:  return (sts_val->crawl_status);
+        case 8:  return (sts_val->files_syncd);
+        case 9:  return (sts_val->files_remaining);
+        case 10:  return (sts_val->bytes_remaining);
+        case 11: return (sts_val->purges_remaining);
+        case 12: return (sts_val->total_files_skipped);
+        case 13: return (sts_val->brick_host_uuid);
+        case 14: return (sts_val->slavekey);
+        case 15: return (sts_val->session_slave);
         default:
                  goto out;
         }
@@ -4056,7 +4057,7 @@ gf_cli_print_status (char **title_values,
         int     i                        = 0;
         int     j                        = 0;
         int     ret                      = 0;
-        int     status_fields            = 6; /* Indexed at 0 */
+        int     status_fields            = 7; /* Indexed at 0 */
         int     total_spacing            = 0;
         char  **output_values            = NULL;
         char   *tmp                      = NULL;
@@ -4218,12 +4219,13 @@ gf_cli_gsync_status_output (dict_t *dict, gf_boolean_t is_detail)
         int                     i              = 0;
         int                     ret            = 0;
         int                     spacing[13]    = {0};
-        int                     num_of_fields  = 12;
+        int                     num_of_fields  = 13;
         char                    errmsg[1024]   = "";
         char                   *master         = NULL;
         char                   *slave          = NULL;
         char                   *title_values[] = {"MASTER NODE", "MASTER VOL",
-                                                  "MASTER BRICK", "SLAVE",
+                                                  "MASTER BRICK", "SLAVE USER",
+                                                  "SLAVE",
                                                   "STATUS", "CHECKPOINT STATUS",
                                                   "CRAWL STATUS", "FILES SYNCD",
                                                   "FILES PENDING", "BYTES PENDING",
