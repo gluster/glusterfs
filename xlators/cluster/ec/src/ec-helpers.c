@@ -368,8 +368,17 @@ int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
             }
             parent = dirname(path);
             loc->parent = inode_resolve(loc->inode->table, parent);
+            if (loc->parent != NULL) {
+                uuid_copy(loc->pargfid, loc->parent->gfid);
+            }
             GF_FREE(path);
         }
+    }
+
+    /* If 'pargfid' has not been determined, clear 'name' to avoid resolutions
+       based on <gfid:pargfid>/name. */
+    if (uuid_is_null(loc->pargfid)) {
+        loc->name = NULL;
     }
 
     ret = 0;

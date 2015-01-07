@@ -60,13 +60,19 @@ int32_t ec_lock_check(ec_fop_data_t * fop, ec_cbk_data_t ** cbk,
             }
             else
             {
-                if (fop->uint32 == EC_LOCK_MODE_NONE)
+                switch (fop->uint32)
                 {
-                    error = EAGAIN;
-                }
-                else
-                {
-                    fop->uint32 = EC_LOCK_MODE_INC;
+                    case EC_LOCK_MODE_NONE:
+                        error = EAGAIN;
+                        break;
+
+                    case EC_LOCK_MODE_ALL:
+                        fop->uint32 = EC_LOCK_MODE_INC;
+                        break;
+
+                    default:
+                        error = EIO;
+                        break;
                 }
             }
         }
@@ -79,28 +85,6 @@ int32_t ec_lock_check(ec_fop_data_t * fop, ec_cbk_data_t ** cbk,
     *mask = locked;
 
     return error;
-}
-
-uintptr_t ec_lock_handler(ec_fop_data_t * fop, ec_cbk_data_t * cbk,
-                          ec_combine_f combine)
-{
-    uintptr_t mask = 0;
-
-    if (fop->uint32 == EC_LOCK_MODE_INC)
-    {
-        if (cbk->op_ret < 0)
-        {
-            if (cbk->op_errno != ENOTCONN)
-            {
-                mask = fop->mask & ~fop->remaining & ~cbk->mask;
-                fop->remaining = 0;
-            }
-        }
-    }
-
-    ec_combine(cbk, combine);
-
-    return mask;
 }
 
 int32_t ec_lock_unlocked(call_frame_t * frame, void * cookie,
@@ -150,8 +134,6 @@ int32_t ec_entrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -164,13 +146,7 @@ int32_t ec_entrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_entrylk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                       NULL, fop->str[0], &fop->loc[0], fop->str[1],
-                       ENTRYLK_UNLOCK, fop->entrylk_type, fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -422,8 +398,6 @@ int32_t ec_fentrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -436,13 +410,7 @@ int32_t ec_fentrylk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_fentrylk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                        NULL, fop->str[0], fop->fd, fop->str[1],
-                        ENTRYLK_UNLOCK, fop->entrylk_type, fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -572,8 +540,6 @@ int32_t ec_inodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -586,23 +552,7 @@ int32_t ec_inodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_t * ec = fop->xl->private;
-            struct gf_flock flock;
-
-            flock.l_type = F_UNLCK;
-            flock.l_whence = fop->flock.l_whence;
-            flock.l_start = fop->flock.l_start * ec->fragments;
-            flock.l_len = fop->flock.l_len * ec->fragments;
-            flock.l_pid = 0;
-            flock.l_owner.len = 0;
-
-            ec_inodelk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                       NULL, fop->str[0], &fop->loc[0], F_SETLK, &flock,
-                       fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -869,8 +819,6 @@ int32_t ec_finodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (xdata != NULL)
         {
             cbk->xdata = dict_ref(xdata);
@@ -883,23 +831,7 @@ int32_t ec_finodelk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, NULL);
-        if (mask != 0)
-        {
-            ec_t * ec = fop->xl->private;
-            struct gf_flock flock;
-
-            flock.l_type = F_UNLCK;
-            flock.l_whence = fop->flock.l_whence;
-            flock.l_start = fop->flock.l_start * ec->fragments;
-            flock.l_len = fop->flock.l_len * ec->fragments;
-            flock.l_pid = 0;
-            flock.l_owner.len = 0;
-
-            ec_finodelk(fop->req_frame, fop->xl, mask, 1, ec_lock_unlocked,
-                        NULL, fop->str[0], fop->fd, F_SETLK, &flock,
-                        fop->xdata);
-        }
+        ec_combine(cbk, NULL);
     }
 
 out:
@@ -1047,8 +979,6 @@ int32_t ec_lk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                op_errno);
     if (cbk != NULL)
     {
-        uintptr_t mask;
-
         if (op_ret >= 0)
         {
             if (flock != NULL)
@@ -1078,22 +1008,7 @@ int32_t ec_lk_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             }
         }
 
-        mask = ec_lock_handler(fop, cbk, ec_combine_lk);
-        if (mask != 0)
-        {
-            ec_t * ec = fop->xl->private;
-            struct gf_flock flock;
-
-            flock.l_type = F_UNLCK;
-            flock.l_whence = fop->flock.l_whence;
-            flock.l_start = fop->flock.l_start * ec->fragments;
-            flock.l_len = fop->flock.l_len * ec->fragments;
-            flock.l_pid = 0;
-            flock.l_owner.len = 0;
-
-            ec_lk(fop->req_frame, fop->xl, mask, 1, ec_lock_lk_unlocked, NULL,
-                  fop->fd, F_SETLK, &flock, fop->xdata);
-        }
+        ec_combine(cbk, ec_combine_lk);
     }
 
 out:
