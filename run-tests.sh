@@ -208,6 +208,7 @@ function is_bad_test ()
               ./tests/basic/tier/tier.t \
               ./tests/basic/ec/ec-4-1.t \
               ./tests/basic/ec/ec.t \
+              ./tests/basic/ec/self-heal.t \
               ./tests/basic/quota-nfs.t \
               ./tests/basic/ec/ec-6-2.t \
               ./tests/bugs/quota/bug-1035576.t  \
