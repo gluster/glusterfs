@@ -3462,8 +3462,11 @@ glusterd_op_validate_quorum (xlator_t *this, glusterd_op_t op,
         int                     ret = 0;
         char                    *volname = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_conf_t         *conf    = NULL;
         char                    *errstr = NULL;
 
+        conf = this->private;
+        GF_ASSERT (conf);
 
         errstr = "Quorum not met. Volume operation not allowed.";
         if (!glusterd_is_op_quorum_validation_required (this, op, dict))
@@ -3481,7 +3484,8 @@ glusterd_op_validate_quorum (xlator_t *this, glusterd_op_t op,
                 goto out;
         }
 
-        if (does_gd_meet_server_quorum (this, _gf_false)) {
+        if (does_gd_meet_server_quorum (this, &conf->xaction_peers,
+                                        _gf_false)) {
                 ret = 0;
                 goto out;
         }

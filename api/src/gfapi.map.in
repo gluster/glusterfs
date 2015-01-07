@@ -149,5 +149,6 @@ GFAPI_PRIVATE_3.7.0 {
 	global:
 		glfs_free_from_ctx;
 		glfs_new_from_ctx;
+                glfs_resolve;
 } GFAPI_3.6.0;
 

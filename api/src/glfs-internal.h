@@ -138,8 +138,8 @@ struct glfs_object {
 int glfs_mgmt_init (struct glfs *fs);
 void priv_glfs_init_done (struct glfs *fs, int ret);
 int glfs_process_volfp (struct glfs *fs, FILE *fp);
-int glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
-		  struct iatt *iatt, int reval);
+int priv_glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path,
+                       loc_t *loc, struct iatt *iatt, int reval);
 int glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
 		   struct iatt *iatt, int reval);
 fd_t *glfs_resolve_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd);
