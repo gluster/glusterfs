@@ -41,6 +41,7 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-nfs-svc.h"
+#include "glusterd-bitd-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "common-utils.h"
@@ -1218,6 +1219,16 @@ glusterd_svc_init_all ()
         }
         gf_log (THIS->name, GF_LOG_DEBUG, "quotad service initialized");
 
+        /* Init BitD svc */
+        ret = glusterd_bitdsvc_init (&(priv->bitd_svc));
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to initialized BitD "
+                        "service");
+                goto out;
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "BitD service initialized");
+
+
 out:
         return ret;
 }
@@ -1373,6 +1384,15 @@ init (xlator_t *this)
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create nfs directory %s"
+                        " ,errno = %d", storedir, errno);
+                exit (1);
+        }
+
+        snprintf (storedir, PATH_MAX, "%s/bitd", workdir);
+        ret = mkdir (storedir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create bitrot directory %s"
                         " ,errno = %d", storedir, errno);
                 exit (1);
         }

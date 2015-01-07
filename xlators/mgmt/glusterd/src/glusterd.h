@@ -33,6 +33,7 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
+#include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
 #include "protocol-common.h"
 #include "glusterd-pmap.h"
@@ -133,6 +134,7 @@ typedef struct {
         rpcsvc_t                *rpc;
         glusterd_svc_t           shd_svc;
         glusterd_svc_t           nfs_svc;
+        glusterd_svc_t           bitd_svc;
         glusterd_svc_t           quotad_svc;
         struct pmap_registry    *pmap;
         struct cds_list_head     volumes;
