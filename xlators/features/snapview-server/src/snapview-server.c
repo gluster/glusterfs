@@ -1335,6 +1335,9 @@ svs_readdirp_fill (xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
         GF_VALIDATE_OR_GOTO (this->name, parent_ctx, out);
         GF_VALIDATE_OR_GOTO (this->name, entry, out);
 
+        if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
+                goto out;
+
         inode = inode_grep (parent->table, parent, entry->d_name);
         if (inode) {
                 entry->inode = inode;
