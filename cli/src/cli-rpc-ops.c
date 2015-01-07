@@ -484,9 +484,10 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         ret = 0;
 
 out:
-        cli_cmd_broadcast_response (ret);
         if (ret)
                 cli_err ("%s: failed", cmd);
+
+        cli_cmd_broadcast_response (ret);
 
         if (dict)
                 dict_destroy (dict);
@@ -850,9 +851,10 @@ next:
 
         ret = 0;
 out:
-        cli_cmd_broadcast_response (ret);
         if (ret)
                 cli_err ("%s", err_str);
+
+        cli_cmd_broadcast_response (ret);
 
         if (dict)
                 dict_destroy (dict);

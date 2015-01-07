@@ -302,6 +302,9 @@ cli_cmd_await_response (unsigned time)
         return cli_op_ret;
 }
 
+/* This function must be called _only_ after all actions associated with
+ * command processing is complete. Otherwise, gluster process may exit before
+ * reporting results to stdout/stderr. */
 int
 cli_cmd_broadcast_response (int32_t status)
 {
