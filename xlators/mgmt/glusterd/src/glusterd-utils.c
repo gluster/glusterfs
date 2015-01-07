@@ -60,6 +60,7 @@
 #include "glusterd-nfs-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
+#include "glusterd-bitd-svc.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -6864,6 +6865,23 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
         ret = 0;
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_get_bitd_filepath (char *filepath, glusterd_volinfo_t *volinfo)
+{
+        int   ret             = 0;
+        char  path[PATH_MAX]  = {0,};
+        glusterd_conf_t *priv = NULL;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+
+        snprintf (filepath, PATH_MAX,
+                  "%s/%s-bitd.vol", path, volinfo->volname);
+
         return ret;
 }
 

@@ -848,6 +848,8 @@ _xl_link_children (xlator_t *parent, xlator_t *children, size_t child_count)
         for (trav = children; --seek; trav = trav->next);
         for (; child_count--; trav = trav->prev) {
                 ret = volgen_xlator_link (parent, trav);
+                gf_log (THIS->name, GF_LOG_DEBUG, "%s:%s", parent->name,
+                        trav->name);
                 if (ret)
                         goto out;
         }
@@ -4306,7 +4308,10 @@ build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
         char               *skey          = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
+
         priv = this->private;
+        GF_ASSERT (priv);
 
         set_dict = dict_new ();
         if (!set_dict) {
@@ -4703,6 +4708,102 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
                  (xlator && loglevel) ?
                  &server_spec_extended_option_handler:
                  &server_spec_option_handler);
+
+        return ret;
+}
+
+int
+build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+{
+        volgen_graph_t        cgraph        = {0};
+        glusterd_volinfo_t   *voliter       = NULL;
+        xlator_t             *this          = NULL;
+        glusterd_conf_t      *priv          = NULL;
+        dict_t               *set_dict      = NULL;
+        int                   ret           = 0;
+        xlator_t             *bitd_xl       = NULL;
+        xlator_t             *xl            = NULL;
+        xlator_t             *trav          = NULL;
+        xlator_t             *txl           = NULL;
+        char                 *skey          = NULL;
+        char                  transt[16]    = {0,};
+        glusterd_brickinfo_t *brickinfo     = NULL;
+        char                 *br_args[]     = {"features/bit-rot",
+                                               "bit-rot"};
+        int32_t               count         = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        set_dict = dict_new ();
+        if (!set_dict) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        if (mod_dict)
+                dict_copy (mod_dict, set_dict);
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                memset (transt, '\0', 16);
+
+                get_transport_type (voliter, set_dict, transt, _gf_false);
+                if (!strcmp (transt, "tcp,rdma"))
+                        strcpy (transt, "tcp");
+
+
+                list_for_each_entry (brickinfo, &voliter->bricks, brick_list) {
+                        if (!glusterd_is_local_brick (this, voliter, brickinfo))
+                                continue;
+                        /*To do: check whether bitd is enable or not if "
+                         * "not then continue;
+                         * Since bitd is a service running within the "
+                         * trusted storage pool, it is treated as a trusted
+                         * client.
+                         */
+                        xl  = volgen_graph_build_client (graph, voliter,
+                                                         brickinfo->hostname,
+                                                         brickinfo->path,
+                                                         brickinfo->brick_id, transt,
+                                                         set_dict);
+                        if (!xl) {
+                                ret = -1;
+                                goto out;
+                        }
+
+                        count++;
+                }
+        }
+
+        bitd_xl = volgen_graph_add_nolink (graph, br_args[0], br_args[1]);
+        if (!bitd_xl) {
+                ret = -1;
+                goto out;
+        }
+
+        txl = first_of (graph);
+        for (trav = txl; count; trav = trav->next)
+                count--;
+
+        for (; trav != txl; trav = trav->prev) {
+                ret = volgen_xlator_link (bitd_xl, trav);
+                if (ret)
+                        goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (set_dict)
+                dict_unref (set_dict);
+
+        gf_log(this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }

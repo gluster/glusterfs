@@ -1703,7 +1703,7 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
         if (ret)
                 goto out;
 
-        //checksum should be computed at the end
+        /* checksum should be computed at the end */
         ret = glusterd_compute_cksum (volinfo, _gf_false);
         if (ret)
                 goto out;
