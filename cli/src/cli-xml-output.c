@@ -3909,8 +3909,8 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         int                  i                           = 1;
         int                  j                           = 0;
         int                  count                       = 0;
-        const int            number_of_fields            = 12;
-        const int            number_of_basic_fields      = 7;
+        const int            number_of_fields            = 13;
+        const int            number_of_basic_fields      = 8;
         int                  closed                      = 1;
         int                  session_closed              = 1;
         gf_gsync_status_t  **status_values               = NULL;
@@ -3924,6 +3924,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         char                *title_values[]              = {"master_node",
                                                             "master_node_uuid",
                                                             "master_brick",
+                                                            "slave_user",
                                                             "slave",
                                                             "status",
                                                             "checkpoint_status",
@@ -4006,7 +4007,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
 
                         session_closed = 0;
 
-                        tmp = get_struct_variable (14, status_values[i]);
+                        tmp = get_struct_variable (15, status_values[i]);
                         if (!tmp) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "struct member empty.");
@@ -4031,7 +4032,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
                         // Displaying the master_node uuid as second field
 
                         if (j == 1)
-                                tmp = get_struct_variable (12,
+                                tmp = get_struct_variable (13,
                                                            status_values[i]);
                         else
                                 tmp = get_struct_variable (j, status_values[i]);
@@ -4052,8 +4053,8 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 if (i+1 < count) {
-                        slave = get_struct_variable (13, status_values[i]);
-                        slave_next = get_struct_variable (13,
+                        slave = get_struct_variable (14, status_values[i]);
+                        slave_next = get_struct_variable (14,
                                                           status_values[i+1]);
                         volume = get_struct_variable (1, status_values[i]);
                         volume_next = get_struct_variable (1,

@@ -3487,6 +3487,10 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         dict_t                 *confd                      = NULL;
         char                   *slavekey                   = NULL;
         char                   *slaveentry                 = NULL;
+        char                   *slaveuser                  = NULL;
+        char                   *saveptr                    = NULL;
+        char                   *temp                       = NULL;
+        char                   *temp_inp                   = NULL;
         char                   *brick_host_uuid            = NULL;
         int                     brick_host_uuid_length     = 0;
         int                     gsync_count                = 0;
@@ -3718,9 +3722,26 @@ store_status:
                         GF_FREE (sts_val);
                         goto out;
                 }
+
+
                 memcpy (sts_val->session_slave, slaveentry,
                         strlen(slaveentry));
                 sts_val->session_slave[strlen(slaveentry)] = '\0';
+
+                temp_inp = gf_strdup(slaveentry);
+                if (!temp_inp)
+                        goto out;
+
+                if (strstr(temp_inp, "@") == NULL) {
+                        slaveuser = "root";
+                } else {
+                        temp = strtok_r(temp_inp, "//", &saveptr);
+                        temp = strtok_r(NULL, "/", &saveptr);
+                        slaveuser = strtok_r(temp, "@", &saveptr);
+                }
+                memcpy (sts_val->slave_user, slaveuser,
+                        strlen(slaveuser));
+                sts_val->slave_user[strlen(slaveuser)] = '\0';
 
                 snprintf (sts_val_name, sizeof (sts_val_name), "status_value%d", gsync_count);
                 ret = dict_set_bin (dict, sts_val_name, sts_val, sizeof(gf_gsync_status_t));
@@ -3738,6 +3759,7 @@ store_status:
                 goto out;
 
 out:
+        GF_FREE (temp_inp);
         dict_unref (confd);
 
         return 0;

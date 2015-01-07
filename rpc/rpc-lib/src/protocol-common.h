@@ -241,6 +241,7 @@ struct gf_gsync_detailed_status_ {
         char node[NAME_MAX];
         char master[NAME_MAX];
         char brick[NAME_MAX];
+        char slave_user[NAME_MAX];
         char slave_node[NAME_MAX];
         char worker_status[NAME_MAX];
         char checkpoint_status[NAME_MAX];
