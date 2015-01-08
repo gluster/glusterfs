@@ -155,7 +155,8 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
         if (ret)
                 goto out;
 
-        cds_list_for_each_entry(peerinfo, &priv->peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
                 if (!peerinfo->connected || !peerinfo->peer)
                         continue;
 
@@ -170,6 +171,7 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
                         ret = proc->fn (NULL, this, friends);
                 }
         }
+        rcu_read_unlock ();
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
@@ -478,7 +480,8 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         if (ret)
                 goto out;
 
-        cds_list_for_each_entry(peerinfo, &priv->peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
                 if (!glusterd_should_update_peer (peerinfo, cur_peerinfo))
                         continue;
 
@@ -490,12 +493,14 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 if (ret)
                         goto out;
         }
+        rcu_read_unlock ();
 
         ret = dict_set_int32 (friends, "count", count);
         if (ret)
                 goto out;
 
-        cds_list_for_each_entry(peerinfo, &priv->peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
                 if (!peerinfo->connected || !peerinfo->peer)
                         continue;
 
@@ -513,6 +518,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                         ret = proc->fn (NULL, this, friends);
                 }
         }
+        rcu_read_unlock ();
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
@@ -582,7 +588,8 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
         ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
                                                 ev_ctx->port);
 
-        cds_list_for_each_entry(peerinfo, &priv->peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
 
                 ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
                                                     &new_event);
@@ -595,6 +602,8 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
                 if (ret)
                         goto out;
         }
+        rcu_read_unlock ();
+
         ret = glusterd_peer_detach_cleanup (priv);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_WARNING,

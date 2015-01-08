@@ -167,7 +167,8 @@ glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
                         continue;
                 }
 
-                cds_list_for_each_entry(peerinfo, peers, uuid_list) {
+                rcu_read_lock ();
+                cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
                         if (uuid_compare (peerinfo->uuid, brickinfo->uuid)) {
                                 /* If the brick doesnt belong to this peer */
                                 continue;
@@ -194,6 +195,7 @@ glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
                                 }
                         }
                 }
+                rcu_read_unlock ();
                 brick_count++;
         }
 

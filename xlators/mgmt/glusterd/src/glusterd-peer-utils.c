@@ -49,7 +49,11 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
         if (!peerinfo)
                 goto out;
 
-        cds_list_del_init (&peerinfo->uuid_list);
+        cds_list_del_rcu (&peerinfo->uuid_list);
+        CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
+
+        synchronize_rcu (); // This will only be useful once the peerinfo object
+                            // gets protected. But just adding it any way.
 
         ret = glusterd_store_delete_peerinfo (peerinfo);
         if (ret) {
@@ -166,6 +170,7 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
 {
         glusterd_conf_t         *priv = NULL;
         glusterd_peerinfo_t     *entry = NULL;
+        glusterd_peerinfo_t     *found = NULL;
         xlator_t                *this = NULL;
 
         this = THIS;
@@ -178,19 +183,22 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
         if (uuid_is_null (uuid))
                 return NULL;
 
-        cds_list_for_each_entry(entry, &priv->peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
                 if (!uuid_compare (entry->uuid, uuid)) {
 
                         gf_log (this->name, GF_LOG_DEBUG,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
-                        return entry;
+                        found = entry; // Probably should be rcu_dereferenced
+                        break;
                 }
         }
+        rcu_read_unlock ();
 
         gf_log (this->name, GF_LOG_DEBUG, "Friend with uuid: %s, not found",
                 uuid_utoa (uuid));
-        return NULL;
+        return found;
 }
 
 /* glusterd_peerinfo_find will search for a peer matching either @uuid or
@@ -303,7 +311,8 @@ glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
         priv= THIS->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry(peerinfo, &priv->peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
 
                 if (!uuid_is_null (skip_uuid) && !uuid_compare (skip_uuid,
                                                            peerinfo->uuid))
@@ -315,6 +324,8 @@ glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
                         break;
                 }
         }
+        rcu_read_unlock ();
+
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %s",
                 (ret?"TRUE":"FALSE"));
         return ret;
@@ -336,14 +347,16 @@ glusterd_uuid_to_hostname (uuid_t uuid)
         if (!uuid_compare (MY_UUID, uuid)) {
                 hostname = gf_strdup ("localhost");
         }
+        rcu_read_lock ();
         if (!cds_list_empty (&priv->peers)) {
-                cds_list_for_each_entry(entry, &priv->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
                         if (!uuid_compare (entry->uuid, uuid)) {
                                 hostname = gf_strdup (entry->hostname);
                                 break;
                         }
                 }
         }
+        rcu_read_unlock ();
 
         return hostname;
 }
@@ -373,7 +386,8 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                 if (!uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
-                cds_list_for_each_entry(peerinfo, peers, uuid_list) {
+                rcu_read_lock ();
+                cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
                         if (uuid_compare (peerinfo->uuid, brickinfo->uuid))
                                 continue;
 
@@ -388,6 +402,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                 goto out;
                         }
                 }
+                rcu_read_unlock ();
         }
 
         ret = _gf_true;
@@ -583,6 +598,7 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
         xlator_t                 *this    = NULL;
         glusterd_conf_t          *priv    = NULL;
         glusterd_peerinfo_t      *peer    = NULL;
+        glusterd_peerinfo_t      *found   = NULL;
         glusterd_peer_hostname_t *tmphost = NULL;
 
         this = THIS;
@@ -592,18 +608,21 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
 
         GF_VALIDATE_OR_GOTO (this->name, (hoststr != NULL), out);
 
-        cds_list_for_each_entry(peer, &priv->peers, uuid_list) {
-                cds_list_for_each_entry(tmphost, &peer->hostnames,hostname_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peer, &priv->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (tmphost, &peer->hostnames,hostname_list) {
                         if (!strncasecmp (tmphost->hostname, hoststr, 1024)) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "Friend %s found.. state: %d",
                                         tmphost->hostname, peer->state.state);
-                                return peer;
+                                found = peer; //Probably needs to be dereferenced
+                                goto out;
                         }
                 }
         }
+        rcu_read_unlock ();
 out:
-        return NULL;
+        return found;
 }
 
 /* gd_peerinfo_find_from_addrinfo iterates over all the addresses saved for each
@@ -622,6 +641,7 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
         xlator_t                 *this    = NULL;
         glusterd_conf_t          *conf    = NULL;
         glusterd_peerinfo_t      *peer    = NULL;
+        glusterd_peerinfo_t      *found   = NULL;
         glusterd_peer_hostname_t *address = NULL;
         int                       ret     = 0;
         struct addrinfo          *paddr   = NULL;
@@ -634,8 +654,9 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
 
         GF_VALIDATE_OR_GOTO (this->name, (addr != NULL), out);
 
-        cds_list_for_each_entry(peer, &conf->peers, uuid_list) {
-                cds_list_for_each_entry(address, &peer->hostnames, hostname_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peer, &conf->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (address, &peer->hostnames, hostname_list) {
                         /* TODO: Cache the resolved addrinfos to improve
                          * performance
                          */
@@ -656,13 +677,13 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                                 if (gf_compare_sockaddr (addr->ai_addr,
                                                          tmp->ai_addr)) {
                                         freeaddrinfo (paddr);
-                                        return peer;
+                                        found = peer; // (de)referenced?
                                 }
                         }
                 }
         }
 out:
-        return NULL;
+        return found;
 }
 
 /* gd_update_peerinfo_from_dict will update the hostnames for @peerinfo from

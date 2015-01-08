@@ -3076,7 +3076,7 @@ glusterd_friend_add (const char *hoststr, int port,
          * invalid peer name).  That would mean we're adding something that had
          * just been free, and we're likely to crash later.
          */
-        cds_list_add_tail (&(*friend)->uuid_list, &conf->peers);
+        cds_list_add_tail_rcu (&(*friend)->uuid_list, &conf->peers);
 
         //restore needs to first create the list of peers, then create rpcs
         //to keep track of quorum in race-free manner. In restore for each peer
@@ -3129,7 +3129,7 @@ glusterd_friend_add_from_peerinfo (glusterd_peerinfo_t *friend,
          * invalid peer name).  That would mean we're adding something that had
          * just been free, and we're likely to crash later.
          */
-        cds_list_add_tail (&friend->uuid_list, &conf->peers);
+        cds_list_add_tail_rcu (&friend->uuid_list, &conf->peers);
 
         //restore needs to first create the list of peers, then create rpcs
         //to keep track of quorum in race-free manner. In restore for each peer
@@ -3587,8 +3587,10 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 gf_log ("", GF_LOG_WARNING, "Out of Memory");
                 goto out;
         }
+
+        rcu_read_lock ();
         if (!cds_list_empty (&priv->peers)) {
-                cds_list_for_each_entry(entry, &priv->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
                         count++;
                         ret = gd_add_peer_detail_to_dict (entry,
                                                                 friends, count);
@@ -3596,6 +3598,7 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                                 goto out;
                 }
         }
+        rcu_read_unlock ();
 
         if (flags == GF_CLI_LIST_POOL_NODES) {
                 count++;

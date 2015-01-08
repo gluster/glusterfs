@@ -637,13 +637,15 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                         snprintf (key, sizeof (key),                         \
                                   "glusterd.xaction_peer");                  \
                                                                              \
-                cds_list_for_each_entry(_peerinfo, head, member) {              \
+                rcu_read_lock ();                                            \
+                cds_list_for_each_entry_rcu (_peerinfo, head, member) {      \
                         glusterd_dump_peer (_peerinfo, key, index, xpeers);  \
                         if (!xpeers)                                         \
                                 glusterd_dump_peer_rpcstat (_peerinfo, key,  \
                                                             index);          \
                         index++;                                             \
                 }                                                            \
+                rcu_read_unlock ();                                          \
                                                                              \
         } while (0)
 
