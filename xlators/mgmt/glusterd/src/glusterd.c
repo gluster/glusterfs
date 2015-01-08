@@ -319,7 +319,6 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
         {
-                INIT_LIST_HEAD (&xprt->list);
 
                 pthread_mutex_lock (&priv->xprt_lock);
                 list_add_tail (&xprt->list, &priv->xprt_list);

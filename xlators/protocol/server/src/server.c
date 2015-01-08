@@ -495,7 +495,6 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
                    trans->protocol_private = client->conn;
                 */
-                INIT_LIST_HEAD (&trans->list);
 
                 pthread_mutex_lock (&conf->mutex);
                 {
