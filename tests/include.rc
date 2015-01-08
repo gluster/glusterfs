@@ -41,6 +41,7 @@ UMOUNT_TIMEOUT=5
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";
+GFS="glusterfs --attribute-timeout=0 --entry-timeout=0";
 
 mkdir -p $B0;
 mkdir -p $M0 $M1;
