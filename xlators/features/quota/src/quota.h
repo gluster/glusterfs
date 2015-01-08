@@ -51,6 +51,12 @@
         if (!is_quota_on)                       \
                 goto label;
 
+#define QUOTA_WIND_FOR_INTERNAL_FOP(xdata, label)                          \
+        do {                                                               \
+                if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) \
+                goto label;                                                \
+        } while (0)
+
 #define DID_REACH_LIMIT(lim, prev_size, cur_size)               \
         ((cur_size) >= (lim) && (prev_size) < (lim))
 
@@ -196,7 +202,6 @@ struct quota_local {
         int32_t                 op_ret;
         int32_t                 op_errno;
         int64_t                 size;
-        gf_boolean_t            skip_check;
         char                    just_validated;
         fop_lookup_cbk_t        validate_cbk;
         quota_fop_continue_t    fop_continue_cbk;
