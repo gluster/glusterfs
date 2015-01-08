@@ -1157,23 +1157,23 @@ glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
                         ret = 0;
                 }
          } else {
-                peerinfo = glusterd_peerinfo_find (NULL, hostname);
-                if (peerinfo == NULL) {
-                        ret = -1;
-                        snprintf (msg, sizeof (msg), "%s, is not a friend",
-                                  hostname);
-                        *op_errstr = gf_strdup (msg);
-                        goto out;
-                }
+                 rcu_read_lock ();
 
-                if (!peerinfo->connected) {
-                        snprintf (msg, sizeof (msg), "%s, is not connected at "
-                                  "the moment", hostname);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
+                 peerinfo = glusterd_peerinfo_find (NULL, hostname);
+                 if (peerinfo == NULL) {
+                         ret = -1;
+                         snprintf (msg, sizeof (msg), "%s, is not a friend",
+                                         hostname);
+                         *op_errstr = gf_strdup (msg);
 
+                 } else if (!peerinfo->connected) {
+                         snprintf (msg, sizeof (msg), "%s, is not connected at "
+                                         "the moment", hostname);
+                         *op_errstr = gf_strdup (msg);
+                         ret = -1;
+                 }
+
+                 rcu_read_unlock ();
         }
 
 out:

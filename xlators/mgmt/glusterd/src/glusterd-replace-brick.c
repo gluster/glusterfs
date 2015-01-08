@@ -517,30 +517,33 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         if (!gf_is_local_addr (host)) {
+                rcu_read_lock ();
+
                 peerinfo = glusterd_peerinfo_find (NULL, host);
                 if (peerinfo == NULL) {
                         ret = -1;
                         snprintf (msg, sizeof (msg), "%s, is not a friend",
                                   host);
                         *op_errstr = gf_strdup (msg);
-                        goto out;
-                }
 
-                if (!peerinfo->connected) {
+                } else if (!peerinfo->connected) {
                         snprintf (msg, sizeof (msg), "%s, is not connected at "
                                   "the moment", host);
                         *op_errstr = gf_strdup (msg);
                         ret = -1;
-                        goto out;
-                }
 
-                if (GD_FRIEND_STATE_BEFRIENDED != peerinfo->state.state) {
+                } else if (GD_FRIEND_STATE_BEFRIENDED !=
+                                peerinfo->state.state) {
                         snprintf (msg, sizeof (msg), "%s, is not befriended "
                                   "at the moment", host);
                         *op_errstr = gf_strdup (msg);
                         ret = -1;
-                        goto out;
                 }
+                rcu_read_unlock ();
+
+                if (ret)
+                        goto out;
+
         } else if (priv->op_version >= GD_OP_VERSION_3_6_0) {
                 /* A bricks mount dir is required only by snapshots which were
                  * introduced in gluster-3.6.0

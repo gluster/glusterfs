@@ -2919,10 +2919,13 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                 *active_count = 1;
 
         if (!peer_list) {
-                cds_list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+                rcu_read_lock ();
+                cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
+                                             uuid_list) {
                         glusterd_quorum_count(peerinfo, inquorum_count,
                                                 active_count, out);
                 }
+                rcu_read_unlock ();
         } else {
                 if (_local_xaction_peers) {
                         list_for_each_local_xaction_peers (peerinfo,
@@ -8080,13 +8083,16 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 node_uuid_str = gf_strdup (node_uuid);
 
                 /* Finding the index of the node-uuid in the peer-list */
-                cds_list_for_each_entry (peerinfo, &conf->peers, uuid_list) {
+                rcu_read_lock ();
+                cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
+                                             uuid_list) {
                         peer_uuid_str = gd_peer_uuid_str (peerinfo);
                         if (strcmp (peer_uuid_str, node_uuid_str) == 0)
                                 break;
 
                         current_index++;
                 }
+                rcu_read_unlock ();
 
                 /* Setting the largest index value as the total count. */
                 ret = dict_get_int32 (ctx_dict, "count", &count);

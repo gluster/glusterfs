@@ -1075,7 +1075,8 @@ gd_build_peers_list (struct cds_list_head *peers,
         GF_ASSERT (peers);
         GF_ASSERT (xact_peers);
 
-        cds_list_for_each_entry (peerinfo, peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
                 if (!peerinfo->connected)
                         continue;
                 if (op != GD_OP_SYNC_VOLUME &&
@@ -1085,6 +1086,8 @@ gd_build_peers_list (struct cds_list_head *peers,
                 cds_list_add_tail (&peerinfo->op_peers_list, xact_peers);
                 npeers++;
         }
+        rcu_read_unlock ();
+
         return npeers;
 }
 
@@ -1100,7 +1103,8 @@ gd_build_local_xaction_peers_list (struct cds_list_head *peers,
         GF_ASSERT (peers);
         GF_ASSERT (xact_peers);
 
-        cds_list_for_each_entry (peerinfo, peers, uuid_list) {
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
                 if (!peerinfo->connected)
                         continue;
                 if (op != GD_OP_SYNC_VOLUME &&
@@ -1110,13 +1114,17 @@ gd_build_local_xaction_peers_list (struct cds_list_head *peers,
                 local_peers = GF_CALLOC (1, sizeof (*local_peers),
                                          gf_gld_mt_local_peers_t);
                 if (!local_peers) {
-                        return -1;
+                        npeers = -1;
+                        goto unlock;
                 }
                 CDS_INIT_LIST_HEAD (&local_peers->op_peers_list);
                 local_peers->peerinfo = peerinfo;
                 cds_list_add_tail (&local_peers->op_peers_list, xact_peers);
                 npeers++;
         }
+unlock:
+        rcu_read_unlock ();
+
         return npeers;
 }
 
