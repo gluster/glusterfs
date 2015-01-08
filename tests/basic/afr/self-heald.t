@@ -51,7 +51,7 @@ TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 
-decide_kill=$((`date +"%j"`))%2
+decide_kill=$((`date +"%j"|sed 's/^0*//'` % 2 ))
 
 kill_multiple_bricks $V0 $H0 $B0
 cd $M0
