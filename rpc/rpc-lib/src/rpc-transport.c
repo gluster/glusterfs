@@ -334,6 +334,8 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
+        INIT_LIST_HEAD (&trans->list);
+
         return_trans = trans;
 
         GF_FREE (name);
