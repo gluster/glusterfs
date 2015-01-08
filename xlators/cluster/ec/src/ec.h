@@ -36,6 +36,8 @@ struct _ec
     uint32_t          idx;
     uint32_t          xl_up_count;
     uintptr_t         xl_up;
+    uint32_t          xl_notify_count;
+    uintptr_t         xl_notify;
     uintptr_t         node_mask;
     xlator_t **       xl_list;
     gf_lock_t         lock;
