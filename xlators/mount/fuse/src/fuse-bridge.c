@@ -5028,29 +5028,21 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
 
         priv = this->private;
 
-        /* handle the case of more than one CHILD_UP on same graph */
-        if (priv->active_subvol == graph->top)
-                return 0; /* This is a valid case */
-
         pthread_mutex_lock (&priv->sync_mutex);
         {
-                if (graph->used) {
-                        pthread_mutex_unlock (&priv->sync_mutex);
-                        return 0;
+                /* handle the case of more than one CHILD_UP on same graph */
+                if ((priv->active_subvol == graph->top) || graph->used) {
+                        goto unlock;
                 }
 
-                graph->used = 1;
-        }
-        pthread_mutex_unlock (&priv->sync_mutex);
+                itable = inode_table_new (0, graph->top);
+                if (!itable) {
+                        ret = -1;
+                        goto unlock;
+                }
 
-        itable = inode_table_new (0, graph->top);
-        if (!itable)
-                return -1;
+                ((xlator_t *)graph->top)->itable = itable;
 
-        ((xlator_t *)graph->top)->itable = itable;
-
-        pthread_mutex_lock (&priv->sync_mutex);
-        {
                 prev_graph = priv->next_graph;
 
                 if ((prev_graph != NULL) && (prev_graph->id > graph->id)) {
@@ -5061,12 +5053,14 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
                 } else {
                         priv->next_graph = graph;
                         priv->event_recvd = 0;
-
-                        pthread_cond_signal (&priv->sync_cond);
                 }
 
                 if (prev_graph != NULL)
                         winds = ((xlator_t *)prev_graph->top)->winds;
+
+		/* set post initializing next_graph i to preserve
+                 * critical section update and bails on error */
+                graph->used = 1;
         }
         pthread_mutex_unlock (&priv->sync_mutex);
 
@@ -5079,6 +5073,10 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
                 ((graph) ? graph->id : 0));
 
         return ret;
+unlock:
+        pthread_mutex_unlock (&priv->sync_mutex);
+
+        return ret;
 }
 
 
@@ -5087,6 +5085,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int32_t             ret     = 0;
         fuse_private_t     *private = NULL;
+        gf_boolean_t        start_thread = _gf_false;
         glusterfs_graph_t  *graph = NULL;
 
         private = this->private;
@@ -5122,9 +5121,16 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         pthread_mutex_unlock (&private->sync_mutex);
                 }
 
-                if (!private->fuse_thread_started) {
-                        private->fuse_thread_started = 1;
+                pthread_mutex_lock (&private->sync_mutex);
+                {
+                        if (!private->fuse_thread_started) {
+                                private->fuse_thread_started = 1;
+                                start_thread = _gf_true;
+                        }
+                }
+                pthread_mutex_unlock (&private->sync_mutex);
 
+                if (start_thread) {
                         ret = gf_thread_create (&private->fuse_thread, NULL,
 						fuse_thread_proc, this);
                         if (ret != 0) {
@@ -5589,6 +5595,17 @@ fini (xlator_t *this_xl)
 
         if ((priv = this_xl->private) == NULL)
                 return;
+
+        pthread_mutex_lock (&priv->sync_mutex);
+        {
+                if (!(priv->fini_invoked)) {
+                        priv->fini_invoked = _gf_true;
+                } else {
+                        pthread_mutex_unlock (&priv->sync_mutex);
+                        return;
+                }
+        }
+        pthread_mutex_unlock (&priv->sync_mutex);
 
         if (dict_get (this_xl->options, ZR_MOUNTPOINT_OPT))
                 mount_point = data_to_str (dict_get (this_xl->options,

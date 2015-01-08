@@ -128,6 +128,10 @@ struct fuse_private {
 
         /* for using fuse-kernel readdirp*/
         gf_boolean_t use_readdirp;
+
+        /* fini started, helps prevent multiple epoll worker threads
+         * firing up the fini routine */
+        gf_boolean_t fini_invoked;
 };
 typedef struct fuse_private fuse_private_t;
 
