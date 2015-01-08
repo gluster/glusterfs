@@ -74,8 +74,8 @@ int32_t
 glusterd_add_snapshots_to_export_dict (dict_t *peer_data);
 
 int32_t
-glusterd_compare_friend_snapshots (dict_t *peer_data,
-                                   glusterd_peerinfo_t *peerinfo);
+glusterd_compare_friend_snapshots (dict_t *peer_data, char *peername,
+                                   uuid_t peerid);
 
 int32_t
 glusterd_store_create_snap_dir (glusterd_snap_t *snap);

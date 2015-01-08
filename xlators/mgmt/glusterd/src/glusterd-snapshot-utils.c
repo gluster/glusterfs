@@ -1216,8 +1216,7 @@ out:
  * or restore for the given snap_id
  */
 gf_boolean_t
-glusterd_peer_has_missed_snap_delete (glusterd_peerinfo_t *peerinfo,
-                                      char *peer_snap_id)
+glusterd_peer_has_missed_snap_delete (uuid_t peerid, char *peer_snap_id)
 {
         char                        *peer_uuid           = NULL;
         gf_boolean_t                 missed_delete       = _gf_false;
@@ -1230,10 +1229,9 @@ glusterd_peer_has_missed_snap_delete (glusterd_peerinfo_t *peerinfo,
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-        GF_ASSERT (peerinfo);
         GF_ASSERT (peer_snap_id);
 
-        peer_uuid = uuid_utoa (peerinfo->uuid);
+        peer_uuid = uuid_utoa (peerid);
 
         cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
                                  missed_snaps) {
@@ -1526,7 +1524,7 @@ out:
  */
 int32_t
 glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
-                                  glusterd_peerinfo_t *peerinfo)
+                                  char *peername, uuid_t peerid)
 {
         char              buf[NAME_MAX]    = "";
         char              prefix[NAME_MAX] = "";
@@ -1544,7 +1542,7 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (peer_data);
-        GF_ASSERT (peerinfo);
+        GF_ASSERT (peername);
 
         snprintf (prefix, sizeof(prefix), "snap%d", snap_count);
 
@@ -1553,8 +1551,7 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         ret = dict_get_str (peer_data, buf, &peer_snap_name);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to fetch snapname from peer: %s",
-                        peerinfo->hostname);
+                        "Unable to fetch snapname from peer: %s", peername);
                 goto out;
         }
 
@@ -1563,20 +1560,19 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         ret = dict_get_str (peer_data, buf, &peer_snap_id);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Unable to fetch snap_id from peer: %s",
-                        peerinfo->hostname);
+                        "Unable to fetch snap_id from peer: %s", peername);
                 goto out;
         }
 
         /* Check if the peer has missed a snap delete or restore
          * resulting in stale data for the snap in question
          */
-        missed_delete = glusterd_peer_has_missed_snap_delete (peerinfo,
+        missed_delete = glusterd_peer_has_missed_snap_delete (peerid,
                                                               peer_snap_id);
         if (missed_delete == _gf_true) {
                 /* Peer has missed delete on the missing/conflicting snap_id */
                 gf_log (this->name, GF_LOG_INFO, "Peer %s has missed a delete "
-                        "on snap %s", peerinfo->hostname, peer_snap_name);
+                        "on snap %s", peername, peer_snap_name);
                 ret = 0;
                 goto out;
         }
@@ -1585,8 +1581,7 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
          * peer data is already present
          */
         glusterd_is_peer_snap_conflicting (peer_snap_name, peer_snap_id,
-                                           &conflict, &snap,
-                                           peerinfo->hostname);
+                                           &conflict, &snap, peername);
         if (conflict == _gf_false) {
                 if (snap) {
                         /* Peer has snap with the same snapname
@@ -1615,7 +1610,7 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unable to fetch host_bricks from peer: %s "
-                        "for %s", peerinfo->hostname, peer_snap_name);
+                        "for %s", peername, peer_snap_name);
                 goto out;
         }
 
@@ -1627,8 +1622,8 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
          */
         if (is_hosted == is_local) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Conflict in snapshot %s with peer %s",
-                        peer_snap_name, peerinfo->hostname);
+                        "Conflict in snapshot %s with peer %s", peer_snap_name,
+                        peername);
                 ret = -1;
                 goto out;
         }
@@ -1676,8 +1671,8 @@ accept_peer_data:
                                            peer_snap_name, peer_snap_id);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to import snap %s from peer %s",
-                        peer_snap_name, peerinfo->hostname);
+                        "Failed to import snap %s from peer %s", peer_snap_name,
+                        peername);
                 goto out;
         }
 
@@ -1693,8 +1688,8 @@ out:
  * the current node
  */
 int32_t
-glusterd_compare_friend_snapshots (dict_t *peer_data,
-                                   glusterd_peerinfo_t *peerinfo)
+glusterd_compare_friend_snapshots (dict_t *peer_data, char *peername,
+                                   uuid_t peerid)
 {
         int32_t          ret          = -1;
         int32_t          snap_count   = 0;
@@ -1704,7 +1699,7 @@ glusterd_compare_friend_snapshots (dict_t *peer_data,
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (peer_data);
-        GF_ASSERT (peerinfo);
+        GF_ASSERT (peername);
 
         ret = dict_get_int32 (peer_data, "snap_count", &snap_count);
         if (ret) {
@@ -1714,11 +1709,12 @@ glusterd_compare_friend_snapshots (dict_t *peer_data,
 
         for (i = 1; i <= snap_count; i++) {
                 /* Compare one snapshot from peer_data at a time */
-                ret = glusterd_compare_and_update_snap (peer_data, i, peerinfo);
+                ret = glusterd_compare_and_update_snap (peer_data, i, peername,
+                                                        peerid);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to compare snapshots with peer %s",
-                                peerinfo->hostname);
+                                peername);
                         goto out;
                 }
         }

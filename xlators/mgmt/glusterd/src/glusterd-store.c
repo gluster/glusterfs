@@ -4096,11 +4096,14 @@ glusterd_store_retrieve_peers (xlator_t *this)
         }
 
         args.mode = GD_MODE_ON;
-        cds_list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
                 ret = glusterd_friend_rpc_create (this, peerinfo, &args);
                 if (ret)
-                        goto out;
+                        break;
         }
+        rcu_read_unlock ();
         peerinfo = NULL;
 
 out:

@@ -29,7 +29,7 @@
 #include "rpcsvc.h"
 #include "store.h"
 
-#include <urcu/rculist.h>
+#include "glusterd-rcu.h"
 
 typedef enum gd_quorum_contribution_ {
         QUORUM_NONE,
@@ -101,6 +101,10 @@ struct glusterd_peerinfo_ {
         gd_quorum_contrib_t             quorum_contrib;
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
+        /* Members required for proper cleanup using RCU */
+        gd_rcu_head                     head;
+        pthread_mutex_t                 delete_lock;
+        gf_boolean_t                    deleting;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
@@ -124,7 +128,8 @@ typedef struct glusterd_peer_ctx_args_ {
 
 typedef struct glusterd_peer_ctx_ {
         glusterd_peerctx_args_t        args;
-        glusterd_peerinfo_t            *peerinfo;
+        uuid_t                         peerid;
+        char                           *peername;
         char                           *errstr;
 } glusterd_peerctx_t;
 
@@ -153,10 +158,11 @@ typedef enum glusterd_friend_update_op_ {
 
 
 struct glusterd_friend_sm_event_ {
-        struct cds_list_head    list;
-        glusterd_peerinfo_t     *peerinfo;
-        void                    *ctx;
-        glusterd_friend_sm_event_type_t event;
+        struct cds_list_head             list;
+        uuid_t                           peerid;
+        char                            *peername;
+        void                            *ctx;
+        glusterd_friend_sm_event_type_t  event;
 };
 
 typedef struct glusterd_friend_sm_event_ glusterd_friend_sm_event_t;
