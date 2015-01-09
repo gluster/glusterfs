@@ -63,9 +63,9 @@ void *synctask_get ();
 int synctask_set (void *);
 
 /* uuid_buf */
-char *glusterfs_uuid_buf_get();
+char *glusterfs_uuid_buf_get ();
 /* lkowner_buf */
-char *glusterfs_lkowner_buf_get();
+char *glusterfs_lkowner_buf_get ();
 
 /* init */
 int glusterfs_globals_init (glusterfs_ctx_t *ctx);
