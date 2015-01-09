@@ -17,6 +17,7 @@
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"
+#include "protocol-common.h"
 
 enum {
 	AFR_SELFHEAL_DATA_FULL = 0,
@@ -426,41 +427,6 @@ afr_does_size_mismatch (xlator_t *this, unsigned char *sources,
 
         return _gf_false;
 }
-/*
- * If by chance there are multiple sources with differing sizes, select
- * the largest file as the source.
- *
- * This can happen if data was directly modified in the backend or for snapshots
- */
-
-static void
-afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
-                                 struct afr_reply *replies)
-{
-        int i = 0;
-        afr_private_t *priv = NULL;
-        uint64_t size = 0;
-
-        /* Find source with biggest file size */
-        priv = this->private;
-        for (i = 0; i < priv->child_count; i++) {
-                if (!sources[i])
-                        continue;
-                if (size <= replies[i].poststat.ia_size) {
-                        size = replies[i].poststat.ia_size;
-                }
-        }
-
-        /* Mark sources with less size as not source */
-        for (i = 0; i < priv->child_count; i++) {
-                if (!sources[i])
-                        continue;
-                if (size > replies[i].poststat.ia_size)
-                        sources[i] = 0;
-        }
-
-        return;
-}
 
 static void
 afr_mark_biggest_witness_as_source (xlator_t *this, unsigned char *sources,
@@ -518,7 +484,9 @@ afr_mark_newest_file_as_source (xlator_t *this, unsigned char *sources,
 }
 
 static int
-__afr_selfheal_data_finalize_source (xlator_t *this, unsigned char *sources,
+__afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
+                                     unsigned char *sources,
+                                     unsigned char *sinks,
 				     unsigned char *healed_sinks,
 				     unsigned char *locked_on,
 				     struct afr_reply *replies,
@@ -528,7 +496,6 @@ __afr_selfheal_data_finalize_source (xlator_t *this, unsigned char *sources,
 	afr_private_t *priv = NULL;
 	int source = -1;
 	int sources_count = 0;
-
 	priv = this->private;
 
 	sources_count = AFR_COUNT (sources, priv->child_count);
@@ -536,8 +503,20 @@ __afr_selfheal_data_finalize_source (xlator_t *this, unsigned char *sources,
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
             || !sources_count) {
 		/* split brain */
-		return -EIO;
+                source = afr_mark_split_brain_source_sinks (frame, this,
+                                                            sources, sinks,
+                                                            healed_sinks,
+                                                            locked_on, replies,
+                                                          AFR_DATA_TRANSACTION);
+                if (source < 0)
+                        return -EIO;
+                return source;
 	}
+
+        /* No split brain at this point. If we were called from
+         * afr_heal_splitbrain_file(), abort.*/
+        if (afr_dict_contains_heal_op(frame))
+                return -EIO;
 
         /* If there are no witnesses/size-mismatches on sources we are done*/
         if (!afr_does_size_mismatch (this, sources, replies) &&
@@ -605,9 +584,10 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
         */
         AFR_INTERSECT (healed_sinks, sinks, locked_on, priv->child_count);
 
-	source = __afr_selfheal_data_finalize_source (this, sources,
-                                                      healed_sinks, locked_on,
-                                                      replies, witness);
+	source = __afr_selfheal_data_finalize_source (frame, this, sources,
+                                                      sinks, healed_sinks,
+                                                      locked_on, replies,
+                                                      witness);
 	if (source < 0)
 		return -EIO;
 

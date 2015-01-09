@@ -4471,5 +4471,81 @@ out:
         AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
         if (dict)
                dict_unref (dict);
+        if (inode) {
+                inode_forget (inode, 1);
+                inode_unref (inode);
+        }
+        return ret;
+}
+
+int32_t
+afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        gf_boolean_t    data_selfheal     = _gf_false;
+        gf_boolean_t    metadata_selfheal = _gf_false;
+        gf_boolean_t    entry_selfheal    = _gf_false;
+        dict_t         *dict              = NULL;
+        afr_local_t    *local             = NULL;
+        inode_t        *inode             = NULL;
+        int entry_ret = 0, metadata_ret = 0, data_ret = 0;
+        int ret = 0, op_errno = 0;
+
+        local = frame->local;
+        dict = dict_new ();
+        if (!dict) {
+                op_errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        ret = afr_selfheal_unlocked_inspect (frame, this, loc->gfid, &inode,
+                                             &data_selfheal,
+                                             &metadata_selfheal,
+                                             &entry_selfheal);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        if (!data_selfheal && !metadata_selfheal && !entry_selfheal) {
+                ret = dict_set_str (dict, "sh-fail-msg",
+                                    "File not in split-brain");
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Failed to set sh-fail-msg in dict");
+                ret = 0;
+                goto out;
+        }
+
+        if (data_selfheal)
+                data_ret = afr_selfheal_data (frame, this, inode);
+
+        if (metadata_selfheal)
+                metadata_ret = afr_selfheal_metadata (frame, this, inode);
+
+        if (entry_selfheal)
+                entry_ret = afr_selfheal_entry (frame, this, inode);
+
+        ret = (data_ret | metadata_ret | entry_ret);
+
+        if (local->xdata_rsp) {
+                /* 'sh-fail-msg' has been set in the dict during self-heal.*/
+                dict_copy (local->xdata_rsp, dict);
+                ret = 0;
+        } else if (ret) {
+                /*Some other error during self-heal. Just propagate it.*/
+                op_errno = -ret;
+                ret = -1;
+        }
+
+out:
+        AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        if (dict)
+                dict_unref(dict);
+        if (inode) {
+                inode_forget (inode, 1);
+                inode_unref (inode);
+        }
         return ret;
 }

@@ -193,8 +193,26 @@ afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
                   int source, unsigned char *healed_sinks);
 
 void
+afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
+                                 struct afr_reply *replies);
+void
 afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
                        unsigned char *locked_on, unsigned char *sinks);
+
+gf_boolean_t
+afr_dict_contains_heal_op (call_frame_t *frame);
+
+int
+afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
+                                   unsigned char *sources,
+                                   unsigned char *sinks,
+                                   unsigned char *healed_sinks,
+                                   unsigned char *locked_on,
+                                   struct afr_reply *replies,
+                                   afr_transaction_type type);
+
+int
+afr_get_child_index_from_name (xlator_t *this, char *name);
 
 gf_boolean_t
 afr_does_witness_exist (xlator_t *this, uint64_t *witness);

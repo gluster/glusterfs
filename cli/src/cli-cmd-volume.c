@@ -1879,6 +1879,60 @@ cli_print_brick_status (cli_volume_status_t *status)
         return 0;
 }
 
+#define NEEDS_GLFS_HEAL(op) ((op == GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) || \
+                             (op == GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK) ||      \
+                             (op == GF_AFR_OP_INDEX_SUMMARY))
+
+int
+cli_launch_glfs_heal (int heal_op, dict_t *options)
+{
+        char      buff[PATH_MAX] = {0};
+        runner_t  runner         = {0};
+        char      *filename      = NULL;
+        char      *hostname      = NULL;
+        char      *path          = NULL;
+        char      *volname       = NULL;
+        char      *out           = NULL;
+        int        ret           = 0;
+
+        runinit (&runner);
+        ret = dict_get_str (options, "volname", &volname);
+        runner_add_args (&runner, SBIN_DIR"/glfsheal", volname, NULL);
+        runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
+
+        switch (heal_op) {
+        case GF_AFR_OP_INDEX_SUMMARY:
+                break;
+        case GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+                ret = dict_get_str (options, "file", &filename);
+                runner_add_args (&runner, "bigger-file", filename, NULL);
+                break;
+        case  GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+                ret = dict_get_str (options, "heal-source-hostname",
+                                    &hostname);
+                ret = dict_get_str (options, "heal-source-brickpath",
+                                    &path);
+                runner_add_args (&runner, "source-brick", NULL);
+                runner_argprintf (&runner, "%s:%s", hostname, path);
+                if (dict_get_str (options, "file", &filename) == 0)
+                        runner_argprintf (&runner, filename);
+                break;
+        default:
+                ret = -1;
+        }
+        ret = runner_start (&runner);
+        if (ret == -1)
+                goto out;
+        while ((out = fgets (buff, sizeof(buff),
+                             runner_chio (&runner, STDOUT_FILENO)))) {
+                printf ("%s", out);
+        }
+        ret = runner_end (&runner);
+        ret = WEXITSTATUS (ret);
+
+out:
+        return ret;
+}
 int
 cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
@@ -1892,9 +1946,6 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         xlator_t                *this = NULL;
         cli_local_t             *local = NULL;
         int                     heal_op = 0;
-        runner_t                runner = {0};
-        char                    buff[PATH_MAX] = {0};
-        char                    *out = NULL;
 
         this = THIS;
         frame = create_frame (this, this->ctx->pool);
@@ -1916,21 +1967,10 @@ cli_cmd_volume_heal_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = dict_get_int32 (options, "heal-op", &heal_op);
         if (ret < 0)
                 goto out;
-
-        if (heal_op == GF_AFR_OP_INDEX_SUMMARY) {
-                runinit (&runner);
-                runner_add_args (&runner, SBIN_DIR"/glfsheal", words[2], NULL);
-                runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
-                ret = runner_start (&runner);
+        if (NEEDS_GLFS_HEAL (heal_op)) {
+                ret = cli_launch_glfs_heal (heal_op, options);
                 if (ret == -1)
                         goto out;
-                while ((out = fgets(buff, sizeof(buff),
-                                   runner_chio (&runner, STDOUT_FILENO)))) {
-                        printf ("%s", out);
-                }
-
-                ret = runner_end (&runner);
-                ret = WEXITSTATUS (ret);
         }
         else {
                 proc = &cli_rpc_prog->proctable[GLUSTER_CLI_HEAL_VOLUME];
@@ -1946,7 +1986,7 @@ out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Volume heal failed");
+                        cli_out ("Volume heal failed.");
         }
 
         CLI_STACK_DESTROY (frame);
@@ -2316,7 +2356,10 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},
 
-        { "volume heal <VOLNAME> [{full | statistics {heal-count {replica <hostname:brickname>}} |info {healed | heal-failed | split-brain}}]",
+        { "volume heal <VOLNAME> [full | statistics [heal-count "\
+          "[replica <HOSTNAME:BRICKNAME>]] |info [healed | heal-failed | "\
+          "split-brain]| split-brain {bigger-file <FILE> |source-brick "\
+          "<HOSTNAME:BRICKNAME> [<FILE>]}]",
           cli_cmd_volume_heal_cbk,
           "self-heal commands on volume specified by <VOLNAME>"},
 

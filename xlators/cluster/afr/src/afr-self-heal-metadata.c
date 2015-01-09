@@ -17,6 +17,7 @@
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"
+#include "protocol-common.h"
 
 #define AFR_HEAL_ATTR (GF_SET_ATTR_UID|GF_SET_ATTR_GID|GF_SET_ATTR_MODE)
 
@@ -199,6 +200,7 @@ out:
 static int
 __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
                                          unsigned char *sources,
+                                         unsigned char *sinks,
 					 unsigned char *healed_sinks,
 					 unsigned char *locked_on,
 					 struct afr_reply *replies)
@@ -208,13 +210,26 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	struct iatt first = {0, };
 	int source = -1;
 	int sources_count = 0;
+        dict_t *xdata_req = NULL;
+        afr_local_t *local = NULL;
 
 	priv = this->private;
+        local = frame->local;
+        xdata_req = local->xdata_req;
 
 	sources_count = AFR_COUNT (sources, priv->child_count);
 
 	if ((AFR_CMP (locked_on, healed_sinks, priv->child_count) == 0)
 	    || !sources_count) {
+
+                source = afr_mark_split_brain_source_sinks (frame, this,
+                                                            sources, sinks,
+                                                            healed_sinks,
+                                                            locked_on, replies,
+                                                      AFR_METADATA_TRANSACTION);
+                if (source >= 0)
+                        return source;
+
 		/* If this is a directory mtime/ctime only split brain
 		   use the most recent */
 		source = afr_dirtime_splitbrain_source (frame, this,
@@ -224,17 +239,7 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 				"split brain on %s",
 				 uuid_utoa (replies[source].poststat.ia_gfid));
 			sources[source] = 1;
-
-			for (i = 0; i < priv->child_count; i++) {
-				if (i == source)
-					continue;
-
-				if (!locked_on[i])
-					continue;
-
-				healed_sinks[i] = 1;
-			}
-
+			healed_sinks[source] = 0;
 			return source;
 		}
 
@@ -252,6 +257,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 			}
 		}
 	}
+
+        /* No split brain at this point. If we were called from
+         * afr_heal_splitbrain_file(), abort.*/
+        if (afr_dict_contains_heal_op(frame))
+                return -EIO;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!sources[i])
@@ -352,7 +362,7 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
         }
 
 	source = __afr_selfheal_metadata_finalize_source (frame, this, sources,
-                                                          healed_sinks,
+                                                          sinks, healed_sinks,
                                                           locked_on, replies);
 
 	if (source < 0)
