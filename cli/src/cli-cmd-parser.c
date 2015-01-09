@@ -2929,6 +2929,43 @@ out:
         return ret;
 }
 
+static int
+set_hostname_path_in_dict (const char *token, dict_t *dict, int heal_op)
+{
+        char *hostname = NULL;
+        char *path     = NULL;
+        int   ret      = 0;
+
+        ret = extract_hostname_path_from_token (token, &hostname, &path);
+        if (ret)
+                goto out;
+
+        switch (heal_op) {
+        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+                ret = dict_set_dynstr (dict, "heal-source-hostname",
+                                       hostname);
+                if (ret)
+                        goto out;
+                ret = dict_set_dynstr (dict, "heal-source-brickpath",
+                                       path);
+                break;
+        case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                ret = dict_set_dynstr (dict, "per-replica-cmd-hostname",
+                                       hostname);
+                if (ret)
+                        goto out;
+                ret = dict_set_dynstr (dict, "per-replica-cmd-path",
+                                       path);
+                break;
+        default:
+                ret = -1;
+                break;
+        }
+
+out:
+        return ret;
+
+}
 
 int
 cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
@@ -2936,8 +2973,6 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
 {
         int     ret = 0;
         dict_t  *dict = NULL;
-        char    *hostname = NULL;
-        char    *path = NULL;
 
         dict = dict_new ();
         if (!dict)
@@ -3008,6 +3043,35 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 ret = -1;
                 goto out;
         }
+        if (wordcount == 6) {
+                if (strcmp (words[3], "split-brain")) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!strcmp (words[4], "bigger-file")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                        GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
+                        if (ret)
+                                goto out;
+                        ret = dict_set_str (dict, "file", (char *)words[5]);
+                        if (ret)
+                                goto out;
+                        goto done;
+                }
+                if (!strcmp (words[4], "source-brick")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                        if (ret)
+                                goto out;
+                        ret = set_hostname_path_in_dict (words[5], dict,
+                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                        if (ret)
+                                goto out;
+                        goto done;
+                }
+                ret = -1;
+                goto out;
+        }
         if (wordcount == 7) {
                 if (!strcmp (words[3], "statistics")
                     && !strcmp (words[4], "heal-count")
@@ -3017,21 +3081,26 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                                    GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
                         if (ret)
                                 goto out;
-                        ret = extract_hostname_path_from_token (words[6],
-                                                              &hostname, &path);
+                        ret = set_hostname_path_in_dict (words[6], dict,
+                                   GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
                         if (ret)
                                 goto out;
-                        ret = dict_set_dynstr (dict, "per-replica-cmd-hostname",
-                                               hostname);
-                        if (ret)
-                                goto out;
-                        ret = dict_set_dynstr (dict, "per-replica-cmd-path",
-                                               path);
-                        if (ret)
-                                goto out;
-                        else
-                                goto done;
+                        goto done;
 
+                }
+                if (!strcmp (words[3], "split-brain") &&
+                    !strcmp (words[4], "source-brick")) {
+                        ret = dict_set_int32 (dict, "heal-op",
+                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                        ret = set_hostname_path_in_dict (words[5], dict,
+                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                        if (ret)
+                                goto out;
+                        ret = dict_set_str (dict, "file",
+                                            (char *) words[6]);
+                        if (ret)
+                                goto out;
+                        goto done;
                 }
         }
         ret = -1;

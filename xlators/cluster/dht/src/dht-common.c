@@ -2636,8 +2636,10 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         this_call_cnt = dht_frame_return (frame);
 
-        if (!xattr || (op_ret == -1))
+        if (!xattr || (op_ret == -1)) {
+                local->op_ret = op_ret;
                 goto out;
+        }
 
         if (dict_get (xattr, conf->xattr_name)) {
                 dict_del (xattr, conf->xattr_name);
@@ -2808,7 +2810,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         subvol = layout->list[i].xlator;
                         STACK_WIND (frame, dht_vgetxattr_dir_cbk,
                                     subvol, subvol->fops->getxattr,
-                                    loc, key, NULL);
+                                    loc, key, xdata);
                 }
                 return 0;
         }
@@ -2821,7 +2823,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
                 local->call_cnt = 1;
                 STACK_WIND (frame, dht_vgetxattr_cbk, cached_subvol,
-                            cached_subvol->fops->getxattr, loc, key, NULL);
+                            cached_subvol->fops->getxattr, loc, key, xdata);
 
                 return 0;
         }
@@ -2854,7 +2856,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 if (hashed_subvol) {
                         STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
                                     hashed_subvol->fops->getxattr, loc,
-                                    GF_XATTR_PATHINFO_KEY, NULL);
+                                    GF_XATTR_PATHINFO_KEY, xdata);
                         return 0;
                 }
                 op_errno = ENODATA;
@@ -2933,7 +2935,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 subvol = layout->list[i].xlator;
                 STACK_WIND (frame, dht_getxattr_cbk,
                             subvol, subvol->fops->getxattr,
-                            loc, key, NULL);
+                            loc, key, xdata);
         }
         return 0;
 
