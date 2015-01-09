@@ -91,7 +91,7 @@ pub_glfs_open (struct glfs *fs, const char *path, int flags)
 		goto out;
 
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -243,7 +243,7 @@ pub_glfs_stat (struct glfs *fs, const char *path, struct stat *stat)
 		goto out;
 	}
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -347,7 +347,7 @@ pub_glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 	   destinataion.
 	*/
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -1267,7 +1267,7 @@ pub_glfs_access (struct glfs *fs, const char *path, int mode)
 		goto out;
 	}
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -1867,7 +1867,7 @@ pub_glfs_opendir (struct glfs *fs, const char *path)
 
 	INIT_LIST_HEAD (&glfd->entries);
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -2280,7 +2280,7 @@ pub_glfs_statvfs (struct glfs *fs, const char *path, struct statvfs *buf)
 		goto out;
 	}
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -2322,7 +2322,7 @@ glfs_setattr (struct glfs *fs, const char *path, struct iatt *iatt,
 	}
 retry:
 	if (follow)
-		ret = priv_glfs_resolve (fs, subvol, path, &loc, &riatt, reval);
+		ret = glfs_resolve (fs, subvol, path, &loc, &riatt, reval);
 	else
 		ret = glfs_lresolve (fs, subvol, path, &loc, &riatt, reval);
 
@@ -2612,7 +2612,7 @@ glfs_getxattr_common (struct glfs *fs, const char *path, const char *name,
 	}
 retry:
 	if (follow)
-		ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
 		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
@@ -2752,7 +2752,7 @@ glfs_listxattr_common (struct glfs *fs, const char *path, void *value,
 
 retry:
 	if (follow)
-		ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
 		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
@@ -2880,7 +2880,7 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 	}
 retry:
 	if (follow)
-		ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
 		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
@@ -3001,7 +3001,7 @@ glfs_removexattr_common (struct glfs *fs, const char *path, const char *name,
 	}
 retry:
 	if (follow)
-		ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+		ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 	else
 		ret = glfs_lresolve (fs, subvol, path, &loc, &iatt, reval);
 
@@ -3206,7 +3206,7 @@ pub_glfs_chdir (struct glfs *fs, const char *path)
 		goto out;
 	}
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
@@ -3309,7 +3309,7 @@ pub_glfs_realpath (struct glfs *fs, const char *path, char *resolved_path)
 		goto out;
 	}
 retry:
-	ret = priv_glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
+	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
