@@ -503,6 +503,7 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	call_frame_t *iter_frame = NULL;
 	xlator_t *subvol = NULL;
 	afr_private_t *priv = NULL;
+        gf_boolean_t mismatch = _gf_false;
 
 	priv = this->private;
 	subvol = priv->children[child];
@@ -532,6 +533,11 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
                                                          entry->d_name);
 			AFR_STACK_RESET (iter_frame);
 
+                        if (ret == -1) {
+                                /* gfid or type mismatch. */
+                                mismatch = _gf_true;
+                                ret = 0;
+                        }
 			if (ret)
 				break;
 		}
@@ -542,6 +548,9 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	}
 
 	AFR_STACK_DESTROY (iter_frame);
+        if (mismatch == _gf_true)
+                /* undo pending will be skipped */
+                ret = -1;
 	return ret;
 }
 
@@ -552,6 +561,7 @@ afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
+        gf_boolean_t mismatch = _gf_false;
 	int ret = 0;
 
 	priv = this->private;
@@ -563,13 +573,19 @@ afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		if (i != source && !healed_sinks[i])
 			continue;
 		ret = afr_selfheal_entry_do_subvol (frame, this, fd, i);
+                if (ret == -1) {
+                        /* gfid or type mismatch. */
+                        mismatch = _gf_true;
+                        continue;
+                }
 		if (ret)
 			break;
 	}
+        if (mismatch == _gf_true)
+                /* undo pending will be skipped */
+                ret = -1;
 	return ret;
 }
-
-
 
 static int
 __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
