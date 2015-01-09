@@ -19,6 +19,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
+#include "glusterd-snapshot-utils.h"
 
 extern glusterd_op_info_t opinfo;
 
@@ -1087,14 +1088,15 @@ gd_build_local_xaction_peers_list (struct cds_list_head *peers,
 void
 gd_cleanup_local_xaction_peers_list (struct cds_list_head *xact_peers)
 {
+        glusterd_local_peers_t *local_peers = NULL;
+        glusterd_local_peers_t *tmp         = NULL;
+
         GF_ASSERT (xact_peers);
 
         if (cds_list_empty (xact_peers))
                 return;
 
-        glusterd_local_peers_t *local_peers = NULL;
-
-        cds_list_for_each_entry(local_peers, xact_peers, op_peers_list) {
+        cds_list_for_each_entry_safe (local_peers, tmp, xact_peers, op_peers_list) {
                 GF_FREE (local_peers);
                 /*  local_peers->peerinfo need not be freed because it does not
                  *  ownership of peerinfo, but merely refer it */

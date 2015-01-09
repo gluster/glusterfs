@@ -21,6 +21,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-volgen.h"
 #include "glusterd-store.h"
+#include "glusterd-snapshot-utils.h"
 
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 

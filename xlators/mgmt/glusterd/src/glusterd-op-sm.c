@@ -43,6 +43,7 @@
 #include "cli1-xdr.h"
 #include "common-utils.h"
 #include "run.h"
+#include "glusterd-snapshot-utils.h"
 
 #include <sys/types.h>
 #include <signal.h>
