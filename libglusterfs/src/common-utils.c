@@ -2154,7 +2154,7 @@ mask_match(const uint32_t a, const uint32_t b, const uint32_t m)
 char *
 uuid_utoa (uuid_t uuid)
 {
-        char *uuid_buffer = glusterfs_uuid_buf_get(THIS->ctx);
+        char *uuid_buffer = glusterfs_uuid_buf_get ();
         uuid_unparse (uuid, uuid_buffer);
         return uuid_buffer;
 }
@@ -2173,7 +2173,7 @@ uuid_utoa_r (uuid_t uuid, char *dst)
 char *
 lkowner_utoa (gf_lkowner_t *lkowner)
 {
-        char *lkowner_buffer = glusterfs_lkowner_buf_get(THIS->ctx);
+        char *lkowner_buffer = glusterfs_lkowner_buf_get ();
         lkowner_unparse (lkowner, lkowner_buffer, GF_LKOWNER_BUF_SIZE);
         return lkowner_buffer;
 }
