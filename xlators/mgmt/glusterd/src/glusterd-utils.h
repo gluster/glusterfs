@@ -31,7 +31,7 @@
 #include "glusterfs3-xdr.h"
 #include "glusterd-peer-utils.h"
 
-#define GLUSTERD_SOCK_DIR "/var/run"
+#define GLUSTERD_SOCK_DIR "/var/run/gluster"
 #define GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid) do {\
         sprintf (brickinfo->brick_id, "%s-client-%d",\
                  volinfo->volname, brickid);\
