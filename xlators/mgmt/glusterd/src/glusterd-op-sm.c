@@ -3456,18 +3456,16 @@ out:
         return required;
 }
 
+/* This function should not be used when the quorum validation needs to happen
+ * on non-global peer list */
 static int
 glusterd_op_validate_quorum (xlator_t *this, glusterd_op_t op,
                              dict_t *dict, char **op_errstr)
 {
-        int                     ret = 0;
+        int                      ret     = 0;
         char                    *volname = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
-        glusterd_conf_t         *conf    = NULL;
-        char                    *errstr = NULL;
-
-        conf = this->private;
-        GF_ASSERT (conf);
+        char                    *errstr  = NULL;
 
         errstr = "Quorum not met. Volume operation not allowed.";
         if (!glusterd_is_op_quorum_validation_required (this, op, dict))
@@ -3485,8 +3483,9 @@ glusterd_op_validate_quorum (xlator_t *this, glusterd_op_t op,
                 goto out;
         }
 
-        if (does_gd_meet_server_quorum (this, &conf->xaction_peers,
-                                        _gf_false)) {
+        /* Passing NULL implies quorum calculation will happen on global peer
+         * list */
+        if (does_gd_meet_server_quorum (this, NULL, _gf_false)) {
                 ret = 0;
                 goto out;
         }
