@@ -82,6 +82,7 @@ static char          global_uuid_buf[GF_UUID_BUF_SIZE];
 static pthread_key_t lkowner_buf_key;
 static char          global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
 static int gf_global_mem_acct_enable = 1;
+static pthread_once_t globals_inited = PTHREAD_ONCE_INIT;
 
 
 int
@@ -329,12 +330,10 @@ glusterfs_lkowner_buf_get ()
         return buf;
 }
 
-int
-glusterfs_globals_init (glusterfs_ctx_t *ctx)
+static void
+gf_globals_init_once ()
 {
         int ret = 0;
-
-        gf_log_globals_init (ctx);
 
         ret = glusterfs_this_init ();
         if (ret) {
@@ -371,5 +370,26 @@ glusterfs_globals_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 out:
+
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL, "Exiting as global "
+                        "initialization failed");
+                exit (ret);
+        }
+}
+
+int
+glusterfs_globals_init (glusterfs_ctx_t *ctx)
+{
+        int ret = 0;
+
+        gf_log_globals_init (ctx);
+
+        ret =  pthread_once (&globals_inited, gf_globals_init_once);
+
+        if (ret)
+                gf_log ("", GF_LOG_CRITICAL, "pthread_once failed with: %d",
+                        ret);
+
         return ret;
 }
