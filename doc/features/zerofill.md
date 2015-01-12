@@ -1,5 +1,6 @@
-#zerofill API for GlusterFS
+# zerofill API for GlusterFS
 zerofill() API would allow creation of pre-allocated and zeroed-out files on GlusterFS volumes by offloading the zeroing part to server and/or storage (storage offloads use SCSI WRITESAME).
+
 ## Description
 
 Zerofill writes zeroes to a file in the specified range. This fop will be useful when a whole file needs to be initialized with zero (could be useful for zero filled VM disk image provisioning or during scrubbing of VM disk images).
@@ -11,6 +12,7 @@ making it highly efficient.
 
 The fop takes two arguments offset and size. It zeroes out 'size' number of bytes in an opened file starting from 'offset' position.
 This feature adds zerofill support to the following areas:
+
 > - libglusterfs
 - io-stats
 - performance/md-cache,open-behind

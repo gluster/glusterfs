@@ -68,7 +68,7 @@ It is recommended that this directory is created on an LV in the brick VG itself
     [root@node ~]# gluster volume create bd node:/bd-meta?bd-vg force
 
 
-The general syntax for specifying the brick is `host:/posix-dir?volume-group-name` where “?” is the separator.
+The general syntax for specifying the brick is `host:/posix-dir?volume-group-name` where "?" is the separator.
 
 
 
@@ -105,7 +105,7 @@ Since the volume is empty now, so is the underlying VG.
 Creating a file that is mapped to an LV is a 2 step operation. First the file should be created on the mount point and a specific extended attribute should be set to map the file to LV.
 
     [root@node ~]# touch /mnt/lv
-    [root@node ~]# setfattr -n “user.glusterfs.bd” -v “lv” /mnt/lv
+    [root@node ~]# setfattr -n "user.glusterfs.bd" -v "lv" /mnt/lv
 
 Now an LV got created in the VG brick and the file /mnt/lv maps to this LV. Any read/write to this file ends up as read/write to the underlying LV.
 
@@ -159,7 +159,7 @@ truncate can be used to set the required file size.
 
 The size of the file/LV can be specified during creation/mapping time itself like this:
 
-    setfattr -n “user.glusterfs.bd” -v “lv:256MB” /mnt/lv
+    setfattr -n "user.glusterfs.bd" -v "lv:256MB" /mnt/lv
 
 2. Creating BD volume with thin LV backend
 
@@ -185,7 +185,7 @@ The size of the file/LV can be specified during creation/mapping time itself lik
     [root@node ~]# lvcreate –thin bd-vg-thin -L 1000M
 
     Rounding up size to full physical extent 4.00 MiB
-    Logical volume “lvol0″ created
+    Logical volume "lvol0" created
 
 lvdisplay shows the thin pool
 
@@ -255,7 +255,7 @@ Creating a file that is mapped to a thin LV is a 2 step operation. First the fil
 
     [root@node ~]# touch /mnt/thin-lv
  
-    [root@node ~]# setfattr -n “user.glusterfs.bd” -v “thin:256MB” /mnt/thin-lv
+    [root@node ~]# setfattr -n "user.glusterfs.bd" -v "thin:256MB" /mnt/thin-lv
 
 Now /mnt/thin-lv is a thin provisioned file that is backed by a thin LV and size has been set to 256.
 
