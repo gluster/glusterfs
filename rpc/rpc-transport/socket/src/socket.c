@@ -241,6 +241,11 @@ typedef struct socket_connect_error_state_ socket_connect_error_state_t;
 
 static int socket_init (rpc_transport_t *this);
 
+#ifdef GF_DARWIN_HOST_OS
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 static void
 ssl_dump_error_stack (const char *caller)
 {
@@ -4042,3 +4047,7 @@ struct volume_options options[] = {
         },
         { .key = {NULL} }
 };
+
+#ifdef GF_DARWIN_HOST_OS
+#pragma GCC diagnostic pop
+#endif
