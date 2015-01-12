@@ -1309,6 +1309,61 @@ changelog_setxattr_cbk (call_frame_t *frame,
         return 0;
 }
 
+/* changelog_handle_virtual_xattr:
+ *         Handles virtual setxattr 'glusterfs.geo-rep.trigger-sync' on files.
+ *         Following is the behaviour based on the value of xattr.
+ *                         1: Captures only DATA entry in changelog.
+ *                         2: Tries to captures both ENTRY and DATA entry in
+ *                            changelog. If failed to get pargfid, only DATA
+ *                            entry is captured.
+ *           any other value: ENOTSUP is returned.
+ */
+static void
+changelog_handle_virtual_xattr (call_frame_t *frame, xlator_t *this,
+                                loc_t *loc, dict_t *dict)
+{
+        changelog_priv_t     *priv         = NULL;
+        changelog_local_t    *local        = NULL;
+        int32_t               value        = 0;
+        int                   ret          = 0;
+        int                   dict_ret     = 0;
+        gf_boolean_t          valid        = _gf_false;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        dict_ret = dict_get_int32 (dict, GF_XATTR_TRIGGER_SYNC, &value);
+
+        if ((dict_ret == 0 && value == 1) && ((loc->inode->ia_type == IA_IFDIR)
+            || (loc->inode->ia_type == IA_IFREG)))
+                valid = _gf_true;
+
+        if (valid) {
+                ret = changelog_fill_entry_buf (frame, this, loc, &local);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_INFO, "Entry cannot be"
+                                " captured for gfid: %s. Capturing DATA"
+                                " entry.", uuid_utoa (loc->inode->gfid));
+                        goto unwind;
+                }
+                changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
+
+ unwind:
+                /* Capture DATA only if it's a file. */
+                if (loc->inode->ia_type != IA_IFDIR)
+                        changelog_update (this, priv, frame->local,
+                                          CHANGELOG_TYPE_DATA);
+                /* Assign local to prev_entry, so unwind will take
+                 * care of cleanup. */
+                ((changelog_local_t *)(frame->local))->prev_entry = local;
+                CHANGELOG_STACK_UNWIND (setxattr, frame, 0, 0, NULL);
+                return;
+        } else {
+                CHANGELOG_STACK_UNWIND (setxattr, frame, -1, ENOTSUP, NULL);
+                return;
+        }
+}
+
 int32_t
 changelog_setxattr (call_frame_t *frame,
                     xlator_t *this, loc_t *loc,
@@ -1327,13 +1382,11 @@ changelog_setxattr (call_frame_t *frame,
                         loc->inode, loc->inode->gfid, 1);
 
         /* On setting this virtual xattr on a file, an explicit data
-           sync is triggered from geo-rep as DATA entry is recorded
-           in changelog. */
-        if (dict_get (dict, GF_XATTR_TRIGGER_SYNC)
-            && loc->inode->ia_type != IA_IFDIR) {
-                changelog_update (this, priv, frame->local,
-                                  CHANGELOG_TYPE_DATA);
-                CHANGELOG_STACK_UNWIND (setxattr, frame, 0, 0, xdata);
+         * sync is triggered from geo-rep as CREATE|DATA entry is
+         * recorded in changelog based on xattr value.
+         */
+        if (dict_get (dict, GF_XATTR_TRIGGER_SYNC)) {
+                changelog_handle_virtual_xattr (frame, this, loc, dict);
                 return 0;
         }
 

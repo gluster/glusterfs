@@ -49,10 +49,31 @@ TEST $CLI volume create $V0 $H0:$B0/1
 TEST $CLI volume set $V0 server.ssl on
 TEST $CLI volume set $V0 client.ssl on
 #EST $CLI volume set $V0 ssl.cipher-list $(valid_ciphers)
+TEST $CLI volume start $V0
+
+# This mount should SUCCEED because ssl-allow=* by default.  This effectively
+# disables SSL authorization, though authentication and encryption might still
+# be enabled.
+TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
+TEST ping_file $M0/before
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
+# Set ssl-allow to a wildcard that includes our identity.
+TEST $CLI volume stop $V0
+TEST $CLI volume set $V0 auth.ssl-allow Any*
+TEST $CLI volume start $V0
+
+# This mount should SUCCEED because we match the wildcard.
+TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
+TEST ping_file $M0/before
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
+# Set ssl-allow to include the identity we've created.
+TEST $CLI volume stop $V0
 TEST $CLI volume set $V0 auth.ssl-allow Anyone
 TEST $CLI volume start $V0
 
-# This mount should WORK.
+# This mount should SUCCEED because this specific identity is allowed.
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 TEST ping_file $M0/before
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0

@@ -72,7 +72,10 @@ TEST $CLI volume quota $V0 hard-timeout 0
 ## Verify quota enforcement
 ## -----------------------------
 
-TEST ! dd if=/dev/urandom of=$M0/test_dir/1.txt bs=1024k count=12
+# compile the test write program and run it
+TEST $CC $(dirname $0)/quota.c -o $(dirname $0)/quota;
+# Try to create a 12MB file which should fail
+TEST ! $(dirname $0)/quota $M0/test_dir/1.txt "12582912"
 TEST rm $M0/test_dir/1.txt
 
 # wait for marker's accounting to complete

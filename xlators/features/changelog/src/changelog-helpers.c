@@ -20,6 +20,7 @@
 #include "syscall.h"
 
 #include "changelog-helpers.h"
+#include "changelog-encoders.h"
 #include "changelog-mem-types.h"
 
 #include "changelog-encoders.h"
@@ -1337,3 +1338,74 @@ changelog_barrier_cleanup (xlator_t *this, changelog_priv_t *priv,
         return;
 }
 /* End: Geo-Rep snapshot dependency changes */
+
+int32_t
+changelog_fill_entry_buf (call_frame_t *frame, xlator_t *this,
+                          loc_t *loc, changelog_local_t **local)
+{
+        changelog_opt_t  *co       = NULL;
+        size_t            xtra_len = 0;
+        char             *dup_path = NULL;
+        char             *bname    = NULL;
+        inode_t          *parent   = NULL;
+
+        GF_ASSERT (this);
+
+        parent = inode_parent (loc->inode, 0, 0);
+        if (!parent) {
+                gf_log (this->name, GF_LOG_ERROR, "Parent inode not found"
+                        " for gfid: %s", uuid_utoa (loc->inode->gfid));
+                goto err;
+        }
+
+        CHANGELOG_INIT_NOCHECK (this, *local, loc->inode, loc->inode->gfid, 5);
+        if (!(*local)) {
+                gf_log (this->name, GF_LOG_ERROR, "changelog local"
+                        " initiatilization failed");
+                goto err;
+        }
+
+        co = changelog_get_usable_buffer (*local);
+        if (!co) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get buffer");
+                goto err;
+        }
+
+        if (loc->inode->ia_type == IA_IFDIR) {
+                CHANGLOG_FILL_FOP_NUMBER (co, GF_FOP_MKDIR, fop_fn, xtra_len);
+                co++;
+                CHANGELOG_FILL_UINT32 (co, S_IFDIR|0755, number_fn, xtra_len);
+                co++;
+        } else {
+                CHANGLOG_FILL_FOP_NUMBER (co, GF_FOP_CREATE, fop_fn, xtra_len);
+                co++;
+                CHANGELOG_FILL_UINT32 (co, S_IFREG|0644, number_fn, xtra_len);
+                co++;
+        }
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->uid, number_fn, xtra_len);
+        co++;
+
+        CHANGELOG_FILL_UINT32 (co, frame->root->gid, number_fn, xtra_len);
+        co++;
+
+        dup_path = gf_strdup (loc->path);
+        bname = basename (dup_path);
+
+        CHANGELOG_FILL_ENTRY (co, parent->gfid, bname, entry_fn, entry_free_fn,
+                              xtra_len, err);
+        changelog_set_usable_record_and_length (*local, xtra_len, 5);
+
+        if (dup_path)
+                GF_FREE (dup_path);
+        if (parent)
+                inode_unref (parent);
+        return 0;
+
+err:
+        if (dup_path)
+                GF_FREE (dup_path);
+        if (parent)
+                inode_unref (parent);
+        return -1;
+}

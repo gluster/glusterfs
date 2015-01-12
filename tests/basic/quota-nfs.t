@@ -41,9 +41,9 @@ TEST dd if=/dev/zero of=$N0/$deep/newfile_1 bs=512 count=10240
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" usage "/"
 
 # compile the test write program and run it
-TEST $CC $(dirname $0)/quota-nfs.c -o $(dirname $0)/quota-nfs;
+TEST $CC $(dirname $0)/quota.c -o $(dirname $0)/quota;
 # Try to create a 100Mb file which should fail
-TEST ! $(dirname $0)/quota-nfs $N0/$deep/newfile_2 "104857600"
+TEST ! $(dirname $0)/quota $N0/$deep/newfile_2 "104857600"
 TEST rm -f $N0/$deep/newfile_2
 
 ## Before killing daemon to avoid deadlocks
