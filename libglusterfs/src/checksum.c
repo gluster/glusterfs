@@ -32,5 +32,8 @@ gf_rsync_weak_checksum (unsigned char *buf, size_t len)
 void
 gf_rsync_strong_checksum (unsigned char *data, size_t len, unsigned char *md5)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         MD5 (data, len, md5);
+#pragma GCC diagnostic pop
 }
