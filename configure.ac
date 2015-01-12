@@ -344,7 +344,7 @@ PKG_CHECK_MODULES([UNITTEST], [cmockery2], [
     UNITTEST_LIBS=`${PKG_CONFIG} --print-errors --libs-only-l "cmockery2"`
 ],[
   AC_CHECK_LIB([cmockery], [mock_assert], [
-    UNITTEST_LDFLAGS="-lcmockery -lgcov"
+    UNITTEST_LDFLAGS="-lcmockery $COVERAGE_LIB"
     UNITTEST_CFLAGS="-Wall -Werror -DUNIT_TESTING=1"
   ], [
     AC_MSG_ERROR([cmockery2 library is required to build glusterfs])
@@ -873,6 +873,7 @@ else
    LOCALSTATEDIR=$(eval echo ${localstatedir})
 fi
 
+COVERAGE_LIB="-lgcov"
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
@@ -940,6 +941,7 @@ case $host_os in
         BUILD_FUSERMOUNT="no"
         FUSERMOUNT_SUBDIR=""
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/db/glusterd"
+	COVERAGE_LIB=""	
         ;;
 esac
 
