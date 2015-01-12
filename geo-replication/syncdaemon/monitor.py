@@ -35,7 +35,12 @@ def get_slave_bricks_status(host, vol):
                stdout=PIPE, stderr=PIPE)
     vix = po.stdout.read()
     po.wait()
-    po.terminate_geterr()
+    po.terminate_geterr(fail_on_err=False)
+    if po.returncode != 0:
+        logging.info("Volume status command failed, unable to get "
+                     "list of up nodes of %s, returning empty list: %s" %
+                     (vol, po.returncode))
+        return []
     vi = XET.fromstring(vix)
     if vi.find('opRet').text != '0':
         logging.info("Unable to get list of up nodes of %s, "
