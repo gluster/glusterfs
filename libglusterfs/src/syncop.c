@@ -295,7 +295,10 @@ synctask_yield (struct synctask *task)
                 task->state = SYNCTASK_SUSPEND;
                 (void) gf_backtrace_save (task->btbuf);
         }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
+#pragma GCC diagnostic pop
                 gf_log ("syncop", GF_LOG_ERROR,
                         "swapcontext failed (%s)", strerror (errno));
         }
@@ -431,7 +434,10 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         INIT_LIST_HEAD (&newtask->all_tasks);
         INIT_LIST_HEAD (&newtask->waitq);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (getcontext (&newtask->ctx) < 0) {
+#pragma GCC diagnostic pop
                 gf_log ("syncop", GF_LOG_ERROR,
                         "getcontext failed (%s)",
                         strerror (errno));
@@ -448,7 +454,10 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         newtask->ctx.uc_stack.ss_sp   = newtask->stack;
         newtask->ctx.uc_stack.ss_size = env->stacksize;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         makecontext (&newtask->ctx, (void (*)(void)) synctask_wrap, 2, newtask);
+#pragma GCC diagnostic pop
 
         newtask->state = SYNCTASK_INIT;
 
@@ -577,7 +586,10 @@ synctask_switchto (struct synctask *task)
         task->ctx.uc_flags &= ~_UC_TLSBASE;
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (swapcontext (&task->proc->sched, &task->ctx) < 0) {
+#pragma GCC diagnostic pop
                 gf_log ("syncop", GF_LOG_ERROR,
                         "swapcontext failed (%s)", strerror (errno));
         }
