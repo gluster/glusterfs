@@ -5026,12 +5026,14 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
+        dht_conf_t   *conf = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
         char gfid[GF_UUID_BUF_SIZE] ={0};
 
         local = frame->local;
         prev  = cookie;
+        conf = this->private;
 
         uuid_unparse(local->loc.gfid, gfid);
 
@@ -5040,10 +5042,11 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
                         local->op_ret   = -1;
-                        if (op_errno != ENOENT && op_errno != EACCES) {
-                                local->need_selfheal = 1;
+                        if (conf->subvolume_cnt != 1) {
+                                if (op_errno != ENOENT && op_errno != EACCES) {
+                                        local->need_selfheal = 1;
+                                }
                         }
-
 
                         gf_msg_debug (this->name, 0,
                                       "rmdir on %s for %s failed "
