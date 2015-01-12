@@ -1724,9 +1724,9 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
-        SET_FS_ID (frame->root->uid, gid);
-
         gid = frame->root->gid;
+
+        SET_FS_ID (frame->root->uid, gid);
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
