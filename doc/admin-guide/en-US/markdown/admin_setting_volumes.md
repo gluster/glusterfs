@@ -69,7 +69,7 @@ start it before attempting to mount it.
 
 -   Create a new volume :
 
-    `# gluster volume create [stripe  | replica | disperse] [transport tcp | rdma | tcp, rdma] `
+    `# gluster volume create [stripe  | replica | disperse] [transport tcp | rdma | tcp,rdma] `
 
     For example, to create a volume called test-volume consisting of
     server3:/exp3 and server4:/exp4:
@@ -155,7 +155,7 @@ high-availability and high-reliability are critical.
 
 2.  Create the replicated volume:
 
-    `# gluster volume create  [replica ] [transport tcp | rdma tcp,rdma] `
+    `# gluster volume create  [replica ] [transport tcp | rdma | tcp,rdma] `
 
     For example, to create a replicated volume with two storage servers:
 
@@ -531,7 +531,7 @@ volumes, but using dispersed subvolumes instead of replicated ones.
 
 2.  Create the distributed dispersed volume:
 
-    `# gluster volume create disperse <count> [redundancy <count>] [transport tcp | rdma tcp,rdma]`
+    `# gluster volume create disperse <count> [redundancy <count>] [transport tcp | rdma | tcp,rdma]`
 
     To create a distributed dispersed volume, the *disperse* keyword and
     &lt;count&gt; is mandatory, and the number of bricks specified in the
