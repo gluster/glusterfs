@@ -242,15 +242,18 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            if (fop->fd == NULL)
-            {
-                ec_lock_prepare_inode(fop, &fop->loc[0], 0);
+            /* clear-locks commands must be done without any locks acquired
+               to avoid interferences. */
+            if ((fop->str[0] == NULL) ||
+                (strncmp(fop->str[0], GF_XATTR_CLRLK_CMD,
+                         strlen(GF_XATTR_CLRLK_CMD)) != 0)) {
+                if (fop->fd == NULL) {
+                    ec_lock_prepare_inode(fop, &fop->loc[0], 0);
+                } else {
+                    ec_lock_prepare_fd(fop, fop->fd, 0);
+                }
+                ec_lock(fop);
             }
-            else
-            {
-                ec_lock_prepare_fd(fop, fop->fd, 0);
-            }
-            ec_lock(fop);
 
             return EC_STATE_DISPATCH;
 
