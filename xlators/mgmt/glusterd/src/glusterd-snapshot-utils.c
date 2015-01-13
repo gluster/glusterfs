@@ -867,14 +867,15 @@ out:
 int32_t
 glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 {
-        dict_t                  *dict         = NULL;
-        int32_t                  ret          = -1;
-        glusterd_conf_t         *priv         = NULL;
-        glusterd_volinfo_t      *snap_volinfo = NULL;
-        glusterd_volinfo_t      *volinfo      = NULL;
-        glusterd_volinfo_t      *tmp          = NULL;
-        xlator_t                *this         = NULL;
-        uuid_t                   null_uuid    = {0};
+        dict_t                  *dict           = NULL;
+        int32_t                  ret            = -1;
+        glusterd_conf_t         *priv           = NULL;
+        glusterd_volinfo_t      *snap_volinfo   = NULL;
+        glusterd_volinfo_t      *volinfo        = NULL;
+        glusterd_volinfo_t      *tmp            = NULL;
+        xlator_t                *this           = NULL;
+        uuid_t                   null_uuid      = {0};
+        char                    *parent_volname = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -903,13 +904,16 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 list_for_each_entry_safe (snap_volinfo, tmp,
                                           &snap->volumes, vol_list) {
-                        ret = glusterd_volinfo_find
-                                         (snap_volinfo->parent_volname,
-                                          &volinfo);
+                        parent_volname = gf_strdup
+                                            (snap_volinfo->parent_volname);
+                        if (!parent_volname)
+                                goto out;
+
+                        ret = glusterd_volinfo_find (parent_volname, &volinfo);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Could not get volinfo of %s",
-                                        snap_volinfo->parent_volname);
+                                        parent_volname);
                                 goto out;
                         }
 
@@ -933,15 +937,38 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
                                 goto out;
                         }
 
-                        ret = glusterd_snapshot_restore_cleanup (dict, volinfo,
+                        /* Restore is successful therefore delete the original
+                         * volume's volinfo. If the volinfo is already restored
+                         * then we should delete the backend LVMs */
+                        if (!uuid_is_null (volinfo->restored_from_snap)) {
+                                ret = glusterd_lvm_snapshot_remove (dict,
+                                                                    volinfo);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to remove LVM backend");
+                                        goto out;
+                                }
+                        }
+
+                        /* Detach the volinfo from priv->volumes, so that no new
+                         * command can ref it any more and then unref it.
+                         */
+                        list_del_init (&volinfo->vol_list);
+                        glusterd_volinfo_unref (volinfo);
+
+                        ret = glusterd_snapshot_restore_cleanup (dict,
+                                                                 parent_volname,
                                                                  snap);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to perform snapshot restore "
                                         "cleanup for %s volume",
-                                        snap_volinfo->parent_volname);
+                                        parent_volname);
                                 goto out;
                         }
+
+                        GF_FREE (parent_volname);
+                        parent_volname = NULL;
                 }
 
                 break;
@@ -956,6 +983,11 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 
 out:
         dict_unref (dict);
+        if (parent_volname) {
+                GF_FREE (parent_volname);
+                parent_volname = NULL;
+        }
+
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
