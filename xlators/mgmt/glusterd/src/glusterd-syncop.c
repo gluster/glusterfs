@@ -324,9 +324,11 @@ gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         call_frame_t               *frame         = NULL;
         int                         op_ret        = -1;
         int                         op_errno      = -1;
+        xlator_t                   *this          = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT(req);
-        GF_ASSERT(iov);
         GF_ASSERT(myframe);
 
         frame  = myframe;
@@ -339,6 +341,9 @@ gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
@@ -413,9 +418,11 @@ gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         call_frame_t                *frame         = NULL;
         int                          op_ret        = -1;
         int                          op_errno      = -1;
+        xlator_t                    *this          = NULL;
 
+        this = THIS;
+        GF_ASSERT (this);
         GF_ASSERT(req);
-        GF_ASSERT(iov);
         GF_ASSERT(myframe);
 
         frame  = myframe;
@@ -428,6 +435,9 @@ gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
@@ -503,6 +513,10 @@ _gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
         call_frame_t                *frame          = NULL;
         int                         op_ret          = -1;
         int                         op_errno        = -1;
+        xlator_t                    *this           = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         frame  = myframe;
         args   = frame->local;
@@ -514,6 +528,9 @@ _gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
@@ -573,6 +590,10 @@ _gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         call_frame_t                *frame         = NULL;
         int                          op_ret        = -1;
         int                          op_errno      = -1;
+        xlator_t                    *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         frame = myframe;
         args  = frame->local;
@@ -583,6 +604,9 @@ _gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
@@ -645,6 +669,8 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         int                         op_errno      = -1;
 
         this  = THIS;
+        GF_ASSERT (this);
+
         frame = myframe;
         args  = frame->local;
         peerinfo = frame->cookie;
@@ -654,6 +680,9 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_stage_op_rsp);
@@ -766,6 +795,10 @@ _gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         gd1_mgmt_brick_op_rsp  rsp   = {0,};
         int                    ret   = -1;
         call_frame_t           *frame = NULL;
+        xlator_t               *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         frame = myframe;
         args = frame->local;
@@ -779,6 +812,9 @@ _gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
                 args->op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, args->op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
@@ -902,6 +938,8 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         int                     type              = GF_QUOTA_OPTION_TYPE_NONE;
 
         this  = THIS;
+        GF_ASSERT (this);
+
         frame = myframe;
         args  = frame->local;
         peerinfo = frame->cookie;
@@ -911,6 +949,9 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 op_errno = ENOTCONN;
                 goto out;
         }
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, iov, out, op_errno,
+                                        EINVAL);
 
         ret = xdr_to_generic (*iov, &rsp,
                               (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
