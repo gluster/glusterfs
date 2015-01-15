@@ -4389,5 +4389,9 @@ out:
         AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
         if (dict)
                dict_unref (dict);
+        if (inode) {
+                inode_forget (inode, 1);
+                inode_unref (inode);
+        }
         return ret;
 }
