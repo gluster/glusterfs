@@ -95,10 +95,7 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
                 peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
                 peerinfo->rpc = NULL;
-                if (peerctx) {
-                        GF_FREE (peerctx->errstr);
-                        GF_FREE (peerctx);
-                }
+                GD_PEERCTX_FREE (peerctx);
         }
         glusterd_peerinfo_destroy (peerinfo);
 
@@ -126,6 +123,7 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
                 gf_log ("glusterd", GF_LOG_ERROR, "Deleting peer info failed");
         }
 
+        gd_peerinfo_unref (peerinfo);
         ret = 0;
 
 out:

@@ -1123,7 +1123,7 @@ glusterd_friend_sm ()
                         ret = glusterd_store_peerinfo (peerinfo);
 
                         glusterd_destroy_friend_event_context (event);
-                        GF_FREE (event);
+                        GD_FRIEND_EVENT_FREE (event);
                         if (is_await_conn)
                                 break;
                 }

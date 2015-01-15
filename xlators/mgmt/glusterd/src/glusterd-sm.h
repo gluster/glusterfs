@@ -131,6 +131,18 @@ typedef struct glusterd_peer_ctx_ {
         char                           *errstr;
 } glusterd_peerctx_t;
 
+#define GD_PEERCTX_FREE(peerctx) {                     \
+        if (peerctx->peerinfo)  {                      \
+                gd_peerinfo_unref (peerctx->peerinfo); \
+                peerctx->peerinfo = NULL;              \
+        }                                              \
+        if (peerctx->errstr) {                         \
+                GF_FREE (peerctx->errstr);             \
+                peerctx->errstr = NULL;                \
+        }                                              \
+        GF_FREE (peerctx);                             \
+}
+
 typedef enum glusterd_friend_sm_event_type_ {
         GD_FRIEND_EVENT_NONE = 0,
         GD_FRIEND_EVENT_PROBE,
@@ -162,6 +174,16 @@ struct glusterd_friend_sm_event_ {
         glusterd_friend_sm_event_type_t event;
 };
 
+#define GD_FRIEND_EVENT_FREE(event) {                        \
+        if (event) {                                         \
+                if (event->peerinfo) {                       \
+                        gd_peerinfo_unref (event->peerinfo); \
+                        event->peerinfo = NULL;              \
+                }                                            \
+                GF_FREE (event);                             \
+        }                                                    \
+}
+
 typedef struct glusterd_friend_sm_event_ glusterd_friend_sm_event_t;
 
 typedef int (*glusterd_friend_sm_ac_fn) (glusterd_friend_sm_event_t *, void *);
@@ -191,6 +213,7 @@ typedef struct glusterd_probe_ctx_ {
         int                      port;
         dict_t                  *dict;
 } glusterd_probe_ctx_t;
+
 int
 glusterd_friend_sm_new_event (glusterd_friend_sm_event_type_t event_type,
                               glusterd_friend_sm_event_t **new_event);

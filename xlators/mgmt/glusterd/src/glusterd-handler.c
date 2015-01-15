@@ -3006,7 +3006,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         if (args)
                 peerctx->args = *args;
 
-        peerctx->peerinfo = peerinfo;
+        peerctx->peerinfo = gd_peerinfo_ref (peerinfo);
 
         ret = glusterd_transport_inet_options_build (&options,
                                                      peerinfo->hostname,
@@ -3042,7 +3042,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         peerctx = NULL;
         ret = 0;
 out:
-        GF_FREE (peerctx);
+        GD_PEERCTX_FREE (peerctx);
         return ret;
 }
 
@@ -4554,7 +4554,7 @@ glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
                                               peerinfo->hostname,
                                               peerinfo->port, dict);
 
-                new_event->peerinfo = peerinfo;
+                new_event->peerinfo = gd_peerinfo_ref (peerinfo);
                 ret = glusterd_friend_sm_inject_event (new_event);
 
         } else {
