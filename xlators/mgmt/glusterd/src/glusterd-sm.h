@@ -101,6 +101,9 @@ struct glusterd_peerinfo_ {
         gd_quorum_contrib_t             quorum_contrib;
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
+
+        pthread_mutex_t                 ref_lock;
+        uint                            ref_count;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;

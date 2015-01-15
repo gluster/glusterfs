@@ -36,6 +36,12 @@ glusterd_peerinfo_t *
 glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
                        const char *hostname, int port);
 
+glusterd_peerinfo_t *
+gd_peerinfo_ref (glusterd_peerinfo_t *peerinfo);
+
+glusterd_peerinfo_t *
+gd_peerinfo_unref (glusterd_peerinfo_t *peerinfo);
+
 gf_boolean_t
 glusterd_chk_peers_connected_befriended (uuid_t skip_uuid);
 
