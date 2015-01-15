@@ -1146,14 +1146,6 @@ real_op:
 
         entry_created = _gf_true;
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
-
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -1188,6 +1180,14 @@ ignore:
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
+        }
+
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
@@ -1326,14 +1326,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         entry_created = _gf_true;
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
-
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -1356,6 +1348,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
+        }
+
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
@@ -1753,14 +1753,6 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         entry_created = _gf_true;
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
-
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -1791,6 +1783,14 @@ ignore:
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
+        }
+
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
@@ -2289,14 +2289,6 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (was_present)
                 goto fill_stat;
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
-
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -2329,6 +2321,14 @@ ignore:
         }
 
 fill_stat:
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
+        }
+
         op_ret = posix_fdstat (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;

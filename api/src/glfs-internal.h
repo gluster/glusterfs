@@ -171,7 +171,7 @@ int glfs_mgmt_init (struct glfs *fs);
 void glfs_init_done (struct glfs *fs, int ret)
         GFAPI_PRIVATE(glfs_init_done, 3.4.0);
 int glfs_process_volfp (struct glfs *fs, FILE *fp);
-int priv_glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path,
+int glfs_resolve (struct glfs *fs, xlator_t *subvol, const char *path,
                        loc_t *loc, struct iatt *iatt, int reval)
         GFAPI_PRIVATE(glfs_resolve, 3.7.0);
 int glfs_lresolve (struct glfs *fs, xlator_t *subvol, const char *path, loc_t *loc,
