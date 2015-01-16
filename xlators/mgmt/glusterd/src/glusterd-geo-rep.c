@@ -5294,9 +5294,9 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         is_pem_push = 0;
 
                 snprintf(hooks_args, sizeof(hooks_args),
-                         "is_push_pem=%d,pub_file=%s,slave_user=%s,slave_ip=%s",
-                         is_pem_push, common_pem_file, slave_user, slave_ip);
-
+                         "is_push_pem=%d,pub_file=%s,slave_user=%s,slave_ip=%s,"
+                         "slave_vol=%s", is_pem_push, common_pem_file,
+                         slave_user, slave_ip, slave_vol);
         } else
                 snprintf(hooks_args, sizeof(hooks_args),
                          "This argument will stop the hooks script");
