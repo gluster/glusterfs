@@ -3001,7 +3001,7 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
 out:
         if (ret) {
                 if (volinfo)
-                        glusterd_volinfo_delete (volinfo);
+                        glusterd_volinfo_unref (volinfo);
                 volinfo = NULL;
         }
 

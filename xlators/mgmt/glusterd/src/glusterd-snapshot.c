@@ -2766,14 +2766,7 @@ glusterd_snap_volume_remove (dict_t *rsp_dict,
                 origin_vol->snap_count--;
         }
 
-        ret = glusterd_volinfo_delete (snap_vol);
-        if (ret) {
-                gf_log(this->name, GF_LOG_WARNING, "Failed to remove volinfo "
-                       "%s ", snap_vol->volname);
-                save_ret = ret;
-                if (!force)
-                        goto out;
-        }
+        glusterd_volinfo_unref (snap_vol);
 
         if (save_ret)
                 ret = save_ret;
@@ -7906,12 +7899,7 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
 
         /* Since we retrieved the volinfo from store now we don't
          * want the older volinfo. Therefore delete the older volinfo */
-        ret = glusterd_volinfo_delete (volinfo);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to delete volinfo");
-                goto out;
-        }
-
+        glusterd_volinfo_unref (volinfo);
         ret = 0;
 out:
         return ret;
@@ -7995,7 +7983,7 @@ glusterd_snapshot_restore_postop (dict_t *dict, int32_t op_ret,
         ret = dict_get_str (dict, "snapname", &name);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "getting the snap "
-                        "name failed (volume: %s)", volinfo->volname);
+                        "name failed (volume: %s)", name);
                 goto out;
         }
 
