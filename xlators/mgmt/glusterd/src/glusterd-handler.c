@@ -121,7 +121,7 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                 return ret;
         }
 
-        event->peerinfo = peerinfo;
+        event->peerinfo = gd_peerinfo_ref (peerinfo);
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_friend_req_ctx_t);
 
@@ -215,7 +215,7 @@ glusterd_handle_unfriend_req (rpcsvc_request_t *req, uuid_t  uuid,
                 return ret;
         }
 
-        event->peerinfo = peerinfo;
+        event->peerinfo = gd_peerinfo_ref (peerinfo);
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_friend_req_ctx_t);
 
@@ -3194,7 +3194,7 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
                 ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_LOCAL_ACC,
                                                     &event);
                 if (!ret) {
-                        event->peerinfo = peerinfo;
+                        event->peerinfo = gd_peerinfo_ref (peerinfo);
                         ret = glusterd_friend_sm_inject_event (event);
                         glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_SUCCESS,
                                                       NULL, (char*)hoststr,
@@ -3265,7 +3265,7 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
 
         event->ctx = ctx;
 
-        event->peerinfo = peerinfo;
+        event->peerinfo = gd_peerinfo_ref (peerinfo);
 
         ret = glusterd_friend_sm_inject_event (event);
 

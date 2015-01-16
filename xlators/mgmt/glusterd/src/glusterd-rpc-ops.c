@@ -315,7 +315,7 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_LOCAL_ACC,
                                                     &event);
                 if (!ret) {
-                        event->peerinfo = peerinfo;
+                        event->peerinfo = gd_peerinfo_ref (peerinfo);
                         ret = glusterd_friend_sm_inject_event (event);
                 }
                 rsp.op_errno = GF_PROBE_FRIEND;
@@ -374,7 +374,7 @@ cont:
                 goto out;
         }
 
-        event->peerinfo = peerinfo;
+        event->peerinfo = gd_peerinfo_ref (peerinfo);
         event->ctx      = ((call_frame_t *)myframe)->local;
         ((call_frame_t *)myframe)->local = NULL;
         ret = glusterd_friend_sm_inject_event (event);
@@ -457,7 +457,7 @@ __glusterd_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                          "Unable to get event");
                 goto out;
         }
-        event->peerinfo = peerinfo;
+        event->peerinfo = gd_peerinfo_ref (peerinfo);
         ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx),
                                 gf_gld_mt_friend_update_ctx_t);
         if (!ev_ctx) {
@@ -565,7 +565,7 @@ inject:
                          "Unable to get event");
                 goto respond;
         }
-        event->peerinfo = peerinfo;
+        event->peerinfo = gd_peerinfo_ref (peerinfo);
 
         ret = glusterd_friend_sm_inject_event (event);
 

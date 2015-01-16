@@ -236,7 +236,7 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
         new_ev_ctx->port = peerinfo->port;
         new_ev_ctx->req = NULL;
 
-        new_event->peerinfo = peerinfo;
+        new_event->peerinfo = gd_peerinfo_ref (peerinfo);
         new_event->ctx = new_ev_ctx;
 
         ret = glusterd_friend_sm_inject_event (new_event);
@@ -395,7 +395,7 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
                 ret = glusterd_friend_sm_new_event (event_type, &new_event);
 
                 if (!ret) {
-                        new_event->peerinfo = peerinfo;
+                        new_event->peerinfo = gd_peerinfo_ref (peerinfo);
                         ret = glusterd_friend_sm_inject_event (new_event);
                 } else {
                         gf_log ("glusterd", GF_LOG_ERROR,
@@ -597,7 +597,7 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
                 if (ret)
                         goto out;
 
-                new_event->peerinfo = peerinfo;
+                new_event->peerinfo = gd_peerinfo_ref (peerinfo);
 
                 ret = glusterd_friend_sm_inject_event (new_event);
                 if (ret)
@@ -719,7 +719,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
                 gf_log ("", GF_LOG_ERROR, "Out of Memory");
         }
 
-        new_event->peerinfo = peerinfo;
+        new_event->peerinfo = gd_peerinfo_ref (peerinfo);
 
         new_ev_ctx = GF_CALLOC (1, sizeof (*new_ev_ctx),
                                 gf_gld_mt_friend_update_ctx_t);
