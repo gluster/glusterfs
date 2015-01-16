@@ -435,15 +435,14 @@ typedef enum {
         } while (0)
 
 #define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, inode, post) do {\
-                int32_t sec = 0;                                        \
-                sec = new_sec;                                          \
                 LOCK (&inode->lock);                                    \
                 {                                                       \
-                        new_sec = max(new_sec, ctx_sec);                \
-                        if (sec < new_sec)                              \
-                                new_nsec = ctx_nsec;                    \
-                        if (sec == new_sec)                             \
+                        if (ctx_sec == new_sec)                         \
                                 new_nsec = max (new_nsec, ctx_nsec);    \
+                        else if (ctx_sec > new_sec) {                   \
+                                new_sec = ctx_sec;                      \
+                                new_nsec = ctx_nsec;                    \
+                        }                                               \
                         if (post) {                                     \
                                 ctx_sec = new_sec;                      \
                                 ctx_nsec = new_nsec;                    \
