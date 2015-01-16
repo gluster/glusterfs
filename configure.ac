@@ -180,6 +180,7 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-SuSE
                 extras/systemd/Makefile
                 extras/systemd/glusterd.service
+                extras/run-gluster.tmpfiles
                 extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile
                 extras/ocf/Makefile
@@ -294,6 +295,13 @@ AC_ARG_WITH(launchddir,
             [launchddir=$withval],
             [launchddir='/Library/LaunchDaemons'])
 AC_SUBST(launchddir)
+
+AC_ARG_WITH(tmpfilesdir,
+            AC_HELP_STRING([--with-tmpfilesdir=DIR],
+                           [tmpfiles config in DIR, disabled by default]),
+            [tmpfilesdir=$withval],
+            [tmpfilesdir=''])
+AC_SUBST(tmpfilesdir)
 
 AC_ARG_WITH([ocf],
             [AS_HELP_STRING([--without-ocf], [build OCF-compliant cluster resource agents])],
