@@ -29,10 +29,15 @@ gitclean: distclean
 	-rm -f $(CONTRIBDIR)/argp-standalone/config.h.in
 	-rm -f $(CONTRIBDIR)/argp-standalone/configure
 	-rm -f $(CONTRIBDIR)/argp-standalone/depcomp
+	-rm -fr $(CONTRIBDIR)/argp-standalone/.deps
 	-rm -f $(CONTRIBDIR)/argp-standalone/install-sh
 	-rm -f $(CONTRIBDIR)/argp-standalone/missing
 
 dist-hook: gen-VERSION gen-ChangeLog
+	-rm -fr $(distdir)/contrib/argp-standalone/autom4te.cache
+	-rm -fr $(distdir)/contrib/argp-standalone/.deps
+	-rm -fr $(distdir)/contrib/umountd/.deps
+
 .PHONY: gen-VERSION gen-ChangeLog
 
 gen-ChangeLog:
