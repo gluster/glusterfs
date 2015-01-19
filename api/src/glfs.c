@@ -375,7 +375,7 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
         server_cmdline_t      *tmp = NULL;
         int                    ret = -1;
 
-        if (!transport || !host) {
+        if (!fs || !host) {
                 errno = EINVAL;
                 return ret;
         }
@@ -400,10 +400,12 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
                 goto out;
         }
 
-        server->transport = gf_strdup (transport);
-        if (!server->transport) {
-                errno = ENOMEM;
-                goto out;
+        if (transport) {
+                server->transport = gf_strdup (transport);
+                if (!server->transport) {
+                        errno = ENOMEM;
+                        goto out;
+                }
         }
 
         server->port = port;
