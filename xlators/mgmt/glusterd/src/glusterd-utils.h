@@ -674,9 +674,6 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
 gf_boolean_t
 gd_vol_is_geo_rep_active (glusterd_volinfo_t *volinfo);
 
-int
-glusterd_recursive_rmdir (const char *delete_path);
-
 int32_t
 glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir);
 

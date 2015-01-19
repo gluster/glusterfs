@@ -108,10 +108,22 @@ gf_changelog_open_dirs (gf_changelog_t *gfc)
         DIR *dir                    = NULL;
         int  tracker_fd             = 0;
         char tracker_path[PATH_MAX] = {0,};
+        xlator_t *this              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         (void) snprintf (gfc->gfc_current_dir, PATH_MAX,
                          "%s/"GF_CHANGELOG_CURRENT_DIR"/",
                          gfc->gfc_working_dir);
+
+        ret = recursive_rmdir (gfc->gfc_current_dir);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to rmdir: %s, err: %s",
+                        gfc->gfc_current_dir, strerror (errno));
+                goto out;
+
         ret = mkdir_p (gfc->gfc_current_dir, 0600, _gf_false);
         if (ret)
                 goto out;
@@ -119,6 +131,7 @@ gf_changelog_open_dirs (gf_changelog_t *gfc)
         (void) snprintf (gfc->gfc_processed_dir, PATH_MAX,
                          "%s/"GF_CHANGELOG_PROCESSED_DIR"/",
                          gfc->gfc_working_dir);
+
         ret = mkdir_p (gfc->gfc_processed_dir, 0600, _gf_false);
         if (ret)
                 goto out;
@@ -126,6 +139,14 @@ gf_changelog_open_dirs (gf_changelog_t *gfc)
         (void) snprintf (gfc->gfc_processing_dir, PATH_MAX,
                          "%s/"GF_CHANGELOG_PROCESSING_DIR"/",
                          gfc->gfc_working_dir);
+
+        ret = recursive_rmdir (gfc->gfc_processing_dir);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to rmdir: %s, err: %s",
+                        gfc->gfc_processing_dir, strerror (errno));
+                goto out;
+
         ret = mkdir_p (gfc->gfc_processing_dir, 0600, _gf_false);
         if (ret)
                 goto out;
