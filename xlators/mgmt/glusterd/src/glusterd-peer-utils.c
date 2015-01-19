@@ -113,10 +113,11 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
                 goto out;
 
         cds_list_del_rcu (&peerinfo->uuid_list);
-        CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
         synchronize_rcu (); // This will only be useful once the peerinfo object
                             // gets protected. But just adding it any way.
+
+        CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
         ret = glusterd_store_delete_peerinfo (peerinfo);
         if (ret) {
