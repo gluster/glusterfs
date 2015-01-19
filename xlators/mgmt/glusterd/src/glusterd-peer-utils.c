@@ -737,6 +737,7 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                         }
                 }
         }
+        rcu_read_unlock ();
 out:
         return found;
 }
