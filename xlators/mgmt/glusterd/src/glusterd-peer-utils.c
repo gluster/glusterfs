@@ -671,10 +671,11 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
                                         "Friend %s found.. state: %d",
                                         tmphost->hostname, peer->state.state);
                                 found = peer; //Probably needs to be dereferenced
-                                goto out;
+                                goto unlock;
                         }
                 }
         }
+unlock:
         rcu_read_unlock ();
 out:
         return found;
@@ -731,12 +732,17 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                         for (tmp = paddr; tmp != NULL; tmp = tmp->ai_next) {
                                 if (gf_compare_sockaddr (addr->ai_addr,
                                                          tmp->ai_addr)) {
-                                        freeaddrinfo (paddr);
                                         found = peer; // (de)referenced?
+                                        break;
                                 }
                         }
+
+                        freeaddrinfo (paddr);
+                        if (found)
+                                goto unlock;
                 }
         }
+unlock:
         rcu_read_unlock ();
 out:
         return found;
