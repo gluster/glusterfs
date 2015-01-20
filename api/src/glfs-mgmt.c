@@ -820,7 +820,7 @@ glfs_mgmt_init (struct glfs *fs)
 	if (ret)
 		goto out;
 
-	rpc = rpc_clnt_new (options, THIS->ctx, THIS->name, 8);
+	rpc = rpc_clnt_new (options, ctx, THIS->name, 8);
 	if (!rpc) {
 		ret = -1;
 		gf_log (THIS->name, GF_LOG_WARNING,
