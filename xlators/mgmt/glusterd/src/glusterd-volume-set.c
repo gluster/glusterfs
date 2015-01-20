@@ -197,6 +197,32 @@ out:
 }
 
 static int
+validate_uss (dict_t *dict, char *key, char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+        gf_boolean_t         b             = _gf_false;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = gf_string2boolean (value, &b);
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "%s is not a valid boolean "
+                          "value. %s expects a valid boolean value.", value,
+                          key);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                goto out;
+        }
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_stripe (dict_t *dict, char *key, char *value, char **op_errstr)
 {
         char                 errstr[2048]  = "";
@@ -1141,6 +1167,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_6_0,
           .value       = "off",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT,
+          .validate_fn = validate_uss,
           .description = "enable/disable User Serviceable Snapshots on the "
                          "volume."
         },

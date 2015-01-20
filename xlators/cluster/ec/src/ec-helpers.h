@@ -52,7 +52,7 @@ static inline int32_t ec_is_power_of_2(uint32_t value)
     return (value != 0) && ((value & (value - 1)) == 0);
 }
 
-inline gf_boolean_t
+gf_boolean_t
 ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data);
 
 void

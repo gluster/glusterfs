@@ -73,6 +73,12 @@
 %global _with_systemd true
 %endif
 
+%if 0%{?_tmpfilesdir:1}
+%define _with_tmpfilesdir --with-tmpfilesdir=%{_tmpfilesdir}
+%else
+%define _with_tmpfilesdir --without-tmpfilesdir
+%endif
+
 # there is no systemtap support! Perhaps some day there will be
 %global _without_systemtap --enable-systemtap=no
 
@@ -485,6 +491,7 @@ This package provides the glusterfs server daemon.
 # there is no need to run ./autogen or have a BuildRequires for automake.
 [ -e 'install-sh' -o -e 'install.sh' ] || ./autogen.sh
 %configure \
+        %{?_with_tmpfilesdir} \
         %{?_without_rdma} \
         %{?_without_epoll} \
         %{?_without_fusermount} \
@@ -831,6 +838,9 @@ fi
 %exclude %{_mandir}/man8/gluster.8*
 %dir %{_localstatedir}/log/glusterfs
 %dir %{_localstatedir}/run/gluster
+%if 0%{?_tmpfilesdir:1}
+%{_tmpfilesdir}/gluster.conf
+%endif
 %dir %{_sharedstatedir}/glusterd
 %if ( 0%{!?_without_rdma:1} )
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
@@ -1020,6 +1030,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Jan 16 2015 Niels de Vos <ndevos@redhat.com>
+- add support for /run/gluster through a tmpfiles.d config file (#1182934)
+
 * Fri Dec 12 2014 Niels de Vos <ndevos@redhat.com>
 - do not package all /usr/share/glusterfs/* files in regression-tests (#1169005)
 
