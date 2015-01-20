@@ -81,7 +81,21 @@ static pthread_key_t uuid_buf_key;
 static char          global_uuid_buf[GF_UUID_BUF_SIZE];
 static pthread_key_t lkowner_buf_key;
 static char          global_lkowner_buf[GF_LKOWNER_BUF_SIZE];
+static int gf_global_mem_acct_enable = 1;
 
+
+int
+gf_global_mem_acct_enable_get (void)
+{
+	return gf_global_mem_acct_enable;
+}
+
+int
+gf_global_mem_acct_enable_set (int val)
+{
+	gf_global_mem_acct_enable = val;
+	return 0;
+}
 
 void
 glusterfs_this_destroy (void *ptr)

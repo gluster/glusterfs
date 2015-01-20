@@ -14,6 +14,7 @@
 #endif /* !_CONFIG_H */
 
 #include <pthread.h>
+#include "globals.h"
 
 #include "glusterfs.h"
 
@@ -31,7 +32,7 @@ glusterfs_ctx_new ()
                 goto out;
         }
 
-	ctx->mem_acct_enable = 1;
+        ctx->mem_acct_enable = gf_global_mem_acct_enable_get();
 
         INIT_LIST_HEAD (&ctx->graphs);
 	INIT_LIST_HEAD (&ctx->mempool_list);

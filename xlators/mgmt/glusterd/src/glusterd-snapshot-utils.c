@@ -3520,6 +3520,7 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf (&runner, "%s-server.listen-port=%d",
                          volname, snapd_port);
+        runner_add_arg (&runner, "--no-mem-accounting");
 
         snprintf (msg, sizeof (msg),
                   "Starting the snapd service for volume %s", volname);

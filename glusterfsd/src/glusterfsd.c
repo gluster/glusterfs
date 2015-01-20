@@ -208,8 +208,8 @@ static struct argp_option gf_options[] = {
          "Dump fuse traffic to PATH"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
          "Enable strict volume file checking"},
-        {"mem-accounting", ARGP_MEM_ACCOUNTING_KEY, 0, OPTION_HIDDEN,
-         "Enable internal memory accounting (enabled by default, obsolete)"},
+        {"no-mem-accounting", ARGP_MEM_ACCOUNTING_KEY, 0, OPTION_HIDDEN,
+         "disable internal memory accounting"},
         {"fuse-mountopts", ARGP_FUSE_MOUNTOPTS_KEY, "OPTIONS", OPTION_HIDDEN,
          "Extra mount options to pass to FUSE"},
         {"use-readdirp", ARGP_FUSE_USE_READDIRP_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -223,6 +223,7 @@ static struct argp_option gf_options[] = {
 
 
 static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
+
 
 int glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx);
 int glusterfs_volumes_init (glusterfs_ctx_t *ctx);
@@ -1419,6 +1420,9 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->fuse_entry_timeout = -1;
 	cmd_args->fopen_keep_cache = GF_OPTION_DEFERRED;
 
+        if (ctx->mem_acct_enable)
+                cmd_args->mem_acct = 1;
+
         INIT_LIST_HEAD (&cmd_args->xlator_options);
         INIT_LIST_HEAD (&cmd_args->volfile_servers);
 
@@ -1499,6 +1503,18 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
         return 0;
 }
 
+void
+gf_check_and_set_mem_acct (int argc, char *argv[])
+{
+        int i = 0;
+
+        for (i = 0; i < argc; i++) {
+                if (strcmp (argv[i], "--no-mem-accounting") == 0) {
+			gf_global_mem_acct_enable_set (0);
+                        break;
+                }
+        }
+}
 
 int
 parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
@@ -1987,6 +2003,8 @@ main (int argc, char *argv[])
         glusterfs_ctx_t  *ctx = NULL;
         int               ret = -1;
         char              cmdlinestr[PATH_MAX] = {0,};
+
+	gf_check_and_set_mem_acct (argc, argv);
 
 	ctx = glusterfs_ctx_new ();
         if (!ctx) {
