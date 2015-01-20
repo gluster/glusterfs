@@ -4816,6 +4816,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         int           ret = -1;
         gf_boolean_t subvol_filled = _gf_false;
+        gf_boolean_t dir_exists = _gf_false;
         call_frame_t *prev = NULL;
         dht_layout_t *layout = NULL;
 
@@ -4831,7 +4832,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 -1, ENOSPC, NULL);
                 } else {
-			if (op_ret == -1 && op_errno == EEXIST)
+			if (op_ret == -1 && op_errno == EEXIST) {
 				/* Very likely just a race between mkdir and
 				   self-heal (from lookup of a concurrent mkdir
 				   attempt).
@@ -4840,6 +4841,8 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				   pre-existing different directory.
 				*/
 				op_ret = 0;
+                                dir_exists = _gf_true;
+                        }
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 op_ret, op_errno, NULL);
                 }
@@ -4853,6 +4856,14 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         goto unlock;
                 }
+
+                if (dir_exists)
+                        goto unlock;
+
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
+                                prev->this);
         }
 unlock:
         UNLOCK (&frame->lock);
