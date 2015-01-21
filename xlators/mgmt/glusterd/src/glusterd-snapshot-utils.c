@@ -2404,9 +2404,14 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        if (!snap_force && down_count) {
+        /* In a n-way replication where n >= 3 we should not take a snapshot
+         * if even one brick is down, irrespective of the quorum being met.
+         * TODO: Remove this restriction once n-way replication is
+         * supported with snapshot.
+         */
+        if (down_count) {
                 snprintf (err_str, sizeof (err_str), "One or more bricks may "
-                          "be down. Use the force option ");
+                          "be down.");
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
                 goto out;
@@ -2601,25 +2606,20 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
         ret = dict_get_int32 (dict, "flags", &force);
         if (!ret && (force & GF_CLI_FLAG_OP_FORCE))
                 snap_force = 1;
-        if (!snap_force) {
-                /* Do a quorum check of glusterds also. Because,
-                   the missed snapshot information will be saved
-                   by glusterd and if glusterds are not in
-                   quorum, then better fail the snapshot
-                */
-                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
-                        snprintf (err_str, sizeof (err_str),
-                                  "glusterds are not in quorum");
-                        gf_log (this->name, GF_LOG_WARNING, "%s",
-                                err_str);
-                        *op_errstr = gf_strdup (err_str);
-                        ret = -1;
-                        goto out;
-                }
 
-                gf_log (this->name, GF_LOG_DEBUG, "glusterds are in "
-                        "quorum");
-        }
+        /* Do a quorum check of glusterds also. Because, the missed snapshot
+         * information will be saved by glusterd and if glusterds are not in
+         * quorum, then better fail the snapshot
+         */
+        if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
+                snprintf (err_str, sizeof (err_str),
+                          "glusterds are not in quorum");
+                gf_log (this->name, GF_LOG_WARNING, "%s", err_str);
+                *op_errstr = gf_strdup (err_str);
+                ret = -1;
+                goto out;
+        } else
+                gf_log (this->name, GF_LOG_DEBUG, "glusterds are in quorum");
 
         ret = dict_get_int64 (dict, "volcount", &volcount);
         if (ret) {
