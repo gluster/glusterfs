@@ -17,81 +17,13 @@
 #include "glusterd-utils.h"
 
 static int
-check_dict_key_value (dict_t *dict, char *key, char *value)
-{
-        glusterd_conf_t     *priv          = NULL;
-        int                  ret           = 0;
-        xlator_t            *this          = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        if (!dict) {
-                gf_log (this->name, GF_LOG_ERROR, "Received Empty Dict.");
-                ret = -1;
-                goto out;
-        }
-
-        if (!key) {
-                gf_log (this->name, GF_LOG_ERROR, "Received Empty Key.");
-                ret = -1;
-                goto out;
-        }
-
-        if (!value) {
-                gf_log (this->name, GF_LOG_ERROR, "Received Empty Value.");
-                ret = -1;
-                goto out;
-        }
-
-out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-
-        return ret;
-}
-
-static int
-get_volname_volinfo (dict_t *dict, char **volname, glusterd_volinfo_t **volinfo)
-{
-        glusterd_conf_t     *priv          = NULL;
-        int                  ret           = 0;
-        xlator_t            *this          = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        ret = dict_get_str (dict, "volname", volname);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
-                goto out;
-        }
-
-        ret = glusterd_volinfo_find (*volname, volinfo);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to allocate memory");
-                goto out;
-        }
-
-out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-
-        return ret;
-}
-
-static int
-validate_cache_max_min_size (dict_t *dict, char *key, char *value,
-                             char **op_errstr)
+validate_cache_max_min_size (glusterd_volinfo_t *volinfo, dict_t *dict,
+                             char *key, char *value, char **op_errstr)
 {
         char                *current_max_value = NULL;
         char                *current_min_value = NULL;
         char                 errstr[2048]  = "";
-        char                *volname       = NULL;
         glusterd_conf_t     *priv          = NULL;
-        glusterd_volinfo_t  *volinfo       = NULL;
         int                  ret           = 0;
         uint64_t             max_value     = 0;
         uint64_t             min_value     = 0;
@@ -101,14 +33,6 @@ validate_cache_max_min_size (dict_t *dict, char *key, char *value,
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-        ret = check_dict_key_value (dict, key, value);
-        if (ret)
-                goto out;
-
-        ret = get_volname_volinfo (dict, &volname, &volinfo);
-        if (ret)
-                goto out;
 
         if ((!strcmp (key, "performance.cache-min-file-size")) ||
             (!strcmp (key, "cache-min-file-size"))) {
@@ -150,13 +74,11 @@ out:
 }
 
 static int
-validate_quota (dict_t *dict, char *key, char *value,
-                char **op_errstr)
+validate_quota (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                char *value, char **op_errstr)
 {
         char                 errstr[2048] = "";
-        char                *volname      = NULL;
         glusterd_conf_t     *priv         = NULL;
-        glusterd_volinfo_t  *volinfo      = NULL;
         int                  ret          = 0;
         xlator_t            *this         = NULL;
 
@@ -164,14 +86,6 @@ validate_quota (dict_t *dict, char *key, char *value,
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-        ret = check_dict_key_value (dict, key, value);
-        if (ret)
-                goto out;
-
-        ret = get_volname_volinfo (dict, &volname, &volinfo);
-        if (ret)
-                goto out;
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
         if (ret == -1) {
@@ -197,7 +111,8 @@ out:
 }
 
 static int
-validate_uss (dict_t *dict, char *key, char *value, char **op_errstr)
+validate_uss (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+              char *value, char **op_errstr)
 {
         char                 errstr[2048]  = "";
         int                  ret           = 0;
@@ -223,12 +138,11 @@ out:
 }
 
 static int
-validate_stripe (dict_t *dict, char *key, char *value, char **op_errstr)
+validate_stripe (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                 char *value, char **op_errstr)
 {
         char                 errstr[2048]  = "";
-        char                *volname       = NULL;
         glusterd_conf_t     *priv          = NULL;
-        glusterd_volinfo_t  *volinfo       = NULL;
         int                  ret           = 0;
         xlator_t            *this          = NULL;
 
@@ -236,14 +150,6 @@ validate_stripe (dict_t *dict, char *key, char *value, char **op_errstr)
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-        ret = check_dict_key_value (dict, key, value);
-        if (ret)
-                goto out;
-
-        ret = get_volname_volinfo (dict, &volname, &volinfo);
-        if (ret)
-                goto out;
 
         if (volinfo->stripe_count == 1) {
                 snprintf (errstr, sizeof (errstr),
@@ -261,13 +167,11 @@ out:
 }
 
 static int
-validate_subvols_per_directory (dict_t *dict, char *key, char *value,
-                                char **op_errstr)
+validate_subvols_per_directory (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                char *key, char *value, char **op_errstr)
 {
         char                 errstr[2048]  = "";
-        char                *volname       = NULL;
         glusterd_conf_t     *priv          = NULL;
-        glusterd_volinfo_t  *volinfo       = NULL;
         int                  ret           = 0;
         int                  subvols       = 0;
         xlator_t            *this          = NULL;
@@ -276,14 +180,6 @@ validate_subvols_per_directory (dict_t *dict, char *key, char *value,
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-        ret = check_dict_key_value (dict, key, value);
-        if (ret)
-                goto out;
-
-        ret = get_volname_volinfo (dict, &volname, &volinfo);
-        if (ret)
-                goto out;
 
         subvols = atoi(value);
 
@@ -307,6 +203,36 @@ out:
         return ret;
 }
 
+static int
+validate_replica_heal_enable_disable (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                      char *key, char *value, char **op_errstr)
+{
+        int                  ret = 0;
+
+        if (!glusterd_is_volume_replicate (volinfo)) {
+                gf_asprintf (op_errstr, "Volume %s is not of replicate type",
+                             volinfo->volname);
+                ret = -1;
+        }
+
+        return ret;
+}
+
+static int
+validate_disperse_heal_enable_disable (glusterd_volinfo_t *volinfo,
+                                       dict_t *dict, char *key, char *value,
+                                       char **op_errstr)
+{
+        int                  ret = 0;
+
+        if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
+                gf_asprintf (op_errstr, "Volume %s is not of disperse type",
+                             volinfo->volname);
+                ret = -1;
+        }
+
+        return ret;
+}
 
 /* dispatch table for VOLUME SET
  * -----------------------------
@@ -511,7 +437,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key           = "cluster.self-heal-daemon",
           .voltype       = "cluster/replicate",
           .option        = "!self-heal-daemon",
-          .op_version    = 1
+          .op_version    = 1,
+          .validate_fn   = validate_replica_heal_enable_disable
         },
         { .key        = "cluster.heal-timeout",
           .voltype    = "cluster/replicate",
@@ -1711,6 +1638,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "disable",
           .type        = NO_DOC,
           .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key           = "cluster.disperse-self-heal-daemon",
+          .voltype       = "cluster/disperse",
+          .value         = "enable",
+          .type          = NO_DOC,
+          .option        = "self-heal-daemon",
+          .op_version    = GD_OP_VERSION_3_7_0,
+          .validate_fn   = validate_disperse_heal_enable_disable
         },
         { .key         = NULL
         }

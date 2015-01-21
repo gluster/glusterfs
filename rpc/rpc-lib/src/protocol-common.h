@@ -233,6 +233,8 @@ typedef enum {
         GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA,
         GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE,
         GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK,
+        GF_AFR_OP_HEAL_ENABLE,
+        GF_AFR_OP_HEAL_DISABLE,
 } gf_xl_afr_op_t ;
 
 struct gf_gsync_detailed_status_ {

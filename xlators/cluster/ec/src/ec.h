@@ -43,6 +43,8 @@ struct _ec
     struct mem_pool * fop_pool;
     struct mem_pool * cbk_pool;
     struct mem_pool * lock_pool;
+    gf_boolean_t      shd;
+    gf_boolean_t      iamshd;
 };
 
 #endif /* __EC_H__ */

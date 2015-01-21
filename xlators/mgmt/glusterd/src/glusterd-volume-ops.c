@@ -638,6 +638,59 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
                                             __glusterd_handle_cli_delete_volume);
 }
 
+static int
+glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
+                                     glusterd_volinfo_t *volinfo)
+{
+        gf_xl_afr_op_t                  heal_op = GF_AFR_OP_INVALID;
+        int                             ret = 0;
+        xlator_t                        *this = THIS;
+        char                            *key = NULL;
+        char                            *value = NULL;
+
+        ret = dict_get_int32 (dict, "heal-op", (int32_t *)&heal_op);
+        if (ret || (heal_op == GF_AFR_OP_INVALID)) {
+                ret = -1;
+                goto out;
+        }
+
+        if ((heal_op != GF_AFR_OP_HEAL_ENABLE) &&
+            (heal_op != GF_AFR_OP_HEAL_DISABLE)) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        key = volgen_get_shd_key (volinfo);
+        if (!key) {
+                ret = -1;
+                goto out;
+        }
+
+        /* Convert this command to volume-set command based on volume type */
+        ret = dict_set_str (dict, "key1", key);
+        if (ret)
+                goto out;
+
+        if (heal_op == GF_AFR_OP_HEAL_ENABLE) {
+                value = "enable";
+        } else if (heal_op == GF_AFR_OP_HEAL_DISABLE) {
+                value = "disable";
+        }
+
+        ret = dict_set_str (dict, "value1", value);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "count", 1);
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_begin_synctask (req, GD_OP_SET_VOLUME, dict);
+
+out:
+        return ret;
+}
+
 int
 __glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
 {
@@ -696,7 +749,21 @@ __glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
         if (ret) {
                 snprintf (op_errstr, sizeof (op_errstr),
                           "Volume %s does not exist", volname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
+                goto out;
+        }
+
+        ret = glusterd_handle_heal_enable_disable (req, dict, volinfo);
+        if (ret == -EINVAL) {
+                ret = 0;
+        } else {
+                /*
+                 * If the return value is -ve but not -EINVAL then the command
+                 * failed. If the return value is 0 then the synctask for the
+                 * op has begun, so in both cases just 'goto out'. If there was
+                 * a failure it will respond with an error, otherwise the
+                 * synctask will take the responsibility of sending the
+                 * response.
+                 */
                 goto out;
         }
 
@@ -715,6 +782,7 @@ out:
                 if (op_errstr[0] == '\0')
                         snprintf (op_errstr, sizeof (op_errstr),
                                   "operation failed");
+                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, op_errstr);
         }
