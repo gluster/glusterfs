@@ -19,12 +19,8 @@ TEST kill_brick $V0 $H0 $L1;
 TEST !  $CLI snapshot create ${V0}_snap1 $V0;
 TEST !  snapshot_exists 0 ${V0}_snap1;
 
-#Force snap create should succeed
-TEST  $CLI snapshot create ${V0}_snap1 $V0 force;
-TEST  snapshot_exists 0 ${V0}_snap1;
-
-#Delete the created snap
-TEST  $CLI snapshot delete ${V0}_snap1;
+#With changes introduced in BZ #1184344 force snap create should fail too
+TEST  ! $CLI snapshot create ${V0}_snap1 $V0 force;
 TEST  ! snapshot_exists 0 ${V0}_snap1;
 
 cleanup;
