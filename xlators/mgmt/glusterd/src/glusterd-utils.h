@@ -138,6 +138,10 @@ glusterd_service_stop(const char *service, char *pidfile, int sig,
 int
 glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo);
 
+int
+glusterd_validate_quorum (xlator_t *this, glusterd_op_t op, dict_t *dict,
+                          char **op_errstr);
+
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
 
