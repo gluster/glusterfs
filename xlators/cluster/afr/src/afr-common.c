@@ -1219,6 +1219,50 @@ afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2)
         return _gf_true;
 }
 
+static int
+afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
+                            struct afr_reply *replies, unsigned char *readable)
+{
+        int             i                    = 0;
+        int             par_read_subvol      = -1;
+        int             par_read_subvol_iter = -1;
+        afr_private_t  *priv                 = NULL;
+
+        priv = this->private;
+
+        if (parent)
+                par_read_subvol = afr_data_subvol_get (parent, this, 0, 0);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid)
+                        continue;
+
+                if (replies[i].op_ret < 0)
+                        continue;
+
+                if (par_read_subvol_iter == -1) {
+                        par_read_subvol_iter = i;
+                        continue;
+                }
+
+                if ((i != par_read_subvol) && readable[i])
+                        par_read_subvol_iter = i;
+
+                if (i == par_read_subvol)
+                        par_read_subvol_iter = i;
+        }
+        /* At the end of the for-loop, the only reason why @par_read_subvol_iter
+         * could be -1 is when this LOOKUP has failed on all sub-volumes.
+         * So it is okay to send an arbitrary subvolume (0 in this case)
+         * as parent read subvol.
+         */
+        if (par_read_subvol_iter == -1)
+                par_read_subvol_iter = 0;
+
+        return par_read_subvol_iter;
+
+}
+
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this)
 {
@@ -1227,23 +1271,25 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	int                 i = -1;
 	int                 op_errno = 0;
 	int                 read_subvol = 0;
+        int                 par_read_subvol = 0;
 	unsigned char      *readable = NULL;
 	int                 event = 0;
 	struct afr_reply   *replies = NULL;
 	uuid_t              read_gfid = {0, };
 	gf_boolean_t        locked_entry = _gf_false;
 	gf_boolean_t        can_interpret = _gf_true;
+        inode_t            *parent = NULL;
 
         priv  = this->private;
         local = frame->local;
 	replies = local->replies;
+        parent = local->loc.parent;
 
 	locked_entry = afr_is_entry_possibly_under_txn (local, this);
 
 	readable = alloca0 (priv->child_count);
 
-	afr_inode_read_subvol_get (local->loc.parent, this, readable,
-				   NULL, &event);
+	afr_inode_read_subvol_get (parent, this, readable, NULL, &event);
 
 	/* First, check if we have a gfid-change from somewhere,
 	   If so, propagate that so that a fresh lookup can be
@@ -1269,7 +1315,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 			   "underway" in creation */
 			local->op_ret = -1;
 			local->op_errno = ENOENT;
-			read_subvol = i;
 			goto unwind;
 		}
 
@@ -1347,10 +1392,13 @@ unwind:
 	if (read_subvol == -1)
 		read_subvol = 0;
 
+        par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
+                                                      readable);
+
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->replies[read_subvol].poststat,
 			  local->replies[read_subvol].xdata,
-			  &local->replies[read_subvol].postparent);
+			  &local->replies[par_read_subvol].postparent);
 }
 
 /*

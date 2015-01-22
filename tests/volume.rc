@@ -103,6 +103,13 @@ function _afr_child_up_status {
         echo "$up"
 }
 
+function afr_child_up_status_meta {
+        local mnt=$1
+        local repl=$2
+        local child=$3
+        grep "child_up\[$child\]" $mnt/.meta/graphs/active/$repl/private | awk '{print $3}'
+}
+
 function afr_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
