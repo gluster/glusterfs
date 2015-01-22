@@ -123,22 +123,50 @@ out:
         return 0;
 }
 
+static int
+afr_validate_read_subvol (inode_t *inode, xlator_t *this, int par_read_subvol)
+{
+	int             gen               = 0;
+        int             entry_read_subvol = 0;
+	unsigned char  *data_readable     = NULL;
+	unsigned char  *metadata_readable = NULL;
+        afr_private_t  *priv              = NULL;
+
+        priv = this->private;
+	data_readable = alloca0 (priv->child_count);
+	metadata_readable = alloca0 (priv->child_count);
+
+	afr_inode_read_subvol_get (inode, this, data_readable,
+				   metadata_readable, &gen);
+
+        if (gen != priv->event_generation ||
+                !data_readable[par_read_subvol] ||
+                !metadata_readable[par_read_subvol])
+                return -1;
+
+        /* Once the control reaches the following statement, it means that the
+         * parent's read subvol is perfectly readable. So calling
+         * either afr_data_subvol_get() or afr_metadata_subvol_get() would
+         * yield the same result. Hence, choosing afr_data_subvol_get() below.
+         */
+        entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0);
+        if (entry_read_subvol != par_read_subvol)
+                return -1;
+
+        return 0;
+
+}
 
 static void
 afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
 			       gf_dirent_t *entries, fd_t *fd)
 {
-	afr_private_t *priv = NULL;
-        gf_dirent_t *entry = NULL;
-        gf_dirent_t *tmp = NULL;
-	unsigned char *data_readable = NULL;
-	unsigned char *metadata_readable = NULL;
-	int gen = 0;
+        int            ret   = -1;
+        gf_dirent_t   *entry = NULL;
+        gf_dirent_t   *tmp   = NULL;
+        xlator_t      *this  = NULL;
 
-	priv = THIS->private;
-
-	data_readable = alloca0 (priv->child_count);
-	metadata_readable = alloca0 (priv->child_count);
+        this = THIS;
 
         list_for_each_entry_safe (entry, tmp, &subvol_entries->list, list) {
                 if (__is_root_gfid (fd->inode->gfid) &&
@@ -150,17 +178,12 @@ afr_readdir_transform_entries (gf_dirent_t *subvol_entries, int subvol,
 		list_add_tail (&entry->list, &entries->list);
 
 		if (entry->inode) {
-			gen = 0;
-			afr_inode_read_subvol_get (entry->inode, THIS,
-						   data_readable,
-						   metadata_readable, &gen);
-
-			if (gen != priv->event_generation ||
-				!data_readable[subvol] ||
-				!metadata_readable[subvol]) {
-
+                        ret = afr_validate_read_subvol (entry->inode, this,
+                                                        subvol);
+                        if (ret == -1) {
 				inode_unref (entry->inode);
 				entry->inode = NULL;
+                                continue;
 			}
 		}
         }
