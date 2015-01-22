@@ -422,13 +422,31 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                   dict_t *xdata)
 {
-        afr_local_t     *local = NULL;
+        afr_local_t     *local          = NULL;
+        gf_dirent_t     *entry          = NULL;
+        int              par_read_child = (long) cookie;
+        int32_t          read_child     = -1;
 
         if (op_ret == -1)
                 goto out;
 
         local = frame->local;
+
         afr_readdir_filter_trash_dir (entries, local->fd);
+
+        list_for_each_entry (entry, &entries->list, list) {
+                if (entry->inode) {
+                        read_child = -1;
+
+                        read_child = afr_inode_get_read_ctx (this, entry->inode,
+                                                             NULL);
+                        if (read_child != par_read_child) {
+                                inode_unref (entry->inode);
+                                entry->inode = NULL;
+                                continue;
+                        }
+                }
+        }
 
 out:
         AFR_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, NULL);

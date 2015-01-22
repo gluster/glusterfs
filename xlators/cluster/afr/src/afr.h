@@ -1195,6 +1195,25 @@ afr_xattr_array_destroy (dict_t **xattr, unsigned int child_count);
         }                                                               \
 } while (0)
 
+#define AFR_UPDATE_PARENT_BUF(parent, this, child_index, local,             \
+                               dst_preparent, dst_postparent,               \
+                               src_preparent, src_postparent) do {          \
+        int __par_read_child = -1;                                          \
+        if (parent) {                                                       \
+                __par_read_child = afr_inode_get_read_ctx (this, parent,    \
+                                                           NULL);           \
+                if (__par_read_child < 0)                                   \
+                        __par_read_child = local->read_child_index;         \
+                if ((local->success_count == 0) ||                          \
+                    (__par_read_child == child_index)) {                    \
+                        if (src_preparent)                                  \
+                                dst_preparent = *src_preparent;             \
+                        if (src_postparent)                                 \
+                                dst_postparent = *src_postparent;           \
+                }                                                           \
+        }                                                                   \
+} while (0)
+
 int
 afr_fd_report_unstable_write (xlator_t *this, fd_t *fd);
 

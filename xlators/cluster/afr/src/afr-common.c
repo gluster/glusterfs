@@ -1188,6 +1188,62 @@ afr_handle_quota_size (afr_local_t *local, xlator_t *this,
         }
 }
 
+static int
+afr_lookup_select_parent_read_child (xlator_t *this, inode_t *parent,
+                                     afr_local_t *local)
+{
+        int             i                   = 0;
+        int             child_index         = -1;
+        int             par_read_child      = -1;
+        int             par_read_child_iter = -1;
+        int            *fresh_children      = NULL;
+        int            *success_children    = NULL;
+        afr_private_t  *priv                = NULL;
+
+        priv = this->private;
+        success_children = local->cont.lookup.success_children;
+
+        if (!parent)
+                return 0;
+
+        fresh_children = afr_children_create (priv->child_count);
+
+        par_read_child = afr_inode_get_read_ctx (this, parent, fresh_children);
+
+        for (i = 0; i < priv->child_count; i++) {
+                child_index = success_children[i];
+
+                if (child_index == -1)
+                        break;
+
+                if (par_read_child_iter == -1) {
+                        par_read_child_iter = child_index;
+                        continue;
+                }
+
+                if ((par_read_child_iter != par_read_child) && fresh_children &&
+                    (afr_is_child_present (fresh_children, priv->child_count,
+                                           child_index)))
+                        par_read_child_iter = child_index;
+
+                if (child_index == par_read_child)
+                        par_read_child_iter = child_index;
+        }
+
+        /* At the end of the for-loop, the only reason why @par_read_child_iter
+         * could be -1 is when this LOOKUP has failed on all sub-volumes.
+         * So it is okay to send an arbitrary subvolume (0 in this case)
+         * as parent read child.
+         */
+
+        if (par_read_child_iter == -1)
+                par_read_child_iter = 0;
+
+        GF_FREE (fresh_children);
+        return par_read_child_iter;
+
+}
+
 int
 afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
 {
@@ -1198,8 +1254,10 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         int32_t         *sources = NULL;
         afr_private_t   *priv = NULL;
         int32_t         read_child = -1;
+        int32_t         par_read_child = -1;
         int             ret = 0;
         int             i = 0;
+        inode_t        *parent = NULL;
 
         GF_ASSERT (local);
 
@@ -1207,6 +1265,7 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
         postparent = &local->cont.lookup.postparent;
         xattr = &local->cont.lookup.xattr;
         priv = this->private;
+        parent = local->loc.parent;
 
         read_child = afr_inode_get_read_ctx (this, local->cont.lookup.inode,
                                              local->fresh_children);
@@ -1239,7 +1298,11 @@ afr_lookup_build_response_params (afr_local_t *local, xlator_t *this)
                 *xattr = dict_ref (local->cont.lookup.xattrs[read_child]);
 
         *buf = local->cont.lookup.bufs[read_child];
-        *postparent = local->cont.lookup.postparents[read_child];
+
+        par_read_child = afr_lookup_select_parent_read_child (this, parent,
+                                                              local);
+
+        *postparent = local->cont.lookup.postparents[par_read_child];
 
         if (dict_get (local->xattr_req, QUOTA_SIZE_KEY))
                 afr_handle_quota_size (local, this, *xattr);

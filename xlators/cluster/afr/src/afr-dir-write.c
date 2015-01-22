@@ -80,9 +80,14 @@ __dir_entry_fop_common_cbk (call_frame_t *frame, int child_index,
                             struct iatt *postparent, struct iatt *prenewparent,
                             struct iatt *postnewparent)
 {
-        afr_local_t     *local          = NULL;
+        afr_local_t     *local              = NULL;
+        inode_t         *parent             = NULL;
+        inode_t         *parent2            = NULL;
 
         local = frame->local;
+
+        parent = local->loc.parent;
+        parent2 = local->newloc.parent;
 
         if (afr_fop_failed (op_ret, op_errno))
                 afr_transaction_fop_failed (frame, this, child_index);
@@ -90,16 +95,20 @@ __dir_entry_fop_common_cbk (call_frame_t *frame, int child_index,
         if (op_ret > -1) {
                 local->op_ret = op_ret;
 
+                AFR_UPDATE_PARENT_BUF (parent, this, child_index, local,
+                                       local->cont.dir_fop.preparent,
+                                       local->cont.dir_fop.postparent,
+                                       preparent, postparent);
+
+                AFR_UPDATE_PARENT_BUF (parent2, this, child_index, local,
+                                       local->cont.dir_fop.prenewparent,
+                                       local->cont.dir_fop.postnewparent,
+                                       prenewparent, postnewparent);
+
                 if ((local->success_count == 0) ||
                     (child_index == local->read_child_index)) {
-                        local->cont.dir_fop.preparent      = *preparent;
-                        local->cont.dir_fop.postparent     = *postparent;
                         if (buf)
                                 local->cont.dir_fop.buf            = *buf;
-                        if (prenewparent)
-                             local->cont.dir_fop.prenewparent  = *prenewparent;
-                        if (postnewparent)
-                             local->cont.dir_fop.postnewparent = *postnewparent;
                 }
 
                 local->cont.dir_fop.inode = inode;
@@ -934,8 +943,8 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
                                   local->op_ret, local->op_errno,
                                   local->cont.dir_fop.inode,
                                   &local->cont.dir_fop.buf,
-                                  &local->cont.dir_fop.preparent,
-                                  &local->cont.dir_fop.postparent,
+                                  &local->cont.dir_fop.prenewparent,
+                                  &local->cont.dir_fop.postnewparent,
                                   NULL);
         }
 
@@ -958,7 +967,7 @@ afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 __dir_entry_fop_common_cbk (frame, child_index, this,
                                             op_ret, op_errno, inode, buf,
-                                            preparent, postparent, NULL, NULL);
+                                            NULL, NULL, preparent, postparent);
         }
         UNLOCK (&frame->lock);
 
