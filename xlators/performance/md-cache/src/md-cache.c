@@ -824,14 +824,14 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!local)
                 goto uncached;
 
+        loc_copy (&local->loc, loc);
+
 	if (!loc->name)
-		/* A nameless discovery is dangerous to cache. We
+		/* A nameless discovery is dangerous to serve from cache. We
 		   perform nameless lookup with the intention of
 		   re-establishing an inode "properly"
 		*/
 		goto uncached;
-
-        loc_copy (&local->loc, loc);
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
         if (ret != 0)
