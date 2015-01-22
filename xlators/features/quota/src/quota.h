@@ -173,6 +173,7 @@ struct quota_inode_ctx {
         struct list_head parents;
         struct timeval   tv;
         struct timeval   prev_log;
+        gf_boolean_t     ancestry_built;
         gf_lock_t        lock;
 };
 typedef struct quota_inode_ctx quota_inode_ctx_t;

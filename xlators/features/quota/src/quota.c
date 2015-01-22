@@ -399,6 +399,86 @@ check_ancestory (call_frame_t *frame, inode_t *inode)
         }
 }
 
+void
+check_ancestory_2_cbk (struct list_head *parents, inode_t *inode,
+                       int32_t op_ret, int32_t op_errno, void *data)
+{
+        inode_t            *this_inode  = NULL;
+        quota_inode_ctx_t  *ctx         = NULL;
+
+        this_inode = data;
+
+        if (op_ret < 0)
+                goto out;
+
+        if (parents == NULL || list_empty (parents)) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "Couldn't build ancestry for inode (gfid:%s). "
+                        "Without knowing ancestors till root, quota "
+                        "cannot be enforced.",
+                        uuid_utoa (this_inode->gfid));
+                goto out;
+        }
+
+        quota_inode_ctx_get (this_inode, THIS, &ctx, 0);
+        if (ctx)
+                ctx->ancestry_built = _gf_true;
+
+out:
+        inode_unref (this_inode);
+}
+
+void
+check_ancestory_2 (xlator_t *this, quota_local_t *local, inode_t *inode)
+{
+        inode_t            *cur_inode    = NULL;
+        inode_t            *parent       = NULL;
+        quota_inode_ctx_t  *ctx          = NULL;
+        char               *name         = NULL;
+        uuid_t              pgfid        = {0};
+
+        name = (char *) local->loc.name;
+        if (local->loc.parent) {
+                uuid_copy (pgfid, local->loc.parent->gfid);
+                parent = local->loc.parent;
+        }
+
+        cur_inode = inode_ref (inode);
+        while (cur_inode && !__is_root_gfid (cur_inode->gfid)) {
+                quota_inode_ctx_get (cur_inode, this, &ctx, 0);
+                /* build ancestry is required only on the first lookup,
+                 * so stop crawling when the inode_ctx is set for an inode
+                 */
+                if (ctx && ctx->ancestry_built)
+                        goto setctx;
+
+                parent = inode_parent (cur_inode, pgfid, name);
+                if (!parent) {
+                        quota_build_ancestry (cur_inode, check_ancestory_2_cbk,
+                                              inode_ref (inode));
+                        goto out;
+                }
+
+                if (name != NULL) {
+                        name = NULL;
+                        uuid_clear (pgfid);
+                }
+
+                inode_unref (cur_inode);
+                cur_inode = parent;
+        }
+
+setctx:
+        if (cur_inode && cur_inode != inode) {
+                quota_inode_ctx_get (inode, this, &ctx, 0);
+                if (ctx)
+                        ctx->ancestry_built = _gf_true;
+        }
+out:
+        if (cur_inode)
+                inode_unref (cur_inode);
+}
+
 static inline void
 quota_link_count_decrement (quota_local_t *local)
 {
@@ -1216,22 +1296,38 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        quota_local_t *local = NULL;
-
-        if (op_ret < 0)
-                goto unwind;
+        quota_local_t      *local        = NULL;
+        int32_t             ret          = 0;
+        inode_t            *this_inode   = NULL;
 
         local = frame->local;
+        frame->local = NULL;
 
-        op_ret = quota_fill_inodectx (this, inode, dict, &local->loc, buf,
-                                      &op_errno);
+        if (op_ret >= 0 && inode) {
+                this_inode = inode_ref (inode);
 
-unwind:
+                op_ret = quota_fill_inodectx (this, inode, dict, &local->loc,
+                                              buf, &op_errno);
+                if (op_ret < 0)
+                        op_errno = ENOMEM;
+        }
+
         QUOTA_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
                             dict, postparent);
+
+        if (op_ret < 0 || this_inode == NULL || uuid_is_null(this_inode->gfid))
+                goto out;
+
+        check_ancestory_2 (this, local, this_inode);
+
+out:
+        if (this_inode)
+                inode_unref (this_inode);
+
+        quota_local_cleanup (this, local);
+
         return 0;
 }
-
 
 int32_t
 quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,

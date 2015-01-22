@@ -83,13 +83,19 @@ mq_inode_loc_fill (const char *parent_gfid, inode_t *inode, loc_t *loc)
                 parent = inode_find (inode->table,
                                      (unsigned char *) parent_gfid);
 
-        if (parent == NULL)
+        if (parent == NULL) {
+                gf_log ("marker", GF_LOG_ERROR, "parent is NULL for %s",
+                        uuid_utoa(inode->gfid));
                 goto err;
+        }
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log ("marker", GF_LOG_ERROR, "failed to resolve path for %s",
+                        uuid_utoa(inode->gfid));
                 goto err;
+        }
 
         ret = mq_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
