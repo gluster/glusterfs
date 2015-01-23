@@ -1881,7 +1881,8 @@ cli_print_brick_status (cli_volume_status_t *status)
 
 #define NEEDS_GLFS_HEAL(op) ((op == GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) || \
                              (op == GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK) ||      \
-                             (op == GF_AFR_OP_INDEX_SUMMARY))
+                             (op == GF_AFR_OP_INDEX_SUMMARY) ||               \
+                             (op == GF_AFR_OP_SPLIT_BRAIN_FILES))
 
 int
 cli_launch_glfs_heal (int heal_op, dict_t *options)
@@ -1907,7 +1908,7 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
                 ret = dict_get_str (options, "file", &filename);
                 runner_add_args (&runner, "bigger-file", filename, NULL);
                 break;
-        case  GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = dict_get_str (options, "heal-source-hostname",
                                     &hostname);
                 ret = dict_get_str (options, "heal-source-brickpath",
@@ -1916,6 +1917,9 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
                 runner_argprintf (&runner, "%s:%s", hostname, path);
                 if (dict_get_str (options, "file", &filename) == 0)
                         runner_argprintf (&runner, filename);
+                break;
+        case GF_AFR_OP_SPLIT_BRAIN_FILES:
+                runner_add_args (&runner, "split-brain-info", NULL);
                 break;
         default:
                 ret = -1;

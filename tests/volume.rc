@@ -210,6 +210,11 @@ function afr_get_pending_heal_count {
         gluster volume heal $vol info | grep "Number of entries" | awk '{ sum+=$4} END {print sum}'
 }
 
+function afr_get_split_brain_count {
+        local vol=$1
+        gluster volume heal $vol info split-brain | grep "Number of entries in split-brain" | awk '{ sum+=$6} END {print sum}'
+}
+
 function afr_get_index_path {
         local brick_path=$1
         echo "$brick_path/.glusterfs/indices/xattrop"
