@@ -20,6 +20,7 @@
 #include "glusterfs.h"
 #include "statedump.h"
 #include "compat-errno.h"
+#include "event.h"
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"
@@ -2513,6 +2514,23 @@ out:
 }
 
 int
+client_check_event_threads (xlator_t *this, dict_t *options, clnt_conf_t *conf)
+{
+        int          ret = -1;
+        int          eventthreads = 0;
+
+        /* Read event-threads from the new configuration */
+        ret = dict_get_int32 (options, "event-threads", &eventthreads);
+        if (!ret) {
+                conf->event_threads = eventthreads;
+        }
+        ret = event_reconfigure_threads (this->ctx->event_pool,
+                                         conf->event_threads);
+
+        return ret;
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	clnt_conf_t *conf              = NULL;
@@ -2530,6 +2548,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("ping-timeout", conf->opt.ping_timeout,
                           options, int32, out);
+
+        ret = client_check_event_threads (this, options, conf);
+        if (ret)
+                goto out;
 
         ret = client_check_remote_host (this, options);
         if (ret)
@@ -2608,6 +2630,13 @@ init (xlator_t *this)
         conf->lk_version         = 1;
         conf->grace_timer        = NULL;
         conf->grace_timer_needed = _gf_true;
+
+        /* Set event threads to a default */
+        conf->event_threads = STARTING_EVENT_THREADS;
+
+        ret = client_check_event_threads (this, this->options, conf);
+        if (ret)
+                goto out;
 
         ret = client_init_grace_timer (this, this->options, conf);
         if (ret)
@@ -2935,6 +2964,16 @@ struct volume_options options[] = {
         { .key   = {"send-gids"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+        },
+        { .key   = {"event-threads"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 32,
+          .default_value = "2",
+          .description = "Specifies the number of event threads to execute in"
+                         "in parallel. Larger values would help process"
+                         " responses faster, depending on available processing"
+                         " power. Range 1-32 threads."
         },
         { .key   = {NULL} },
 };

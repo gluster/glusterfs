@@ -29,7 +29,7 @@
 
 
 struct event_pool *
-event_pool_new (int count)
+event_pool_new (int count, int eventthreadcount)
 {
         struct event_pool *event_pool = NULL;
 	extern struct event_ops event_ops_poll;
@@ -37,7 +37,7 @@ event_pool_new (int count)
 #ifdef HAVE_SYS_EPOLL_H
 	extern struct event_ops event_ops_epoll;
 
-        event_pool = event_ops_epoll.new (count);
+        event_pool = event_ops_epoll.new (count, eventthreadcount);
 
         if (event_pool) {
                 event_pool->ops = &event_ops_epoll;
@@ -48,7 +48,7 @@ event_pool_new (int count)
 #endif
 
         if (!event_pool) {
-                event_pool = event_ops_poll.new (count);
+                event_pool = event_ops_poll.new (count, eventthreadcount);
 
                 if (event_pool)
                         event_pool->ops = &event_ops_poll;
@@ -125,6 +125,21 @@ event_dispatch (struct event_pool *event_pool)
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_dispatch (event_pool);
+
+out:
+        return ret;
+}
+
+int
+event_reconfigure_threads (struct event_pool *event_pool, int value)
+{
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
+
+        /* call event refresh function */
+        ret = event_pool->ops->event_reconfigure_threads (event_pool,
+                                                          value);
 
 out:
         return ret;

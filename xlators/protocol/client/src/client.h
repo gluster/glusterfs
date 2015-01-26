@@ -125,6 +125,9 @@ typedef struct clnt_conf {
         uint64_t               setvol_count;
 
         gf_boolean_t           send_gids; /* let the server resolve gids */
+
+        int                     event_threads; /* # of event threads
+                                                * configured */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
