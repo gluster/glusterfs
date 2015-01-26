@@ -25,6 +25,7 @@
 #include "statedump.h"
 #include "defaults.h"
 #include "authenticate.h"
+#include "event.h"
 
 void
 grace_time_handler (void *data)
@@ -674,6 +675,24 @@ out:
 }
 
 int
+server_check_event_threads (xlator_t *this, dict_t *options,
+                            server_conf_t *conf)
+{
+        int              ret = -1;
+        int              eventthreads = 0;
+
+        /* Read event-threads from the new configuration */
+        ret = dict_get_int32 (options, "event-threads", &eventthreads);
+        if (!ret) {
+                conf->event_threads = eventthreads;
+        }
+        ret = event_reconfigure_threads (this->ctx->event_pool,
+                                         conf->event_threads);
+
+        return ret;
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
 
@@ -693,6 +712,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 gf_log_callingfn (this->name, GF_LOG_DEBUG, "conf == null!!!");
                 goto out;
         }
+
         if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
                 conf->inode_lru_limit = inode_lru_limit;
                 gf_log (this->name, GF_LOG_TRACE, "Reconfigured inode-lru-limit"
@@ -790,6 +810,11 @@ reconfigure (xlator_t *this, dict_t *options)
                                         "Reconfigure not found for transport" );
                 }
         }
+
+        ret = server_check_event_threads (this, options, conf);
+        if (ret)
+                goto out;
+
         ret = server_init_grace_timer (this, options, conf);
 
 out:
@@ -845,6 +870,13 @@ init (xlator_t *this)
 
         INIT_LIST_HEAD (&conf->xprt_list);
         pthread_mutex_init (&conf->mutex, NULL);
+
+         /* Set event threads to a default */
+        conf->event_threads = STARTING_EVENT_THREADS;
+
+        ret = server_check_event_threads (this, this->options, conf);
+        if (ret)
+                goto out;
 
         ret = server_init_grace_timer (this, this->options, conf);
         if (ret)
@@ -1198,6 +1230,16 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .default_value = "2",
           .description = "Timeout in seconds for the cached groups to expire."
+        },
+        { .key   = {"event-threads"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 32,
+          .default_value = "2",
+          .description = "Specifies the number of event threads to execute in"
+                         "in parallel. Larger values would help process"
+                         " responses faster, depending on available processing"
+                         " power. Range 1-32 threads."
         },
 
         { .key   = {NULL} },

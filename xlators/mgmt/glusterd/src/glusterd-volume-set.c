@@ -836,6 +836,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = GD_OP_VERSION_3_7_0,
         },
+        { .key         = "client.event-threads",
+          .voltype     = "protocol/client",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
 
         /* Server xlator options */
         { .key         = "network.tcp-window-size",
@@ -937,6 +941,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "protocol/server",
           .option      = "transport.socket.own-thread",
           .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "server.event-threads",
+          .voltype     = "protocol/server",
           .op_version  = GD_OP_VERSION_3_7_0,
         },
 

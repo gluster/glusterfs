@@ -95,7 +95,7 @@ out:
 
 
 static struct event_pool *
-event_pool_new_poll (int count)
+event_pool_new_poll (int count, int eventthreadcount)
 {
         struct event_pool *event_pool = NULL;
         int                ret = -1;
@@ -169,6 +169,12 @@ event_pool_new_poll (int count)
                 GF_FREE (event_pool->reg);
                 GF_FREE (event_pool);
                 return NULL;
+        }
+
+        if (eventthreadcount > 1) {
+                gf_log ("poll", GF_LOG_INFO,
+                        "Currently poll does not use multiple event processing"
+                        " threads, thread count (%d) ignored", eventthreadcount);
         }
 
         return event_pool;
@@ -469,6 +475,12 @@ out:
         return -1;
 }
 
+int
+event_reconfigure_threads_poll (struct event_pool *event_pool, int value)
+{
+        /* No-op for poll */
+        return 0;
+}
 
 struct event_ops event_ops_poll = {
         .new                    = event_pool_new_poll,
@@ -476,5 +488,6 @@ struct event_ops event_ops_poll = {
         .event_select_on        = event_select_on_poll,
         .event_unregister       = event_unregister_poll,
         .event_unregister_close = event_unregister_close_poll,
-        .event_dispatch         = event_dispatch_poll
+        .event_dispatch         = event_dispatch_poll,
+        .event_reconfigure_threads = event_reconfigure_threads_poll
 };
