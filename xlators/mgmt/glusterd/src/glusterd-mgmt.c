@@ -1840,8 +1840,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         /* quorum check of the volume is done here */
-        ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr,
-                                          &xaction_peers);
+        ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                                 "Volume quorum check failed");
@@ -1926,8 +1925,7 @@ unbarrier:
         /*Do a quorum check if the commit phase is successful*/
         if (success) {
                 //quorum check of the snapshot volume
-                ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr,
-                                                  &xaction_peers);
+                ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING, 
                                 "Snapshot Volume quorum check failed");

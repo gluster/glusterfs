@@ -2559,8 +2559,7 @@ out:
 
 int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr,
-                                       struct cds_list_head *peers_list)
+                                       char **op_errstr)
 {
         int8_t              snap_force        = 0;
         int32_t             force             = 0;
@@ -2612,7 +2611,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
          * information will be saved by glusterd and if glusterds are not in
          * quorum, then better fail the snapshot
          */
-        if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
+        if (!does_gd_meet_server_quorum (this)) {
                 snprintf (err_str, sizeof (err_str),
                           "glusterds are not in quorum");
                 gf_log (this->name, GF_LOG_WARNING, "%s", err_str);
@@ -2748,8 +2747,7 @@ out:
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr,
-                            struct cds_list_head *peers_list)
+                            char **op_errstr)
 {
         int32_t             ret               = -1;
         xlator_t           *this              = NULL;
@@ -2775,8 +2773,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         switch (snap_command) {
         case GF_SNAP_OPTION_TYPE_CREATE:
                 ret = glusterd_snap_quorum_check_for_create (dict, snap_volume,
-                                                             op_errstr,
-                                                             peers_list);
+                                                             op_errstr);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING, "Quorum check"
                                 "failed during snapshot create command");
@@ -2785,7 +2782,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                 break;
         case GF_SNAP_OPTION_TYPE_CLONE:
 
-                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
+                if (!does_gd_meet_server_quorum (this)) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str),
                                   "glusterds are not in quorum");
@@ -2800,7 +2797,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
         case GF_SNAP_OPTION_TYPE_RESTORE:
-                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
+                if (!does_gd_meet_server_quorum (this)) {
                         ret = -1;
                         snprintf (err_str, sizeof (err_str),
                                   "glusterds are not in quorum");

@@ -119,13 +119,11 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr,
-                            struct cds_list_head *peers_list);
+                            char **op_errstr);
 
 int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr,
-                                       struct cds_list_head *peers_list);
+                                       char **op_errstr);
 
 int32_t
 glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
