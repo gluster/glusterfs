@@ -101,9 +101,6 @@ struct glusterd_peerinfo_ {
         gd_quorum_contrib_t             quorum_contrib;
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
-
-        pthread_mutex_t                 ref_lock;
-        uint                            ref_count;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
@@ -130,20 +127,6 @@ typedef struct glusterd_peer_ctx_ {
         glusterd_peerinfo_t            *peerinfo;
         char                           *errstr;
 } glusterd_peerctx_t;
-
-#define GD_PEERCTX_FREE(peerctx) {                             \
-        if (peerctx) {                                         \
-                if (peerctx->peerinfo)  {                      \
-                        gd_peerinfo_unref (peerctx->peerinfo); \
-                        peerctx->peerinfo = NULL;              \
-                }                                              \
-                if (peerctx->errstr) {                         \
-                        GF_FREE (peerctx->errstr);             \
-                        peerctx->errstr = NULL;                \
-                }                                              \
-                GF_FREE (peerctx);                             \
-        }                                                      \
-}
 
 typedef enum glusterd_friend_sm_event_type_ {
         GD_FRIEND_EVENT_NONE = 0,
@@ -176,16 +159,6 @@ struct glusterd_friend_sm_event_ {
         glusterd_friend_sm_event_type_t event;
 };
 
-#define GD_FRIEND_EVENT_FREE(event) {                        \
-        if (event) {                                         \
-                if (event->peerinfo) {                       \
-                        gd_peerinfo_unref (event->peerinfo); \
-                        event->peerinfo = NULL;              \
-                }                                            \
-                GF_FREE (event);                             \
-        }                                                    \
-}
-
 typedef struct glusterd_friend_sm_event_ glusterd_friend_sm_event_t;
 
 typedef int (*glusterd_friend_sm_ac_fn) (glusterd_friend_sm_event_t *, void *);
@@ -215,7 +188,6 @@ typedef struct glusterd_probe_ctx_ {
         int                      port;
         dict_t                  *dict;
 } glusterd_probe_ctx_t;
-
 int
 glusterd_friend_sm_new_event (glusterd_friend_sm_event_type_t event_type,
                               glusterd_friend_sm_event_t **new_event);

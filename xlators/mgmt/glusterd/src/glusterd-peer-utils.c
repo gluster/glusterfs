@@ -12,74 +12,6 @@
 #include "glusterd-store.h"
 #include "common-utils.h"
 
-static inline void
-gd_peerinfo_free (glusterd_peerinfo_t *peerinfo) {
-        glusterd_peer_hostname_t *hostname = NULL;
-        glusterd_peer_hostname_t *tmp = NULL;
-
-        if (!peerinfo)
-                return;
-
-        GF_FREE (peerinfo->hostname);
-        peerinfo->hostname = NULL;
-
-        cds_list_for_each_entry_safe (hostname, tmp, &peerinfo->hostnames,
-                                  hostname_list) {
-                glusterd_peer_hostname_free (hostname);
-        }
-
-        glusterd_sm_tr_log_delete (&peerinfo->sm_log);
-        GF_FREE (peerinfo);
-        peerinfo = NULL;
-
-        return;
-}
-
-static inline void
-gd_peerinfo_ref_init (glusterd_peerinfo_t *peerinfo) {
-        if (!peerinfo)
-                return;
-
-        pthread_mutex_init (&peerinfo->ref_lock, NULL);
-        peerinfo->ref_count = 0;
-}
-
-glusterd_peerinfo_t *
-gd_peerinfo_ref (glusterd_peerinfo_t *peerinfo) {
-        if (!peerinfo)
-                return NULL;
-
-        pthread_mutex_lock (&peerinfo->ref_lock);
-        {
-                ++peerinfo->ref_count;
-        }
-        pthread_mutex_unlock (&peerinfo->ref_lock);
-
-        return peerinfo;
-}
-
-glusterd_peerinfo_t *
-gd_peerinfo_unref (glusterd_peerinfo_t *peerinfo)
-{
-        uint ref_count = -1;
-
-        if (!peerinfo)
-                return NULL;
-
-        pthread_mutex_lock (&peerinfo->ref_lock);
-        {
-                if (peerinfo->ref_count)
-                        ref_count = --peerinfo->ref_count;
-        }
-        pthread_mutex_unlock (&peerinfo->ref_lock);
-
-        if (!ref_count) {
-                gd_peerinfo_free (peerinfo);
-                return NULL;
-        }
-        return peerinfo;
-}
-
 int32_t
 glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
 {
@@ -95,7 +27,10 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
                 peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
                 peerinfo->rpc = NULL;
-                GD_PEERCTX_FREE (peerctx);
+                if (peerctx) {
+                        GF_FREE (peerctx->errstr);
+                        GF_FREE (peerctx);
+                }
         }
         glusterd_peerinfo_destroy (peerinfo);
 
@@ -108,6 +43,8 @@ int32_t
 glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
 {
         int32_t                         ret = -1;
+        glusterd_peer_hostname_t *hostname = NULL;
+        glusterd_peer_hostname_t *tmp = NULL;
 
         if (!peerinfo)
                 goto out;
@@ -124,7 +61,18 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
                 gf_log ("glusterd", GF_LOG_ERROR, "Deleting peer info failed");
         }
 
-        gd_peerinfo_unref (peerinfo);
+        GF_FREE (peerinfo->hostname);
+        peerinfo->hostname = NULL;
+
+        cds_list_for_each_entry_safe (hostname, tmp, &peerinfo->hostnames,
+                                  hostname_list) {
+                glusterd_peer_hostname_free (hostname);
+        }
+
+        glusterd_sm_tr_log_delete (&peerinfo->sm_log);
+        GF_FREE (peerinfo);
+        peerinfo = NULL;
+
         ret = 0;
 
 out:
@@ -343,14 +291,12 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         if (new_peer->state.state == GD_FRIEND_STATE_BEFRIENDED)
                 new_peer->quorum_contrib = QUORUM_WAITING;
         new_peer->port = port;
-
-        gd_peerinfo_ref_init (new_peer);
 out:
         if (ret && new_peer) {
                 glusterd_peerinfo_cleanup (new_peer);
                 new_peer = NULL;
         }
-        return gd_peerinfo_ref (new_peer);
+        return new_peer;
 }
 
 /* Check if the all peers are connected and befriended, except the peer

@@ -121,7 +121,7 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                 return ret;
         }
 
-        event->peerinfo = gd_peerinfo_ref (peerinfo);
+        event->peerinfo = peerinfo;
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_friend_req_ctx_t);
 
@@ -215,7 +215,7 @@ glusterd_handle_unfriend_req (rpcsvc_request_t *req, uuid_t  uuid,
                 return ret;
         }
 
-        event->peerinfo = gd_peerinfo_ref (peerinfo);
+        event->peerinfo = peerinfo;
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_friend_req_ctx_t);
 
@@ -3006,7 +3006,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         if (args)
                 peerctx->args = *args;
 
-        peerctx->peerinfo = gd_peerinfo_ref (peerinfo);
+        peerctx->peerinfo = peerinfo;
 
         ret = glusterd_transport_inet_options_build (&options,
                                                      peerinfo->hostname,
@@ -3042,7 +3042,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         peerctx = NULL;
         ret = 0;
 out:
-        GD_PEERCTX_FREE (peerctx);
+        GF_FREE (peerctx);
         return ret;
 }
 
@@ -3194,7 +3194,7 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
                 ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_LOCAL_ACC,
                                                     &event);
                 if (!ret) {
-                        event->peerinfo = gd_peerinfo_ref (peerinfo);
+                        event->peerinfo = peerinfo;
                         ret = glusterd_friend_sm_inject_event (event);
                         glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_SUCCESS,
                                                       NULL, (char*)hoststr,
@@ -3265,7 +3265,7 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
 
         event->ctx = ctx;
 
-        event->peerinfo = gd_peerinfo_ref (peerinfo);
+        event->peerinfo = peerinfo;
 
         ret = glusterd_friend_sm_inject_event (event);
 
@@ -4554,7 +4554,7 @@ glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
                                               peerinfo->hostname,
                                               peerinfo->port, dict);
 
-                new_event->peerinfo = gd_peerinfo_ref (peerinfo);
+                new_event->peerinfo = peerinfo;
                 ret = glusterd_friend_sm_inject_event (new_event);
 
         } else {

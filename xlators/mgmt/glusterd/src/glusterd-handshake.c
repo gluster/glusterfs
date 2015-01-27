@@ -1500,7 +1500,7 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
         ctx->req = peerctx->args.req;
         ctx->dict = peerctx->args.dict;
 
-        event->peerinfo = gd_peerinfo_ref (peerinfo);
+        event->peerinfo = peerinfo;
         event->ctx = ctx;
 
         ret = glusterd_friend_sm_inject_event (event);
