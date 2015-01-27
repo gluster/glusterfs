@@ -32,6 +32,7 @@
 #define SYNCOPCTX_GID    0x00000002
 #define SYNCOPCTX_GROUPS 0x00000004
 #define SYNCOPCTX_PID    0x00000008
+#define SYNCOPCTX_LKOWNER 0x00000010
 
 struct synctask;
 struct syncproc;
@@ -167,6 +168,7 @@ struct syncopctx {
         int          ngrps;
         gid_t       *groups;
 	pid_t        pid;
+        gf_lkowner_t lk_owner;
 };
 
 #define __yawn(args) do {                                       \
@@ -264,6 +266,7 @@ int syncopctx_setfsuid (void *uid);
 int syncopctx_setfsgid (void *gid);
 int syncopctx_setfsgroups (int count, const void *groups);
 int syncopctx_setfspid (void *pid);
+int syncopctx_setfslkowner (gf_lkowner_t *lk_owner);
 
 static inline call_frame_t *
 syncop_create_frame (xlator_t *this)
@@ -323,6 +326,9 @@ syncop_create_frame (xlator_t *this)
 			return NULL;
 		}
 	}
+
+        if (opctx && (opctx->valid & SYNCOPCTX_LKOWNER))
+                frame->root->lk_owner = opctx->lk_owner;
 
 	return frame;
 }
