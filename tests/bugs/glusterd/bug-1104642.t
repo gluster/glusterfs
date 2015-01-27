@@ -42,6 +42,6 @@ TEST $glusterd_2
 #Verify whether the value has been synced
 EXPECT '80' get_value 'cluster.server-quorum-ratio' 1
 EXPECT_WITHIN $PROBE_TIMEOUT '1' peer_count
-EXPECT '80' get_value 'cluster.server-quorum-ratio' 2
+EXPECT_WITHIN $PROBE_TIMEOUT '80' get_value 'cluster.server-quorum-ratio' 2
 
 cleanup;
