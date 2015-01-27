@@ -8217,12 +8217,19 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 goto out;
         }
 
+        /* In case a new node is added to the peer, after a snapshot was
+         * taken, the geo-rep files are not synced to that node. This
+         * leads to the failure of snapshot restore. Hence, ignoring the
+         * missing geo-rep files in the new node, and proceeding with
+         * snapshot restore. Once the restore is successful, the missing
+         * geo-rep files can be generated with "gluster volume geo-rep
+         * <master-vol> <slave-vol> create push-pem force"
+         */
         ret = glusterd_restore_geo_rep_files (snap_vol);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
+                gf_log (this->name, GF_LOG_WARNING, "Failed to restore "
                         "geo-rep files for snap %s",
                         snap_vol->snapshot->snapname);
-                goto out;
         }
 
         ret = glusterd_copy_quota_files (snap_vol, orig_vol);
