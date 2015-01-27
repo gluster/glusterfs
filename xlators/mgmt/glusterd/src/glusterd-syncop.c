@@ -18,6 +18,7 @@
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-server-quorum.h"
 #include "glusterd-locks.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"

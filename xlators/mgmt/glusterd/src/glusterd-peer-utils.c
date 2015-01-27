@@ -10,6 +10,7 @@
 
 #include "glusterd-peer-utils.h"
 #include "glusterd-store.h"
+#include "glusterd-server-quorum.h"
 #include "common-utils.h"
 
 void

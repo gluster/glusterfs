@@ -31,6 +31,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-server-quorum.h"
 #include "glusterd-store.h"
 #include "glusterd-locks.h"
 #include "glusterd-snapshot-utils.h"

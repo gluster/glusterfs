@@ -49,6 +49,7 @@
 #include "glusterd-shd-svc.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-quotad-svc.h"
+#include "glusterd-server-quorum.h"
 
 #include <sys/types.h>
 #include <signal.h>

@@ -37,15 +37,6 @@
                  volinfo->volname, brickid);\
 } while (0)
 
-#define GLUSTERD_QUORUM_COUNT(peerinfo, inquorum_count, active_count, _exit) do {\
-                if (peerinfo->quorum_contrib == QUORUM_WAITING)\
-                        goto _exit;\
-                if (_is_contributing_to_quorum (peerinfo->quorum_contrib))\
-                        inquorum_count = inquorum_count + 1;\
-                if (active_count && (peerinfo->quorum_contrib == QUORUM_UP))\
-                        *active_count = *active_count + 1;\
-} while (0)
-
 #define list_for_each_local_xaction_peers(xact_peer, xact_peers_head)      \
         glusterd_local_peers_t *pos = NULL;                                \
         for (pos = cds_list_entry ((xact_peers_head)->next,                \
@@ -148,10 +139,6 @@ glusterd_service_stop(const char *service, char *pidfile, int sig,
 
 int
 glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_validate_quorum (xlator_t *this, glusterd_op_t op, dict_t *dict,
-                          char **op_errstr);
 
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
@@ -479,29 +466,8 @@ glusterd_set_originator_uuid (dict_t *dict);
 gf_boolean_t
 is_origin_glusterd (dict_t *dict);
 
-gf_boolean_t
-glusterd_is_quorum_changed (dict_t *options, char *option, char *value);
-
-int
-glusterd_do_quorum_action ();
-
-int
-glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
-                                    int *quorum_count,
-                                    struct cds_list_head *peer_list,
-                                    gf_boolean_t _local__xaction_peers);
-
 int
 glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str);
-gf_boolean_t
-glusterd_is_quorum_option (char *option);
-gf_boolean_t
-glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
-gf_boolean_t
-glusterd_is_any_volume_in_server_quorum (xlator_t *this);
-gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this, struct cds_list_head *peers_list,
-                            gf_boolean_t _local__xaction_peers);
 
 int
 glusterd_generate_and_set_task_id (dict_t *dict, char *key);
