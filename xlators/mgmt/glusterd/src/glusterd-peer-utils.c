@@ -29,6 +29,7 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
                 peerinfo->rpc = NULL;
                 if (peerctx) {
                         GF_FREE (peerctx->errstr);
+                        GF_FREE (peerctx->peername);
                         GF_FREE (peerctx);
                 }
         }

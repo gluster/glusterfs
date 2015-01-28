@@ -3006,7 +3006,9 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         if (args)
                 peerctx->args = *args;
 
-        peerctx->peerinfo = peerinfo;
+        /*peerctx->peerinfo = peerinfo;*/
+        uuid_copy (peerctx->peerid, peerinfo->uuid);
+        peerctx->peername = gf_strdup (peerinfo->hostname);
 
         ret = glusterd_transport_inet_options_build (&options,
                                                      peerinfo->hostname,
@@ -4528,14 +4530,23 @@ glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
 {
         int                             ret = -1;
         glusterd_friend_sm_event_t      *new_event = NULL;
-        glusterd_peerinfo_t             *peerinfo = peerctx->peerinfo;
-        rpcsvc_request_t                *req = peerctx->args.req;
-        char                            *errstr = peerctx->errstr;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+        rpcsvc_request_t                *req = NULL;
+        char                            *errstr = NULL;
         dict_t                          *dict = NULL;
 
         GF_ASSERT (peerctx);
 
-        peerinfo = peerctx->peerinfo;
+        rcu_read_lock ();
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Could not find peer %s(%s). "
+                        "Peer could have been deleted.", peerctx->peername,
+                        uuid_utoa (peerctx->peerid));
+                ret = 0;
+                goto out;
+        }
+
         req = peerctx->args.req;
         dict = peerctx->args.dict;
         errstr = peerctx->errstr;
@@ -4564,6 +4575,7 @@ glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
         }
 
 out:
+        rcu_read_unlock ();
         return ret;
 }
 
@@ -4584,9 +4596,21 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         if (!peerctx)
                 return 0;
 
-        peerinfo = peerctx->peerinfo;
         this = THIS;
         conf = this->private;
+
+        rcu_read_lock ();
+
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                /* Peerinfo should be available at this point. Not finding it
+                 * means that something terrible has happened
+                 */
+                gf_log (THIS->name, GF_LOG_CRITICAL, "Could not find peer "
+                        "%s(%s)", peerctx->peername, uuid_utoa (peerctx->peerid));
+                ret = -1;
+                goto out;
+        }
 
         switch (event) {
         case RPC_CLNT_CONNECT:
@@ -4663,6 +4687,8 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         }
 
 out:
+        rcu_read_unlock ();
+
         glusterd_friend_sm ();
         glusterd_op_sm ();
         if (quorum_action)

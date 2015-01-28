@@ -1494,7 +1494,8 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
                 goto out;
         }
 
-        peerinfo = peerctx->peerinfo;
+        //TODO: Properly handle this peerinfo reference
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
         ctx->hostname = gf_strdup (peerinfo->hostname);
         ctx->port = peerinfo->port;
         ctx->req = peerctx->args.req;
@@ -1579,7 +1580,15 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         this = THIS;
         frame = myframe;
         peerctx = frame->local;
-        peerinfo = peerctx->peerinfo;
+
+        rcu_read_lock ();
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                gf_log (this->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
+                        peerctx->peername, uuid_utoa (peerctx->peerid));
+                ret = -1;
+                goto out;
+        }
 
         if (-1 == req->rpc_status) {
                 snprintf (msg, sizeof (msg),
@@ -1626,19 +1635,21 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
                         peerctx->args.mode);
         }
 
-        glusterd_friend_sm ();
-
         ret = 0;
 out:
+
+        if (ret != 0 && peerinfo)
+                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+
+        rcu_read_unlock ();
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
 
-        if (ret != 0)
-                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
-
         if (rsp.hndsk.hndsk_val)
                 free (rsp.hndsk.hndsk_val);
+
+        glusterd_friend_sm ();
 
         return 0;
 }
@@ -1672,7 +1683,16 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
         conf = this->private;
         frame = myframe;
         peerctx = frame->local;
-        peerinfo = peerctx->peerinfo;
+
+        rcu_read_lock ();
+
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
+                        peerctx->peername, uuid_utoa (peerctx->peerid));
+                goto out;
+        }
 
         if (-1 == req->rpc_status) {
                 ret = -1;
@@ -1728,7 +1748,7 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
         GF_PROTOCOL_DICT_SERIALIZE (this, rsp_dict, (&arg.hndsk.hndsk_val),
                                     arg.hndsk.hndsk_len, op_errno, out);
 
-        ret = glusterd_submit_request (peerctx->peerinfo->rpc, &arg, frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &arg, frame,
                                        &gd_clnt_mgmt_hndsk_prog,
                                        GD_MGMT_HNDSK_VERSIONS_ACK, NULL, this,
                                        glusterd_mgmt_hndsk_version_ack_cbk,
@@ -1738,8 +1758,11 @@ out:
         if (ret) {
                 frame->local = NULL;
                 STACK_DESTROY (frame->root);
-                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+                if (peerinfo)
+                        rpc_transport_disconnect (peerinfo->rpc->conn.trans);
         }
+
+        rcu_read_unlock ();
 
         if (rsp.hndsk.hndsk_val)
                 free (rsp.hndsk.hndsk_val);
@@ -1769,6 +1792,7 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
 {
         call_frame_t        *frame    = NULL;
         gf_mgmt_hndsk_req    req      = {{0,},};
+        glusterd_peerinfo_t *peerinfo = NULL;
         int                  ret      = -1;
 
         frame = create_frame (this, this->ctx->pool);
@@ -1777,12 +1801,23 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
 
         frame->local = peerctx;
 
-        ret = glusterd_submit_request (peerctx->peerinfo->rpc, &req, frame,
+        rcu_read_lock ();
+
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
+                        peerctx->peername, uuid_utoa (peerctx->peerid));
+                goto unlock;
+        }
+
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame,
                                        &gd_clnt_mgmt_hndsk_prog,
                                        GD_MGMT_HNDSK_VERSIONS, NULL, this,
                                        glusterd_mgmt_hndsk_version_cbk,
                                        (xdrproc_t)xdr_gf_mgmt_hndsk_req);
         ret = 0;
+unlock:
+        rcu_read_unlock ();
 out:
         if (ret && frame)
                 STACK_DESTROY (frame->root);
@@ -1894,7 +1929,15 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         conf = this->private;
         frame = myframe;
         peerctx = frame->local;
-        peerinfo = peerctx->peerinfo;
+
+        rcu_read_lock ();
+
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                gf_log (this->name, GF_LOG_DEBUG, "Couldn't find peer %s(%s)",
+                        peerctx->peername, uuid_utoa (peerctx->peerid));
+                goto out;
+        }
 
         if (-1 == req->rpc_status) {
                 snprintf (msg, sizeof (msg),
@@ -1954,12 +1997,16 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
                         peerctx->args.mode);
         }
 
-        glusterd_friend_sm();
-        glusterd_op_sm();
-
         ret = 0;
 
 out:
+        if (ret != 0 && peerinfo)
+                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+
+        rcu_read_unlock ();
+
+        glusterd_friend_sm();
+        glusterd_op_sm();
 
         /* don't use GF_FREE, buffer was allocated by libc */
         if (rsp.prog) {
@@ -1974,9 +2021,6 @@ out:
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
-
-        if (ret != 0)
-                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
 
         return 0;
 }
@@ -1996,6 +2040,7 @@ glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
 {
         call_frame_t        *frame    = NULL;
         gf_dump_req          req      = {0,};
+        glusterd_peerinfo_t *peerinfo = NULL;
         int                  ret      = -1;
 
         frame = create_frame (this, this->ctx->pool);
@@ -2004,13 +2049,24 @@ glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
 
         frame->local = peerctx;
 
+        rcu_read_lock ();
+
+        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                gf_log (this->name, GF_LOG_DEBUG, "Couldn't find peer %s(%s)",
+                        peerctx->peername, uuid_utoa (peerctx->peerid));
+                goto unlock;
+        }
+
         req.gfs_id = 0xcafe;
 
-        ret = glusterd_submit_request (peerctx->peerinfo->rpc, &req, frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame,
                                        &glusterd_dump_prog, GF_DUMP_DUMP,
                                        NULL, this,
                                        glusterd_peer_dump_version_cbk,
                                        (xdrproc_t)xdr_gf_dump_req);
+unlock:
+        rcu_read_unlock ();
 out:
         return ret;
 }

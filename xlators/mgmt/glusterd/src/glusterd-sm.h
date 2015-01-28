@@ -124,7 +124,9 @@ typedef struct glusterd_peer_ctx_args_ {
 
 typedef struct glusterd_peer_ctx_ {
         glusterd_peerctx_args_t        args;
-        glusterd_peerinfo_t            *peerinfo;
+        //glusterd_peerinfo_t            *peerinfo;
+        uuid_t                         peerid;
+        char                           *peername;
         char                           *errstr;
 } glusterd_peerctx_t;
 
