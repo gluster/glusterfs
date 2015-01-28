@@ -830,7 +830,7 @@ class SlaveRemote(object):
             ['-avR0', '--inplace', '--files-from=-', '--super',
              '--stats', '--numeric-ids', '--no-implied-dirs'] + \
             gconf.rsync_options.split() + \
-            (boolify(gconf.use_rsync_xattrs) and ['--xattrs'] or []) + \
+            (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
             ['.'] + list(args)
         po = Popen(argv, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         for f in files:
@@ -852,9 +852,13 @@ class SlaveRemote(object):
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
         (host, rdir) = slaveurl.split(':')
-        tar_cmd = ["tar", "-cf", "-", "--files-from", "-"]
+        tar_cmd = ["tar"] + \
+            (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
+            ["-cf", "-", "--files-from", "-"]
         ssh_cmd = gconf.ssh_command_tar.split() + \
-            [host, "tar", "--overwrite", "-xf", "-", "-C", rdir]
+            [host, "tar"] + \
+            (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
+            ["--overwrite", "-xf", "-", "-C", rdir]
         p0 = Popen(tar_cmd, stdout=subprocess.PIPE,
                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         p1 = Popen(ssh_cmd, stdin=p0.stdout, stderr=subprocess.PIPE)

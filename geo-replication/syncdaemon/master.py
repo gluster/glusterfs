@@ -971,6 +971,11 @@ class GMasterChangelogMixin(GMasterCommon):
                                                       st_mtime=ec[6])))
                     else:
                         meta_gfid.add((os.path.join(pfx, ec[0]), ))
+                elif ec[1] == 'SETXATTR':
+                    # To sync xattr use rsync/tar, --xattrs switch
+                    # to rsync and tar
+                    if boolify(gconf.sync_xattrs):
+                        datas.add(os.path.join(pfx, ec[0]))
             else:
                 logging.warn('got invalid changelog type: %s' % (et))
         logging.debug('entries: %s' % repr(entries))
