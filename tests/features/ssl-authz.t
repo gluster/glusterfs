@@ -50,6 +50,7 @@ TEST $CLI volume set $V0 server.ssl on
 TEST $CLI volume set $V0 client.ssl on
 #EST $CLI volume set $V0 ssl.cipher-list $(valid_ciphers)
 TEST $CLI volume start $V0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
 
 # This mount should SUCCEED because ssl-allow=* by default.  This effectively
 # disables SSL authorization, though authentication and encryption might still
@@ -62,6 +63,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume set $V0 auth.ssl-allow Any*
 TEST $CLI volume start $V0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
 
 # This mount should SUCCEED because we match the wildcard.
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
@@ -90,7 +92,12 @@ TEST $CLI volume start $V0
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 
 # Looks like /*/bin/glusterfs isn't returning error status correctly (again).
-# Actually try doing something to get a real error.
-TEST ! ping_file $M0/after
+# We may get an unusable mount where ping will fail, or no mount at all,
+# where ping will write to the mount point instead of the mounted filesystem.
+# In order to avoid spurious failures, create a file by ping and check it
+# is absent from the brick.
+ping_file $M0/after
+TEST test -f $B0/1/before
+TEST ! test -f $B0/1/after
 
 cleanup;

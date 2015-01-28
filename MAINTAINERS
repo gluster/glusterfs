@@ -50,7 +50,6 @@ Descriptions of section entries:
 
 General Project Architects
 --------------------------
-M: Amar Tumballi <amarts@gmail.com>
 M: Anand Avati <avati@redhat.com>
 M: Jeff Darcy <jdarcy@redhat.com>
 M: Kaleb S. Keithley <kkeithle@redhat.com>
@@ -65,8 +64,7 @@ S: Maintained
 F: xlators/cluster/afr/
 
 Block Device
-M: M. Mohan Kumar <mohan@in.ibm.com>
-S: Maintained
+S: Orphan
 F: xlators/storage/bd/
 
 Changelog
@@ -77,7 +75,6 @@ F: xlators/features/changelog/
 Distributed Hashing Table (DHT)
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 M: Shyamsundar Ranganathan <srangana@redhat.com>
-M: Shishir Gowda <gowda.shishir@gmail.com>
 S: Maintained
 F: xlators/cluster/dht/
 
@@ -168,7 +165,6 @@ F: xlators/mgmt/
 
 Remote Procedure Call subsystem
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-M: Amar Tumballi <amarts@gmail.com>
 M: Anand Avati <avati@redhat.com>
 S: Maintained
 F: rpc/
@@ -243,7 +239,6 @@ F: block/gluster.c
 
 Samba VFS plugin
 M: Raghavendra Talur <rtalur@redhat.com>
-M: Chris Hertel <chertel@redhat.com>
 M: Jose Rivera <jrivera@redhat.com>
 M: Ira Cooper <icooper@redhat.com>
 S: Maintained
@@ -257,3 +252,12 @@ W: https://forge.gluster.org/wireshark
 T: http://code.wireshark.org/git/wireshark
 F: epan/dissectors/packet-gluster*
 
+Special Thanks
+--------------
+
+GlusterFS would not be possible without the contributions of:
+
+M: Amar Tumballi <amarts@gmail.com>
+M: Chris Hertel <chertel@redhat.com>
+M: M. Mohan Kumar <mohan@in.ibm.com>
+M: Shishir Gowda <gowda.shishir@gmail.com>

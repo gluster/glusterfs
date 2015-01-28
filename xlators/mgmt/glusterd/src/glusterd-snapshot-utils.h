@@ -134,7 +134,7 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
 
 int
 glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,
-                                   glusterd_volinfo_t *volinfo,
+                                   char *volname,
                                    glusterd_snap_t *snap);
 
 int
