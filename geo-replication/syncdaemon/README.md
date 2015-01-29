@@ -12,7 +12,7 @@ Requirements are categorized according to this.
 * OpenSSH >= 4.0 (master) / SSH2 compliant sshd (eg. openssh) (slave)
 * rsync (both)
 * glusterfs: with marker and changelog support (master & slave);
-* FUSE: glusterfs fuse module with auxilary gfid based access support
+* FUSE: glusterfs fuse module with auxiliary gfid based access support
 
 INSTALLATION
 ------------
@@ -45,7 +45,7 @@ in the source tree.
 USAGE
 -----
 
-gsyncd is a utilitly for continous mirroring, ie. it mirrors master to slave incrementally.
+gsyncd is a utilitly for continuous mirroring, ie. it mirrors master to slave incrementally.
 Assume we have a gluster volume _pop_ at localhost. We try to set up the mirroring for volume
 _pop_ using gsyncd for gluster volume _moz_ on remote machine/cluster @ example.com. The
 respective gsyncd invocations are (demoing some syntax sugaring):

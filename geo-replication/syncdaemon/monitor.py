@@ -356,7 +356,7 @@ def distribute(*resources):
         slave_host = slave.remote_addr.split('@')[-1]
         slave_vol = si.volume
     else:
-        raise GsyncdError("unkown slave type " + slave.url)
+        raise GsyncdError("unknown slave type " + slave.url)
     logging.info('slave bricks: ' + repr(sbricks))
     if isinstance(si, FILE):
         slaves = [slave.url]

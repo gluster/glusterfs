@@ -43,7 +43,7 @@ except ImportError:
     # py 2.4
     from md5 import new as md5
 
-# auxillary gfid based access prefix
+# auxiliary gfid based access prefix
 _CL_AUX_GFID_PFX = ".gfid/"
 GF_OP_RETRIES = 20
 

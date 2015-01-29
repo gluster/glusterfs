@@ -95,7 +95,7 @@ def upgrade_config_file(path):
 
         # If src and dst are two different file system, then os.rename
         # fails, In this case if temp file created in /tmp and if /tmp is
-        # seperate fs then os.rename gives following error, so use shutil
+        # separate fs then os.rename gives following error, so use shutil
         # OSError: [Errno 18] Invalid cross-device link
         # mail.python.org/pipermail/python-list/2005-February/342893.html
         shutil.move(tempConfigFile.name, path)
