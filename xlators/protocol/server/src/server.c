@@ -1144,7 +1144,7 @@ struct volume_options options[] = {
           .type          = GF_OPTION_TYPE_PATH,
           .default_value = DEFAULT_VAR_RUN_DIRECTORY,
           .description = "Specifies directory in which gluster should save its"
-                         " statedumps. By default it is the /tmp directory"
+                         " statedumps."
         },
         { .key   = {"lk-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
