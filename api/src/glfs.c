@@ -563,7 +563,8 @@ pub_glfs_new (const char *volname)
 	if (ret)
 		return NULL;
 
-	THIS->ctx = ctx;
+        if (!THIS->ctx)
+                THIS->ctx = ctx;
 
 	/* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
 	ret = glusterfs_ctx_defaults_init (ctx);

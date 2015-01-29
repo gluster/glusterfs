@@ -93,6 +93,7 @@ void ec_dispatch_one(ec_fop_data_t * fop);
 
 void ec_wait_winds(ec_fop_data_t * fop);
 
+void ec_sleep(ec_fop_data_t *fop);
 void ec_resume(ec_fop_data_t * fop, int32_t error);
 void ec_resume_parent(ec_fop_data_t * fop, int32_t error);
 

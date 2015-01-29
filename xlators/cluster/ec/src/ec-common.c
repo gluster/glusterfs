@@ -232,6 +232,16 @@ void ec_fop_set_error(ec_fop_data_t * fop, int32_t error)
     UNLOCK(&fop->lock);
 }
 
+void ec_sleep(ec_fop_data_t *fop)
+{
+    LOCK(&fop->lock);
+
+    fop->refs++;
+    fop->jobs++;
+
+    UNLOCK(&fop->lock);
+}
+
 int32_t ec_check_complete(ec_fop_data_t * fop, ec_resume_f resume)
 {
     int32_t error = -1;
@@ -435,12 +445,7 @@ int32_t ec_child_select(ec_fop_data_t * fop)
         return 0;
     }
 
-    LOCK(&fop->lock);
-
-    fop->jobs++;
-    fop->refs++;
-
-    UNLOCK(&fop->lock);
+    ec_sleep(fop);
 
     return 1;
 }
@@ -637,22 +642,23 @@ int32_t ec_lock_compare(ec_lock_t * lock1, ec_lock_t * lock2)
 ec_lock_link_t *ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock,
                                int32_t update)
 {
-    ec_lock_t * tmp;
+    ec_lock_t *new_lock, *tmp;
     ec_lock_link_t *link = NULL;
     int32_t tmp_update;
 
+    new_lock = lock;
     if ((fop->lock_count > 0) &&
-        (ec_lock_compare(fop->locks[0].lock, lock) > 0))
+        (ec_lock_compare(fop->locks[0].lock, new_lock) > 0))
     {
         tmp = fop->locks[0].lock;
-        fop->locks[0].lock = lock;
-        lock = tmp;
+        fop->locks[0].lock = new_lock;
+        new_lock = tmp;
 
         tmp_update = fop->locks_update;
         fop->locks_update = update;
         update = tmp_update;
     }
-    fop->locks[fop->lock_count].lock = lock;
+    fop->locks[fop->lock_count].lock = new_lock;
     fop->locks[fop->lock_count].fop = fop;
 
     fop->locks_update |= update << fop->lock_count;
@@ -692,6 +698,16 @@ void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update)
             ec_fop_set_error(fop, EIO);
 
             return;
+        }
+
+        /* If there's another lock, make sure that it's not the same. Otherwise
+         * do not insert it.
+         *
+         * This can only happen on renames where source and target names are
+         * in the same directory. */
+        if ((fop->lock_count > 0) &&
+            (fop->locks[0].lock->loc.inode == tmp.inode)) {
+            goto wipe;
         }
     } else {
         if (ec_loc_from_loc(fop->xl, &tmp, loc) != 0) {
@@ -742,6 +758,7 @@ insert:
 unlock:
     UNLOCK(&tmp.inode->lock);
 
+wipe:
     loc_wipe(&tmp);
 
     if (link != NULL) {
@@ -870,12 +887,7 @@ void ec_lock(ec_fop_data_t * fop)
 
             list_add_tail(&fop->locks[fop->locked].wait_list, &lock->waiting);
 
-            LOCK(&fop->lock);
-
-            fop->jobs++;
-            fop->refs++;
-
-            UNLOCK(&fop->lock);
+            ec_sleep(fop);
 
             UNLOCK(&lock->loc.inode->lock);
 
@@ -1332,12 +1344,7 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
         delay.tv_sec = 1;
         delay.tv_nsec = 0;
 
-        LOCK(&fop->lock);
-
-        fop->jobs++;
-        fop->refs++;
-
-        UNLOCK(&fop->lock);
+        ec_sleep(fop);
 
         /* If healing is needed, do not delay lock release to let self-heal
          * start working as soon as possible. */
@@ -1356,6 +1363,7 @@ void ec_unlock_timer_add(ec_lock_link_t *link)
                 refs = 0;
             }
         } else {
+            ec_trace("UNLOCK_FORCE", fop, "lock=%p", lock);
             *lock->plock = NULL;
             refs = 0;
         }

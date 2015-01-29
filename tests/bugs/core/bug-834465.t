@@ -16,7 +16,9 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 MOUNTDIR=$M0;
-TEST glusterfs --mem-accounting --volfile-server=$H0 --volfile-id=$V0 $MOUNTDIR;
+
+#memory-accounting is enabled by default
+TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $MOUNTDIR;
 
 sdump1=$(generate_mount_statedump $V0);
 nalloc1=0
