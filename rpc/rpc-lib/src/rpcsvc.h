@@ -582,6 +582,11 @@ rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen);
 extern char *
 rpcsvc_volume_allowed (dict_t *options, char *volname);
 
+int rpcsvc_request_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
+                           rpcsvc_cbk_program_t *prog, int procnum,
+                           void *req, glusterfs_ctx_t *ctx,
+                           xdrproc_t xdrproc);
+
 int rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                             rpcsvc_cbk_program_t *prog, int procnum,
                             struct iovec *proghdr, int proghdrcount);

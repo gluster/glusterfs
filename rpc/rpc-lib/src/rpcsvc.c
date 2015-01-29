@@ -985,6 +985,48 @@ out:
         return request_iob;
 }
 
+int rpcsvc_request_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
+                           rpcsvc_cbk_program_t *prog, int procnum,
+                           void *req, glusterfs_ctx_t *ctx,
+                           xdrproc_t xdrproc)
+{
+        int                     ret         = -1;
+        int                     count       = 0;
+        struct iovec            iov         = {0, };
+        struct iobuf            *iobuf      = NULL;
+        ssize_t                 xdr_size    = 0;
+
+        if (!req)
+                goto out;
+
+        xdr_size = xdr_sizeof (xdrproc, req);
+
+        iobuf = iobuf_get2 (ctx->iobuf_pool, xdr_size);
+        if (!iobuf)
+                goto out;
+
+        iov.iov_base = iobuf->ptr;
+        iov.iov_len  = iobuf_pagesize (iobuf);
+
+        ret = xdr_serialize_generic (iov, req, xdrproc);
+        if (ret == -1) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to create XDR payload");
+                goto out;
+        }
+        iov.iov_len = ret;
+        count = 1;
+
+        ret = rpcsvc_callback_submit (rpc, trans, prog, procnum,
+                                      &iov, count);
+
+out:
+        if (iobuf)
+                iobuf_unref (iobuf);
+
+        return ret;
+}
+
 int
 rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                         rpcsvc_cbk_program_t *prog, int procnum,
