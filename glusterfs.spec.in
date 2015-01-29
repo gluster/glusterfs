@@ -955,6 +955,10 @@ fi
 %{_datadir}/glusterfs/scripts/generate-gfid-file.sh
 %{_datadir}/glusterfs/scripts/gsync-sync-gfid
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
+%{_libexecdir}/glusterfs/gfind_missing_files
+%{_sbindir}/gfind_missing_files
+%exclude %{_libexecdir}/glusterfs/gfind_missing_files/gfid_to_path.pyo
+%exclude %{_libexecdir}/glusterfs/gfind_missing_files/gfid_to_path.pyc
 %endif
 
 %files libs
@@ -1049,6 +1053,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Thu Mar 12 2015 Kotresh H R <khiremat@redhat.com>
+- gfind_missing_files tool is included (#1187140)
+
 * Thu Feb 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - enable cmocka unittest support only when asked for (#1067059)
 

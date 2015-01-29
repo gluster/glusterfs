@@ -211,6 +211,8 @@ AC_CONFIG_FILES([Makefile
                 geo-replication/Makefile
                 geo-replication/src/Makefile
                 geo-replication/syncdaemon/Makefile
+                tools/Makefile
+                tools/gfind_missing_files/Makefile
                 heal/Makefile
                 heal/src/Makefile
                 glusterfs.spec])
