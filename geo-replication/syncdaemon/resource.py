@@ -845,8 +845,8 @@ class SlaveRemote(object):
 
     def tarssh(self, files, slaveurl):
         """invoke tar+ssh
-        -z (compress) can be use if needed, but ommitting it now
-        as it results in wierd error (tar+ssh errors out (errcode: 2)
+        -z (compress) can be use if needed, but omitting it now
+        as it results in weird error (tar+ssh errors out (errcode: 2)
         """
         if not files:
             raise GsyncdError("no files to sync")

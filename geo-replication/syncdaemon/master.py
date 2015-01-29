@@ -478,7 +478,7 @@ class GMasterCommon(object):
         # no need to maintain volinfo state machine.
         # in a cascading setup, each geo-replication session is
         # independent (ie. 'volume-mark' and 'xtime' are not
-        # propogated). This is beacuse the slave's xtime is now
+        # propogated). This is because the slave's xtime is now
         # stored on the master itself. 'volume-mark' just identifies
         # that we are in a cascading setup and need to enable
         # 'geo-replication.ignore-pid-check' option.
@@ -717,7 +717,7 @@ class GMasterCommon(object):
         """perform jobs registered for @path
 
         Reset jobtab entry for @path,
-        determine success as the conjuction of
+        determine success as the conjunction of
         success of all the jobs. In case of
         success, call .sendmark on @path
         """
@@ -766,7 +766,7 @@ class GMasterChangelogMixin(GMasterCommon):
     TYPE_GFID = "D "
     TYPE_ENTRY = "E "
 
-    # flat directory heirarchy for gfid based access
+    # flat directory hierarchy for gfid based access
     FLAT_DIR_HIERARCHY = '.'
 
     # maximum retries per changelog before giving up
@@ -979,7 +979,7 @@ class GMasterChangelogMixin(GMasterCommon):
             # update the slave's time with the timestamp of the _last_
             # changelog file time suffix. Since, the changelog prefix time
             # is the time when the changelog was rolled over, introduce a
-            # tolerence of 1 second to counter the small delta b/w the
+            # tolerance of 1 second to counter the small delta b/w the
             # marker update and gettimeofday().
             # NOTE: this is only for changelog mode, not xsync.
 
@@ -1297,7 +1297,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
 
     """
     This crawl needs to be xtime based (as of now
-    it's not. this is beacuse we generate CHANGELOG
+    it's not. this is because we generate CHANGELOG
     file during each crawl which is then processed
     by process_change()).
     For now it's used as a one-shot initial sync
@@ -1329,7 +1329,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         event dispatcher thread
 
         this thread dispatches either changelog or synchronizes stime.
-        additionally terminates itself on recieving a 'finale' event
+        additionally terminates itself on receiving a 'finale' event
         """
         def Xsyncer():
             self.Xcrawl()

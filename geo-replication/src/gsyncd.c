@@ -370,7 +370,7 @@ main (int argc, char **argv)
         evas = getenv (_GLUSTERD_CALLED_);
         if (evas && strcmp (evas, "1") == 0)
                 /* OK, we know glusterd called us, no need to look for further config
-                 * ... altough this conclusion should not inherit to our children
+                 *...although this conclusion should not inherit to our children
                  */
                 unsetenv (_GLUSTERD_CALLED_);
         else {
