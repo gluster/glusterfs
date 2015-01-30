@@ -621,11 +621,6 @@ ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
     ec_fd_t * ctx = NULL;
     uint64_t value = 0;
 
-    if (fd->anonymous)
-    {
-        return NULL;
-    }
-
     if ((__fd_ctx_get(fd, xl, &value) != 0) || (value == 0))
     {
         ctx = GF_MALLOC(sizeof(*ctx), ec_mt_ec_fd_t);
@@ -647,6 +642,14 @@ ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
         ctx = (ec_fd_t *)(uintptr_t)value;
     }
 
+    /* Treat anonymous fd specially */
+    if (fd->anonymous) {
+        /* Mark the fd open for all subvolumes. */
+        ctx->open = -1;
+        /* Try to populate ctx->loc with fd->inode information. */
+        ec_loc_update(xl, &ctx->loc, fd->inode, NULL);
+    }
+
     return ctx;
 }
 
@@ -654,14 +657,11 @@ ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl)
 {
     ec_fd_t * ctx = NULL;
 
-    if (!fd->anonymous)
-    {
-        LOCK(&fd->lock);
+    LOCK(&fd->lock);
 
-        ctx = __ec_fd_get(fd, xl);
+    ctx = __ec_fd_get(fd, xl);
 
-        UNLOCK(&fd->lock);
-    }
+    UNLOCK(&fd->lock);
 
     return ctx;
 }
