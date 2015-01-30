@@ -156,7 +156,7 @@ EXPECT "0" echo $?
 $CLI volume heal $V0 split-brain source-brick $H0:$B0/${V0}3
 EXPECT "0" echo $?
 
-############### Reading the files should now suceed. ###############################
+############### Reading the files should now succeed. ###############################
 TEST  cat file1
 TEST  cat file2
 TEST  cat file3

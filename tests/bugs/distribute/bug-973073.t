@@ -3,7 +3,7 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../dht.rc
 
-## Steps followed are one descibed in bugzilla
+## Steps followed are one described in bugzilla
 
 cleanup;
 

@@ -116,7 +116,7 @@ EXPECT "150.0MB" hard_limit "/test_dir/in_test_dir";
 
 ###################################################
 ## ------------------------------------------------
-## <Test quota functionality in add-brick senarios>
+## <Test quota functionality in add-brick scenarios>
 ## ------------------------------------------------
 ###################################################
 QUOTALIMIT=100
@@ -188,7 +188,7 @@ TEST getfattr -d -m "trusted.glusterfs.quota.limit-set" -e hex \
               --absolute-names $B0/brick{3,4};
 
 ## -------------------------------------------------
-## </Test quota functionality in add-brick senarios>
+## </Test quota functionality in add-brick scenarios>
 ## -------------------------------------------------
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
