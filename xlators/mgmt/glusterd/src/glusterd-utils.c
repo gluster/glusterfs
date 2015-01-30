@@ -1096,6 +1096,107 @@ out:
 }
 #endif
 
+gf_boolean_t
+glusterd_is_get_op (xlator_t *this, glusterd_op_t op, dict_t *dict)
+{
+        char            *key = NULL;
+        char            *volname = NULL;
+        int             ret = 0;
+
+        if (op == GD_OP_STATUS_VOLUME)
+                return _gf_true;
+
+        if (op == GD_OP_SET_VOLUME) {
+                /*check for set volume help*/
+                ret = dict_get_str (dict, "volname", &volname);
+                if (volname &&
+                    ((strcmp (volname, "help") == 0) ||
+                     (strcmp (volname, "help-xml") == 0))) {
+                        ret = dict_get_str (dict, "key1", &key);
+                        if (ret < 0)
+                                return _gf_true;
+                }
+        }
+        return _gf_false;
+}
+
+gf_boolean_t
+glusterd_is_quorum_validation_required (xlator_t *this, glusterd_op_t op,
+                                        dict_t *dict)
+{
+        gf_boolean_t    required = _gf_true;
+        char            *key = NULL;
+        char            *key_fixed = NULL;
+        int             ret = -1;
+
+        if (glusterd_is_get_op (this, op, dict)) {
+                required = _gf_false;
+                goto out;
+        }
+        if ((op != GD_OP_SET_VOLUME) && (op != GD_OP_RESET_VOLUME))
+                goto out;
+        if (op == GD_OP_SET_VOLUME)
+                ret = dict_get_str (dict, "key1", &key);
+        else if (op == GD_OP_RESET_VOLUME)
+                ret = dict_get_str (dict, "key", &key);
+        if (ret)
+                goto out;
+        ret = glusterd_check_option_exists (key, &key_fixed);
+        if (ret <= 0)
+                goto out;
+        if (key_fixed)
+                key = key_fixed;
+        if (glusterd_is_quorum_option (key))
+                required = _gf_false;
+out:
+        GF_FREE (key_fixed);
+        return required;
+}
+
+/* This function should not be used when the quorum validation needs to happen
+ * on non-global peer list */
+int
+glusterd_validate_quorum (xlator_t *this, glusterd_op_t op,
+                             dict_t *dict, char **op_errstr)
+{
+        int                      ret     = 0;
+        char                    *volname = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        char                    *errstr  = NULL;
+
+        errstr = "Quorum not met. Volume operation not allowed.";
+        if (!glusterd_is_quorum_validation_required (this, op, dict))
+                goto out;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        /* Passing NULL implies quorum calculation will happen on global peer
+         * list */
+        if (does_gd_meet_server_quorum (this, NULL, _gf_false)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (glusterd_is_volume_in_server_quorum (volinfo)) {
+                ret = -1;
+                *op_errstr = gf_strdup (errstr);
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                         uuid_t volume_id, char **op_errstr,
@@ -4964,7 +5065,7 @@ glusterd_nodesvcs_batch_op (glusterd_volinfo_t *volinfo, int (*nfs_op) (),
         if (ret)
                 goto out;
 
-        if (volinfo && !glusterd_is_volume_replicate (volinfo)) {
+        if (volinfo && !glusterd_is_shd_compatible_volume (volinfo)) {
                 ; //do nothing
         } else {
                 ret = shd_op ();
@@ -5026,7 +5127,7 @@ glusterd_are_all_volumes_stopped ()
 }
 
 gf_boolean_t
-glusterd_all_replicate_volumes_stopped ()
+glusterd_all_shd_compatible_volumes_stopped ()
 {
         glusterd_conf_t                         *priv = NULL;
         xlator_t                                *this = NULL;
@@ -5038,7 +5139,7 @@ glusterd_all_replicate_volumes_stopped ()
         GF_ASSERT (priv);
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (!glusterd_is_volume_replicate (voliter))
+                if (!glusterd_is_shd_compatible_volume (voliter))
                         continue;
                 if (voliter->status == GLUSTERD_STATUS_STARTED)
                         return _gf_false;
@@ -5088,7 +5189,7 @@ glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo)
                 nfs_op = glusterd_nfs_server_stop;
                 qd_op  = glusterd_quotad_stop;
         } else {
-                if (glusterd_all_replicate_volumes_stopped()) {
+                if (glusterd_all_shd_compatible_volumes_stopped()) {
                         shd_op = glusterd_shd_stop;
                 }
                 if (glusterd_all_volumes_with_quota_stopped ()) {
@@ -6995,6 +7096,19 @@ glusterd_is_volume_replicate (glusterd_volinfo_t *volinfo)
             (volinfo->type == GF_CLUSTER_TYPE_STRIPE_REPLICATE)))
                 replicates = _gf_true;
         return replicates;
+}
+
+gf_boolean_t
+glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo)
+{
+        switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_REPLICATE:
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+        case GF_CLUSTER_TYPE_DISPERSE:
+                return _gf_true;
+
+        }
+        return _gf_false;
 }
 
 int
@@ -9828,9 +9942,14 @@ glusterd_remove_auxiliary_mount (char *volname)
 
         GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
         ret = gf_umount_lazy (this->name, mountdir, 1);
-        if (ret)
+        if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "umount on %s failed, "
                         "reason : %s", mountdir, strerror (errno));
+
+                /* Hide EBADF as it means the mount is already gone */
+                if (errno == EBADF)
+                       ret = 0;
+        }
 
         return ret;
 }
@@ -9882,78 +10001,6 @@ glusterd_compare_volume_name(struct list_head *list1, struct list_head *list2)
         volinfo1 = list_entry(list1, glusterd_volinfo_t, vol_list);
         volinfo2 = list_entry(list2, glusterd_volinfo_t, vol_list);
         return strcmp(volinfo1->volname, volinfo2->volname);
-}
-
-/* This is an utility function which will recursively delete
- * a folder and its contents.
- *
- * @param delete_path folder to be deleted.
- *
- * @return 0 on success and -1 on failure.
- */
-int
-glusterd_recursive_rmdir (const char *delete_path)
-{
-        int             ret             = -1;
-        char            path [PATH_MAX] = {0,};
-        struct stat     st              = {0,};
-        DIR            *dir             = NULL;
-        struct dirent  *entry           = NULL;
-        xlator_t       *this            = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        GF_VALIDATE_OR_GOTO (this->name, delete_path, out);
-
-        dir = opendir (delete_path);
-        if (!dir) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to open directory %s."
-                        " Reason : %s", delete_path, strerror (errno));
-                ret = 0;
-                goto out;
-        }
-
-        glusterd_for_each_entry (entry, dir);
-        while (entry) {
-                snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
-                ret = lstat (path, &st);
-                if (ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
-                                "entry %s : %s", path, strerror (errno));
-                        goto out;
-                }
-
-                if (S_ISDIR (st.st_mode))
-                        ret = glusterd_recursive_rmdir (path);
-                else
-                        ret = unlink (path);
-
-                if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, " Failed to remove "
-                                "%s. Reason : %s", path, strerror (errno));
-                }
-
-                gf_log (this->name, GF_LOG_DEBUG, "%s %s",
-                                ret ? "Failed to remove":"Removed",
-                                entry->d_name);
-
-                glusterd_for_each_entry (entry, dir);
-        }
-
-        ret = closedir (dir);
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to close dir %s. "
-                        "Reason : %s", delete_path, strerror (errno));
-        }
-
-        ret = rmdir (delete_path);
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s,err: %s",
-                        delete_path, strerror (errno));
-        }
-
-out:
-        return ret;
 }
 
 static int

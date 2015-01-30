@@ -394,10 +394,12 @@ done:
 static void
 ssl_teardown_connection (socket_private_t *priv)
 {
-        SSL_shutdown(priv->ssl_ssl);
-        SSL_clear(priv->ssl_ssl);
-        SSL_free(priv->ssl_ssl);
-        priv->ssl_ssl = NULL;
+        if (priv->ssl_ssl) {
+                SSL_shutdown(priv->ssl_ssl);
+                SSL_clear(priv->ssl_ssl);
+                SSL_free(priv->ssl_ssl);
+                priv->ssl_ssl = NULL;
+        }
         priv->use_ssl = _gf_false;
 }
 
@@ -560,12 +562,19 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                         --opcount;
                         continue;
                 }
-                if (write) {
+                if (priv->use_ssl && !priv->ssl_ssl) {
+                        /*
+                         * We could end up here with priv->ssl_ssl still NULL
+                         * if (a) the connection failed and (b) some fool
+                         * called other socket functions anyway.  Demoting to
+                         * non-SSL might be insecure, so just fail it outright.
+                         */
+                        ret = -1;
+                } else if (write) {
 			if (priv->use_ssl) {
-				ret = ssl_write_one(this,
-					opvector->iov_base, opvector->iov_len);
-			}
-			else {
+                                ret = ssl_write_one (this, opvector->iov_base,
+                                                     opvector->iov_len);
+			} else {
 				ret = writev (sock, opvector, IOV_MIN(opcount));
 			}
 
@@ -611,7 +620,7 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                                         strerror (errno));
                         }
 
-			if (priv->use_ssl) {
+			if (priv->use_ssl && priv->ssl_ssl) {
 				ssl_dump_error_stack(this->name);
 			}
                         opcount = -1;
@@ -3050,7 +3059,6 @@ handler:
                         if (priv->own_thread) {
                                 close(priv->sock);
                                 priv->sock = -1;
-                                goto unlock;
                         }
                         else {
                                 /* Ignore error from connect. epoll events

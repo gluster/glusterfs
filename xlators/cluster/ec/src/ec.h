@@ -36,6 +36,8 @@ struct _ec
     uint32_t          idx;
     uint32_t          xl_up_count;
     uintptr_t         xl_up;
+    uint32_t          xl_notify_count;
+    uintptr_t         xl_notify;
     uintptr_t         node_mask;
     xlator_t **       xl_list;
     gf_lock_t         lock;
@@ -43,6 +45,8 @@ struct _ec
     struct mem_pool * fop_pool;
     struct mem_pool * cbk_pool;
     struct mem_pool * lock_pool;
+    gf_boolean_t      shd;
+    gf_boolean_t      iamshd;
 };
 
 #endif /* __EC_H__ */

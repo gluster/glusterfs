@@ -2636,8 +2636,10 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         this_call_cnt = dht_frame_return (frame);
 
-        if (!xattr || (op_ret == -1))
+        if (!xattr || (op_ret == -1)) {
+                local->op_ret = op_ret;
                 goto out;
+        }
 
         if (dict_get (xattr, conf->xattr_name)) {
                 dict_del (xattr, conf->xattr_name);
@@ -2808,7 +2810,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         subvol = layout->list[i].xlator;
                         STACK_WIND (frame, dht_vgetxattr_dir_cbk,
                                     subvol, subvol->fops->getxattr,
-                                    loc, key, NULL);
+                                    loc, key, xdata);
                 }
                 return 0;
         }
@@ -2821,7 +2823,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
                 local->call_cnt = 1;
                 STACK_WIND (frame, dht_vgetxattr_cbk, cached_subvol,
-                            cached_subvol->fops->getxattr, loc, key, NULL);
+                            cached_subvol->fops->getxattr, loc, key, xdata);
 
                 return 0;
         }
@@ -2854,7 +2856,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 if (hashed_subvol) {
                         STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
                                     hashed_subvol->fops->getxattr, loc,
-                                    GF_XATTR_PATHINFO_KEY, NULL);
+                                    GF_XATTR_PATHINFO_KEY, xdata);
                         return 0;
                 }
                 op_errno = ENODATA;
@@ -2933,7 +2935,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 subvol = layout->list[i].xlator;
                 STACK_WIND (frame, dht_getxattr_cbk,
                             subvol, subvol->fops->getxattr,
-                            loc, key, NULL);
+                            loc, key, xdata);
         }
         return 0;
 
@@ -4814,6 +4816,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         int           ret = -1;
         gf_boolean_t subvol_filled = _gf_false;
+        gf_boolean_t dir_exists = _gf_false;
         call_frame_t *prev = NULL;
         dht_layout_t *layout = NULL;
 
@@ -4829,7 +4832,7 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 -1, ENOSPC, NULL);
                 } else {
-			if (op_ret == -1 && op_errno == EEXIST)
+			if (op_ret == -1 && op_errno == EEXIST) {
 				/* Very likely just a race between mkdir and
 				   self-heal (from lookup of a concurrent mkdir
 				   attempt).
@@ -4838,6 +4841,8 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				   pre-existing different directory.
 				*/
 				op_ret = 0;
+                                dir_exists = _gf_true;
+                        }
                         ret = dht_layout_merge (this, layout, prev->this,
                                                 op_ret, op_errno, NULL);
                 }
@@ -4851,6 +4856,14 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         goto unlock;
                 }
+
+                if (dir_exists)
+                        goto unlock;
+
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
+                                prev->this);
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -5024,12 +5037,14 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
+        dht_conf_t   *conf = NULL;
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
         char gfid[GF_UUID_BUF_SIZE] ={0};
 
         local = frame->local;
         prev  = cookie;
+        conf = this->private;
 
         uuid_unparse(local->loc.gfid, gfid);
 
@@ -5038,10 +5053,11 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
                         local->op_ret   = -1;
-                        if (op_errno != ENOENT && op_errno != EACCES) {
-                                local->need_selfheal = 1;
+                        if (conf->subvolume_cnt != 1) {
+                                if (op_errno != ENOENT && op_errno != EACCES) {
+                                        local->need_selfheal = 1;
+                                }
                         }
-
 
                         gf_msg_debug (this->name, 0,
                                       "rmdir on %s for %s failed "

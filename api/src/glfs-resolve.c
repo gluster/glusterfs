@@ -837,6 +837,32 @@ __glfs_active_subvol (struct glfs *fs)
 	return new_subvol;
 }
 
+
+void
+priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
+{
+	int ref = 0;
+	xlator_t *active_subvol = NULL;
+
+	if (!subvol)
+		return;
+
+	glfs_lock (fs);
+	{
+		ref = (--subvol->winds);
+		active_subvol = fs->active_subvol;
+	}
+	glfs_unlock (fs);
+
+	if (ref == 0) {
+		assert (subvol != active_subvol);
+		xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, NULL);
+	}
+}
+
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_subvol_done, 3.4.0);
+
+
 xlator_t *
 priv_glfs_active_subvol (struct glfs *fs)
 {
@@ -865,30 +891,6 @@ priv_glfs_active_subvol (struct glfs *fs)
 }
 
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_active_subvol, 3.4.0);
-
-void
-priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
-{
-	int ref = 0;
-	xlator_t *active_subvol = NULL;
-
-	if (!subvol)
-		return;
-
-	glfs_lock (fs);
-	{
-		ref = (--subvol->winds);
-		active_subvol = fs->active_subvol;
-	}
-	glfs_unlock (fs);
-
-	if (ref == 0) {
-		assert (subvol != active_subvol);
-		xlator_notify (subvol, GF_EVENT_PARENT_DOWN, subvol, NULL);
-	}
-}
-
-GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_subvol_done, 3.4.0);
 
 int
 __glfs_cwd_set (struct glfs *fs, inode_t *inode)

@@ -1067,6 +1067,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         int32_t               nlink_samepgfid = 0;
         char                 *pgfid_xattr_key = NULL;
         gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
+        gf_boolean_t          linked          = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1110,8 +1111,10 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 }
                 op_ret = posix_create_link_if_gfid_exists (this, uuid_req,
                                                            real_path);
-                if (!op_ret)
+                if (!op_ret) {
+                        linked = _gf_true;
                         goto post_op;
+                }
         }
 
 real_op:
@@ -1145,14 +1148,6 @@ real_op:
         }
 
         entry_created = _gf_true;
-
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
 
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, gid);
@@ -1188,6 +1183,16 @@ ignore:
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
+        }
+
+        if (!linked) {
+                op_ret = posix_gfid_set (this, real_path, loc, xdata);
+                if (op_ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "setting gfid on %s failed", real_path);
+                } else {
+                        gfid_set = _gf_true;
+                }
         }
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
@@ -1326,14 +1331,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         entry_created = _gf_true;
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
-
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -1356,6 +1353,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
+        }
+
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
@@ -1724,9 +1729,9 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
-        SET_FS_ID (frame->root->uid, gid);
-
         gid = frame->root->gid;
+
+        SET_FS_ID (frame->root->uid, gid);
 
         op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
         if (op_ret == -1) {
@@ -1752,14 +1757,6 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         }
 
         entry_created = _gf_true;
-
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
 
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, gid);
@@ -1791,6 +1788,14 @@ ignore:
                 gf_log (this->name, GF_LOG_ERROR,
                         "setting xattrs on %s failed (%s)", real_path,
                         strerror (errno));
+        }
+
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
         }
 
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
@@ -2289,14 +2294,6 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (was_present)
                 goto fill_stat;
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
-        if (op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "setting gfid on %s failed", real_path);
-        } else {
-                gfid_set = _gf_true;
-        }
-
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -2329,6 +2326,14 @@ ignore:
         }
 
 fill_stat:
+        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting gfid on %s failed", real_path);
+        } else {
+                gfid_set = _gf_true;
+        }
+
         op_ret = posix_fdstat (this, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;

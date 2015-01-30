@@ -174,6 +174,9 @@ quota_local_cleanup (xlator_t *this, quota_local_t *local)
         if (local->xdata)
                 dict_unref (local->xdata);
 
+        if (local->stub)
+                call_stub_destroy (local->stub);
+
         LOCK_DESTROY (&local->lock);
 
         mem_put (local);
@@ -345,17 +348,15 @@ check_ancestory_continue (struct list_head *parents, inode_t *inode,
         frame = data;
         local = frame->local;
 
-        if (op_ret < 0 || (parents && list_empty (parents))) {
-                if (op_ret >= 0) {
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "Couldn't build ancestry for inode (gfid:%s). "
-                                "Without knowing ancestors till root, quota "
-                                "cannot be enforced. "
-                                "Hence, failing fop with EIO",
-                                uuid_utoa (inode->gfid));
-                        op_errno = EIO;
-                        op_ret = -1;
-                }
+        if (parents && list_empty (parents)) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "Couldn't build ancestry for inode (gfid:%s). "
+                        "Without knowing ancestors till root, quota "
+                        "cannot be enforced. "
+                        "Hence, failing fop with EIO",
+                        uuid_utoa (inode->gfid));
+                op_errno = EIO;
+                op_ret = -1;
         }
 
         LOCK (&local->lock);
@@ -1699,6 +1700,7 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         priv = this->private;
 
         WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+        QUOTA_WIND_FOR_INTERNAL_FOP (xdata, off);
 
         local = quota_local_new ();
         if (local == NULL) {
@@ -1813,10 +1815,6 @@ quota_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         frame->local = local;
 
-        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
-                local->skip_check = _gf_true;
-        }
-
         ret = loc_copy (&local->loc, loc);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
@@ -1859,9 +1857,6 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = (quota_local_t *) frame->local;
-
-        if (local->skip_check)
-                goto out;
 
         ret = quota_inode_ctx_get (inode, this, &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
@@ -1950,32 +1945,120 @@ unwind:
         return 0;
 }
 
-
-int32_t
-quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
-            dict_t *xdata)
+void
+quota_link_continue (call_frame_t *frame)
 {
-        quota_priv_t      *priv  = NULL;
-        int32_t            ret   = -1, op_errno = ENOMEM;
-        quota_local_t     *local = NULL;
-        quota_inode_ctx_t *ctx   = NULL;
-        call_stub_t       *stub  = NULL;
+        int32_t            ret               = -1;
+        int32_t            op_errno          = EIO;
+        quota_local_t     *local             = NULL;
+        uuid_t             common_ancestor   = {0};
+        xlator_t          *this              = NULL;
+        quota_inode_ctx_t *ctx               = NULL;
+        inode_t           *src_parent        = NULL;
+        inode_t           *dst_parent        = NULL;
 
-        priv = this->private;
+        local = frame->local;
+        this = THIS;
 
-        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
-
-        if (xdata && dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
-                goto off;
+        if (local->op_ret < 0) {
+                op_errno = local->op_errno;
+                goto err;
         }
 
-        quota_inode_ctx_get (oldloc->inode, this, &ctx, 0);
+        if (local->xdata &&
+            dict_get (local->xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
+                /* Treat link as rename, crawl upwards only till common ancestor
+                 */
+                ret = quota_find_common_ancestor (local->oldloc.inode,
+                                                  local->newloc.parent,
+                                                  &common_ancestor);
+                if (ret < 0 || uuid_is_null(common_ancestor)) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to get "
+                                "common_ancestor for %s and %s",
+                                local->oldloc.path, local->newloc.path);
+                        op_errno = ESTALE;
+                        goto err;
+                }
+        } else {
+                /* Treat link as a new file.
+                 * TODO: Currently marker accounts twice for the links created
+                 * across directories.
+                 * This needs re-vist if marker accounts only once
+                 * for the links created across directories
+                 */
+                src_parent = inode_parent (local->oldloc.inode, 0, NULL);
+                dst_parent = inode_parent (local->newloc.inode, 0, NULL);
+
+                /* No need to check quota limit if src and dst parents are same
+                 */
+                if (src_parent == dst_parent ||
+                    uuid_compare (src_parent->gfid, dst_parent->gfid) == 0) {
+                        inode_unref (src_parent);
+                        inode_unref (dst_parent);
+                        goto off;
+                }
+
+                inode_unref (src_parent);
+                inode_unref (dst_parent);
+        }
+
+        quota_inode_ctx_get (local->oldloc.inode, this, &ctx, 0);
         if (ctx == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
                         "inode (%s). "
                         "If quota is not enabled recently and crawler has "
                         "finished crawling, its an error",
-                        uuid_utoa (oldloc->inode->gfid));
+                        uuid_utoa (local->oldloc.inode->gfid));
+        }
+
+        LOCK (&local->lock);
+        {
+                local->link_count = 1;
+                local->delta = (ctx != NULL) ? ctx->buf.ia_blocks * 512 : 0;
+                uuid_copy (local->common_ancestor, common_ancestor);
+        }
+        UNLOCK (&local->lock);
+
+        quota_check_limit (frame, local->newloc.parent, this, NULL, NULL);
+        return;
+
+err:
+        QUOTA_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL,
+                            NULL, NULL, NULL);
+        return;
+
+off:
+        frame->local = NULL;
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->link, &(local->oldloc),
+                         &(local->newloc), local->xdata);
+
+        quota_local_cleanup (this, local);
+        return;
+}
+
+int32_t
+quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+            dict_t *xdata)
+{
+        quota_priv_t      *priv     = NULL;
+        int32_t            ret      = -1;
+        int32_t            op_errno = ENOMEM;
+        quota_local_t     *local    = NULL;
+        call_stub_t       *stub     = NULL;
+
+        priv = this->private;
+
+        WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+
+        /* No need to check quota limit if src and dst parents are same */
+        if (oldloc->parent && newloc->parent &&
+            !uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
+                gf_log (this->name, GF_LOG_DEBUG, "link %s -> %s are "
+                        "in the same directory, so skip check limit",
+                        oldloc->path, newloc->path);
+                goto off;
         }
 
         local = quota_local_new ();
@@ -1985,9 +2068,23 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         frame->local = (void *) local;
 
+        if (xdata)
+                local->xdata = dict_ref (xdata);
 
         ret = loc_copy (&local->loc, newloc);
         if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                goto err;
+        }
+
+        ret = loc_copy (&local->oldloc, oldloc);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                goto err;
+        }
+
+        ret = loc_copy (&local->newloc, newloc);
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
                 goto err;
         }
@@ -1999,13 +2096,16 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         LOCK (&local->lock);
         {
-                local->link_count = 1;
+                local->link_count = 2;
+                local->fop_continue_cbk = quota_link_continue;
                 local->stub = stub;
-                local->delta = (ctx != NULL) ? ctx->buf.ia_blocks * 512 : 0;
         }
         UNLOCK (&local->lock);
 
-        quota_check_limit (frame, newloc->parent, this, NULL, NULL);
+        check_ancestory (frame, newloc->parent);
+
+        /* source parent can be NULL, so do check_ancestory on a file */
+        check_ancestory (frame, oldloc->inode);
         return 0;
 
 err:
@@ -2277,9 +2377,6 @@ quota_rename_continue (call_frame_t *frame)
         return;
 
 err:
-        if (local && local->stub)
-                call_stub_destroy (local->stub);
-
         QUOTA_STACK_UNWIND (rename, frame, -1, op_errno, NULL,
                             NULL, NULL, NULL, NULL, NULL);
         return;
@@ -2295,7 +2392,6 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         int32_t            op_errno          = ENOMEM;
         quota_local_t     *local             = NULL;
         call_stub_t       *stub              = NULL;
-        uuid_t             common_ancestor   = {0};
 
         priv = this->private;
 
@@ -3427,6 +3523,7 @@ quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         priv = this->private;
 
         WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+        QUOTA_WIND_FOR_INTERNAL_FOP (xdata, off);
 
         local = quota_local_new ();
         if (local == NULL) {

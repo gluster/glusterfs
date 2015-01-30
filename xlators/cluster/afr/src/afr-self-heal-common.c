@@ -17,7 +17,7 @@
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"
-
+#include "protocol-common.h"
 
 int
 afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -287,6 +287,39 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
 	return 0;
 }
 
+/*
+ * If by chance there are multiple sources with differing sizes, select
+ * the largest file as the source.
+ *
+ * This can happen if data was directly modified in the backend or for snapshots
+ */
+void
+afr_mark_largest_file_as_source (xlator_t *this, unsigned char *sources,
+                                 struct afr_reply *replies)
+{
+        int i = 0;
+        afr_private_t *priv = NULL;
+        uint64_t size = 0;
+
+        /* Find source with biggest file size */
+        priv = this->private;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (size <= replies[i].poststat.ia_size) {
+                        size = replies[i].poststat.ia_size;
+                }
+        }
+
+        /* Mark sources with less size as not source */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!sources[i])
+                        continue;
+                if (size > replies[i].poststat.ia_size)
+                        sources[i] = 0;
+        }
+}
+
 void
 afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
                        unsigned char *locked_on, unsigned char *sinks)
@@ -302,6 +335,154 @@ afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
                         sinks[i] = 1;
         }
 }
+
+gf_boolean_t
+afr_dict_contains_heal_op (call_frame_t *frame)
+{
+        afr_local_t   *local     = NULL;
+        dict_t        *xdata_req = NULL;
+        int            ret       = 0;
+        int            heal_op   = -1;
+
+        local = frame->local;
+        xdata_req = local->xdata_req;
+        ret = dict_get_int32 (xdata_req, "heal-op", &heal_op);
+        if (ret)
+                return _gf_false;
+        if (local->xdata_rsp == NULL) {
+                local->xdata_rsp = dict_new();
+                if (!local->xdata_rsp)
+                        return _gf_true;
+        }
+        ret = dict_set_str (local->xdata_rsp, "sh-fail-msg",
+                            "File not in split-brain");
+
+        return _gf_true;
+}
+
+/* Return a source depending on the type of heal_op, and set sources[source],
+ * sinks[source] and healed_sinks[source] to 1, 0 and 0 respectively. Do so
+ * only if the following condition is met:
+ * ∀i((i ∈ locked_on[] ∧ i=1)==>(sources[i]=0 ∧ sinks[i]=1 ∧ healed_sinks[i]=1))
+ * i.e. for each locked node, sources[node] is 0; healed_sinks[node] and
+ * sinks[node] are 1. This should be the case if the file is in split-brain.
+ */
+int
+afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
+                                   unsigned char *sources,
+                                   unsigned char *sinks,
+                                   unsigned char *healed_sinks,
+                                   unsigned char *locked_on,
+                                   struct afr_reply *replies,
+                                   afr_transaction_type type)
+{
+        afr_local_t   *local     = NULL;
+        afr_private_t *priv      = NULL;
+        dict_t        *xdata_req = NULL;
+        dict_t        *xdata_rsp = NULL;
+        int            ret       = 0;
+        int            heal_op   = -1;
+        int            i         = 0;
+        char          *name      = NULL;
+        int            source     = -1;
+
+        local = frame->local;
+        priv = this->private;
+        xdata_req = local->xdata_req;
+        ret = dict_get_int32 (xdata_req, "heal-op", &heal_op);
+        if (ret)
+                goto out;
+        for (i = 0; i < priv->child_count; i++) {
+                if (locked_on[i])
+                        if (sources[i] || !sinks[i] || !healed_sinks[i]) {
+                                ret = -1;
+                                goto out;
+                        }
+        }
+        if (local->xdata_rsp == NULL) {
+                local->xdata_rsp = dict_new();
+                if (!local->xdata_rsp) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+        xdata_rsp = local->xdata_rsp;
+
+        switch (heal_op) {
+        case GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+                if (type == AFR_METADATA_TRANSACTION) {
+                        ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                            "Use source-brick option to"
+                                            " heal metadata split-brain");
+                        if (!ret)
+                                ret = -1;
+                        goto out;
+                }
+                for (i = 0 ; i < priv->child_count; i++)
+                        if (locked_on[i])
+                                sources[i] = 1;
+                afr_mark_largest_file_as_source (this, sources, replies);
+                if (AFR_COUNT (sources, priv->child_count) != 1) {
+                        ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                            "No bigger file");
+                        if (!ret)
+                                ret = -1;
+                        goto out;
+                }
+                for (i = 0 ; i < priv->child_count; i++)
+                        if (sources[i])
+                                source = i;
+                sinks[source] = 0;
+                healed_sinks[source] = 0;
+                break;
+        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+                ret = dict_get_str (xdata_req, "child-name", &name);
+                if (ret)
+                        goto out;
+                source = afr_get_child_index_from_name (this, name);
+                if (source < 0) {
+                        ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                            "Invalid brick name");
+                        if (!ret)
+                                ret = -1;
+                        goto out;
+                }
+                if (locked_on[source] != 1) {
+                        ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                            "Brick is not up");
+                        if (!ret)
+                                ret = -1;
+                        goto out;
+                }
+                sources[source] = 1;
+                sinks[source] = 0;
+                healed_sinks[source] = 0;
+                break;
+        default:
+                ret = -1;
+                goto out;
+        }
+        ret = source;
+out:
+        return ret;
+
+}
+
+int
+afr_get_child_index_from_name (xlator_t *this, char *name)
+{
+        afr_private_t *priv  = this->private;
+        int            index = -1;
+
+        for (index = 0; index < priv->child_count; index++) {
+                if (!strcmp (priv->children[index]->name, name))
+                        goto out;
+        }
+        index = -1;
+out:
+        return index;
+}
+
 
 gf_boolean_t
 afr_does_witness_exist (xlator_t *this, uint64_t *witness)
@@ -424,6 +605,14 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                         if (i == j)
                                 continue;
                         witness[i] += matrix[i][j];
+                }
+        }
+
+         /* If no sources, all locked nodes are sinks - split brain */
+         if (AFR_COUNT (sources, priv->child_count) == 0) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (locked_on[i])
+                                sinks[i] = 1;
                 }
         }
 

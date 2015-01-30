@@ -131,8 +131,8 @@ int32_t ec_dict_data_compare(dict_t * dict, char * key, data_t * value,
         (strcmp(key, GF_XATTR_PATHINFO_KEY) == 0) ||
         (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0) ||
         (strcmp(key, GF_XATTR_LOCKINFO_KEY) == 0) ||
-        (strcmp(key, GF_XATTR_CLRLK_CMD) == 0) ||
         (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) ||
+        (strncmp(key, GF_XATTR_CLRLK_CMD, strlen(GF_XATTR_CLRLK_CMD)) == 0) ||
         (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
         (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
         (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||

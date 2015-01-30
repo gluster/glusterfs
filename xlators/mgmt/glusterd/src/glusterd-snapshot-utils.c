@@ -867,14 +867,15 @@ out:
 int32_t
 glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 {
-        dict_t                  *dict         = NULL;
-        int32_t                  ret          = -1;
-        glusterd_conf_t         *priv         = NULL;
-        glusterd_volinfo_t      *snap_volinfo = NULL;
-        glusterd_volinfo_t      *volinfo      = NULL;
-        glusterd_volinfo_t      *tmp          = NULL;
-        xlator_t                *this         = NULL;
-        uuid_t                   null_uuid    = {0};
+        dict_t                  *dict           = NULL;
+        int32_t                  ret            = -1;
+        glusterd_conf_t         *priv           = NULL;
+        glusterd_volinfo_t      *snap_volinfo   = NULL;
+        glusterd_volinfo_t      *volinfo        = NULL;
+        glusterd_volinfo_t      *tmp            = NULL;
+        xlator_t                *this           = NULL;
+        uuid_t                   null_uuid      = {0};
+        char                    *parent_volname = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -903,13 +904,16 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 list_for_each_entry_safe (snap_volinfo, tmp,
                                           &snap->volumes, vol_list) {
-                        ret = glusterd_volinfo_find
-                                         (snap_volinfo->parent_volname,
-                                          &volinfo);
+                        parent_volname = gf_strdup
+                                            (snap_volinfo->parent_volname);
+                        if (!parent_volname)
+                                goto out;
+
+                        ret = glusterd_volinfo_find (parent_volname, &volinfo);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Could not get volinfo of %s",
-                                        snap_volinfo->parent_volname);
+                                        parent_volname);
                                 goto out;
                         }
 
@@ -933,15 +937,38 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
                                 goto out;
                         }
 
-                        ret = glusterd_snapshot_restore_cleanup (dict, volinfo,
+                        /* Restore is successful therefore delete the original
+                         * volume's volinfo. If the volinfo is already restored
+                         * then we should delete the backend LVMs */
+                        if (!uuid_is_null (volinfo->restored_from_snap)) {
+                                ret = glusterd_lvm_snapshot_remove (dict,
+                                                                    volinfo);
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Failed to remove LVM backend");
+                                        goto out;
+                                }
+                        }
+
+                        /* Detach the volinfo from priv->volumes, so that no new
+                         * command can ref it any more and then unref it.
+                         */
+                        list_del_init (&volinfo->vol_list);
+                        glusterd_volinfo_unref (volinfo);
+
+                        ret = glusterd_snapshot_restore_cleanup (dict,
+                                                                 parent_volname,
                                                                  snap);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to perform snapshot restore "
                                         "cleanup for %s volume",
-                                        snap_volinfo->parent_volname);
+                                        parent_volname);
                                 goto out;
                         }
+
+                        GF_FREE (parent_volname);
+                        parent_volname = NULL;
                 }
 
                 break;
@@ -956,6 +983,11 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 
 out:
         dict_unref (dict);
+        if (parent_volname) {
+                GF_FREE (parent_volname);
+                parent_volname = NULL;
+        }
+
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
@@ -2372,9 +2404,14 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        if (!snap_force && down_count) {
+        /* In a n-way replication where n >= 3 we should not take a snapshot
+         * if even one brick is down, irrespective of the quorum being met.
+         * TODO: Remove this restriction once n-way replication is
+         * supported with snapshot.
+         */
+        if (down_count) {
                 snprintf (err_str, sizeof (err_str), "One or more bricks may "
-                          "be down. Use the force option ");
+                          "be down.");
                 gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
                 goto out;
@@ -2569,25 +2606,20 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
         ret = dict_get_int32 (dict, "flags", &force);
         if (!ret && (force & GF_CLI_FLAG_OP_FORCE))
                 snap_force = 1;
-        if (!snap_force) {
-                /* Do a quorum check of glusterds also. Because,
-                   the missed snapshot information will be saved
-                   by glusterd and if glusterds are not in
-                   quorum, then better fail the snapshot
-                */
-                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
-                        snprintf (err_str, sizeof (err_str),
-                                  "glusterds are not in quorum");
-                        gf_log (this->name, GF_LOG_WARNING, "%s",
-                                err_str);
-                        *op_errstr = gf_strdup (err_str);
-                        ret = -1;
-                        goto out;
-                }
 
-                gf_log (this->name, GF_LOG_DEBUG, "glusterds are in "
-                        "quorum");
-        }
+        /* Do a quorum check of glusterds also. Because, the missed snapshot
+         * information will be saved by glusterd and if glusterds are not in
+         * quorum, then better fail the snapshot
+         */
+        if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
+                snprintf (err_str, sizeof (err_str),
+                          "glusterds are not in quorum");
+                gf_log (this->name, GF_LOG_WARNING, "%s", err_str);
+                *op_errstr = gf_strdup (err_str);
+                ret = -1;
+                goto out;
+        } else
+                gf_log (this->name, GF_LOG_DEBUG, "glusterds are in quorum");
 
         ret = dict_get_int64 (dict, "volcount", &volcount);
         if (ret) {
@@ -3488,6 +3520,7 @@ glusterd_snapd_start (glusterd_volinfo_t *volinfo, gf_boolean_t wait)
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf (&runner, "%s-server.listen-port=%d",
                          volname, snapd_port);
+        runner_add_arg (&runner, "--no-mem-accounting");
 
         snprintf (msg, sizeof (msg),
                   "Starting the snapd service for volume %s", volname);

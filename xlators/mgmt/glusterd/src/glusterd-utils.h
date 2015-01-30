@@ -31,7 +31,7 @@
 #include "glusterfs3-xdr.h"
 #include "glusterd-peer-utils.h"
 
-#define GLUSTERD_SOCK_DIR "/var/run"
+#define GLUSTERD_SOCK_DIR "/var/run/gluster"
 #define GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid) do {\
         sprintf (brickinfo->brick_id, "%s-client-%d",\
                  volinfo->volname, brickid);\
@@ -137,6 +137,10 @@ glusterd_service_stop(const char *service, char *pidfile, int sig,
 
 int
 glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_validate_quorum (xlator_t *this, glusterd_op_t op, dict_t *dict,
+                          char **op_errstr);
 
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
@@ -674,9 +678,6 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
 gf_boolean_t
 gd_vol_is_geo_rep_active (glusterd_volinfo_t *volinfo);
 
-int
-glusterd_recursive_rmdir (const char *delete_path);
-
 int32_t
 glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir);
 
@@ -750,4 +751,7 @@ int
 glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
                             glusterd_volinfo_t *new_volinfo,
                             char *prefix);
+
+gf_boolean_t
+glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo);
 #endif

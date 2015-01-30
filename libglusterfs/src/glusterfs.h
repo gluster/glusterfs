@@ -138,6 +138,7 @@
 #define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
 
 #define GF_AFR_HEAL_INFO "glusterfs.heal-info"
+#define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
@@ -419,6 +420,7 @@ struct _cmd_args {
         int              background_qlen;
         int              congestion_threshold;
         char             *fuse_mountopts;
+        int              mem_acct;
 
         /* key args */
         char            *mount_point;
