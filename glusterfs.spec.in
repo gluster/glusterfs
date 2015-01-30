@@ -411,7 +411,7 @@ Requires:         %{name}-server = %{version}-%{release}
 ## thin provisioning support
 Requires:         lvm2 >= 2.02.89
 Requires:         perl(App::Prove) perl(Test::Harness) gcc util-linux-ng
-Requires:         python attr dbench file git libacl-devel mock net-tools
+Requires:         python attr dbench file git libacl-devel net-tools
 Requires:         nfs-utils xfsprogs yajl
 
 %description regression-tests
@@ -1030,6 +1030,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Jan 30 2015 Nandaja Varma <nvarma@redhat.com>
+- remove checks for rpmbuild/mock from run-tests.sh (#178008)
+
 * Fri Jan 16 2015 Niels de Vos <ndevos@redhat.com>
 - add support for /run/gluster through a tmpfiles.d config file (#1182934)
 
