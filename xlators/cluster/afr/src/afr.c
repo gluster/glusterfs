@@ -81,18 +81,26 @@ xlator_subvolume_index (xlator_t *this, xlator_t *subvol)
         return index;
 }
 
-void
-fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype)
+static void
+fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
+                    dict_t *options)
 {
-        if (priv->quorum_count && strcmp(qtype,"fixed")) {
+        if (dict_get (options, "quorum-type") == NULL) {
+                /* If user doesn't configure anything enable auto-quorum if the
+                 * replica has odd number of subvolumes */
+                if (priv->child_count % 2)
+                        qtype = "auto";
+        }
+
+        if (priv->quorum_count && strcmp (qtype, "fixed")) {
                 gf_msg (this->name,GF_LOG_WARNING, 0, AFR_MSG_QUORUM_OVERRIDE,
                        "quorum-type %s overriding quorum-count %u",
                        qtype, priv->quorum_count);
         }
-        if (!strcmp(qtype,"none")) {
+
+        if (!strcmp (qtype, "none")) {
                 priv->quorum_count = 0;
-        }
-        else if (!strcmp(qtype,"auto")) {
+        } else if (!strcmp (qtype, "auto")) {
                 priv->quorum_count = AFR_QUORUM_AUTO;
         }
 }
@@ -179,7 +187,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("quorum-type", qtype, options, str, out);
         GF_OPTION_RECONF ("quorum-count", priv->quorum_count, options,
                           uint32, out);
-        fix_quorum_options(this,priv,qtype);
+        fix_quorum_options (this, priv, qtype, options);
         if (priv->quorum_count && !afr_has_quorum (priv->child_up, this))
                 gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
                         "Client-quorum is not met");
@@ -340,7 +348,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("quorum-count", priv->quorum_count, uint32, out);
         GF_OPTION_INIT (AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size_uint64,
                         out);
-        fix_quorum_options(this,priv,qtype);
+        fix_quorum_options (this, priv, qtype, this->options);
 
 	GF_OPTION_INIT ("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
         GF_OPTION_INIT ("ensure-durability", priv->ensure_durability, bool,
