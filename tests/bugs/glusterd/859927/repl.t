@@ -51,19 +51,4 @@ TEST cmp $B0/${V0}1/a $B0/${V0}2/a
 
 TEST ! $CLI volume set $V0 cluster.data-self-heal-algorithm ""
 
-#Tests for quorum-type option
-TEST ! $CLI volume set $V0 cluster.quorum-type ""
-TEST $CLI volume set $V0 cluster.quorum-type fixed
-EXPECT fixed volume_option $V0 cluster.quorum-type
-TEST $CLI volume set $V0 cluster.quorum-count 2
-kill_brick $V0 $H0 $B0/${V0}1
-TEST ! test_write
-TEST $CLI volume set $V0 cluster.quorum-type auto
-EXPECT auto volume_option $V0 cluster.quorum-type
-TEST ! test_write
-TEST $CLI volume set $V0 cluster.quorum-type none
-EXPECT none volume_option $V0 cluster.quorum-type
-TEST test_write
-TEST $CLI volume reset $V0 cluster.quorum-type
-TEST test_write
 cleanup;
