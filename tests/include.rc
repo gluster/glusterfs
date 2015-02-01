@@ -569,7 +569,7 @@ which truncate > /dev/null || {
         exit 2;
       }
 
-      echo $newsize | egrep -q '[GTPEZY]B?$' && {
+      echo $newsize | egrep -q '[TPEZY]B?$' && {
         echo "Unit not implemented for ${newsize}"
         exit 2;
       }
@@ -586,6 +586,12 @@ which truncate > /dev/null || {
         ;;
       *M)
         newsize=$(( ${newsize/M/} * 1024 * 1024 ))
+        ;;
+      *GB)
+        newsize=$(( ${newsize/GB/} * 1000 * 1000 * 1000 ))
+        ;;
+      *G)
+        newsize=$(( ${newsize/G/} * 1024 * 1024 * 1024 ))
         ;;
       esac
 
