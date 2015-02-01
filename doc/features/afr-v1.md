@@ -284,7 +284,7 @@ Afr does 3 types of self-heals for data recovery.
 
 2. Metadata self-heal
 
-3. Data self-heal
+3. Entry self-heal
 
 As we have seen earlier, afr depends on changelog extended attributes to figure out which copy is source and which copy is sink. General algorithm for performing this recovery (self-heal) is same for all of these different self-heals.
 
