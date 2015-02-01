@@ -198,14 +198,21 @@ failed:
 glusterfs_event_t
 ec_get_event_from_state (ec_t *ec)
 {
-        int     down_count = 0;
+        int               down_count = 0;
 
-        if (ec->xl_up_count >= ec->fragments)
+        if (ec->xl_up_count >= ec->fragments) {
+                /* If ec is up but some subvolumes are yet to notify, give
+                 * grace time for other subvols to notify to prevent start of
+                 * I/O which may result in self-heals */
+                if (ec->timer && ec->xl_notify_count < ec->nodes)
+                        return GF_EVENT_MAXVAL;
+
                 return GF_EVENT_CHILD_UP;
-
-        down_count = ec->xl_notify_count - ec->xl_up_count;
-        if (down_count > ec->redundancy)
-                return GF_EVENT_CHILD_DOWN;
+        } else {
+                down_count = ec->xl_notify_count - ec->xl_up_count;
+                if (down_count > ec->redundancy)
+                        return GF_EVENT_CHILD_DOWN;
+        }
 
         return GF_EVENT_MAXVAL;
 }
@@ -235,9 +242,10 @@ ec_down (xlator_t *this, ec_t *ec)
 }
 
 void
-ec_notify_down (void *data)
+ec_notify_cbk (void *data)
 {
         ec_t *ec = data;
+        glusterfs_event_t event = GF_EVENT_MAXVAL;
 
         LOCK(&ec->lock);
         {
@@ -252,26 +260,38 @@ ec_notify_down (void *data)
                 gf_timer_call_cancel (ec->xl->ctx, ec->timer);
                 ec->timer = NULL;
 
-                if (GF_EVENT_MAXVAL == ec_get_event_from_state (ec)) {
-                        /* Change the state as if the bricks are down */
+                event = ec_get_event_from_state (ec);
+                /* If event is still MAXVAL then enough subvolumes didn't
+                 * notify, treat it as CHILD_DOWN. */
+                if (event == GF_EVENT_MAXVAL) {
+                        event = GF_EVENT_CHILD_DOWN;
                         ec->xl_notify = (1ULL << ec->nodes) - 1ULL;
                         ec->xl_notify_count = ec->nodes;
-                        default_notify (ec->xl, GF_EVENT_CHILD_DOWN, NULL);
+                } else if (event == GF_EVENT_CHILD_UP) {
+                        /* Rest of the bricks are still not coming up,
+                         * notify that ec is up. Files/directories will be
+                         * healed as in when they come up. */
+                        ec_up (ec->xl, ec);
                 }
+
+                /* CHILD_DOWN should not come here as no grace period is given
+                 * for notifying CHILD_DOWN. */
+
+                default_notify (ec->xl, event, NULL);
         }
 unlock:
         UNLOCK(&ec->lock);
 }
 
 void
-ec_launch_notify_child_down_timer (xlator_t *this, ec_t *ec)
+ec_launch_notify_timer (xlator_t *this, ec_t *ec)
 {
         struct timespec delay = {0, };
 
         gf_log (this->name, GF_LOG_DEBUG, "Initiating child-down timer");
         delay.tv_sec = 10;
         delay.tv_nsec = 0;
-        ec->timer = gf_timer_call_after (this->ctx, delay, ec_notify_down, ec);
+        ec->timer = gf_timer_call_after (this->ctx, delay, ec_notify_cbk, ec);
         if (ec->timer == NULL) {
                 gf_log(this->name, GF_LOG_ERROR, "Cannot create timer "
                        "for delayed initialization");
@@ -321,10 +341,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
         if (event == GF_EVENT_PARENT_UP) {
                 /*
-                 * Start a timer which sends CHILD_DOWN event to parent
+                 * Start a timer which sends appropriate event to parent
                  * xlator to prevent the 'mount' syscall from hanging.
                  */
-                ec_launch_notify_child_down_timer (this, ec);
+                ec_launch_notify_timer (this, ec);
                 goto unlock;
         }
 
