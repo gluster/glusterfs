@@ -43,7 +43,7 @@ add_brick_at_right_order (glusterd_brickinfo_t *brickinfo,
 
         /* The complexity of the function is in deciding at which index
            to add new brick. Even though it can be defined with a complex
-           single formula for all volume, it is seperated out to make it
+           single formula for all volume, it is separated out to make it
            more readable */
         if (stripe_cnt) {
                 /* common formula when 'stripe_count' is set */

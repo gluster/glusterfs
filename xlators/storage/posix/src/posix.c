@@ -5161,7 +5161,7 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
 		* .attribute file located at the root of the filesystem
 		* We hide it to glusterfs clients, since chaos will occur
 		* when the cluster/dht xlator decides to distribute
-		* exended attribute backing file accross storage servers.
+		* exended attribute backing file across storage servers.
 		*/
 		if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
 		    && (!strcmp(entry->d_name, ".attribute")))

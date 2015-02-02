@@ -1165,10 +1165,10 @@ err:
 }
 
 /* This function resolves symbolic link into directory path from
- * the mount and restart the parsing process from the begining
+ * the mount and restart the parsing process from the beginning
  *
  * Note : Path specified in the symlink should be relative to the
- *        symlink, because that is the one which is consistent throught
+ *        symlink, because that is the one which is consistent through
  *        out the file system.
  *        If the symlink resolves into another symlink ,then same process
  *        will be repeated.

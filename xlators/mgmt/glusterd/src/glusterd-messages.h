@@ -136,14 +136,14 @@
 
 /*!
  * @messageid 106011
- * @diagnosis A volume quota-conf version mismatch occured while adding a peer
+ * @diagnosis A volume quota-conf version mismatch occurred while adding a peer
  * @recommendedaction None
  */
 #define GD_MSG_QUOTA_CONFIG_VERS_MISMATCH (GLUSTERD_COMP_BASE + 11)
 
 /*!
  * @messageid 106012
- * @diagnosis A quota-conf checksum mismatch occured while adding a peer
+ * @diagnosis A quota-conf checksum mismatch occurred while adding a peer
  * @recommendedaction Check for which node the checksum mismatch happens
  *                    and delete the volume configuration files from it and
  *                    restart glusterd

@@ -374,7 +374,7 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                                opt_hard_max);
         if (ret) {
                 snprintf (err_str, PATH_MAX,
-                          "Failed to set %s in reponse dictionary",
+                          "Failed to set %s in response dictionary",
                           GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT);
                 goto out;
         }
@@ -8384,7 +8384,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 }
                 break;
         default:
-                gf_log (this->name, GF_LOG_ERROR, "Unkown snapshot request "
+                gf_log (this->name, GF_LOG_ERROR, "Unknown snapshot request "
                         "type (%d)", type);
                 ret = -1; /* Failure */
         }

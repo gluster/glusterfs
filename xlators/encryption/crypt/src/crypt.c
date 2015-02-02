@@ -1701,7 +1701,7 @@ static int32_t crypt_ftruncate_finodelk_cbk(call_frame_t *frame,
 
 /*
  * ftruncate is performed in 2 steps:
- * . recieve file size;
+ * . receive file size;
  * . expand or prune file.
  */
 static int32_t crypt_ftruncate(call_frame_t *frame,
