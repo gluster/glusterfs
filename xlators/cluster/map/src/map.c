@@ -570,7 +570,7 @@ map_statfs_cbk (call_frame_t *frame,
 		}
 		local->op_ret = 0;
 		
-		/* when a call is successfull, add it to local->dict */
+		/* when a call is successful, add it to local->dict */
 		dict_buf = &local->statvfs;
 		
 		if (dict_buf->f_bsize != 0) {

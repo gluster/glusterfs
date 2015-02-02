@@ -250,7 +250,7 @@ glusterd_peerinfo_find (uuid_t uuid, const char *hostname)
  * values using the passed parameters.
  * @hostname is added as the first entry in peerinfo->hostnames list and also
  * set to peerinfo->hostname.
- * It returns a pointer to peerinfo object if successfull and returns NULL
+ * It returns a pointer to peerinfo object if successful and returns NULL
  * otherwise. The caller should take care of freeing the created peerinfo
  * object.
  */
@@ -510,7 +510,7 @@ out:
 }
 
 /* gd_add_friend_to_dict() adds details of @friend into @dict with the given
- * @prefix. All the parameters are compulsary.
+ * @prefix. All the parameters are compulsory.
  *
  * The complete address list is added to the dict only if the cluster op-version
  * is >= GD_OP_VERSION_3_6_0
@@ -545,7 +545,7 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         }
 
         /* Setting the first hostname from the list with this key for backward
-         * compatability
+         * compatibility
          */
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.hostname", prefix);
@@ -707,7 +707,7 @@ out:
 
 /* gd_update_peerinfo_from_dict will update the hostnames for @peerinfo from
  * peer details with @prefix in @dict.
- * Returns 0 on sucess and -1 on failure.
+ * Returns 0 on success and -1 on failure.
  */
 int
 gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,

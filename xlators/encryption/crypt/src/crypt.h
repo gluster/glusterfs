@@ -253,7 +253,7 @@ typedef struct {
 	 */
 	gf_dirent_t *de; /* directory entry */
 	char *de_path; /* pathname of directory entry */
-	uint32_t de_prefix_len; /* lenght of the parent's pathname */
+	uint32_t de_prefix_len; /* length of the parent's pathname */
 	gf_dirent_t *entries;
 
 	uint32_t update_disk_file_size:1;

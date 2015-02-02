@@ -545,7 +545,7 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
         char        is_virgin = 1;
         uint32_t    no_space  = 0;
 
-        /* This funtion scans through the layout spread of a directory to
+        /* This function scans through the layout spread of a directory to
            check if there are any anomalies. Prior to calling this function
            the layout entries should be sorted in the ascending order.
 

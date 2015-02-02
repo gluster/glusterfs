@@ -2010,7 +2010,7 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                 goto out;
         }
 
-        // TODO: Remove this once v3.3 compatability is not required
+        /* TODO: Remove this once v3.3 compatibility is not required */
         check_op_version = dict_get_str_boolean (dict, "check-op-version",
                                                  _gf_false);
 

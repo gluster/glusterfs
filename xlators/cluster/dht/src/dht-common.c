@@ -989,7 +989,7 @@ dht_lookup_unlink_of_false_linkto_cbk (call_frame_t *frame, void *cookie,
                          *lookup_everywhere and one where unlink-failed. So
                          *at this point in time we cannot decide which one to
                          *choose because there are chances of first cached
-                         *file is truncated after rebalance and if it is choosen
+                         *file is truncated after rebalance and if it is chosen
                         *as cached node, application will fail. So return EIO.*/
 
                         if (op_errno == EBUSY) {
@@ -1150,7 +1150,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                          * If this lookup is performed by rebalance and this
                          * rebalance process detected hashed file and by
                          * the time it sends the lookup request to cached node,
-                         * file got migrated and now at intial hashed_node,
+                         * file got migrated and now at initial hashed_node,
                          * final migrated file is present. With current logic,
                          * because this process fails to find the cached_node,
                          * it will unlink the file at initial hashed_node.

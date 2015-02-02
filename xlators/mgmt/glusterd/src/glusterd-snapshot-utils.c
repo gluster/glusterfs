@@ -733,7 +733,7 @@ out:
 
 /* Imports the snapshot details of a brick if required and available
  *
- * Snapshot details will be imported only if the cluster op-verison is >= 4
+ * Snapshot details will be imported only if the cluster op-version is >= 4
  */
 int
 gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
