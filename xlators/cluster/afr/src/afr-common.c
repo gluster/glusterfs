@@ -3561,6 +3561,7 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("read_child", "%d", priv->read_child);
         gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
+        gf_proc_dump_write("quorum-reads", "%d", priv->quorum_reads);
 
         return 0;
 }

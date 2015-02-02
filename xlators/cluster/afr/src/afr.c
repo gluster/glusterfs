@@ -211,6 +211,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
                           int32, out);
 
+        GF_OPTION_RECONF ("quorum-reads", priv->quorum_reads, options,
+                          bool, out);
+
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -358,6 +361,8 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
         GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
+
+        GF_OPTION_INIT ("quorum-reads", priv->quorum_reads, bool, out);
 
         priv->wait_count = 1;
 
@@ -723,6 +728,12 @@ struct volume_options options[] = {
           .description = "If quorum-type is \"fixed\" only allow writes if "
                          "this many bricks or present.  Other quorum types "
                          "will OVERWRITE this value.",
+        },
+        { .key = {"quorum-reads"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "If quorum-reads is \"true\" only allow reads if "
+                         "quorum is met when quorum is enabled.",
         },
         { .key  = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,

@@ -97,6 +97,7 @@ typedef struct _afr_private {
         gf_boolean_t      pre_op_compat;      /* on/off */
 	uint32_t          post_op_delay_secs;
         unsigned int      quorum_count;
+        gf_boolean_t      quorum_reads;
 
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
