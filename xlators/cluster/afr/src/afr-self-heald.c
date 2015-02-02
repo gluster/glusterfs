@@ -1074,10 +1074,6 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 	priv = this->private;
 	shd = &priv->shd;
 
-	for (i = 0; i < priv->child_count; i++)
-		if (priv->child_up[i] == -1)
-			goto out;
-
         ret = dict_get_int32 (input, "xl-op", (int32_t*)&op);
         if (ret)
                 goto out;
