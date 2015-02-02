@@ -1080,6 +1080,8 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         unsigned char            buf[16]   = {0};
         int                      fd        = -1;
         char                     quota_conf_file[PATH_MAX] = {0};
+        gf_boolean_t             xml_err_flag   = _gf_false;
+        char                     err_str[NAME_MAX] = {0,};
 
         xdata = dict_new ();
         if (!xdata) {
@@ -1104,7 +1106,13 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
          * quota enabled as cli_get_soft_limit() handles that
          */
         if (!_limits_set_on_volume (volname)) {
-                cli_out ("quota: No quota configured on volume %s", volname);
+                snprintf (err_str, sizeof (err_str), "No quota configured on "
+                          "volume %s", volname);
+                if (global_state->mode & GLUSTER_MODE_XML) {
+                        xml_err_flag = _gf_true;
+                } else {
+                        cli_out ("quota: %s", err_str);
+                }
                 ret = 0;
                 goto out;
         }
@@ -1155,7 +1163,18 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         CLI_LOCAL_INIT (local, words, frame, xdata);
         proc = &cli_quotad_clnt.proctable[GF_AGGREGATOR_GETLIMIT];
 
-        print_quota_list_header ();
+        if (!(global_state->mode & GLUSTER_MODE_XML)) {
+                print_quota_list_header ();
+        } else {
+                ret = cli_xml_output_vol_quota_limit_list_begin
+                        (local, 0, 0, NULL);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Error in printing "
+                                "xml output");
+                        goto out;
+                }
+        }
+
         gfid_str = GF_CALLOC (1, gf_common_mt_char, 64);
         if (!gfid_str) {
                 ret = -1;
@@ -1191,12 +1210,31 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
                 all_failed = all_failed && ret;
         }
 
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_quota_limit_list_end (local);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Error in printing "
+                                "xml output");
+                        goto out;
+                }
+        }
+
         if (count > 0) {
                 ret = all_failed? -1: 0;
         } else {
                 ret = 0;
         }
+
+
 out:
+        if (xml_err_flag) {
+                ret = cli_xml_output_str ("volQuota", NULL, -1, 0, err_str);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Error outputting in "
+                                "xml format");
+                }
+        }
+
         if (fd != -1) {
                 close (fd);
         }
