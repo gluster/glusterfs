@@ -754,6 +754,99 @@ out:
                 return ret;
 }
 
+/* Parsing global option for NFS-Ganesha config
+ *  gluster features.ganesha enable/disable */
+
+int32_t
+cli_cmd_ganesha_parse (struct cli_state *state,
+                       const char **words, int wordcount,
+                       dict_t **options, char **op_errstr)
+{
+        dict_t  *dict     =       NULL;
+        int     ret       =       -1;
+        int     flags     =       0;
+        char    *key      =       NULL;
+        char    *value    =       NULL;
+        int     i         =       0;
+        char    *w        =       NULL;
+        char   *opwords[] =      { "enable", "disable" };
+        const char      *question       =       NULL;
+        gf_answer_t     answer          =       GF_ANSWER_NO;
+
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        if (wordcount != 2)
+                goto out;
+
+        key   = (char *) words[0];
+        value = (char *) words[1];
+
+        if (!key || !value) {
+                cli_out ("Usage : features.ganesha <enable/disable>");
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_strip_whitespace (value, strlen (value));
+        if (ret == -1)
+                goto out;
+
+        if (strcmp (key, "features.ganesha")) {
+                gf_asprintf (op_errstr, "Global option: error: ' %s '"
+                          "is not a valid global option.", key);
+                ret = -1;
+                goto out;
+        }
+
+        w = str_getunamb (value, opwords);
+        if (!w) {
+                cli_out ("Invalid global option \n"
+                         "Usage : features.ganesha <enable/disable>");
+                ret = -1;
+                goto out;
+        }
+
+        question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
+                   "disabled across the trusted pool. Do you "
+                   "still want to continue?";
+
+        if (strcmp (value, "enable") == 0) {
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        gf_log ("cli", GF_LOG_ERROR, "Global operation "
+                                "cancelled, exiting");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = dict_set_str (dict, "key", key);
+        if (ret) {
+               gf_log (THIS->name, GF_LOG_ERROR, "dict set on key failed");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "value", value);
+        if (ret) {
+               gf_log (THIS->name, GF_LOG_ERROR, "dict set on value failed");
+                goto out;
+        }
+
+        *options = dict;
+out:
+        if (ret)
+                dict_unref (dict);
+
+        return ret;
+}
+
 int32_t
 cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 {

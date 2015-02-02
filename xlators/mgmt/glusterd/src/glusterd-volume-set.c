@@ -1444,16 +1444,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!nfs-disable",
           .op_version  = 1
         },
-        { .key         = "nfs-ganesha.enable",
-          .voltype     = "nfs/server",
-          .option      = "!nfs-ganesha.enable",
-          .op_version  = GD_OP_VERSION_3_6_0,
-        },
-        { .key         = "nfs-ganesha.host",
-          .voltype     = "nfs/server",
-          .option      = "!nfs-ganesha.host",
-          .op_version  = GD_OP_VERSION_3_6_0,
-        },
         { .key         = "nfs.nlm",
           .voltype     = "nfs/server",
           .option      = "nfs.nlm",
@@ -1718,6 +1708,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "features.ganesha",
+          .voltype     = "features/ganesha",
+          .option      = "!ganesha",
+          .type         = GLOBAL_NO_DOC,
+          .op_version   = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "ganesha.enable",
+          .voltype     = "features/ganesha",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+
         { .key         = NULL
         }
 };
