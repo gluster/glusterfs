@@ -11,6 +11,73 @@
 #ifndef _GF_CHANGELOG_H
 #define _GF_CHANGELOG_H
 
+struct gf_brick_spec;
+
+/**
+ * Max bit shiter for event selection
+ */
+#define CHANGELOG_EV_SELECTION_RANGE  4
+
+#define CHANGELOG_OP_TYPE_JOURNAL (1<<0)
+#define CHANGELOG_OP_TYPE_OPEN    (1<<1)
+#define CHANGELOG_OP_TYPE_CREATE  (1<<2)
+#define CHANGELOG_OP_TYPE_RELEASE (1<<3)
+#define CHANGELOG_OP_TYPE_MAX     (1<<CHANGELOG_EV_SELECTION_RANGE)
+
+
+struct ev_open {
+        unsigned char gfid[16];
+        int32_t flags;
+};
+
+struct ev_creat {
+        unsigned char gfid[16];
+        int32_t flags;
+};
+
+struct ev_release {
+        unsigned char gfid[16];
+};
+
+struct ev_changelog {
+        char path[PATH_MAX];
+};
+
+typedef struct changelog_event {
+        unsigned int ev_type;
+        union {
+                struct ev_open open;
+                struct ev_creat create;
+                struct ev_release release;
+                struct ev_changelog journal;
+        } u;
+} changelog_event_t;
+
+#define CHANGELOG_EV_SIZE  (sizeof (changelog_event_t))
+
+/**
+ * event callback, connected & disconnection defs
+ */
+typedef void (CALLBACK) (void *, char *,
+                        void *, changelog_event_t *);
+typedef void *(INIT) (void *, struct gf_brick_spec *);
+typedef void (FINI) (void *, char *, void *);
+typedef void (CONNECT) (void *, char *, void *);
+typedef void (DISCONNECT) (void *, char *, void *);
+
+struct gf_brick_spec {
+        char         *brick_path;
+        unsigned int  filter;
+
+        INIT       *init;
+        FINI       *fini;
+        CALLBACK   *callback;
+        CONNECT    *connected;
+        DISCONNECT *disconnected;
+
+        void *ptr;
+};
+
 /* API set */
 
 int
@@ -27,5 +94,10 @@ gf_changelog_next_change (char *bufptr, size_t maxlen);
 
 int
 gf_changelog_done (char *file);
+
+/* newer flexible API */
+int
+gf_changelog_register_generic (struct gf_brick_spec *bricks, int count,
+                               int ordered, char *logfile, int lvl, void *xl);
 
 #endif
