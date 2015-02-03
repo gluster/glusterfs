@@ -112,11 +112,38 @@ __afr_selfheal_data_checksums_match (call_frame_t *frame, xlator_t *this,
 }
 
 
+static gf_boolean_t
+__afr_is_sink_zero_filled (xlator_t *this, fd_t *fd, size_t size,
+                           off_t offset, int sink)
+{
+        afr_private_t *priv   = NULL;
+        struct iobref *iobref = NULL;
+        struct iovec  *iovec  = NULL;
+        int            count  = 0;
+        int            ret    = 0;
+        gf_boolean_t   zero_filled   = _gf_false;
+
+        priv = this->private;
+        ret = syncop_readv (priv->children[sink], fd, size, offset, 0, &iovec,
+                            &count, &iobref);
+        if (ret < 0)
+                goto out;
+        ret = iov_0filled (iovec, count);
+        if (!ret)
+                zero_filled = _gf_true;
+out:
+        if (iovec)
+                GF_FREE (iovec);
+        if (iobref)
+                iobref_unref (iobref);
+        return zero_filled;
+}
+
 static int
 __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				int source, unsigned char *healed_sinks,
 				off_t offset, size_t size,
-				struct afr_reply *replies)
+				struct afr_reply *replies, int type)
 {
 	struct iovec *iovec = NULL;
 	int count = 0;
@@ -165,6 +192,16 @@ __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				    replies[source].poststat.ia_size) &&
 		    (iov_0filled (iovec, count) == 0))
 			continue;
+
+                /* Avoid filling up sparse regions of the sink with 0-filled
+                 * writes.*/
+                if (type == AFR_SELFHEAL_DATA_FULL &&
+                    HAS_HOLES ((&replies[source].poststat)) &&
+                    ((offset + size) <= replies[i].poststat.ia_size) &&
+                    (iov_0filled (iovec, count) == 0) &&
+                    __afr_is_sink_zero_filled (this, fd, size, offset, i)) {
+                                continue;
+                }
 
 		ret = syncop_writev (priv->children[i], fd, iovec, count,
 				     offset, iobref, 0);
@@ -217,7 +254,7 @@ afr_selfheal_data_block (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		ret = __afr_selfheal_data_read_write (frame, this, fd, source,
 						      healed_sinks, offset, size,
-						      replies);
+						      replies, type);
 	}
 unlock:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name,

@@ -103,6 +103,13 @@ function _afr_child_up_status {
         echo "$up"
 }
 
+function afr_child_up_status_meta {
+        local mnt=$1
+        local repl=$2
+        local child=$3
+        grep "child_up\[$child\]" $mnt/.meta/graphs/active/$repl/private | awk '{print $3}'
+}
+
 function afr_child_up_status {
         local vol=$1
         #brick_id is (brick-num in volume info - 1)
@@ -208,6 +215,11 @@ function afr_get_changelog_xattr {
 function afr_get_pending_heal_count {
         local vol=$1
         gluster volume heal $vol info | grep "Number of entries" | awk '{ sum+=$4} END {print sum}'
+}
+
+function afr_get_split_brain_count {
+        local vol=$1
+        gluster volume heal $vol info split-brain | grep "Number of entries in split-brain" | awk '{ sum+=$6} END {print sum}'
 }
 
 function afr_get_index_path {

@@ -210,12 +210,8 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 	struct iatt first = {0, };
 	int source = -1;
 	int sources_count = 0;
-        dict_t *xdata_req = NULL;
-        afr_local_t *local = NULL;
 
 	priv = this->private;
-        local = frame->local;
-        xdata_req = local->xdata_req;
 
 	sources_count = AFR_COUNT (sources, priv->child_count);
 

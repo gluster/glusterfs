@@ -11,7 +11,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}0
 TEST $CLI volume start $V0
 
-# mount with auxillary gfid mount
+# mount with auxiliary gfid mount
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0 --aux-gfid-mount
 
 # create file with specific gfid
