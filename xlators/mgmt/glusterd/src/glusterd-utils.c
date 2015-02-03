@@ -5535,7 +5535,7 @@ glusterd_is_path_in_use (char *path, gf_boolean_t *in_use, char **op_errstr)
         if (!path)
                 goto out;
 
-        strcpy (dir, path);
+        strncpy (dir, path, (sizeof (dir) - 1));
         curdir = dir;
         do {
                 for (i = 0; !used && keys[i]; i++) {
@@ -9336,7 +9336,8 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
                 goto out;
         }
 
-        strcpy (brickinfo->fstype, entry->mnt_type);
+        strncpy (brickinfo->fstype, entry->mnt_type,
+                 (sizeof (brickinfo->fstype) - 1));
         strcpy (brickinfo->mnt_opts, entry->mnt_opts);
 
         ret = 0;
