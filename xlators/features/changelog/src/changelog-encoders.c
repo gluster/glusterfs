@@ -191,7 +191,7 @@ cb_encoder[] = {
 };
 
 void
-changelog_encode_change( changelog_priv_t * priv)
+changelog_encode_change(changelog_priv_t * priv)
 {
         priv->ce = &cb_encoder[priv->encode_mode];
 }

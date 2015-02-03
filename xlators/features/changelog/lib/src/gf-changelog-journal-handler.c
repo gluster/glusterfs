@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -7,9 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-
-#include <unistd.h>
-#include <pthread.h>
 
 #include "uuid.h"
 #include "globals.h"
@@ -19,6 +16,9 @@
 
 /* from the changelog translator */
 #include "changelog-misc.h"
+#include "changelog-mem-types.h"
+
+#include "gf-changelog-journal.h"
 
 extern int byebye;
 
@@ -114,7 +114,8 @@ conv_noop (char *ptr) { return ptr; }
 
 static int
 gf_changelog_parse_binary (xlator_t *this,
-                           gf_changelog_t *gfc, int from_fd, int to_fd,
+                           gf_changelog_journal_t *jnl,
+                           int from_fd, int to_fd,
                            size_t start_offset, struct stat *stbuf)
 
 {
@@ -218,7 +219,8 @@ gf_changelog_parse_binary (xlator_t *this,
  */
 static int
 gf_changelog_parse_ascii (xlator_t *this,
-                          gf_changelog_t *gfc, int from_fd, int to_fd,
+                          gf_changelog_journal_t *jnl,
+                          int from_fd, int to_fd,
                           size_t start_offset, struct stat *stbuf)
 {
         int           ng            = 0;
@@ -346,7 +348,7 @@ gf_changelog_parse_ascii (xlator_t *this,
                                 }
 
                                 gf_rfc3986_encode ((unsigned char *) ptr,
-                                                   eptr, gfc->rfc3986);
+                                                   eptr, jnl->rfc3986);
                                 FILL_AND_MOVE (eptr, ascii, off,
                                                mover, nleft, len);
                                 free (eptr);
@@ -410,8 +412,8 @@ gf_changelog_copy (xlator_t *this, int from_fd, int to_fd)
 }
 
 static int
-gf_changelog_decode (xlator_t *this, gf_changelog_t *gfc, int from_fd,
-                     int to_fd, struct stat *stbuf, int *zerob)
+gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
+                     int from_fd, int to_fd, struct stat *stbuf, int *zerob)
 {
         int    ret        = -1;
         int    encoding   = -1;
@@ -441,12 +443,12 @@ gf_changelog_decode (xlator_t *this, gf_changelog_t *gfc, int from_fd,
                  * this ideally should have been a part of changelog-encoders.c
                  * (ie. part of the changelog translator).
                  */
-                ret = gf_changelog_parse_binary (this, gfc, from_fd,
+                ret = gf_changelog_parse_binary (this, jnl, from_fd,
                                                  to_fd, elen, stbuf);
                 break;
 
         case CHANGELOG_ENCODE_ASCII:
-                ret = gf_changelog_parse_ascii (this, gfc, from_fd,
+                ret = gf_changelog_parse_ascii (this, jnl, from_fd,
                                                 to_fd, elen, stbuf);
                 break;
         default:
@@ -458,7 +460,8 @@ gf_changelog_decode (xlator_t *this, gf_changelog_t *gfc, int from_fd,
 }
 
 int
-gf_changelog_publish (xlator_t *this, gf_changelog_t *gfc, char *from_path)
+gf_changelog_publish (xlator_t *this,
+                      gf_changelog_journal_t *jnl, char *from_path)
 {
         int         ret        = 0;
         char dest[PATH_MAX]    = {0,};
@@ -466,7 +469,7 @@ gf_changelog_publish (xlator_t *this, gf_changelog_t *gfc, char *from_path)
         struct stat stbuf      = {0,};
 
         (void) snprintf (to_path, PATH_MAX, "%s%s",
-                         gfc->gfc_current_dir, basename (from_path));
+                         jnl->jnl_current_dir, basename (from_path));
 
         /* handle zerob file that wont exist in current */
         ret = stat (to_path, &stbuf);
@@ -477,7 +480,7 @@ gf_changelog_publish (xlator_t *this, gf_changelog_t *gfc, char *from_path)
         }
 
         (void) snprintf (dest, PATH_MAX, "%s%s",
-                         gfc->gfc_processing_dir, basename (from_path));
+                         jnl->jnl_processing_dir, basename (from_path));
 
         ret = rename (to_path, dest);
         if (ret){
@@ -492,7 +495,7 @@ out:
 
 int
 gf_changelog_consume (xlator_t *this,
-                      gf_changelog_t *gfc,
+                      gf_changelog_journal_t *jnl,
                       char *from_path, gf_boolean_t no_publish)
 {
         int         ret        = -1;
@@ -520,9 +523,9 @@ gf_changelog_consume (xlator_t *this,
         }
 
         (void) snprintf (to_path, PATH_MAX, "%s%s",
-                         gfc->gfc_current_dir, basename (from_path));
+                         jnl->jnl_current_dir, basename (from_path));
         (void) snprintf (dest, PATH_MAX, "%s%s",
-                         gfc->gfc_processing_dir, basename (from_path));
+                         jnl->jnl_processing_dir, basename (from_path));
 
         fd2 = open (to_path, O_CREAT | O_TRUNC | O_RDWR,
                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -532,7 +535,7 @@ gf_changelog_consume (xlator_t *this,
                         to_path, strerror (errno));
                 goto close_fd;
         } else {
-                ret = gf_changelog_decode (this, gfc, fd1,
+                ret = gf_changelog_decode (this, jnl, fd1,
                                            fd2, &stbuf, &zerob);
 
                 close (fd2);
@@ -568,88 +571,412 @@ gf_changelog_consume (xlator_t *this,
         return ret;
 }
 
-static char *
-gf_changelog_ext_change (xlator_t *this,
-                         gf_changelog_t *gfc, char *path, size_t readlen)
-{
-        int     alo = 0;
-        int     ret = 0;
-        size_t  len = 0;
-        char   *buf = NULL;
-
-        buf = path;
-        while (len < readlen) {
-                if (*buf == '\0') {
-                        alo = 1;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "processing changelog: %s", path);
-                        ret = gf_changelog_consume (this, gfc, path, _gf_false);
-                }
-
-                if (ret)
-                        break;
-
-                len++; buf++;
-                if (alo) {
-                        alo = 0;
-                        path = buf;
-                }
-        }
-
-        return (ret) ? NULL : path;
-}
-
 void *
 gf_changelog_process (void *data)
 {
-        ssize_t         len      = 0;
-        ssize_t         offlen   = 0;
-        xlator_t       *this     = NULL;
-        char           *sbuf     = NULL;
-        gf_changelog_t *gfc      = NULL;
-        char from_path[PATH_MAX] = {0,};
+        int ret = 0;
+        xlator_t *this = NULL;
+        gf_changelog_journal_t *jnl = NULL;
+        gf_changelog_entry_t *entry = NULL;
+        gf_changelog_processor_t *jnl_proc = NULL;
 
-        gfc = (gf_changelog_t *) data;
-        this = gfc->this;
+        this = THIS;
 
-        pthread_detach (pthread_self());
+        jnl = data;
+        jnl_proc = jnl->jnl_proc;
 
-        for (;;) {
-                len = gf_changelog_read_path (gfc->gfc_sockfd,
-                                              from_path + offlen,
-                                              PATH_MAX - offlen);
-                if (len < 0)
-                        continue; /* ignore it for now */
-
-                if (len == 0) { /* close() from the changelog translator */
-                        gf_log (this->name, GF_LOG_INFO, "close from changelog"
-                                " notification translator.");
-
-                        if (gfc->gfc_connretries != 1) {
-                                if (!gf_changelog_notification_init(this, gfc))
-                                        continue;
+        while (1) {
+                pthread_mutex_lock (&jnl_proc->lock);
+                {
+                        while (list_empty (&jnl_proc->entries)) {
+                                jnl_proc->waiting = _gf_true;
+                                pthread_cond_wait
+                                        (&jnl_proc->cond, &jnl_proc->lock);
                         }
 
-                        byebye = 1;
-                        break;
+                        entry = list_first_entry (&jnl_proc->entries,
+                                                  gf_changelog_entry_t, list);
+                        list_del (&entry->list);
+                        jnl_proc->waiting = _gf_false;
                 }
+                pthread_mutex_unlock (&jnl_proc->lock);
 
-                len += offlen;
-                sbuf = gf_changelog_ext_change (this, gfc, from_path, len);
-                if (!sbuf) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not extract changelog filename");
-                        continue;
-                }
-
-                offlen = 0;
-                if (sbuf != (from_path + len)) {
-                        offlen = from_path + len - sbuf;
-                        memmove (from_path, sbuf, offlen);
+                if (entry) {
+                        ret = gf_changelog_consume (this, jnl,
+                                                    entry->path, _gf_false);
+                        GF_FREE (entry);
                 }
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "byebye (%d) from processing thread...", byebye);
+        return NULL;
+}
+
+inline void
+gf_changelog_queue_journal (gf_changelog_processor_t *jnl_proc,
+                            changelog_event_t *event)
+{
+        size_t len = 0;
+        gf_changelog_entry_t *entry = NULL;
+
+        entry = GF_CALLOC (1, sizeof (gf_changelog_entry_t),
+                           gf_changelog_mt_libgfchangelog_entry_t);
+        if (!entry)
+                return;
+        INIT_LIST_HEAD (&entry->list);
+
+        len = strlen (event->u.journal.path);
+        (void)memcpy (entry->path, event->u.journal.path, len+1);
+
+        pthread_mutex_lock (&jnl_proc->lock);
+        {
+                list_add_tail (&entry->list, &jnl_proc->entries);
+                if (jnl_proc->waiting)
+                        pthread_cond_signal (&jnl_proc->cond);
+        }
+        pthread_mutex_unlock (&jnl_proc->lock);
+
+        return;
+}
+
+void
+gf_changelog_handle_journal (void *xl, char *brick,
+                             void *cbkdata, changelog_event_t *event)
+{
+        int                       ret      = 0;
+        gf_changelog_journal_t   *jnl      = NULL;
+        gf_changelog_processor_t *jnl_proc = NULL;
+
+        jnl      = cbkdata;
+        jnl_proc = jnl->jnl_proc;
+
+        gf_changelog_queue_journal (jnl_proc, event);
+}
+
+void
+gf_changelog_journal_disconnect (void *xl, char *brick, void *data)
+{
+        gf_changelog_journal_t *jnl = NULL;
+
+        jnl = data;
+
+        pthread_spin_lock (&jnl->lock);
+        {
+                JNL_SET_API_STATE (jnl, JNL_API_DISCONNECTED);
+        };
+        pthread_spin_unlock (&jnl->lock);
+}
+
+void
+gf_changelog_journal_connect (void *xl, char *brick, void *data)
+{
+        gf_changelog_journal_t *jnl = NULL;
+
+        jnl = data;
+
+        pthread_spin_lock (&jnl->lock);
+        {
+                JNL_SET_API_STATE (jnl, JNL_API_CONNECTED);
+        };
+        pthread_spin_unlock (&jnl->lock);
+
+        return;
+}
+
+void
+gf_changelog_cleanup_processor (gf_changelog_journal_t *jnl)
+{
+        int ret = 0;
+        xlator_t *this = NULL;
+        gf_changelog_processor_t *jnl_proc = NULL;
+
+        this = THIS;
+        if (!this || !jnl || !jnl->jnl_proc)
+                goto error_return;
+
+        jnl_proc = jnl->jnl_proc;
+
+        ret = gf_thread_cleanup (this, jnl_proc->processor);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to cleanup processor thread");
+                goto error_return;
+        }
+
+        (void)pthread_mutex_destroy (&jnl_proc->lock);
+        (void)pthread_cond_destroy (&jnl_proc->cond);
+
+        GF_FREE (jnl_proc);
+
+ error_return:
+        return;
+}
+
+int
+gf_changelog_init_processor (gf_changelog_journal_t *jnl)
+{
+        int ret = -1;
+        gf_changelog_processor_t *jnl_proc = NULL;
+
+        jnl_proc = GF_CALLOC (1, sizeof (gf_changelog_processor_t),
+                              gf_changelog_mt_libgfchangelog_t);
+        if (!jnl_proc)
+                goto error_return;
+
+        ret = pthread_mutex_init (&jnl_proc->lock, NULL);
+        if (ret != 0)
+                goto free_jnl_proc;
+        ret = pthread_cond_init (&jnl_proc->cond, NULL);
+        if (ret != 0)
+                goto cleanup_mutex;
+
+        INIT_LIST_HEAD (&jnl_proc->entries);
+        ret = pthread_create (&jnl_proc->processor,
+                              NULL, gf_changelog_process, jnl);
+        if (ret != 0)
+                goto cleanup_cond;
+        jnl_proc->waiting = _gf_false;
+
+        jnl->jnl_proc = jnl_proc;
+        return 0;
+
+ cleanup_cond:
+        (void) pthread_cond_destroy (&jnl_proc->cond);
+ cleanup_mutex:
+        (void) pthread_mutex_destroy (&jnl_proc->lock);
+ free_jnl_proc:
+        GF_FREE (jnl_proc);
+ error_return:
+        return -1;
+}
+
+static void
+gf_changelog_cleanup_fds (gf_changelog_journal_t *jnl)
+{
+        /* tracker fd */
+        if (jnl->jnl_fd != -1)
+                close (jnl->jnl_fd);
+        /* processing dir */
+        if (jnl->jnl_dir)
+                closedir (jnl->jnl_dir);
+
+        if (jnl->jnl_working_dir)
+                free (jnl->jnl_working_dir); /* allocated by realpath */
+}
+
+static int
+gf_changelog_open_dirs (xlator_t *this, gf_changelog_journal_t *jnl)
+{
+        int  ret                    = -1;
+        DIR *dir                    = NULL;
+        int  tracker_fd             = 0;
+        char tracker_path[PATH_MAX] = {0,};
+
+        /* .current */
+        (void) snprintf (jnl->jnl_current_dir, PATH_MAX,
+                         "%s/"GF_CHANGELOG_CURRENT_DIR"/",
+                         jnl->jnl_working_dir);
+        ret = recursive_rmdir (jnl->jnl_current_dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to rmdir: %s, err: %s",
+                        jnl->jnl_current_dir, strerror (errno));
+                goto out;
+        }
+        ret = mkdir_p (jnl->jnl_current_dir, 0600, _gf_false);
+        if (ret)
+                goto out;
+
+        /* .processed */
+        (void) snprintf (jnl->jnl_processed_dir, PATH_MAX,
+                         "%s/"GF_CHANGELOG_PROCESSED_DIR"/",
+                         jnl->jnl_working_dir);
+        ret = mkdir_p (jnl->jnl_processed_dir, 0600, _gf_false);
+        if (ret)
+                goto out;
+
+        /* .processing */
+        (void) snprintf (jnl->jnl_processing_dir, PATH_MAX,
+                         "%s/"GF_CHANGELOG_PROCESSING_DIR"/",
+                         jnl->jnl_working_dir);
+        ret = recursive_rmdir (jnl->jnl_processing_dir);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to rmdir: %s, err: %s",
+                        jnl->jnl_processing_dir, strerror (errno));
+                goto out;
+        }
+
+        ret = mkdir_p (jnl->jnl_processing_dir, 0600, _gf_false);
+        if (ret)
+                goto out;
+
+        dir = opendir (jnl->jnl_processing_dir);
+        if (!dir) {
+                gf_log ("", GF_LOG_ERROR,
+                        "opendir() error [reason: %s]", strerror (errno));
+                goto out;
+        }
+
+        jnl->jnl_dir = dir;
+
+        (void) snprintf (tracker_path, PATH_MAX,
+                         "%s/"GF_CHANGELOG_TRACKER, jnl->jnl_working_dir);
+
+        tracker_fd = open (tracker_path, O_CREAT | O_APPEND | O_RDWR,
+                           S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (tracker_fd < 0) {
+                closedir (jnl->jnl_dir);
+                ret = -1;
+                goto out;
+        }
+
+        jnl->jnl_fd = tracker_fd;
+        ret = 0;
+ out:
+        return ret;
+}
+
+int
+gf_changelog_init_history (xlator_t *this,
+                           gf_changelog_journal_t *jnl,
+                           char *brick_path, char *scratch_dir)
+{
+        int i   = 0;
+        int ret = 0;
+        char hist_scratch_dir[PATH_MAX] = {0,};
+
+        jnl->hist_jnl = GF_CALLOC (1, sizeof (*jnl),
+                         gf_changelog_mt_libgfchangelog_t);
+        if (!jnl->hist_jnl)
+                goto error_return;
+
+        jnl->hist_jnl->jnl_dir = NULL;
+        jnl->hist_jnl->jnl_fd =  -1;
+
+        (void) strncpy (hist_scratch_dir, scratch_dir, PATH_MAX);
+        (void) snprintf (hist_scratch_dir, PATH_MAX,
+                         "%s/"GF_CHANGELOG_HISTORY_DIR"/",
+                         jnl->jnl_working_dir);
+
+        ret = mkdir_p (hist_scratch_dir, 0600, _gf_false);
+        if (ret)
+                goto dealloc_hist;
+
+        jnl->hist_jnl->jnl_working_dir = realpath (hist_scratch_dir, NULL);
+        if (!jnl->hist_jnl->jnl_working_dir)
+                goto dealloc_hist;
+
+        ret = gf_changelog_open_dirs (this, jnl->hist_jnl);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not create entries in history scratch dir");
+                goto dealloc_hist;
+        }
+
+        (void) strncpy (jnl->hist_jnl->jnl_brickpath, brick_path, PATH_MAX);
+
+        for (i = 0; i < 256; i++) {
+                jnl->hist_jnl->rfc3986[i] =
+                        (isalnum(i) || i == '~' ||
+                        i == '-' || i == '.' || i == '_') ? i : 0;
+        }
+
+        return 0;
+
+ dealloc_hist:
+        GF_FREE (jnl->hist_jnl);
+        jnl->hist_jnl = NULL;
+ error_return:
+        return -1;
+}
+
+void
+gf_changelog_journal_fini (void *xl, char *brick, void *data)
+{
+        int ret = 0;
+        xlator_t *this = NULL;
+        gf_changelog_journal_t *jnl = NULL;
+
+        this = xl;
+        jnl = data;
+
+        gf_changelog_cleanup_processor (jnl);
+
+        gf_changelog_cleanup_fds (jnl);
+        if (jnl->hist_jnl)
+                gf_changelog_cleanup_fds (jnl->hist_jnl);
+
+        GF_FREE (jnl);
+}
+
+void *
+gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
+{
+        int                     i           = 0;
+        int                     ret         = 0;
+        xlator_t               *this        = NULL;
+        struct stat             buf         = {0,};
+        char                   *scratch_dir = NULL;
+        gf_changelog_journal_t *jnl         = NULL;
+
+        this = xl;
+        scratch_dir = (char *) brick->ptr;
+
+        jnl = GF_CALLOC (1, sizeof (gf_changelog_journal_t),
+                         gf_changelog_mt_libgfchangelog_t);
+        if (!jnl)
+                goto error_return;
+
+        if (stat (scratch_dir, &buf) && errno == ENOENT) {
+                ret = mkdir_p (scratch_dir, 0600, _gf_true);
+                if (ret)
+                        goto dealloc_private;
+        }
+
+        jnl->jnl_working_dir = realpath (scratch_dir, NULL);
+        if (!jnl->jnl_working_dir)
+                goto dealloc_private;
+
+        ret = gf_changelog_open_dirs (this, jnl);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not create entries in scratch dir");
+                goto dealloc_private;
+        }
+
+        (void) strncpy (jnl->jnl_brickpath, brick->brick_path, PATH_MAX);
+
+        /* RFC 3986 {de,en}coding */
+        for (i = 0; i < 256; i++) {
+                jnl->rfc3986[i] =
+                        (isalnum(i) || i == '~' ||
+                        i == '-' || i == '.' || i == '_') ? i : 0;
+        }
+
+        ret = gf_changelog_init_history (this, jnl,
+                                         brick->brick_path, scratch_dir);
+        if (ret)
+                goto cleanup_fds;
+
+        /* initialize journal processor */
+        ret = gf_changelog_init_processor (jnl);
+        if (ret)
+                goto cleanup_fds;
+
+        JNL_SET_API_STATE (jnl, JNL_API_CONN_INPROGESS);
+        ret = pthread_spin_init (&jnl->lock, 0);
+        if (ret != 0)
+                goto cleanup_processor;
+        return jnl;
+
+ cleanup_processor:
+        gf_changelog_cleanup_processor (jnl);
+ cleanup_fds:
+        gf_changelog_cleanup_fds (jnl);
+        if (jnl->hist_jnl)
+                gf_changelog_cleanup_fds (jnl->hist_jnl);
+ dealloc_private:
+        GF_FREE (jnl);
+ error_return:
         return NULL;
 }
