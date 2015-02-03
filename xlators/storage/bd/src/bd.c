@@ -1445,7 +1445,6 @@ bd_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
         bd_inode_ctx_get (fd->inode, this, &bdatt);
 
-        data =  dict_get (dict, BD_XATTR);
         if ((data = dict_get (dict, BD_XATTR)))
                 cl_type = BD_OF_NONE;
         else if ((data = dict_get (dict, BD_CLONE)))
