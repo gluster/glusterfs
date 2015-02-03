@@ -40,8 +40,8 @@ main (int argc, char ** argv)
         char fbuf[PATH_MAX]  = {0,};
         unsigned long end_ts = 0;
 
-        ret = gf_changelog_register ("/export1/v1/b1",
-                                     "/tmp/scratch_v1", "/tmp/scratch_v1/changes.log",
+        ret = gf_changelog_register ("/export/z1/zwoop",
+                                     "/tmp/scratch_v1", "/tmp/changes.log",
                                      9, 5);
         if (ret) {
                 handle_error ("register failed");
@@ -51,7 +51,8 @@ main (int argc, char ** argv)
         int a, b;
         printf ("give the two numbers start and end\t");
         scanf ("%d%d", &a, &b);
-        ret = gf_history_changelog ("/export1/v1/b1/.glusterfs/changelogs",a, b, 3, &end_ts);
+        ret = gf_history_changelog ("/export/z1/zwoop/.glusterfs/changelogs",
+                                    a, b, 3, &end_ts);
         if (ret == -1) {
                 printf ("history failed");
                 goto out;

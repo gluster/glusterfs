@@ -1,5 +1,6 @@
 XDRSOURCES = glusterfs3-xdr.c cli1-xdr.c nlm4-xdr.c nsm-xdr.c \
-	rpc-common-xdr.c glusterd1-xdr.c acl3-xdr.c portmap-xdr.c mount3udp.c
+	rpc-common-xdr.c glusterd1-xdr.c acl3-xdr.c portmap-xdr.c \
+	mount3udp.c changelog-xdr.c
 XDRHEADERS = $(XDRSOURCES:.c=.h)
 XDRGENFILES = $(XDRSOURCES:.c=.x)
 
@@ -75,4 +76,10 @@ mount3udp.c: mount3udp.x mount3udp.h
 	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
 
 mount3udp.h: mount3udp.x
+	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
+
+changelog-xdr.c: changelog-xdr.x changelog-xdr.h
+	$(top_srcdir)/build-aux/xdrgen source $(xdrsrc)/`basename ${@:.c=.x}`
+
+changelog-xdr.h: changelog-xdr.x
 	$(top_srcdir)/build-aux/xdrgen header $(xdrsrc)/`basename ${@:.h=.x}`
