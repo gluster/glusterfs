@@ -7,7 +7,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
 	-DSBIN_DIR=\"$(sbindir)\" -lm
 
-libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS)
+libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS) $(MATH_LIB)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
 
 lib_LTLIBRARIES = libglusterfs.la
@@ -30,7 +30,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/libgen/basename_r.c $(CONTRIBDIR)/libgen/dirname_r.c \
 	$(CONTRIBDIR)/stdlib/gf_mkostemp.c strfd.c parse-utils.c \
 	$(CONTRIBDIR)/mount/mntent.c $(CONTRIBDIR)/libexecinfo/execinfo.c\
-	quota-common-utils.c
+	quota-common-utils.c rot-buffs.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
@@ -49,7 +49,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
-	unittest/unittest.h quota-common-utils.h
+	unittest/unittest.h quota-common-utils.h rot-buffs.h
 
 EXTRA_DIST = graph.l graph.y
 

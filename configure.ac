@@ -376,6 +376,17 @@ AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sy
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+dnl Math library
+case $host_os in
+     linux*)
+        MATH_LIB=''
+        ;;
+     *)
+        MATH_LIB='-lm'
+        ;;
+esac
+AC_SUBST(MATH_LIB)
+
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
      *netbsd*)
