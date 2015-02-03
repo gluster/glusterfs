@@ -82,14 +82,14 @@
                 }                                                       \
         } while (0)
 
-#define CHANGELOG_FILL_HTIME_DIR(changelog_dir, path) do {      \
-                strcpy (path, changelog_dir);                   \
-                strcat (path, "/htime");                        \
+#define CHANGELOG_FILL_HTIME_DIR(changelog_dir, path) do {              \
+                strncpy (path, changelog_dir, sizeof (path) - 1);       \
+                strcat (path, "/htime");                                \
         } while(0)
 
-#define CHANGELOG_FILL_CSNAP_DIR(changelog_dir, path) do {      \
-                strcpy (path, changelog_dir);                   \
-                strcat (path, "/csnap");                        \
+#define CHANGELOG_FILL_CSNAP_DIR(changelog_dir, path) do {              \
+                strncpy (path, changelog_dir, sizeof (path) - 1);       \
+                strcat (path, "/csnap");                                \
         } while(0)
 /**
  * everything after 'CHANGELOG_TYPE_ENTRY' are internal types
