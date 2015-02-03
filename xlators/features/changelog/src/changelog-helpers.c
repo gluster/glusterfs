@@ -313,7 +313,7 @@ htime_update (xlator_t *this,
                 ret = -1;
                 goto out;
         }
-        strcpy (changelog_path, buffer);
+        strncpy (changelog_path, buffer, PATH_MAX);
         len = strlen (changelog_path);
         changelog_path[len] = '\0'; /* redundant */
 
