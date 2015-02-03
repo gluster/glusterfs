@@ -12,7 +12,9 @@
 #include <dlfcn.h>
 #include <netdb.h>
 #include <fnmatch.h>
+#include <stdlib.h>
 #include "defaults.h"
+#include <unistd.h>
 
 
 #if 0
@@ -780,9 +782,15 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
         glusterfs_graph_t *oldvolfile_graph = NULL;
         glusterfs_graph_t *newvolfile_graph = NULL;
         FILE              *oldvolfile_fp    = NULL;
+        /*Since the function mkstemp() replaces XXXXXX,
+         * assigning it to a variable
+         */
+        char temp_file[]                    = "/tmp/temp_vol_file_XXXXXX";
         gf_boolean_t      active_graph_found = _gf_true;
 
         int ret = -1;
+        int u_ret = -1;
+        int file_desc = -1;
 
         if (!oldvollen) {
                 ret = 1; // Has to call INIT for the whole graph
@@ -801,13 +809,31 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                 gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
                         "glusterfs_ctx->active is NULL");
 
-                oldvolfile_fp = tmpfile ();
-                if (!oldvolfile_fp) {
+                file_desc = mkstemp(temp_file);
+                if (file_desc < 0) {
                         gf_log ("glusterfsd-mgmt", GF_LOG_ERROR, "Unable to "
                                 "create temporary volfile: (%s)",
                                 strerror (errno));
                         goto out;
                 }
+
+                /*Calling unlink so that when the file is closed or program
+                 *terminates the tempfile is deleted.
+                 */
+                u_ret = unlink(temp_file);
+
+                if (u_ret < 0) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                                "Temporary file delete failed. Reason: %s",
+                                strerror (errno));
+                        close (file_desc);
+                        goto out;
+                }
+
+
+                oldvolfile_fp = fdopen (file_desc, "w+b");
+                if (!oldvolfile_fp)
+                        goto out;
 
                 fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
                 fflush (oldvolfile_fp);
