@@ -60,7 +60,9 @@ gf_proc_dump_open (char *tmpname)
 {
         int  dump_fd = -1;
 
+        mode_t mask = umask(S_IRWXG | S_IRWXO);
         dump_fd = mkstemp (tmpname);
+        umask(mask);
         if (dump_fd < 0)
                 return -1;
 
