@@ -839,7 +839,8 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                                 "%s missing in payload", key);
                 goto out;
         }
-        strcpy (brickinfo->mount_dir, mount_dir);
+        strncpy (brickinfo->mount_dir, mount_dir,
+                 (sizeof (brickinfo->mount_dir) - 1));
 
 out:
         return ret;
@@ -1497,7 +1498,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
-        strcpy (snap->snapname, peer_snap_name);
+        strncpy (snap->snapname, peer_snap_name, sizeof (snap->snapname) - 1);
         gf_uuid_parse (peer_snap_id, snap->snap_id);
 
         snprintf (buf, sizeof(buf), "%s.snapid", prefix);

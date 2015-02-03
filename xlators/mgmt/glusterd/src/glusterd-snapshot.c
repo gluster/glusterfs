@@ -4717,7 +4717,8 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         if (!ret) {
                 /* Update the fstype in original brickinfo as well */
                 strcpy (original_brickinfo->fstype, value);
-                strcpy (snap_brickinfo->fstype, value);
+                strncpy (snap_brickinfo->fstype, value,
+                         (sizeof (snap_brickinfo->fstype) - 1));
         } else {
                 if (is_origin_glusterd (dict) == _gf_true)
                         add_missed_snap = _gf_true;
