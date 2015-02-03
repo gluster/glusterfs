@@ -179,14 +179,29 @@ list_append_init (struct list_head *list, struct list_head *head)
 	INIT_LIST_HEAD (list);
 }
 
+static inline int
+list_is_last (struct list_head *list, struct list_head *head)
+{
+        return (list->next == head);
+}
 
 #define list_entry(ptr, type, member)					\
 	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
 
+#define list_first_entry(ptr, type, member)     \
+        list_entry((ptr)->next, type, member)
+
+#define list_last_entry(ptr, type, member)     \
+        list_entry((ptr)->prev, type, member)
+
+#define list_next_entry(pos, member) \
+        list_entry((pos)->member.next, typeof(*(pos)), member)
+
+#define list_prev_entry(pos, member) \
+        list_entry((pos)->member.prev, typeof(*(pos)), member)
 
 #define list_for_each(pos, head)                                        \
 	for (pos = (head)->next; pos != (head); pos = pos->next)
-
 
 #define list_for_each_entry(pos, head, member)				\
 	for (pos = list_entry((head)->next, typeof(*pos), member);	\
