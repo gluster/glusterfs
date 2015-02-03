@@ -131,17 +131,20 @@ enum gf_common_mem_types_ {
         gf_common_mt_parser_t             = 115,
         gf_common_quota_meta_t            = 116,
         /*related to gfdb library*/
-        gfdb_mt_time_t,
-        gf_mt_sql_cbk_args_t,
-        gf_mt_gfdb_query_record_t,
-        gf_mt_gfdb_link_info_t,
-        gf_mt_gfdb_db_operations_t,
-        gf_mt_sql_connection_t,
-        gf_mt_sql_conn_node_t,
-        gf_mt_db_conn_node_t,
-        gf_mt_db_connection_t,
-        gfdb_mt_db_record_t,
+        gfdb_mt_time_t                    = 117,
+        gf_mt_sql_cbk_args_t              = 118,
+        gf_mt_gfdb_query_record_t         = 119,
+        gf_mt_gfdb_link_info_t            = 120,
+        gf_mt_gfdb_db_operations_t        = 121,
+        gf_mt_sql_connection_t            = 122,
+        gf_mt_sql_conn_node_t             = 123,
+        gf_mt_db_conn_node_t              = 124,
+        gf_mt_db_connection_t             = 125,
+        gfdb_mt_db_record_t               = 126,
         /*related to gfdb library*/
+        gf_common_mt_rbuf_t               = 127,
+        gf_common_mt_rlist_t              = 128,
+        gf_common_mt_rvec_t               = 129,
         gf_common_mt_end
 };
 #endif
