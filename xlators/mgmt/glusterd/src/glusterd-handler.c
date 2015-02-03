@@ -4599,6 +4599,13 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         this = THIS;
         conf = this->private;
 
+        if (RPC_CLNT_DESTROY == event) {
+                GF_FREE (peerctx->errstr);
+                GF_FREE (peerctx->peername);
+                GF_FREE (peerctx);
+                return 0;
+        }
+
         rcu_read_lock ();
 
         peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
@@ -4679,6 +4686,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 peerinfo->connected = 0;
                 break;
         }
+
         default:
                 gf_log (this->name, GF_LOG_TRACE,
                         "got some other RPC event %d", event);

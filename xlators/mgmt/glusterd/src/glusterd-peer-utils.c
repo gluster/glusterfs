@@ -23,15 +23,8 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
         if (peerinfo->quorum_contrib != QUORUM_NONE)
                 quorum_action = _gf_true;
         if (peerinfo->rpc) {
-                peerctx = peerinfo->rpc->mydata;
-                peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
                 peerinfo->rpc = NULL;
-                if (peerctx) {
-                        GF_FREE (peerctx->errstr);
-                        GF_FREE (peerctx->peername);
-                        GF_FREE (peerctx);
-                }
         }
         glusterd_peerinfo_destroy (peerinfo);
 
