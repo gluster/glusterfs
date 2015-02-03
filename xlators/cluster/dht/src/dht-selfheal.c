@@ -1572,7 +1572,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 }
         }
 
-        if (weight_by_size) {
+        if (weight_by_size && total_size) {
                 /* We know total_size is not zero. */
                 chunk = ((unsigned long) 0xffffffff) / total_size;
                 gf_log (this->name, GF_LOG_INFO,
@@ -1580,6 +1580,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                         total_size, chunk);
         }
         else {
+                weight_by_size = _gf_false;
                 chunk = ((unsigned long) 0xffffffff) / bricks_to_use;
         }
 
