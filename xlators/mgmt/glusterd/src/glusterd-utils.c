@@ -3284,8 +3284,9 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         if (ret)
                 goto out;
 
-        strcpy (new_brickinfo->path, path);
-        strcpy (new_brickinfo->hostname, hostname);
+        strncpy (new_brickinfo->path, path, sizeof (new_brickinfo->path) - 1);
+        strncpy (new_brickinfo->hostname, hostname,
+                 sizeof (new_brickinfo->hostname) - 1);
         new_brickinfo->decommissioned = decommissioned;
         if (brick_id)
                 strcpy (new_brickinfo->brick_id, brick_id);
