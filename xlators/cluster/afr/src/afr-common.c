@@ -1245,7 +1245,7 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
                         continue;
                 }
 
-                if ((i != par_read_subvol) && readable[i])
+                if ((par_read_subvol_iter != par_read_subvol) && readable[i])
                         par_read_subvol_iter = i;
 
                 if (i == par_read_subvol)
