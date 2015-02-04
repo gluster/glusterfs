@@ -1082,10 +1082,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         if (strcmp (w, "list") == 0) {
-                if (wordcount < 4) {
-                        ret = -1;
-                        goto out;
-                }
 
                 type = GF_QUOTA_OPTION_TYPE_LIST;
 
@@ -1493,10 +1489,6 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 index = 3;
         } else if ((strcmp (w, "replica")) == 0) {
                 type = GF_CLUSTER_TYPE_REPLICATE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
                 count = strtol (words[4], NULL, 0);
                 if (!count || (count < 2)) {
                         cli_err ("replica count should be greater than 1");
@@ -1509,10 +1501,6 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 index = 5;
         } else if ((strcmp (w, "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
                 count = strtol (words[4], NULL, 0);
                 if (!count || (count < 2)) {
                         cli_err ("stripe count should be greater than 1");
