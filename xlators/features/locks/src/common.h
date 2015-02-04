@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2006-2012, 2015-2016 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -35,7 +35,7 @@
 
 posix_lock_t *
 new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
-                gf_lkowner_t *owner, fd_t *fd);
+                gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags);
 
 pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode);
