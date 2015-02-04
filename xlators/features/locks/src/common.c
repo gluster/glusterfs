@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2006-2012, 2015-2016 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -446,7 +446,7 @@ unlock:
 /* Create a new posix_lock_t */
 posix_lock_t *
 new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
-                gf_lkowner_t *owner, fd_t *fd)
+                gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags)
 {
         posix_lock_t *lock = NULL;
 
@@ -480,6 +480,7 @@ new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
         lock->fd         = fd;
         lock->client_pid = client_pid;
         lock->owner      = *owner;
+        lock->lk_flags   = lk_flags;
 
         INIT_LIST_HEAD (&lock->list);
 
@@ -799,7 +800,8 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                         continue;
 
                 if (same_owner (conf, lock)) {
-                        if (conf->fl_type == lock->fl_type) {
+                        if (conf->fl_type == lock->fl_type &&
+                                        conf->lk_flags == lock->lk_flags) {
                                 sum = add_locks (lock, conf);
 
                                 sum->fl_type    = lock->fl_type;
@@ -810,6 +812,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 sum->fd_num     = lock->fd_num;
                                 sum->client_pid = lock->client_pid;
                                 sum->owner      = lock->owner;
+                                sum->lk_flags   = lock->lk_flags;
 
                                 __delete_lock (conf);
                                 __destroy_lock (conf);
@@ -832,6 +835,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 sum->fd_num     = conf->fd_num;
                                 sum->client_pid = conf->client_pid;
                                 sum->owner      = conf->owner;
+                                sum->lk_flags   = conf->lk_flags;
 
                                 v = subtract_locks (sum, lock);
 
@@ -988,7 +992,7 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
 
         unlock_lock = new_posix_lock (&flock, old_lock->client,
                                       old_lock->client_pid, &old_lock->owner,
-                                      old_lock->fd);
+                                      old_lock->fd, old_lock->lk_flags);
         GF_VALIDATE_OR_GOTO (this->name, unlock_lock, out);
         ret = 0;
 
