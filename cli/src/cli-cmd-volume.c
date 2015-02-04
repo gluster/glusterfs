@@ -374,12 +374,6 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                  goto out;
         }
 
-        if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "failed to serialize dict");
-                goto out;
-        }
-
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_START_VOLUME];
 
         CLI_LOCAL_INIT (local, words, frame, dict);
@@ -2414,7 +2408,7 @@ cli_cmd_volume_clearlocks_cbk (struct cli_state *state,
 out:
         if (ret) {
                 cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error = 0))
+                if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume clear-locks failed");
         }
 
