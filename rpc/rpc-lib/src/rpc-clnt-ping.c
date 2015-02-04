@@ -158,12 +158,27 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto unlock;
                 }
 
+                /* We need to unref rpc_clnt after every call cancel. This is
+                 * because we take a ref every time a ping timer event is
+                 * scheduled.  But we are accounting for this by doing away
+                 * with the ref we should have taken otherwise. This possible
+                 * since ref and unref have the following property.
+                 *
+                 * rpc_clnt_unref (rpc); rpc_clnt_ref (rpc);
+                 * is the same as,
+                 * (;)
+                 * where, rpc->refcnt > 0.
+                 *
+                 * Here rpc->refcnt > 0, since the ping_timer is not NULL,
+                 * which implies the ping timer event hasn't executed, and
+                 * therefore the ref taken when it was scheduled is still
+                 * present.  */
+
                 gf_timer_call_cancel (this->ctx,
                                       conn->ping_timer);
 
                 timeout.tv_sec = conn->ping_timeout;
                 timeout.tv_nsec = 0;
-                rpc_clnt_ref (rpc);
                 conn->ping_timer = gf_timer_call_after (this->ctx, timeout,
                                                         rpc_clnt_start_ping,
                                                         (void *)rpc);
