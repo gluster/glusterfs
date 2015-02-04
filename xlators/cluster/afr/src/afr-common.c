@@ -328,14 +328,16 @@ afr_inode_read_subvol_get (inode_t *inode, xlator_t *this, unsigned char *data,
 {
 	int ret = -1;
 
-	LOCK(&inode->lock);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK(&inode->lock);
 	{
 		ret = __afr_inode_read_subvol_get (inode, this, data,
 						   metadata, event_p);
 	}
 	UNLOCK(&inode->lock);
-
-	return ret;
+out:
+        return ret;
 }
 
 int
@@ -344,14 +346,16 @@ afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
 {
 	int ret = -1;
 
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
 	LOCK(&inode->lock);
 	{
 		ret = __afr_inode_split_brain_choice_get (inode, this,
                                                           spb_choice);
 	}
 	UNLOCK(&inode->lock);
-
-	return ret;
+out:
+        return ret;
 }
 
 
@@ -361,15 +365,18 @@ afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data,
 {
 	int ret = -1;
 
-	LOCK(&inode->lock);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK(&inode->lock);
 	{
 		ret = __afr_inode_read_subvol_set (inode, this, data, metadata,
 						   event);
 	}
 	UNLOCK(&inode->lock);
-
-	return ret;
+out:
+        return ret;
 }
+
 
 int
 afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
@@ -377,13 +384,15 @@ afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
 {
 	int ret = -1;
 
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
 	LOCK(&inode->lock);
 	{
 		ret = __afr_inode_split_brain_choice_set (inode, this,
                                                           spb_choice);
 	}
 	UNLOCK(&inode->lock);
-
+out:
 	return ret;
 }
 
@@ -393,12 +402,14 @@ afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
 {
 	int ret = -1;
 
-	LOCK(&inode->lock);
-	{
-		ret = __afr_inode_read_subvol_reset (inode, this);
-	}
-	UNLOCK(&inode->lock);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
+        LOCK(&inode->lock);
+        {
+                ret = __afr_inode_read_subvol_reset (inode, this);
+        }
+        UNLOCK(&inode->lock);
+out:
 	return ret;
 }
 
