@@ -946,8 +946,9 @@ class GMasterChangelogMixin(GMasterCommon):
                     if pt in datas:
                         datas.remove(pt)
 
-                    purge_update()
-                    entries.append(edct(ty, gfid=gfid, entry=en))
+                    if not boolify(gconf.ignore_deletes):
+                        purge_update()
+                        entries.append(edct(ty, gfid=gfid, entry=en))
                 elif ty in ['CREATE', 'MKDIR', 'MKNOD']:
                     entry_update()
                     # stat information present in the changelog itself

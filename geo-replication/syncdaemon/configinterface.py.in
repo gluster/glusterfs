@@ -60,6 +60,10 @@ CONFIGS = (
      "working_dir",
      "@localstatedir@/run/gluster/${mastervol}/${eSlave}",
      "${iprefix}/lib/misc/glusterfsd/${mastervol}/${eSlave}"),
+    ("peersrx . .",
+     "ignore_deletes",
+     "true",
+     "false"),
 )
 
 
