@@ -51,6 +51,11 @@ struct gsync_config_opt_vals_ gsync_confopt_vals[] = {
          .case_sensitive = _gf_false,
          .values         = {"true", "false", "0", "1", "yes", "no"}
         },
+        {.op_name        = "ignore_deletes",
+         .no_of_pos_vals = 6,
+         .case_sensitive = _gf_false,
+         .values         = {"true", "false", "0", "1", "yes", "no"}
+        },
         {.op_name = NULL,
         },
 };
@@ -63,7 +68,6 @@ static char *gsync_reserved_opts[] = {
         "session-owner",
         "state-socket-unencoded",
         "socketdir",
-        "ignore-deletes",
         "local-id",
         "local-path",
         "slave-id",
@@ -5111,7 +5115,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
 
         /* ignore-deletes */
         runinit_gsyncd_setrx (&runner, conf_path);
-        runner_add_args (&runner, "ignore-deletes", "true", ".", ".", NULL);
+        runner_add_args (&runner, "ignore-deletes", "false", ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
         /* special-sync-mode */
