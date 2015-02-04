@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2015 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2016 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -272,6 +272,9 @@
 
 #define GF_BACKTRACE_LEN        4096
 #define GF_BACKTRACE_FRAME_COUNT 7
+
+#define GF_LK_ADVISORY 0
+#define GF_LK_MANDATORY 1
 
 const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
 const char *fop_enum_to_string (glusterfs_fop_t fop);

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2006-2012, 2015-2016 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -18,6 +18,13 @@
 
 #include "lkowner.h"
 
+typedef enum {
+        MLK_NONE,
+        MLK_FILE_BASED,
+        MLK_FORCED,
+        MLK_OPTIMAL
+} mlk_mode_t; /* defines different mandatory locking modes*/
+
 struct __pl_fd;
 
 struct __posix_lock {
@@ -26,6 +33,7 @@ struct __posix_lock {
         short              fl_type;
         off_t              fl_start;
         off_t              fl_end;
+        uint32_t           lk_flags;
 
         short              blocked;    /* waiting to acquire */
         struct gf_flock    user_flock; /* the flock supplied by the user */
@@ -161,7 +169,7 @@ typedef struct __pl_inode pl_inode_t;
 
 
 typedef struct {
-        gf_boolean_t    mandatory;      /* if mandatory locking is enabled */
+        mlk_mode_t      mandatory_mode; /* holds current mandatory locking mode */
         gf_boolean_t    trace;          /* trace lock requests in and out */
         char           *brickname;
 } posix_locks_private_t;
@@ -178,7 +186,7 @@ typedef struct {
         loc_t  loc[2];
         fd_t  *fd;
         off_t  offset;
-        enum {TRUNCATE, FTRUNCATE} op;
+        glusterfs_fop_t op;
 } pl_local_t;
 
 

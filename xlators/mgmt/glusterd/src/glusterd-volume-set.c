@@ -791,6 +791,35 @@ validate_replica_heal_enable_disable (glusterd_volinfo_t *volinfo, dict_t *dict,
 }
 
 static int
+validate_mandatory_locking (glusterd_volinfo_t *volinfo, dict_t *dict,
+                            char *key, char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (strcmp (value, "off") != 0 && strcmp (value, "file") != 0 &&
+                        strcmp(value, "forced") != 0 &&
+                        strcmp(value, "optimal") != 0) {
+                snprintf (errstr, sizeof(errstr), "Invalid option value '%s':"
+                          " Available options are 'off', 'file', "
+                          "'forced' or 'optimal'", value);
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+                                "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+out:
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_disperse_heal_enable_disable (glusterd_volinfo_t *volinfo,
                                        dict_t *dict, char *key, char *value,
                                        char **op_errstr)
@@ -2789,8 +2818,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
 #endif /* USE_GFDB */
         { .key         = "locks.trace",
           .voltype     = "features/locks",
-          .type        = NO_DOC,
           .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "locks.mandatory-locking",
+          .voltype     = "features/locks",
+          .op_version  = GD_OP_VERSION_4_0_0,
+          .validate_fn = validate_mandatory_locking,
         },
         { .key           = "cluster.disperse-self-heal-daemon",
           .voltype       = "cluster/disperse",

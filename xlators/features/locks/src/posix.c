@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2006-2012, 2016 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -32,7 +32,6 @@
 #endif /* LLONG_MAX */
 
 /* Forward declarations */
-
 
 void do_blocked_rw (pl_inode_t *);
 static int __rw_allowable (pl_inode_t *, posix_lock_t *, glusterfs_fop_t);
@@ -352,6 +351,49 @@ pl_set_xdata_response (xlator_t *this, pl_local_t *local, inode_t *parent,
                 pl_posixlk_xattr_fill (this, inode, xdata, max_lock);
 }
 
+/* Return true in case we need to ensure mandatory-locking
+ * semnatics under different modes.
+ */
+gf_boolean_t
+pl_is_mandatory_locking_enabled (pl_inode_t *pl_inode)
+{
+        posix_locks_private_t *priv = NULL;
+
+        priv = THIS->private;
+
+        if (priv->mandatory_mode == MLK_FILE_BASED && pl_inode->mandatory)
+                return _gf_true;
+        else if (priv->mandatory_mode == MLK_FORCED ||
+                 priv->mandatory_mode == MLK_OPTIMAL)
+                return _gf_true;
+
+        return _gf_false;
+}
+
+/* Checks whether the region where fop is acting upon conflicts
+ * with existing locks. If there is no conflict function returns
+ * 1 else returns 0 with can_block boolean set accordingly to
+ * indicate block/fail the fop.
+ */
+int
+pl_is_fop_allowed (pl_inode_t *pl_inode, posix_lock_t *region, fd_t *fd,
+                   glusterfs_fop_t op, gf_boolean_t *can_block)
+{
+        int     ret     = 0;
+
+        if (!__rw_allowable (pl_inode, region, op)) {
+                if ((!fd) || (fd && (fd->flags & O_NONBLOCK))) {
+                        gf_log ("locks", GF_LOG_TRACE, "returning EAGAIN"
+                                                " because fd is O_NONBLOCK");
+                        *can_block = _gf_false;
+                } else
+                        *can_block = _gf_true;
+        } else
+                ret = 1;
+
+        return ret;
+}
+
 static pl_fdctx_t *
 pl_new_fdctx ()
 {
@@ -402,6 +444,214 @@ out:
         return fdctx;
 }
 
+int32_t
+pl_discard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                struct iatt *postbuf, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (discard, frame, op_ret, op_errno, prebuf,
+                             postbuf, xdata);
+        return 0;
+}
+
+int
+pl_discard_cont (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                 size_t len, dict_t *xdata)
+{
+        STACK_WIND (frame, pl_discard_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
+        return 0;
+}
+
+int32_t
+pl_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+            size_t len, dict_t *xdata)
+{
+        pl_inode_t            *pl_inode = NULL;
+        pl_rw_req_t           *rw = NULL;
+        posix_lock_t           region = {.list = {0, }, };
+        gf_boolean_t           enabled = _gf_false;
+        gf_boolean_t           can_block = _gf_true;
+        int                    op_ret = 0;
+        int                    op_errno = 0;
+        int                    allowed = 1;
+
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
+
+        pl_inode = pl_inode_get (this, fd->inode);
+        if (!pl_inode) {
+                op_ret   = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        enabled = pl_is_mandatory_locking_enabled (pl_inode);
+
+        if (frame->root->pid < 0)
+                enabled = _gf_false;
+
+        if (enabled) {
+                region.fl_start   = offset;
+                region.fl_end     = offset + len - 1;
+                region.client     = frame->root->client;
+                region.fd_num     = fd_to_fdnum(fd);
+                region.client_pid = frame->root->pid;
+                region.owner      = frame->root->lk_owner;
+
+                pthread_mutex_lock (&pl_inode->mutex);
+                {
+                        allowed = pl_is_fop_allowed (pl_inode, &region, fd,
+                                                     GF_FOP_DISCARD,
+                                                     &can_block);
+                        if (allowed == 1)
+                                goto unlock;
+                        else if (!can_block) {
+                                op_errno = EAGAIN;
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        rw = GF_CALLOC (1, sizeof (*rw),
+                                        gf_locks_mt_pl_rw_req_t);
+                        if (!rw) {
+                                op_errno = ENOMEM;
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        rw->stub = fop_discard_stub (frame, pl_discard_cont,
+                                                     fd, offset, len, xdata);
+                        if (!rw->stub) {
+                                op_errno = ENOMEM;
+                                op_ret = -1;
+                                GF_FREE (rw);
+                                goto unlock;
+                        }
+
+                        rw->region = region;
+
+                        list_add_tail (&rw->list, &pl_inode->rw_list);
+                }
+        unlock:
+                pthread_mutex_unlock (&pl_inode->mutex);
+        }
+
+        if (allowed == 1)
+                STACK_WIND (frame, pl_discard_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->discard, fd, offset,
+                            len, xdata);
+unwind:
+        if (op_ret == -1)
+                STACK_UNWIND_STRICT (discard, frame, op_ret, op_errno,
+                                     NULL, NULL, NULL);
+
+        return 0;
+}
+
+int32_t
+pl_zerofill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (zerofill, frame, op_ret, op_errno, prebuf,
+                             postbuf, xdata);
+        return 0;
+}
+
+int
+pl_zerofill_cont (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                  off_t len, dict_t *xdata)
+{
+        STACK_WIND (frame, pl_zerofill_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->zerofill, fd, offset, len, xdata);
+        return 0;
+}
+
+int32_t
+pl_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+             off_t len, dict_t *xdata)
+{
+        pl_inode_t            *pl_inode = NULL;
+        pl_rw_req_t           *rw = NULL;
+        posix_lock_t           region = {.list = {0, }, };
+        gf_boolean_t           enabled = _gf_false;
+        gf_boolean_t           can_block = _gf_true;
+        int                    op_ret = 0;
+        int                    op_errno = 0;
+        int                    allowed = 1;
+
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
+
+        pl_inode = pl_inode_get (this, fd->inode);
+        if (!pl_inode) {
+                op_ret   = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        enabled = pl_is_mandatory_locking_enabled (pl_inode);
+
+        if (frame->root->pid < 0)
+                enabled = _gf_false;
+
+        if (enabled) {
+                region.fl_start   = offset;
+                region.fl_end     = offset + len - 1;
+                region.client     = frame->root->client;
+                region.fd_num     = fd_to_fdnum(fd);
+                region.client_pid = frame->root->pid;
+                region.owner      = frame->root->lk_owner;
+
+                pthread_mutex_lock (&pl_inode->mutex);
+                {
+                        allowed = pl_is_fop_allowed (pl_inode, &region, fd,
+                                                     GF_FOP_ZEROFILL,
+                                                     &can_block);
+                        if (allowed == 1)
+                                goto unlock;
+                        else if (!can_block) {
+                                op_errno = EAGAIN;
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        rw = GF_CALLOC (1, sizeof (*rw),
+                                        gf_locks_mt_pl_rw_req_t);
+                        if (!rw) {
+                                op_errno = ENOMEM;
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        rw->stub = fop_zerofill_stub (frame, pl_zerofill_cont,
+                                                      fd, offset, len, xdata);
+                        if (!rw->stub) {
+                                op_errno = ENOMEM;
+                                op_ret = -1;
+                                GF_FREE (rw);
+                                goto unlock;
+                        }
+
+                        rw->region = region;
+
+                        list_add_tail (&rw->list, &pl_inode->rw_list);
+                }
+        unlock:
+                pthread_mutex_unlock (&pl_inode->mutex);
+        }
+
+        if (allowed == 1)
+                STACK_WIND (frame, pl_zerofill_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->zerofill, fd, offset,
+                            len, xdata);
+unwind:
+        if (op_ret == -1)
+                STACK_UNWIND_STRICT (zerofill, frame, op_ret, op_errno,
+                                     NULL, NULL, NULL);
+
+        return 0;
+}
+
 int
 pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
@@ -411,7 +661,7 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (local->op == TRUNCATE)
+        if (local->op == GF_FOP_TRUNCATE)
                 loc_wipe (&local->loc[0]);
 
         if (local->xdata)
@@ -419,58 +669,48 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->fd)
                 fd_unref (local->fd);
 
-        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
-                             prebuf, postbuf, xdata);
+        if (local->op == GF_FOP_TRUNCATE)
+                STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
+                                                prebuf, postbuf, xdata);
+        else
+                STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
+                                                prebuf, postbuf, xdata);
         return 0;
 }
 
-
-static int
-truncate_allowed (pl_inode_t *pl_inode,
-                  client_t *client, pid_t client_pid,
-                  gf_lkowner_t *owner, off_t offset)
+int
+pl_ftruncate_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                   off_t offset, dict_t *xdata)
 {
-        posix_lock_t *l = NULL;
-        posix_lock_t  region = {.list = {0, }, };
-        int           ret = 1;
-
-        region.fl_start   = offset;
-        region.fl_end     = LLONG_MAX;
-        region.client     = client;
-        region.client_pid = client_pid;
-        region.owner      = *owner;
-
-        pthread_mutex_lock (&pl_inode->mutex);
-        {
-                list_for_each_entry (l, &pl_inode->ext_list, list) {
-                        if (!l->blocked
-                            && locks_overlap (&region, l)
-                            && !same_owner (&region, l)) {
-                                ret = 0;
-                                gf_log ("posix-locks", GF_LOG_TRACE, "Truncate "
-                                        "allowed");
-                                break;
-                        }
-                }
-        }
-        pthread_mutex_unlock (&pl_inode->mutex);
-
-        return ret;
+        STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
+        return 0;
 }
 
+int
+pl_truncate_cont (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                  off_t offset, dict_t *xdata)
+{
+        STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
+        return 0;
+}
 
 static int
 truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
                    dict_t *xdata)
 {
-        posix_locks_private_t *priv = NULL;
         pl_local_t            *local = NULL;
         inode_t               *inode = NULL;
         pl_inode_t            *pl_inode = NULL;
+        pl_rw_req_t           *rw = NULL;
+        posix_lock_t           region = {.list = {0, }, };
+        gf_boolean_t           enabled = _gf_false;
+        gf_boolean_t           can_block = _gf_true;
+        int                    allowed = 1;
 
-
-        priv = this->private;
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
         local = frame->local;
 
         if (op_ret != 0) {
@@ -480,7 +720,7 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        if (local->op == TRUNCATE)
+        if (local->op == GF_FOP_TRUNCATE)
                 inode = local->loc[0].inode;
         else
                 inode = local->fd->inode;
@@ -492,56 +732,119 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        if (priv->mandatory
-            && pl_inode->mandatory
-            && !truncate_allowed (pl_inode, frame->root->client,
-                                  frame->root->pid, &frame->root->lk_owner,
-                                  local->offset)) {
-                op_ret   = -1;
-                op_errno = EAGAIN;
-                goto unwind;
+        enabled = pl_is_mandatory_locking_enabled (pl_inode);
+
+        if (frame->root->pid < 0)
+                enabled = _gf_false;
+
+        if (enabled) {
+                region.fl_start   = local->offset;
+                region.fl_end     = LLONG_MAX;
+                region.client     = frame->root->client;
+                region.fd_num     = fd_to_fdnum(local->fd);
+                region.client_pid = frame->root->pid;
+                region.owner      = frame->root->lk_owner;
+                pthread_mutex_lock (&pl_inode->mutex);
+                {
+                        allowed = pl_is_fop_allowed (pl_inode, &region,
+                                                     local->fd, local->op,
+                                                     &can_block);
+
+                        if (allowed == 1)
+                                goto unlock;
+                        else if (!can_block) {
+                                op_errno = EAGAIN;
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        rw = GF_CALLOC (1, sizeof (*rw),
+                                        gf_locks_mt_pl_rw_req_t);
+                        if (!rw) {
+                                op_errno = ENOMEM;
+                                op_ret = -1;
+                                goto unlock;
+                        }
+
+                        if (local->op == GF_FOP_TRUNCATE)
+                                rw->stub = fop_truncate_stub (frame,
+                                                pl_truncate_cont, &local->loc[0],
+                                                local->offset, local->xdata);
+                        else
+                                rw->stub = fop_ftruncate_stub (frame,
+                                                pl_ftruncate_cont, local->fd,
+                                                local->offset, local->xdata);
+                        if (!rw->stub) {
+                                op_errno = ENOMEM;
+                                op_ret = -1;
+                                GF_FREE (rw);
+                                goto unlock;
+                        }
+
+                        rw->region = region;
+
+                        list_add_tail (&rw->list, &pl_inode->rw_list);
+                }
+        unlock:
+                pthread_mutex_unlock (&pl_inode->mutex);
         }
 
-        switch (local->op) {
-        case TRUNCATE:
-                STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->truncate,
-                            &local->loc[0], local->offset, local->xdata);
-                break;
-        case FTRUNCATE:
-                STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->ftruncate,
-                            local->fd, local->offset, local->xdata);
-                break;
+        if (allowed == 1) {
+                switch (local->op) {
+                case GF_FOP_TRUNCATE:
+                        STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
+                                    FIRST_CHILD (this)->fops->truncate,
+                                    &local->loc[0], local->offset, local->xdata);
+                        break;
+                case GF_FOP_FTRUNCATE:
+                        STACK_WIND (frame, pl_truncate_cbk, FIRST_CHILD (this),
+                                    FIRST_CHILD (this)->fops->ftruncate,
+                                    local->fd, local->offset, local->xdata);
+                        break;
+                default:
+                        break;
+                }
         }
-
-        return 0;
-
 unwind:
-        gf_log (this->name, GF_LOG_ERROR, "truncate failed with ret: %d, "
-                "error: %s", op_ret, strerror (op_errno));
-        if (local->op == TRUNCATE)
-                loc_wipe (&local->loc[0]);
-        if (local->xdata)
-                dict_unref (local->xdata);
-        if (local->fd)
-                fd_unref (local->fd);
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "truncate failed with "
+                        "ret: %d, error: %s", op_ret, strerror (op_errno));
+                if (local->op == GF_FOP_TRUNCATE)
+                        loc_wipe (&local->loc[0]);
+                if (local->xdata)
+                        dict_unref (local->xdata);
+                if (local->fd)
+                        fd_unref (local->fd);
 
-        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, buf, NULL, xdata);
+                switch (local->op) {
+                case GF_FOP_TRUNCATE:
+                        STACK_UNWIND_STRICT (truncate, frame, op_ret,
+                                                op_errno, buf, NULL, xdata);
+                        break;
+                case GF_FOP_FTRUNCATE:
+                        STACK_UNWIND_STRICT (ftruncate, frame, op_ret,
+                                                op_errno, buf, NULL, xdata);
+                        break;
+                default:
+                        break;
+                }
+        }
         return 0;
 }
-
 
 int
 pl_truncate (call_frame_t *frame, xlator_t *this,
              loc_t *loc, off_t offset, dict_t *xdata)
 {
         pl_local_t *local = NULL;
+        int         ret   = -1;
+
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
 
         local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
-        local->op         = TRUNCATE;
+        local->op         = GF_FOP_TRUNCATE;
         local->offset     = offset;
         loc_copy (&local->loc[0], loc);
         if (xdata)
@@ -551,28 +854,30 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 
         STACK_WIND (frame, truncate_stat_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->stat, loc, NULL);
-
-        return 0;
-
+        ret = 0;
 unwind:
-        gf_log (this->name, GF_LOG_ERROR, "truncate for %s failed with ret: %d, "
-                "error: %s", loc->path, -1, strerror (ENOMEM));
-        STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL, NULL);
-
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "truncate on %s failed with"
+                        " ret: %d, error: %s", loc->path, -1,
+                        strerror (ENOMEM));
+                STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM,
+                                     NULL, NULL, NULL);
+        }
         return 0;
 }
-
 
 int
 pl_ftruncate (call_frame_t *frame, xlator_t *this,
               fd_t *fd, off_t offset, dict_t *xdata)
 {
         pl_local_t *local = NULL;
+        int         ret = -1;
 
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
         local = mem_get0 (this->local_pool);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
-        local->op         = FTRUNCATE;
+        local->op         = GF_FOP_FTRUNCATE;
         local->offset     = offset;
         local->fd         = fd_ref (fd);
         if (xdata)
@@ -582,13 +887,14 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 
         STACK_WIND (frame, truncate_stat_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fstat, fd, xdata);
-        return 0;
-
+        ret = 0;
 unwind:
-        gf_log (this->name, GF_LOG_ERROR, "ftruncate failed with ret: %d, "
-                "error: %s", -1, strerror (ENOMEM));
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL, NULL);
-
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "ftruncate failed with"
+                        " ret: %d, error: %s", -1, strerror (ENOMEM));
+                STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM,
+                                     NULL, NULL, NULL);
+        }
         return 0;
 }
 
@@ -1336,10 +1642,62 @@ int
 pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame, pl_open_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
-                    loc, flags, fd, xdata);
+        int                     op_ret         = -1;
+        int                     op_errno       = EINVAL;
+        pl_inode_t              *pl_inode      = NULL;
+        posix_lock_t            *l             = NULL;
+        posix_locks_private_t   *priv          = NULL;
 
+        priv = this->private;
+
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
+
+        op_ret = 0, op_errno = 0;
+        pl_inode = pl_inode_get (this, fd->inode);
+
+        /* As per design, under forced and file-based mandatory locking modes
+         * it doesn't matter whether inodes's lock list contain advisory or
+         * mandatory type locks. So we just check whether inode's lock list is
+         * empty or not to make sure that no locks are being held for the file.
+         * Whereas under optimal mandatory locking mode, we strictly fail open
+         * if and only if lock list contain mandatory locks.
+         */
+        if (((priv->mandatory_mode == MLK_FILE_BASED) && pl_inode->mandatory) ||
+                        priv->mandatory_mode == MLK_FORCED) {
+                if (fd->flags & O_TRUNC) {
+                        pthread_mutex_lock (&pl_inode->mutex);
+                        {
+                                if (!list_empty (&pl_inode->ext_list)) {
+                                        op_ret = -1;
+                                        op_errno = EAGAIN;
+                                }
+                        }
+                        pthread_mutex_unlock (&pl_inode->mutex);
+                }
+        } else if (priv->mandatory_mode == MLK_OPTIMAL) {
+                if (fd->flags & O_TRUNC) {
+                        pthread_mutex_lock (&pl_inode->mutex);
+                        {
+                                list_for_each_entry (l, &pl_inode->ext_list, list) {
+                                        if ((l->lk_flags & GF_LK_MANDATORY)) {
+                                                op_ret = -1;
+                                                op_errno = EAGAIN;
+                                                break;
+                                        }
+                                }
+                        }
+                        pthread_mutex_unlock (&pl_inode->mutex);
+                }
+        }
+
+unwind:
+        if (op_ret == -1)
+                STACK_UNWIND_STRICT (open, frame, op_ret, op_errno,
+                                                        NULL, NULL);
+        else
+                STACK_WIND (frame, pl_open_cbk, FIRST_CHILD(this),
+                                        FIRST_CHILD(this)->fops->open,
+                                        loc, flags, fd, xdata);
         return 0;
 }
 
@@ -1455,17 +1813,25 @@ do_blocked_rw (pl_inode_t *pl_inode)
         return;
 }
 
-
 static int
 __rw_allowable (pl_inode_t *pl_inode, posix_lock_t *region,
                 glusterfs_fop_t op)
 {
         posix_lock_t *l = NULL;
+        posix_locks_private_t *priv = NULL;
         int           ret = 1;
 
+        priv = THIS->private;
+
         list_for_each_entry (l, &pl_inode->ext_list, list) {
-                if (locks_overlap (l, region) && !same_owner (l, region)) {
+                if (!l->blocked && locks_overlap (l, region)
+                                && !same_owner (l, region)) {
                         if ((op == GF_FOP_READ) && (l->fl_type != F_WRLCK))
+                                continue;
+                        /* Check for mandatory lock under optimal
+                         * mandatory-locking mode */
+                        if (priv->mandatory_mode == MLK_OPTIMAL
+                                        && !(l->lk_flags & GF_LK_MANDATORY))
                                 continue;
                         ret = 0;
                         break;
@@ -1474,7 +1840,6 @@ __rw_allowable (pl_inode_t *pl_inode, posix_lock_t *region,
 
         return ret;
 }
-
 
 int
 pl_readv_cont (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -1487,26 +1852,35 @@ pl_readv_cont (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 }
 
-
 int
 pl_readv (call_frame_t *frame, xlator_t *this,
           fd_t *fd, size_t size, off_t offset, uint32_t flags, dict_t *xdata)
 {
-        posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
         pl_rw_req_t           *rw = NULL;
         posix_lock_t           region = {.list = {0, }, };
+        gf_boolean_t           enabled = _gf_false;
+        gf_boolean_t           can_block = _gf_true;
         int                    op_ret = 0;
         int                    op_errno = 0;
-        char                   wind_needed = 1;
+        int                    allowed = 1;
 
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
 
-        priv = this->private;
         pl_inode = pl_inode_get (this, fd->inode);
+        if (!pl_inode) {
+                op_ret   = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
 
         PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
+        enabled = pl_is_mandatory_locking_enabled (pl_inode);
 
-        if (priv->mandatory && pl_inode->mandatory) {
+        if (frame->root->pid < 0)
+                enabled = _gf_false;
+
+        if (enabled) {
                 region.fl_start   = offset;
                 region.fl_end     = offset + size - 1;
                 region.client     = frame->root->client;
@@ -1516,15 +1890,11 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
-                        wind_needed = __rw_allowable (pl_inode, &region,
-                                                      GF_FOP_READ);
-                        if (wind_needed) {
+                        allowed = pl_is_fop_allowed (pl_inode, &region, fd,
+                                                     GF_FOP_READ, &can_block);
+                        if (allowed == 1)
                                 goto unlock;
-                        }
-
-                        if (fd->flags & O_NONBLOCK) {
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "returning EAGAIN as fd is O_NONBLOCK");
+                        else if (!can_block) {
                                 op_errno = EAGAIN;
                                 op_ret = -1;
                                 goto unlock;
@@ -1556,20 +1926,18 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                 pthread_mutex_unlock (&pl_inode->mutex);
         }
 
-
-        if (wind_needed) {
+        if (allowed == 1) {
                 STACK_WIND (frame, pl_readv_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->readv,
                             fd, size, offset, flags, xdata);
         }
-
+unwind:
         if (op_ret == -1)
-                STACK_UNWIND_STRICT (readv, frame, -1, op_errno,
+                STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
                                      NULL, 0, NULL, NULL, NULL);
 
         return 0;
 }
-
 
 int
 pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -1583,26 +1951,36 @@ pl_writev_cont (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
-
 int
 pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
            struct iovec *vector, int32_t count, off_t offset,
            uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
-        posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
         pl_rw_req_t           *rw = NULL;
         posix_lock_t           region = {.list = {0, }, };
+        gf_boolean_t           enabled = _gf_false;
+        gf_boolean_t           can_block = _gf_true;
         int                    op_ret = 0;
         int                    op_errno = 0;
-        char                   wind_needed = 1;
+        int                    allowed = 1;
 
-        priv = this->private;
+        GF_VALIDATE_OR_GOTO ("locks", this, unwind);
+
         pl_inode = pl_inode_get (this, fd->inode);
+        if (!pl_inode) {
+                op_ret   = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
 
         PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL, NULL);
+        enabled = pl_is_mandatory_locking_enabled (pl_inode);
 
-        if (priv->mandatory && pl_inode->mandatory) {
+        if (frame->root->pid < 0)
+                enabled = _gf_false;
+
+        if (enabled) {
                 region.fl_start   = offset;
                 region.fl_end     = offset + iov_length (vector, count) - 1;
                 region.client     = frame->root->client;
@@ -1612,15 +1990,11 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
-                        wind_needed = __rw_allowable (pl_inode, &region,
-                                                      GF_FOP_WRITE);
-                        if (wind_needed)
+                        allowed = pl_is_fop_allowed (pl_inode, &region, fd,
+                                                     GF_FOP_WRITE, &can_block);
+                        if (allowed == 1)
                                 goto unlock;
-
-                        if (fd->flags & O_NONBLOCK) {
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "returning EAGAIN because fd is "
-                                        "O_NONBLOCK");
+                        else if (!can_block) {
                                 op_errno = EAGAIN;
                                 op_ret = -1;
                                 goto unlock;
@@ -1652,16 +2026,15 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 pthread_mutex_unlock (&pl_inode->mutex);
         }
 
-
-        if (wind_needed) {
+        if (allowed == 1) {
                 STACK_WIND (frame, pl_writev_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
                             fd, vector, count, offset, flags, iobref, xdata);
         }
-
+unwind:
         if (op_ret == -1)
-                STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL,
-                                     NULL);
+                STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno,
+                                     NULL, NULL, NULL);
 
         return 0;
 }
@@ -1689,7 +2062,7 @@ lock_dup (posix_lock_t *lock)
 
         new_lock = new_posix_lock (&lock->user_flock, lock->client,
                                    lock->client_pid, &lock->owner,
-                                   (fd_t *)lock->fd_num);
+                                   (fd_t *)lock->fd_num, lock->lk_flags);
         return new_lock;
 }
 
@@ -1854,6 +2227,21 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         posix_lock_t *reqlock    = NULL;
         posix_lock_t *conf       = NULL;
         int           ret        = 0;
+        uint32_t      lk_flags   = 0;
+        posix_locks_private_t *priv = NULL;
+
+        priv = this->private;
+
+        ret = dict_get_uint32 (xdata, "lkmode", &lk_flags);
+        if (ret == 0) {
+                if (priv->mandatory_mode == MLK_NONE)
+                        gf_log (this->name, GF_LOG_DEBUG, "Lock flags received "
+                                "in a non-mandatory locking environment, "
+                                "continuing");
+                else
+                        gf_log (this->name, GF_LOG_DEBUG, "Lock flags received, "
+                                "continuing");
+        }
 
         if ((flock->l_start < 0) ||
             ((flock->l_start + flock->l_len) < 0)) {
@@ -1880,7 +2268,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         }
 
         reqlock = new_posix_lock (flock, frame->root->client, frame->root->pid,
-                                  &frame->root->lk_owner, fd);
+                                  &frame->root->lk_owner, fd, lk_flags);
 
         if (!reqlock) {
                 op_ret = -1;
@@ -2856,7 +3244,7 @@ init (xlator_t *this)
 {
         posix_locks_private_t *priv = NULL;
         xlator_list_t         *trav = NULL;
-        data_t                *mandatory = NULL;
+        char                  *tmp_str = NULL;
         int                   ret = -1;
 
         if (!this->children || this->children->next) {
@@ -2884,10 +3272,16 @@ init (xlator_t *this)
         priv = GF_CALLOC (1, sizeof (*priv),
                           gf_locks_mt_posix_locks_private_t);
 
-        mandatory = dict_get (this->options, "mandatory-locks");
-        if (mandatory)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "mandatory locks not supported in this minor release.");
+        GF_OPTION_INIT ("mandatory-locking", tmp_str, str, out);
+        if (!strcmp (tmp_str, "forced"))
+                priv->mandatory_mode = MLK_FORCED;
+        else if (!strcmp (tmp_str, "file"))
+                priv->mandatory_mode = MLK_FILE_BASED;
+        else if (!strcmp (tmp_str, "optimal"))
+                priv->mandatory_mode = MLK_OPTIMAL;
+        else
+                priv->mandatory_mode = MLK_NONE;
+        tmp_str = NULL;
 
         GF_OPTION_INIT ("trace", priv->trace, bool, out);
 
@@ -3095,6 +3489,8 @@ struct xlator_fops fops = {
         .fstat       = pl_fstat,
         .truncate    = pl_truncate,
         .ftruncate   = pl_ftruncate,
+        .discard     = pl_discard,
+        .zerofill    = pl_zerofill,
         .open        = pl_open,
         .readv       = pl_readv,
         .writev      = pl_writev,
@@ -3126,13 +3522,21 @@ struct xlator_cbks cbks = {
         .client_disconnect = pl_client_disconnect_cbk,
 };
 
-
 struct volume_options options[] = {
-        { .key  = { "mandatory-locks", "mandatory" },
-          .type = GF_OPTION_TYPE_BOOL
+        { .key  = { "mandatory-locking" },
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "off",
+          .description = "Specifies the mandatory-locking mode. Valid options "
+                         "are 'file' to use linux style mandatory locks, "
+                         "'forced' to use volume striclty under mandatory lock "
+                         "semantics only and 'optimal' to treat advisory and "
+                         "mandatory locks separately on their own."
         },
         { .key  = { "trace" },
-          .type = GF_OPTION_TYPE_BOOL
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Trace the different lock requests "
+                         "to logs."
         },
         { .key = {NULL} },
 };
