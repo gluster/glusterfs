@@ -20,13 +20,13 @@ TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 
 TEST mkdir $M0/xyz
 
-TEST $CLI snapshot create snap1 $V0
-TEST $CLI snapshot create snap2 $V0
+TEST $CLI snapshot create snap1 $V0 no-timestamp
+TEST $CLI snapshot create snap2 $V0 no-timestamp
 
 TEST rmdir $M0/xyz
 
-TEST $CLI snapshot create snap3 $V0
-TEST $CLI snapshot create snap4 $V0
+TEST $CLI snapshot create snap3 $V0 no-timestamp
+TEST $CLI snapshot create snap4 $V0 no-timestamp
 
 TEST mkdir $M0/xyz
 TEST ls $M0/xyz/.snaps/

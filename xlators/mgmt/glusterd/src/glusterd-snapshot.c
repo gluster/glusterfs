@@ -3471,19 +3471,22 @@ int
 glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                                dict_t *dict, char *err_str, size_t len)
 {
-        int           ret                              = -1;
-        char         *volname                          = NULL;
-        char         *snapname                         = NULL;
-        int64_t       volcount                         = 0;
-        xlator_t     *this                             = NULL;
-        char          key[PATH_MAX]                    = "";
-        char         *username                         = NULL;
-        char         *password                         = NULL;
-        uuid_t       *uuid_ptr                         = NULL;
-        uuid_t        tmp_uuid                         = {0};
-        int           i                                = 0;
-        char          snap_volname[GD_VOLUME_NAME_MAX] = {0, };
-
+        int           ret                                  = -1;
+        char         *volname                              = NULL;
+        char         *snapname                             = NULL;
+        int64_t       volcount                             = 0;
+        xlator_t     *this                                 = NULL;
+        char          key[PATH_MAX]                        = "";
+        char         *username                             = NULL;
+        char         *password                             = NULL;
+        uuid_t       *uuid_ptr                             = NULL;
+        uuid_t        tmp_uuid                             = {0};
+        int           i                                    = 0;
+        gf_boolean_t  timestamp                            = _gf_false;
+        char          snap_volname[GD_VOLUME_NAME_MAX]     = {0, };
+        char          new_snapname[GLUSTERD_MAX_SNAP_NAME] = {0, };
+        char          gmt_snaptime[GLUSTERD_MAX_SNAP_NAME] = {0, };
+        time_t        snap_time;
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
@@ -3509,6 +3512,34 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
+        timestamp = dict_get_str_boolean (dict, "no-timestamp", _gf_false);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG, "no-timestamp flag "
+                        "is not set");
+                goto out;
+        }
+
+        ret = dict_set_int64 (dict, "snap-time", (int64_t)time(&snap_time));
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to set snap-time");
+                goto out;
+        }
+
+        if (!timestamp) {
+                strftime (gmt_snaptime, sizeof (gmt_snaptime),
+                          "_GMT-%Y.%m.%d-%H.%M.%S", gmtime(&snap_time));
+                snprintf (new_snapname, sizeof (new_snapname), "%s%s",
+                          snapname, gmt_snaptime);
+                ret = dict_set_dynstr_with_alloc (dict, "snapname",
+                                                  new_snapname);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to update "
+                                "snap-name");
+                        goto out;
+                }
+                snapname = new_snapname;
+        }
+
         if (strlen(snapname) >= GLUSTERD_MAX_SNAP_NAME) {
                 snprintf (err_str, len, "snapname cannot exceed 255 "
                           "characters");
@@ -3532,12 +3563,6 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
         uuid_ptr = NULL;
-
-        ret = dict_set_int64 (dict, "snap-time", (int64_t)time(NULL));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to set snap-time");
-                goto out;
-        }
 
         for (i = 1; i <= volcount; i++) {
                 snprintf (key, sizeof (key), "volname%d", i);
