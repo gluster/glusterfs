@@ -262,4 +262,6 @@ int client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd,
                                  int64_t remote_fd);
 gf_boolean_t
 __is_fd_reopen_in_progress (clnt_fd_ctx_t *fdctx);
+int
+client_notify_dispatch (xlator_t *this, int32_t event, void *data, ...);
 #endif /* !_CLIENT_H */
