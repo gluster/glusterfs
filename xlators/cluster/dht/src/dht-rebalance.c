@@ -1699,7 +1699,6 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         gf_dirent_t             *tmp            = NULL;
         gf_dirent_t             *entry          = NULL;
         gf_boolean_t             free_entries   = _gf_false;
-        dict_t                  *dict           = NULL;
         off_t                    offset         = 0;
         struct iatt              iatt           = {0,};
         inode_t                 *linked_inode   = NULL, *inode = NULL;
@@ -1854,9 +1853,6 @@ out:
                 gf_dirent_free (&entries);
 
         loc_wipe (&entry_loc);
-
-        if (dict)
-                dict_unref(dict);
 
         if (fd)
                 fd_unref (fd);
