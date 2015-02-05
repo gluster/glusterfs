@@ -2864,14 +2864,10 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENODATA;
                         goto err;
                 }
-                if (hashed_subvol) {
-                        STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
-                                    hashed_subvol->fops->getxattr, loc,
-                                    GF_XATTR_PATHINFO_KEY, xdata);
-                        return 0;
-                }
-                op_errno = ENODATA;
-                goto err;
+                STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
+                            hashed_subvol->fops->getxattr, loc,
+                            GF_XATTR_PATHINFO_KEY, xdata);
+                return 0;
         }
 
         if (key && (!strcmp (GF_XATTR_MARKER_KEY, key))
