@@ -272,7 +272,8 @@ __bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd_p)
 out:
         GF_FREE (devpath);
         if (ret) {
-                close (_fd);
+                if (_fd >= 0)
+                        close (_fd);
                 GF_FREE (bdfd);
         }
         return ret;
@@ -905,7 +906,7 @@ bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
         uuid_utoa_r (bdatt->iatt.ia_gfid, uuid);
         sprintf (lvname, "/dev/%s/%s", vg, uuid);
 
-        readlink (lvname, dmname, sizeof (dmname));
+        readlink (lvname, dmname, sizeof (dmname) - 1);
 
         p = strrchr (dmname, '/');
         if (p)
