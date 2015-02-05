@@ -52,7 +52,9 @@ EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.a
 EXPECT "00000000" afr_get_specific_changelog_xattr $B0/${V0}-0/one trusted.afr.$V0-client-1 metadata
 
 TEST gluster volume set $V0 self-heal-daemon on
+
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" is_dir_heal_done $B0/${V0}-0 $B0/${V0}-1 one
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" is_dir_heal_done $B0/${V0}-0 $B0/${V0}-1 one/two
 EXPECT_WITHIN $HEAL_TIMEOUT "Y" is_file_heal_done $B0/${V0}-0 $B0/${V0}-1 one/two/three

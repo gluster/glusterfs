@@ -216,21 +216,14 @@ out:
 }
 
 
-fd_t *
-afr_shd_index_opendir (xlator_t *this, int child)
+inode_t*
+afr_shd_index_inode (xlator_t *this, xlator_t *subvol)
 {
-	fd_t *fd = NULL;
-	afr_private_t *priv = NULL;
-	xlator_t *subvol = NULL;
 	loc_t rootloc = {0, };
 	inode_t *inode = NULL;
 	int ret = 0;
 	dict_t *xattr = NULL;
 	void *index_gfid = NULL;
-	loc_t loc = {0, };
-
-	priv = this->private;
-	subvol = priv->children[child];
 
 	rootloc.inode = inode_ref (this->itable->root);
 	uuid_copy (rootloc.gfid, rootloc.inode->gfid);
@@ -250,53 +243,15 @@ afr_shd_index_opendir (xlator_t *this, int child)
 		subvol->name, uuid_utoa (index_gfid));
 
 	inode = afr_shd_inode_find (this, subvol, index_gfid);
-	if (!inode)
-		goto out;
-
-	fd = fd_create (inode, GF_CLIENT_PID_AFR_SELF_HEALD);
-	if (!fd)
-		goto out;
-
-	uuid_copy (loc.gfid, index_gfid);
-	loc.inode = inode;
-
-	ret = syncop_opendir(this, &loc, fd);
-	if (ret) {
-	/*
-	 * On Linux, if the brick was not updated, opendir will
-	 * fail. We therefore use backward compatible code
-	 * that violate the standards by reusing offsets
-	 * in seekdir() from different DIR *, but it works on Linux.
-	 *
-	 * On other systems it never worked, hence we do not need
-	 * to provide backward-compatibility.
-	 */
-#ifdef GF_LINUX_HOST_OS
-		fd_unref (fd);
-		fd = fd_anonymous (inode);
-		if (!fd)
-		        goto out;
-#else /* GF_LINUX_HOST_OS */
-		gf_log(this->name, GF_LOG_ERROR,
-		       "opendir of %s for %s failed: %s",
-		       uuid_utoa (index_gfid), subvol->name, strerror(errno));
-		fd_unref (fd);
-		fd = NULL;
-		goto out;
-#endif /* GF_LINUX_HOST_OS */
-	}
 
 out:
 	loc_wipe (&rootloc);
 
-	if (inode)
-		inode_unref (inode);
-
 	if (xattr)
 		dict_unref (xattr);
-	return fd;
-}
 
+	return inode;
+}
 
 int
 afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
@@ -420,181 +375,95 @@ afr_shd_sweep_done (struct subvol_healer *healer)
 		GF_FREE (history);
 }
 
+int
+afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                    void *data)
+{
+        struct subvol_healer *healer = data;
+        afr_private_t        *priv   = NULL;
+        uuid_t               gfid    = {0};
+        int                  ret     = 0;
+
+        priv = healer->this->private;
+        if (!priv->shd.enabled)
+                return -EBUSY;
+
+        gf_log (healer->this->name, GF_LOG_DEBUG, "got entry: %s",
+                entry->d_name);
+
+        ret = uuid_parse (entry->d_name, gfid);
+        if (ret)
+                return 0;
+
+        ret = afr_shd_selfheal (healer, healer->subvol, gfid);
+
+        if (ret == -ENOENT || ret == -ESTALE)
+                afr_shd_index_purge (subvol, parent->inode, entry->d_name);
+
+        return 0;
+}
 
 int
 afr_shd_index_sweep (struct subvol_healer *healer)
 {
-	xlator_t *this = NULL;
-	int child = -1;
-	fd_t *fd = NULL;
-	xlator_t *subvol = NULL;
-	afr_private_t *priv = NULL;
-	uint64_t offset = 0;
-	gf_dirent_t entries;
-	gf_dirent_t *entry = NULL;
-	uuid_t gfid;
-	int ret = 0;
-	int count = 0;
+	loc_t         loc     = {0};
+	afr_private_t *priv   = NULL;
+	int           ret     = 0;
+	xlator_t      *subvol = NULL;
 
-	this = healer->this;
-	child = healer->subvol;
-	priv = this->private;
-	subvol = priv->children[child];
+	priv = healer->this->private;
+	subvol = priv->children[healer->subvol];
 
-	fd = afr_shd_index_opendir (this, child);
-	if (!fd) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"unable to opendir index-dir on %s", subvol->name);
+	loc.inode = afr_shd_index_inode (healer->this, subvol);
+	if (!loc.inode) {
+		gf_log (healer->this->name, GF_LOG_WARNING,
+			"unable to get index-dir on %s", subvol->name);
 		return -errno;
 	}
 
-	INIT_LIST_HEAD (&entries.list);
+        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_AFR_SELF_HEALD,
+                               healer, afr_shd_index_heal);
 
-	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries))) {
-		if (ret > 0)
-			ret = 0;
-		list_for_each_entry (entry, &entries.list, list) {
-			offset = entry->d_off;
+        inode_forget (loc.inode, 1);
+        loc_wipe (&loc);
 
-			if (!priv->shd.enabled) {
-				ret = -EBUSY;
-				break;
-			}
+        if (ret == 0)
+                ret = healer->crawl_event.healed_count;
 
-			if (!strcmp (entry->d_name, ".") ||
-			    !strcmp (entry->d_name, ".."))
-				continue;
-
-			gf_log (this->name, GF_LOG_DEBUG, "got entry: %s",
-				entry->d_name);
-
-			ret = uuid_parse (entry->d_name, gfid);
-			if (ret)
-				continue;
-
-			ret = afr_shd_selfheal (healer, child, gfid);
-			if (ret == 0)
-				count++;
-
-			if (ret == -ENOENT || ret == -ESTALE) {
-				afr_shd_index_purge (subvol, fd->inode,
-						     entry->d_name);
-				ret = 0;
-			}
-		}
-
-		gf_dirent_free (&entries);
-		if (ret)
-			break;
-	}
-
-	if (fd) {
-                if (fd->inode)
-                        inode_forget (fd->inode, 1);
-		fd_unref (fd);
-        }
-
-	if (!ret)
-		ret = count;
 	return ret;
 }
 
+int
+afr_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                   void *data)
+{
+        struct subvol_healer *healer = data;
+        xlator_t             *this   = healer->this;
+        afr_private_t        *priv   = NULL;
+
+        priv = this->private;
+        if (!priv->shd.enabled)
+                return -EBUSY;
+
+        afr_shd_selfheal_name (healer, healer->subvol,
+                               parent->inode->gfid, entry->d_name);
+
+        afr_shd_selfheal (healer, healer->subvol, entry->d_stat.ia_gfid);
+
+        return 0;
+}
 
 int
 afr_shd_full_sweep (struct subvol_healer *healer, inode_t *inode)
 {
-	loc_t loc = {0, };
-	fd_t *fd = NULL;
-	xlator_t *this = NULL;
-	xlator_t *subvol = NULL;
-	afr_private_t *priv = NULL;
-	uint64_t offset = 0;
-	gf_dirent_t entries;
-	gf_dirent_t *entry = NULL;
-	int ret = 0;
+        afr_private_t *priv = NULL;
+        loc_t          loc  = {0};
 
-	this = healer->this;
-	priv = this->private;
-	subvol = priv->children[healer->subvol];
-
-	uuid_copy (loc.gfid, inode->gfid);
-	loc.inode = inode_ref(inode);
-
-	fd = fd_create (inode, GF_CLIENT_PID_AFR_SELF_HEALD);
-	if (!fd) {
-		gf_log(this->name, GF_LOG_ERROR,
-		       "fd_create of %s failed: %s",
-		       uuid_utoa (loc.gfid), strerror(errno));
-		ret = -errno;
-		goto out;
-	}
-
-	ret = syncop_opendir (subvol, &loc, fd);
-	if (ret) {
-#ifdef GF_LINUX_HOST_OS /* See comment in afr_shd_index_opendir() */
-		fd_unref(fd);
-		fd = fd_anonymous (inode);
-		if (!fd) {
-			gf_log(this->name, GF_LOG_ERROR,
-			       "fd_anonymous of %s failed: %s",
-			       uuid_utoa (loc.gfid), strerror(errno));
-			ret = -errno;
-			goto out;
-		}
-#else /* GF_LINUX_HOST_OS */
-		gf_log(this->name, GF_LOG_ERROR,
-		       "opendir of %s failed: %s",
-		       uuid_utoa (loc.gfid), strerror(errno));
-		ret = -errno;
-		goto out;
-#endif /* GF_LINUX_HOST_OS */
-	}
-
-	INIT_LIST_HEAD (&entries.list);
-
-	while ((ret = syncop_readdirp (subvol, fd, 131072, offset, 0, &entries))) {
-		if (ret < 0)
-			break;
-
-		ret = gf_link_inodes_from_dirent (this, fd->inode, &entries);
-		if (ret)
-			break;
-
-		list_for_each_entry (entry, &entries.list, list) {
-			offset = entry->d_off;
-
-			if (!priv->shd.enabled) {
-				ret = -EBUSY;
-				break;
-			}
-
-			if (!strcmp (entry->d_name, ".") ||
-			    !strcmp (entry->d_name, ".."))
-				continue;
-
-			afr_shd_selfheal_name (healer, healer->subvol,
-					       inode->gfid, entry->d_name);
-
-			afr_shd_selfheal (healer, healer->subvol,
-					  entry->d_stat.ia_gfid);
-
-			if (entry->d_stat.ia_type == IA_IFDIR) {
-				ret = afr_shd_full_sweep (healer, entry->inode);
-				if (ret)
-					break;
-			}
-		}
-
-		gf_dirent_free (&entries);
-		if (ret)
-			break;
-	}
-
-out:
-	loc_wipe (&loc);
-	if (fd)
-		fd_unref (fd);
-	return ret;
+        priv = healer->this->private;
+        loc.inode = inode;
+        return syncop_ftw (priv->children[healer->subvol], &loc,
+                           GF_CLIENT_PID_AFR_SELF_HEALD, healer,
+                           afr_shd_full_heal);
 }
 
 
@@ -974,78 +843,69 @@ out:
         return ret;
 }
 
+int
+afr_shd_gather_entry (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                      void *data)
+{
+        dict_t        *output = data;
+        xlator_t      *this   = NULL;
+        afr_private_t *priv   = NULL;
+        char          *path   = NULL;
+        int           ret     = 0;
+        int           child   = 0;
+        uuid_t        gfid    = {0};
+
+        this = THIS;
+        priv = this->private;
+
+        gf_log (this->name, GF_LOG_DEBUG, "got entry: %s",
+                entry->d_name);
+
+        ret = uuid_parse (entry->d_name, gfid);
+        if (ret)
+                return 0;
+
+        for (child = 0; child < priv->child_count; child++)
+                if (priv->children[child] == subvol)
+                        break;
+
+        if (child == priv->child_count)
+                return 0;
+
+        ret = afr_shd_gfid_to_path (this, subvol, gfid, &path);
+
+        if (ret == -ENOENT || ret == -ESTALE) {
+                afr_shd_index_purge (subvol, parent->inode, entry->d_name);
+        } else if (ret == 0) {
+                ret = afr_shd_dict_add_path (this, output, child, path, NULL);
+        }
+
+        return 0;
+}
 
 int
 afr_shd_gather_index_entries (xlator_t *this, int child, dict_t *output)
 {
-	fd_t *fd = NULL;
-	xlator_t *subvol = NULL;
-	afr_private_t *priv = NULL;
-	uint64_t offset = 0;
-	gf_dirent_t entries;
-	gf_dirent_t *entry = NULL;
-	uuid_t gfid;
-	int ret = 0;
-	int count = 0;
-	char *path = NULL;
+        loc_t          loc    = {0};
+        afr_private_t *priv   = NULL;
+        xlator_t      *subvol = NULL;
+        int           ret     = 0;
 
-	priv = this->private;
-	subvol = priv->children[child];
+        priv = this->private;
+        subvol = priv->children[child];
 
-	fd = afr_shd_index_opendir (this, child);
-	if (!fd) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"unable to opendir index-dir on %s", subvol->name);
-		return -errno;
-	}
-
-	INIT_LIST_HEAD (&entries.list);
-
-	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries))) {
-		if (ret > 0)
-			ret = 0;
-		list_for_each_entry (entry, &entries.list, list) {
-			offset = entry->d_off;
-
-			if (!strcmp (entry->d_name, ".") ||
-			    !strcmp (entry->d_name, ".."))
-				continue;
-
-			gf_log (this->name, GF_LOG_DEBUG, "got entry: %s",
-				entry->d_name);
-
-			ret = uuid_parse (entry->d_name, gfid);
-			if (ret)
-				continue;
-
-			path = NULL;
-			ret = afr_shd_gfid_to_path (this, subvol, gfid, &path);
-
-			if (ret == -ENOENT || ret == -ESTALE) {
-				afr_shd_index_purge (subvol, fd->inode,
-						     entry->d_name);
-				ret = 0;
-				continue;
-			}
-
-			ret = afr_shd_dict_add_path (this, output, child, path,
-						     NULL);
-		}
-
-		gf_dirent_free (&entries);
-		if (ret)
-			break;
-	}
-
-	if (fd) {
-                if (fd->inode)
-                        inode_forget (fd->inode, 1);
-		fd_unref (fd);
+        loc.inode = afr_shd_index_inode (this, subvol);
+        if (!loc.inode) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "unable to get index-dir on %s", subvol->name);
+                return -errno;
         }
 
-	if (!ret)
-		ret = count;
-	return ret;
+        ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_AFR_SELF_HEALD,
+                               output, afr_shd_gather_entry);
+        inode_forget (loc.inode, 1);
+        loc_wipe (&loc);
+        return ret;
 }
 
 

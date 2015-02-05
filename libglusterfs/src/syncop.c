@@ -2382,3 +2382,169 @@ syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
 
         return args.op_ret;
 }
+
+int
+syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid)
+{
+        int  ret    = 0;
+        fd_t *dirfd = NULL;
+
+        if (!fd)
+                return -EINVAL;
+
+        dirfd = fd_create (loc->inode, pid);
+        if (!dirfd) {
+                gf_log (subvol->name, GF_LOG_ERROR,
+                        "fd_create of %s failed: %s",
+                        uuid_utoa (loc->gfid), strerror(errno));
+                ret = -errno;
+                goto out;
+        }
+
+        ret = syncop_opendir (subvol, loc, dirfd);
+        if (ret) {
+        /*
+         * On Linux, if the brick was not updated, opendir will
+         * fail. We therefore use backward compatible code
+         * that violate the standards by reusing offsets
+         * in seekdir() from different DIR *, but it works on Linux.
+         *
+         * On other systems it never worked, hence we do not need
+         * to provide backward-compatibility.
+         */
+#ifdef GF_LINUX_HOST_OS
+                fd_unref (dirfd);
+                dirfd = fd_anonymous (loc->inode);
+                if (!dirfd) {
+                        gf_log(subvol->name, GF_LOG_ERROR,
+                               "fd_anonymous of %s failed: %s",
+                               uuid_utoa (loc->gfid), strerror(errno));
+                        ret = -errno;
+                        goto out;
+                }
+                ret = 0;
+#else /* GF_LINUX_HOST_OS */
+                fd_unref (dirfd);
+                gf_log (subvol->name, GF_LOG_ERROR,
+                        "opendir of %s failed: %s",
+                        uuid_utoa (loc->gfid), strerror(errno));
+                goto out;
+#endif /* GF_LINUX_HOST_OS */
+        }
+out:
+        if (ret == 0)
+                *fd = dirfd;
+        return ret;
+}
+
+int
+syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
+            int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                       void *data))
+{
+        loc_t       child_loc = {0, };
+        fd_t        *fd       = NULL;
+        uint64_t    offset    = 0;
+        gf_dirent_t *entry    = NULL;
+        int         ret       = 0;
+        gf_dirent_t entries;
+
+        ret = syncop_dirfd (subvol, loc, &fd, pid);
+        if (ret)
+                goto out;
+
+        INIT_LIST_HEAD (&entries.list);
+
+        while ((ret = syncop_readdirp (subvol, fd, 131072, offset, 0,
+                                       &entries))) {
+                if (ret < 0)
+                        break;
+
+                if (ret > 0) {
+                        /* If the entries are only '.', and '..' then ret
+                         * value will be non-zero. so set it to zero here. */
+                        ret = 0;
+                }
+                list_for_each_entry (entry, &entries.list, list) {
+                        offset = entry->d_off;
+
+                        if (!strcmp (entry->d_name, ".") ||
+                            !strcmp (entry->d_name, ".."))
+                                continue;
+
+                        gf_link_inode_from_dirent (NULL, fd->inode, entry);
+
+                        ret = fn (subvol, entry, loc, data);
+                        if (ret)
+                                break;
+
+                        if (entry->d_stat.ia_type == IA_IFDIR) {
+                                child_loc.inode = inode_ref (entry->inode);
+                                uuid_copy (child_loc.gfid, entry->inode->gfid);
+                                ret = syncop_ftw (subvol, &child_loc,
+                                                  pid, data, fn);
+                                loc_wipe (&child_loc);
+                                if (ret)
+                                        break;
+                        }
+                }
+
+                gf_dirent_free (&entries);
+                if (ret)
+                        break;
+        }
+
+out:
+        if (fd)
+                fd_unref (fd);
+        return ret;
+}
+
+int
+syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
+                 int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                            void *data))
+{
+        fd_t        *fd    = NULL;
+        uint64_t    offset = 0;
+        gf_dirent_t *entry = NULL;
+        int         ret    = 0;
+        gf_dirent_t entries;
+
+        ret = syncop_dirfd (subvol, loc, &fd, pid);
+        if (ret)
+                goto out;
+
+        INIT_LIST_HEAD (&entries.list);
+
+        while ((ret = syncop_readdir  (subvol, fd, 131072, offset, &entries))) {
+                if (ret < 0)
+                        break;
+
+                if (ret > 0) {
+                        /* If the entries are only '.', and '..' then ret
+                         * value will be non-zero. so set it to zero here. */
+                        ret = 0;
+                }
+
+                list_for_each_entry (entry, &entries.list, list) {
+                        offset = entry->d_off;
+
+                        if (!strcmp (entry->d_name, ".") ||
+                            !strcmp (entry->d_name, ".."))
+                                continue;
+
+                        ret = fn (subvol, entry, loc, data);
+                        if (ret)
+                                break;
+                }
+                gf_dirent_free (&entries);
+                if (ret)
+                        break;
+        }
+
+out:
+        if (fd)
+                fd_unref (fd);
+        return ret;
+}
