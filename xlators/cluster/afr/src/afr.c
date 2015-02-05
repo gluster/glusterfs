@@ -200,6 +200,9 @@ reconfigure (xlator_t *this, dict_t *options)
 	GF_OPTION_RECONF ("iam-self-heal-daemon", priv->shd.iamshd, options,
 			  bool, out);
 
+        GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
+                          int32, out);
+
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -346,6 +349,7 @@ init (xlator_t *this)
 	GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
 
 	GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
+        GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
 
         priv->wait_count = 1;
 
@@ -749,5 +753,13 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "off",
 	},
+        { .key  = {"heal-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .min  = 60,
+          .max  = INT_MAX,
+          .default_value = "600",
+          .description = "time interval for checking the need to self-heal "
+                         "in self-heal-daemon"
+        },
         { .key  = {NULL} },
 };
