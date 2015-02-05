@@ -19,14 +19,24 @@ function create_volumes() {
 }
 
 function create_snapshots() {
-        $CLI_1 snapshot create ${V0}_snap ${V0}&
+        $CLI_1 snapshot create ${V0}_snap ${V0} no-timestamp &
         PID_1=$!
 
-        $CLI_1 snapshot create ${V1}_snap ${V1}&
+        $CLI_1 snapshot create ${V1}_snap ${V1} no-timestamp &
         PID_2=$!
 
         wait $PID_1 $PID_2
 }
+
+function create_snapshots_with_timestamp() {
+        $CLI_1 snapshot create ${V0}_snap1 ${V0}&
+        PID_1=$!
+        $CLI_1 snapshot create ${V1}_snap1 ${V1}&
+        PID_2=$!
+
+        wait $PID_1 $PID_2
+}
+
 
 function activate_snapshots() {
         $CLI_1 snapshot activate ${V0}_snap &
@@ -49,10 +59,10 @@ function deactivate_snapshots() {
 }
 
 function delete_snapshots() {
-        $CLI_1 snapshot delete ${V0}_snap &
+        $CLI_1 snapshot delete $1 &
         PID_1=$!
 
-        $CLI_1 snapshot delete ${V1}_snap &
+        $CLI_1 snapshot delete $2 &
         PID_2=$!
 
         wait $PID_1 $PID_2
@@ -113,6 +123,15 @@ TEST glusterfs -s $H1 --volfile-id=/snaps/${V0}_snap/${V0} $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs -s $H2 --volfile-id=/snaps/${V1}_snap/${V1} $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
+#create timestamp appended snaps
+create_snapshots_with_timestamp;
+new_name1=`$CLI_1 snapshot list ${V0} | grep ${V0}_snap1`;
+new_name2=`$CLI_1 snapshot list ${V1} | grep ${V1}_snap1`;
+
+EXPECT_NOT "{V0}_snap1" echo $new_name1;
+EXPECT_NOT "{V1}_snap1" echo $new_name1;
+delete_snapshots $new_name1 $new_name2;
 
 #Clean up
 stop_force_volumes 2

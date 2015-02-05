@@ -27,11 +27,11 @@ for i in {1..10} ; do echo "file" > $M0/file$i ; done
 
 TEST $CLI snapshot config activate-on-create enable
 
-TEST $CLI snapshot create snap1 $V0;
+TEST $CLI snapshot create snap1 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done
 
-TEST $CLI snapshot create snap2 $V0;
+TEST $CLI snapshot create snap2 $V0 no-timestamp;
 
 mkdir $M0/dir1;
 mkdir $M0/dir2;
@@ -39,12 +39,12 @@ mkdir $M0/dir2;
 for i in {1..10} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {1..10} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap3 $V0;
+TEST $CLI snapshot create snap3 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {11..20} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap4 $V0;
+TEST $CLI snapshot create snap4 $V0 no-timestamp;
 
 TEST $CLI volume set $V0 features.uss enable;
 

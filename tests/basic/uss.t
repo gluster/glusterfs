@@ -43,11 +43,11 @@ for i in {1..10} ; do echo "file" > $M0/file$i ; done
 
 TEST $CLI snapshot config activate-on-create enable
 
-TEST $CLI snapshot create snap1 $V0;
+TEST $CLI snapshot create snap1 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done
 
-TEST $CLI snapshot create snap2 $V0;
+TEST $CLI snapshot create snap2 $V0 no-timestamp;
 
 mkdir $M0/dir1;
 mkdir $M0/dir2;
@@ -55,13 +55,12 @@ mkdir $M0/dir2;
 for i in {1..10} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {1..10} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap3 $V0;
+TEST $CLI snapshot create snap3 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {11..20} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap4 $V0;
-
+TEST $CLI snapshot create snap4 $V0 no-timestamp;
 ## Test that features.uss takes only options enable/disable and throw error for
 ## any other argument.
 for i in {1..10}; do
@@ -81,7 +80,6 @@ TEST ls $M0/.snaps;
 NUM_SNAPS=$(ls $M0/.snaps | wc -l);
 
 TEST [ $NUM_SNAPS == 4 ]
-
 TEST ls $M0/.snaps/snap1;
 TEST ls $M0/.snaps/snap2;
 TEST ls $M0/.snaps/snap3;
@@ -290,7 +288,7 @@ TEST fd_close $fd3;
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 #test 131
-TEST $CLI snapshot create snap5 $V0
+TEST $CLI snapshot create snap5 $V0 no-timestamp
 TEST ls $M0/.history;
 
 function count_snaps
@@ -319,7 +317,7 @@ EXPECT_WITHIN 30 "5" count_snaps $M0;
 
 echo "aaa" > $M0/aaa;
 
-TEST $CLI snapshot create snap6 $V0
+TEST $CLI snapshot create snap6 $V0 no-timestamp
 
 TEST ls $M0/.history;
 
@@ -331,7 +329,7 @@ TEST rm -f $M0/aaa;
 
 TEST $CLI snapshot delete snap6;
 
-TEST $CLI snapshot create snap6 $V0
+TEST $CLI snapshot create snap6 $V0 no-timestamp
 
 TEST ls $M0/.history;
 

@@ -13,11 +13,11 @@ TEST setup_lvm 1
 TEST $CLI volume create $V0 $H0:$L1
 TEST $CLI volume start $V0
 
-TEST $CLI snapshot create snap1 $V0
+TEST $CLI snapshot create snap1 $V0 no-timestamp
 EXPECT 'Stopped' snapshot_status snap1;
 
 TEST $CLI snapshot config activate-on-create enable
-TEST $CLI snapshot create snap2 $V0
+TEST $CLI snapshot create snap2 $V0 no-timestamp
 EXPECT 'Started' snapshot_status snap2;
 
 #Clean up

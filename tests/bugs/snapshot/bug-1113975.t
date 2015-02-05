@@ -21,11 +21,11 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 for i in {1..10} ; do echo "file" > $M0/file$i ; done
 
-TEST $CLI snapshot create snap1 $V0;
+TEST $CLI snapshot create snap1 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done
 
-TEST $CLI snapshot create snap2 $V0;
+TEST $CLI snapshot create snap2 $V0 no-timestamp;
 
 TEST $CLI volume stop $V0
 

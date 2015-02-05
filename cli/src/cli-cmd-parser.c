@@ -3397,7 +3397,9 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
         /* Filling volume name in the dictionary */
         for (i = cmdi + 1 ; i < wordcount
                             && (strcmp (words[i], "description")) != 0
-                            && (strcmp (words[i], "force") != 0); i++) {
+                            && (strcmp (words[i], "force") != 0)
+                            && (strcmp (words[i], "no-timestamp") != 0);
+                            i++) {
                 volcount++;
                 /* volume index starts from 1 */
                 ret = snprintf (key, sizeof (key), "volname%"PRIu64, volcount);
@@ -3437,11 +3439,22 @@ cli_snap_create_parse (dict_t *dict, const char **words, int wordcount) {
 
         /* Verify how we got out of "for" loop,
          * if it is by reaching wordcount limit then goto "out",
-         * because we need not parse for "description" and "force"
-         * after this.
+         * because we need not parse for "description","force" and
+         * "no-timestamp" after this.
          */
         if (i == wordcount) {
                 goto out;
+        }
+
+        if (strcmp (words[i], "no-timestamp") == 0) {
+                ret = dict_set_str (dict, "no-timestamp", "true");
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Could not save "
+                                "time-stamp option");
+                }
+                if (i == (wordcount-1))
+                        goto out;
+                i++;
         }
 
         if ((strcmp (words[i], "description")) == 0) {
@@ -4291,6 +4304,7 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         case GF_SNAP_OPTION_TYPE_CREATE:
                 /* Syntax :
                  * gluster snapshot create <snapname> <vol-name(s)>
+                 *                         [no-timestamp]
                  *                         [description <description>]
                  *                         [force]
                  */
