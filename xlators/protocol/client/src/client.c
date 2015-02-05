@@ -34,6 +34,55 @@ int client_init_rpc (xlator_t *this);
 int client_destroy_rpc (xlator_t *this);
 int client_mark_fd_bad (xlator_t *this);
 
+static int
+client_notify_dispatch_uniq (xlator_t *this, int32_t event, void *data, ...)
+{
+        clnt_conf_t     *conf = this->private;
+
+        if (conf->last_sent_event == event)
+                return 0;
+
+        return client_notify_dispatch (this, event, data);
+}
+
+int
+client_notify_dispatch (xlator_t *this, int32_t event, void *data, ...)
+{
+       int              ret  = -1;
+       glusterfs_ctx_t *ctx  = this->ctx;
+       clnt_conf_t     *conf = this->private;
+
+       pthread_mutex_lock (&ctx->notify_lock);
+       {
+                while (ctx->notifying)
+                        pthread_cond_wait (&ctx->notify_cond,
+                                           &ctx->notify_lock);
+               ctx->notifying = 1;
+       }
+       pthread_mutex_unlock (&ctx->notify_lock);
+
+       /* We assume that all translators in the graph handle notification
+        * events in sequence.
+        * */
+       ret = default_notify (this, event, data);
+
+       /* NB (Even) with MT-epoll and EPOLLET|EPOLLONESHOT we are guaranteed
+        * that there would be atmost one poller thread executing this
+        * notification function. This allows us to update last_sent_event
+        * without explicit synchronization. See epoll(7).
+        */
+       conf->last_sent_event = event;
+
+       pthread_mutex_lock (&ctx->notify_lock);
+       {
+               ctx->notifying = 0;
+               pthread_cond_signal (&ctx->notify_cond);
+       }
+       pthread_mutex_unlock (&ctx->notify_lock);
+
+       return ret;
+}
+
 int32_t
 client_type_to_gf_type (short l_type)
 {
@@ -2169,14 +2218,12 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "handshake msg returned %d", ret);
                 } else {
                         //conf->rpc->connected = 1;
-                        if (conf->last_sent_event != GF_EVENT_CHILD_UP) {
-                                ret = default_notify (this, GF_EVENT_CHILD_UP,
-                                                      NULL);
-                                if (ret)
-                                        gf_log (this->name, GF_LOG_INFO,
-                                                "CHILD_UP notify failed");
-                                conf->last_sent_event = GF_EVENT_CHILD_UP;
-                        }
+                        ret = client_notify_dispatch_uniq (this,
+                                                           GF_EVENT_CHILD_UP,
+                                                           NULL);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "CHILD_UP notify failed");
                 }
 
                 /* Cancel grace timer if set */
@@ -2224,14 +2271,13 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                            may get screwed up.. (eg. CHILD_MODIFIED event in
                            replicate), hence make sure events which are passed
                            to parent are genuine */
-                        if (conf->last_sent_event != GF_EVENT_CHILD_DOWN) {
-                                ret = default_notify (this, GF_EVENT_CHILD_DOWN,
-                                                      NULL);
-                                if (ret)
-                                        gf_log (this->name, GF_LOG_INFO,
-                                                "CHILD_DOWN notify failed");
-                                conf->last_sent_event = GF_EVENT_CHILD_DOWN;
-                        }
+                        ret = client_notify_dispatch_uniq (this,
+                                                           GF_EVENT_CHILD_DOWN,
+                                                           NULL);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "CHILD_DOWN notify failed");
+
                 } else {
                         if (conf->connected)
                                 gf_log (this->name, GF_LOG_DEBUG,

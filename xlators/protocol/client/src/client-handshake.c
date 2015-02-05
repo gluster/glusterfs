@@ -131,12 +131,11 @@ client_notify_parents_child_up (xlator_t *this)
         int          ret  = 0;
 
         conf = this->private;
-        ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
+        ret = client_notify_dispatch (this, GF_EVENT_CHILD_UP, NULL);
         if (ret)
                 gf_log (this->name, GF_LOG_INFO,
                         "notify of CHILD_UP failed");
 
-        conf->last_sent_event = GF_EVENT_CHILD_UP;
         return 0;
 }
 
@@ -1146,11 +1145,12 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                         op_ret = 0;
                 }
                 if (op_errno == ESTALE) {
-                        ret = default_notify (this, GF_EVENT_VOLFILE_MODIFIED, NULL);
+                        ret = client_notify_dispatch (this,
+                                                      GF_EVENT_VOLFILE_MODIFIED,
+                                                      NULL);
                         if (ret)
                                 gf_log (this->name, GF_LOG_INFO,
                                         "notify of VOLFILE_MODIFIED failed");
-                        conf->last_sent_event = GF_EVENT_VOLFILE_MODIFIED;
                 }
                 goto out;
         }
@@ -1223,13 +1223,12 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
 out:
         if (auth_fail) {
                 gf_log (this->name, GF_LOG_INFO, "sending AUTH_FAILED event");
-                ret = default_notify (this, GF_EVENT_AUTH_FAILED, NULL);
+                ret = client_notify_dispatch (this, GF_EVENT_AUTH_FAILED, NULL);
                 if (ret)
                         gf_log (this->name, GF_LOG_INFO,
                                 "notify of AUTH_FAILED failed");
                 conf->connecting = 0;
                 conf->connected = 0;
-                conf->last_sent_event = GF_EVENT_AUTH_FAILED;
                 ret = -1;
         }
         if (-1 == op_ret) {
@@ -1238,11 +1237,11 @@ out:
                  * tell the parents that i am all ok..
                  */
                 gf_log (this->name, GF_LOG_INFO, "sending CHILD_CONNECTING event");
-                ret = default_notify (this, GF_EVENT_CHILD_CONNECTING, NULL);
+                ret = client_notify_dispatch (this, GF_EVENT_CHILD_CONNECTING,
+                                              NULL);
                 if (ret)
                         gf_log (this->name, GF_LOG_INFO,
                                 "notify of CHILD_CONNECTING failed");
-                conf->last_sent_event = GF_EVENT_CHILD_CONNECTING;
                 conf->connecting= 1;
                 ret = 0;
         }

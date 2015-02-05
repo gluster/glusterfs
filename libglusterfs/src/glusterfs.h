@@ -533,6 +533,10 @@ struct _glusterfs_ctx {
         /* Buffer to 'save' backtrace even under OOM-kill like situations*/
         char btbuf[GF_BACKTRACE_LEN];
 
+        pthread_mutex_t notify_lock;
+        pthread_cond_t notify_cond;
+        int notifying;
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
