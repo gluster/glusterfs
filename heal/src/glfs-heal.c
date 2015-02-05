@@ -92,37 +92,6 @@ out:
         return ret;
 }
 
-int
-glfsh_get_index_dir_fd (xlator_t *xl, loc_t *loc, fd_t **fd)
-{
-        int ret = -1;
-
-        *fd = fd_create (loc->inode, GF_CLIENT_PID_GLFS_HEAL);
-        if (!*fd) {
-                printf ("fd_create failed: %s", strerror(errno));
-                goto out;
-        }
-        ret = syncop_opendir (xl, loc, *fd);
-        if (ret) {
-                fd_unref(*fd);
-#ifdef GF_LINUX_HOST_OS /* See comment in afr_shd_index_opendir() */
-                *fd = fd_anonymous (loc->inode);
-                if (!*fd) {
-                        printf ("fd_anonymous failed: %s",
-                                strerror(errno));
-                        goto out;
-                }
-                ret = 0;
-#else
-                printf ("opendir failed: %s", strerror(errno));
-                goto out;
-#endif
-        }
-
-out:
-        return ret;
-}
-
 static xlator_t*
 _get_afr_ancestor (xlator_t *xl)
 {
@@ -478,7 +447,7 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 goto out;
         }
 
-        ret = glfsh_get_index_dir_fd (xl, &dirloc, &fd);
+        ret = syncop_dirfd (xl, &dirloc, &fd, GF_CLIENT_PID_GLFS_HEAL);
         if (ret)
                 goto out;
 
@@ -691,7 +660,8 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         else {
                 ret = glfsh_get_index_dir_loc (rootloc, client, &dirloc,
                                                &op_errno);
-                ret = glfsh_get_index_dir_fd (client, &dirloc, &fd);
+                ret = syncop_dirfd (client, &dirloc, &fd,
+                                    GF_CLIENT_PID_GLFS_HEAL);
                 if (ret)
                         goto out;
                 ret = glfsh_crawl_directory (fs, top_subvol, rootloc, client,

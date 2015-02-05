@@ -427,4 +427,16 @@ int
 syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
                 struct gf_flock *lock, dict_t *xdata_req, dict_t **xdata_rsp);
 
+int
+syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
+            int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                       void *data));
+
+int
+syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
+                 int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
+                            void *data));
+
+int
+syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid);
 #endif /* _SYNCOP_H */

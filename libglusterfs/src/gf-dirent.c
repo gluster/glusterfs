@@ -67,6 +67,25 @@ gf_dirent_free (gf_dirent_t *entries)
         }
 }
 
+void
+gf_link_inode_from_dirent (xlator_t *this, inode_t *parent, gf_dirent_t *entry)
+{
+        inode_t     *link_inode = NULL;
+        inode_t     *tmp        = NULL;
+
+        if (!entry->inode)
+                return;
+        link_inode = inode_link (entry->inode, parent,
+                                 entry->d_name, &entry->d_stat);
+        if (!link_inode)
+                return;
+
+        inode_lookup (link_inode);
+        tmp = entry->inode;
+        entry->inode = link_inode;
+        inode_unref (tmp);
+}
+
 /* TODO: Currently, with this function, we will be breaking the
    policy of 1-1 mapping of kernel nlookup refs with our inode_t's
    nlookup count.
@@ -77,20 +96,9 @@ gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
                             gf_dirent_t *entries)
 {
         gf_dirent_t *entry      = NULL;
-        inode_t     *link_inode = NULL;
-        inode_t     *tmp        = NULL;
 
         list_for_each_entry (entry, &entries->list, list) {
-                if (entry->inode) {
-                        link_inode = inode_link (entry->inode, parent,
-                                                 entry->d_name, &entry->d_stat);
-			if (!link_inode)
-				continue;
-                        inode_lookup (link_inode);
-                        tmp = entry->inode;
-                        entry->inode = link_inode;
-                        inode_unref (tmp);
-                }
+                gf_link_inode_from_dirent (this, parent, entry);
         }
 
         return 0;
