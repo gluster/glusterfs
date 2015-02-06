@@ -371,12 +371,7 @@ client_releasedir (xlator_t *this, fd_t *fd)
         args.fd = fd;
 
         proc = &conf->fops->proctable[GF_FOP_RELEASEDIR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_RELEASEDIR]);
-                goto out;
-        }
+
         if (proc->fn) {
                 ret = proc->fn (NULL, this, &args);
         }
@@ -401,12 +396,7 @@ client_release (xlator_t *this, fd_t *fd)
 
         args.fd = fd;
         proc = &conf->fops->proctable[GF_FOP_RELEASE];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_RELEASE]);
-                goto out;
-        }
+
         if (proc->fn) {
                 ret = proc->fn (NULL, this, &args);
         }
@@ -435,12 +425,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_LOOKUP];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_LOOKUP]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -469,12 +454,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_STAT];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_STAT]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -503,12 +483,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_TRUNCATE];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_TRUNCATE]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -538,12 +513,7 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FTRUNCATE];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FTRUNCATE]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -573,12 +543,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_ACCESS];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_ACCESS]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -609,12 +574,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_READLINK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_READLINK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -645,12 +605,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_MKNOD];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_MKNOD]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -681,12 +636,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_MKDIR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_MKDIR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -717,12 +667,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.flags = xflag;
 
         proc = &conf->fops->proctable[GF_FOP_UNLINK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_UNLINK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -751,12 +696,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_RMDIR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_RMDIR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -788,12 +728,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         args.xdata    = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_SYMLINK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_SYMLINK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -824,12 +759,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         args.xdata  = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_RENAME];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_RENAME]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -860,12 +790,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_LINK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_LINK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -903,12 +828,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,  int32_t flags,
                 args.flags = (flags & ~O_DIRECT);
 
         proc = &conf->fops->proctable[GF_FOP_CREATE];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_CREATE]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -944,12 +864,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 args.flags = (flags & ~O_DIRECT);
 
         proc = &conf->fops->proctable[GF_FOP_OPEN];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_OPEN]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 
@@ -982,12 +897,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_READ];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_READ]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 
@@ -1026,12 +936,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_WRITE];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_WRITE]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1058,12 +963,7 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FLUSH];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FLUSH]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1093,12 +993,7 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSYNC];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FSYNC]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1126,12 +1021,7 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSTAT];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FSTAT]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1161,12 +1051,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_OPENDIR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_OPENDIR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1195,12 +1080,7 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags, d
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSYNCDIR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FSYNCDIR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1228,12 +1108,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_STATFS];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_STATFS]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1416,12 +1291,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_SETXATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_SETXATTR]);
-                goto out;
-        }
+
         if (proc->fn) {
                 ret = proc->fn (frame, this, &args);
                 if (ret) {
@@ -1456,12 +1326,7 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSETXATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FSETXATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1492,12 +1357,7 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FGETXATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FGETXATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1527,12 +1387,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_GETXATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_GETXATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1563,12 +1418,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_XATTROP];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_XATTROP]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1599,12 +1449,7 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FXATTROP];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FXATTROP]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1634,12 +1479,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_REMOVEXATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_REMOVEXATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1667,12 +1507,7 @@ client_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FREMOVEXATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FREMOVEXATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1701,12 +1536,7 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_LK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_LK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1737,12 +1567,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_INODELK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_INODELK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1774,12 +1599,7 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FINODELK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FINODELK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1812,12 +1632,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_ENTRYLK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_ENTRYLK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1851,12 +1666,7 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FENTRYLK];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FENTRYLK]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1886,12 +1696,7 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_RCHECKSUM];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_RCHECKSUM]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1923,12 +1728,7 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_READDIR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_READDIR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1961,12 +1761,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = dict;
 
         proc = &conf->fops->proctable[GF_FOP_READDIRP];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_READDIRP]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1996,12 +1791,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_SETATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_SETATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -2030,12 +1820,7 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FSETATTR];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FSETATTR]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -2065,12 +1850,7 @@ client_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_FALLOCATE];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_FALLOCATE]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -2099,12 +1879,7 @@ client_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_DISCARD];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_DISCARD]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -2133,12 +1908,7 @@ client_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         args.xdata = xdata;
 
         proc = &conf->fops->proctable[GF_FOP_ZEROFILL];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_ZEROFILL]);
-                goto out;
-        }
+
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -2200,12 +1970,7 @@ client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
 
         /* For all other xlators, getspec is an fop, hence its in fops table */
         proc = &conf->fops->proctable[GF_FOP_GETSPEC];
-        if (!proc) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpc procedure not found for %s",
-                        gf_fop_list[GF_FOP_GETSPEC]);
-                goto out;
-        }
+
         if (proc->fn) {
                 /* But at protocol level, this is handshake */
                 ret = proc->fn (frame, this, &args);
@@ -3083,3 +2848,4 @@ struct volume_options options[] = {
         },
         { .key   = {NULL} },
 };
+
