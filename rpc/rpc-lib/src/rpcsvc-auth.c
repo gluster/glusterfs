@@ -38,7 +38,7 @@ rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
         }
 
         new->init = init;
-        strcpy (new->name, idfier);
+        strncpy (new->name, idfier, sizeof (new->name) - 1);
         INIT_LIST_HEAD (&new->authlist);
         list_add_tail (&new->authlist, list);
         return 0;
