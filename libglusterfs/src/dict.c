@@ -1122,8 +1122,8 @@ dict_remove_foreach_fn (dict_t *d, char *k,
         return 0;
 }
 
-static inline gf_boolean_t
-match_everything (dict_t *d, char *k, data_t *v, void *data)
+gf_boolean_t
+dict_match_everything (dict_t *d, char *k, data_t *v, void *data)
 {
         return _gf_true;
 }
@@ -1138,7 +1138,7 @@ dict_foreach (dict_t *dict,
 {
         int     ret = 0;
 
-        ret = dict_foreach_match (dict, match_everything, NULL, fn, data);
+        ret = dict_foreach_match (dict, dict_match_everything, NULL, fn, data);
 
         if (ret > 0)
                 ret = 0;

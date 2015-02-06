@@ -45,6 +45,7 @@ typedef struct index_priv {
         struct list_head callstubs;
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
+        dict_t  *xattrop64_watchlist;
 } index_priv_t;
 
 #define INDEX_STACK_UNWIND(fop, frame, params ...)      \

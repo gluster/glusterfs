@@ -95,6 +95,8 @@ struct _dict {
         gf_boolean_t    free_pair_in_use;
 };
 
+typedef gf_boolean_t (*dict_match_t) (dict_t *d, char *k, data_t *v,
+                                      void *data);
 
 int32_t is_data_equal (data_t *one, data_t *two);
 void data_destroy (data_t *data);
@@ -255,4 +257,6 @@ dict_dump_to_log (dict_t *dict);
 
 int
 dict_dump_to_str (dict_t *dict, char *dump, int dumpsize, char *format);
+gf_boolean_t
+dict_match_everything (dict_t *d, char *k, data_t *v, void *data);
 #endif
