@@ -520,41 +520,50 @@ out:
         return;
 }
 
+static gf_boolean_t
+is_xattr_in_watchlist (dict_t *this, char *key, data_t *value, void *matchdata)
+{
+        if (dict_get (matchdata, key))
+                return _gf_true;
+
+        return _gf_false;
+}
+
 void
-_xattrop_index_action (xlator_t *this, inode_t *inode,  dict_t *xattr)
+xattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr,
+                      dict_match_t match, void *match_data)
 {
         gf_boolean_t      zero_xattr = _gf_true;
         int               ret = 0;
 
-        ret = dict_foreach (xattr, _check_key_is_zero_filled, NULL);
+        ret = dict_foreach_match (xattr, match, match_data,
+                                  _check_key_is_zero_filled, NULL);
         if (ret == -1)
                 zero_xattr = _gf_false;
         _index_action (this, inode, zero_xattr);
         return;
 }
 
-void
-fop_xattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr)
-{
-        _xattrop_index_action (this, inode, xattr);
-}
-
-void
-fop_fxattrop_index_action (xlator_t *this, inode_t *inode, dict_t *xattr)
-{
-        _xattrop_index_action (this, inode, xattr);
-}
-
 static inline gf_boolean_t
-index_xattrop_track (loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
+index_xattrop_track (xlator_t *this, gf_xattrop_flags_t flags, dict_t *dict)
 {
-        return (flags == GF_XATTROP_ADD_ARRAY);
-}
+        index_priv_t *priv = this->private;
 
-static inline gf_boolean_t
-index_fxattrop_track (fd_t *fd, gf_xattrop_flags_t flags, dict_t *dict)
-{
-        return (flags == GF_XATTROP_ADD_ARRAY);
+        if (flags == GF_XATTROP_ADD_ARRAY)
+                return _gf_true;
+
+        if (flags != GF_XATTROP_ADD_ARRAY64)
+                return _gf_false;
+
+        if (!priv->xattrop64_watchlist)
+                return _gf_false;
+
+        if (dict_foreach_match (dict, is_xattr_in_watchlist,
+                                priv->xattrop64_watchlist, dict_null_foreach_fn,
+                                NULL) > 0)
+                return _gf_true;
+
+        return _gf_false;
 }
 
 int
@@ -671,16 +680,18 @@ unlock:
         return;
 }
 
-int32_t
-index_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, dict_t *xattr, dict_t *xdata)
+static int
+xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+             int32_t op_ret, int32_t op_errno, dict_t *xattr,
+             dict_t *xdata, dict_match_t match, dict_t *matchdata)
 {
         inode_t *inode = NULL;
 
         inode = inode_ref (frame->local);
         if (op_ret < 0)
                 goto out;
-        fop_xattrop_index_action (this, frame->local, xattr);
+
+        xattrop_index_action (this, frame->local, xattr, match, matchdata);
 out:
         INDEX_STACK_UNWIND (xattrop, frame, op_ret, op_errno, xattr, xdata);
         index_queue_process (this, inode, NULL);
@@ -690,35 +701,41 @@ out:
 }
 
 int32_t
-index_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dict_t *xattr,
-                    dict_t *xdata)
+index_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                   dict_t *xdata)
 {
-        inode_t *inode = NULL;
+        return xattrop_cbk (frame, cookie, this, op_ret, op_errno, xattr, xdata,
+                            dict_match_everything, NULL);
+}
 
-        inode = inode_ref (frame->local);
-        if (op_ret < 0)
-                goto out;
+int32_t
+index_xattrop64_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                     dict_t *xdata)
+{
+        index_priv_t *priv = this->private;
 
-        fop_fxattrop_index_action (this, frame->local, xattr);
-out:
-        INDEX_STACK_UNWIND (fxattrop, frame, op_ret, op_errno, xattr, xdata);
-        index_queue_process (this, inode, NULL);
-        inode_unref (inode);
-
-        return 0;
+        return xattrop_cbk (frame, cookie, this, op_ret, op_errno, xattr, xdata,
+                            is_xattr_in_watchlist, priv->xattrop64_watchlist);
 }
 
 int
 index_xattrop_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
+        fop_xattrop_cbk_t cbk = NULL;
         //In wind phase bring the gfid into index. This way if the brick crashes
         //just after posix performs xattrop before _cbk reaches index xlator
         //we will still have the gfid in index.
         _index_action (this, frame->local, _gf_false);
 
-        STACK_WIND (frame, index_xattrop_cbk, FIRST_CHILD (this),
+        if (optype == GF_XATTROP_ADD_ARRAY)
+                cbk = index_xattrop_cbk;
+        else
+                cbk = index_xattrop64_cbk;
+
+        STACK_WIND (frame, cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->xattrop, loc, optype, xattr,
                     xdata);
         return 0;
@@ -728,11 +745,18 @@ int
 index_fxattrop_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
+        fop_fxattrop_cbk_t cbk = NULL;
         //In wind phase bring the gfid into index. This way if the brick crashes
         //just after posix performs xattrop before _cbk reaches index xlator
         //we will still have the gfid in index.
         _index_action (this, frame->local, _gf_false);
-        STACK_WIND (frame, index_fxattrop_cbk, FIRST_CHILD (this),
+
+        if (optype == GF_XATTROP_ADD_ARRAY)
+                cbk = index_xattrop_cbk;
+        else
+                cbk = index_xattrop64_cbk;
+
+        STACK_WIND (frame, cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fxattrop, fd, optype, xattr,
                     xdata);
         return 0;
@@ -744,7 +768,7 @@ index_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         call_stub_t     *stub = NULL;
 
-        if (!index_xattrop_track (loc, flags, dict))
+        if (!index_xattrop_track (this, flags, dict))
                 goto out;
 
         frame->local = inode_ref (loc->inode);
@@ -769,7 +793,7 @@ index_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         call_stub_t    *stub = NULL;
 
-        if (!index_fxattrop_track (fd, flags, dict))
+        if (!index_xattrop_track (this, flags, dict))
                 goto out;
 
         frame->local = inode_ref (fd->inode);
@@ -1148,6 +1172,70 @@ out:
         return 0;
 }
 
+int
+index_make_xattrop64_watchlist (xlator_t *this, index_priv_t *priv,
+                                char *watchlist)
+{
+        char   *delim         = NULL;
+        char   *dup_watchlist = NULL;
+        char   *key           = NULL;
+        char   *saveptr       = NULL;
+        dict_t *xattrs        = NULL;
+        data_t *dummy         = NULL;
+        int    ret            = 0;
+
+        if (!watchlist)
+                return 0;
+
+        dup_watchlist = gf_strdup (watchlist);
+        if (!dup_watchlist)
+                return -1;
+
+        xattrs = dict_new ();
+        if (!xattrs) {
+                ret = -1;
+                goto out;
+        }
+
+        dummy = int_to_data (1);
+        if (!dummy) {
+                ret = -1;
+                goto out;
+        }
+
+        data_ref (dummy);
+
+        delim = ",";
+        key = strtok_r (dup_watchlist, delim, &saveptr);
+        while (key) {
+                if (strlen (key) == 0) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set (xattrs, key, dummy);
+                if (ret)
+                        goto out;
+
+                key = strtok_r (NULL, delim, &saveptr);
+        }
+
+        priv->xattrop64_watchlist = xattrs;
+        xattrs = NULL;
+
+        ret = 0;
+out:
+        if (xattrs)
+                dict_unref (xattrs);
+
+        GF_FREE (dup_watchlist);
+
+        if (dummy)
+                data_unref (dummy);
+
+        return ret;
+}
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -1168,6 +1256,7 @@ init (xlator_t *this)
         gf_boolean_t    mutex_inited = _gf_false;
         gf_boolean_t    cond_inited  = _gf_false;
         gf_boolean_t    attr_inited  = _gf_false;
+        char            *watchlist = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1211,7 +1300,14 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "Using default thread stack size");
         }
+
         GF_OPTION_INIT ("index-base", priv->index_basepath, path, out);
+
+        GF_OPTION_INIT ("xattrop64-watchlist", watchlist, str, out);
+        ret = index_make_xattrop64_watchlist (this, priv, watchlist);
+        if (ret)
+                goto out;
+
         uuid_generate (priv->index);
         uuid_generate (priv->xattrop_vgfid);
         INIT_LIST_HEAD (&priv->callstubs);
@@ -1236,6 +1332,8 @@ out:
                         pthread_cond_destroy (&priv->cond);
                 if (mutex_inited)
                         pthread_mutex_destroy (&priv->mutex);
+                if (priv && priv->xattrop64_watchlist)
+                        dict_unref (priv->xattrop64_watchlist);
                 if (priv)
                         GF_FREE (priv);
                 this->private = NULL;
@@ -1257,6 +1355,8 @@ fini (xlator_t *this)
         LOCK_DESTROY (&priv->lock);
         pthread_cond_destroy (&priv->cond);
         pthread_mutex_destroy (&priv->mutex);
+        if (priv->xattrop64_watchlist)
+                dict_unref (priv->xattrop64_watchlist);
         GF_FREE (priv);
 out:
         return;
@@ -1344,6 +1444,10 @@ struct volume_options options[] = {
         { .key  = {"index-base" },
           .type = GF_OPTION_TYPE_PATH,
           .description = "path where the index files need to be stored",
+        },
+        { .key  = {"xattrop64-watchlist" },
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Comma separated list of xattrs that are watched",
         },
         { .key  = {NULL} },
 };
