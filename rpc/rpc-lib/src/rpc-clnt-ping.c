@@ -237,7 +237,7 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
         conn = &rpc->conn;
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
-                goto fail;
+                return ret;
 
         frame->local = rpc;
 
@@ -254,13 +254,6 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
                 pthread_mutex_lock (&conn->lock);
                 conn->pingcnt++;
                 pthread_mutex_unlock (&conn->lock);
-        }
-
-        return ret;
-
-fail:
-        if (frame) {
-                STACK_DESTROY (frame->root);
         }
 
         return ret;
