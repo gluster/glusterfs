@@ -650,18 +650,18 @@ geo-replication index, so the recommended way to set the time manually is:
 1.  Stop geo-replication between the master and slave using the
     following command:
 
-    `# gluster volume geo-replication  sto`p
+    `# gluster volume geo-replication stop`
 
 2.  Stop the geo-replication indexing using the following command:
 
-    `# gluster volume set  geo-replication.indexing of`f
+    `# gluster volume set geo-replication.indexing of`
 
 3.  Set uniform time on all bricks.s
 
 4.  Restart your geo-replication sessions by using the following
     command:
 
-    `# gluster volume geo-replication start `
+    `# gluster volume geo-replication start`
 
 **Running Geo-replication commands in one system**
 
