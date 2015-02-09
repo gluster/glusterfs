@@ -868,6 +868,28 @@ int32_t ec_heal_open_others(ec_heal_t * heal)
     return (open != 0);
 }
 
+uintptr_t ec_heal_needs_data_rebuild(ec_heal_t *heal)
+{
+    ec_fop_data_t *fop = heal->lookup;
+    ec_cbk_data_t *cbk = NULL;
+    uintptr_t bad = 0;
+
+    if ((heal->fop->error != 0) || (heal->good == 0) ||
+        (heal->iatt.ia_type != IA_IFREG)) {
+        return 0;
+    }
+
+    list_for_each_entry(cbk, &fop->cbk_list, list) {
+        if ((cbk->op_ret >= 0) &&
+            ((cbk->size != heal->raw_size) ||
+             (cbk->version != heal->version))) {
+            bad |= cbk->mask;
+        }
+    }
+
+    return bad;
+}
+
 void ec_heal_setxattr_others(ec_heal_t * heal)
 {
     ec_cbk_data_t * cbk;
@@ -892,9 +914,12 @@ void ec_heal_setxattr_others(ec_heal_t * heal)
             }
             if (cbk->iatt[0].ia_type == IA_IFREG)
             {
-                if (ec_dict_set_number(xdata, EC_XATTR_SIZE,
-                                       cbk->iatt[0].ia_size) != 0)
-                {
+                uint64_t dirty;
+
+                dirty = ec_heal_needs_data_rebuild(heal) != 0;
+                if ((ec_dict_set_number(xdata, EC_XATTR_SIZE,
+                                        cbk->iatt[0].ia_size) != 0) ||
+                    (ec_dict_set_number(xdata, EC_XATTR_DIRTY, dirty) != 0)) {
                     goto out;
                 }
             }
@@ -968,40 +993,10 @@ void ec_heal_attr(ec_heal_t * heal)
     }
 }
 
-int32_t ec_heal_needs_data_rebuild(ec_heal_t * heal)
-{
-    ec_fop_data_t * fop = heal->lookup;
-    ec_cbk_data_t * cbk = NULL;
-    uintptr_t bad = 0;
-
-    if ((heal->fop->error != 0) || (heal->good == 0) ||
-        (heal->iatt.ia_type != IA_IFREG))
-    {
-        return 0;
-    }
-
-    list_for_each_entry(cbk, &fop->cbk_list, list)
-    {
-        if ((cbk->op_ret >= 0) &&
-            ((cbk->size != heal->raw_size) || (cbk->version != heal->version)))
-        {
-            bad |= cbk->mask;
-        }
-    }
-
-    /* This function can only be called concurrently with entrylk, which do
-     * not modify heal structure, so it's safe to access heal->bad without
-     * acquiring any lock.
-     */
-    heal->bad = bad;
-
-    return (bad != 0);
-}
-
 void ec_heal_open(ec_heal_t * heal)
 {
-    if (!ec_heal_needs_data_rebuild(heal))
-    {
+    heal->bad = ec_heal_needs_data_rebuild(heal);
+    if (heal->bad == 0) {
         return;
     }
 
@@ -1113,6 +1108,30 @@ void ec_heal_data(ec_heal_t * heal)
                  ec_heal_readv_cbk, heal, heal->fd, heal->size, heal->offset,
                  0, NULL);
     }
+}
+
+void ec_heal_update_dirty(ec_heal_t *heal, uintptr_t mask)
+{
+    dict_t *dict;
+
+    dict = dict_new();
+    if (dict == NULL) {
+        ec_fop_set_error(heal->fop, EIO);
+
+        return;
+    }
+
+    if (ec_dict_set_number(dict, EC_XATTR_DIRTY, -1) != 0) {
+        dict_unref(dict);
+        ec_fop_set_error(heal->fop, EIO);
+
+        return;
+    }
+
+    ec_fxattrop(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE, NULL, NULL,
+                heal->fd, GF_XATTROP_ADD_ARRAY64, dict, NULL);
+
+    dict_unref(dict);
 }
 
 void ec_heal_dispatch(ec_heal_t *heal)
@@ -1347,7 +1366,8 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_HEAL_UNLOCK_ENTRY:
             ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
 
-            if (ec_heal_needs_data_rebuild(heal))
+            heal->bad = ec_heal_needs_data_rebuild(heal);
+            if (heal->bad != 0)
             {
                 return EC_STATE_HEAL_DATA_LOCK;
             }
@@ -1385,6 +1405,7 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
 
         case EC_STATE_HEAL_POST_INODE_LOOKUP:
             heal->fixed = heal->bad;
+            ec_heal_update_dirty(heal, heal->bad);
             ec_heal_lookup(heal, heal->good);
 
             return EC_STATE_HEAL_SETATTR;
