@@ -212,6 +212,7 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/reset/Makefile
                 extras/hook-scripts/reset/post/Makefile
                 extras/hook-scripts/reset/pre/Makefile
+                extras/snap_scheduler/Makefile
                 contrib/fuse-util/Makefile
                 contrib/umountd/Makefile
                 contrib/uuid/uuid_types.h
