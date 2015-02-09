@@ -177,24 +177,58 @@ out:
 }
 
 int32_t
-cli_cmd_create_disperse_check(struct cli_state * state, int * disperse,
-                              int * redundancy, int count)
+cli_cmd_create_disperse_check (struct cli_state *state, int *disperse,
+                               int *redundancy, int *data, int count)
 {
         int i = 0;
         int tmp = 0;
         gf_answer_t answer = GF_ANSWER_NO;
         char question[128];
 
-        const char * question1 = "There isn't an optimal redundancy value "
-                                 "for this configuration. Do you want to "
-                                 "create the volume with redundancy 1 ?";
+        const char *question1 = "There isn't an optimal redundancy value "
+                                "for this configuration. Do you want to "
+                                "create the volume with redundancy 1 ?";
 
-        const char * question2 = "The optimal redundancy for this "
-                                 "configuration is %d. Do you want to create "
-                                 "the volume with this value ?";
+        const char *question2 = "The optimal redundancy for this "
+                                "configuration is %d. Do you want to create "
+                                "the volume with this value ?";
 
-        const char * question3 = "This configuration is not optimal on most "
-                                 "workloads. Do you want to use it ?";
+        const char *question3 = "This configuration is not optimal on most "
+                                "workloads. Do you want to use it ?";
+
+        const char *question4 = "Redundancy for this configuration is %d. "
+                                "Do you want to create "
+                                "the volume with this value ?";
+
+        if (*data > 0) {
+                if (*disperse > 0 && *redundancy > 0) {
+                        if (*disperse != (*data + *redundancy)) {
+                                cli_err ("Disperse count(%d) should be equal "
+                                         "to sum of disperse-data count(%d) and "
+                                         "redundancy count(%d)", *disperse,
+                                         *data, *redundancy);
+                                return -1;
+                        }
+                } else if (*redundancy > 0) {
+                        *disperse = *data + *redundancy;
+                } else if (*disperse > 0) {
+                        *redundancy = *disperse - *data;
+                } else {
+                        if ((count - *data) >= *data) {
+                                cli_err ("Please provide redundancy count "
+                                         "along with disperse-data count");
+                                return -1;
+                        } else {
+                                sprintf (question, question4, count - *data);
+                                answer = cli_cmd_get_confirmation (state,
+                                                                   question);
+                                if (answer == GF_ANSWER_NO)
+                                        return -1;
+                                *redundancy = count - *data;
+                                *disperse = count;
+                        }
+                }
+        }
 
         if (*disperse <= 0) {
                 if (count < 3) {
@@ -206,7 +240,7 @@ cli_cmd_create_disperse_check(struct cli_state * state, int * disperse,
                 *disperse = count;
         }
 
-        if (*redundancy == 0) {
+        if (*redundancy == -1) {
                 tmp = *disperse - 1;
                 for (i = tmp / 2;
                      (i > 0) && ((tmp & -tmp) != tmp);
@@ -232,8 +266,7 @@ cli_cmd_create_disperse_check(struct cli_state * state, int * disperse,
                 }
 
                 tmp = 0;
-        }
-        else {
+        } else {
                 tmp = *disperse - *redundancy;
         }
 
@@ -254,6 +287,87 @@ cli_cmd_create_disperse_check(struct cli_state * state, int * disperse,
         return 0;
 }
 
+static int32_t
+cli_validate_disperse_volume (char *word, gf1_cluster_type type,
+                              const char **words, int32_t wordcount,
+                              int32_t index, int32_t *disperse_count,
+                              int32_t *redundancy_count,
+                              int32_t *data_count)
+{
+        int     ret = -1;
+
+        switch (type) {
+        case GF_CLUSTER_TYPE_NONE:
+        case GF_CLUSTER_TYPE_DISPERSE:
+                if (strcmp (word, "disperse") == 0) {
+                        if (*disperse_count >= 0) {
+                                cli_err ("disperse option given twice");
+                                goto out;
+                        }
+                        if (wordcount < (index+2)) {
+                                goto out;
+                        }
+                        ret = gf_string2int (words[index + 1], disperse_count);
+                        if (ret == -1 && errno == EINVAL) {
+                                *disperse_count = 0;
+                                ret = 1;
+                        } else if (ret == -1) {
+                                goto out;
+                        } else {
+                                if (*disperse_count < 3) {
+                                        cli_err ("disperse count must "
+                                                 "be greater than 2");
+                                        goto out;
+                                }
+                                ret = 2;
+                        }
+                } else if (strcmp (word, "disperse-data") == 0) {
+                        if (*data_count >= 0) {
+                                cli_err ("disperse-data option given twice");
+                                goto out;
+                        }
+                        if (wordcount < (index+2)) {
+                                goto out;
+                        }
+                        ret = gf_string2int (words[index+1], data_count);
+                        if (ret == -1 || *data_count < 2) {
+                                cli_err ("disperse-data must be greater than 1");
+                                goto out;
+                        }
+                        ret = 2;
+                } else if (strcmp (word, "redundancy") == 0) {
+                        if (*redundancy_count >= 0) {
+                                cli_err ("redundancy option given twice");
+                                goto out;
+                        }
+                        if (wordcount < (index+2)) {
+                                goto out;
+                        }
+                        ret = gf_string2int (words[index+1], redundancy_count);
+                        if (ret == -1 || *redundancy_count < 1) {
+                                cli_err ("redundancy must be greater than 0");
+                                goto out;
+                        }
+                        ret = 2;
+                }
+                break;
+        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                cli_err ("striped-replicated-dispersed volume "
+                         "is not supported");
+                goto out;
+        case GF_CLUSTER_TYPE_STRIPE:
+                cli_err ("striped-dispersed volume is not "
+                         "supported");
+                goto out;
+        case GF_CLUSTER_TYPE_REPLICATE:
+                cli_err ("replicated-dispersed volume is not "
+                         "supported");
+                goto out;
+        }
+out:
+        return ret;
+}
+
 int32_t
 cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                              int wordcount, dict_t **options)
@@ -271,7 +385,7 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         char    *bricks = NULL;
         int32_t brick_count = 0;
         char    *opwords[] = { "replica", "stripe", "transport", "disperse",
-                               "redundancy", NULL };
+                               "redundancy", "disperse-data", NULL };
 
         char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
                                        "end-volume", "all", "volume_not_in_ring",
@@ -285,7 +399,8 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         int32_t  replica_count = 1;
         int32_t  stripe_count = 1;
         int32_t  disperse_count = -1;
-        int32_t  redundancy_count = 0;
+        int32_t  redundancy_count = -1;
+        int32_t  disperse_data_count = -1;
         gf_boolean_t is_force = _gf_false;
         int wc = wordcount;
 
@@ -440,90 +555,17 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         }
                         index += 2;
 
-                } else if ((strcmp (w, "disperse")) == 0) {
-                        switch (type) {
-                        case GF_CLUSTER_TYPE_DISPERSE:
-                                if (disperse_count >= 0) {
-                                        cli_err ("disperse option given "
-                                                 "twice");
-                                        goto out;
-                                }
-                                break;
-                        case GF_CLUSTER_TYPE_NONE:
-                                type = GF_CLUSTER_TYPE_DISPERSE;
-                                break;
-                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                                cli_err ("striped-replicated-dispersed volume "
-                                         "is not supported");
+                } else if ((strcmp (w, "disperse") == 0) ||
+                           (strcmp (w, "redundancy") == 0) ||
+                           (strcmp (w, "disperse-data") == 0)) {
+                        ret = cli_validate_disperse_volume (w, type, words,
+                                      wordcount, index, &disperse_count,
+                                      &redundancy_count, &disperse_data_count);
+                        if (ret < 0)
                                 goto out;
-                        case GF_CLUSTER_TYPE_STRIPE:
-                                cli_err ("striped-dispersed volume is not "
-                                         "supported");
-                                goto out;
-                        case GF_CLUSTER_TYPE_REPLICATE:
-                                cli_err ("replicated-dispersed volume is not "
-                                         "supported");
-                                goto out;
-                        }
-
-                        if (wordcount >= (index+2)) {
-                                disperse_count = strtol (words[index + 1],
-                                                         &ptr, 0);
-                                if (*ptr != 0)
-                                        disperse_count = 0;
-                                else {
-                                        if (disperse_count < 3) {
-                                                cli_err ("disperse count must "
-                                                         "be greater than 2");
-                                                ret = -1;
-                                                goto out;
-                                        }
-                                        index++;
-                                }
-                        }
-
-                        index++;
-
-                } else if ((strcmp (w, "redundancy")) == 0) {
-                        switch (type) {
-                        case GF_CLUSTER_TYPE_NONE:
-                                type = GF_CLUSTER_TYPE_DISPERSE;
-                                break;
-                        case GF_CLUSTER_TYPE_DISPERSE:
-                                if (redundancy_count > 0) {
-                                        cli_err ("redundancy option given "
-                                                 "twice");
-                                        goto out;
-                                }
-                                break;
-                        case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                                cli_err ("striped-replicated-dispersed volume "
-                                         "is not supported");
-                                goto out;
-                        case GF_CLUSTER_TYPE_STRIPE:
-                                cli_err ("striped-dispersed volume is not "
-                                         "supported");
-                                goto out;
-                        case GF_CLUSTER_TYPE_REPLICATE:
-                                cli_err ("replicated-dispersed volume is not "
-                                         "supported");
-                                goto out;
-                        }
-
-                        if (wordcount < (index+2)) {
-                                ret = -1;
-                                goto out;
-                        }
-                        redundancy_count = strtol (words[index+1], NULL, 0);
-                        if (redundancy_count < 1) {
-                                cli_err ("redundancy must be greater than 0");
-                                ret = -1;
-                                goto out;
-                        }
-
-                        index += 2;
-
-                }              else {
+                        index += ret;
+                        type = GF_CLUSTER_TYPE_DISPERSE;
+                } else {
                         GF_ASSERT (!"opword mismatch");
                         ret = -1;
                         goto out;
@@ -563,9 +605,10 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         }
 
         if (type == GF_CLUSTER_TYPE_DISPERSE) {
-                ret = cli_cmd_create_disperse_check(state, &disperse_count,
-                                                    &redundancy_count,
-                                                    brick_count);
+                ret = cli_cmd_create_disperse_check (state, &disperse_count,
+                                                     &redundancy_count,
+                                                     &disperse_data_count,
+                                                     brick_count);
                 if (!ret)
                         ret = dict_set_int32 (dict, "disperse-count",
                                               disperse_count);
