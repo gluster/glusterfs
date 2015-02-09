@@ -1773,7 +1773,8 @@ svc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR, "failed to set inode "
                                 "context");
-                svc_fd->last_offset = entry->d_off;
+                if (svc_fd)
+                        svc_fd->last_offset = entry->d_off;
         }
 
         unwind = svc_readdir_on_special_dir (frame, cookie, this, op_ret,

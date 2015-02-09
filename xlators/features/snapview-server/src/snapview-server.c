@@ -478,7 +478,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         int32_t        ret                            = -1;
         svs_private_t *private                        = NULL;
         inode_t       *parent                         = NULL;
-        glfs_t        *fs                             = NULL;
         snap_dirent_t *dirent                         = NULL;
         gf_boolean_t   entry_point_key                = _gf_false;
         gf_boolean_t   entry_point                    = _gf_false;
@@ -525,7 +524,7 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         dirent = svs_get_latest_snap_entry (this);
 
         if (dirent && !dirent->fs) {
-                fs = svs_initialise_snapshot_volume (this, dirent->name, NULL);
+                svs_initialise_snapshot_volume (this, dirent->name, NULL);
         }
 
         if (xdata && !inode_ctx) {
@@ -734,7 +733,7 @@ svs_add_xattrs_to_dict (xlator_t *this, dict_t *dict, char *list, ssize_t size)
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-                strcpy (keybuffer, list + list_offset);
+                strncpy (keybuffer, list + list_offset, sizeof (keybuffer) - 1);
 #ifdef GF_DARWIN_HOST_OS
                 /* The protocol expect namespace for now */
                 char *newkey = NULL;
