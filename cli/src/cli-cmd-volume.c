@@ -1555,10 +1555,6 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         CLI_LOCAL_INIT (local, words, frame, options);
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_QUOTA];
-        if (proc == NULL) {
-                ret = -1;
-                goto out;
-        }
 
         if (proc->fn)
                 ret = proc->fn (frame, THIS, options);
@@ -1889,10 +1885,6 @@ cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word
         cli_local_t             *local   = NULL;
 
         proc = &cli_rpc_prog->proctable [GLUSTER_CLI_GSYNC_SET];
-        if (proc == NULL) {
-                ret = -1;
-                goto out;
-        }
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (frame == NULL) {
