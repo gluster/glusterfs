@@ -400,7 +400,7 @@ sh_loop_return (call_frame_t *sh_frame, xlator_t *this, call_frame_t *loop_frame
 }
 
 static int
-sh_loop_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
+sh_loop_sink_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *postbuf, dict_t *xdata)
 {
@@ -458,20 +458,116 @@ sh_loop_write_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
 }
 
 static void
-sh_prune_writes_needed (call_frame_t *sh_frame, call_frame_t *loop_frame,
-                        afr_private_t *priv)
+sh_loop_sink_write (call_frame_t *loop_frame, xlator_t *this,
+                    struct iovec *vector, int32_t count, struct iobref *iobref)
 {
-        afr_local_t     *sh_local     = NULL;
-        afr_self_heal_t *sh           = NULL;
-        afr_local_t     *loop_local   = NULL;
-        afr_self_heal_t *loop_sh      = NULL;
-        int             i             = 0;
+        afr_private_t   * priv      = NULL;
+        afr_local_t     *loop_local = NULL;
+        afr_self_heal_t *loop_sh    = NULL;
+        call_frame_t    *sh_frame   = NULL;
+        int              call_count = 0;
+        int              i          = 0;
+
+        priv = this->private;
+        loop_local = loop_frame->local;
+        loop_sh = &loop_local->self_heal;
+        sh_frame = loop_sh->sh_frame;
+
+        call_count = sh_number_of_writes_needed (loop_sh->write_needed,
+                                                 priv->child_count);
+        if (call_count == 0) {
+                iobref_unref(loop_local->cont.writev.iobref);
+                sh_loop_return (sh_frame, this, loop_frame, 0, 0);
+                goto out;
+        }
+
+        loop_local->call_count = call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!loop_sh->write_needed[i])
+                        continue;
+                STACK_WIND_COOKIE (loop_frame, sh_loop_sink_write_cbk,
+                                   (void *) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->writev,
+                                   loop_sh->healing_fd, vector, count,
+                                   loop_sh->offset, 0, iobref, NULL);
+
+                if (!--call_count)
+                        break;
+        }
+
+out:
+        return;
+}
+
+static int
+sh_loop_sink_read_cbk (call_frame_t *loop_frame, void *cookie,
+                  xlator_t *this, int32_t op_ret, int32_t op_errno,
+                  struct iovec *vector, int32_t count, struct iatt *buf,
+                  struct iobref *iobref, dict_t *xdata)
+{
+        int32_t          child_index = 0;
+        int              call_count  = 0;
+        afr_local_t     *loop_local  = NULL;
+        afr_self_heal_t *loop_sh     = NULL;
+        call_frame_t    *sh_frame    = NULL;
+        afr_local_t     *sh_local    = NULL;
+        afr_private_t   *priv        = NULL;
+
+        child_index = (long) cookie;
+        priv = this->private;
+
+        loop_local = loop_frame->local;
+        loop_sh    = &loop_local->self_heal;
+
+        sh_frame = loop_sh->sh_frame;
+        sh_local = sh_frame->local;
+
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "read failed on %s "
+                        "for %s reason :%s", priv->children[child_index]->name,
+                        sh_local->loc.path, strerror (op_errno));
+                afr_sh_set_error (loop_sh, op_errno);
+        }
+
+        if ((op_ret > 0) && (iov_0filled (vector, count) == 0)) {
+                loop_sh->write_needed[child_index] = 0;
+        }
+
+        call_count = afr_frame_return (loop_frame);
+
+        if (call_count == 0) {
+                if (loop_sh->op_ret == -1) {
+                        iobref_unref(loop_local->cont.writev.iobref);
+                        sh_loop_return (sh_frame, this, loop_frame,
+                                        loop_sh->op_ret, loop_sh->op_errno);
+                        goto out;
+                }
+                sh_loop_sink_write (loop_frame, this,
+                                    loop_local->cont.writev.vector,
+                                    loop_local->cont.writev.count,
+                                    loop_local->cont.writev.iobref);
+        }
+out:
+        return 0;
+}
+
+static void
+sh_prune_writes_if_needed (call_frame_t *sh_frame, call_frame_t *loop_frame,
+                           afr_private_t *priv, xlator_t *this,
+                           struct iovec *vector, int32_t count,
+                           struct iobref *iobref)
+{
+        afr_local_t     *sh_local        = NULL;
+        afr_self_heal_t *sh              = NULL;
+        afr_local_t     *loop_local      = NULL;
+        afr_self_heal_t *loop_sh         = NULL;
+        int              i               = 0;
+        int              call_count      = 0;
 
         sh_local   = sh_frame->local;
         sh         = &sh_local->self_heal;
-
-        if (!strcmp (sh->algo->name, "diff"))
-                return;
 
         loop_local = loop_frame->local;
         loop_sh    = &loop_local->self_heal;
@@ -485,10 +581,31 @@ sh_prune_writes_needed (call_frame_t *sh_frame, call_frame_t *loop_frame,
                     ((loop_sh->offset + 1) > sh->buf[i].ia_size))
                         loop_sh->write_needed[i] = 0;
         }
+
+        call_count = sh_number_of_writes_needed (loop_sh->write_needed,
+                                                  priv->child_count);
+        if (!call_count) {
+                iobref_unref(loop_local->cont.writev.iobref);
+                sh_loop_return (sh_frame, this, loop_frame, 0, 0);
+                return;
+        }
+        loop_local->call_count = call_count;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!loop_sh->write_needed[i])
+                        continue;
+                STACK_WIND_COOKIE (loop_frame, sh_loop_sink_read_cbk, (void *)(long) i,
+                                   priv->children[i], priv->children[i]->fops->readv,
+                                   loop_sh->healing_fd, loop_sh->block_size,
+                                   loop_sh->offset, 0, NULL);
+                if (!--call_count)
+                        break;
+        }
+
+        return;
 }
 
 static int
-sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
+sh_loop_source_read_cbk (call_frame_t *loop_frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
                   struct iovec *vector, int32_t count, struct iatt *buf,
                   struct iobref *iobref, dict_t *xdata)
@@ -497,8 +614,6 @@ sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
         afr_local_t *                 loop_local   = NULL;
         afr_self_heal_t *             loop_sh      = NULL;
         call_frame_t                 *sh_frame   = NULL;
-        int                           i          = 0;
-        int                           call_count = 0;
         afr_local_t *                 sh_local   = NULL;
         afr_self_heal_t *             sh      = NULL;
 
@@ -517,9 +632,10 @@ sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
         if (op_ret <= 0) {
                 if (op_ret < 0) {
                         afr_set_self_heal_status (sh, AFR_SELF_HEAL_FAILED);
-                        gf_log (this->name, GF_LOG_ERROR, "read failed on %d "
-                                "for %s reason :%s", sh->source,
-                                sh_local->loc.path, strerror (errno));
+                        gf_log (this->name, GF_LOG_ERROR, "read failed on %s "
+                                "for %s reason :%s",
+                                priv->children[sh->source]->name,
+                                sh_local->loc.path, strerror (op_errno));
                 } else {
                         sh->eof_reached = _gf_true;
                         gf_log (this->name, GF_LOG_DEBUG, "Eof reached for %s",
@@ -529,38 +645,17 @@ sh_loop_read_cbk (call_frame_t *loop_frame, void *cookie,
                 goto out;
         }
 
-        if (loop_sh->file_has_holes && iov_0filled (vector, count) == 0)
-                sh_prune_writes_needed (sh_frame, loop_frame, priv);
+        loop_local->cont.writev.vector = iov_dup(vector, count);
+        loop_local->cont.writev.iobref = iobref_ref(iobref);
+        loop_local->cont.writev.count  = count;
 
-        call_count = sh_number_of_writes_needed (loop_sh->write_needed,
-                                                 priv->child_count);
-        if (call_count == 0) {
-                sh_loop_return (sh_frame, this, loop_frame, 0, 0);
-                goto out;
-        }
+        if (!strcmp (sh->algo->name, "full") && loop_sh->file_has_holes &&
+             iov_0filled (vector, count) == 0) {
+                sh_prune_writes_if_needed (sh_frame, loop_frame, priv, this,
+                                           vector, count, iobref);
+        } else {
+                sh_loop_sink_write (loop_frame, this, vector, count, iobref);
 
-        loop_local->call_count = call_count;
-
-	/*
-	 * We only really need the request size at the moment, but the buffer
-	 * is required if we want to issue a retry in the event of a short write.
-	 * Therefore, we duplicate the vector and ref the iobref here...
-	 */
-	loop_local->cont.writev.vector = iov_dup(vector, count);
-	loop_local->cont.writev.iobref = iobref_ref(iobref);
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!loop_sh->write_needed[i])
-                        continue;
-                STACK_WIND_COOKIE (loop_frame, sh_loop_write_cbk,
-                                   (void *) (long) i,
-                                   priv->children[i],
-                                   priv->children[i]->fops->writev,
-                                   loop_sh->healing_fd, vector, count,
-                                   loop_sh->offset, 0, iobref, NULL);
-
-                if (!--call_count)
-                        break;
         }
 
 out:
@@ -569,7 +664,7 @@ out:
 
 
 static int
-sh_loop_read (call_frame_t *loop_frame, xlator_t *this)
+sh_loop_source_read (call_frame_t *loop_frame, xlator_t *this)
 {
         afr_private_t           *priv       = NULL;
         afr_local_t             *loop_local   = NULL;
@@ -579,7 +674,7 @@ sh_loop_read (call_frame_t *loop_frame, xlator_t *this)
         loop_local = loop_frame->local;
         loop_sh    = &loop_local->self_heal;
 
-        STACK_WIND_COOKIE (loop_frame, sh_loop_read_cbk,
+        STACK_WIND_COOKIE (loop_frame, sh_loop_source_read_cbk,
                            (void *) (long) loop_sh->source,
                            priv->children[loop_sh->source],
                            priv->children[loop_sh->source]->fops->readv,
@@ -666,7 +761,7 @@ sh_diff_checksum_cbk (call_frame_t *loop_frame, void *cookie, xlator_t *this,
 
                 if (write_needed &&
                     !is_self_heal_failed (sh, AFR_CHECK_SPECIFIC)) {
-                        sh_loop_read (loop_frame, this);
+                        sh_loop_source_read (loop_frame, this);
                 } else {
                         sh_loop_return (sh_frame, this, loop_frame,
                                         op_ret, op_errno);
@@ -735,7 +830,7 @@ sh_full_read_write_to_sinks (call_frame_t *loop_frame, xlator_t *this)
                         continue;
                 loop_sh->write_needed[i] = 1;
         }
-        sh_loop_read (loop_frame, this);
+        sh_loop_source_read (loop_frame, this);
         return 0;
 }
 

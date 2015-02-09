@@ -293,3 +293,12 @@ function get_hex_xattr {
         local path=$2
         getfattr -d -m. -e hex $2 2>/dev/null | grep $1 | cut -f2 -d'=' | cut -f2 -d'x'
 }
+
+function has_holes {
+        if [ $((`stat -c '%b*%B-%s' $1`)) -lt 0 ];
+        then
+                echo "1"
+        else
+                echo "0"
+        fi
+}
