@@ -1054,6 +1054,9 @@ fi
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
+#snap_scheduler
+install -p -m 0744 extras/snap_scheduler/snap_scheduler.py %{_sbindir}/
+install -p -m 0744 extras/snap_scheduler/gcron.py %{_sbindir}/
 
 %ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
@@ -1100,6 +1103,9 @@ fi
 
 * Tue Mar 03 2015 Aravinda VK <avishwan@redhat.com>
 - Included glusterfind files as part of server package.
+
+* Sun Mar 1 2015 Avra Sengupta <asengupt@redhat.com>
+- Added installation of snap-scheduler
 
 * Thu Feb 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - enable cmocka unittest support only when asked for (#1067059)
