@@ -116,6 +116,23 @@
 #define GET_ANCESTRY_PATH_KEY "glusterfs.ancestry.path"
 #define GET_ANCESTRY_DENTRY_KEY "glusterfs.ancestry.dentry"
 
+#define BITROT_DEFAULT_CURRENT_VERSION  (unsigned long)1
+#define BITROT_DEFAULT_SIGNING_VERSION  (unsigned long)0
+
+/* on-disk object signature keys */
+#define BITROT_CURRENT_VERSION_KEY  "trusted.glusterfs.bit-rot.version"
+#define BITROT_SIGNING_VERSION_KEY  "trusted.glusterfs.bit-rot.signature"
+
+/* GET/SET object signature */
+#define GLUSTERFS_GET_OBJECT_SIGNATURE "trusted.glusterfs.get-signature"
+#define GLUSTERFS_SET_OBJECT_SIGNATURE "trusted.glusterfs.set-signature"
+
+/* operation needs to be durable on-disk */
+#define GLUSTERFS_DURABLE_OP           "trusted.glusterfs.durable-op"
+
+/* key for version exchange b/w bitrot stub and changelog */
+#define GLUSTERFS_VERSION_XCHG_KEY     "glusterfs.version.xchg"
+
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."

@@ -1619,6 +1619,14 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 #endif
 
+        xl = volgen_graph_add (graph, "features/bitrot-stub", volname);
+        if (!xl)
+                return -1;
+
+        ret = xlator_set_option (xl, "export", path);
+        if (ret)
+                return -1;
+
         xl = volgen_graph_add (graph, "features/changelog", volname);
         if (!xl)
                 return -1;

@@ -1158,7 +1158,8 @@ changelog_inode_ctx_get (xlator_t *this,
 }
 
 int32_t
-changelog_inode_mod_ctx_flags (xlator_t *this, inode_t *inode, int32_t flags)
+changelog_inode_mod_releasectx_flags (xlator_t *this,
+                                      inode_t *inode, int32_t flags)
 {
         int32_t ret = -1;
         changelog_inode_ctx_t *ctx = NULL;
@@ -1169,12 +1170,34 @@ changelog_inode_mod_ctx_flags (xlator_t *this, inode_t *inode, int32_t flags)
                 if (!ctx)
                         goto unblock;
                 ret = 0;
-                ctx->ordflags |= flags;
+                ctx->releasectx.ordflags |= flags;
         }
  unblock:
         UNLOCK (&inode->lock);
 
         return ret;
+}
+
+int32_t
+changelog_inode_mod_releasectx_version (xlator_t *this,
+                                        inode_t *inode, unsigned long rversion)
+{
+        int32_t ret = -1;
+        changelog_inode_ctx_t *ctx = NULL;
+
+        LOCK (&inode->lock);
+        {
+                ctx = __changelog_inode_ctx_get (this, inode, NULL, NULL, 0);
+                if (!ctx)
+                        goto unblock;
+                ret = 0;
+                ctx->releasectx.releaseversion = rversion;
+        }
+ unblock:
+        UNLOCK (&inode->lock);
+
+        return ret;
+
 }
 
 /**

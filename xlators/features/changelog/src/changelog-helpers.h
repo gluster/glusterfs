@@ -327,7 +327,11 @@ typedef struct changelog_local changelog_local_t;
 
 /* inode version is stored in inode ctx */
 typedef struct changelog_inode_ctx {
-        int32_t ordflags;
+        struct releasectx {
+                int32_t ordflags;
+                unsigned long releaseversion; /* needed by bitrot */
+        } releasectx;
+
         unsigned long iversion[CHANGELOG_MAX_TYPE];
 } changelog_inode_ctx_t;
 
@@ -494,7 +498,10 @@ inline void
 changelog_dispatch_event (xlator_t *, changelog_priv_t *, changelog_event_t *);
 
 int32_t
-changelog_inode_mod_ctx_flags (xlator_t *, inode_t *, int32_t );
+changelog_inode_mod_releasectx_flags (xlator_t *, inode_t *, int32_t );
+
+int32_t
+changelog_inode_mod_releasectx_version (xlator_t *, inode_t *, unsigned long);
 
 changelog_inode_ctx_t *
 __changelog_inode_ctx_get (xlator_t *, inode_t *, unsigned long **,

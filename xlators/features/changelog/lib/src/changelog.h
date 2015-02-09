@@ -38,6 +38,7 @@ struct ev_creat {
 struct ev_release {
         mode_t mode;
         int32_t ordflags;
+        unsigned long opaque;
         unsigned char gfid[16];
 };
 

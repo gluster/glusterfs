@@ -43,7 +43,7 @@ changelog_save_release_flags (xlator_t *this, fd_t *fd)
 {
         int32_t ret = 0;
 
-        ret = changelog_inode_mod_ctx_flags (this, fd->inode, fd->flags);
+        ret = changelog_inode_mod_releasectx_flags (this, fd->inode, fd->flags);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "could not set open flag in inode context");
@@ -1721,12 +1721,74 @@ changelog_open (call_frame_t *frame, xlator_t *this,
 
 /* }}} */
 
+/* {{{ */
+
+int32_t
+changelog_flush_cbk (call_frame_t *frame, void *cookie,
+                     xlator_t *this, int op_ret, int op_errno, dict_t *xdata)
+{
+        int32_t ret = 0;
+        fd_t *fd = NULL;
+        unsigned long xchgversion = 0;
+        changelog_priv_t *priv = NULL;
+
+        priv = this->private;
+
+        if (frame->local) {
+                fd = (fd_t *) frame->local;
+                frame->local = NULL;
+        }
+
+        CHANGELOG_COND_GOTO (priv, (op_ret < 0), unwind);
+
+        if (xdata && fd) {
+                ret = dict_get_uint64 (xdata, GLUSTERFS_VERSION_XCHG_KEY,
+                                       (uint64_t *) &xchgversion);
+                if (ret < 0)
+                        goto unwind;
+                ret = changelog_inode_mod_releasectx_version
+                                                (this, fd->inode, xchgversion);
+        }
+
+ unwind:
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "could not extract version exchange value from dict");
+
+        CHANGELOG_STACK_UNWIND (flush, frame, op_ret, op_errno, xdata);
+
+        if (fd)
+                fd_unref (fd);
+        return 0;
+}
+
+int32_t
+changelog_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        changelog_priv_t *priv = NULL;
+
+        priv = this->private;
+        if (!priv->active)
+                goto wind;
+
+        frame->local = fd_ref (fd);
+
+ wind:
+        STACK_WIND (frame, changelog_flush_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->flush, fd, xdata);
+        return 0;
+}
+
+
+/* }}} */
+
 
 /* {{{ */
 
 int32_t changelog_release (xlator_t *this, fd_t *fd)
 {
         int32_t flags = -1;
+        unsigned long rversion = 0;
         ia_prot_t prot = {0,};
         inode_t *inode = NULL;
         changelog_priv_t *priv = NULL;
@@ -1743,8 +1805,10 @@ int32_t changelog_release (xlator_t *this, fd_t *fd)
                 ctx = __changelog_inode_ctx_get (this, inode, NULL, NULL, 0);
                 if (!ctx)
                         goto unblock;
-                flags = ctx->ordflags;
-                ctx->ordflags = 0;
+                flags = ctx->releasectx.ordflags;
+                rversion = ctx->releasectx.releaseversion;
+                ctx->releasectx.ordflags = 0;
+                ctx->releasectx.releaseversion = 0;
         }
  unblock:
         UNLOCK (&inode->lock);
@@ -1754,6 +1818,7 @@ int32_t changelog_release (xlator_t *this, fd_t *fd)
 
                 ev.u.release.mode = st_mode_from_ia (prot, fd->inode->ia_type);
                 ev.u.release.ordflags = flags;
+                ev.u.release.opaque = rversion;
                 uuid_copy (ev.u.release.gfid, fd->inode->gfid);
 
                 changelog_dispatch_event (this, priv, &ev);
@@ -1765,6 +1830,7 @@ int32_t changelog_release (xlator_t *this, fd_t *fd)
 
 
 /* }}} */
+
 
 /**
  * The
@@ -2638,6 +2704,7 @@ struct xlator_fops fops = {
         .open         = changelog_open,
         .mknod        = changelog_mknod,
         .mkdir        = changelog_mkdir,
+        .flush        = changelog_flush,
         .create       = changelog_create,
         .symlink      = changelog_symlink,
         .writev       = changelog_writev,
