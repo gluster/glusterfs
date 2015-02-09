@@ -1550,6 +1550,26 @@ out:
 }
 
 static int
+brick_graph_add_bitrot_stub (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                            dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t        *xl  = NULL;
+        int		 ret = -1;
+
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/bitrot-stub", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "export", brickinfo->path);
+
+out:
+        return ret;
+}
+
+static int
 brick_graph_add_changelog (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                             dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2155,6 +2175,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_pump, NULL},
         {brick_graph_add_locks, "locks"},
         {brick_graph_add_acl, "acl"},
+	{brick_graph_add_bitrot_stub, "bitrot-stub"},
         {brick_graph_add_changelog, "changelog"},
         {brick_graph_add_changetimerecorder, "changetimerecorder"},
         {brick_graph_add_bd, "bd"},

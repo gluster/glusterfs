@@ -117,6 +117,7 @@ enum _gf_client_pid
         GF_CLIENT_PID_QUOTA_MOUNT       = -5,
         GF_CLIENT_PID_AFR_SELF_HEALD    = -6,
         GF_CLIENT_PID_GLFS_HEAL         = -7,
+        GF_CLIENT_PID_BITD              = -8,
 };
 
 enum _gf_xlator_ipc_targets {

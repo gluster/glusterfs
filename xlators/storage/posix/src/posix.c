@@ -3882,6 +3882,18 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
+        if (loc->inode && name
+             && (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
+                          strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
+                op_ret = posix_get_objectsignature (real_path, dict);
+                if (op_ret < 0) {
+                        op_errno = -op_ret;
+                        op_ret = -1;
+                }
+
+                goto done;
+        }
+
         if (name) {
                 strcpy (keybuffer, name);
                 char *key = keybuffer;
@@ -4314,6 +4326,17 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         if (op_ret < 0) {
                 op_errno = -op_ret;
                 op_ret = -1;
+        }
+
+        if (!ret && xdata && dict_get (xdata, GLUSTERFS_DURABLE_OP)) {
+                op_ret = fsync (_fd);
+                if (op_ret < 0) {
+                        op_ret = -1;
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "could not satisfy durability request: "
+                                "reason (%s)", strerror (errno));
+                }
         }
 
 out:
