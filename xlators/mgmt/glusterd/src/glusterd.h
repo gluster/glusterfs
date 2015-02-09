@@ -22,6 +22,9 @@
 
 #include <urcu-bp.h>
 #include <urcu/rculist.h>
+#ifdef URCU_0_7
+#include "rculist-extra.h"
+#endif
 
 #include "uuid.h"
 
@@ -1081,21 +1084,5 @@ glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
-
-#ifdef URCU_0_7
-/* Copying this definition from liburcu-0.8 as liburcu-0.7 does not have this
- * particular list api
- */
-/* Add new element at the tail of the list. */
-static inline
-void cds_list_add_tail_rcu(struct cds_list_head *newp,
-                struct cds_list_head *head)
-{
-        newp->next = head;
-        newp->prev = head->prev;
-        rcu_assign_pointer(head->prev->next, newp);
-        head->prev = newp;
-}
-#endif
 
 #endif
