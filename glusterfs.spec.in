@@ -209,6 +209,7 @@ BuildRequires:    glib2-devel
 %if ( 0%{!?_without_georeplication:1} )
 BuildRequires:    libattr-devel
 %endif
+BuildRequires: userspace-rcu-devel > 0.7
 
 Obsoletes:        hekafs
 Obsoletes:        %{name}-common < %{version}-%{release}
@@ -1030,6 +1031,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Mon Feb 09 2015 Kaushal M <kaushal@redhat.com>
+- add userspace-rcu as a requirement
+
 * Fri Jan 16 2015 Niels de Vos <ndevos@redhat.com>
 - add support for /run/gluster through a tmpfiles.d config file (#1182934)
 
