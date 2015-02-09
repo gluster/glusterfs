@@ -1169,13 +1169,12 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 if (gf_string2uint32 (arg, &cmd_args->log_buf_size)) {
                         argp_failure (state, -1, 0,
                                       "unknown log buf size option %s", arg);
-                } else if ((cmd_args->log_buf_size < GF_LOG_LRU_BUFSIZE_MIN) ||
-                          (cmd_args->log_buf_size > GF_LOG_LRU_BUFSIZE_MAX)) {
-                            argp_failure (state, -1, 0,
-                                          "Invalid log buf size %s. "
-                                          "Valid range: ["
-                                          GF_LOG_LRU_BUFSIZE_MIN_STR","
-                                          GF_LOG_LRU_BUFSIZE_MAX_STR"]", arg);
+                } else if (cmd_args->log_buf_size > GF_LOG_LRU_BUFSIZE_MAX) {
+                        argp_failure (state, -1, 0,
+                                      "Invalid log buf size %s. "
+                                      "Valid range: ["
+                                      GF_LOG_LRU_BUFSIZE_MIN_STR","
+                                      GF_LOG_LRU_BUFSIZE_MAX_STR"]", arg);
                 }
 
                 break;
@@ -2338,7 +2337,8 @@ main (int argc, char *argv[])
                 strcpy (cmdlinestr, argv[0]);
                 for (i = 1; i < argc; i++) {
                         strcat (cmdlinestr, " ");
-                        strcat (cmdlinestr, argv[i]);
+                        strncat (cmdlinestr, argv[i],
+                                 (sizeof (cmdlinestr) - 1));
                 }
                 gf_msg (argv[0], GF_LOG_INFO, 0, glusterfsd_msg_30,
                         argv[0], PACKAGE_VERSION, cmdlinestr);
