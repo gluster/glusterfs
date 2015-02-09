@@ -1257,7 +1257,8 @@ mq_set_inode_xattr (xlator_t *this, loc_t *loc)
         return 0;
 
 err:
-        QUOTA_STACK_DESTROY (frame, this);
+        if (frame)
+                QUOTA_STACK_DESTROY (frame, this);
 
         return 0;
 }

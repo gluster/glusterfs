@@ -546,6 +546,9 @@ marker_create_frame (xlator_t *this, marker_local_t *local)
 
         frame = create_frame (this, this->ctx->pool);
 
+        if (!frame)
+                return -1;
+
         frame->local = (void *) local;
 
         marker_start_setxattr (frame, this);

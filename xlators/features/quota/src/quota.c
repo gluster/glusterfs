@@ -99,10 +99,6 @@ quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         ret = 0;
 
-        if (ret < 0) {
-                loc_wipe (loc);
-        }
-
         return ret;
 }
 
@@ -1274,10 +1270,6 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 inode_unref (_inode);
                 _inode = parent;
                 just_validated = 0;
-
-                if (_inode == NULL) {
-                        break;
-                }
 
                 value = 0;
                 inode_ctx_get (_inode, this, &value);
