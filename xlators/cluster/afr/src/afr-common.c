@@ -4537,6 +4537,140 @@ out:
         return ret;
 }
 
+int
+afr_set_split_brain_status (call_frame_t *frame, xlator_t *this,
+                            struct afr_reply *replies,
+                            afr_transaction_type type,
+                            gf_boolean_t *spb)
+{
+        afr_private_t    *priv              = NULL;
+        uint64_t         *witness           = NULL;
+        unsigned char    *sources           = NULL;
+        unsigned char    *sinks             = NULL;
+        int               sources_count     = 0;
+        int               ret               = 0;
+
+        priv = this->private;
+
+        sources = alloca0 (priv->child_count);
+        sinks = alloca0 (priv->child_count);
+        witness = alloca0(priv->child_count * sizeof (*witness));
+
+        ret = afr_selfheal_find_direction (frame, this, replies,
+					   type, priv->child_up, sources,
+                                           sinks, witness);
+        if (ret)
+                return ret;
+
+        sources_count = AFR_COUNT (sources, priv->child_count);
+        if (!sources_count)
+                *spb = _gf_true;
+
+        return ret;
+}
+
+int
+afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
+{
+        gf_boolean_t      d_spb             = _gf_false;
+        gf_boolean_t      m_spb             = _gf_false;
+        int               ret               = -1;
+        int               op_errno          = 0;
+        int               i                 = 0;
+        char             *choices           = NULL;
+        char             *status            = NULL;
+        dict_t           *dict              = NULL;
+        struct afr_reply *replies           = NULL;
+        inode_t          *inode             = NULL;
+        afr_private_t    *priv              = NULL;
+        xlator_t         **children         = NULL;
+
+        priv     = this->private;
+        children = priv->children;
+
+        inode = afr_inode_find (this, loc->gfid);
+        if (!inode)
+                goto out;
+        replies = alloca0 (sizeof (*replies) * priv->child_count);
+
+        /* Calculation for string length :
+        * (child_count X length of child-name) + strlen ("    Choices :")
+        * child-name consists of :
+        * a) 256 = max characters for volname according to GD_VOLUME_NAME_MAX
+        * b) strlen ("-client-00,") assuming 16 replicas
+        */
+        choices = alloca0 (priv->child_count * (256 + strlen ("-client-00,")) +
+                           strlen ("    Choices:"));
+        ret = afr_selfheal_unlocked_discover (frame, inode, loc->gfid, replies);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        ret = afr_set_split_brain_status (frame, this, replies,
+                                          AFR_DATA_TRANSACTION, &d_spb);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        ret = afr_set_split_brain_status (frame, this, replies,
+                                          AFR_METADATA_TRANSACTION, &m_spb);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                op_errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        if (d_spb || m_spb) {
+                sprintf (choices, "    Choices:");
+                for (i = 0; i < priv->child_count; i++) {
+                        strcat (choices, children[i]->name);
+                        strcat (choices, ",");
+                }
+                choices[strlen (choices) - 1] = '\0';
+
+                ret = gf_asprintf (&status, "data-split-brain:%s    "
+                                    "metadata-split-brain:%s%s",
+                                    (d_spb) ? "yes" : "no",
+                                    (m_spb) ? "yes" : "no", choices);
+
+                if (-1 == ret) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+                ret = dict_set_dynstr (dict, GF_AFR_SBRAIN_STATUS, status);
+                if (ret)
+                        goto out;
+        } else {
+                ret = dict_set_str (dict, GF_AFR_SBRAIN_STATUS,
+                                    "The file is not under data or"
+                                    " metadata split-brain");
+                if (ret)
+                        goto out;
+        }
+
+        ret = 0;
+out:
+        AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        if (dict)
+               dict_unref (dict);
+        if (replies)
+                afr_replies_wipe (replies, priv->child_count);
+        if (inode)
+                inode_unref (inode);
+        return ret;
+}
+
 int32_t
 afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
 {

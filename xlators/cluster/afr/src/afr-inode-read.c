@@ -1385,6 +1385,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+        if (!strcmp (name, GF_AFR_SBRAIN_STATUS)) {
+                afr_get_split_brain_status (frame, this, loc);
+                return 0;
+        }
         /*
          * if we are doing getxattr with pathinfo as the key then we
          * collect information from all childs
