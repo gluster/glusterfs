@@ -1025,4 +1025,6 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int
 afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc);
 
+int
+afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc);
 #endif /* __AFR_H__ */
