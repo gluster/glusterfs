@@ -1374,7 +1374,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_GET_SIZE_AND_VERSION;
 
         case EC_STATE_GET_SIZE_AND_VERSION:
-            ec_get_size_version(fop);
+            ec_prepare_update(fop);
 
             return EC_STATE_DISPATCH;
 
@@ -2016,7 +2016,7 @@ int32_t ec_manager_writev(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_GET_SIZE_AND_VERSION;
 
         case EC_STATE_GET_SIZE_AND_VERSION:
-            ec_get_size_version(fop);
+            ec_prepare_update(fop);
 
             return EC_STATE_DISPATCH;
 

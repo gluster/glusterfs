@@ -753,16 +753,17 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
         for (i = 0, ans = cbk; (ans != NULL) && (i < ec->fragments);
              ans = ans->next)
         {
-            data = dict_get(ans->xdata, GF_CONTENT_KEY);
-            if (data != NULL)
-            {
-                values[i] = ans->idx;
-                blocks[i] = (uint8_t *)data->data;
-                if (size > data->len)
+            if (!ans->dirty) {
+                data = dict_get(ans->xdata, GF_CONTENT_KEY);
+                if (data != NULL)
                 {
-                    size = data->len;
+                    values[i] = ans->idx;
+                    blocks[i] = (uint8_t *)data->data;
+                    if (size > data->len) {
+                        size = data->len;
+                    }
+                    i++;
                 }
-                i++;
             }
         }
 
@@ -871,6 +872,8 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         }
         if (xdata != NULL)
         {
+            uint64_t dirty;
+
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
@@ -878,6 +881,9 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                                  "dictionary.");
 
                 goto out;
+            }
+            if (ec_dict_del_number(cbk->xdata, EC_XATTR_DIRTY, &dirty) == 0) {
+                cbk->dirty = dirty != 0;
             }
         }
 
@@ -938,7 +944,8 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
                 }
             }
             if ((dict_set_uint64(fop->xdata, EC_XATTR_SIZE, 0) != 0) ||
-                (dict_set_uint64(fop->xdata, EC_XATTR_VERSION, 0) != 0))
+                (dict_set_uint64(fop->xdata, EC_XATTR_VERSION, 0) != 0) ||
+                (dict_set_uint64(fop->xdata, EC_XATTR_DIRTY, 0) != 0))
             {
                 gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to prepare lookup "
                                                     "request");
@@ -1339,6 +1346,8 @@ int32_t ec_xattrop_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         }
         if (xdata != NULL)
         {
+            uint64_t dirty;
+
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
@@ -1346,6 +1355,9 @@ int32_t ec_xattrop_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                                                  "dictionary.");
 
                 goto out;
+            }
+            if (ec_dict_del_number(cbk->xdata, EC_XATTR_DIRTY, &dirty) == 0) {
+                cbk->dirty = dirty != 0;
             }
         }
 

@@ -1182,6 +1182,10 @@ out:
 int32_t ec_combine_readv(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                          ec_cbk_data_t * src)
 {
+    if (src->dirty) {
+        return 0;
+    }
+
     if (!ec_vector_compare(dst->vector, dst->int32, src->vector, src->int32))
     {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching vector in "

@@ -152,6 +152,7 @@ struct _ec_lock
         entrylk_type     type;
         struct gf_flock  flock;
     };
+    gf_boolean_t       is_dirty;
 };
 
 struct _ec_lock_link
@@ -253,6 +254,7 @@ struct _ec_cbk_data
     struct gf_flock  flock;
     struct iovec *   vector;
     struct iobref *  buffers;
+    gf_boolean_t     dirty;
 };
 
 struct _ec_heal

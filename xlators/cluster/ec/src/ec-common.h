@@ -84,6 +84,7 @@ void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
 
 void ec_get_size_version(ec_fop_data_t * fop);
+void ec_prepare_update(ec_fop_data_t *fop);
 void ec_flush_size_version(ec_fop_data_t * fop);
 
 void ec_dispatch_all(ec_fop_data_t * fop);
