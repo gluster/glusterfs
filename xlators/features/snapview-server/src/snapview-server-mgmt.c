@@ -468,7 +468,7 @@ out:
         }
         GF_FREE (req.dict.dict_val);
 
-        if (frame_cleanup) {
+        if (frame_cleanup && frame) {
                 /*
                  * Destroy the frame if we encountered an error
                  * Else we need to clean it up in
