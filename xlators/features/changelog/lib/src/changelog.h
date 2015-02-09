@@ -16,13 +16,15 @@ struct gf_brick_spec;
 /**
  * Max bit shiter for event selection
  */
-#define CHANGELOG_EV_SELECTION_RANGE  4
+#define CHANGELOG_EV_SELECTION_RANGE  5
 
-#define CHANGELOG_OP_TYPE_JOURNAL (1<<0)
-#define CHANGELOG_OP_TYPE_OPEN    (1<<1)
-#define CHANGELOG_OP_TYPE_CREATE  (1<<2)
-#define CHANGELOG_OP_TYPE_RELEASE (1<<3)
-#define CHANGELOG_OP_TYPE_MAX     (1<<CHANGELOG_EV_SELECTION_RANGE)
+#define CHANGELOG_OP_TYPE_JOURNAL    (1<<0)
+#define CHANGELOG_OP_TYPE_OPEN       (1<<1)
+#define CHANGELOG_OP_TYPE_CREATE     (1<<2)
+#define CHANGELOG_OP_TYPE_RELEASE    (1<<3)
+#define CHANGELOG_OP_TYPE_BR_RELEASE (1<<4)  /* logical release (last close()),
+                                                sent by bitrot stub */
+#define CHANGELOG_OP_TYPE_MAX        (1<<CHANGELOG_EV_SELECTION_RANGE)
 
 
 struct ev_open {
@@ -39,17 +41,25 @@ struct ev_release {
         unsigned char gfid[16];
 };
 
+struct ev_release_br {
+        int32_t flags;
+        unsigned long version;
+        unsigned char gfid[16];
+};
+
 struct ev_changelog {
         char path[PATH_MAX];
 };
 
 typedef struct changelog_event {
         unsigned int ev_type;
+
         union {
                 struct ev_open open;
                 struct ev_creat create;
                 struct ev_release release;
                 struct ev_changelog journal;
+                struct ev_release_br releasebr;
         } u;
 } changelog_event_t;
 
