@@ -34,28 +34,28 @@ TEST ! $CLI volume heal st disable
 TEST $CLI volume create r2 replica 2 $H0:$B0/r2_0 $H0:$B0/r2_1
 TEST "[ -z $(get_shd_process_pid)]"
 TEST $CLI volume start r2
-EXPECT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal r2 enable
 EXPECT "enable" volume_option r2 "cluster.self-heal-daemon"
 EXPECT "enable" volgen_volume_option $volfile r2-replicate-0 cluster replicate self-heal-daemon
-EXPECT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal r2 disable
 EXPECT "disable" volume_option r2 "cluster.self-heal-daemon"
 EXPECT "disable" volgen_volume_option $volfile r2-replicate-0 cluster replicate self-heal-daemon
-EXPECT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 
 # Commands should work on disperse volume.
 TEST $CLI volume create ec2 disperse 3 redundancy 1 $H0:$B0/ec2_0 $H0:$B0/ec2_1 $H0:$B0/ec2_2
 TEST $CLI volume start ec2
-EXPECT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal ec2 enable
 EXPECT "enable" volume_option ec2 "cluster.disperse-self-heal-daemon"
 EXPECT "enable" volgen_volume_option $volfile ec2-disperse-0 cluster disperse self-heal-daemon
-EXPECT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal ec2 disable
 EXPECT "disable" volume_option ec2 "cluster.disperse-self-heal-daemon"
 EXPECT "disable" volgen_volume_option $volfile ec2-disperse-0 cluster disperse self-heal-daemon
-EXPECT "[0-9][0-9]*" get_shd_process_pid
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 
 #Check that shd graph is rewritten correctly on volume stop/start
 EXPECT "Y" volgen_volume_exists $volfile ec2-disperse-0 cluster disperse

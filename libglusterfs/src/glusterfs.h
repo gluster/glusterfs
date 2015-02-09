@@ -157,6 +157,8 @@
 
 #define GLUSTERFS_RPC_REPLY_SIZE               24
 
+#define STARTING_EVENT_THREADS                 1
+
 #define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
                                                ZR_FILE_CONTENT_STRLEN))
 
@@ -530,6 +532,10 @@ struct _glusterfs_ctx {
         mgmt_ssl_t          secure_srvr;
         /* Buffer to 'save' backtrace even under OOM-kill like situations*/
         char btbuf[GF_BACKTRACE_LEN];
+
+        pthread_mutex_t notify_lock;
+        pthread_cond_t notify_cond;
+        int notifying;
 
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

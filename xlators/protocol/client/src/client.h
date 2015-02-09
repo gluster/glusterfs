@@ -125,6 +125,9 @@ typedef struct clnt_conf {
         uint64_t               setvol_count;
 
         gf_boolean_t           send_gids; /* let the server resolve gids */
+
+        int                     event_threads; /* # of event threads
+                                                * configured */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
@@ -259,4 +262,6 @@ int client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd,
                                  int64_t remote_fd);
 gf_boolean_t
 __is_fd_reopen_in_progress (clnt_fd_ctx_t *fdctx);
+int
+client_notify_dispatch (xlator_t *this, int32_t event, void *data, ...);
 #endif /* !_CLIENT_H */

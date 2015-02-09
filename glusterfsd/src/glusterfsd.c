@@ -1340,7 +1340,8 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
+        ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE,
+                                          STARTING_EVENT_THREADS);
         if (!ctx->event_pool) {
                 gf_msg ("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "event");
                 goto out;
@@ -1393,6 +1394,8 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                 goto out;
 
         pthread_mutex_init (&(ctx->lock), NULL);
+        pthread_mutex_init (&ctx->notify_lock, NULL);
+        pthread_cond_init (&ctx->notify_cond, NULL);
 
         ctx->clienttable = gf_clienttable_alloc();
         if (!ctx->clienttable)

@@ -26,6 +26,16 @@
 #include "config.h"
 #endif
 
+
+
+struct event_slot_poll {
+	int fd;
+	int events;
+	void *data;
+	event_handler_t handler;
+};
+
+
 static int
 event_register_poll (struct event_pool *event_pool, int fd,
                      event_handler_t handler,
@@ -63,12 +73,16 @@ __event_getindex (struct event_pool *event_pool, int fd, int idx)
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
+        /* lookup in used space based on index provided */
         if (idx > -1 && idx < event_pool->used) {
-                if (event_pool->reg[idx].fd == fd)
+                if (event_pool->reg[idx].fd == fd) {
                         ret = idx;
+                        goto out;
+                }
         }
 
-        for (i=0; ret == -1 && i<event_pool->used; i++) {
+        /* search in used space, if lookup fails */
+        for (i = 0; i < event_pool->used; i++) {
                 if (event_pool->reg[i].fd == fd) {
                         ret = i;
                         break;
@@ -81,7 +95,7 @@ out:
 
 
 static struct event_pool *
-event_pool_new_poll (int count)
+event_pool_new_poll (int count, int eventthreadcount)
 {
         struct event_pool *event_pool = NULL;
         int                ret = -1;
@@ -155,6 +169,12 @@ event_pool_new_poll (int count)
                 GF_FREE (event_pool->reg);
                 GF_FREE (event_pool);
                 return NULL;
+        }
+
+        if (eventthreadcount > 1) {
+                gf_log ("poll", GF_LOG_INFO,
+                        "Currently poll does not use multiple event processing"
+                        " threads, thread count (%d) ignored", eventthreadcount);
         }
 
         return event_pool;
@@ -260,6 +280,20 @@ unlock:
 
 out:
         return idx;
+}
+
+
+static int
+event_unregister_close_poll (struct event_pool *event_pool, int fd,
+			     int idx_hint)
+{
+	int ret = -1;
+
+	ret = event_unregister_poll (event_pool, fd, idx_hint);
+
+	close (fd);
+
+        return ret;
 }
 
 
@@ -441,11 +475,19 @@ out:
         return -1;
 }
 
+int
+event_reconfigure_threads_poll (struct event_pool *event_pool, int value)
+{
+        /* No-op for poll */
+        return 0;
+}
 
 struct event_ops event_ops_poll = {
-        .new              = event_pool_new_poll,
-        .event_register   = event_register_poll,
-        .event_select_on  = event_select_on_poll,
-        .event_unregister = event_unregister_poll,
-        .event_dispatch   = event_dispatch_poll
+        .new                    = event_pool_new_poll,
+        .event_register         = event_register_poll,
+        .event_select_on        = event_select_on_poll,
+        .event_unregister       = event_unregister_poll,
+        .event_unregister_close = event_unregister_close_poll,
+        .event_dispatch         = event_dispatch_poll,
+        .event_reconfigure_threads = event_reconfigure_threads_poll
 };

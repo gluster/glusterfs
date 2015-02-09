@@ -114,7 +114,8 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         if (!ctx->iobuf_pool)
                 return -1;
 
-        ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
+        ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE,
+                                          STARTING_EVENT_THREADS);
         if (!ctx->event_pool)
                 return -1;
 
