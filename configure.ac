@@ -356,6 +356,39 @@ AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sy
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+dnl NetBSD does not support POSIX ACLs :-(
+case $host_os in
+     *netbsd*)
+        AC_MSG_WARN([NetBSD does not support POSIX ACLs... disabling them])
+        ACL_LIBS=''
+        USE_POSIX_ACLS='0'
+        ;;
+     *)
+        AC_CHECK_HEADERS([sys/acl.h], ,
+                         AC_MSG_ERROR([Support for POSIX ACLs is required]))
+        USE_POSIX_ACLS='1'
+        case $host_os in
+             linux*)
+                ACL_LIBS='-lacl'
+                ;;
+             solaris*)
+                ACL_LIBS='-lsec'
+                ;;
+             *freebsd*)
+                ACL_LIBS='-lc'
+                ;;
+             darwin*)
+                ACL_LIBS='-lc'
+                ;;
+        esac
+        if test "x${ACL_LIBS}" = "x-lacl"; then
+          AC_CHECK_HEADERS([acl/libacl.h], , AC_MSG_ERROR([libacl is required for building on ${host_os}]))
+        fi
+        ;;
+esac
+AC_SUBST(ACL_LIBS)
+AC_SUBST(USE_POSIX_ACLS)
+
 # libglusterfs/checksum
 AC_CHECK_HEADERS([openssl/md5.h])
 AC_CHECK_LIB([z], [adler32], [ZLIB_LIBS="-lz"], AC_MSG_ERROR([zlib is required to build glusterfs]))
@@ -1167,6 +1200,9 @@ AC_SUBST(LIBGFCHANGELOG_LT_VERSION)
 AC_SUBST(GFAPI_LT_VERSION)
 AC_SUBST(GFAPI_EXTRA_LDFLAGS)
 
+GFAPI_LIBS="${ACL_LIBS}"
+AC_SUBST(GFAPI_LIBS)
+
 dnl this change necessary for run-tests.sh
 AC_CONFIG_FILES([tests/env.rc],[ln -s ${ac_abs_builddir}/env.rc ${ac_abs_srcdir}/env.rc 2>/dev/null])
 
@@ -1192,4 +1228,5 @@ echo "XML output           : $BUILD_XML_OUTPUT"
 echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
+echo "POSIX ACLs           : $USE_POSIX_ACLS"
 echo

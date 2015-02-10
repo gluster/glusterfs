@@ -236,4 +236,10 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
 void
 posix_gfid_unset (xlator_t *this, dict_t *xdata);
 
+int
+posix_pacl_set (const char *path, const char *key, const char *acl_s);
+
+int
+posix_pacl_get (const char *path, const char *key, char **acl_s);
+
 #endif /* _POSIX_H */
