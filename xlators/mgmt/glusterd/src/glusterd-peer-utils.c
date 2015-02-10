@@ -58,7 +58,7 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
         peerinfo->hostname = NULL;
 
         cds_list_for_each_entry_safe (hostname, tmp, &peerinfo->hostnames,
-                                  hostname_list) {
+                                      hostname_list) {
                 glusterd_peer_hostname_free (hostname);
         }
 
@@ -254,11 +254,11 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         if (!new_peer)
                 goto out;
 
-        INIT_LIST_HEAD (&new_peer->uuid_list);
+        CDS_INIT_LIST_HEAD (&new_peer->uuid_list);
 
         new_peer->state.state = state;
 
-        INIT_LIST_HEAD (&new_peer->hostnames);
+        CDS_INIT_LIST_HEAD (&new_peer->hostnames);
         if (hostname) {
                 ret = gd_add_address_to_peer (new_peer, hostname);
                 if (ret)
@@ -376,7 +376,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t  *brickinfo = NULL;
         gf_boolean_t           ret       = _gf_false;
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
@@ -422,7 +422,7 @@ glusterd_peer_hostname_new (const char *hostname,
                 goto out;
 
         peer_hostname->hostname = gf_strdup (hostname);
-        INIT_LIST_HEAD (&peer_hostname->hostname_list);
+        CDS_INIT_LIST_HEAD (&peer_hostname->hostname_list);
 
         *name = peer_hostname;
         ret = 0;
@@ -457,7 +457,8 @@ gd_peer_has_address (glusterd_peerinfo_t *peerinfo, const char *address)
         GF_VALIDATE_OR_GOTO ("glusterd", (peerinfo != NULL), out);
         GF_VALIDATE_OR_GOTO ("glusterd", (address != NULL), out);
 
-        cds_list_for_each_entry(hostname, &peerinfo->hostnames, hostname_list) {
+        cds_list_for_each_entry (hostname, &peerinfo->hostnames,
+                                 hostname_list) {
                 if (strcmp (hostname->hostname, address) == 0) {
                         ret = _gf_true;
                         break;
@@ -535,7 +536,7 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.hostname", prefix);
         address = cds_list_entry (&friend->hostnames, glusterd_peer_hostname_t,
-                              hostname_list);
+                                  hostname_list);
         if (!address) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "Could not retrieve first "
@@ -556,7 +557,7 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
 
         address = NULL;
         count = 0;
-        cds_list_for_each_entry(address, &friend->hostnames, hostname_list) {
+        cds_list_for_each_entry (address, &friend->hostnames, hostname_list) {
                 GF_VALIDATE_OR_GOTO (this->name, (address != NULL), out);
 
                 memset (key, 0, sizeof (key));
@@ -852,7 +853,7 @@ gd_add_peer_hostnames_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
 
-        cds_list_for_each_entry(addr, &peerinfo->hostnames, hostname_list) {
+        cds_list_for_each_entry (addr, &peerinfo->hostnames, hostname_list) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
                 ret = dict_set_dynstr_with_alloc (dict, key, addr->hostname);

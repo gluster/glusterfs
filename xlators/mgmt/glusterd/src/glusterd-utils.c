@@ -470,10 +470,10 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
                 goto out;
 
         LOCK_INIT (&new_volinfo->lock);
-        INIT_LIST_HEAD (&new_volinfo->vol_list);
-        INIT_LIST_HEAD (&new_volinfo->snapvol_list);
-        INIT_LIST_HEAD (&new_volinfo->bricks);
-        INIT_LIST_HEAD (&new_volinfo->snap_volumes);
+        CDS_INIT_LIST_HEAD (&new_volinfo->vol_list);
+        CDS_INIT_LIST_HEAD (&new_volinfo->snapvol_list);
+        CDS_INIT_LIST_HEAD (&new_volinfo->bricks);
+        CDS_INIT_LIST_HEAD (&new_volinfo->snap_volumes);
 
         new_volinfo->dict = dict_new ();
         if (!new_volinfo->dict) {
@@ -722,7 +722,7 @@ glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
-                                   brick_list) {
+                                      brick_list) {
                 ret = glusterd_brickinfo_delete (brickinfo);
                 if (ret)
                         goto out;
@@ -791,7 +791,7 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo)
         if (!new_brickinfo)
                 goto out;
 
-        INIT_LIST_HEAD (&new_brickinfo->brick_list);
+        CDS_INIT_LIST_HEAD (&new_brickinfo->brick_list);
 
         *brickinfo = new_brickinfo;
 
@@ -811,7 +811,7 @@ glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo)
         int                   max_brickid  = -1;
         int                   ret          = -1;
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 token = strrchr (brickinfo->brick_id, '-');
                 ret = gf_string2int32 (++token, &brickid);
                 if (ret < 0) {
@@ -1018,8 +1018,9 @@ glusterd_is_brickpath_available (uuid_t uuid, char *path)
                 strncpy(tmp_path,path,PATH_MAX);
         }
 
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
-                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         if (uuid_compare (uuid, brickinfo->uuid))
                                 continue;
 
@@ -1324,7 +1325,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         goto out;
         }
         ret = -1;
-        cds_list_for_each_entry(brickiter, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickiter, &volinfo->bricks, brick_list) {
 
                 if ((uuid_is_null (brickiter->uuid)) &&
                     (glusterd_resolve_brick (brickiter) != 0))
@@ -1403,7 +1404,7 @@ glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volin
         this = THIS;
         priv = this->private;
 
-        cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (uuid_compare (volume_id, voliter->volume_id))
                         continue;
                 *volinfo = voliter;
@@ -1430,7 +1431,7 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
         priv = this->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
                 if (!strcmp (tmp_volinfo->volname, volname)) {
                         gf_log (this->name, GF_LOG_DEBUG, "Volume %s found",
                                 volname);
@@ -2138,7 +2139,7 @@ glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
         int                     index = 0;
 
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 snprintf (key, sizeof (key), "%d-hostname", index);
                 ret = dict_set_str (dict, key, brickinfo->hostname);
                 if (ret)
@@ -2413,7 +2414,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d.hostname",
                           prefix, count, i);
@@ -2591,7 +2592,7 @@ glusterd_add_volumes_to_export_dict (dict_t **peer_data)
         if (!dict)
                 goto out;
 
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 count++;
                 ret = glusterd_add_volume_to_dict (volinfo, dict, count,
                                                    "volume");
@@ -2927,7 +2928,7 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                         }
                 } else {
                         cds_list_for_each_entry (peerinfo, peer_list,
-                                             op_peers_list) {
+                                                 op_peers_list) {
                                 glusterd_quorum_count(peerinfo, inquorum_count,
                                                       active_count, out);
                         }
@@ -2977,7 +2978,7 @@ glusterd_is_any_volume_in_server_quorum (xlator_t *this)
         glusterd_volinfo_t      *volinfo = NULL;
 
         conf = this->private;
-        cds_list_for_each_entry(volinfo, &conf->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (glusterd_is_volume_in_server_quorum (volinfo)) {
                         return _gf_true;
                 }
@@ -3081,7 +3082,7 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                         "bricks.", volinfo->volname);
         }
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
                         continue;
                 if (quorum_status == DOESNT_MEET_QUORUM)
@@ -3122,7 +3123,7 @@ glusterd_do_quorum_action ()
 
                 if (_does_quorum_meet (active_count, quorum_count))
                         meets = _gf_true;
-                cds_list_for_each_entry(volinfo, &conf->volumes, vol_list) {
+                cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                         glusterd_do_volume_quorum_action (this, volinfo, meets);
                 }
         }
@@ -3305,7 +3306,8 @@ glusterd_import_bricks (dict_t *peer_data, int32_t vol_count,
                         GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (new_brickinfo,
                                                               new_volinfo,
                                                               brickid++);
-                cds_list_add_tail (&new_brickinfo->brick_list, &new_volinfo->bricks);
+                cds_list_add_tail (&new_brickinfo->brick_list,
+                                   &new_volinfo->bricks);
                 brick_count++;
         }
         ret = 0;
@@ -3817,7 +3819,7 @@ glusterd_volume_disconnect_all_bricks (glusterd_volinfo_t *volinfo)
         glusterd_brickinfo_t *brickinfo = NULL;
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (glusterd_is_brick_started (brickinfo)) {
                         ret = glusterd_brick_disconnect (brickinfo);
                         if (ret) {
@@ -3853,11 +3855,13 @@ glusterd_volinfo_copy_brick_portinfo (glusterd_volinfo_t *new_volinfo,
         if (_gf_false == glusterd_is_volume_started (new_volinfo))
                 goto out;
 
-        cds_list_for_each_entry(new_brickinfo, &new_volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (new_brickinfo, &new_volinfo->bricks,
+                                 brick_list) {
                 ret = glusterd_volume_brickinfo_get (new_brickinfo->uuid,
                                                      new_brickinfo->hostname,
                                                      new_brickinfo->path,
-                                                     old_volinfo, &old_brickinfo);
+                                                     old_volinfo,
+                                                     &old_brickinfo);
                 if (ret == 0) {
                         GLUSTERD_GET_BRICK_PIDFILE (pidfile, old_volinfo,
                                                     old_brickinfo, priv);
@@ -3883,11 +3887,13 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
         GF_ASSERT (old_volinfo);
         if (_gf_false == glusterd_is_volume_started (old_volinfo))
                 goto out;
-        cds_list_for_each_entry(old_brickinfo, &old_volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (old_brickinfo, &old_volinfo->bricks,
+                                 brick_list) {
                 ret = glusterd_volume_brickinfo_get (old_brickinfo->uuid,
                                                      old_brickinfo->hostname,
                                                      old_brickinfo->path,
-                                                     new_volinfo, &new_brickinfo);
+                                                     new_volinfo,
+                                                     &new_brickinfo);
                 /* If the brick is stale, i.e it's not a part of the new volume
                  * or if it's part of the new volume and is pending a snap,
                  * then stop the brick process
@@ -3928,9 +3934,10 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
         /* Copy snap_volumes list from stale_volinfo to valid_volinfo */
         valid_volinfo->snap_count = 0;
         cds_list_for_each_entry_safe (voliter, temp_volinfo,
-                                  &stale_volinfo->snap_volumes, snapvol_list) {
+                                      &stale_volinfo->snap_volumes,
+                                      snapvol_list) {
                 cds_list_add_tail (&voliter->snapvol_list,
-                               &valid_volinfo->snap_volumes);
+                                   &valid_volinfo->snap_volumes);
                 valid_volinfo->snap_count++;
         }
 
@@ -4084,11 +4091,12 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         /* TODO: Re-enable ordered insertion after implementing it for rculist
          */
-        cds_list_add_tail (&new_volinfo->vol_list, &priv->volumes);
         /*
          *list_add_order (&new_volinfo->vol_list, &priv->volumes,
          *                glusterd_compare_volume_name);
          */
+        cds_list_add_tail (&new_volinfo->vol_list, &priv->volumes);
+
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
         return ret;
@@ -5125,7 +5133,7 @@ glusterd_are_all_volumes_stopped ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status == GLUSTERD_STATUS_STARTED)
                         return _gf_false;
         }
@@ -5146,7 +5154,7 @@ glusterd_all_shd_compatible_volumes_stopped ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (!glusterd_is_shd_compatible_volume (voliter))
                         continue;
                 if (voliter->status == GLUSTERD_STATUS_STARTED)
@@ -5168,7 +5176,7 @@ glusterd_all_volumes_with_quota_stopped ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry(voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (!glusterd_is_volume_quota_enabled (voliter))
                         continue;
                 if (voliter->status == GLUSTERD_STATUS_STARTED)
@@ -5230,7 +5238,7 @@ glusterd_volume_count_get (void)
 
         priv = this->private;
 
-        cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
                 ret++;
         }
 
@@ -5256,7 +5264,7 @@ glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
 
         priv = this->private;
 
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
                 ret = glusterd_volume_brickinfo_get (uuid, hostname, path,
                                                      volinfo, brickinfo);
@@ -5320,26 +5328,27 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         this = THIS;
         GF_ASSERT (this);
 
-        cds_list_for_each_entry(volinfo, &conf->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (volinfo->status != GLUSTERD_STATUS_STARTED)
                         continue;
                 start_nodesvcs = _gf_true;
                 gf_log (this->name, GF_LOG_DEBUG, "starting the volume %s",
                         volinfo->volname);
-                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         glusterd_brick_start (volinfo, brickinfo, _gf_false);
                 }
         }
 
-        cds_list_for_each_entry(snap, &conf->snapshots, snap_list) {
-                cds_list_for_each_entry(volinfo, &snap->volumes, vol_list) {
+        cds_list_for_each_entry (snap, &conf->snapshots, snap_list) {
+                cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                         if (volinfo->status != GLUSTERD_STATUS_STARTED)
                                 continue;
                         start_nodesvcs = _gf_true;
                         gf_log (this->name, GF_LOG_DEBUG, "starting the snap "
                                 "volume %s", volinfo->volname);
-                        cds_list_for_each_entry(brickinfo, &volinfo->bricks,
-                                             brick_list) {
+                        cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                                 brick_list) {
                                 glusterd_brick_start (volinfo, brickinfo,
                                                       _gf_false);
                         }
@@ -5541,7 +5550,7 @@ glusterd_restart_gsyncds (glusterd_conf_t *conf)
         glusterd_volinfo_t       *volinfo = NULL;
         int                      ret = 0;
 
-        cds_list_for_each_entry(volinfo, &conf->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 glusterd_volume_restart_gsyncds (volinfo);
         }
         return ret;
@@ -5572,9 +5581,9 @@ glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
         GF_ASSERT (this);
 
         priv = this->private;
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
-                cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks,
-                                     brick_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                cds_list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
+                                         brick_list) {
                         if (localhost && !gf_is_local_addr (tmpbrkinfo->hostname))
                                 continue;
                         if (!strcmp(tmpbrkinfo->path, brickname) &&
@@ -5592,8 +5601,7 @@ glusterd_get_brickinfo_by_position (glusterd_volinfo_t *volinfo, uint32_t pos)
 {
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
 
-        cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks,
-                             brick_list) {
+        cds_list_for_each_entry (tmpbrkinfo, &volinfo->bricks, brick_list) {
                 if (pos == 0)
                         return tmpbrkinfo;
                 pos--;
@@ -6156,7 +6164,7 @@ glusterd_get_all_volnames (dict_t *dict)
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry(entry, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (entry, &priv->volumes, vol_list) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "vol%d", vol_count);
                 ret = dict_set_str (dict, key, entry->volname);
@@ -6188,9 +6196,9 @@ glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
         this = THIS;
         priv = this->private;
 
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
-                cds_list_for_each_entry(brickinfo, &volinfo->bricks,
-                                     brick_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         ret = func (volinfo, brickinfo, ctx);
                         if (ret != status) {
                                 ret = -1;
@@ -6830,7 +6838,8 @@ glusterd_delete_all_bricks (glusterd_volinfo_t* volinfo)
 
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                                      brick_list) {
                 ret = glusterd_delete_brick (volinfo, brickinfo);
         }
         return ret;
@@ -6860,7 +6869,7 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
                 goto out;
         }
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
@@ -7016,7 +7025,7 @@ glusterd_recreate_volfiles (glusterd_conf_t *conf)
         int                      op_ret = 0;
 
         GF_ASSERT (conf);
-        cds_list_for_each_entry(volinfo, &conf->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 ret = generate_brick_volfiles (volinfo);
                 if (ret) {
                         gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
@@ -7408,7 +7417,7 @@ glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
 
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!uuid_compare (brickinfo->uuid, friend_uuid)) {
                         count++;
                 }
@@ -7439,8 +7448,8 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry_safe (volinfo, tmp_volinfo,
-                                  &priv->volumes, vol_list) {
+        cds_list_for_each_entry_safe (volinfo, tmp_volinfo, &priv->volumes,
+                                      vol_list) {
                 if (glusterd_friend_contains_vol_bricks (volinfo, uuid) == 2) {
                         gf_log (THIS->name, GF_LOG_INFO,
                                 "Deleting stale volume %s", volinfo->volname);
@@ -7573,7 +7582,7 @@ glusterd_restart_rebalance (glusterd_conf_t *conf)
         int                      ret = 0;
         char                     op_errstr[256];
 
-        cds_list_for_each_entry(volinfo, &conf->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (!volinfo->rebal.defrag_cmd)
                         continue;
                 if (!gd_should_i_start_rebalance (volinfo))
@@ -9704,7 +9713,7 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo) {
 
         switch (volinfo->rebal.op) {
         case GD_OP_REBALANCE:
-                cds_list_for_each_entry(brick, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                         if (uuid_compare (MY_UUID, brick->uuid) == 0) {
                                 retval = _gf_true;
                                 break;
@@ -10004,13 +10013,14 @@ glusterd_rpc_clnt_unref (glusterd_conf_t *conf, rpc_clnt_t *rpc)
 }
 
 int32_t
-glusterd_compare_volume_name(struct cds_list_head *list1, struct cds_list_head *list2)
+glusterd_compare_volume_name(struct cds_list_head *list1,
+                             struct cds_list_head *list2)
 {
         glusterd_volinfo_t *volinfo1 = NULL;
         glusterd_volinfo_t *volinfo2 = NULL;
 
-        volinfo1 = cds_list_entry(list1, glusterd_volinfo_t, vol_list);
-        volinfo2 = cds_list_entry(list2, glusterd_volinfo_t, vol_list);
+        volinfo1 = cds_list_entry (list1, glusterd_volinfo_t, vol_list);
+        volinfo2 = cds_list_entry (list2, glusterd_volinfo_t, vol_list);
         return strcmp(volinfo1->volname, volinfo2->volname);
 }
 
@@ -10168,7 +10178,7 @@ glusterd_get_value_for_vme_entry (struct volopt_map_entry *vme, char **def_val)
         this = THIS;
         GF_ASSERT (this);
 
-        INIT_LIST_HEAD (&vol_opt_handle.list);
+        CDS_INIT_LIST_HEAD (&vol_opt_handle.list);
 
         if (_get_xlator_opt_key_from_vme (vme, &key)) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get %s key from "
@@ -10326,7 +10336,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
         }
 #endif
 
-        INIT_LIST_HEAD (&vol_opt_handle.list);
+        CDS_INIT_LIST_HEAD (&vol_opt_handle.list);
 
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
 
@@ -10439,7 +10449,7 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
         GF_ASSERT(priv);
 
         pthread_mutex_lock (&priv->xprt_lock);
-        list_for_each_entry(xprt, &priv->xprt_list, list) {
+        list_for_each_entry (xprt, &priv->xprt_list, list) {
                 if ((!strcmp(volname, xprt->peerinfo.volname)) &&
                     ((op_version > xprt->peerinfo.max_op_version) ||
                      (op_version < xprt->peerinfo.min_op_version))) {
@@ -10492,7 +10502,7 @@ glusterd_op_clear_xaction_peers ()
         GF_ASSERT (priv);
 
         cds_list_for_each_entry_safe (peerinfo, tmp, &priv->xaction_peers,
-                                  op_peers_list) {
+                                      op_peers_list) {
                 GF_ASSERT (peerinfo);
                 cds_list_del_init (&peerinfo->op_peers_list);
         }

@@ -564,8 +564,7 @@ glusterd_is_volume_in_server_quorum (glusterd_volinfo_t *volinfo);
 gf_boolean_t
 glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 gf_boolean_t
-does_gd_meet_server_quorum (xlator_t *this,
-                            struct cds_list_head *peers_list,
+does_gd_meet_server_quorum (xlator_t *this, struct cds_list_head *peers_list,
                             gf_boolean_t _local__xaction_peers);
 
 int

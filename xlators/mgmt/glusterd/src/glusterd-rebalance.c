@@ -760,7 +760,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 /* Fall back to the old volume file in case of decommission*/
                 cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
-                                          brick_list) {
+                                              brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         brickinfo->decommissioned = 0;

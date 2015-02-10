@@ -72,7 +72,7 @@ add_brick_at_right_order (glusterd_brickinfo_t *brickinfo,
 
 insert_brick:
         i = 0;
-        cds_list_for_each_entry(brick, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 i++;
                 if (i < idx)
                         continue;
@@ -579,7 +579,7 @@ subvol_matcher_update (int *subvols, glusterd_volinfo_t *volinfo,
         int32_t               sub_volume = 0;
         int                   pos        = 0;
 
-        cds_list_for_each_entry(tmp, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 
                 if (strcmp (tmp->hostname, brickinfo->hostname) ||
                     strcmp (tmp->path, brickinfo->path)) {
@@ -1083,7 +1083,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         add_brick_at_right_order (brickinfo, volinfo, (i - 1),
                                                   stripe_count, replica_count);
                 } else {
-                        cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
+                        cds_list_add_tail (&brickinfo->brick_list,
+                                           &volinfo->bricks);
                 }
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
@@ -1897,7 +1898,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         {
                 /* Fall back to the old volume file */
                 cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
-                                          brick_list) {
+                                              brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         brickinfo->decommissioned = 0;

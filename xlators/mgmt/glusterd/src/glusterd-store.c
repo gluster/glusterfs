@@ -622,7 +622,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
 
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry(tmp, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_delete_brick (tmp, delete_path);
                 if (ret)
                         goto out;
@@ -1238,7 +1238,7 @@ glusterd_store_brickinfos (glusterd_volinfo_t *volinfo, int vol_fd)
 
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_brickinfo (volinfo, brickinfo,
                                 brick_count, vol_fd);
                 if (ret)
@@ -1476,7 +1476,7 @@ glusterd_store_bricks_cleanup_tmp (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 gf_store_unlink_tmppath (brickinfo->shandle);
         }
 }
@@ -1505,7 +1505,7 @@ glusterd_store_brickinfos_atomic_update (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = gf_store_rename_tmppath (brickinfo->shandle);
                 if (ret)
                         goto out;
@@ -2903,11 +2903,11 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
                 /* TODO: Re-enable ordered insertion after implementing it for
                  * rculist
                  */
-                cds_list_add_tail (&volinfo->vol_list, &priv->volumes);
                 /*
                  *list_add_order (&volinfo->vol_list, &priv->volumes,
                  *                glusterd_compare_volume_name);
                  */
+                cds_list_add_tail (&volinfo->vol_list, &priv->volumes);
         } else {
                 ret = glusterd_volinfo_find (volinfo->parent_volname,
                                              &origin_volinfo);
@@ -3236,7 +3236,7 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
         GF_ASSERT (volinfo);
 
         brick_count = 0;
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 brick_count++;
                 /* If the brick is not of this node, or its
                  * snapshot is pending, or the brick is not
@@ -3314,8 +3314,9 @@ glusterd_resolve_snap_bricks (xlator_t  *this, glusterd_snap_t *snap)
         GF_ASSERT (this);
         GF_VALIDATE_OR_GOTO (this->name, snap, out);
 
-        cds_list_for_each_entry(volinfo, &snap->volumes, vol_list) {
-                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         ret = glusterd_resolve_brick (brickinfo);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -3460,11 +3461,11 @@ glusterd_store_retrieve_snap (char *snapname)
            in order */
         /* TODO: Re-enable ordered insertion after implementing it for rculist
          */
-        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
         /*
          *list_add_order (&snap->snap_list, &priv->snapshots,
          *                glusterd_compare_snap_time);
          */
+        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
 
 out:
         gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
@@ -3645,11 +3646,11 @@ glusterd_store_write_missed_snapinfo (int32_t fd)
         GF_ASSERT (priv);
 
         /* Write the missed_snap_entry */
-        cds_list_for_each_entry(missed_snapinfo, &priv->missed_snaps_list,
-                             missed_snaps) {
-                cds_list_for_each_entry(snap_opinfo,
-                                     &missed_snapinfo->snap_ops,
-                                     snap_ops_list) {
+        cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
+                                 missed_snaps) {
+                cds_list_for_each_entry (snap_opinfo,
+                                         &missed_snapinfo->snap_ops,
+                                         snap_ops_list) {
                         snprintf (key, sizeof(key), "%s:%s",
                                   missed_snapinfo->node_uuid,
                                   missed_snapinfo->snap_uuid);
@@ -3921,7 +3922,8 @@ glusterd_store_peer_write (int fd, glusterd_peerinfo_t *peerinfo)
         if (ret)
                 goto out;
 
-        cds_list_for_each_entry(hostname, &peerinfo->hostnames, hostname_list) {
+        cds_list_for_each_entry (hostname, &peerinfo->hostnames,
+                                 hostname_list) {
                 ret = gf_asprintf (&key, GLUSTERD_STORE_KEY_PEER_HOSTNAME"%d",
                                    i);
                 if (ret < 0)
@@ -4085,7 +4087,8 @@ glusterd_store_retrieve_peers (xlator_t *this)
                  * peerinfo->hostname
                  */
                 address = cds_list_entry (peerinfo->hostnames.next,
-                                      glusterd_peer_hostname_t, hostname_list);
+                                          glusterd_peer_hostname_t,
+                                          hostname_list);
                 if (!address) {
                         ret = -1;
                         goto out;
@@ -4104,7 +4107,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
         args.mode = GD_MODE_ON;
 
         rcu_read_lock ();
-        cds_list_for_each_entry(peerinfo, &priv->peers, uuid_list) {
+        cds_list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 ret = glusterd_friend_rpc_create (this, peerinfo, &args);
                 if (ret)
                         goto out;
@@ -4141,7 +4144,7 @@ glusterd_recreate_all_snap_brick_mounts (xlator_t  *this)
         GF_ASSERT (priv);
 
         /* Recreate bricks of volumes restored from snaps */
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 /* If the volume is not a restored volume then continue */
                 if (uuid_is_null (volinfo->restored_from_snap))
                         continue;
@@ -4156,8 +4159,8 @@ glusterd_recreate_all_snap_brick_mounts (xlator_t  *this)
         }
 
         /* Recreate bricks of snapshot volumes */
-        cds_list_for_each_entry(snap, &priv->snapshots, snap_list) {
-                cds_list_for_each_entry(volinfo, &snap->volumes, vol_list) {
+        cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
+                cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                         ret = glusterd_recreate_vol_brick_mounts (this,
                                                                   volinfo);
                         if (ret) {
@@ -4208,7 +4211,8 @@ glusterd_snap_cleanup (xlator_t  *this)
                 goto out;
         }
 
-        cds_list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry_safe (snap, tmp_snap, &priv->snapshots,
+                                      snap_list) {
                 if (snap->snap_status == GD_SNAP_STATUS_RESTORED) {
                         ret = glusterd_snapshot_revert_restore_from_snap (snap);
                         if (ret) {
@@ -4251,8 +4255,9 @@ glusterd_resolve_all_bricks (xlator_t  *this)
         GF_ASSERT (priv);
 
         /* Resolve bricks of volumes */
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
-                cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         ret = glusterd_resolve_brick (brickinfo);
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR,
@@ -4263,7 +4268,7 @@ glusterd_resolve_all_bricks (xlator_t  *this)
         }
 
         /* Resolve bricks of snapshot volumes */
-        cds_list_for_each_entry(snap, &priv->snapshots, snap_list) {
+        cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
                 ret = glusterd_resolve_snap_bricks (this, snap);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,

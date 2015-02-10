@@ -1067,8 +1067,8 @@ out:
 
 
 int
-gd_build_peers_list (struct cds_list_head *peers, struct cds_list_head *xact_peers,
-                     glusterd_op_t op)
+gd_build_peers_list (struct cds_list_head *peers,
+                     struct cds_list_head *xact_peers, glusterd_op_t op)
 {
         glusterd_peerinfo_t *peerinfo = NULL;
         int                 npeers      = 0;
@@ -1117,7 +1117,7 @@ gd_build_local_xaction_peers_list (struct cds_list_head *peers,
                 if (!local_peers) {
                         return -1;
                 }
-                INIT_LIST_HEAD (&local_peers->op_peers_list);
+                CDS_INIT_LIST_HEAD (&local_peers->op_peers_list);
                 local_peers->peerinfo = peerinfo;
                 cds_list_add_tail (&local_peers->op_peers_list, xact_peers);
                 npeers++;
@@ -1138,7 +1138,8 @@ gd_cleanup_local_xaction_peers_list (struct cds_list_head *xact_peers)
         if (cds_list_empty (xact_peers))
                 return;
 
-        cds_list_for_each_entry_safe (local_peers, tmp, xact_peers, op_peers_list) {
+        cds_list_for_each_entry_safe (local_peers, tmp, xact_peers,
+                                      op_peers_list) {
                 GF_FREE (local_peers);
                 /*  local_peers->peerinfo need not be freed because it does not
                  *  ownership of peerinfo, but merely refer it */
@@ -1203,8 +1204,9 @@ out:
 }
 
 int
-gd_stage_op_phase (struct cds_list_head *peers, glusterd_op_t op, dict_t *op_ctx,
-                   dict_t *req_dict, char **op_errstr, int npeers)
+gd_stage_op_phase (struct cds_list_head *peers, glusterd_op_t op,
+                   dict_t *op_ctx, dict_t *req_dict, char **op_errstr,
+                   int npeers)
 {
         int                     ret             = -1;
         int                     peer_cnt        = 0;
@@ -1310,8 +1312,9 @@ out:
 }
 
 int
-gd_commit_op_phase (struct cds_list_head *peers, glusterd_op_t op, dict_t *op_ctx,
-                    dict_t *req_dict, char **op_errstr, int npeers)
+gd_commit_op_phase (struct cds_list_head *peers, glusterd_op_t op,
+                    dict_t *op_ctx, dict_t *req_dict, char **op_errstr,
+                    int npeers)
 {
         dict_t                 *rsp_dict      = NULL;
         int                     peer_cnt      = -1;
@@ -1515,7 +1518,7 @@ gd_get_brick_count (struct cds_list_head *bricks)
 {
         glusterd_pending_node_t *pending_node = NULL;
         int                     npeers        = 0;
-        cds_list_for_each_entry(pending_node, bricks, list) {
+        cds_list_for_each_entry (pending_node, bricks, list) {
                 npeers++;
         }
         return npeers;
@@ -1526,7 +1529,7 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                    char **op_errstr)
 {
         glusterd_pending_node_t *pending_node = NULL;
-        struct cds_list_head        selected = {0,};
+        struct cds_list_head    selected = {0,};
         xlator_t                *this = NULL;
         int                     brick_count = 0;
         int                     ret = -1;
@@ -1542,7 +1545,7 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 goto out;
         }
 
-        INIT_LIST_HEAD (&selected);
+        CDS_INIT_LIST_HEAD (&selected);
         ret = glusterd_op_bricks_select (op, req_dict, op_errstr, &selected,
                                          rsp_dict);
         if (ret) {
@@ -1561,7 +1564,7 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         rsp_dict = NULL;
 
         brick_count = 0;
-        cds_list_for_each_entry(pending_node, &selected, list) {
+        cds_list_for_each_entry (pending_node, &selected, list) {
                 rpc = glusterd_pending_node_get_rpc (pending_node);
                 if (!rpc) {
                         if (pending_node->type == GD_NODE_REBALANCE) {
@@ -1609,7 +1612,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *txn_id          = NULL;
-        struct cds_list_head            xaction_peers    = {0,};
+        struct cds_list_head        xaction_peers    = {0,};
         glusterd_op_info_t          txn_opinfo;
 
         this = THIS;
@@ -1617,7 +1620,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         conf = this->private;
         GF_ASSERT (conf);
 
-        INIT_LIST_HEAD (&xaction_peers);
+        CDS_INIT_LIST_HEAD (&xaction_peers);
 
         ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
         if (ret) {

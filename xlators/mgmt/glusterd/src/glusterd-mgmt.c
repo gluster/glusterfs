@@ -1538,7 +1538,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
-        struct cds_list_head             xaction_peers   = {0,};
+        struct cds_list_head        xaction_peers   = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1547,7 +1547,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         conf = this->private;
         GF_ASSERT (conf);
 
-        INIT_LIST_HEAD (&xaction_peers);
+        CDS_INIT_LIST_HEAD (&xaction_peers);
         npeers = gd_build_local_xaction_peers_list  (&conf->peers,
                                                      &xaction_peers, op);
         if (npeers == -1) {
@@ -1758,7 +1758,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
-        struct cds_list_head            xaction_peers    = {0,};
+        struct cds_list_head        xaction_peers    = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1767,7 +1767,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         conf = this->private;
         GF_ASSERT (conf);
 
-        INIT_LIST_HEAD (&xaction_peers);
+        CDS_INIT_LIST_HEAD (&xaction_peers);
         npeers = gd_build_local_xaction_peers_list  (&conf->peers,
                                                      &xaction_peers, op);
         if (npeers == -1) {

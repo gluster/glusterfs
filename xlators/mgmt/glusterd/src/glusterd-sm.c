@@ -542,8 +542,8 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
 
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry_safe (volinfo,tmp_volinfo,
-                                  &priv->volumes, vol_list) {
+        cds_list_for_each_entry_safe (volinfo, tmp_volinfo, &priv->volumes,
+                                      vol_list) {
                 /* The peer detach checks make sure that, at this point in the
                  * detach process, there are only volumes contained completely
                  * within or completely outside the detached peer.
@@ -972,7 +972,7 @@ glusterd_friend_sm_new_event (glusterd_friend_sm_event_type_t event_type,
 
         *new_event = event;
         event->event = event_type;
-        INIT_LIST_HEAD (&event->list);
+        CDS_INIT_LIST_HEAD (&event->list);
 
         return 0;
 }
@@ -1053,7 +1053,8 @@ glusterd_friend_sm ()
         GF_ASSERT (priv);
 
         while (!cds_list_empty (&gd_friend_sm_queue)) {
-                cds_list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
+                cds_list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue,
+                                              list) {
 
                         cds_list_del_init (&event->list);
                         event_type = event->event;
@@ -1161,6 +1162,6 @@ out:
 int
 glusterd_friend_sm_init ()
 {
-        INIT_LIST_HEAD (&gd_friend_sm_queue);
+        CDS_INIT_LIST_HEAD (&gd_friend_sm_queue);
         return 0;
 }

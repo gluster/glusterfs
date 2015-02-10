@@ -216,7 +216,7 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                 }
 
                 cds_list_add_tail (&new_brickinfo->brick_list,
-                                &new_volinfo->bricks);
+                                   &new_volinfo->bricks);
                 /* ownership of new_brickinfo is passed to new_volinfo */
                 new_brickinfo = NULL;
         }
@@ -512,10 +512,10 @@ glusterd_add_missed_snaps_to_export_dict (dict_t *peer_data)
 
         /* Add the missed_entries in the dict */
         cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
-                             missed_snaps) {
+                                 missed_snaps) {
                 cds_list_for_each_entry (snap_opinfo,
-                                     &missed_snapinfo->snap_ops,
-                                     snap_ops_list) {
+                                         &missed_snapinfo->snap_ops,
+                                         snap_ops_list) {
                         snprintf (name_buf, sizeof(name_buf),
                                   "missed_snaps_%d", missed_snap_count);
                         snprintf (value, sizeof(value), "%s:%s=%s:%d:%s:%d:%d",
@@ -600,7 +600,8 @@ glusterd_add_snap_to_dict (glusterd_snap_t *snap, dict_t *peer_data,
                         }
                 }
 
-                cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
                                 host_bricks = _gf_true;
                                 break;
@@ -902,8 +903,8 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
 
                 break;
         case GF_SNAP_OPTION_TYPE_RESTORE:
-                cds_list_for_each_entry_safe (snap_volinfo, tmp,
-                                          &snap->volumes, vol_list) {
+                cds_list_for_each_entry_safe (snap_volinfo, tmp, &snap->volumes,
+                                              vol_list) {
                         parent_volname = gf_strdup
                                             (snap_volinfo->parent_volname);
                         if (!parent_volname)
@@ -1012,7 +1013,7 @@ glusterd_perform_missed_snap_ops ()
         GF_ASSERT (priv);
 
         cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
-                             missed_snaps) {
+                                 missed_snaps) {
                 /* If the pending snap_op is not for this node then continue */
                 if (strcmp (missed_snapinfo->node_uuid, uuid_utoa (MY_UUID)))
                         continue;
@@ -1031,8 +1032,9 @@ glusterd_perform_missed_snap_ops ()
                 }
 
                 op_status = GD_MISSED_SNAP_PENDING;
-                cds_list_for_each_entry (snap_opinfo, &missed_snapinfo->snap_ops,
-                                     snap_ops_list) {
+                cds_list_for_each_entry (snap_opinfo,
+                                         &missed_snapinfo->snap_ops,
+                                         snap_ops_list) {
                         /* If the snap_op is create or its status is
                          * GD_MISSED_SNAP_DONE then continue
                          */
@@ -1193,7 +1195,8 @@ glusterd_are_snap_bricks_local (glusterd_snap_t *snap)
         GF_ASSERT (snap);
 
         cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
-                cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
                         if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
                                 is_local = _gf_true;
                                 goto out;
@@ -1230,7 +1233,7 @@ glusterd_peer_has_missed_snap_delete (glusterd_peerinfo_t *peerinfo,
         peer_uuid = uuid_utoa (peerinfo->uuid);
 
         cds_list_for_each_entry (missed_snapinfo, &priv->missed_snaps_list,
-                             missed_snaps) {
+                                 missed_snaps) {
                 /* Look for missed snap for the same peer, and
                  * the same snap_id
                  */
@@ -1240,8 +1243,8 @@ glusterd_peer_has_missed_snap_delete (glusterd_peerinfo_t *peerinfo,
                          * status is pending
                          */
                         cds_list_for_each_entry (snap_opinfo,
-                                             &missed_snapinfo->snap_ops,
-                                             snap_ops_list) {
+                                                 &missed_snapinfo->snap_ops,
+                                                 snap_ops_list) {
                                 if (((snap_opinfo->op ==
                                               GF_SNAP_OPTION_TYPE_DELETE) ||
                                      (snap_opinfo->op ==
@@ -1433,11 +1436,11 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
 
         /* TODO: Re-enable ordered insertion after implementing it for rculist
          */
-        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
         /*
          *list_add_order (&snap->snap_list, &priv->snapshots,
          *                glusterd_compare_snap_time);
          */
+        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
 
         for (i = 1; i <= volcount; i++) {
                 ret = glusterd_import_volinfo (peer_data, i,
@@ -2207,7 +2210,8 @@ out:
 }
 
 int
-glusterd_compare_snap_time(struct cds_list_head *list1, struct cds_list_head *list2)
+glusterd_compare_snap_time (struct cds_list_head *list1,
+                            struct cds_list_head *list2)
 {
         glusterd_snap_t *snap1 = NULL;
         glusterd_snap_t *snap2 = NULL;
@@ -2216,15 +2220,16 @@ glusterd_compare_snap_time(struct cds_list_head *list1, struct cds_list_head *li
         GF_ASSERT (list1);
         GF_ASSERT (list2);
 
-        snap1 = list_entry(list1, glusterd_snap_t, snap_list);
-        snap2 = list_entry(list2, glusterd_snap_t, snap_list);
+        snap1 = cds_list_entry (list1, glusterd_snap_t, snap_list);
+        snap2 = cds_list_entry (list2, glusterd_snap_t, snap_list);
         diff_time = difftime(snap1->time_stamp, snap2->time_stamp);
 
         return (int)diff_time;
 }
 
 int
-glusterd_compare_snap_vol_time(struct cds_list_head *list1, struct cds_list_head *list2)
+glusterd_compare_snap_vol_time (struct cds_list_head *list1,
+                                struct cds_list_head *list2)
 {
         glusterd_volinfo_t *snapvol1 = NULL;
         glusterd_volinfo_t *snapvol2 = NULL;
@@ -2233,8 +2238,8 @@ glusterd_compare_snap_vol_time(struct cds_list_head *list1, struct cds_list_head
         GF_ASSERT (list1);
         GF_ASSERT (list2);
 
-        snapvol1 = list_entry(list1, glusterd_volinfo_t, snapvol_list);
-        snapvol2 = list_entry(list2, glusterd_volinfo_t, snapvol_list);
+        snapvol1 = cds_list_entry (list1, glusterd_volinfo_t, snapvol_list);
+        snapvol2 = cds_list_entry (list2, glusterd_volinfo_t, snapvol_list);
         diff_time = difftime(snapvol1->snapshot->time_stamp,
                              snapvol2->snapshot->time_stamp);
 
@@ -2258,8 +2263,8 @@ glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo)
         if (!new_missed_snapinfo)
                 goto out;
 
-        INIT_LIST_HEAD (&new_missed_snapinfo->missed_snaps);
-        INIT_LIST_HEAD (&new_missed_snapinfo->snap_ops);
+        CDS_INIT_LIST_HEAD (&new_missed_snapinfo->missed_snaps);
+        CDS_INIT_LIST_HEAD (&new_missed_snapinfo->snap_ops);
 
         *missed_snapinfo = new_missed_snapinfo;
 
@@ -2290,7 +2295,7 @@ glusterd_missed_snap_op_new (glusterd_snap_op_t **snap_op)
         new_snap_op->brick_num = -1;
         new_snap_op->op = -1;
         new_snap_op->status = -1;
-        INIT_LIST_HEAD (&new_snap_op->snap_ops_list);
+        CDS_INIT_LIST_HEAD (&new_snap_op->snap_ops_list);
 
         *snap_op = new_snap_op;
 

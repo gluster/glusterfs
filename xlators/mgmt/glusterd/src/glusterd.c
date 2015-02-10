@@ -228,7 +228,7 @@ glusterd_fetchspec_notify (xlator_t *this)
 
         pthread_mutex_lock (&priv->xprt_lock);
         {
-                list_for_each_entry(trans, &priv->xprt_list, list) {
+                list_for_each_entry (trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_FETCHSPEC, NULL, 0);
@@ -264,7 +264,7 @@ glusterd_fetchsnap_notify (xlator_t *this)
          */
         pthread_mutex_lock (&priv->xprt_lock);
         {
-                list_for_each_entry(trans, &priv->xprt_list, list) {
+                list_for_each_entry (trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
                                                 GF_CBK_GET_SNAPS, NULL, 0);
@@ -1087,7 +1087,7 @@ glusterd_stop_uds_listener (xlator_t *this)
         (void) rpcsvc_program_unregister (conf->uds_rpc, &gd_svc_cli_prog);
         (void) rpcsvc_program_unregister (conf->uds_rpc, &gluster_handshake_prog);
 
-        cds_list_for_each_entry_safe (listener, next, &conf->uds_rpc->listeners,
+        list_for_each_entry_safe (listener, next, &conf->uds_rpc->listeners,
                                   list) {
                 rpcsvc_listener_destroy (listener);
         }
@@ -1446,11 +1446,11 @@ init (xlator_t *this)
                                gf_gld_mt_nodesrv_t);
         GF_VALIDATE_OR_GOTO(this->name, conf->quotad, out);
 
-        INIT_LIST_HEAD (&conf->peers);
-        INIT_LIST_HEAD (&conf->xaction_peers);
-        INIT_LIST_HEAD (&conf->volumes);
-        INIT_LIST_HEAD (&conf->snapshots);
-        INIT_LIST_HEAD (&conf->missed_snaps_list);
+        CDS_INIT_LIST_HEAD (&conf->peers);
+        CDS_INIT_LIST_HEAD (&conf->xaction_peers);
+        CDS_INIT_LIST_HEAD (&conf->volumes);
+        CDS_INIT_LIST_HEAD (&conf->snapshots);
+        CDS_INIT_LIST_HEAD (&conf->missed_snaps_list);
 
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
@@ -1507,7 +1507,7 @@ init (xlator_t *this)
                 }
         }
 
-        INIT_LIST_HEAD (&conf->mount_specs);
+        CDS_INIT_LIST_HEAD (&conf->mount_specs);
 
         ret = dict_foreach (this->options, _install_mount_spec, NULL);
         if (ret)

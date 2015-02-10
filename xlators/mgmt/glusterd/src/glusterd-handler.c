@@ -463,7 +463,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         }
 #endif
 
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list) {
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 char    brick_uuid[64] = {0,};
                 snprintf (key, 256, "volume%d.brick%d", count, i);
@@ -607,7 +607,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
 
 local_locking_done:
 
-        INIT_LIST_HEAD (&priv->xaction_peers);
+        CDS_INIT_LIST_HEAD (&priv->xaction_peers);
 
         npeers = gd_build_peers_list (&priv->peers, &priv->xaction_peers, op);
 
@@ -1161,7 +1161,7 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         * of its bricks on the peer being detached
         */
         cds_list_for_each_entry_safe (volinfo, tmp, &priv->volumes,
-                                  vol_list) {
+                                      vol_list) {
                 ret = glusterd_friend_contains_vol_bricks (volinfo,
                                                            uuid);
                 if (ret == 1) {
@@ -1548,7 +1548,7 @@ __glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
         if (!dict)
                 goto out;
 
-        cds_list_for_each_entry(volinfo, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d", count);
                 ret = dict_set_str (dict, key, volinfo->volname);
@@ -3674,7 +3674,7 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         }
 
         if (flags == GF_CLI_GET_VOLUME_ALL) {
-                cds_list_for_each_entry(entry, &priv->volumes, vol_list) {
+                cds_list_for_each_entry (entry, &priv->volumes, vol_list) {
                         ret = glusterd_add_volume_detail_to_dict (entry,
                                                         volumes, count);
                         if (ret)
@@ -3690,16 +3690,16 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 if (ret) {
                         if (priv->volumes.next) {
                                 entry = cds_list_entry (priv->volumes.next,
-                                                    typeof (*entry),
-                                                    vol_list);
+                                                        typeof (*entry),
+                                                        vol_list);
                         }
                 } else {
                         ret = glusterd_volinfo_find (volname, &entry);
                         if (ret)
                                 goto respond;
                         entry = cds_list_entry (entry->vol_list.next,
-                                            typeof (*entry),
-                                            vol_list);
+                                                typeof (*entry),
+                                                vol_list);
                 }
 
                 if (&entry->vol_list == &priv->volumes) {
@@ -4650,8 +4650,9 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                     !uuid_compare (peerinfo->uuid, uuid))
                                         glusterd_unlock (peerinfo->uuid);
                         } else {
-                                cds_list_for_each_entry(volinfo, &conf->volumes,
-                                                     vol_list) {
+                                cds_list_for_each_entry (volinfo,
+                                                         &conf->volumes,
+                                                         vol_list) {
                                         ret = glusterd_mgmt_v3_unlock
                                                     (volinfo->volname,
                                                      peerinfo->uuid,

@@ -1553,7 +1553,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         }
 
         cds_list_add_tail (&new_brickinfo->brick_list,
-                       &old_brickinfo->brick_list);
+                           &old_brickinfo->brick_list);
 
         volinfo->brick_count++;
 

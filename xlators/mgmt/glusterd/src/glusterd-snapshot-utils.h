@@ -28,10 +28,10 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
                             dict_t  *dict, int32_t count);
 
 int
-glusterd_compare_snap_time(struct cds_list_head *, struct cds_list_head *);
+glusterd_compare_snap_time (struct cds_list_head *, struct cds_list_head *);
 
 int
-glusterd_compare_snap_vol_time(struct cds_list_head *, struct cds_list_head *);
+glusterd_compare_snap_vol_time (struct cds_list_head *, struct cds_list_head *);
 
 int32_t
 glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
