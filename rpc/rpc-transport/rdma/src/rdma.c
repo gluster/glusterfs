@@ -4561,7 +4561,7 @@ init (rpc_transport_t *this)
         this->private = priv;
 
         if (gf_rdma_init (this)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_WARNING,
                         "Failed to initialize IB Device");
                 return -1;
         }

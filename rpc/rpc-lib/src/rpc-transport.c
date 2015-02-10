@@ -33,6 +33,31 @@
 #define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
 #endif
 
+int32_t
+rpc_transport_count (const char *transport_type)
+{
+        char     *transport_dup   = NULL;
+        char     *saveptr         = NULL;
+        char     *ptr             = NULL;
+        int       count           = 0;
+
+        if (transport_type == NULL)
+                return -1;
+
+        transport_dup = gf_strdup (transport_type);
+        if (transport_dup == NULL) {
+                return -1;
+        }
+
+        ptr = strtok_r (transport_dup, ",", &saveptr);
+        while (ptr != NULL) {
+                count++;
+                ptr = strtok_r (NULL, ",", &saveptr);
+        }
+
+        GF_FREE (transport_dup);
+        return count;
+}
 
 int
 rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
@@ -329,7 +354,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 
 	ret = trans->init (trans);
 	if (ret != 0) {
-		gf_log ("rpc-transport", GF_LOG_ERROR,
+		gf_log ("rpc-transport", GF_LOG_WARNING,
 			"'%s' initialization failed", type);
 		goto fail;
 	}
