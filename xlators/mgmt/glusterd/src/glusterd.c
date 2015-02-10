@@ -1198,7 +1198,9 @@ init (xlator_t *this)
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
         int                i                 = 0;
+        int                total_transport   = 0;
         char              *valgrind_str      = NULL;
+        char              *transport_type    = NULL;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1403,12 +1405,32 @@ init (xlator_t *this)
          * only one (at most a pair - rdma and socket) listener for
          * glusterd1_mop_prog, gluster_pmap_prog and gluster_handshake_prog.
          */
+
+        ret = dict_get_str (this->options, "transport-type", &transport_type);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to get transport type");
+                ret = -1;
+                goto out;
+        }
+
+        total_transport = rpc_transport_count (transport_type);
+        if (total_transport <= 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to get total number of available tranpsorts");
+                ret = -1;
+                goto out;
+        }
+
         ret = rpcsvc_create_listeners (rpc, this->options, this->name);
         if (ret < 1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "creation of listener failed");
                 ret = -1;
                 goto out;
+        } else if (ret < total_transport) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "creation of %d listeners failed, continuing with "
+                        "succeeded transport", (total_transport - ret));
         }
 
         for (i = 0; i < gd_inet_programs_count; i++) {
