@@ -24,6 +24,14 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+#ifdef HAVE_SYS_ACL_H
+#ifdef HAVE_ACL_LIBACL_H /* for acl_to_any_text() */
+#include <acl/libacl.h>
+#else /* FreeBSD and others */
+#include <sys/acl.h>
+#endif
+#endif
+
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif /* GF_BSD_HOST_OS */
@@ -887,6 +895,75 @@ out:
         return op_ret;
 }
 
+#ifdef HAVE_SYS_ACL_H
+int
+posix_pacl_set (const char *path, const char *key, const char *acl_s)
+{
+        int ret = -1;
+        acl_t acl = NULL;
+        acl_type_t type = 0;
+
+        type = gf_posix_acl_get_type (key);
+
+        acl = acl_from_text (acl_s);
+        ret = acl_set_file (path, type, acl);
+        acl_free (acl);
+
+        return ret;
+}
+
+int
+posix_pacl_get (const char *path, const char *key, char **acl_s)
+{
+        int ret = -1;
+        acl_t acl = NULL;
+        acl_type_t type = 0;
+        char *acl_tmp = NULL;
+
+        type = gf_posix_acl_get_type (key);
+        if (!type)
+                return -1;
+
+        acl = acl_get_file (path, type);
+        if (!acl)
+                return -1;
+
+#ifdef HAVE_ACL_LIBACL_H
+        acl_tmp = acl_to_any_text (acl, NULL, ',',
+                                   TEXT_ABBREVIATE | TEXT_NUMERIC_IDS);
+#else /* FreeBSD and the like */
+        acl_tmp = acl_to_text_np (acl, NULL, ACL_TEXT_NUMERIC_IDS);
+#endif
+        if (!acl_tmp)
+                goto free_acl;
+
+        *acl_s = gf_strdup (acl_tmp);
+        if (*acl_s)
+                ret = 0;
+
+        acl_free (acl_tmp);
+free_acl:
+        acl_free (acl);
+
+        return ret;
+}
+#else /* !HAVE_SYS_ACL_H (NetBSD) */
+int
+posix_pacl_set (const char *path, const char *key, const char *acl_s)
+{
+        errno = ENOTSUP;
+        return -1;
+}
+
+int
+posix_pacl_get (const char *path, const char *key, char **acl_s)
+{
+        errno = ENOTSUP;
+        return -1;
+}
+#endif
+
+
 #ifdef GF_DARWIN_HOST_OS
 static
 void posix_dump_buffer (xlator_t *this, const char *real_path, const char *key,
@@ -921,6 +998,8 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         } else if (ZR_FILE_CONTENT_REQUEST(key)) {
                 ret = posix_set_file_contents (this, real_path, key, value,
                                                flags);
+        } else if (GF_POSIX_ACL_REQUEST (key)) {
+                ret = posix_pacl_set (real_path, key, value->data);
         } else {
                 sys_ret = sys_lsetxattr (real_path, key, value->data,
                                          value->len, flags);
