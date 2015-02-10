@@ -377,6 +377,12 @@ glfs_get_volume_info (struct glfs *fs)
 
         ctx = fs->ctx;
         frame = create_frame (THIS, ctx->pool);
+        if (!frame) {
+                gf_log ("glfs", GF_LOG_ERROR, "failed to create the frame");
+                ret = -1;
+                goto out;
+        }
+
         frame->local = &args;
 
         __yawn ((&args));

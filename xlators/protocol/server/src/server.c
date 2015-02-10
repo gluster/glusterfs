@@ -871,9 +871,8 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->xprt_list);
         pthread_mutex_init (&conf->mutex, NULL);
 
-         /* Set event threads to a default */
-        conf->event_threads = STARTING_EVENT_THREADS;
-
+         /* Set event threads to the configured default */
+        GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
         ret = server_check_event_threads (this, this->options, conf);
         if (ret)
                 goto out;

@@ -38,6 +38,7 @@ TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
+TEST $CLI volume set $V0 cluster.quorum-type none
 ## Mount native
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0
 
