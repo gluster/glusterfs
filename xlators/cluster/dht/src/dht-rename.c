@@ -792,16 +792,12 @@ unwind:
         WIPE (&local->postoldparent);
         WIPE (&local->preparent);
         WIPE (&local->postparent);
-        if (xattr)
-                dict_unref (xattr);
 
         dht_rename_done (frame, this);
 
         return 0;
 
 cleanup:
-        if (xattr)
-                dict_unref (xattr);
         dht_rename_cleanup (frame);
 
         return 0;
