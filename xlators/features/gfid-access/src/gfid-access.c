@@ -419,6 +419,8 @@ ga_newentry_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
                              op_errno, xdata);
 
+        if (local->xdata)
+                dict_unref (local->xdata);
         loc_wipe (&local->loc);
         mem_put (local);
 
@@ -460,6 +462,40 @@ done:
         STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret,
                              op_errno, xdata);
 
+        if (local->xdata)
+                dict_unref (local->xdata);
+        loc_wipe (&local->loc);
+        mem_put (local);
+
+        return 0;
+}
+
+static int
+ga_newentry_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, inode_t *inode,
+                        struct iatt *stat, dict_t *xdata,
+                        struct iatt *postparent)
+
+{
+        ga_local_t *local = NULL;
+
+        local = frame->local;
+
+        if ((op_ret < 0) && ((op_errno != ENOENT) && (op_errno != ESTALE)))
+                goto err;
+
+        STACK_WIND (frame, ga_newentry_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->mknod, &local->loc, local->mode,
+                    local->rdev, local->umask, local->xdata);
+        return 0;
+
+err:
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+        STACK_UNWIND_STRICT (setxattr, local->orig_frame, op_ret, op_errno,
+                             xdata);
+        if (local->xdata)
+                dict_unref (local->xdata);
         loc_wipe (&local->loc);
         mem_put (local);
 
@@ -474,7 +510,6 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         ga_newfile_args_t *args      = NULL;
         loc_t              tmp_loc   = {0,};
         call_frame_t      *new_frame = NULL;
-        mode_t             mode      = 0;
         ga_local_t        *local     = NULL;
         uuid_t             gfid      = {0,};
 
@@ -528,14 +563,20 @@ ga_new_entry (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
                             &tmp_loc, 0, xdata);
         } else {
                 /* use 07777 (4 7s) for considering the Sticky bits etc) */
-                mode = (S_IFMT & args->st_mode) |
-                        (07777 & args->args.mknod.mode);;
+                ((ga_local_t *)new_frame->local)->mode =
+                     (S_IFMT & args->st_mode) | (07777 & args->args.mknod.mode);
 
-                STACK_WIND (new_frame, ga_newentry_cbk,
-                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
-                            &tmp_loc, mode,
-                            args->args.mknod.rdev, args->args.mknod.umask,
-                            xdata);
+                ((ga_local_t *)new_frame->local)->umask =
+                                                         args->args.mknod.umask;
+                ((ga_local_t *)new_frame->local)->rdev  = args->args.mknod.rdev;
+                ((ga_local_t *)new_frame->local)->xdata = dict_ref (xdata);
+
+                /* send a named lookup, so that dht can cleanup up stale linkto
+                 * files etc.
+                 */
+                STACK_WIND (new_frame, ga_newentry_lookup_cbk,
+                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->lookup,
+                            &tmp_loc, NULL);
         }
 
         ret = 0;
