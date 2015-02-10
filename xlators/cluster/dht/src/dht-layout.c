@@ -69,6 +69,7 @@ dht_layout_get (xlator_t *this, inode_t *inode)
 {
         dht_conf_t   *conf = NULL;
         dht_layout_t *layout = NULL;
+        int           ret = 0;
 
         conf = this->private;
         if (!conf)
@@ -76,8 +77,8 @@ dht_layout_get (xlator_t *this, inode_t *inode)
 
         LOCK (&conf->layout_lock);
         {
-                dht_inode_ctx_layout_get (inode, this, &layout);
-                if (layout) {
+                ret = dht_inode_ctx_layout_get (inode, this, &layout);
+                if ((!ret) && layout) {
                         layout->ref++;
                 }
         }
@@ -97,13 +98,14 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
         dht_layout_t *old_layout;
 
         conf = this->private;
-        if (!conf)
+        if (!conf || !layout)
                 goto out;
 
         LOCK (&conf->layout_lock);
         {
                 oldret = dht_inode_ctx_layout_get (inode, this, &old_layout);
-                layout->ref++;
+                if (layout)
+                        layout->ref++;
                 dht_inode_ctx_layout_set (inode, this, layout);
         }
         UNLOCK (&conf->layout_lock);
