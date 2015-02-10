@@ -197,6 +197,7 @@ BuildRequires:    libaio-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 BuildRequires:    cmockery2-devel
+BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{!?_without_systemtap:1} )
 BuildRequires:    systemtap-sdt-devel
 %endif
@@ -209,7 +210,6 @@ BuildRequires:    glib2-devel
 %if ( 0%{!?_without_georeplication:1} )
 BuildRequires:    libattr-devel
 %endif
-BuildRequires: userspace-rcu-devel > 0.7
 
 Obsoletes:        hekafs
 Obsoletes:        %{name}-common < %{version}-%{release}
