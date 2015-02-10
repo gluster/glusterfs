@@ -1494,7 +1494,9 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
                 goto out;
         }
 
-        //TODO: Properly handle this peerinfo reference
+        /*
+         *TODO: Properly handle this peerinfo reference
+         */
         peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
         ctx->hostname = gf_strdup (peerinfo->hostname);
         ctx->port = peerinfo->port;

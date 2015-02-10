@@ -45,8 +45,7 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
 
         cds_list_del_rcu (&peerinfo->uuid_list);
 
-        synchronize_rcu (); // This will only be useful once the peerinfo object
-                            // gets protected. But just adding it any way.
+        synchronize_rcu ();
 
         CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
@@ -185,7 +184,7 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
                         gf_log (this->name, GF_LOG_DEBUG,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
-                        found = entry; // Probably should be rcu_dereferenced
+                        found = entry; /* Probably should be rcu_dereferenced */
                         break;
                 }
         }
@@ -605,12 +604,14 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
 
         rcu_read_lock ();
         cds_list_for_each_entry_rcu (peer, &priv->peers, uuid_list) {
-                cds_list_for_each_entry_rcu (tmphost, &peer->hostnames,hostname_list) {
+                cds_list_for_each_entry_rcu (tmphost, &peer->hostnames,
+                                             hostname_list) {
                         if (!strncasecmp (tmphost->hostname, hoststr, 1024)) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "Friend %s found.. state: %d",
                                         tmphost->hostname, peer->state.state);
-                                found = peer; //Probably needs to be dereferenced
+                                found = peer; /* Probably needs to be
+                                                 dereferenced*/
                                 goto unlock;
                         }
                 }
@@ -652,7 +653,8 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
 
         rcu_read_lock ();
         cds_list_for_each_entry_rcu (peer, &conf->peers, uuid_list) {
-                cds_list_for_each_entry_rcu (address, &peer->hostnames, hostname_list) {
+                cds_list_for_each_entry_rcu (address, &peer->hostnames,
+                                             hostname_list) {
                         /* TODO: Cache the resolved addrinfos to improve
                          * performance
                          */
@@ -672,7 +674,7 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                         for (tmp = paddr; tmp != NULL; tmp = tmp->ai_next) {
                                 if (gf_compare_sockaddr (addr->ai_addr,
                                                          tmp->ai_addr)) {
-                                        found = peer; // (de)referenced?
+                                        found = peer; /* (de)referenced? */
                                         break;
                                 }
                         }

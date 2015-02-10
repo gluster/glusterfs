@@ -2912,7 +2912,8 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
 
         if (!peer_list) {
                 rcu_read_lock ();
-                cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
+                                             uuid_list) {
                         glusterd_quorum_count(peerinfo, inquorum_count,
                                                 active_count, out);
                 }
@@ -8675,7 +8676,8 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
                 /* Finding the index of the node-uuid in the peer-list */
                 rcu_read_lock ();
-                cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
+                                             uuid_list) {
                         peer_uuid_str = gd_peer_uuid_str (peerinfo);
                         if (strcmp (peer_uuid_str, node_uuid_str) == 0)
                                 break;
