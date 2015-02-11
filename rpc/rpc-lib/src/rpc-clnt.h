@@ -244,6 +244,9 @@ int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
 void
 rpc_clnt_disable (struct rpc_clnt *rpc);
 
+void
+rpc_clnt_disconnect (struct rpc_clnt *rpc);
+
 char
 rpc_clnt_is_disabled (struct rpc_clnt *rpc);
 

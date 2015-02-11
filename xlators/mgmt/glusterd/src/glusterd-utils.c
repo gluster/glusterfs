@@ -54,6 +54,12 @@
 #include "glusterd-messages.h"
 #include "glusterd-volgen.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-svc-helper.h"
+#include "glusterd-shd-svc.h"
+#include "glusterd-nfs-svc.h"
+#include "glusterd-quotad-svc.h"
+#include "glusterd-snapd-svc.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -3023,7 +3029,7 @@ glusterd_spawn_daemons (void *opaque)
         }
         glusterd_restart_gsyncds (conf);
         glusterd_restart_rebalance (conf);
-        ret = glusterd_restart_snapds (conf);
+        ret = glusterd_snapdsvc_restart ();
 
         return ret;
 }
@@ -3917,6 +3923,7 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
         glusterd_volinfo_t      *temp_volinfo   = NULL;
         glusterd_volinfo_t      *voliter        = NULL;
         xlator_t                *this           = NULL;
+        glusterd_svc_t          *svc            = NULL;
 
         GF_ASSERT (stale_volinfo);
         GF_ASSERT (valid_volinfo);
@@ -3976,7 +3983,10 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                 (void) gf_store_handle_destroy (stale_volinfo->shandle);
                 stale_volinfo->shandle = NULL;
         }
-        (void) glusterd_snapd_stop (stale_volinfo);
+        if (!stale_volinfo->is_snap_volume) {
+                svc = &(stale_volinfo->snapd.svc);
+                (void) svc->manager (svc, stale_volinfo, PROC_START_NO_WAIT);
+        }
         (void) glusterd_volinfo_remove (stale_volinfo);
 
         return 0;
@@ -4039,6 +4049,7 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         xlator_t                *this = NULL;
         glusterd_volinfo_t      *old_volinfo = NULL;
         glusterd_volinfo_t      *new_volinfo = NULL;
+        glusterd_svc_t          *svc         = NULL;
 
         GF_ASSERT (peer_data);
 
@@ -4057,8 +4068,25 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                 goto out;
         }
 
+        ret = glusterd_snapdsvc_init (new_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to initialize "
+                        "snapdsvc for volume %s", new_volinfo->volname);
+                goto out;
+        }
+
         ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
         if (0 == ret) {
+                /* snapdsvc initialization of old_volinfo is also required here
+                 * as glusterd_delete_stale_volume () invokes snapdsvc manager
+                 */
+                ret = glusterd_snapdsvc_init (old_volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to initialize"
+                                " snapdsvc for old volume %s",
+                                old_volinfo->volname);
+                        goto out;
+                }
                 (void) gd_check_and_update_rebalance_info (old_volinfo,
                                                            new_volinfo);
                 (void) glusterd_delete_stale_volume (old_volinfo, new_volinfo);
@@ -4066,8 +4094,10 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         if (glusterd_is_volume_started (new_volinfo)) {
                 (void) glusterd_start_bricks (new_volinfo);
-                if (glusterd_is_snapd_enabled (new_volinfo))
-                        (void) glusterd_snapd_start (new_volinfo, _gf_false);
+                if (glusterd_is_snapd_enabled (new_volinfo)) {
+                        svc = &(new_volinfo->snapd.svc);
+                        (void) svc->start (svc, PROC_START_NO_WAIT);
+                }
         }
 
         ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
@@ -4213,11 +4243,15 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         gf_boolean_t     stale_shd = _gf_false;
         gf_boolean_t     stale_qd  = _gf_false;
         xlator_t        *this      = NULL;
+        glusterd_conf_t *priv      = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (peer_data);
         GF_ASSERT (status);
+
+        priv = this->private;
+        GF_ASSERT (priv);
 
         ret = glusterd_import_global_opts (peer_data);
         if (ret) {
@@ -4247,24 +4281,25 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         }
 
         if (update) {
-                if (glusterd_is_nodesvc_running ("nfs"))
+                if (glusterd_proc_is_running (&(priv->nfs_svc.proc)))
                         stale_nfs = _gf_true;
-                if (glusterd_is_nodesvc_running ("glustershd"))
+                if (glusterd_proc_is_running (&(priv->shd_svc.proc)))
                         stale_shd = _gf_true;
-                if (glusterd_is_nodesvc_running ("quotad"))
+                if (glusterd_proc_is_running (&(priv->quotad_svc.proc)))
                         stale_qd  = _gf_true;
                 ret = glusterd_import_friend_volumes (peer_data);
                 if (ret)
                         goto out;
                 if (_gf_false == glusterd_are_all_volumes_stopped ()) {
-                        ret = glusterd_nodesvcs_handle_graph_change (NULL);
+                        ret = glusterd_svcs_manager (NULL);
                 } else {
                         if (stale_nfs)
-                                glusterd_nfs_server_stop ();
+                                priv->nfs_svc.stop (&(priv->nfs_svc), SIGKILL);
                         if (stale_shd)
-                                glusterd_shd_stop ();
+                                priv->shd_svc.stop (&(priv->shd_svc), SIGTERM);
                         if (stale_qd)
-                                glusterd_quotad_stop ();
+                                priv->quotad_svc.stop (&(priv->quotad_svc),
+                                                       SIGTERM);
                 }
         }
 
@@ -4274,116 +4309,13 @@ out:
         return ret;
 }
 
-void
-glusterd_get_nodesvc_dir (char *server, char *workdir,
-                          char *path, size_t len)
-{
-        GF_ASSERT (len == PATH_MAX);
-        snprintf (path, len, "%s/%s", workdir, server);
-}
-
-void
-glusterd_get_nodesvc_rundir (char *server, char *workdir,
-                             char *path, size_t len)
-{
-        char    dir[PATH_MAX] = {0};
-        GF_ASSERT (len == PATH_MAX);
-
-        glusterd_get_nodesvc_dir (server, workdir, dir, sizeof (dir));
-        snprintf (path, len, "%s/run", dir);
-}
-
-void
-glusterd_get_nodesvc_pidfile (char *server, char *workdir,
-                              char *path, size_t len)
-{
-        char    dir[PATH_MAX] = {0};
-        GF_ASSERT (len == PATH_MAX);
-
-        glusterd_get_nodesvc_rundir (server, workdir, dir, sizeof (dir));
-        snprintf (path, len, "%s/%s.pid", dir, server);
-}
-
-void
-glusterd_get_nodesvc_volfile (char *server, char *workdir,
-                              char *volfile, size_t len)
-{
-        char  dir[PATH_MAX] = {0,};
-        GF_ASSERT (len == PATH_MAX);
-
-        glusterd_get_nodesvc_dir (server, workdir, dir, sizeof (dir));
-        if (strcmp ("quotad", server) != 0)
-                snprintf (volfile, len, "%s/%s-server.vol", dir, server);
-        else
-                snprintf (volfile, len, "%s/%s.vol", dir, server);
-}
-
-void
-glusterd_nodesvc_set_online_status (char *server, gf_boolean_t status)
-{
-        glusterd_conf_t *priv = NULL;
-
-        GF_ASSERT (server);
-        priv = THIS->private;
-        GF_ASSERT (priv);
-        GF_ASSERT (priv->shd);
-        GF_ASSERT (priv->nfs);
-        GF_ASSERT (priv->quotad);
-
-        if (!strcmp("glustershd", server))
-                priv->shd->online = status;
-        else if (!strcmp ("nfs", server))
-                priv->nfs->online = status;
-        else if (!strcmp ("quotad", server))
-                priv->quotad->online = status;
-}
-
-gf_boolean_t
-glusterd_is_nodesvc_online (char *server)
-{
-        glusterd_conf_t *conf = NULL;
-        gf_boolean_t    online = _gf_false;
-
-        GF_ASSERT (server);
-        conf = THIS->private;
-        GF_ASSERT (conf);
-        GF_ASSERT (conf->shd);
-        GF_ASSERT (conf->nfs);
-        GF_ASSERT (conf->quotad);
-
-        if (!strcmp (server, "glustershd"))
-                online = conf->shd->online;
-        else if (!strcmp (server, "nfs"))
-                online = conf->nfs->online;
-        else if (!strcmp (server, "quotad"))
-                online = conf->quotad->online;
-
-        return online;
-}
-
-int32_t
-glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
-                                      char *socketpath, int len)
-{
-        char                    sockfilepath[PATH_MAX] = {0,};
-
-        snprintf (sockfilepath, sizeof (sockfilepath), "%s/run-%s",
-                  rundir, uuid_utoa (uuid));
-
-        glusterd_set_socket_filepath (sockfilepath, socketpath, len);
-        return 0;
-}
-
 struct rpc_clnt*
 glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
 {
         struct rpc_clnt *rpc = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
-        nodesrv_t               *shd       = NULL;
         glusterd_volinfo_t      *volinfo   = NULL;
-        nodesrv_t               *nfs       = NULL;
-        nodesrv_t               *quotad    = NULL;
-        glusterd_snapd_t        *snapd     = NULL;
+        glusterd_svc_t          *svc       = NULL;
 
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node, out);
         GF_VALIDATE_OR_GOTO (THIS->name, pending_node->node, out);
@@ -4392,283 +4324,24 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
                 brickinfo = pending_node->node;
                 rpc       = brickinfo->rpc;
 
-        } else if (pending_node->type == GD_NODE_SHD) {
-                shd       = pending_node->node;
-                rpc       = shd->rpc;
-
+        } else if (pending_node->type == GD_NODE_SHD ||
+                   pending_node->type == GD_NODE_NFS ||
+                   pending_node->type == GD_NODE_QUOTAD) {
+                svc = pending_node->node;
+                rpc = svc->conn.rpc;
         } else if (pending_node->type == GD_NODE_REBALANCE) {
                 volinfo = pending_node->node;
                 if (volinfo->rebal.defrag)
                         rpc = volinfo->rebal.defrag->rpc;
-
-        } else if (pending_node->type == GD_NODE_NFS) {
-                nfs = pending_node->node;
-                rpc = nfs->rpc;
-
-        } else if (pending_node->type == GD_NODE_QUOTAD) {
-                quotad = pending_node->node;
-                rpc = quotad->rpc;
         } else if (pending_node->type == GD_NODE_SNAPD) {
-                snapd = pending_node->node;
-                rpc = snapd->rpc;
+                volinfo = pending_node->node;
+                rpc = volinfo->snapd.svc.conn.rpc;
         } else {
                 GF_ASSERT (0);
         }
 
 out:
         return rpc;
-}
-
-struct rpc_clnt*
-glusterd_nodesvc_get_rpc (char *server)
-{
-        glusterd_conf_t *priv   = NULL;
-        struct rpc_clnt *rpc    = NULL;
-
-        GF_ASSERT (server);
-        priv = THIS->private;
-        GF_ASSERT (priv);
-        GF_ASSERT (priv->shd);
-        GF_ASSERT (priv->nfs);
-        GF_ASSERT (priv->quotad);
-
-        if (!strcmp (server, "glustershd"))
-                rpc = priv->shd->rpc;
-        else if (!strcmp (server, "nfs"))
-                rpc = priv->nfs->rpc;
-        else if (!strcmp (server, "quotad"))
-                rpc = priv->quotad->rpc;
-
-        return rpc;
-}
-
-int32_t
-glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc)
-{
-        int             ret   = 0;
-        xlator_t        *this = NULL;
-        glusterd_conf_t *priv = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-        GF_ASSERT (priv->shd);
-        GF_ASSERT (priv->nfs);
-        GF_ASSERT (priv->quotad);
-
-        if (!strcmp ("glustershd", server))
-                priv->shd->rpc = rpc;
-        else if (!strcmp ("nfs", server))
-                priv->nfs->rpc = rpc;
-        else if (!strcmp ("quotad", server))
-                priv->quotad->rpc = rpc;
-
-        return ret;
-}
-
-int32_t
-glusterd_nodesvc_connect (char *server, char *socketpath)
-{
-        int                     ret = 0;
-        dict_t                  *options = NULL;
-        struct rpc_clnt         *rpc = NULL;
-        glusterd_conf_t         *priv = THIS->private;
-
-        rpc = glusterd_nodesvc_get_rpc (server);
-
-        if (rpc == NULL) {
-                /* Setting frame-timeout to 10mins (600seconds).
-                 * Unix domain sockets ensures that the connection is reliable.
-                 * The default timeout of 30mins used for unreliable network
-                 * connections is too long for unix domain socket connections.
-                 */
-                ret = rpc_transport_unix_options_build (&options, socketpath,
-                                                        600);
-                if (ret)
-                        goto out;
-
-                if (!strcmp(server, "glustershd") ||
-                    !strcmp(server, "nfs") ||
-                    !strcmp(server, "quotad")) {
-                        ret = dict_set_str(options, "transport.socket.ignore-enoent", "on");
-                        if (ret)
-                                goto out;
-                }
-
-                ret = glusterd_rpc_create (&rpc, options,
-                                           glusterd_nodesvc_rpc_notify,
-                                           server);
-                if (ret)
-                        goto out;
-                (void) glusterd_nodesvc_set_rpc (server, rpc);
-        }
-out:
-        return ret;
-}
-
-int32_t
-glusterd_nodesvc_disconnect (char *server)
-{
-        struct rpc_clnt         *rpc = NULL;
-        glusterd_conf_t         *priv = THIS->private;
-
-        rpc = glusterd_nodesvc_get_rpc (server);
-        (void)glusterd_nodesvc_set_rpc (server, NULL);
-
-        if (rpc)
-                glusterd_rpc_clnt_unref (priv, rpc);
-
-        return 0;
-}
-
-int32_t
-glusterd_nodesvc_start (char *server, gf_boolean_t wait)
-{
-        int32_t                 ret                        = -1;
-        xlator_t               *this                       = NULL;
-        glusterd_conf_t        *priv                       = NULL;
-        runner_t                runner                     = {0,};
-        char                    pidfile[PATH_MAX]          = {0,};
-        char                    logfile[PATH_MAX]          = {0,};
-        char                    volfile[PATH_MAX]          = {0,};
-        char                    rundir[PATH_MAX]           = {0,};
-        char                    sockfpath[PATH_MAX]        = {0,};
-        char                    *volfileserver             = NULL;
-        char                    volfileid[256]             = {0};
-        char                    glusterd_uuid_option[1024] = {0};
-        char                    valgrind_logfile[PATH_MAX] = {0};
-
-        this = THIS;
-        GF_ASSERT(this);
-
-        priv = this->private;
-
-        glusterd_get_nodesvc_rundir (server, priv->workdir,
-                                     rundir, sizeof (rundir));
-        ret = mkdir (rundir, 0777);
-
-        if ((ret == -1) && (EEXIST != errno)) {
-                gf_log ("", GF_LOG_ERROR, "Unable to create rundir %s",
-                        rundir);
-                goto out;
-        }
-
-        glusterd_get_nodesvc_pidfile (server, priv->workdir,
-                                      pidfile, sizeof (pidfile));
-        glusterd_get_nodesvc_volfile (server, priv->workdir,
-                                      volfile, sizeof (volfile));
-        ret = access (volfile, F_OK);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "%s Volfile %s is not present",
-                        server, volfile);
-                goto out;
-        }
-
-        snprintf (logfile, PATH_MAX, "%s/%s.log", DEFAULT_LOG_FILE_DIRECTORY,
-                  server);
-        snprintf (volfileid, sizeof (volfileid), "gluster/%s", server);
-
-        if (dict_get_str (this->options, "transport.socket.bind-address",
-                          &volfileserver) != 0) {
-                volfileserver = "localhost";
-        }
-
-        glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
-                                              sockfpath, sizeof (sockfpath));
-
-        if (gf_is_service_running(pidfile, NULL))
-                goto connect;
-
-        runinit (&runner);
-
-        if (priv->valgrind) {
-                snprintf (valgrind_logfile, PATH_MAX,
-                          "%s/valgrind-%s.log",
-                          DEFAULT_LOG_FILE_DIRECTORY,
-                          server);
-
-                runner_add_args (&runner, "valgrind", "--leak-check=full",
-                                 "--trace-children=yes", "--track-origins=yes",
-                                 NULL);
-                runner_argprintf (&runner, "--log-file=%s", valgrind_logfile);
-       }
-
-        runner_add_args (&runner, SBIN_DIR"/glusterfs",
-                         "-s", volfileserver,
-                         "--volfile-id", volfileid,
-                         "-p", pidfile,
-                         "-l", logfile,
-                         "-S", sockfpath,
-                         NULL);
-
-        if (!strcmp (server, "glustershd")) {
-                snprintf (glusterd_uuid_option, sizeof (glusterd_uuid_option),
-                          "*replicate*.node-uuid=%s", uuid_utoa (MY_UUID));
-                runner_add_args (&runner, "--xlator-option",
-                                 glusterd_uuid_option, NULL);
-        }
-        if (!strcmp (server, "quotad")) {
-                runner_add_args (&runner, "--xlator-option",
-                                 "*replicate*.data-self-heal=off",
-                                 "--xlator-option",
-                                 "*replicate*.metadata-self-heal=off",
-                                 "--xlator-option",
-                                 "*replicate*.entry-self-heal=off", NULL);
-        }
-        runner_log (&runner, "", GF_LOG_DEBUG,
-                    "Starting the nfs/glustershd services");
-
-        if (!wait) {
-                ret = runner_run_nowait (&runner);
-        } else {
-                synclock_unlock (&priv->big_lock);
-                {
-                        ret = runner_run (&runner);
-                }
-                synclock_lock (&priv->big_lock);
-        }
-connect:
-        if (ret == 0) {
-                glusterd_nodesvc_connect (server, sockfpath);
-        }
-out:
-        return ret;
-}
-
-int
-glusterd_nfs_server_start ()
-{
-        return glusterd_nodesvc_start ("nfs", _gf_false);
-}
-
-int
-glusterd_shd_start ()
-{
-        return glusterd_nodesvc_start ("glustershd", _gf_false);
-}
-
-int
-glusterd_quotad_start ()
-{
-        return glusterd_nodesvc_start ("quotad", _gf_false);
-}
-
-int
-glusterd_quotad_start_wait ()
-{
-        return glusterd_nodesvc_start ("quotad", _gf_true);
-}
-
-gf_boolean_t
-glusterd_is_nodesvc_running (char *server)
-{
-        char                    pidfile[PATH_MAX] = {0,};
-        glusterd_conf_t         *priv = THIS->private;
-
-        glusterd_get_nodesvc_pidfile (server, priv->workdir,
-                                            pidfile, sizeof (pidfile));
-        return gf_is_service_running (pidfile, NULL);
 }
 
 int32_t
@@ -4685,46 +4358,6 @@ glusterd_unlink_file (char *sockfpath)
                                 " error: %s", sockfpath, strerror (errno));
         }
 
-        return ret;
-}
-
-int32_t
-glusterd_nodesvc_unlink_socket_file (char *server)
-{
-        char            sockfpath[PATH_MAX] = {0,};
-        char            rundir[PATH_MAX] = {0,};
-        glusterd_conf_t *priv = THIS->private;
-
-        glusterd_get_nodesvc_rundir (server, priv->workdir,
-                                     rundir, sizeof (rundir));
-
-        glusterd_nodesvc_set_socket_filepath (rundir, MY_UUID,
-                                              sockfpath, sizeof (sockfpath));
-
-        return glusterd_unlink_file (sockfpath);
-}
-
-int32_t
-glusterd_nodesvc_stop (char *server, int sig)
-{
-        char                    pidfile[PATH_MAX] = {0,};
-        glusterd_conf_t         *priv = THIS->private;
-        int                     ret = 0;
-
-        if (!glusterd_is_nodesvc_running (server))
-                goto out;
-
-        (void)glusterd_nodesvc_disconnect (server);
-
-        glusterd_get_nodesvc_pidfile (server, priv->workdir,
-                                      pidfile, sizeof (pidfile));
-        ret = glusterd_service_stop (server, pidfile, sig, _gf_true);
-
-        if (ret == 0) {
-                glusterd_nodesvc_set_online_status (server, _gf_false);
-                (void)glusterd_nodesvc_unlink_socket_file (server);
-        }
-out:
         return ret;
 }
 
@@ -4763,50 +4396,37 @@ glusterd_nfs_pmap_deregister ()
 }
 
 int
-glusterd_nfs_server_stop ()
-{
-        int                     ret = 0;
-        gf_boolean_t            deregister = _gf_false;
-
-        if (glusterd_is_nodesvc_running ("nfs"))
-                deregister = _gf_true;
-        ret = glusterd_nodesvc_stop ("nfs", SIGKILL);
-        if (ret)
-                goto out;
-        if (deregister)
-                glusterd_nfs_pmap_deregister ();
-out:
-        return ret;
-}
-
-int
-glusterd_shd_stop ()
-{
-        return glusterd_nodesvc_stop ("glustershd", SIGTERM);
-}
-
-int
-glusterd_quotad_stop ()
-{
-        return glusterd_nodesvc_stop ("quotad", SIGTERM);
-}
-
-int
 glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                            dict_t *vol_opts)
 {
-        int                     ret = -1;
-        glusterd_conf_t         *priv = THIS->private;
+        int                     ret               = -1;
         char                    pidfile[PATH_MAX] = {0,};
-        gf_boolean_t            running = _gf_false;
-        int                     pid = -1;
-        int                     port = 0;
-        char                    key[1024] = {0,};
+        gf_boolean_t            running           = _gf_false;
+        int                     pid               = -1;
+        int                     port              = 0;
+        glusterd_svc_t         *svc               = NULL;
+        char                    key[1024]         = {0,};
+        xlator_t               *this              = NULL;
+        glusterd_conf_t        *priv              = NULL;
 
-        glusterd_get_nodesvc_pidfile (server, priv->workdir, pidfile,
-                                      sizeof (pidfile));
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        glusterd_svc_build_pidfile_path (server, priv->workdir, pidfile,
+                                         sizeof (pidfile));
+
+        if (strcmp(server, priv->shd_svc.name) == 0)
+                svc = &(priv->shd_svc);
+        else if (strcmp(server, priv->nfs_svc.name) == 0)
+                svc = &(priv->nfs_svc);
+        else if (strcmp(server, priv->quotad_svc.name) == 0)
+                svc = &(priv->quotad_svc);
+
         //Consider service to be running only when glusterd sees it Online
-        if (glusterd_is_nodesvc_online (server))
+        if (svc->online)
                 running = gf_is_service_running (pidfile, &pid);
 
         /* For nfs-servers/self-heal-daemon setting
@@ -4819,11 +4439,11 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
          * when output.
          */
         snprintf (key, sizeof (key), "brick%d.hostname", count);
-        if (!strcmp (server, "nfs"))
+        if (!strcmp (server, priv->nfs_svc.name))
                 ret = dict_set_str (dict, key, "NFS Server");
-        else if (!strcmp (server, "glustershd"))
+        else if (!strcmp (server, priv->shd_svc.name))
                 ret = dict_set_str (dict, key, "Self-heal Daemon");
-        else if (!strcmp (server, "quotad"))
+        else if (!strcmp (server, priv->quotad_svc.name))
                 ret = dict_set_str (dict, key, "Quota Daemon");
         if (ret)
                 goto out;
@@ -4840,7 +4460,7 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
          * Self-heal daemon doesn't provide any port for access
          * by entities other than gluster.
          */
-        if (!strcmp (server, "nfs")) {
+        if (!strcmp (server, priv->nfs_svc.name)) {
                 if (dict_get (vol_opts, "nfs.port")) {
                         ret = dict_get_int32 (vol_opts, "nfs.port", &port);
                         if (ret)
@@ -4900,210 +4520,6 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
 out:
         GF_FREE (tmp_host);
         return ret;
-}
-
-int
-glusterd_check_generate_start_service (int (*create_volfile) (),
-                                       int (*stop) (), int (*start) ())
-{
-        int ret = -1;
-
-        ret = create_volfile ();
-        if (ret)
-                goto out;
-
-        ret = stop ();
-        if (ret)
-                goto out;
-
-        ret = start ();
-out:
-        return ret;
-}
-
-int
-glusterd_reconfigure_nodesvc (int (*create_volfile) ())
-{
-        int ret = -1;
-
-        ret = create_volfile ();
-        if (ret)
-                goto out;
-
-        ret = glusterd_fetchspec_notify (THIS);
-out:
-        return ret;
-}
-
-int
-glusterd_reconfigure_shd ()
-{
-        int (*create_volfile) () = glusterd_create_shd_volfile;
-        return glusterd_reconfigure_nodesvc (create_volfile);
-}
-
-int
-glusterd_reconfigure_quotad ()
-{
-        return glusterd_reconfigure_nodesvc (glusterd_create_quotad_volfile);
-}
-
-int
-glusterd_reconfigure_nfs ()
-{
-        int             ret             = -1;
-        gf_boolean_t    identical       = _gf_false;
-
-        /*
-         * Check both OLD and NEW volfiles, if they are SAME by size
-         * and cksum i.e. "character-by-character". If YES, then
-         * NOTHING has been changed, just return.
-         */
-        ret = glusterd_check_nfs_volfile_identical (&identical);
-        if (ret)
-                goto out;
-
-        if (identical) {
-                ret = 0;
-                goto out;
-        }
-
-        /*
-         * They are not identical. Find out if the topology is changed
-         * OR just the volume options. If just the options which got
-         * changed, then inform the xlator to reconfigure the options.
-         */
-        identical = _gf_false; /* RESET the FLAG */
-        ret = glusterd_check_nfs_topology_identical (&identical);
-        if (ret)
-                goto out;
-
-        /* Topology is not changed, but just the options. But write the
-         * options to NFS volfile, so that NFS will be reconfigured.
-         */
-        if (identical) {
-                ret = glusterd_create_nfs_volfile();
-                if (ret == 0) {/* Only if above PASSES */
-                        ret = glusterd_fetchspec_notify (THIS);
-                }
-                goto out;
-        }
-
-        /*
-         * NFS volfile's topology has been changed. NFS server needs
-         * to be RESTARTED to ACT on the changed volfile.
-         */
-        ret = glusterd_check_generate_start_nfs ();
-
-out:
-        return ret;
-}
-
-int
-glusterd_check_generate_start_nfs ()
-{
-        int ret = 0;
-
-        ret = glusterd_check_generate_start_service (glusterd_create_nfs_volfile,
-                                                     glusterd_nfs_server_stop,
-                                                     glusterd_nfs_server_start);
-        return ret;
-}
-
-int
-glusterd_check_generate_start_shd ()
-{
-        int ret = 0;
-
-        ret = glusterd_check_generate_start_service (glusterd_create_shd_volfile,
-                                                     glusterd_shd_stop,
-                                                     glusterd_shd_start);
-        if (ret == -EINVAL)
-                ret = 0;
-        return ret;
-}
-
-int
-glusterd_check_generate_start_quotad ()
-{
-        int ret = 0;
-
-        ret = glusterd_check_generate_start_service (glusterd_create_quotad_volfile,
-                                                     glusterd_quotad_stop,
-                                                     glusterd_quotad_start);
-        if (ret == -EINVAL)
-                ret = 0;
-        return ret;
-}
-
-/* Blocking start variant of glusterd_check_generate_start_quotad */
-int
-glusterd_check_generate_start_quotad_wait ()
-{
-        int ret = 0;
-
-        ret = glusterd_check_generate_start_service
-                (glusterd_create_quotad_volfile, glusterd_quotad_stop,
-                 glusterd_quotad_start_wait);
-        if (ret == -EINVAL)
-                ret = 0;
-        return ret;
-}
-
-int
-glusterd_nodesvcs_batch_op (glusterd_volinfo_t *volinfo, int (*nfs_op) (),
-                            int (*shd_op) (), int (*qd_op) ())
- {
-        int     ret = 0;
-        xlator_t *this = THIS;
-        glusterd_conf_t *conf = NULL;
-
-        GF_ASSERT (this);
-        conf = this->private;
-        GF_ASSERT (conf);
-
-        ret = nfs_op ();
-        if (ret)
-                goto out;
-
-        if (volinfo && !glusterd_is_shd_compatible_volume (volinfo)) {
-                ; //do nothing
-        } else {
-                ret = shd_op ();
-                if (ret)
-                        goto out;
-        }
-
-        if (conf->op_version == GD_OP_VERSION_MIN)
-                goto out;
-
-        if (volinfo && !glusterd_is_volume_quota_enabled (volinfo))
-                goto out;
-
-        ret = qd_op ();
-        if (ret)
-                goto out;
-
-out:
-        return ret;
-}
-
-int
-glusterd_nodesvcs_start (glusterd_volinfo_t *volinfo)
-{
-        return glusterd_nodesvcs_batch_op (volinfo,
-                                           glusterd_nfs_server_start,
-                                           glusterd_shd_start,
-                                           glusterd_quotad_start);
-}
-
-int
-glusterd_nodesvcs_stop (glusterd_volinfo_t *volinfo)
-{
-        return glusterd_nodesvcs_batch_op (volinfo,
-                                            glusterd_nfs_server_stop,
-                                            glusterd_shd_stop,
-                                            glusterd_quotad_stop);
 }
 
 gf_boolean_t
@@ -5169,45 +4585,6 @@ glusterd_all_volumes_with_quota_stopped ()
         }
 
         return _gf_true;
-}
-
-
-int
-glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo)
-{
-        int (*shd_op) () = NULL;
-        int (*nfs_op) () = NULL;
-        int (*qd_op)  () = NULL;
-
-        if (volinfo && volinfo->is_snap_volume)
-                return 0;
-
-        shd_op = glusterd_check_generate_start_shd;
-        nfs_op = glusterd_check_generate_start_nfs;
-        qd_op  = glusterd_check_generate_start_quotad;
-        if (glusterd_are_all_volumes_stopped ()) {
-                shd_op = glusterd_shd_stop;
-                nfs_op = glusterd_nfs_server_stop;
-                qd_op  = glusterd_quotad_stop;
-        } else {
-                if (glusterd_all_shd_compatible_volumes_stopped()) {
-                        shd_op = glusterd_shd_stop;
-                }
-                if (glusterd_all_volumes_with_quota_stopped ()) {
-                        qd_op = glusterd_quotad_stop;
-                }
-        }
-
-        return glusterd_nodesvcs_batch_op (volinfo, nfs_op, shd_op, qd_op);
-}
-
-int
-glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo)
-{
-        return glusterd_nodesvcs_batch_op (volinfo,
-                                           glusterd_reconfigure_nfs,
-                                           glusterd_reconfigure_shd,
-                                           glusterd_reconfigure_quotad);
 }
 
 int
@@ -5307,7 +4684,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         glusterd_volinfo_t   *volinfo        = NULL;
         glusterd_brickinfo_t *brickinfo      = NULL;
         glusterd_snap_t      *snap           = NULL;
-        gf_boolean_t          start_nodesvcs = _gf_false;
+        gf_boolean_t          start_svcs     = _gf_false;
         xlator_t             *this           = NULL;
 
         this = THIS;
@@ -5316,7 +4693,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (volinfo->status != GLUSTERD_STATUS_STARTED)
                         continue;
-                start_nodesvcs = _gf_true;
+                start_svcs = _gf_true;
                 gf_log (this->name, GF_LOG_DEBUG, "starting the volume %s",
                         volinfo->volname);
                 list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
@@ -5328,7 +4705,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                         if (volinfo->status != GLUSTERD_STATUS_STARTED)
                                 continue;
-                        start_nodesvcs = _gf_true;
+                        start_svcs = _gf_true;
                         gf_log (this->name, GF_LOG_DEBUG, "starting the snap "
                                 "volume %s", volinfo->volname);
                         list_for_each_entry (brickinfo, &volinfo->bricks,
@@ -5339,8 +4716,8 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 }
         }
 
-        if (start_nodesvcs)
-                glusterd_nodesvcs_handle_graph_change (NULL);
+        if (start_svcs)
+                glusterd_svcs_manager (NULL);
 
         return ret;
 }
@@ -7130,12 +6507,20 @@ int
 glusterd_set_dump_options (char *dumpoptions_path, char *options,
                            int option_cnt)
 {
-        int     ret = 0;
-        char    *dup_options = NULL;
-        char    *option = NULL;
-        char    *tmpptr = NULL;
-        FILE    *fp = NULL;
-        int     nfs_cnt = 0;
+        int              ret         = 0;
+        char            *dup_options = NULL;
+        char            *option      = NULL;
+        char            *tmpptr      = NULL;
+        FILE            *fp          = NULL;
+        int              nfs_cnt     = 0;
+        xlator_t        *this        = NULL;
+        glusterd_conf_t *priv        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
 
         if (0 == option_cnt ||
             (option_cnt == 1 && (!strcmp (options, "nfs ")))) {
@@ -7153,7 +6538,7 @@ glusterd_set_dump_options (char *dumpoptions_path, char *options,
                 dup_options);
         option = strtok_r (dup_options, " ", &tmpptr);
         while (option) {
-                if (!strcmp (option, "nfs")) {
+                if (!strcmp (option, priv->nfs_svc.name)) {
                         if (nfs_cnt > 0) {
                                 unlink (dumpoptions_path);
                                 ret = 0;
@@ -7271,7 +6656,7 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
 
         dup_options = gf_strdup (options);
         option = strtok_r (dup_options, " ", &tmpptr);
-        if (strcmp (option, "nfs")) {
+        if (strcmp (option, conf->nfs_svc.name)) {
                 snprintf (msg, sizeof (msg), "for nfs statedump, options should"
                           " be after the key nfs");
                 *op_errstr = gf_strdup (msg);
@@ -7346,7 +6731,7 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
 
         dup_options = gf_strdup (options);
         option = strtok_r (dup_options, " ", &tmpptr);
-        if (strcmp (option, "quotad")) {
+        if (strcmp (option, conf->quotad_svc.name)) {
                 snprintf (msg, sizeof (msg), "for quotad statedump, options "
                           "should be after the key 'quotad'");
                 *op_errstr = gf_strdup (msg);
@@ -10502,3 +9887,11 @@ glusterd_op_clear_xaction_peers ()
         }
 
 }
+
+gf_boolean_t
+glusterd_is_volume_started (glusterd_volinfo_t  *volinfo)
+{
+        GF_ASSERT (volinfo);
+        return (volinfo->status == GLUSTERD_STATUS_STARTED);
+}
+

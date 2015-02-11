@@ -15,9 +15,10 @@
 
 #include "statedump.h"
 #include "glusterd.h"
+#include "glusterd-shd-svc.h"
+#include "glusterd-quotad-svc.h"
+#include "glusterd-nfs-svc.h"
 #include "glusterd-locks.h"
-
-
 
 static void
 glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
@@ -223,13 +224,13 @@ glusterd_dump_priv (xlator_t *this)
                 gf_proc_dump_write (key, "%d", priv->ping_timeout);
 
                 gf_proc_dump_build_key (key, "glusterd", "shd.online");
-                gf_proc_dump_write (key, "%d", priv->shd->online);
+                gf_proc_dump_write (key, "%d", priv->shd_svc.online);
 
                 gf_proc_dump_build_key (key, "glusterd", "nfs.online");
-                gf_proc_dump_write (key, "%d", priv->nfs->online);
+                gf_proc_dump_write (key, "%d", priv->nfs_svc.online);
 
                 gf_proc_dump_build_key (key, "glusterd", "quotad.online");
-                gf_proc_dump_write (key, "%d", priv->quotad->online);
+                gf_proc_dump_write (key, "%d", priv->quotad_svc.online);
 
                 GLUSTERD_DUMP_PEERS (&priv->peers, uuid_list, _gf_false);
                 GLUSTERD_DUMP_PEERS (&priv->xaction_peers, op_peers_list,

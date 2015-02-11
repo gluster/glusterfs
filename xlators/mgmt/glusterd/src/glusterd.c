@@ -38,6 +38,11 @@
 #include "glusterd-hooks.h"
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-shd-svc.h"
+#include "glusterd-nfs-svc.h"
+#include "glusterd-quotad-svc.h"
+#include "glusterd-snapd-svc.h"
 #include "common-utils.h"
 #include "glusterd-geo-rep.h"
 #include "run.h"
@@ -1175,6 +1180,47 @@ out:
         return ret;
 }
 
+static int
+glusterd_svc_init_all ()
+{
+        int                 ret     = -1;
+        xlator_t           *this    = NULL;
+        glusterd_conf_t    *priv    = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        /* Init SHD svc */
+        ret = glusterd_shdsvc_init (&(priv->shd_svc));
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to init shd service");
+                goto out;
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "shd service initialized");
+
+        /* Init NFS svc */
+        ret = glusterd_nfssvc_init (&(priv->nfs_svc));
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to init nfs service");
+                goto out;
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "nfs service initialized");
+
+        /* Init QuotaD svc */
+        ret = glusterd_quotadsvc_init (&(priv->quotad_svc));
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to init quotad "
+                        "service");
+                goto out;
+        }
+        gf_log (THIS->name, GF_LOG_DEBUG, "quotad service initialized");
+
+out:
+        return ret;
+}
 
 /*
  * init - called during glusterd initialization
@@ -1461,14 +1507,6 @@ init (xlator_t *this)
                           gf_gld_mt_glusterd_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-        conf->shd = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
-        GF_VALIDATE_OR_GOTO(this->name, conf->shd, out);
-        conf->nfs = GF_CALLOC (1, sizeof (nodesrv_t), gf_gld_mt_nodesrv_t);
-        GF_VALIDATE_OR_GOTO(this->name, conf->nfs, out);
-        conf->quotad = GF_CALLOC (1, sizeof (nodesrv_t),
-                               gf_gld_mt_nodesrv_t);
-        GF_VALIDATE_OR_GOTO(this->name, conf->quotad, out);
-
         INIT_LIST_HEAD (&conf->peers);
         INIT_LIST_HEAD (&conf->xaction_peers);
         INIT_LIST_HEAD (&conf->volumes);
@@ -1518,7 +1556,6 @@ init (xlator_t *this)
         this->private = conf;
         glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();
-        (void) glusterd_nodesvc_set_online_status ("glustershd", _gf_false);
 
         GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
         if (stat (hooks_dir, &buf)) {
@@ -1545,6 +1582,26 @@ init (xlator_t *this)
                 goto out;
 
         ret = configure_syncdaemon (conf);
+        if (ret)
+                goto out;
+
+        /* Restoring op-version needs to be done before initializing the
+         * services as glusterd_svc_init_common () invokes
+         * glusterd_conn_build_socket_filepath () which uses MY_UUID macro.
+         * MY_UUID generates a new uuid if its not been generated and writes it
+         * in the info file, Since the op-version is not read yet
+         * the default value i.e. 0 will be written for op-version and restore
+         * will fail. This is why restoring op-version needs to happen before
+         * service initialization
+         * */
+        ret = glusterd_restore_op_version (this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to restore op_version");
+                goto out;
+        }
+
+        ret = glusterd_svc_init_all ();
         if (ret)
                 goto out;
 
