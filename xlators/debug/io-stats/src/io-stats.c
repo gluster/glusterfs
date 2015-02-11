@@ -2799,7 +2799,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "reconfigure returning %d", ret);
+        gf_log (this ? this->name : "io-stats",
+                        GF_LOG_DEBUG, "reconfigure returning %d", ret);
         return ret;
 }
 
