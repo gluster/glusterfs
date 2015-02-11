@@ -19,6 +19,8 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
+#include "glusterd-nfs-svc.h"
+#include "glusterd-quotad-svc.h"
 #include "glusterd-volgen.h"
 #include "run.h"
 #include "syscall.h"
@@ -1007,17 +1009,27 @@ glusterd_set_quota_option (glusterd_volinfo_t *volinfo, dict_t *dict,
 static int
 glusterd_quotad_op (int opcode)
 {
-        int ret = -1;
+        int              ret  = -1;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
 
         switch (opcode) {
                 case GF_QUOTA_OPTION_TYPE_ENABLE:
                 case GF_QUOTA_OPTION_TYPE_DISABLE:
 
                         if (glusterd_all_volumes_with_quota_stopped ())
-                                ret = glusterd_quotad_stop ();
+                                ret = glusterd_svc_stop (&(priv->quotad_svc),
+                                                         SIGTERM);
                         else
-                                ret = glusterd_check_generate_start_quotad_wait
-                                        ();
+                                ret = priv->quotad_svc.manager
+                                                (&(priv->quotad_svc), NULL,
+                                                 PROC_START);
                         break;
 
                 default:
@@ -1167,7 +1179,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 if (priv->op_version == GD_OP_VERSION_MIN)
-                        ret = glusterd_check_generate_start_nfs ();
+                        ret = priv->nfs_svc.manager (&(priv->nfs_svc), NULL, 0);
         }
 
         if (rsp_dict && start_crawl == _gf_true)

@@ -12,6 +12,17 @@ function check_readonly()
     return $?
 }
 
+function lookup()
+{
+    ls $1
+    if [ "$?" == "0" ]
+    then
+        echo "Y"
+    else
+        echo "N"
+    fi
+}
+
 cleanup;
 TESTS_EXPECTED_IN_LOOP=10
 
@@ -179,7 +190,9 @@ TEST fd_close $fd3;
 # test 73
 TEST $CLI volume set $V0 "features.snapshot-directory" .history
 
-TEST ls $M0/.history;
+#snapd client might take fraction of time to compare the volfile from glusterd
+#hence a EXPECT_WITHIN is a better choice here
+EXPECT_WITHIN 2 "Y" lookup "$M0/.history";
 
 NUM_SNAPS=$(ls $M0/.history | wc -l);
 

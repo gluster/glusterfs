@@ -21,6 +21,7 @@
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
+#include "glusterd-svc-helper.h"
 #include "run.h"
 #include <sys/signal.h>
 
@@ -1819,7 +1820,7 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+                ret = glusterd_svcs_manager (volinfo);
 
 out:
         return ret;
@@ -2074,7 +2075,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
 
         if (GF_OP_CMD_START == cmd &&
                         volinfo->status == GLUSTERD_STATUS_STARTED) {
-                ret = glusterd_nodesvcs_handle_reconfigure (volinfo);
+                ret = glusterd_svcs_reconfigure (volinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING,
                                "Unable to reconfigure NFS-Server");
@@ -2106,7 +2107,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 }
         } else {
                 if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                        ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+                        ret = glusterd_svcs_manager (volinfo);
         }
 
 out:

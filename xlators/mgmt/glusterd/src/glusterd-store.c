@@ -2021,7 +2021,8 @@ out:
 
         return ret;
 }
-static int
+
+int
 glusterd_restore_op_version (xlator_t *this)
 {
         glusterd_conf_t *conf           = NULL;
@@ -4272,13 +4273,6 @@ glusterd_restore ()
         xlator_t        *this = NULL;
 
         this = THIS;
-
-        ret = glusterd_restore_op_version (this);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to restore op_version");
-                goto out;
-        }
 
         ret = glusterd_store_retrieve_volumes (this, NULL);
         if (ret)

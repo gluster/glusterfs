@@ -11,7 +11,11 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-syncop.c glusterd-hooks.c glusterd-volume-set.c \
 	glusterd-locks.c glusterd-snapshot.c glusterd-mgmt-handler.c \
 	glusterd-mgmt.c glusterd-peer-utils.c glusterd-statedump.c \
-        glusterd-snapshot-utils.c
+        glusterd-snapshot-utils.c glusterd-conn-mgmt.c \
+	glusterd-proc-mgmt.c glusterd-svc-mgmt.c glusterd-shd-svc.c \
+	glusterd-nfs-svc.c glusterd-quotad-svc.c glusterd-svc-helper.c \
+	glusterd-conn-helper.c glusterd-snapd-svc.c glusterd-snapd-svc-helper.c
+
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		     $(top_builddir)/rpc/xdr/src/libgfxdr.la \
@@ -26,7 +30,11 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-pmap.h glusterd-volgen.h glusterd-mountbroker.h \
 	glusterd-syncop.h glusterd-hooks.h glusterd-locks.h \
 	glusterd-mgmt.h glusterd-messages.h glusterd-peer-utils.h \
-	glusterd-statedump.h glusterd-snapshot-utils.h glusterd-geo-rep.h
+	glusterd-statedump.h glusterd-snapshot-utils.h glusterd-geo-rep.h \
+	glusterd-conn-mgmt.h glusterd-conn-helper.h glusterd-proc-mgmt.h \
+	glusterd-svc-mgmt.h glusterd-shd-svc.h glusterd-nfs-svc.h \
+	glusterd-quotad-svc.h glusterd-svc-helper.h glusterd-snapd-svc.h \
+	glusterd-snapd-svc-helper.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \

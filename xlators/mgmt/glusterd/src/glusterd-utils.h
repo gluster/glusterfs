@@ -187,63 +187,10 @@ glusterd_compute_cksum (glusterd_volinfo_t  *volinfo,
                         gf_boolean_t is_quota_conf);
 
 void
-glusterd_get_nodesvc_volfile (char *server, char *workdir,
-                                    char *volfile, size_t len);
-
-gf_boolean_t
-glusterd_is_nodesvc_running ();
-
-gf_boolean_t
-glusterd_is_nodesvc_running ();
-
-void
-glusterd_get_nodesvc_dir (char *server, char *workdir,
-                          char *path, size_t len);
-int32_t
-glusterd_nfs_server_start ();
-
-int32_t
-glusterd_nfs_server_stop ();
-
-int32_t
-glusterd_shd_start ();
-
-int32_t
-glusterd_shd_stop ();
-
-int32_t
-glusterd_quotad_start ();
-
-int32_t
-glusterd_quotad_start_wait ();
-
-int32_t
-glusterd_quotad_stop ();
-
-void
 glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len);
-
-int32_t
-glusterd_nodesvc_set_socket_filepath (char *rundir, uuid_t uuid,
-                                      char *socketpath, int len);
 
 struct rpc_clnt*
 glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node);
-
-struct rpc_clnt*
-glusterd_nodesvc_get_rpc (char *server);
-
-int32_t
-glusterd_nodesvc_set_rpc (char *server, struct rpc_clnt *rpc);
-
-int32_t
-glusterd_nodesvc_connect (char *server, char *socketpath);
-
-void
-glusterd_nodesvc_set_online_status (char *server, gf_boolean_t status);
-
-gf_boolean_t
-glusterd_is_nodesvc_online (char *server);
 
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
@@ -253,29 +200,6 @@ glusterd_import_friend_volumes (dict_t *peer_data);
 void
 glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
                             glusterd_volume_status status);
-int
-glusterd_check_generate_start_nfs (void);
-
-int
-glusterd_check_generate_start_shd (void);
-
-int
-glusterd_check_generate_start_quotad (void);
-
-int
-glusterd_check_generate_start_quotad_wait (void);
-
-int
-glusterd_nodesvcs_handle_graph_change (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_nodesvcs_handle_reconfigure (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_nodesvcs_start (glusterd_volinfo_t *volinfo);
-
-int
-glusterd_nodesvcs_stop (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_volume_count_get (void);
@@ -635,9 +559,6 @@ glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo);
 gf_boolean_t
 glusterd_all_volumes_with_quota_stopped ();
 
-int
-glusterd_reconfigure_quotad ();
-
 void
 glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo);
 
@@ -754,4 +675,18 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
 
 gf_boolean_t
 glusterd_is_shd_compatible_volume (glusterd_volinfo_t *volinfo);
+
+
+gf_boolean_t
+glusterd_are_all_volumes_stopped ();
+
+gf_boolean_t
+glusterd_all_shd_compatible_volumes_stopped ();
+
+void
+glusterd_nfs_pmap_deregister ();
+
+gf_boolean_t
+glusterd_is_volume_started (glusterd_volinfo_t  *volinfo);
+
 #endif

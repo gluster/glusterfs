@@ -21,6 +21,9 @@
 #include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-svc-helper.h"
+#include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
 #include "run.h"
 #include "syscall.h"
@@ -668,12 +671,20 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *src_brickinfo,
                       int activate_pump)
 {
-        int                     ret = 0;
+        int              ret  = 0;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
 
         gf_log ("", GF_LOG_DEBUG,
                 "Attempting to kill src");
 
-        ret = glusterd_nfs_server_stop (volinfo);
+        ret = priv->nfs_svc.stop (&(priv->nfs_svc), SIGKILL);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to stop nfs, ret: %d",
@@ -717,7 +728,7 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
         }
 
 out:
-        ret = glusterd_nfs_server_start (volinfo);
+        ret = priv->nfs_svc.start (&(priv->nfs_svc), PROC_START_NO_WAIT);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to start nfs, ret: %d",
                         ret);
@@ -1771,7 +1782,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                         }
                 }
 
-                ret = glusterd_nodesvcs_stop (volinfo);
+                ret = glusterd_svcs_stop (volinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to stop nfs server, ret: %d", ret);
@@ -1783,13 +1794,13 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 			gf_log (this->name, GF_LOG_CRITICAL, "Unable to add "
 				"dst-brick: %s to volume: %s", dst_brick,
                                 volinfo->volname);
-		        (void) glusterd_nodesvcs_handle_graph_change (volinfo);
+		        (void) glusterd_svcs_manager (volinfo);
 			goto out;
 		}
 
 		volinfo->rebal.defrag_status = 0;
 
-		ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+		ret = glusterd_svcs_manager (volinfo);
 		if (ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Failed to generate nfs volume file");

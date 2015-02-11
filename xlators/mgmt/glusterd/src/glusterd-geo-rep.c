@@ -21,6 +21,7 @@
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
+#include "glusterd-svc-helper.h"
 #include "run.h"
 #include "syscall.h"
 
@@ -3903,7 +3904,7 @@ glusterd_marker_changelog_create_volfile (glusterd_volinfo_t *volinfo)
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+                ret = glusterd_svcs_manager (volinfo);
         ret = 0;
 out:
         return ret;
