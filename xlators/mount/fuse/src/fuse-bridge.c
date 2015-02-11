@@ -4095,6 +4095,11 @@ fuse_first_lookup (xlator_t *this)
 
         dict = dict_new ();
         frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to create frame");
+                return -1;
+        }
+
         frame->root->type = GF_OP_TYPE_FOP;
 
         xl = priv->active_subvol;
