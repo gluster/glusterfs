@@ -1641,8 +1641,8 @@ glusterd_cluster_lock (call_frame_t *frame, xlator_t *this,
                                        this, glusterd_cluster_lock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
+                gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+                return ret;
 }
 
 int32_t
@@ -1822,7 +1822,9 @@ glusterd_cluster_unlock (call_frame_t *frame, xlator_t *this,
                                        this, glusterd_cluster_unlock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this ? this->name : "glusterd",
+                GF_LOG_DEBUG, "Returning %d", ret);
+
         return ret;
 }
 
@@ -1880,7 +1882,9 @@ out:
         if ((_gf_true == is_alloc) && req.buf.buf_val)
                 GF_FREE (req.buf.buf_val);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_log (this ? this->name : "glusterd",
+                GF_LOG_DEBUG, "Returning %d", ret);
+
         return ret;
 }
 
@@ -2193,7 +2197,10 @@ out:
                                              txn_id, data);
                 opinfo.op_ret = ret;
         }
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        gf_log (this ? this->name : "glusterd",
+                GF_LOG_DEBUG, "Returning %d", ret);
+
         return ret;
 }
 
