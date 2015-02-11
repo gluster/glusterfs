@@ -49,6 +49,12 @@ typedef enum {
         GF_CLIENT_OTHER
 } glusterd_client_type_t;
 
+struct volgen_graph {
+        char **errstr;
+        glusterfs_graph_t graph;
+};
+typedef struct volgen_graph volgen_graph_t;
+
 #define COMPLETE_OPTION(key, completion, ret)                           \
         do {                                                            \
                 if (!strchr (key, '.')) {                               \
@@ -120,6 +126,18 @@ struct volopt_map_entry {
 };
 
 int
+glusterd_snapdsvc_create_volfile (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
+                                    glusterd_volinfo_t *volinfo);
+
+int
+glusterd_create_global_volfile (int (*builder) (volgen_graph_t *graph,
+                                                dict_t *set_dict),
+                                char *filepath, dict_t  *mod_dict);
+
+int
 glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 
@@ -132,19 +150,17 @@ glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo);
 void
 glusterd_get_nfs_filepath (char *filename);
 
-void glusterd_get_shd_filepath (char *filename);
+void
+glusterd_get_shd_filepath (char *filename);
 
 int
-glusterd_create_nfs_volfile ();
+build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict);
 
 int
-glusterd_create_shd_volfile ();
+build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict);
 
 int
-glusterd_create_quotad_volfile ();
-
-int
-glusterd_create_snapd_volfile (glusterd_volinfo_t *volinfo);
+build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict);
 
 int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,

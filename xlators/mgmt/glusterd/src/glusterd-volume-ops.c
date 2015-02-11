@@ -29,6 +29,10 @@
 #include "glusterd-messages.h"
 #include "run.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-svc-helper.h"
+#include "glusterd-shd-svc.h"
+#include "glusterd-snapd-svc.h"
 
 #include <stdint.h>
 #include <sys/socket.h>
@@ -1617,6 +1621,8 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         xlator_t                                *this = NULL;
 
         this = THIS;
+        GF_ASSERT (this);
+
         priv = this->private;
         if (!priv) {
                 ret = -1;
@@ -1704,7 +1710,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                         break;
                 default:
-                        if (!glusterd_is_nodesvc_online("glustershd")){
+                        if (!priv->shd_svc.online) {
                                 ret = -1;
                                 *op_errstr = gf_strdup ("Self-heal daemon is "
                                                 "not running. Check self-heal "
@@ -2133,6 +2139,12 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         volinfo->caps = caps;
 
+        ret = glusterd_snapdsvc_init (volinfo);
+        if (ret) {
+                *op_errstr = gf_strdup ("Failed to initialize snapd service");
+                goto out;
+        }
+
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
                 glusterd_store_delete_volume (volinfo);
@@ -2218,6 +2230,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         glusterd_brickinfo_t       *brickinfo       = NULL;
         xlator_t                   *this            = NULL;
         glusterd_conf_t            *conf            = NULL;
+        glusterd_svc_t             *svc             = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2266,11 +2279,14 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        ret = glusterd_handle_snapd_option (volinfo);
-        if (ret)
-                goto out;
+        if (!volinfo->is_snap_volume) {
+                svc = &(volinfo->snapd.svc);
+                ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
+                if (ret)
+                        goto out;
+        }
 
-        ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+        ret = glusterd_svcs_manager (volinfo);
 
 out:
         gf_log (this->name, GF_LOG_TRACE, "returning %d ", ret);
@@ -2285,6 +2301,7 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
         char                    mountdir[PATH_MAX]      = {0,};
         char                    pidfile[PATH_MAX]       = {0,};
         xlator_t                *this                   = NULL;
+        glusterd_svc_t          *svc                    = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2326,11 +2343,14 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
                                 mountdir, strerror (errno));
         }
 
-        ret = glusterd_handle_snapd_option (volinfo);
-        if (ret)
-                goto out;
+        if (!volinfo->is_snap_volume) {
+                svc = &(volinfo->snapd.svc);
+                ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
+                if (ret)
+                        goto out;
+        }
 
-        ret = glusterd_nodesvcs_handle_graph_change (volinfo);
+        ret = glusterd_svcs_manager (volinfo);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to notify graph "
                         "change for %s volume", volinfo->volname);

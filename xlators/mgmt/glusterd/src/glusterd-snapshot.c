@@ -55,6 +55,7 @@
 #include "glusterd-mgmt.h"
 #include "glusterd-syncop.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-snapd-svc.h"
 
 #include "glusterfs3.h"
 
@@ -8208,6 +8209,14 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
 
         /* Use the same version as the original version */
         new_volinfo->version = orig_vol->version;
+
+        /* Initialize the snapd service */
+        ret = glusterd_snapdsvc_init (new_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to initialize snapd "
+                        "service for volume %s", orig_vol->volname);
+                goto out;
+        }
 
         /* Copy the snap vol info to the new_volinfo.*/
         ret = glusterd_snap_volinfo_restore (dict, rsp_dict, new_volinfo,
