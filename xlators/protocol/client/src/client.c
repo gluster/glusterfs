@@ -2560,20 +2560,15 @@ out:
 }
 
 int
-client_check_event_threads (xlator_t *this, dict_t *options, clnt_conf_t *conf)
+client_check_event_threads (xlator_t *this, clnt_conf_t *conf, int32_t old,
+                            int32_t new)
 {
-        int          ret = -1;
-        int          eventthreads = 0;
+        if (old == new)
+                return 0;
 
-        /* Read event-threads from the new configuration */
-        ret = dict_get_int32 (options, "event-threads", &eventthreads);
-        if (!ret) {
-                conf->event_threads = eventthreads;
-        }
-        ret = event_reconfigure_threads (this->ctx->event_pool,
-                                         conf->event_threads);
-
-        return ret;
+        conf->event_threads = new;
+        return event_reconfigure_threads (this->ctx->event_pool,
+                                          conf->event_threads);
 }
 
 int
@@ -2586,6 +2581,7 @@ reconfigure (xlator_t *this, dict_t *options)
         char        *new_remote_subvol = NULL;
         char        *old_remote_host   = NULL;
         char        *new_remote_host   = NULL;
+        int32_t      new_nthread       = 0;
 
 	conf = this->private;
 
@@ -2595,7 +2591,10 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("ping-timeout", conf->opt.ping_timeout,
                           options, int32, out);
 
-        ret = client_check_event_threads (this, options, conf);
+        GF_OPTION_RECONF ("event-threads", new_nthread, options,
+                          int32, out);
+        ret = client_check_event_threads (this, conf, conf->event_threads,
+                                          new_nthread);
         if (ret)
                 goto out;
 
@@ -2679,7 +2678,8 @@ init (xlator_t *this)
 
         /* Set event threads to the configured default */
         GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
-        ret = client_check_event_threads (this, this->options, conf);
+        ret = client_check_event_threads (this, conf, STARTING_EVENT_THREADS,
+                                          conf->event_threads);
         if (ret)
                 goto out;
 

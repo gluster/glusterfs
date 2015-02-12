@@ -675,21 +675,15 @@ out:
 }
 
 int
-server_check_event_threads (xlator_t *this, dict_t *options,
-                            server_conf_t *conf)
+server_check_event_threads (xlator_t *this, server_conf_t *conf, int32_t old,
+                            int32_t new)
 {
-        int              ret = -1;
-        int              eventthreads = 0;
+        if (old == new)
+                return 0;
 
-        /* Read event-threads from the new configuration */
-        ret = dict_get_int32 (options, "event-threads", &eventthreads);
-        if (!ret) {
-                conf->event_threads = eventthreads;
-        }
-        ret = event_reconfigure_threads (this->ctx->event_pool,
-                                         conf->event_threads);
-
-        return ret;
+        conf->event_threads = new;
+        return event_reconfigure_threads (this->ctx->event_pool,
+                                          conf->event_threads);
 }
 
 int
@@ -705,6 +699,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int                       ret = 0;
         char                     *statedump_path = NULL;
         xlator_t                 *xl     = NULL;
+        int32_t                   new_nthread = 0;
 
         conf = this->private;
 
@@ -811,7 +806,9 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
-        ret = server_check_event_threads (this, options, conf);
+        GF_OPTION_RECONF ("event-threads", new_nthread, options, int32, out);
+        ret = server_check_event_threads (this, conf, conf->event_threads,
+                                          new_nthread);
         if (ret)
                 goto out;
 
@@ -876,7 +873,8 @@ init (xlator_t *this)
 
          /* Set event threads to the configured default */
         GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
-        ret = server_check_event_threads (this, this->options, conf);
+        ret = server_check_event_threads (this, conf, STARTING_EVENT_THREADS,
+                                          conf->event_threads);
         if (ret)
                 goto out;
 
