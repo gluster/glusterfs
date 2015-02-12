@@ -24,6 +24,7 @@
 #include "syscall.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-messages.h"
 #include "glusterd-store.h"
 #include "glusterd-volgen.h"
 #include "glusterd-snapd-svc.h"
@@ -1185,6 +1186,67 @@ out:
         return ret;
 }
 
+/*
+ * This function will set boolean "conflict" to true if peer snap
+ * has a version greater than snap version of local node. Otherwise
+ * boolean "conflict" will be set to false.
+ */
+int
+glusterd_check_peer_has_higher_snap_version (dict_t *peer_data,
+                               char *peer_snap_name, int volcount,
+                               gf_boolean_t *conflict, char *prefix,
+                               glusterd_snap_t *snap, char *hostname)
+{
+        glusterd_volinfo_t      *snap_volinfo = NULL;
+        char                     key[256]     = {0};
+        int                      version      = 0, i = 0;
+        int                      ret          = 0;
+        xlator_t                *this         = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (snap);
+        GF_ASSERT (peer_data);
+
+        for (i = 1; i <= volcount; i++) {
+                snprintf (key, sizeof (key), "%s%d.version", prefix, i);
+                ret = dict_get_int32 (peer_data, key, &version);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "failed to get "
+                                "version of snap volume = %s", peer_snap_name);
+                        return -1;
+                }
+
+               /* TODO : As of now there is only one volume in snapshot.
+                * Change this when multiple volume snapshot is introduced
+                */
+               snap_volinfo = cds_list_entry (snap->volumes.next,
+                                          glusterd_volinfo_t, vol_list);
+               if (!snap_volinfo) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_GET_FAIL, "Failed to get snap "
+                                "volinfo %s", snap->snapname);
+                   return -1;
+               }
+
+               if (version > snap_volinfo->version) {
+                        /* Mismatch detected */
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                 GD_MSG_VOL_VERS_MISMATCH,
+                                "Version of volume %s differ. "
+                                "local version = %d, remote version = %d "
+                                "on peer %s", snap_volinfo->volname,
+                                snap_volinfo->version, version, hostname);
+                        *conflict = _gf_true;
+                        break;
+                } else {
+                        *conflict = _gf_false;
+                }
+        }
+        return 0;
+}
+
 /* Check for the peer_snap_name in the list of existing snapshots.
  * If a snap exists with the same name and a different snap_id, then
  * there is a conflict. Set conflict as _gf_true, and snap to the
@@ -1383,8 +1445,6 @@ glusterd_gen_snap_volfiles (glusterd_volinfo_t *snap_vol, char *peer_snap_name)
 
         glusterd_list_add_snapvol (parent_volinfo, snap_vol);
 
-        snap_vol->status = GLUSTERD_STATUS_STARTED;
-
         ret = glusterd_store_volinfo (snap_vol, GLUSTERD_VOLINFO_VER_AC_NONE);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1531,6 +1591,11 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                                 "for snap %s", peer_snap_name);
                         goto out;
                 }
+                if (glusterd_is_volume_started (snap_vol)) {
+                        (void) glusterd_start_bricks (snap_vol);
+                } else {
+                        (void) glusterd_stop_bricks(snap_vol);
+                }
 
                 ret = glusterd_import_quota_conf (peer_data, i,
                                                   snap_vol, prefix);
@@ -1584,17 +1649,19 @@ out:
  * Step  4: As there is a conflict, check if both the peer and the local nodes
  *          are hosting bricks. Based on the results perform the following:
  *          Peer Hosts Bricks    Local Node Hosts Bricks       Action
- *                Yes                     Yes                Goto Step 7
- *                No                      No                 Goto Step 7
- *                Yes                     No                 Goto Step 8
- *                No                      Yes                Goto Step 6
+ *                Yes                     Yes                Goto Step 8
+ *                No                      No                 Goto Step 8
+ *                Yes                     No                 Goto Step 9
+ *                No                      Yes                Goto Step 7
  * Step  5: Check if the local node is missing the peer's data.
- *          If yes, goto step 9.
- * Step  6: It's a no-op. Goto step 10
- * Step  7: Peer Reject. Goto step 10
- * Step  8: Delete local node's data.
- * Step  9: Accept Peer Data.
- * Step 10: Stop
+ *          If yes, goto step 10.
+ * Step  6: Check if the snap volume version is lesser than peer_data
+ *          if yes goto step 9
+ * Step  7: It's a no-op. Goto step 11
+ * Step  8: Peer Reject. Goto step 11
+ * Step  9: Delete local node's data.
+ * Step 10: Accept Peer Data.
+ * Step 11: Stop
  *
  */
 int32_t
@@ -1611,7 +1678,10 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         gf_boolean_t      is_local         = _gf_false;
         gf_boolean_t      is_hosted        = _gf_false;
         gf_boolean_t      missed_delete    = _gf_false;
+        gf_boolean_t      remove_lvm       = _gf_true;
+
         int32_t           ret              = -1;
+        int32_t           volcount         = 0;
         xlator_t         *this             = NULL;
 
         this = THIS;
@@ -1643,6 +1713,15 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
+        snprintf (buf, sizeof(buf), "%s.volcount", prefix);
+        ret = dict_get_int32 (peer_data, buf, &volcount);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volcount for snap %s",
+                        peer_snap_name);
+                goto out;
+        }
+
         /* Check if the peer has missed a snap delete or restore
          * resulting in stale data for the snap in question
          */
@@ -1664,17 +1743,42 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         glusterd_is_peer_snap_conflicting (peer_snap_name, peer_snap_id,
                                            &conflict, &snap, peername);
         if (conflict == _gf_false) {
-                if (snap) {
+                if (!snap) {
                         /* Peer has snap with the same snapname
-                         * and snap_id. No need to accept peer data
+                        * and snap_id, which local node doesn't have.
+                        */
+                        goto accept_peer_data;
+                }
+                /* Peer has snap with the same snapname
+                 * and snap_id. Now check if peer has a
+                 * snap with higher snap version than local
+                 * node has.
+                 */
+                ret = glusterd_check_peer_has_higher_snap_version (peer_data,
+                                                    peer_snap_name, volcount,
+                                                    &conflict, prefix, snap,
+                                                    peername);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_VOL_VERS_MISMATCH, "Failed "
+                                "to check version of snap volume");
+                        goto out;
+                }
+                if (conflict == _gf_true) {
+                        /*
+                         * Snap version of peer is higher than snap
+                         * version of local node.
+                         *
+                         * Remove data in local node and accept peer data.
+                         * We just need to heal snap info of local node, So
+                         * When removing data from local node, make sure
+                         * we are not removing backend lvm of the snap.
                          */
+                        remove_lvm = _gf_false;
+                        goto remove_my_data;
+                } else {
                         ret = 0;
                         goto out;
-                } else {
-                        /* Peer has snap with the same snapname
-                         * and snap_id, which local node doesn't have.
-                         */
-                        goto accept_peer_data;
                 }
         }
 
@@ -1731,6 +1835,9 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         gf_msg_debug (this->name, 0, "Peer hosts bricks for conflicting "
                 "snap(%s). Removing local data. Accepting peer data.",
                 peer_snap_name);
+        remove_lvm = _gf_true;
+
+remove_my_data:
 
         dict = dict_new();
         if (!dict) {
@@ -1741,7 +1848,7 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
-        ret = glusterd_snap_remove (dict, snap, _gf_true, _gf_false);
+        ret = glusterd_snap_remove (dict, snap, remove_lvm, _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_SNAP_REMOVE_FAIL,

@@ -307,6 +307,33 @@ function snapshot_status()
 }
 
 
+#Check the different status of a particular snapshot
+#Arg1 : <Snap name>
+#Arg2 : <Filed in status>
+#Arg3 : <Expected value>
+function snapshot_snap_status()
+{
+
+    local snap=$1;
+    local cli=$CLI_1;
+    local field=$2;
+    local expected=$3;
+    if [ "$cli" = "" ]; then
+        cli=$CLI
+    fi
+    for i in $($cli snapshot status $snap | grep "$field" | \
+               cut -d ':' -f2 | awk '{print $1}') ;
+    do
+           if [ "$i" != "$expected" ]; then
+                echo "Failed"
+                return 1;
+           fi;
+    done;
+echo "Success"
+return 0;
+}
+
+
 # TODO: Cleanup code duplication
 function volinfo_field()
 {
