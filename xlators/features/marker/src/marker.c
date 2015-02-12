@@ -459,7 +459,7 @@ marker_specific_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        ret = marker_trav_parent (local);
+        ret = (local) ? marker_trav_parent (local) : -1;
 
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "Error occurred "
