@@ -390,7 +390,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                 }
 
                 inode = loc->inode;
-                if (!inode) {
+                if (!inode && parent) {
                         inode = inode_grep (parent->table, parent, name);
                         loc->inode = inode;
                 }
