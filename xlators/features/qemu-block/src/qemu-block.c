@@ -415,24 +415,23 @@ int
 qb_setxattr_common (call_frame_t *frame, xlator_t *this, call_stub_t *stub,
 		    dict_t *xattr, inode_t *inode)
 {
-	data_t *data = NULL;
 
-	if ((data = dict_get (xattr, "trusted.glusterfs.block-format"))) {
+	if (dict_get (xattr, "trusted.glusterfs.block-format")) {
 		qb_setxattr_format (frame, this, stub, xattr, inode);
 		return 0;
 	}
 
-	if ((data = dict_get (xattr, "trusted.glusterfs.block-snapshot-create"))) {
+	if (dict_get (xattr, "trusted.glusterfs.block-snapshot-create")) {
 		qb_setxattr_snapshot_create (frame, this, stub, xattr, inode);
 		return 0;
 	}
 
-	if ((data = dict_get (xattr, "trusted.glusterfs.block-snapshot-delete"))) {
+	if (dict_get (xattr, "trusted.glusterfs.block-snapshot-delete")) {
 		qb_setxattr_snapshot_delete (frame, this, stub, xattr, inode);
 		return 0;
 	}
 
-	if ((data = dict_get (xattr, "trusted.glusterfs.block-snapshot-goto"))) {
+	if (dict_get (xattr, "trusted.glusterfs.block-snapshot-goto")) {
 		qb_setxattr_snapshot_goto (frame, this, stub, xattr, inode);
 		return 0;
 	}
