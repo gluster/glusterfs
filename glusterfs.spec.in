@@ -739,6 +739,14 @@ fi
 # Legacy server
 %_init_enable glusterd
 %_init_enable glusterfsd
+# ".cmd_log_history" is renamed to "cmd_history.log" in GlusterFs-3.7 .
+# While upgrading glusterfs-server package form GlusterFs version <= 3.6 to
+# GlusterFs version 3.7, ".cmd_log_history" should be renamed to
+# "cmd_history.log" to retain cli command history contents.
+if [ -f %{_localstatedir}/log/glusterfs/.cmd_log_history ]; then
+    mv %{_localstatedir}/log/glusterfs/.cmd_log_history \
+       %{_localstatedir}/log/glusterfs/cmd_history.log
+fi
 
 # Genuine Fedora (and EPEL) builds never put gluster files in /etc; if
 # there are any files in /etc from a prior gluster.org install, move them
@@ -1030,6 +1038,10 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Fri Feb 13 2015 Gaurav Kumar Garg <ggarg@redhat.com>
+- .cmd_log_history file should be renamed to cmd_history.log post
+  upgrade (#1165996)
+
 * Fri Jan 30 2015 Nandaja Varma <nvarma@redhat.com>
 - remove checks for rpmbuild/mock from run-tests.sh (#178008)
 
