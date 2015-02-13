@@ -43,10 +43,12 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
         if (!peerinfo)
                 goto out;
 
-        cds_list_del_rcu (&peerinfo->uuid_list);
-
+        /* Synchronize before removing the object from list. The list shouldn't
+         * be changed when someone is in a read critical section
+         */
         synchronize_rcu ();
 
+        cds_list_del_rcu (&peerinfo->uuid_list);
         CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
         ret = glusterd_store_delete_peerinfo (peerinfo);

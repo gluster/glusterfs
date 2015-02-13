@@ -1495,25 +1495,31 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
                 goto out;
         }
 
-        /*
-         *TODO: Properly handle this peerinfo reference
-         */
+        rcu_read_lock ();
+
         peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        if (!peerinfo) {
+                ret = -1;
+                gf_log (THIS->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                        peerctx->peername, uuid_utoa (peerctx->peerid));
+                goto unlock;
+        }
         ctx->hostname = gf_strdup (peerinfo->hostname);
         ctx->port = peerinfo->port;
         ctx->req = peerctx->args.req;
         ctx->dict = peerctx->args.dict;
 
-        event->peerinfo = peerinfo;
+        event->peername = gf_strdup (peerinfo->hostname);
+        uuid_copy (event->peerid, peerinfo->uuid);
         event->ctx = ctx;
 
         ret = glusterd_friend_sm_inject_event (event);
 
-        if (ret) {
+        if (ret)
                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject "
                         "EVENT_CONNECTED ret = %d", ret);
-                goto out;
-        }
+unlock:
+        rcu_read_unlock ();
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);

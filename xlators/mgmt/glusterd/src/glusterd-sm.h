@@ -29,6 +29,7 @@
 #include "rpcsvc.h"
 #include "store.h"
 
+#define _LGPL_SOURCE
 #include <urcu/rculist.h>
 
 typedef enum gd_quorum_contribution_ {
@@ -154,10 +155,11 @@ typedef enum glusterd_friend_update_op_ {
 
 
 struct glusterd_friend_sm_event_ {
-        struct cds_list_head    list;
-        glusterd_peerinfo_t     *peerinfo;
-        void                    *ctx;
-        glusterd_friend_sm_event_type_t event;
+        struct cds_list_head             list;
+        uuid_t                           peerid;
+        char                            *peername;
+        void                            *ctx;
+        glusterd_friend_sm_event_type_t  event;
 };
 
 typedef struct glusterd_friend_sm_event_ glusterd_friend_sm_event_t;

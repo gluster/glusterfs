@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <libgen.h>
 
+#define _LGPL_SOURCE
 #include <urcu-bp.h>
 #include <urcu/rculist.h>
 #ifdef URCU_0_7
