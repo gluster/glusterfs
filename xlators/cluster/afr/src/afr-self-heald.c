@@ -479,8 +479,8 @@ afr_shd_index_sweep (struct subvol_healer *healer)
 			if (ret == -ENOENT || ret == -ESTALE) {
 				afr_shd_index_purge (subvol, fd->inode,
 						     entry->d_name);
-				ret = 0;
 			}
+                        ret = 0;
 		}
 
 		gf_dirent_free (&entries);
@@ -1028,8 +1028,7 @@ afr_shd_gather_index_entries (xlator_t *this, int child, dict_t *output)
 				continue;
 			}
 
-			ret = afr_shd_dict_add_path (this, output, child, path,
-						     NULL);
+			afr_shd_dict_add_path (this, output, child, path, NULL);
 		}
 
 		gf_dirent_free (&entries);
