@@ -569,7 +569,6 @@ optget_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         return 0;
 }
 
-
 /* This getter considers defaults also. */
 static int
 volgen_dict_get (dict_t *dict, char *key, char **value)
@@ -1848,6 +1847,29 @@ out:
 }
 
 static int
+brick_graph_add_upcall (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/upcall", volinfo->volname);
+        if (!xl) {
+                gf_log ("glusterd", GF_LOG_WARNING,
+                        "failed to add features/upcall to graph");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
 brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                          dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2044,6 +2066,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_index, "index"},
         {brick_graph_add_barrier, NULL},
         {brick_graph_add_iot, "io-threads"},
+        {brick_graph_add_upcall, "upcall"},
         {brick_graph_add_pump, NULL},
         {brick_graph_add_locks, "locks"},
         {brick_graph_add_acl, "acl"},
