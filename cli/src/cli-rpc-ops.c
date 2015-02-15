@@ -3925,7 +3925,7 @@ out:
 
 int32_t
 gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
-                         void *data)
+                     void *data)
 {
         gf_cli_req                req =  {{0,}};;
         gf_cli_req                status_req =  {{0,}};;
@@ -3933,7 +3933,6 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
         dict_t                   *dict = NULL;
         int32_t                   command = 0;
         char                     *volname = NULL;
-        dict_t                   *req_dict = NULL;
         int32_t                   cmd = 0;
 
         if (!frame || !this ||  !data) {
@@ -3961,25 +3960,12 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
                                        cli_rpc_prog, NULL);
         } else {
                 /* Need rebalance status to be sent :-) */
-                req_dict = dict_new ();
-                if (!req_dict) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_set_str (req_dict, "volname", volname);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to set dict");
-                        goto out;
-                }
-
                 if (command == GF_OP_CMD_STATUS)
                         cmd |= GF_DEFRAG_CMD_STATUS;
                 else
                         cmd |= GF_DEFRAG_CMD_STOP;
 
-                ret = dict_set_int32 (req_dict, "rebalance-command", (int32_t) cmd);
+                ret = dict_set_int32 (dict, "rebalance-command", (int32_t) cmd);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to set dict");
@@ -3988,15 +3974,13 @@ gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
 
                 ret = cli_to_glusterd (&status_req, frame,
                                        gf_cli3_remove_brick_status_cbk,
-                                       (xdrproc_t) xdr_gf_cli_req, req_dict,
+                                       (xdrproc_t) xdr_gf_cli_req, dict,
                                        GLUSTER_CLI_DEFRAG_VOLUME, this,
                                        cli_rpc_prog, NULL);
 
                 }
 
 out:
-        if (req_dict)
-                dict_unref (req_dict);
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
         GF_FREE (req.dict.dict_val);
