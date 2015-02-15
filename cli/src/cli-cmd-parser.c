@@ -1721,9 +1721,11 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         goto out;
         }
 
-        ret = dict_set_int32 (dict, "count", brick_count);
-        if (ret)
-                goto out;
+        if (command != GF_OP_CMD_STATUS && command != GF_OP_CMD_STOP) {
+                ret = dict_set_int32 (dict, "count", brick_count);
+                if (ret)
+                        goto out;
+        }
 
         *options = dict;
 
