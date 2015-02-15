@@ -60,10 +60,14 @@
 /* Registered with portmap */
 #define GF_NLM4_PORT            38468
 #define GF_NLM                  GF_NFS"-NLM"
-#ifdef GF_DARWIN_HOST_OS
+#if defined(GF_DARWIN_HOST_OS)
 #define GF_RPC_STATD_PROG       "/usr/sbin/rpc.statd"
 #define GF_RPC_STATD_PIDFILE    "/var/run/statd.pid"
 #define GF_SM_NOTIFY_PIDFILE    "/var/run/statd.notify.pid"
+#elif defined(__NetBSD__)
+#define GF_RPC_STATD_PROG       "/usr/sbin/rpc.statd"
+#define GF_RPC_STATD_PIDFILE    "/var/run/rpc.statd.pid"
+#define GF_SM_NOTIFY_PIDFILE    "/var/run/inexistant.pid"
 #else
 #define GF_RPC_STATD_PROG       "/sbin/rpc.statd"
 #define GF_RPC_STATD_PIDFILE    "/var/run/rpc.statd.pid"
