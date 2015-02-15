@@ -43,6 +43,15 @@ struct gf_iatt {
         unsigned int       ia_ctime_nsec;
 };
 
+
+struct gfs3_upcall_req {
+        opaque         gfid[16];
+        unsigned int   event_type; /* Upcall event type */
+        unsigned int   flags;  /* or mask of events incase of inotify */
+        unsigned int   expire_time_attr; /* the amount of time which client
+                                          * can cache this entry */
+};
+
 struct gfs3_stat_req {
         opaque gfid[16];
         opaque   xdata<>; /* Extra data */

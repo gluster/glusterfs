@@ -267,4 +267,16 @@ gf_stat_from_iatt (struct gf_iatt *gf_stat, struct iatt *iatt)
 	gf_stat->ia_ctime_nsec = iatt->ia_ctime_nsec ;
 }
 
+static inline void
+gf_proto_upcall_from_upcall (gfs3_upcall_req *gf_up_req,
+                             struct gf_upcall *gf_up_data)
+{
+        if (!gf_up_req || !gf_up_data)
+                return;
+
+        memcpy (gf_up_req->gfid, gf_up_data->gfid, 16);
+        gf_up_req->event_type       = gf_up_data->event_type;
+        gf_up_req->flags            = gf_up_data->flags;
+        gf_up_req->expire_time_attr = gf_up_data->expire_time_attr;
+}
 #endif /* !_GLUSTERFS3_H */

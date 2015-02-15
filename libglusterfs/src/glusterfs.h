@@ -562,6 +562,7 @@ typedef enum {
         GF_EVENT_VOLUME_DEFRAG,
         GF_EVENT_PARENT_DOWN,
         GF_EVENT_VOLUME_BARRIER_OP,
+        GF_EVENT_UPCALL,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
@@ -572,6 +573,14 @@ struct gf_flock {
         off_t        l_len;
         pid_t        l_pid;
         gf_lkowner_t l_owner;
+};
+
+struct gf_upcall {
+        char  *client_uid;
+	char  gfid[16];
+        u_int event_type;
+        u_int flags;
+        u_int expire_time_attr;
 };
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
