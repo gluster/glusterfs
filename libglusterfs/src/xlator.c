@@ -1024,3 +1024,13 @@ glusterd_check_log_level (const char *value)
         return log_level;
 }
 
+int
+xlator_subvolume_count (xlator_t *this)
+{
+        int i = 0;
+        xlator_list_t *list = NULL;
+
+        for (list = this->children; list; list = list->next)
+                i++;
+        return i;
+}

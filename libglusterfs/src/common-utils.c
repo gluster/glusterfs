@@ -3245,6 +3245,29 @@ gf_set_log_ident (cmd_args_t *cmd_args)
 }
 
 int
+gf_thread_cleanup_xint (pthread_t thread)
+{
+        int ret = 0;
+        void *res = NULL;
+
+        ret = pthread_cancel (thread);
+        if (ret != 0)
+                goto error_return;
+
+        ret = pthread_join (thread, &res);
+        if (ret != 0)
+                goto error_return;
+
+        if (res != PTHREAD_CANCELED)
+                goto error_return;
+
+        ret = 0;
+
+ error_return:
+        return ret;
+}
+
+int
 gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
                   void *(*start_routine)(void *), void *arg)
 {

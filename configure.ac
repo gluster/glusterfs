@@ -165,6 +165,7 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/bit-rot/Makefile
                 xlators/features/bit-rot/src/Makefile
                 xlators/features/bit-rot/src/stub/Makefile
+                xlators/features/bit-rot/src/bitd/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
