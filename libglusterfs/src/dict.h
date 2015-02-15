@@ -260,4 +260,8 @@ int
 dict_dump_to_str (dict_t *dict, char *dump, int dumpsize, char *format);
 gf_boolean_t
 dict_match_everything (dict_t *d, char *k, data_t *v, void *data);
+
+dict_t *
+dict_for_key_value (const char *name, const char *value, size_t size);
+
 #endif

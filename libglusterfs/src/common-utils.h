@@ -707,4 +707,8 @@ gf_get_index_by_elem (char **array, char *elem);
 
 int
 glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *local);
+
+int
+gf_thread_cleanup_xint (pthread_t thread);
+
 #endif /* _COMMON_UTILS_H */

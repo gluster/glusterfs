@@ -4164,18 +4164,6 @@ out:
         return;
 }
 
-int
-xlator_subvolume_count (xlator_t *this)
-{
-        int i = 0;
-        xlator_list_t *list = NULL;
-
-        for (list = this->children; list; list = list->next)
-                i++;
-        return i;
-}
-
-
 void
 afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this)
 {

@@ -1,0 +1,20 @@
+xlator_LTLIBRARIES = bit-rot.la
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
+
+bit_rot_la_LDFLAGS = -module -avoid-version
+
+AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+		 -I$(top_srcdir)/rpc/xdr/src/ \
+		 -I$(top_srcdir)/rpc/rpc-lib/src \
+                 -I$(CONTRIBDIR)/timer-wheel \
+                 -I$(top_srcdir)/xlators/features/bit-rot/src/stub
+
+bit_rot_la_SOURCES = bit-rot.c
+bit_rot_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+                    $(top_builddir)/xlators/features/changelog/lib/src/libgfchangelog.la
+
+noinst_HEADERS = bit-rot.h
+
+AM_CFLAGS = -Wall $(GF_CFLAGS)
+
+CLEANFILES =

@@ -133,6 +133,92 @@ out:
         return ret;
 }
 
+/**
+ * Syncop_ftw_throttle can be used in a configurable way to control
+ * the speed at which crawling is done. It takes 2 more arguments
+ * compared to syncop_ftw.
+ * After @count entries are finished in a directory (to be
+ * precise, @count files) sleep for @sleep_time seconds.
+ * If either @count or @sleep_time is <=0, then it behaves similar to
+ * syncop_ftw.
+ */
+int
+syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
+                     int (*fn) (xlator_t *subvol, gf_dirent_t *entry,
+                                loc_t *parent, void *data),
+                     int count, int sleep_time)
+{
+        loc_t       child_loc = {0, };
+        fd_t        *fd       = NULL;
+        uint64_t    offset    = 0;
+        gf_dirent_t *entry    = NULL;
+        int         ret       = 0;
+        gf_dirent_t entries;
+        int         tmp       = 0;
+
+        if (sleep_time <= 0) {
+                ret = syncop_ftw (subvol, loc, pid, data, fn);
+                goto out;
+        }
+
+        ret = syncop_dirfd (subvol, loc, &fd, pid);
+        if (ret)
+                goto out;
+
+        INIT_LIST_HEAD (&entries.list);
+
+        while ((ret = syncop_readdirp (subvol, fd, 131072, offset, 0,
+                                       &entries))) {
+                if (ret < 0)
+                        break;
+
+                if (ret > 0) {
+                        /* If the entries are only '.', and '..' then ret
+                         * value will be non-zero. so set it to zero here. */
+                        ret = 0;
+                }
+
+                tmp = 0;
+
+                list_for_each_entry (entry, &entries.list, list) {
+                        offset = entry->d_off;
+
+                        if (!strcmp (entry->d_name, ".") ||
+                            !strcmp (entry->d_name, ".."))
+                                continue;
+
+                        if (++tmp >= count)
+                                sleep (sleep_time);
+
+                        gf_link_inode_from_dirent (NULL, fd->inode, entry);
+
+                        ret = fn (subvol, entry, loc, data);
+                        if (ret)
+                                continue;
+
+                        if (entry->d_stat.ia_type == IA_IFDIR) {
+                                child_loc.inode = inode_ref (entry->inode);
+                                uuid_copy (child_loc.gfid, entry->inode->gfid);
+                                ret = syncop_ftw_throttle (subvol, &child_loc,
+                                                           pid, data, fn, count,
+                                                           sleep_time);
+                                loc_wipe (&child_loc);
+                                if (ret)
+                                        continue;
+                        }
+                }
+
+                gf_dirent_free (&entries);
+                if (ret)
+                        break;
+        }
+
+out:
+        if (fd)
+                fd_unref (fd);
+        return ret;
+}
+
 int
 syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
                  int (*fn) (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,

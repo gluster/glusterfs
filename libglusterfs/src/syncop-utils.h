@@ -30,4 +30,10 @@ syncop_is_subvol_local (xlator_t *this, loc_t *loc, gf_boolean_t *is_local);
 int
 syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
                      char **path_p);
+
+int
+syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
+                     int (*fn) (xlator_t *subvol, gf_dirent_t *entry,
+                                loc_t *parent, void *data),
+                     int count, int sleep_time);
 #endif /* _SYNCOP_H */

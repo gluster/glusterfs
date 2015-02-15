@@ -2839,27 +2839,6 @@ out:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_flistxattr, 3.4.0);
 
-
-dict_t *
-dict_for_key_value (const char *name, const char *value, size_t size)
-{
-	dict_t *xattr = NULL;
-	int     ret = 0;
-
-	xattr = dict_new ();
-	if (!xattr)
-		return NULL;
-
-	ret = dict_set_static_bin (xattr, (char *)name, (void *)value, size);
-	if (ret) {
-		dict_destroy (xattr);
-		xattr = NULL;
-	}
-
-	return xattr;
-}
-
-
 int
 glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 		      const void *value, size_t size, int flags, int follow)

@@ -989,4 +989,7 @@ glusterfs_leaf_position(xlator_t *tgt);
 int
 glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves);
 
+int
+xlator_subvolume_count (xlator_t *this);
+
 #endif /* _XLATOR_H */
