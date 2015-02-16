@@ -600,6 +600,11 @@ pub_glfs_new (const char *volname)
 
 	INIT_LIST_HEAD (&fs->openfds);
 
+        INIT_LIST_HEAD (&fs->upcall_list);
+        pthread_mutex_init (&fs->upcall_list_mutex, NULL);
+
+        fs->pin_refcnt = 0;
+
 	return fs;
 }
 
@@ -626,6 +631,11 @@ priv_glfs_new_from_ctx (glusterfs_ctx_t *ctx)
 
         INIT_LIST_HEAD (&fs->openfds);
 
+        INIT_LIST_HEAD (&fs->upcall_list);
+        pthread_mutex_init (&fs->upcall_list_mutex, NULL);
+
+        fs->pin_refcnt = 0;
+
         return fs;
 }
 
@@ -635,8 +645,19 @@ GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_new_from_ctx, 3.7.0);
 void
 priv_glfs_free_from_ctx (struct glfs *fs)
 {
+        upcall_entry       *u_list   = NULL;
+        upcall_entry       *tmp      = NULL;
+
         if (!fs)
                 return;
+
+        /* cleanup upcall structures */
+        list_for_each_entry_safe (u_list, tmp,
+                                  &fs->upcall_list,
+                                  upcall_list) {
+                list_del_init (&u_list->upcall_list);
+        }
+        (void) pthread_mutex_destroy (&fs->upcall_list_mutex);
 
         (void) pthread_cond_destroy (&fs->cond);
         (void) pthread_cond_destroy (&fs->child_down_cond);
@@ -906,6 +927,7 @@ pub_glfs_fini (struct glfs *fs)
         int                fs_init = 0;
         int                err = -1;
 
+
         if (!fs) {
                 errno = EINVAL;
                 return 0;
@@ -923,10 +945,24 @@ pub_glfs_fini (struct glfs *fs)
 
         while (countdown--) {
                 /* give some time for background frames to finish */
-                if (!call_pool->cnt)
-                        break;
+                pthread_mutex_lock (&fs->mutex);
+                {
+                        /* Do we need to increase countdown? */
+                        if ((!call_pool->cnt) && (!fs->pin_refcnt)) {
+                                gf_log ("glfs", GF_LOG_ERROR,
+                                        "call_pool_cnt - %ld,"
+                                        "pin_refcnt - %d",
+                                        call_pool->cnt, fs->pin_refcnt);
+
+                                ctx->cleanup_started = 1;
+                                pthread_mutex_unlock (&fs->mutex);
+                                break;
+                        }
+                }
+                pthread_mutex_unlock (&fs->mutex);
                 usleep (100000);
         }
+
         /* leaked frames may exist, we ignore */
 
         /*We deem glfs_fini as successful if there are no pending frames in the call
