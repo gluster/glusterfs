@@ -60,6 +60,22 @@
  * glfs_h_create_from_handle */
 #define GFAPI_HANDLE_LENGTH 16
 
+/* These flags should be in sync to the ones defined in upcall.h */
+#define UP_NLINK   0x00000001   /* update nlink */
+#define UP_MODE    0x00000002   /* update mode and ctime */
+#define UP_OWN     0x00000004   /* update mode,uid,gid and ctime */
+#define UP_SIZE    0x00000008   /* update fsize */
+#define UP_TIMES   0x00000010   /* update all times */
+#define UP_ATIME   0x00000020   /* update atime only */
+#define UP_PERM    0x00000040   /* update fields needed for
+                                   permission checking */
+#define UP_RENAME  0x00000080   /* this is a rename op -
+                                   delete the cache entry */
+
+#define INODE_UPDATE_FLAGS (UP_NLINK | UP_MODE | \
+                            UP_OWN | UP_SIZE | \
+                            UP_TIMES | UP_ATIME)
+
 /* Portability non glibc c++ build systems */
 #ifndef __THROW
 # if defined __cplusplus
@@ -81,6 +97,36 @@ __BEGIN_DECLS
  */
 struct glfs_object;
 typedef struct glfs_object glfs_object_t;
+
+/*
+ * Applications (currently NFS-Ganesha) can make use of this
+ * structure to read upcall notifications sent by server.
+ *
+ * They are responsible for allocating and passing the references
+ * of all the pointers except for "handle".
+ *
+ * After processing the event, they need to free "handle"
+ * TODO: there should be a glfs api to destroy these handles,
+ * maybe "glfs_destroy_object" to free the object.
+ */
+struct callback_arg {
+        struct glfs             *fs; /* glfs object */
+        int                     reason;  /* Upcall event type */
+        struct glfs_object      *handle; /* Handle which need to be acted upon */
+        int                     flags; /* Cache UPDATE/INVALIDATE flags */
+        struct stat             buf; /* Latest stat of this entry */
+        unsigned int            expire_time_attr; /* the amount of time for which
+                                                   * the application need to cache
+                                                   * this entry
+                                                   */
+};
+
+/* reason list in callback_arg */
+enum callback_type {
+        CBK_EVENT_NULL,
+        INODE_INVALIDATE,
+        INODE_UPDATE,
+};
 
 /* Handle based operations */
 /* Operations that generate handles */
@@ -187,6 +233,43 @@ struct glfs_fd *glfs_h_open (struct glfs *fs, struct glfs_object *object,
 int
 glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
         GFAPI_PUBLIC(glfs_h_access, 3.6.0);
+
+/*
+  SYNOPSIS
+
+  glfs_h_poll_upcall: Poll for upcall events given a 'glfs' object.
+
+  DESCRIPTION
+
+  This API is used to poll for upcall events stored in the
+  upcall list. Current users of this API is NFS-Ganesha.
+  Incase of any event received, it will be mapped appropriately
+  into 'callback_arg' along with the handle('glfs_object') to be
+  passed to NFS-Ganesha.
+
+  In case of success, applications need to check the value of
+  cbk->handle to be NON NULL before processing the upcall
+  events.
+
+  PARAMETERS
+
+  @fs: glfs object to poll the upcall events for
+  @cbk: Structure to store upcall events as desired by the application.
+        Application is responsible for allocating and passing the
+        references of all the pointers of this structure except for
+        "handle". In case of any events received, it needs to free
+        "handle"
+
+  RETURN VALUES
+
+  0   : Success.
+  -1  : Error condition, mostly due to out of memory.
+
+*/
+
+int
+glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *cbk) __THROW
+        GFAPI_PUBLIC(glfs_h_poll_upcall, 3.7.0);
 
 __END_DECLS
 

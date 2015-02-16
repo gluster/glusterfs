@@ -108,6 +108,25 @@
 
 struct glfs;
 
+/* This enum should be in sync with
+ * 'upcall_event_type' declared in
+ * 'xlators/features/upcall/src/upcall.h'
+ */
+enum upcall_event_type_t {
+        EVENT_NULL,
+        CACHE_INVALIDATION,
+};
+typedef enum upcall_event_type_t upcall_event_type;
+
+struct _upcall_entry_t {
+        struct list_head  upcall_list;
+        uuid_t            gfid;
+        upcall_event_type event_type;
+        uint32_t          flags;
+        uint32_t          expire_time_attr;
+};
+typedef struct _upcall_entry_t upcall_entry;
+
 typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
 
 struct glfs {
@@ -140,6 +159,11 @@ struct glfs {
 	struct list_head    openfds;
 
 	gf_boolean_t        migration_in_progress;
+
+        struct list_head    upcall_list;
+        pthread_mutex_t     upcall_list_mutex; /* mutex for upcall entry list */
+
+        uint32_t            pin_refcnt;
 };
 
 struct glfs_fd {
@@ -181,6 +205,9 @@ fd_t *glfs_resolve_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd);
 fd_t *__glfs_migrate_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd);
 
 int glfs_first_lookup (xlator_t *subvol);
+
+void glfs_process_upcall_event (struct glfs *fs, void *data);
+        GFAPI_PRIVATE(glfs_process_upcall_event, 3.7.0);
 
 static inline void
 __glfs_entry_fs (struct glfs *fs)

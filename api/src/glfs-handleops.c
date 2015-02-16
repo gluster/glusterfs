@@ -1594,3 +1594,132 @@ out:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 
+/*
+ * This API is used to poll for upcall events stored in the
+ * upcall list. Current users of this API is NFS-Ganesha.
+ * Incase of any event received, it will be mapped appropriately
+ * into 'callback_arg' along with the handle to be passed to
+ * NFS-Ganesha.
+ *
+ * Application is responsible for allocating and passing the
+ * references of all the pointers except for "glhandle".
+ * After processing the event, it needs to free "glhandle"
+ *
+ * TODO: there should be a glfs api to destroy these handles,
+ * maybe "glfs_destroy_object" to free the object.
+ *
+ * Also similar to I/Os, the application should ideally stop polling
+ * before calling glfs_fini(..). Hence making an assumption that
+ * 'fs' & ctx structures cannot be freed while in this routine.
+ */
+int
+pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
+{
+        struct glfs_object  *handle   = NULL;
+        uuid_t              gfid;
+        upcall_entry        *u_list   = NULL;
+        upcall_entry        *tmp      = NULL;
+        xlator_t            *subvol   = NULL;
+        int                 found     = 0;
+        int                 reason    = 0;
+        glusterfs_ctx_t     *ctx      = NULL;
+        int                 ret       = -1;
+
+        if (!fs || !up_arg) {
+                errno = EINVAL;
+                goto err;
+        }
+
+        __glfs_entry_fs (fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+
+        if (!subvol) {
+                errno = EIO;
+                goto err;
+        }
+
+        up_arg->handle = NULL;
+
+        /* Ideally applications should stop polling before calling
+         * 'glfs_fini'. Yet cross check if cleanup has started
+         */
+        pthread_mutex_lock (&fs->mutex);
+        {
+                ctx = fs->ctx;
+
+                if (ctx->cleanup_started) {
+                        pthread_mutex_unlock (&fs->mutex);
+                        goto out;
+                }
+
+                fs->pin_refcnt++;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        pthread_mutex_lock (&fs->upcall_list_mutex);
+        {
+                list_for_each_entry_safe (u_list, tmp,
+                                          &fs->upcall_list,
+                                          upcall_list) {
+                        uuid_copy (gfid, u_list->gfid);
+                        found = 1;
+                        break;
+                }
+        }
+        /* No other thread can delete this entry. So unlock it */
+        pthread_mutex_unlock (&fs->upcall_list_mutex);
+
+        if (found) {
+                handle = glfs_h_create_from_handle (fs, gfid,
+                                                    GFAPI_HANDLE_LENGTH,
+                                                    &up_arg->buf);
+
+                if (!handle) {
+                        errno = ENOMEM;
+                        goto out;
+                }
+
+                switch (u_list->event_type) {
+                case CACHE_INVALIDATION:
+                        if (u_list->flags & (~(INODE_UPDATE_FLAGS))) {
+                                /* Invalidate CACHE */
+                                reason = INODE_INVALIDATE;
+                                gf_log (subvol->name, GF_LOG_DEBUG,
+                                        "Reason - INODE_INVALIDATION");
+                        } else {
+                                reason = INODE_UPDATE;
+                                gf_log (subvol->name, GF_LOG_DEBUG,
+                                        "Reason - INODE_UPDATE");
+                        }
+                        break;
+                default:
+                        break;
+                }
+
+                up_arg->handle = handle;
+                up_arg->reason = reason;
+                up_arg->flags = u_list->flags;
+                up_arg->expire_time_attr = u_list->expire_time_attr;
+
+                list_del_init (&u_list->upcall_list);
+                GF_FREE (u_list);
+        }
+
+        ret = 0;
+
+out:
+        pthread_mutex_lock (&fs->mutex);
+        {
+                fs->pin_refcnt--;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        glfs_subvol_done (fs, subvol);
+
+err:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.0);

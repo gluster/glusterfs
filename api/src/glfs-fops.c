@@ -16,6 +16,7 @@
 #include "glfs.h"
 #include "compat-errno.h"
 #include <limits.h>
+#include "glusterfs3.h"
 
 #ifdef NAME_MAX
 #define GF_NAME_MAX NAME_MAX
@@ -3495,3 +3496,87 @@ out:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_dup, 3.4.0);
 
+/*
+ * This routine is called in case of any notification received
+ * from the server. All the upcall events are queued up in a list
+ * to be read by the applications.
+ *
+ * XXX: Applications may register a cbk function for each 'fs'
+ * which then needs to be called by this routine incase of any
+ * event received. The cbk fn is responsible for notifying the
+ * applications the way it desires for each event queued (for eg.,
+ * can raise a signal or broadcast a cond variable etc.)
+ */
+void
+priv_glfs_process_upcall_event (struct glfs *fs, void *data)
+{
+        int                ret             = -1;
+        inode_t            *inode          = NULL;
+        uuid_t             gfid;
+        upcall_entry       *u_list         = NULL;
+        glusterfs_ctx_t    *ctx            = NULL;
+        struct gf_upcall   *upcall_data    = NULL;
+        struct glfs_object *object         = NULL;
+
+        gf_log (THIS->name, GF_LOG_DEBUG,
+                "Upcall gfapi callback is called");
+
+        if (!fs || !data)
+                goto out;
+
+        /* Unlike in I/O path, "glfs_fini" would not have freed
+         * 'fs' by the time we take lock as it waits for all epoll
+         * threads to exit including this
+         */
+        pthread_mutex_lock (&fs->mutex);
+        {
+                ctx = fs->ctx;
+
+                if (ctx->cleanup_started) {
+                        pthread_mutex_unlock (&fs->mutex);
+                        goto out;
+                }
+
+                fs->pin_refcnt++;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        upcall_data = (struct gf_upcall *)data;
+
+        gf_log (THIS->name, GF_LOG_DEBUG, "Upcall gfapi gfid = %s"
+                "ret = %d", (char *)(upcall_data->gfid), ret);
+
+        memcpy(gfid, (char *)(upcall_data->gfid), 16);
+        u_list = GF_CALLOC (1, sizeof(*u_list),
+                            glfs_mt_upcall_entry_t);
+
+        if (!u_list) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Upcall entry allocation"
+                        "failed.");
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&u_list->upcall_list);
+
+        uuid_copy (u_list->gfid, gfid);
+        u_list->event_type = upcall_data->event_type;
+        u_list->flags = (uint32_t)(upcall_data->flags);
+        u_list->expire_time_attr = upcall_data->expire_time_attr;
+
+        pthread_mutex_lock (&fs->upcall_list_mutex);
+        {
+                list_add_tail (&u_list->upcall_list,
+                               &fs->upcall_list);
+        }
+        pthread_mutex_unlock (&fs->upcall_list_mutex);
+
+        pthread_mutex_lock (&fs->mutex);
+        {
+                fs->pin_refcnt--;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+out:
+        return;
+}
+
+GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_process_upcall_event, 3.7.0);
