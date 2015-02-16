@@ -3752,10 +3752,10 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
                 ret = 0;
 
 out:
-        if (peerinfo->shandle) {
-                gf_store_handle_destroy (peerinfo->shandle);
-                peerinfo->shandle = NULL;
-        }
+        if (peerinfo && peerinfo->shandle) {
+                        gf_store_handle_destroy (peerinfo->shandle);
+                        peerinfo->shandle = NULL;
+                }
         gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
