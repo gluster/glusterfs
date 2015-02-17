@@ -216,6 +216,7 @@ typedef struct {
         int                    keepalive;
         int                    keepaliveidle;
         int                    keepaliveintvl;
+        int                    timeout;
         uint32_t               backlog;
         gf_boolean_t           read_fail_log;
         gf_boolean_t           ssl_enabled;     /* outbound I/O */

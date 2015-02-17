@@ -842,6 +842,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Server xlator options */
+        { .key         = "network.ping-timeout",
+          .voltype     = "protocol/server",
+          .option      = "transport.tcp-user-timeout",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
         { .key         = "network.tcp-window-size",
           .voltype     = "protocol/server",
           .op_version  = 1

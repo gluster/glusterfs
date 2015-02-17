@@ -306,7 +306,7 @@ rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin);
 
 int
 rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
-                                     int32_t time);
+                                     int32_t time, int32_t timeout);
 
 int
 rpc_transport_unix_options_build (dict_t **options, char *filepath,

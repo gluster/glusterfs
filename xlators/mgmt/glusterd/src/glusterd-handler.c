@@ -2994,7 +2994,8 @@ out:
 }
 
 int
-glusterd_transport_keepalive_options_get (int *interval, int *time)
+glusterd_transport_keepalive_options_get (int *interval, int *time,
+                                          int *timeout)
 {
         int     ret = 0;
         xlator_t *this = NULL;
@@ -3008,6 +3009,9 @@ glusterd_transport_keepalive_options_get (int *interval, int *time)
         ret = dict_get_int32 (this->options,
                               "transport.socket.keepalive-time",
                               time);
+        ret = dict_get_int32 (this->options,
+                              "transport.tcp-user-timeout",
+                              timeout);
         return 0;
 }
 
@@ -3018,6 +3022,7 @@ glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
         dict_t  *dict = NULL;
         int32_t interval = -1;
         int32_t time     = -1;
+        int32_t timeout  = -1;
         int     ret = 0;
 
         GF_ASSERT (options);
@@ -3044,10 +3049,11 @@ glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
         }
 
         /* Set keepalive options */
-        glusterd_transport_keepalive_options_get (&interval, &time);
+        glusterd_transport_keepalive_options_get (&interval, &time, &timeout);
 
         if ((interval > 0) || (time > 0))
-                ret = rpc_transport_keepalive_options_set (dict, interval, time);
+                ret = rpc_transport_keepalive_options_set (dict, interval,
+                                                           time, timeout);
         *options = dict;
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
