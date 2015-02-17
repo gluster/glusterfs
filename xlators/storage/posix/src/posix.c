@@ -1734,9 +1734,15 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                                          strlen ("/") +
                                          strlen (gfid_str) + 1);
 
-                mkdir (priv->trash_path, 0755);
-                sprintf (tmp_path, "%s/%s", priv->trash_path, gfid_str);
-                op_ret = rename (real_path, tmp_path);
+                op_ret = mkdir (priv->trash_path, 0755);
+                if (errno != EEXIST && op_ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "mkdir of %s failed: %s", priv->trash_path,
+                                strerror (errno));
+                } else {
+                        sprintf (tmp_path, "%s/%s", priv->trash_path, gfid_str);
+                        op_ret = rename (real_path, tmp_path);
+                }
         } else {
                 op_ret = rmdir (real_path);
         }
