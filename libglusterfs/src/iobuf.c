@@ -50,6 +50,7 @@ gf_iobuf_get_arena_index (size_t page_size)
         return i;
 }
 
+
 size_t
 gf_iobuf_get_pagesize (size_t page_size)
 {
@@ -138,9 +139,14 @@ out:
 
 
 void
-__iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
+__iobuf_arena_destroy (struct iobuf_pool *iobuf_pool,
+                       struct iobuf_arena *iobuf_arena)
 {
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_arena, out);
+
+        if (iobuf_pool->rdma_deregistration)
+                iobuf_pool->rdma_deregistration (iobuf_pool->mr_list,
+                                                 iobuf_arena);
 
         __iobuf_arena_destroy_iobufs (iobuf_arena);
 
@@ -169,6 +175,7 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size,
                 goto err;
 
         INIT_LIST_HEAD (&iobuf_arena->list);
+        INIT_LIST_HEAD (&iobuf_arena->all_list);
         INIT_LIST_HEAD (&iobuf_arena->active.list);
         INIT_LIST_HEAD (&iobuf_arena->passive.list);
         iobuf_arena->iobuf_pool = iobuf_pool;
@@ -188,6 +195,13 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size,
                 goto err;
         }
 
+        if (iobuf_pool->rdma_registration) {
+                iobuf_pool->rdma_registration (iobuf_pool->device,
+                                               iobuf_arena);
+        }
+
+        list_add_tail (&iobuf_arena->all_list, &iobuf_pool->all_arenas);
+
         __iobuf_arena_init_iobufs (iobuf_arena);
         if (!iobuf_arena->iobufs) {
                 gf_log (THIS->name, GF_LOG_ERROR, "init failed");
@@ -199,7 +213,7 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size,
         return iobuf_arena;
 
 err:
-        __iobuf_arena_destroy (iobuf_arena);
+        __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
 
 out:
         return NULL;
@@ -258,8 +272,8 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size,
                 gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
                 return NULL;
         }
+        list_add (&iobuf_arena->list, &iobuf_pool->arenas[index]);
 
-        list_add_tail (&iobuf_arena->list, &iobuf_pool->arenas[index]);
 
         return iobuf_arena;
 }
@@ -299,7 +313,8 @@ iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
                                           &iobuf_pool->arenas[i], list) {
                         list_del_init (&iobuf_arena->list);
                         iobuf_pool->arena_cnt--;
-                        __iobuf_arena_destroy (iobuf_arena);
+
+                        __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
                 }
 
         }
@@ -347,7 +362,7 @@ iobuf_pool_new (void)
                                 gf_common_mt_iobuf_pool);
         if (!iobuf_pool)
                 goto out;
-
+        INIT_LIST_HEAD (&iobuf_pool->all_arenas);
         pthread_mutex_init (&iobuf_pool->mutex, NULL);
         for (i = 0; i <= IOBUF_ARENA_MAX_INDEX; i++) {
                 INIT_LIST_HEAD (&iobuf_pool->arenas[i]);
@@ -356,6 +371,16 @@ iobuf_pool_new (void)
         }
 
         iobuf_pool->default_page_size  = 128 * GF_UNIT_KB;
+
+        iobuf_pool->rdma_registration = NULL;
+        iobuf_pool->rdma_deregistration = NULL;
+
+        for (i = 0; i < GF_RDMA_DEVICE_COUNT; i++) {
+
+                iobuf_pool->device[i] = NULL;
+                iobuf_pool->mr_list[i] = NULL;
+
+        }
 
         arena_size = 0;
         for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
@@ -393,9 +418,10 @@ __iobuf_arena_prune (struct iobuf_pool *iobuf_pool,
 
         /* All cases matched, destroy */
         list_del_init (&iobuf_arena->list);
+        list_del_init (&iobuf_arena->all_list);
         iobuf_pool->arena_cnt--;
 
-        __iobuf_arena_destroy (iobuf_arena);
+        __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
 
 out:
         return;
