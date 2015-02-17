@@ -18,6 +18,7 @@
 #include "glusterfs.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
@@ -200,28 +201,29 @@ int
 glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                  dict_t *rsp_dict)
 {
-        int                                      ret           = 0;
-        int32_t                                  port          = 0;
-        char                                    *src_brick     = NULL;
-        char                                    *dst_brick     = NULL;
-        char                                    *volname       = NULL;
-        int                                      replace_op    = 0;
-        glusterd_volinfo_t                      *volinfo       = NULL;
-        glusterd_brickinfo_t                    *src_brickinfo = NULL;
-        char                                    *host          = NULL;
-        char                                    *path          = NULL;
-        char                                     msg[2048]     = {0};
-        char                                    *dup_dstbrick  = NULL;
-        glusterd_peerinfo_t                     *peerinfo = NULL;
-        glusterd_brickinfo_t                    *dst_brickinfo = NULL;
-        gf_boolean_t                             is_run        = _gf_false;
-        dict_t                                  *ctx           = NULL;
-        glusterd_conf_t                         *priv          = NULL;
-        char                                    *savetok       = NULL;
-        char                                     pidfile[PATH_MAX] = {0};
-        char                                    *task_id_str = NULL;
-        xlator_t                                *this = NULL;
-        gf_boolean_t                            is_force = _gf_false;
+        int                                      ret                = 0;
+        int32_t                                  port               = 0;
+        char                                    *src_brick          = NULL;
+        char                                    *dst_brick          = NULL;
+        char                                    *volname            = NULL;
+        int                                      replace_op         = 0;
+        glusterd_volinfo_t                      *volinfo            = NULL;
+        glusterd_brickinfo_t                    *src_brickinfo      = NULL;
+        char                                    *host               = NULL;
+        char                                    *path               = NULL;
+        char                                     msg[2048]          = {0};
+        char                                    *dup_dstbrick       = NULL;
+        glusterd_peerinfo_t                     *peerinfo           = NULL;
+        glusterd_brickinfo_t                    *dst_brickinfo      = NULL;
+        gf_boolean_t                             enabled            = _gf_false;
+        dict_t                                  *ctx                = NULL;
+        glusterd_conf_t                         *priv               = NULL;
+        char                                    *savetok            = NULL;
+        char                                     pidfile[PATH_MAX]  = {0};
+        char                                    *task_id_str        = NULL;
+        xlator_t                                *this               = NULL;
+        gf_boolean_t                             is_force           = _gf_false;
+        gsync_status_param_t                     param              = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -288,19 +290,10 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = glusterd_check_gsync_running (volinfo, &is_run);
-        if (ret && (is_run == _gf_false))
-                gf_log (this->name, GF_LOG_WARNING, "Unable to get the status"
-                                " of active "GEOREP" session");
-        if (is_run) {
-                gf_log (this->name, GF_LOG_WARNING, GEOREP" sessions active"
-                        "for the volume %s ", volname);
-                snprintf (msg, sizeof(msg), GEOREP" sessions are active "
-                                "for the volume %s.\nStop "GEOREP " sessions "
-                                "involved in this volume. Use 'volume "GEOREP
-                                " status' command for more info.",
-                                volname);
-                *op_errstr = gf_strdup (msg);
+        /* If geo-rep is configured, for this volume, it should be stopped. */
+        param.volinfo = volinfo;
+        ret = glusterd_check_geo_rep_running (&param, op_errstr);
+        if (ret || param.is_active) {
                 ret = -1;
                 goto out;
         }

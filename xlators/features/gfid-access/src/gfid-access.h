@@ -101,7 +101,11 @@ struct __ga_local {
         call_frame_t *orig_frame;
         unsigned int uid;
         unsigned int gid;
-        loc_t loc;
+        loc_t        loc;
+        mode_t       mode;
+        dev_t        rdev;
+        mode_t       umask;
+        dict_t      *xdata;
 };
 typedef struct __ga_local ga_local_t;
 

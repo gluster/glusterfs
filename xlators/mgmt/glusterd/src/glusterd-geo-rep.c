@@ -17,6 +17,7 @@
 #include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
@@ -1327,8 +1328,9 @@ out:
         return ret;
 }
 
-int
-glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag)
+void
+glusterd_check_geo_rep_configured (glusterd_volinfo_t *volinfo,
+                                   gf_boolean_t *flag)
 {
 
         GF_ASSERT (volinfo);
@@ -1339,7 +1341,7 @@ glusterd_check_gsync_running (glusterd_volinfo_t *volinfo, gf_boolean_t *flag)
         else
                 *flag = _gf_false;
 
-        return 0;
+        return;
 }
 
 /*
@@ -1494,6 +1496,63 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
                                  &param->is_active);
 out:
         GF_FREE(errmsg);
+        return ret;
+}
+
+/* glusterd_check_geo_rep_running:
+ *          Checks if any geo-rep session is running for the volume.
+ *
+ *    RETURN VALUE:
+ *          Sets param.active to true if any geo-rep session is active.
+ *    This function sets op_errstr during some error and when any geo-rep
+ *    session is active. It is caller's responsibility to free op_errstr
+ *    in above cases.
+ */
+
+int
+glusterd_check_geo_rep_running (gsync_status_param_t *param, char **op_errstr)
+{
+        char                    msg[2048]   = {0,};
+        gf_boolean_t            enabled     = _gf_false;
+        int                     ret         = 0;
+        xlator_t               *this        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (param);
+        GF_ASSERT (param->volinfo);
+        GF_ASSERT (op_errstr);
+
+        glusterd_check_geo_rep_configured (param->volinfo, &enabled);
+
+        if (enabled) {
+                ret = dict_foreach (param->volinfo->gsync_slaves,
+                                    _get_slave_status, param);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "_get_slave_satus failed");
+                        snprintf (msg, sizeof(msg), GEOREP" Unable to"
+                                  " get the status of active "GEOREP""
+                                  " session for the volume '%s'.\n"
+                                  " Please check the log file for"
+                                  " more info.", param->volinfo->volname);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (param->is_active) {
+                        snprintf (msg, sizeof(msg), GEOREP" sessions"
+                                  " are active for the volume %s.\nStop"
+                                  " "GEOREP " sessions involved in this"
+                                  " volume. Use 'volume "GEOREP
+                                  " status' command for more info.",
+                                  param->volinfo->volname);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                 }
+         }
+ out:
         return ret;
 }
 

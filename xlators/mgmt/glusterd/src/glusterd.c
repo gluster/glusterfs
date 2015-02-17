@@ -39,6 +39,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
 #include "common-utils.h"
+#include "glusterd-geo-rep.h"
 #include "run.h"
 #include "rpc-clnt-ping.h"
 

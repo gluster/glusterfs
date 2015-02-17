@@ -30,7 +30,7 @@
 #include "glusterd-mem-types.h"
 #include "cli1-xdr.h"
 #include "glusterd-volgen.h"
-#include "glusterd-op-sm.h"
+#include "glusterd-geo-rep.h"
 #include "glusterd-utils.h"
 #include "run.h"
 #include "options.h"
@@ -1315,7 +1315,7 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
 
         if (ret) {
                 enabled = _gf_false;
-                ret = glusterd_check_gsync_running (volinfo, &enabled);
+                glusterd_check_geo_rep_configured (volinfo, &enabled);
 
                 if (enabled) {
                         gf_log ("", GF_LOG_WARNING, GEOREP" sessions active"
@@ -1325,12 +1325,6 @@ server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
                                           VKEY_MARKER_XTIME" cannot be disabled "
                                           "while "GEOREP" sessions exist");
                         ret = -1;
-                        goto out;
-                }
-
-                if (ret) {
-                        gf_log ("", GF_LOG_WARNING, "Unable to get the status"
-                                 " of active gsync session");
                         goto out;
                 }
         }
