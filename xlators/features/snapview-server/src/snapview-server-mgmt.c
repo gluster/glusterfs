@@ -111,11 +111,12 @@ svs_mgmt_init (xlator_t *this)
         gf_log (this->name, GF_LOG_DEBUG, "svs mgmt init successful");
 
 out:
-        if (ret) {
-                rpc_clnt_connection_cleanup (&priv->rpc->conn);
-                rpc_clnt_unref (priv->rpc);
-                priv->rpc = NULL;
-        }
+        if (ret)
+                if (priv) {
+                        rpc_clnt_connection_cleanup (&priv->rpc->conn);
+                        rpc_clnt_unref (priv->rpc);
+                        priv->rpc = NULL;
+                }
 
         return ret;
 }
