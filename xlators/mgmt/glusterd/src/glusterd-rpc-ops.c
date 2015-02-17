@@ -340,6 +340,8 @@ reply:
 
                 glusterd_destroy_probe_ctx (ctx);
 
+                goto unlock;
+
         } else if (strncasecmp (rsp.hostname, peerinfo->hostname, 1024)) {
                 gf_log (THIS->name, GF_LOG_INFO, "Host: %s  with uuid: %s "
                         "already present in cluster with alias hostname: %s",
@@ -362,9 +364,10 @@ reply:
                 glusterd_destroy_probe_ctx (ctx);
                 (void) glusterd_friend_remove (NULL, rsp.hostname);
                 ret = rsp.op_ret;
+
+                goto unlock;
         }
 
-        goto unlock;
 cont:
         uuid_copy (peerinfo->uuid, rsp.uuid);
 
