@@ -1198,6 +1198,12 @@ struct volume_options options[] = {
         { .key   = {"volume-filename.*"},
           .type  = GF_OPTION_TYPE_PATH,
         },
+        { .key   = {"transport.tcp-user-timeout"},
+          .type  = GF_OPTION_TYPE_TIME,
+          .min   = 0,
+          .max   = 1013,
+          .default_value = "42", /* default like network.ping-timeout */
+        },
         { .key   = {"transport.*"},
           .type  = GF_OPTION_TYPE_ANY,
         },
