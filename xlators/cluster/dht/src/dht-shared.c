@@ -135,7 +135,7 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
         gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
 
-        if (conf->du_stats) {
+        if (conf->du_stats && conf->subvolume_status) {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         if (!conf->subvolume_status[i])
                                 continue;
