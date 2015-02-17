@@ -745,9 +745,12 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         }
 
         if (pos == -1) {
-                gf_msg_debug (this->name, 0,
-                              "%s - no layout info for subvolume %s",
-                              loc->path, subvol->name);
+                if (loc) {
+                        gf_msg_debug (this->name, 0,
+                                      "%s - no layout info for subvolume %s",
+                                      loc ? loc->path : "path not found",
+                                      subvol->name);
+                }
                 ret = 1;
                 goto out;
         }
@@ -756,9 +759,15 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (!xattr) {
                 if (err == 0) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: xattr dictionary is NULL",
-                                loc->path);
+                        if (loc) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "%s: xattr dictionary is NULL",
+                                        loc->path);
+                        } else {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "path not found: "
+                                        "xattr dictionary is NULL");
+                        }
                         ret = -1;
                 }
                 goto out;
@@ -769,9 +778,16 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (dict_ret < 0) {
                 if (err == 0 && layout->list[pos].stop) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: Disk layout missing, gfid = %s",
-                                loc->path, gfid);
+                        if (loc) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "%s: Disk layout missing, gfid = %s",
+                                        loc->path, gfid);
+                        } else {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "path not found: "
+                                        "Disk layout missing, gfid = %s",
+                                        gfid);
+                        }
                         ret = -1;
                 }
                 goto out;
@@ -781,10 +797,19 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         count  = ntoh32 (disk_layout[0]);
         if (count != 1) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_INVALID_DISK_LAYOUT,
-                        "Invalid disk layout: invalid count %d,"
-                        "path = %s, gfid = %s ", count, loc->path, gfid);
+                if (loc) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_INVALID_DISK_LAYOUT,
+                                "Invalid disk layout: invalid count %d,"
+                                "path = %s, gfid = %s ",
+                                count, loc->path, gfid);
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_INVALID_DISK_LAYOUT,
+                                "Invalid disk layout: invalid count %d,"
+                                "path not found, gfid = %s ",
+                                count, gfid);
+                }
                 ret = -1;
                 goto out;
         }
