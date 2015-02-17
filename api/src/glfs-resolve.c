@@ -402,8 +402,10 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 						*/
 						(reval || (!next_component &&
 						iatt)));
-		if (!inode)
+		if (!inode) {
+                        ret = -1;
 			break;
+                }
 
 		if (IA_ISLNK (ciatt.ia_type) && (next_component || follow)) {
 			/* If the component is not the last piece,
@@ -509,12 +511,18 @@ glfs_resolve_path (struct glfs *fs, xlator_t *subvol, const char *origpath,
                                              iatt, follow, reval);
 
 	cwd = glfs_cwd_get (fs);
+        if (NULL == cwd) {
+                gf_log (subvol->name, GF_LOG_WARNING, "Failed to get cwd");
+                errno = EIO;
+                goto out;
+        }
 
 	ret = priv_glfs_resolve_at (fs, subvol, cwd, origpath, loc, iatt,
                                     follow, reval);
 	if (cwd)
 		inode_unref (cwd);
 
+out:
 	return ret;
 }
 
