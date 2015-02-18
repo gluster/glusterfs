@@ -36,7 +36,7 @@ uninstall-local:
 install-data-hook:
 	ln -sf dht.so $(DESTDIR)$(xlatordir)/distribute.so
 
-#### UNIT TESTS #####
+if UNITTEST
 CLEANFILES += *.gcda *.gcno *_xunit.xml
 noinst_PROGRAMS =
 TESTS =
@@ -49,3 +49,4 @@ dht_layout_unittest_CFLAGS = $(AM_CFLAGS) $(UNITTEST_CFLAGS)
 dht_layout_unittest_LDFLAGS = $(UNITTEST_LDFLAGS)
 noinst_PROGRAMS += dht_layout_unittest
 TESTS += dht_layout_unittest
+endif

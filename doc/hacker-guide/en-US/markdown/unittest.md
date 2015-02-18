@@ -14,10 +14,13 @@
 * Maintainable
 * Trustworthy (when you see its result, you don’t need to debug the code just to be sure)
 
-## Cmockery2
-GlusterFS unit test framework is based on [Cmockery2][].  Cmockery provides developers with methods to isolate and test modules written in C language.  It also provides integration with Jenkins by providing JUnit XML compliant unit test results.
+## cmocka
+GlusterFS unit test framework is based on [cmocka][].  cmocka provides
+developers with methods to isolate and test modules written in C language.  It
+also provides integration with Jenkins by providing JUnit XML compliant unit
+test results.
 
-Before continuing, you may want to familiarize yourself with Cmockery2 by reading the [usage guide][cmockery2usage].
+cmocka
 
 ## Running Unit Tests
 To execute the unit tests, all you need is to type `make check`.  Here is a step-by-step example assuming you just cloned a GlusterFS tree:
@@ -90,7 +93,7 @@ Expected assertion ((void *)0) != ptr occurred
 Add the following to your C file:
 
 ```c
-#include <cmockery/pbc.h>
+#include <cmocka_pbc.h>
 ```
 
 ```c
@@ -171,7 +174,7 @@ int divide (int n, int d)
 Cmockery2 provides its own memory allocation functions which check for buffer overrun and memory leaks.  The following header file must be included **last** to be able to override any of the memory allocation functions:
 
 ```c
-#include <cmockery/cmockery_override.h>
+#include <cmocka.h>
 ```
 
 This file will only take effect with the `UNIT_TESTING` CFLAG is set.
@@ -204,7 +207,7 @@ TESTS += xxx_unittest
 
 Where `xxx` is the name of your C file. For example, look at `libglusterfs/src/Makefile.am`.
 
-Copy the simple unit test from `cmockery2/src/example/run_tests.c` to `unittest/xxx_unittest.c`.  If you would like to see an example of a unit test, please refer to `libglusterfs/src/unittest/mem_pool_unittest.c`.
+Copy the simple unit test from the [cmocka API][cmockaapi] to `unittest/xxx_unittest.c`.  If you would like to see an example of a unit test, please refer to `libglusterfs/src/unittest/mem_pool_unittest.c`.
 
 #### Mocking
 You may see that the linker will complain about missing functions needed by the C file you would like to test.  Identify the required functions, then place their stubs in a file called `unittest/xxx_mock.c`, then include this file in `Makefile.am` in `xxx_unittest_SOURCES`.  This will allow you to you Cmockery2's mocking functions.
@@ -220,6 +223,6 @@ $ gdb libglusterfs/src/mem_pool_unittest
 ```
 
 
-[Cmockery2]: https://github.com/lpabon/cmockery2
+[cmocka]: https://cmocka.org
 [definitionofunittest]: http://artofunittesting.com/definition-of-a-unit-test/
-[cmockery2usage]: https://github.com/lpabon/cmockery2/blob/master/doc/usage.md
+[cmockapi]: https://api.cmocka.org

@@ -26,7 +26,9 @@
  * unit test versions
  */
 #ifdef UNIT_TESTING
-#include <cmockery/cmockery_override.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
 #endif
 
 #define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4 + 8)

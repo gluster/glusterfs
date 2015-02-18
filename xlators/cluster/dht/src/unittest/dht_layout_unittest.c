@@ -12,12 +12,12 @@
 #include "logging.h"
 #include "xlator.h"
 
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
-#include <inttypes.h>
-#include <cmockery/pbc.h>
-#include <cmockery/cmockery.h>
+#include <cmocka_pbc.h>
+#include <cmocka.h>
 
 /*
  * Helper functions
@@ -116,9 +116,9 @@ test_dht_layout_new(void **state)
 }
 
 int main(void) {
-    const UnitTest tests[] = {
+    const struct CMUnitTest xlator_dht_layout_tests[] = {
         unit_test(test_dht_layout_new),
     };
 
-    return run_tests(tests, "xlator_dht_layout");
+    return cmocka_run_group_tests(xlator_dht_layout_tests, NULL, NULL);
 }
