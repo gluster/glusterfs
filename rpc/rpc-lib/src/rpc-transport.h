@@ -241,6 +241,8 @@ struct rpc_transport_ops {
         int32_t (*throttle)       (rpc_transport_t *this, gf_boolean_t onoff);
 };
 
+int32_t
+rpc_transport_count (const char *transport_type);
 
 int32_t
 rpc_transport_listen (rpc_transport_t *this);

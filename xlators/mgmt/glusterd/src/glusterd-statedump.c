@@ -35,7 +35,7 @@ glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
                             uuid_utoa (peerinfo->uuid));
 
         gf_proc_dump_build_key (key, subkey, "hostname");
-        gf_proc_dump_write (key, "%d", peerinfo->hostname);
+        gf_proc_dump_write (key, "%s", peerinfo->hostname);
 
         gf_proc_dump_build_key (key, subkey, "port");
         gf_proc_dump_write (key, "%d", peerinfo->port);

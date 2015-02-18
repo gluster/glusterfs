@@ -848,7 +848,10 @@ init (xlator_t *this)
         int32_t            ret      = -1;
         server_conf_t     *conf     = NULL;
         rpcsvc_listener_t *listener = NULL;
+        char              *transport_type = NULL;
         char              *statedump_path = NULL;
+        int               total_transport = 0;
+
         GF_VALIDATE_OR_GOTO ("init", this, out);
 
         if (this->children == NULL) {
@@ -958,6 +961,20 @@ init (xlator_t *this)
          */
         this->ctx->secure_srvr = MGMT_SSL_COPY_IO;
 
+        ret = dict_get_str (this->options, "transport-type", &transport_type);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "option transport-type not set");
+                ret = -1;
+                goto out;
+        }
+        total_transport = rpc_transport_count (transport_type);
+        if (total_transport <= 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to get total number of available tranpsorts");
+                ret = -1;
+                goto out;
+        }
         ret = rpcsvc_create_listeners (conf->rpc, this->options,
                                        this->name);
         if (ret < 1) {
@@ -965,6 +982,10 @@ init (xlator_t *this)
                         "creation of listener failed");
                 ret = -1;
                 goto out;
+        } else if (ret < total_transport) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "creation of %d listeners failed, continuing with "
+                        "succeeded transport", (total_transport - ret));
         }
 
         ret = rpcsvc_register_notify (conf->rpc, server_rpc_notify, this);
