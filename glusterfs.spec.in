@@ -207,6 +207,7 @@ BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{?_with_cmocka:0} )
 BuildRequires:    libcmocka-devel >= 1.0.0
 %endif
+BuildRequires:    sqlite-devel
 %if ( 0%{!?_without_systemtap:1} )
 BuildRequires:    systemtap-sdt-devel
 %endif
@@ -913,6 +914,7 @@ fi
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
 %{_libdir}/pkgconfig/libgfchangelog.pc
+%{_libdir}/pkgconfig/libgfdb.pc
 %{_libdir}/libgfapi.so
 %{_includedir}/glusterfs/api/*
 

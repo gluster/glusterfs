@@ -129,6 +129,18 @@ enum gf_common_mem_types_ {
         gf_common_mt_wr                   = 113,
         gf_common_mt_rdma_arena_mr        = 114,
         gf_common_mt_parser_t             = 115,
+        /*related to gfdb library*/
+        gfdb_mt_time_t,
+        gf_mt_sql_cbk_args_t,
+        gf_mt_gfdb_query_record_t,
+        gf_mt_gfdb_link_info_t,
+        gf_mt_gfdb_db_operations_t,
+        gf_mt_sql_connection_t,
+        gf_mt_sql_conn_node_t,
+        gf_mt_db_conn_node_t,
+        gf_mt_db_connection_t,
+        gfdb_mt_db_record_t,
+        /*related to gfdb library*/
         gf_common_mt_end
 };
 #endif
