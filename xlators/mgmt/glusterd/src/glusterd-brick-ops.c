@@ -1707,7 +1707,8 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
                 break;
         case GF_DEFRAG_STATUS_STOPPED:
                 /* Fall back to the old volume file */
-                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                                              brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         brickinfo->decommissioned = 0;
@@ -1717,7 +1718,8 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
         case GF_DEFRAG_STATUS_COMPLETE:
                 /* Done with the task, you can remove the brick from the
                    volume file */
-                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks, brick_list) {
+                cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                                              brick_list) {
                         if (!brickinfo->decommissioned)
                                 continue;
                         gf_log (THIS->name, GF_LOG_INFO, "removing the brick %s",

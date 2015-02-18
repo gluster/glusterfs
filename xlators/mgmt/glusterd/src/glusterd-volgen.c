@@ -3457,7 +3457,7 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 goto out;
         }
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 ret = build_shd_volume_graph (this, graph, voliter, mod_dict,
                                               set_dict, graph_check,
                                               &valid_config);
