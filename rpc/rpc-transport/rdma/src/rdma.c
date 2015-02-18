@@ -4732,6 +4732,8 @@ init (rpc_transport_t *this)
         if (gf_rdma_init (this)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "Failed to initialize IB Device");
+                this->private = NULL;
+                GF_FREE (priv);
                 return -1;
         }
         iobuf_pool = this->ctx->iobuf_pool;
