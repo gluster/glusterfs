@@ -603,6 +603,8 @@ struct gf_flock {
 #define SECURE_ACCESS_FILE     GLUSTERD_DEFAULT_WORKDIR "/secure-access"
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
+int glusterfs_graph_destroy_residual (glusterfs_graph_t *graph);
+int glusterfs_graph_deactivate (glusterfs_graph_t *graph);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
 int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);

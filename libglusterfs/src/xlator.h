@@ -919,7 +919,8 @@ int xlator_init (xlator_t *this);
 int xlator_destroy (xlator_t *xl);
 
 int32_t xlator_tree_init (xlator_t *xl);
-int32_t xlator_tree_free (xlator_t *xl);
+int32_t xlator_tree_free_members (xlator_t *xl);
+int32_t xlator_tree_free_memacct (xlator_t *xl);
 
 void xlator_tree_fini (xlator_t *xl);
 
