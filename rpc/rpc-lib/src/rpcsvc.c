@@ -1531,9 +1531,15 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
         ret = 0;
 out:
         if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program unregistration failed"
-                        ": %s, Num: %d, Ver: %d, Port: %d", program->progname,
-                        program->prognum, program->progver, program->progport);
+                if (program) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program "
+                                "unregistration failed"
+                                ": %s, Num: %d, Ver: %d, Port: %d",
+                                program->progname, program->prognum,
+                                program->progver, program->progport);
+                } else {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program not found");
+                }
         }
 
         return ret;
