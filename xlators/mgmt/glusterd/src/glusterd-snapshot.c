@@ -2597,7 +2597,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                 }
 
                 /* Check if the brick has a LV associated with it */
-                if (!brickinfo->device_path) {
+                if (strlen(brickinfo->device_path) == 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Brick (%s:%s) does not have a LV "
                                 "associated with it. Removing the brick path",
