@@ -109,6 +109,12 @@ struct _inode {
 inode_table_t *
 inode_table_new (size_t lru_limit, xlator_t *xl);
 
+void
+inode_table_destroy_all (glusterfs_ctx_t *ctx);
+
+void
+inode_table_destroy (inode_table_t *inode_table);
+
 inode_t *
 inode_new (inode_table_t *table);
 
@@ -133,6 +139,9 @@ inode_lookup (inode_t *inode);
 
 int
 inode_forget (inode_t *inode, uint64_t nlookup);
+
+int
+inode_ref_reduce_by_n (inode_t *inode, uint64_t nref);
 
 int
 inode_invalidate(inode_t *inode);
