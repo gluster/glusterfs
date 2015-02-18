@@ -39,8 +39,8 @@ AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
                 geo-replication/src/peer_gsec_create
-                geo-replication/src/peer_add_secret_pub
                 geo-replication/src/peer_mountbroker
+                extras/peer_add_secret_pub
                 geo-replication/syncdaemon/configinterface.py
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
@@ -226,7 +226,11 @@ AC_CONFIG_FILES([Makefile
                 tools/gfind_missing_files/Makefile
                 heal/Makefile
                 heal/src/Makefile
-                glusterfs.spec])
+                glusterfs.spec
+                tools/glusterfind/src/tool.conf
+                tools/glusterfind/glusterfind
+                tools/glusterfind/Makefile
+                tools/glusterfind/src/Makefile])
 
 AC_CANONICAL_HOST
 
@@ -887,6 +891,14 @@ if test "x$ac_cv_header_execinfo_h" = "xno"; then
    fi
 fi
 
+old_prefix=$prefix
+if test "x$prefix" = xNONE; then
+	prefix=$ac_default_prefix
+fi
+GLUSTERFS_LIBEXECDIR="$(eval echo $prefix)/libexec/glusterfs"
+GLUSTERFSD_MISCDIR="$(eval echo $prefix)/var/lib/misc/glusterfsd"
+prefix=$old_prefix
+
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
    test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
@@ -1193,6 +1205,8 @@ AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
 AC_SUBST(GLUSTERD_VOLFILE)
+AC_SUBST(GLUSTERFS_LIBEXECDIR)
+AC_SUBST(GLUSTERFSD_MISCDIR)
 
 dnl pkg-config versioning
 dnl

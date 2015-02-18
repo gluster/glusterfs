@@ -1078,12 +1078,26 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+# Incrementalapi
+%{_libexecdir}/glusterfs/glusterfind
+%{_bindir}/glusterfind
+%exclude %{_libexecdir}/glusterfs/glusterfind/brickfind.pyc
+%exclude %{_libexecdir}/glusterfs/glusterfind/changelog.pyc
+%exclude %{_libexecdir}/glusterfs/glusterfind/nodecleanup.pyc
+%exclude %{_libexecdir}/glusterfs/glusterfind/brickfind.pyo
+%exclude %{_libexecdir}/glusterfs/glusterfind/changelog.pyo
+%exclude %{_libexecdir}/glusterfs/glusterfind/nodecleanup.pyo
+
+
 %changelog
 * Tue Mar 17 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - glusterfs-ganesha sub-package
 
 * Thu Mar 12 2015 Kotresh H R <khiremat@redhat.com>
 - gfind_missing_files tool is included (#1187140)
+
+* Tue Mar 03 2015 Aravinda VK <avishwan@redhat.com>
+- Included glusterfind files as part of server package.
 
 * Thu Feb 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - enable cmocka unittest support only when asked for (#1067059)

@@ -1,3 +1,3 @@
-SUBDIRS = gfind_missing_files
+SUBDIRS = gfind_missing_files glusterfind
 
 CLEANFILES =

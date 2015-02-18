@@ -75,6 +75,6 @@ if [ -f $pub_file ]; then
         scp $pub_file $slave_ip:$pub_file_tmp
         ssh $slave_ip "mv $pub_file_tmp ${pub_file_dname}/${mastervol}_${slavevol}_${pub_file_bname}"
         ssh $slave_ip "gluster system:: copy file /geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
-        ssh $slave_ip "gluster system:: execute add_secret_pub root $mastervol $slavevol > /dev/null"
+        ssh $slave_ip "gluster system:: execute add_secret_pub root geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
     fi
 fi

@@ -1,3 +1,6 @@
+gsyncddir = $(libexecdir)/glusterfs
+gsyncd_SCRIPTS = peer_add_secret_pub
+
 EditorModedir = $(docdir)
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
