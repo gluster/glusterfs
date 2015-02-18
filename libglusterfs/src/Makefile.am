@@ -47,7 +47,8 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
 	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
-	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h
+	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
+	unittest/unittest.h
 
 EXTRA_DIST = graph.l graph.y
 
@@ -61,7 +62,7 @@ y.tab.h: graph.y
 CLEANFILES = graph.lex.c y.tab.c y.tab.h
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
 
-#### UNIT TESTS #####
+if UNITTEST
 CLEANFILES += *.gcda *.gcno *_xunit.xml
 noinst_PROGRAMS =
 TESTS =
@@ -76,3 +77,4 @@ mem_pool_unittest_CFLAGS = $(UNITTEST_CFLAGS)
 mem_pool_unittest_LDFLAGS = $(UNITTEST_LDFLAGS)
 noinst_PROGRAMS += mem_pool_unittest
 TESTS += mem_pool_unittest
+endif

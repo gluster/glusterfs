@@ -17,8 +17,15 @@
 #include <setjmp.h>
 #include <inttypes.h>
 #include <string.h>
-#include <cmockery/pbc.h>
-#include <cmockery/cmockery.h>
+#include <cmocka_pbc.h>
+#include <cmocka.h>
+
+#ifndef assert_ptr_equal
+#define assert_ptr_equal(a, b) \
+    _assert_int_equal(cast_ptr_to_largest_integral_type(a), \
+                      cast_ptr_to_largest_integral_type(b), \
+                      __FILE__, __LINE__)
+#endif
 
 /*
  * memory header for gf_mem_set_acct_info
@@ -252,7 +259,7 @@ test_gf_calloc_mem_acct_enabled(void **state)
     xl->ctx->mem_acct_enable = 1;
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_always_return(__glusterfs_this_location, &xl);
+    will_return_always(__glusterfs_this_location, &xl);
 
     // Call __gf_calloc
     size = 1024;
@@ -319,7 +326,7 @@ test_gf_malloc_mem_acct_enabled(void **state)
     xl->ctx->mem_acct_enable = 1;
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_always_return(__glusterfs_this_location, &xl);
+    will_return_always(__glusterfs_this_location, &xl);
 
     // Call __gf_malloc
     size = 1024;
@@ -352,7 +359,7 @@ test_gf_realloc_default_realloc(void **state)
     // Initialize xl
     xl = helper_xlator_init(10);
     assert_int_equal(xl->ctx->mem_acct_enable, 0);
-    will_always_return(__glusterfs_this_location, &xl);
+    will_return_always(__glusterfs_this_location, &xl);
 
     // Call __gf_malloc then realloc
     size = 10;
@@ -391,7 +398,7 @@ test_gf_realloc_mem_acct_enabled(void **state)
     xl->ctx->mem_acct_enable = 1;
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_always_return(__glusterfs_this_location, &xl);
+    will_return_always(__glusterfs_this_location, &xl);
 
     // Call __gf_malloc then realloc
     size = 1024;
@@ -436,7 +443,7 @@ test_gf_realloc_ptr(void **state)
     assert_int_equal(xl->ctx->mem_acct_enable, 0);
 
     // For line mem-pool.c:115 and mem-pool:118
-    will_always_return(__glusterfs_this_location, &xl);
+    will_return_always(__glusterfs_this_location, &xl);
 
     // Tests according to the manpage for realloc
 
@@ -458,18 +465,18 @@ test_gf_realloc_ptr(void **state)
 }
 
 int main(void) {
-    const UnitTest tests[] = {
-        unit_test(test_gf_mem_acct_enable_set),
-        unit_test(test_gf_mem_set_acct_info_asserts),
-        unit_test(test_gf_mem_set_acct_info_memory),
-        unit_test(test_gf_calloc_default_calloc),
-        unit_test(test_gf_calloc_mem_acct_enabled),
-        unit_test(test_gf_malloc_default_malloc),
-        unit_test(test_gf_malloc_mem_acct_enabled),
-        unit_test(test_gf_realloc_default_realloc),
-        unit_test(test_gf_realloc_mem_acct_enabled),
-        unit_test(test_gf_realloc_ptr),
+    const struct CMUnitTest libglusterfs_mem_pool_tests[] = {
+        cmocka_unit_test(test_gf_mem_acct_enable_set),
+        cmocka_unit_test(test_gf_mem_set_acct_info_asserts),
+        cmocka_unit_test(test_gf_mem_set_acct_info_memory),
+        cmocka_unit_test(test_gf_calloc_default_calloc),
+        cmocka_unit_test(test_gf_calloc_mem_acct_enabled),
+        cmocka_unit_test(test_gf_malloc_default_malloc),
+        cmocka_unit_test(test_gf_malloc_mem_acct_enabled),
+        cmocka_unit_test(test_gf_realloc_default_realloc),
+        cmocka_unit_test(test_gf_realloc_mem_acct_enabled),
+        cmocka_unit_test(test_gf_realloc_ptr),
     };
 
-    return run_tests(tests, "libglusterfs_mem_pool");
+    return cmocka_run_group_tests(libglusterfs_mem_pool_tests, NULL, NULL);
 }
