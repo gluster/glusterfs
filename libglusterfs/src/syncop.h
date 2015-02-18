@@ -108,6 +108,9 @@ struct syncenv {
         pthread_cond_t      cond;
 
         size_t              stacksize;
+
+        int                 destroy; /* FLAG to mark syncenv is in destroy mode
+                                        so that no more synctasks are accepted*/
 };
 
 
