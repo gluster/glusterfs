@@ -552,12 +552,62 @@ xlator_list_destroy (xlator_list_t *list)
         return 0;
 }
 
-
-int
-xlator_tree_free (xlator_t *tree)
+static int
+xlator_members_free (xlator_t *xl)
 {
         volume_opt_list_t *vol_opt = NULL;
         volume_opt_list_t *tmp     = NULL;
+
+        if (!xl)
+                return 0;
+
+        GF_FREE (xl->name);
+        GF_FREE (xl->type);
+        if (xl->dlhandle)
+                dlclose (xl->dlhandle);
+        if (xl->options)
+                dict_unref (xl->options);
+
+        xlator_list_destroy (xl->children);
+
+        xlator_list_destroy (xl->parents);
+
+        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
+
+        return 0;
+}
+
+/* This function destroys all the xlator members except for the
+ * xlator strcuture and its mem accounting field.
+ *
+ * If otherwise, it would destroy the master xlator object as well
+ * its mem accounting, which would mean after calling glusterfs_graph_destroy()
+ * there cannot be any reference to GF_FREE() from the master xlator, this is
+ * not possible because of the following dependencies:
+ * - glusterfs_ctx_t will have mem pools allocated by the master xlators
+ * - xlator objects will have references to those mem pools(g: dict)
+ *
+ * Ordering the freeing in any of the order will also not solve the dependency:
+ * - Freeing xlator objects(including memory accounting) before mem pools
+ *   destruction will mean not use GF_FREE while destroying mem pools.
+ * - Freeing mem pools and then destroying xlator objects would lead to crashes
+ *   when xlator tries to unref dict or other mem pool objects.
+ *
+ * Hence the way chosen out of this interdependency is to split xlator object
+ * free into two stages:
+ * - Free all the xlator members excpet for its mem accounting structure
+ * - Free all the mem accouting structures of xlator along with the xlator
+ *   object itself.
+ *
+ * This two stages of destruction, is mainly required for glfs_fini().
+ */
+
+int
+xlator_tree_free_members (xlator_t *tree)
+{
         xlator_t *trav = tree;
         xlator_t *prev = tree;
 
@@ -568,18 +618,32 @@ xlator_tree_free (xlator_t *tree)
 
         while (prev) {
                 trav = prev->next;
-                if (prev->dlhandle)
-                        dlclose (prev->dlhandle);
-                dict_unref (prev->options);
-                GF_FREE (prev->name);
-                GF_FREE (prev->type);
-                xlator_list_destroy (prev->children);
-                xlator_list_destroy (prev->parents);
+                xlator_members_free (prev);
+                prev = trav;
+        }
 
-                list_for_each_entry_safe (vol_opt, tmp, &prev->volume_options,
-                                          list) {
-                        list_del_init (&vol_opt->list);
-                        GF_FREE (vol_opt);
+        return 0;
+}
+
+int
+xlator_tree_free_memacct (xlator_t *tree)
+{
+        xlator_t *trav = tree;
+        xlator_t *prev = tree;
+        int          i = 0;
+
+        if (!tree) {
+                gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
+                return -1;
+        }
+
+        while (prev) {
+                trav = prev->next;
+                if (prev->mem_acct.rec) {
+                        for (i = 0; i < prev->mem_acct.num_types; i++) {
+                                LOCK_DESTROY (&(prev->mem_acct.rec[i].lock));
+                        }
+                        FREE (prev->mem_acct.rec);
                 }
                 GF_FREE (prev);
                 prev = trav;
@@ -587,7 +651,6 @@ xlator_tree_free (xlator_t *tree)
 
         return 0;
 }
-
 
 void
 loc_wipe (loc_t *loc)
@@ -766,28 +829,10 @@ loc_is_root (loc_t *loc)
 int
 xlator_destroy (xlator_t *xl)
 {
-        volume_opt_list_t *vol_opt = NULL;
-        volume_opt_list_t *tmp     = NULL;
-
         if (!xl)
                 return 0;
 
-        GF_FREE (xl->name);
-        GF_FREE (xl->type);
-        if (xl->dlhandle)
-                dlclose (xl->dlhandle);
-        if (xl->options)
-                dict_destroy (xl->options);
-
-        xlator_list_destroy (xl->children);
-
-        xlator_list_destroy (xl->parents);
-
-        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
-                list_del_init (&vol_opt->list);
-                GF_FREE (vol_opt);
-        }
-
+        xlator_members_free (xl);
         GF_FREE (xl);
 
         return 0;
