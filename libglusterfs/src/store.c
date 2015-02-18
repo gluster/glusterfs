@@ -672,7 +672,6 @@ gf_store_strerror (gf_store_op_errno_t op_errno)
         default:
                 return "Invalid errno";
         }
-        return "Invalid errno";
 }
 
 int
