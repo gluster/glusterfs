@@ -127,6 +127,7 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
         for (i = 0; i < iobuf_cnt; i++) {
                 GF_ASSERT (iobuf->ref == 0);
 
+                LOCK_DESTROY (&iobuf->lock);
                 list_del_init (&iobuf->list);
                 iobuf++;
         }
@@ -299,6 +300,7 @@ out:
 }
 
 
+/* This function destroys all the iobufs and the iobuf_pool */
 void
 iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
 {
@@ -308,16 +310,45 @@ iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
-        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
-                list_for_each_entry_safe (iobuf_arena, tmp,
-                                          &iobuf_pool->arenas[i], list) {
-                        list_del_init (&iobuf_arena->list);
-                        iobuf_pool->arena_cnt--;
+        pthread_mutex_lock (&iobuf_pool->mutex);
+        {
+                for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
+                        list_for_each_entry_safe (iobuf_arena, tmp,
+                                        &iobuf_pool->arenas[i], list) {
+                                list_del_init (&iobuf_arena->list);
+                                iobuf_pool->arena_cnt--;
 
-                        __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
+                                __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
+                        }
+                        list_for_each_entry_safe (iobuf_arena, tmp,
+                                        &iobuf_pool->purge[i], list) {
+                                list_del_init (&iobuf_arena->list);
+                                iobuf_pool->arena_cnt--;
+                                __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
+                        }
+                        /* If there are no iobuf leaks, there should be no
+                         * arenas in the filled list. If at all there are any
+                         * arenas in the filled list, the below function will
+                         * assert.
+                         */
+                        list_for_each_entry_safe (iobuf_arena, tmp,
+                                        &iobuf_pool->filled[i], list) {
+                                list_del_init (&iobuf_arena->list);
+                                iobuf_pool->arena_cnt--;
+                                __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
+                        }
+                        /* If there are no iobuf leaks, there shoould be
+                         * no standard alloced arenas, iobuf_put will free such
+                         * arenas.
+                         * TODO: Free the stdalloc arenas forcefully if present?
+                         */
                 }
-
         }
+        pthread_mutex_unlock (&iobuf_pool->mutex);
+
+        pthread_mutex_destroy (&iobuf_pool->mutex);
+
+        GF_FREE (iobuf_pool);
 
 out:
         return;
