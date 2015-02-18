@@ -379,10 +379,6 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
         if (ret) {
                 clnt_fd_lk_reacquire_failed (this, fdctx, conf);
                 fdctx->reopen_done (fdctx, this);
-                if (frame) {
-                        frame->local = NULL;
-                        STACK_DESTROY (frame->root);
-                }
         }
         return 0;
 }
@@ -880,11 +876,6 @@ protocol_client_reopendir (clnt_fd_ctx_t *fdctx, xlator_t *this)
         return 0;
 
 out:
-        if (frame) {
-                frame->local = NULL;
-                STACK_DESTROY (frame->root);
-        }
-
         if (local)
                 client_local_wipe (local);
 
