@@ -1,6 +1,6 @@
 gsyncddir = $(libexecdir)/glusterfs
 
-gsyncd_SCRIPTS = gverify.sh peer_add_secret_pub peer_gsec_create \
+gsyncd_SCRIPTS = gverify.sh peer_gsec_create \
 	set_geo_rep_pem_keys.sh peer_mountbroker
 
 # peer_gsec_create and peer_add_secret_pub are not added to

@@ -1,0 +1,11 @@
+[vars]
+session_dir=@GLUSTERD_WORKDIR@/glusterfind/
+secret_pem=@GLUSTERD_WORKDIR@/glusterfind.secret.pem
+working_dir=@GLUSTERFSD_MISCDIR@/glusterfind/
+log_dir=/var/log/glusterfs/glusterfind/
+nodecleanup=@GLUSTERFS_LIBEXECDIR@/glusterfind/nodecleanup.py
+changelog_rollover_time=15
+
+[change_detectors]
+changelog=@GLUSTERFS_LIBEXECDIR@/glusterfind/changelog.py
+brickfind=@GLUSTERFS_LIBEXECDIR@/glusterfind/brickfind.py

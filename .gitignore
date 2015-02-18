@@ -56,8 +56,6 @@ extras/systemd/glusterd.service
 extras/who-wrote-glusterfs/gitdm
 geo-replication/.tox
 geo-replication/src/gsyncd
-geo-replication/src/gsyncd
-geo-replication/src/peer_add_secret_pub
 geo-replication/src/peer_gsec_create
 geo-replication/src/peer_mountbroker
 geo-replication/src/set_geo_rep_pem_keys.sh
@@ -86,3 +84,6 @@ xlators/features/glupy/src/__init__.py
 xlators/features/glupy/src/setup.py
 xlators/mount/fuse/utils/mount.glusterfs
 xlators/mount/fuse/utils/mount_glusterfs
+extras/peer_add_secret_pub
+tools/glusterfind/glusterfind
+tools/glusterfind/src/tool.conf
