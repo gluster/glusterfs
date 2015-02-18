@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+
+Name: libgfdb
+Description: GlusterFS Database Library
+Version: @LIBGFDB_VERSION@
+Libs: -L${libdir} -lgfchangedb -lglusterfs -lsqlite3
+Cflags: -I${includedir}/glusterfs/gfdb

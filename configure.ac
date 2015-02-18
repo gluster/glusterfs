@@ -38,6 +38,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
+                libglusterfs/src/gfdb/Makefile
                 geo-replication/src/peer_gsec_create
                 geo-replication/src/peer_mountbroker
                 extras/peer_add_secret_pub
@@ -216,6 +217,7 @@ AC_CONFIG_FILES([Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
                 libgfchangelog.pc
+                libgfdb.pc
                 api/Makefile
                 api/src/Makefile
                 api/examples/Makefile
@@ -495,7 +497,7 @@ AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
 AC_CHECK_HEADERS([openssl/cmac.h], [have_cmac_h=yes], [have_cmac_h=no])
 
 AC_ARG_ENABLE([crypt-xlator],
-	AC_HELP_STRING([--enable-crypt-xlator], [Build crypt encryption xlator]))
+        AC_HELP_STRING([--enable-crypt-xlator], [Build crypt encryption xlator]))
 
 if test "x$enable_crypt_xlator" = "xyes" -a "x$have_cmac_h" = "xno"; then
    AC_MSG_ERROR([Encryption xlator requires OpenSSL with cmac.h])
@@ -538,7 +540,7 @@ AC_ARG_ENABLE([qemu-block],
 if test "x$enable_qemu_block" != "xno"; then
   PKG_CHECK_MODULES([GLIB], [glib-2.0],
                     [HAVE_GLIB_2="yes"],
-  		    [HAVE_GLIB_2="no"])
+                      [HAVE_GLIB_2="no"])
 fi
 
 if test "x$enable_qemu_block" = "xyes" -a "x$HAVE_GLIB_2" = "xno"; then
@@ -550,7 +552,7 @@ BUILD_QEMU_BLOCK=no
 if test "x${enable_qemu_block}" != "xno" -a "x${HAVE_GLIB_2}" = "xyes"; then
   BUILD_QEMU_BLOCK=yes
   AC_DEFINE(HAVE_QEMU_BLOCK, 1, [define if libglib-2.0 library found and QEMU
-                  	     Block translator enabled])
+                               Block translator enabled])
 fi
 
 
@@ -675,6 +677,25 @@ AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
 # end CDC xlator secion
 
+# Data tiering requires sqlite
+AC_ARG_ENABLE([tiering],
+               AC_HELP_STRING([--disable-tiering],
+                             [Disable data classification/tiering]),
+              [BUILD_GFDB="${enableval}"], [BUILD_GFDB="yes"])
+
+if test "x${BUILD_GFDB}" = "xyes"; then
+  PKG_CHECK_MODULES([SQLITE], [sqlite3],
+                    AC_DEFINE(USE_GFDB, 1),
+                    AC_MSG_ERROR([pass --disable-tiering to build without sqlite]))
+else
+  AC_DEFINE(USE_GFDB, 0, [no sqlite, gfdb is disabled])
+fi
+
+AC_SUBST(SQLITE_CFLAGS)
+AC_SUBST(SQLITE_LIBS)
+AM_CONDITIONAL(BUILD_GFDB, test "x${BUILD_GFDB}" = "xyes")
+AM_CONDITIONAL(USE_GFDB, test "x${BUILD_GFDB}" = "xyes")
+
 # check for systemtap/dtrace
 BUILD_SYSTEMTAP=no
 AC_MSG_CHECKING([whether to include systemtap tracing support])
@@ -718,12 +739,12 @@ if test "x$enable_xml_output" != "xno"; then
     if test "x${no_xml}" = "x"; then
         AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
     else
-	if test "x$enable_georeplication" != "xno"; then
+        if test "x$enable_georeplication" != "xno"; then
            AC_MSG_ERROR([libxml2 devel libraries not found])
-	else
-	   AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
+        else
+           AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
            BUILD_XML_OUTPUT="no"
-	fi
+        fi
 
     fi
 else
@@ -1222,6 +1243,8 @@ GFAPI_VERSION="4."${PACKAGE_VERSION}
 LIBGFCHANGELOG_VERSION="0.0.1"
 AC_SUBST(GFAPI_VERSION)
 AC_SUBST(LIBGFCHANGELOG_VERSION)
+LIBGFDB_VERSION="0.0.1"
+AC_SUBST(LIBGFDB_VERSION)
 
 dnl libtool versioning
 LIBGFXDR_LT_VERSION="0:1:0"
@@ -1265,4 +1288,5 @@ echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "POSIX ACLs           : $USE_POSIX_ACLS"
+echo "Data Classification  : $BUILD_GFDB"
 echo
