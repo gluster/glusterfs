@@ -24,8 +24,7 @@
 
 #define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
 
-#include <cmockery/pbc.h>
-#include <cmockery/cmockery_override.h>
+#include "unittest/unittest.h"
 
 void
 gf_mem_acct_enable_set (void *data)
