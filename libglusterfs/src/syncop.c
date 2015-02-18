@@ -442,9 +442,23 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
 {
         struct synctask *newtask = NULL;
         xlator_t        *this    = THIS;
+        int             destroymode = 0;
 
         VALIDATE_OR_GOTO (env, err);
         VALIDATE_OR_GOTO (fn, err);
+
+        /* Check if the syncenv is in destroymode i.e. destroy is SET.
+         * If YES, then don't allow any new synctasks on it. Return NULL.
+         */
+        pthread_mutex_lock (&env->mutex);
+        {
+                destroymode = env->destroy;
+        }
+        pthread_mutex_unlock (&env->mutex);
+
+        /* syncenv is in DESTROY mode, return from here */
+        if (destroymode)
+                return NULL;
 
         newtask = CALLOC (1, sizeof (*newtask));
         if (!newtask)
@@ -576,11 +590,25 @@ syncenv_task (struct syncproc *proc)
                                                       &sleep_till);
                         if (!list_empty (&env->runq))
                                 break;
-                        if ((ret == ETIMEDOUT) &&
-                            (env->procs > env->procmin)) {
+                        /* If either of the conditions are met then exit
+                         * the current thread:
+                         * 1. syncenv has to scale down(procs > procmin)
+                         * 2. syncenv is in destroy mode and no tasks in
+                         *    either waitq or runq.
+                         *
+                         * At any point in time, a task can be either in runq,
+                         * or in executing state or in the waitq. Once the
+                         * destroy mode is set, no new synctask creates will
+                         * be allowed, but whatever in waitq or runq should be
+                         * allowed to finish before exiting any of the syncenv
+                         * processor threads.
+                         */
+                        if (((ret == ETIMEDOUT) && (env->procs > env->procmin))
+                            || (env->destroy && list_empty (&env->waitq))) {
                                 task = NULL;
                                 env->procs--;
                                 memset (proc, 0, sizeof (*proc));
+                                pthread_cond_broadcast (&env->cond);
                                 goto unlock;
                         }
                 }
@@ -701,11 +729,50 @@ unlock:
         pthread_mutex_unlock (&env->mutex);
 }
 
-
+/* The syncenv threads are cleaned up in this routine.
+ */
 void
 syncenv_destroy (struct syncenv *env)
 {
 
+        if (env == NULL)
+                return;
+
+        /* SET the 'destroy' in syncenv structure to prohibit any
+         * further synctask(s) on this syncenv which is in destroy mode.
+         *
+         * If syncenv threads are in pthread cond wait with no tasks in
+         * their run or wait queue, then the threads are woken up by
+         * broadcasting the cond variable and if destroy field is set,
+         * the infinite loop in syncenv_processor is broken and the
+         * threads return.
+         *
+         * If syncenv threads have tasks in runq or waitq, the tasks are
+         * completed and only then the thread returns.
+         */
+        pthread_mutex_lock (&env->mutex);
+        {
+                env->destroy = 1;
+                /* This broadcast will wake threads in pthread_cond_wait
+                 * in syncenv_task
+                 */
+                pthread_cond_broadcast (&env->cond);
+
+                /* when the syncenv_task() thread is exiting, it broadcasts to
+                 * wake the below wait.
+                 */
+                while (env->procs != 0) {
+                        pthread_cond_wait (&env->cond, &env->mutex);
+                }
+        }
+        pthread_mutex_unlock (&env->mutex);
+
+        pthread_mutex_destroy (&env->mutex);
+        pthread_cond_destroy (&env->cond);
+
+        FREE (env);
+
+        return;
 }
 
 
