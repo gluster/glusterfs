@@ -1,0 +1,48 @@
+object expiry tracking memroy usage
+====================================
+
+Bitrot daemon tracks objects for expiry in a data structure known
+as "timer-wheel" (after which the object is signed). It's a well
+known data structure for tracking million of objects of expiry.
+Let's see the memory usage involved when tracking 1 million
+objects (per brick).
+
+Bitrot daemon uses "br_object" structure to hold information
+needed for signing. An instance of this structure is allocated
+for each object that needs to be signed.
+
+struct br_object {
+        xlator_t *this;
+
+        br_child_t *child;
+
+        void *data;
+        uuid_t gfid;
+        unsigned long signedversion;
+
+        struct list_head list;
+};
+
+Timer-wheel requires an instance of the structure below per
+object that needs to be tracked for expiry.
+
+struct gf_tw_timer_list {
+        void *data;
+        unsigned long expires;
+
+        /** callback routine */
+        void (*function)(struct gf_tw_timer_list *, void *, unsigned long);
+
+        struct list_head entry;
+};
+
+Structure sizes:
+  sizeof (struct br_object): 64 bytes
+  sizeof (struct gf_tw_timer_list): 40 bytes
+
+Together, these structures take up 104 bytes. To track all 1 million objects
+at the same time, the amount of memory taken up would be:
+
+  1,000,000 * 104 bytes: ~100MB
+
+Not so bad, I think.
