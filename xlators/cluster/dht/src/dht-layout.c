@@ -166,7 +166,6 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
         int        i = 0;
         int        ret = 0;
 
-
         ret = dht_hash_compute (this, layout->type, name, &hash);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_WARNING,

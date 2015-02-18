@@ -21,6 +21,134 @@
 #include "compat.h"
 #include "xlator.h"
 
+#define ONE 1ULL
+#define PRESENT_D_OFF_BITS 63
+#define BACKEND_D_OFF_BITS 63
+#define TOP_BIT (ONE << (PRESENT_D_OFF_BITS - 1))
+#define MASK (~0ULL)
+#define SHIFT_BITS (max (0, (BACKEND_D_OFF_BITS - PRESENT_D_OFF_BITS + 1)))
+#define PRESENT_MASK (MASK >> (64 - PRESENT_D_OFF_BITS))
+
+static uint64_t
+bits_for (uint64_t num)
+{
+	uint64_t bits = 0, ctrl = 1;
+
+	while (ctrl < num) {
+		ctrl *= 2;
+		bits++;
+	}
+
+	return bits;
+}
+
+int
+gf_deitransform(xlator_t *this,
+                uint64_t offset)
+{
+        int         cnt = 0;
+        int         max = 0;
+        int         max_bits = 0;
+        uint64_t    off_mask = 0;
+        uint64_t    host_mask = 0;
+
+        max = glusterfs_get_leaf_count(this->graph);
+
+	if (max == 1) {
+		cnt = 0;
+		goto out;
+	}
+
+        if (offset & TOP_BIT) {
+                /* HUGE d_off */
+                max_bits = bits_for (max);
+                off_mask = (MASK << max_bits);
+                host_mask = ~(off_mask);
+
+                cnt = offset & host_mask;
+	} else {
+                /* small d_off */
+                cnt = offset % max;
+        }
+out:
+        return cnt;
+}
+
+uint64_t
+gf_dirent_orig_offset(xlator_t *this,
+                      uint64_t offset)
+{
+        int         max = 0;
+        int         max_bits = 0;
+        uint64_t    off_mask = 0;
+        uint64_t    orig_offset;
+
+        max = glusterfs_get_leaf_count(this->graph);
+
+	if (max == 1) {
+                orig_offset = offset;
+		goto out;
+	}
+
+        if (offset & TOP_BIT) {
+                /* HUGE d_off */
+                max_bits = bits_for (max);
+                off_mask = (MASK << max_bits);
+                orig_offset = ((offset & ~TOP_BIT) & off_mask) << SHIFT_BITS;
+	} else {
+                /* small d_off */
+                orig_offset = offset / max;
+        }
+out:
+        return orig_offset;
+}
+
+int
+gf_itransform (xlator_t *this, uint64_t x, uint64_t *y_p, int client_id)
+{
+        int         max = 0;
+        uint64_t    y = 0;
+        uint64_t    hi_mask = 0;
+        uint64_t    off_mask = 0;
+        int         max_bits = 0;
+
+        if (x == ((uint64_t) -1)) {
+                y = (uint64_t) -1;
+                goto out;
+        }
+
+        if (!x) {
+                y = 0;
+                goto out;
+        }
+
+        max = glusterfs_get_leaf_count(this->graph);
+
+	if (max == 1) {
+		y = x;
+		goto out;
+	}
+
+        max_bits = bits_for (max);
+
+        hi_mask = ~(PRESENT_MASK >> (max_bits + 1));
+
+        if (x & hi_mask) {
+                /* HUGE d_off */
+                off_mask = MASK << max_bits;
+                y = TOP_BIT | ((x >> SHIFT_BITS) & off_mask) | client_id;
+        } else {
+                /* small d_off */
+                y = ((x * max) + client_id);
+        }
+
+out:
+        if (y_p)
+                *y_p = y;
+
+        return 0;
+}
+
 gf_dirent_t *
 gf_dirent_for_name (const char *name)
 {

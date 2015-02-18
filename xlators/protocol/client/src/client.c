@@ -24,6 +24,7 @@
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"
+#include "gf-dirent.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
 extern rpc_clnt_prog_t clnt_dump_prog;
@@ -1913,6 +1914,9 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!conf || !conf->fops)
                 goto out;
 
+        if (off != 0)
+                off = gf_dirent_orig_offset(this, off);
+
         args.fd = fd;
         args.size = size;
         args.offset = off;
@@ -1947,6 +1951,9 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         conf = this->private;
         if (!conf || !conf->fops)
                 goto out;
+
+        if (off != 0)
+                off = gf_dirent_orig_offset(this, off);
 
         args.fd = fd;
         args.size = size;
@@ -2447,7 +2454,7 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int                     ret = -1;
 
-        if (!conf)
+       if (!conf)
                 goto out;
 
         GF_OPTION_INIT ("frame-timeout", conf->rpc_conf.rpc_timeout,
@@ -2469,6 +2476,8 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                         bool, out);
 
         GF_OPTION_INIT ("send-gids", conf->send_gids, bool, out);
+
+        conf->client_id = glusterfs_leaf_position(this);
 
         ret = client_check_remote_host (this, this->options);
         if (ret)

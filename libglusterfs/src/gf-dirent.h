@@ -22,6 +22,16 @@
 
 #define gf_dirent_size(name) (sizeof (gf_dirent_t) + strlen (name) + 1)
 
+int
+gf_deitransform(xlator_t *this, uint64_t y);
+
+int
+gf_itransform (xlator_t *this, uint64_t x, uint64_t *y_p, int client_id);
+
+uint64_t
+gf_dirent_orig_offset (xlator_t *this, uint64_t offset);
+
+
 struct _dir_entry_t {
         struct _dir_entry_t *next;
 	char                *name;

@@ -1194,6 +1194,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         }
         */
 
+        conf->client_id = glusterfs_leaf_position(this);
+
         gf_log (this->name, GF_LOG_INFO,
                 "Connected to %s, attached to remote volume '%s'.",
                 conf->rpc->conn.name,

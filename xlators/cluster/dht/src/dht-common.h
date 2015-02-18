@@ -332,6 +332,7 @@ struct dht_conf {
         gf_boolean_t   unhashed_sticky_bit;
         struct timeval last_stat_fetch;
         gf_lock_t      layout_lock;
+        dict_t        *leaf_to_subvol;
         void          *private;     /* Can be used by wrapper xlators over
                                        dht */
         gf_boolean_t   use_readdirp;
@@ -501,9 +502,7 @@ int dht_disk_layout_merge (xlator_t   *this, dht_layout_t *layout,
 
 int dht_frame_return (call_frame_t *frame);
 
-int                             dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y);
-int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol,
-                      uint64_t *x);
+int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol);
 
 void dht_local_wipe (xlator_t *this, dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t    *frame, loc_t *loc, fd_t *fd,
@@ -775,6 +774,8 @@ int32_t dht_discard(call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
                     off_t offset, off_t len, dict_t *xdata);
 
+int
+dht_set_subvol_range(xlator_t *this);
 int32_t dht_init (xlator_t *this);
 void    dht_fini (xlator_t *this);
 int     dht_reconfigure (xlator_t *this, dict_t *options);

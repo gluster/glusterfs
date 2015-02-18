@@ -141,12 +141,16 @@ client_local_wipe (clnt_local_t *local)
 }
 
 int
-unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries)
+unserialize_rsp_dirent (xlator_t *this, struct gfs3_readdir_rsp *rsp,
+                        gf_dirent_t *entries)
 {
         struct gfs3_dirlist  *trav      = NULL;
 	gf_dirent_t          *entry     = NULL;
         int                   entry_len = 0;
         int                   ret       = -1;
+        clnt_conf_t          *conf = NULL;
+
+        conf = this->private;
 
         trav = rsp->reply;
         while (trav) {
@@ -156,7 +160,8 @@ unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries)
                         goto out;
 
                 entry->d_ino  = trav->d_ino;
-                entry->d_off  = trav->d_off;
+                gf_itransform (this, trav->d_off, &entry->d_off,
+                                      conf->client_id);
                 entry->d_len  = trav->d_len;
                 entry->d_type = trav->d_type;
 
@@ -182,11 +187,16 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
         inode_table_t        *itable    = NULL;
         int                   entry_len = 0;
         int                   ret       = -1;
+        clnt_conf_t          *conf      = NULL;
 
         trav = rsp->reply;
 
         if (fd)
                 itable = fd->inode->table;
+
+        conf = this->private;
+        if (!conf)
+                goto out;
 
         while (trav) {
                 entry_len = gf_dirent_size (trav->name);
@@ -195,7 +205,8 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
                         goto out;
 
                 entry->d_ino  = trav->d_ino;
-                entry->d_off  = trav->d_off;
+                gf_itransform (this, trav->d_off, &entry->d_off,
+                                      conf->client_id);
                 entry->d_len  = trav->d_len;
                 entry->d_type = trav->d_type;
 

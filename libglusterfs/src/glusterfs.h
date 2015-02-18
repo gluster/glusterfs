@@ -452,6 +452,7 @@ struct _glusterfs_graph {
         int                       id;    /* Used in logging */
         int                       used;  /* Should be set when fuse gets
                                             first CHILD_UP */
+        uint32_t                  leaf_count;
         uint32_t                  volfile_checksum;
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
@@ -617,6 +618,7 @@ int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy_residual (glusterfs_graph_t *graph);
 int glusterfs_graph_deactivate (glusterfs_graph_t *graph);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
+int glusterfs_get_leaf_count (glusterfs_graph_t *graph);
 int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
 glusterfs_graph_t *glusterfs_graph_new ();

@@ -214,6 +214,8 @@ dht_fini (xlator_t *this)
                         GF_FREE (conf->file_layouts);
                 }
 
+                dict_destroy(conf->leaf_to_subvol);
+
                 GF_FREE (conf->subvolumes);
 
                 GF_FREE (conf->subvolume_status);
@@ -288,7 +290,6 @@ out:
         return ret;
 }
 
-
 int
 dht_decommissioned_remove (xlator_t *this, dht_conf_t *conf)
 {
@@ -341,6 +342,27 @@ dht_init_regex (xlator_t *this, dict_t *odict, char *name,
                 gf_log (this->name, GF_LOG_WARNING,
                         "compiling regex %s failed", temp_str);
         }
+}
+
+int
+dht_set_subvol_range(xlator_t *this)
+{
+        int ret = -1;
+        dht_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        if (!conf)
+                goto out;
+
+        conf->leaf_to_subvol = dict_new();
+        if (!conf->leaf_to_subvol)
+                goto out;
+
+        ret = glusterfs_reachable_leaves(this, conf->leaf_to_subvol);
+
+out:
+        return ret;
 }
 
 int
@@ -675,6 +697,9 @@ dht_init (xlator_t *this)
         }
 
         this->private = conf;
+
+        if (dht_set_subvol_range(this))
+                goto err;
 
         return 0;
 

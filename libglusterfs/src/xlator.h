@@ -978,4 +978,11 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
 
 int
 loc_touchup (loc_t *loc, const char *name);
+
+int
+glusterfs_leaf_position(xlator_t *tgt);
+
+int
+glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves);
+
 #endif /* _XLATOR_H */

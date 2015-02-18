@@ -2840,6 +2840,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
+
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 if (!hashed_subvol) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2864,6 +2865,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENODATA;
                         goto err;
                 }
+
                 STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
                             hashed_subvol->fops->getxattr, loc,
                             GF_XATTR_PATHINFO_KEY, xdata);
@@ -3854,9 +3856,7 @@ list:
                         }
                 }
 
-                dht_itransform (this, prev->this, orig_entry->d_off,
-                                &entry->d_off);
-
+                entry->d_off  = orig_entry->d_off;
                 entry->d_stat = orig_entry->d_stat;
                 entry->d_ino  = orig_entry->d_ino;
                 entry->d_type = orig_entry->d_type;
@@ -3988,9 +3988,7 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 goto unwind;
                         }
 
-                        dht_itransform (this, prev->this, orig_entry->d_off,
-                                        &entry->d_off);
-
+                        entry->d_off  = orig_entry->d_off;
                         entry->d_ino  = orig_entry->d_ino;
                         entry->d_type = orig_entry->d_type;
                         entry->d_len  = orig_entry->d_len;
@@ -4050,7 +4048,6 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
         xlator_t     *xvol = NULL;
-        off_t         xoff = 0;
         int           ret = 0;
         dht_conf_t   *conf = NULL;
 
@@ -4072,7 +4069,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->xattr_req = (dict)? dict_ref (dict) : NULL;
         local->first_up_subvol = dht_first_up_subvol (this);
 
-        dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
+        dht_deitransform (this, yoff, &xvol);
 
         /* TODO: do proper readdir */
         if (whichop == GF_FOP_READDIRP) {
@@ -4111,10 +4108,10 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
 
                 STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
-                            fd, size, xoff, local->xattr);
+                            fd, size, yoff, local->xattr);
         } else {
                 STACK_WIND (frame, dht_readdir_cbk, xvol, xvol->fops->readdir,
-                            fd, size, xoff, local->xattr);
+                            fd, size, yoff, local->xattr);
         }
 
         return 0;
