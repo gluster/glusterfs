@@ -36,6 +36,15 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
                 return NULL;
         }
 
+        /* ctx and its fields are not accessed inside mutex!?
+         * TODO: Even with this there is a possiblity of race
+         * when cleanup_started is set after checking for it
+         */
+        if (ctx->cleanup_started) {
+                gf_log_callingfn ("timer", GF_LOG_INFO, "ctx cleanup started");
+                return NULL;
+        }
+
         reg = gf_timer_registry_init (ctx);
 
         if (!reg) {
@@ -120,11 +129,18 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
         return 0;
 }
 
+static inline void __delete_entry (gf_timer_t *event) {
+        event->next->prev = event->prev;
+        event->prev->next = event->next;
+        GF_FREE (event);
+}
+
 void *
 gf_timer_proc (void *ctx)
 {
         gf_timer_registry_t *reg = NULL;
         const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
+        gf_timer_t *event = NULL;
 
         if (ctx == NULL)
         {
@@ -141,7 +157,6 @@ gf_timer_proc (void *ctx)
         while (!reg->fin) {
                 uint64_t now;
                 struct timespec now_ts;
-                gf_timer_t *event = NULL;
 
                 timespec_now (&now_ts);
                 now = TS (now_ts);
@@ -172,12 +187,19 @@ gf_timer_proc (void *ctx)
 
         pthread_mutex_lock (&reg->lock);
         {
+                /* Do not call gf_timer_call_cancel(),
+                 * it will lead to deadlock
+                 */
                 while (reg->active.next != &reg->active) {
-                        gf_timer_call_cancel (ctx, reg->active.next);
+                        event = reg->active.next;
+                        /* cannot call list_del as the event doesnt have
+                         * list_head*/
+                        __delete_entry (event);
                 }
 
                 while (reg->stale.next != &reg->stale) {
-                        gf_timer_call_cancel (ctx, reg->stale.next);
+                        event = reg->stale.next;
+                        __delete_entry (event);
                 }
         }
         pthread_mutex_unlock (&reg->lock);
@@ -214,4 +236,19 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
         }
 out:
         return ctx->timer;
+}
+
+void
+gf_timer_registry_destroy (glusterfs_ctx_t *ctx)
+{
+        pthread_t thr_id;
+        gf_timer_registry_t *reg = NULL;
+
+        if (ctx == NULL)
+                return;
+
+        reg = ctx->timer;
+        thr_id = reg->th;
+        reg->fin = 1;
+        pthread_join (thr_id, NULL);
 }
