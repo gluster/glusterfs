@@ -35,6 +35,25 @@ int client_destroy_rpc (xlator_t *this);
 int client_mark_fd_bad (xlator_t *this);
 
 static int
+client_fini_complete (xlator_t *this)
+{
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        clnt_conf_t *conf = this->private;
+
+        if (!conf->destroy)
+                return 0;
+
+        this->private = NULL;
+
+        pthread_mutex_destroy (&conf->lock);
+        GF_FREE (conf);
+
+out:
+        return 0;
+}
+
+static int
 client_notify_dispatch_uniq (xlator_t *this, int32_t event, void *data, ...)
 {
         clnt_conf_t     *conf = this->private;
@@ -2298,6 +2317,10 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 break;
 
+        case RPC_CLNT_DESTROY:
+                ret = client_fini_complete (this);
+                break;
+
         default:
                 gf_log (this->name, GF_LOG_TRACE,
                         "got some other RPC event %d", event);
@@ -2730,23 +2753,19 @@ fini (xlator_t *this)
         clnt_conf_t *conf = NULL;
 
         conf = this->private;
-        this->private = NULL;
+        if (!conf)
+                return;
 
-        if (conf) {
-                if (conf->rpc) {
-                        /* cleanup the saved-frames before last unref */
-                        rpc_clnt_connection_cleanup (&conf->rpc->conn);
-
-                        rpc_clnt_unref (conf->rpc);
-                }
-
-                /* Saved Fds */
-                /* TODO: */
-
-                pthread_mutex_destroy (&conf->lock);
-
-                GF_FREE (conf);
+        conf->destroy = 1;
+        if (conf->rpc) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&conf->rpc->conn);
+                rpc_clnt_unref (conf->rpc);
         }
+
+        /* Saved Fds */
+        /* TODO: */
+
         return;
 }
 

@@ -128,6 +128,9 @@ typedef struct clnt_conf {
 
         int                     event_threads; /* # of event threads
                                                 * configured */
+
+        gf_boolean_t           destroy; /* if enabled implies fini was called
+                                         * on @this xlator instance */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
