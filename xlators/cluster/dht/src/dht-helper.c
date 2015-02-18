@@ -1370,6 +1370,22 @@ out:
         return ret;
 }
 
+void
+dht_set_lkowner (dht_lock_t **lk_array, int count, gf_lkowner_t *lkowner)
+{
+        int i = 0;
+
+        if (!lk_array || !lkowner)
+                goto out;
+
+        for (i = 0; i < count; i++) {
+                lk_array[i]->lk_owner = *lkowner;
+        }
+
+out:
+        return;
+}
+
 int
 dht_subvol_status (dht_conf_t *conf, xlator_t *subvol)
 {
@@ -1415,7 +1431,7 @@ dht_inodelk_cleanup_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
-static inline int32_t
+inline int32_t
 dht_lock_count (dht_lock_t **lk_array, int lk_count)
 {
         int i = 0, locked = 0;
@@ -1553,6 +1569,7 @@ dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                 if (!local->lock.locks[i]->locked)
                         continue;
 
+                lock_frame->root->lk_owner = local->lock.locks[i]->lk_owner;
                 STACK_WIND_COOKIE (lock_frame, dht_unlock_inodelk_cbk,
                                    (void *)(long)i,
                                    local->lock.locks[i]->xl,
@@ -1641,6 +1658,8 @@ dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
         if (ret < 0) {
                 goto out;
         }
+
+        dht_set_lkowner (lk_array, lk_count, &lock_frame->root->lk_owner);
 
         local = lock_frame->local;
         local->main_frame = frame;
@@ -1779,6 +1798,8 @@ dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
         if (ret < 0) {
                 goto out;
         }
+
+        dht_set_lkowner (lk_array, lk_count, &lock_frame->root->lk_owner);
 
         local = lock_frame->local;
         local->main_frame = frame;
