@@ -1492,12 +1492,14 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         if (defrag->stats == _gf_true) {
                                 gettimeofday (&start, NULL);
                         }
+
                         if (defrag->defrag_pattern &&
                             (gf_defrag_pattern_match (defrag, entry->d_name,
                                                       entry->d_stat.ia_size)
                              == _gf_false)) {
                                 continue;
                         }
+
                         loc_wipe (&entry_loc);
                         ret =dht_build_child_loc (this, &entry_loc, loc,
                                                   entry->d_name);

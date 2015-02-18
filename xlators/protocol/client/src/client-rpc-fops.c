@@ -2450,7 +2450,7 @@ client3_3_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         INIT_LIST_HEAD (&entries.list);
         if (rsp.op_ret > 0) {
-                unserialize_rsp_dirent (&rsp, &entries);
+                unserialize_rsp_dirent (this, &rsp, &entries);
         }
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, xdata,

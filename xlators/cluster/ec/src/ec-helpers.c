@@ -16,17 +16,6 @@
 #include "ec-fops.h"
 #include "ec-helpers.h"
 
-#define BACKEND_D_OFF_BITS 63
-#define PRESENT_D_OFF_BITS 63
-
-#define ONE 1ULL
-#define MASK (~0ULL)
-#define PRESENT_MASK (MASK >> (64 - PRESENT_D_OFF_BITS))
-#define BACKEND_MASK (MASK >> (64 - BACKEND_D_OFF_BITS))
-
-#define TOP_BIT (ONE << (PRESENT_D_OFF_BITS - 1))
-#define SHIFT_BITS (max(0, (BACKEND_D_OFF_BITS - PRESENT_D_OFF_BITS + 1)))
-
 #ifndef ffsll
 #define ffsll(x) __builtin_ffsll(x)
 #endif
@@ -104,41 +93,6 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...)
     {
         free(msg);
     }
-}
-
-uint64_t ec_itransform(ec_t * ec, int32_t idx, uint64_t offset)
-{
-    int32_t bits;
-
-    if (offset == -1ULL)
-    {
-        return -1ULL;
-    }
-
-    bits = ec->bits_for_nodes;
-    if ((offset & ~(PRESENT_MASK >> (bits + 1))) != 0)
-    {
-        return TOP_BIT | ((offset >> SHIFT_BITS) & (MASK << bits)) | idx;
-    }
-
-    return (offset * ec->nodes) + idx;
-}
-
-uint64_t ec_deitransform(ec_t * ec, int32_t * idx, uint64_t offset)
-{
-    uint64_t mask = 0;
-
-    if ((offset & TOP_BIT) != 0)
-    {
-        mask = MASK << ec->bits_for_nodes;
-
-        *idx = offset & ~mask;
-        return ((offset & ~TOP_BIT) & mask) << SHIFT_BITS;
-    }
-
-    *idx = offset % ec->nodes;
-
-    return offset / ec->nodes;
 }
 
 int32_t ec_bits_count(uint64_t n)

@@ -16,8 +16,6 @@
 const char * ec_bin(char * str, size_t size, uint64_t value, int32_t digits);
 const char * ec_fop_name(int32_t id);
 void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...);
-uint64_t ec_itransform(ec_t * ec, int32_t idx, uint64_t offset);
-uint64_t ec_deitransform(ec_t * ec, int32_t * idx, uint64_t offset);
 int32_t ec_bits_count(uint64_t n);
 int32_t ec_bits_index(uint64_t n);
 int32_t ec_bits_consume(uint64_t * n);
