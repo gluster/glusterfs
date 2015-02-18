@@ -640,15 +640,36 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
 
 int
+dht_layout_missing_dirs (dht_layout_t *layout)
+{
+        int i = 0, missing = 0;
+
+        if (layout == NULL)
+                goto out;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if ((layout->list[i].err == ENOENT)
+                    || ((layout->list[i].err == -1)
+                        && (layout->list[i].start == 0)
+                        && (layout->list[i].stop == 0))) {
+                        missing++;
+                }
+        }
+
+out:
+        return missing;
+}
+
+
+int
 dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 {
         int          ret   = 0;
-        int          i = 0;
         uint32_t     holes = 0;
         uint32_t     overlaps = 0;
         uint32_t     missing = 0;
         uint32_t     down = 0;
-        uint32_t     misc = 0;
+        uint32_t     misc = 0, missing_dirs = 0;
         char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         ret = dht_layout_sort (layout);
@@ -684,24 +705,14 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
                 ret = -1;
         }
 
-        for (i = 0; i < layout->cnt; i++) {
+        if (ret >= 0) {
+                missing_dirs = dht_layout_missing_dirs (layout);
                 /* TODO During DHT selfheal rewrite (almost) find a better place
                  * to detect this - probably in dht_layout_anomalies()
                  */
-                if (layout->list[i].err > 0) {
-                        gf_log_callingfn (this->name, GF_LOG_DEBUG,
-                                          "path=%s err=%s on subvol=%s",
-                                          loc->path,
-                                          strerror (layout->list[i].err),
-                                          (layout->list[i].xlator ?
-                                           layout->list[i].xlator->name
-                                           : "<>"));
-                        if ((layout->list[i].err == ENOENT) && (ret >= 0)) {
-                                ret++;
-                        }
-                }
+                if (missing_dirs > 0)
+                        ret += missing_dirs;
         }
-
 
 out:
         return ret;

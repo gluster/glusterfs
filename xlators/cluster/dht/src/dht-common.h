@@ -30,6 +30,8 @@
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
 #define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
+#define DHT_LAYOUT_HEAL_DOMAIN      "dht.layout.heal"
+
 #include <fnmatch.h>
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
@@ -128,8 +130,17 @@ typedef struct {
         char         *domain;  /* Only locks within a single domain
                                 * contend with each other
                                 */
+        gf_lkowner_t  lk_owner;
         gf_boolean_t  locked;
 } dht_lock_t;
+
+typedef
+int (*dht_selfheal_layout_t)(call_frame_t *frame, loc_t *loc,
+                             dht_layout_t *layout);
+
+typedef
+gf_boolean_t (*dht_need_heal_t)(call_frame_t *frame, dht_layout_t **inmem,
+                                dht_layout_t **ondisk);
 
 struct dht_local {
         int                      call_cnt;
@@ -173,12 +184,15 @@ struct dht_local {
                 xlator_t        *srcvol;
         } linkfile;
         struct {
-                uint32_t         hole_cnt;
-                uint32_t         overlaps_cnt;
-                uint32_t         down;
-                uint32_t         misc;
-                dht_selfheal_dir_cbk_t   dir_cbk;
-                dht_layout_t    *layout;
+                uint32_t                hole_cnt;
+                uint32_t                overlaps_cnt;
+                uint32_t                down;
+                uint32_t                misc;
+                dht_selfheal_dir_cbk_t  dir_cbk;
+                dht_selfheal_layout_t   healer;
+                dht_need_heal_t         should_heal;
+                gf_boolean_t            force_mkdir;
+                dht_layout_t           *layout, *refreshed_layout;
         } selfheal;
         uint32_t                 uid;
         uint32_t                 gid;
@@ -892,5 +906,14 @@ dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
               const char *domain);
 void
 dht_lock_array_free (dht_lock_t **lk_array, int count);
+
+inline int32_t
+dht_lock_count (dht_lock_t **lk_array, int lk_count);
+
+int
+dht_layout_sort (dht_layout_t *layout);
+
+int
+dht_layout_missing_dirs (dht_layout_t *layout);
 
 #endif/* _DHT_H */

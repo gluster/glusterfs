@@ -5082,7 +5082,7 @@ err:
 }
 
 
- int
+int
 dht_mkdir (call_frame_t *frame, xlator_t *this,
            loc_t *loc, mode_t mode, mode_t umask, dict_t *params)
 {
