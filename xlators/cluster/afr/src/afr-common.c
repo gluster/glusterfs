@@ -4073,7 +4073,6 @@ afr_priv_destroy (afr_private_t *priv)
 
         if (!priv)
                 goto out;
-        inode_unref (priv->root_inode);
         GF_FREE (priv->last_event);
         if (priv->pending_key) {
                 for (i = 0; i < priv->child_count; i++)
