@@ -4746,6 +4746,7 @@ int32_t
 init (rpc_transport_t *this)
 {
         gf_rdma_private_t *priv = NULL;
+        gf_rdma_ctx_t *rdma_ctx = NULL;
         struct iobuf_pool *iobuf_pool = NULL;
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_common_mt_rdma_private_t);
@@ -4761,6 +4762,10 @@ init (rpc_transport_t *this)
                 GF_FREE (priv);
                 return -1;
         }
+        rdma_ctx = this->ctx->ib;
+        if (rdma_ctx != NULL) {
+                rdma_ctx->dlcount++;
+        }
         iobuf_pool = this->ctx->iobuf_pool;
         iobuf_pool->rdma_registration = gf_rdma_register_arena;
         iobuf_pool->rdma_deregistration = gf_rdma_deregister_arena;
@@ -4773,6 +4778,8 @@ fini (struct rpc_transport *this)
 {
         /* TODO: verify this function does graceful finish */
         gf_rdma_private_t *priv = NULL;
+        struct iobuf_pool *iobuf_pool = NULL;
+        gf_rdma_ctx_t *rdma_ctx = NULL;
 
         priv = this->private;
 
@@ -4785,6 +4792,17 @@ fini (struct rpc_transport *this)
                 gf_log (this->name, GF_LOG_TRACE,
                         "called fini on transport: %p", this);
                 GF_FREE (priv);
+        }
+
+        rdma_ctx = this->ctx->ib;
+        if (!rdma_ctx)
+                return;
+
+        rdma_ctx->dlcount--;
+        if (rdma_ctx->dlcount == 0) {
+                iobuf_pool = this->ctx->iobuf_pool;
+                iobuf_pool->rdma_registration = NULL;
+                iobuf_pool->rdma_deregistration = NULL;
         }
         return;
 }
