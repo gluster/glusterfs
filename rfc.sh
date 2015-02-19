@@ -129,13 +129,16 @@ main()
         return;
     fi
 
-    check_patches_for_coding_style;
+    bug=$(git show --format='%b' | grep -i '^BUG: ' | awk '{print $2}');
+
+    # relax checkpatch.pl on RFC patches
+    if [ !-z "$bug" ]; then
+        check_patches_for_coding_style;
+    fi
 
     rebase_changes;
 
     assert_diverge;
-
-    bug=$(git show --format='%b' | grep -i '^BUG: ' | awk '{print $2}');
 
     if [ "$DRY_RUN" = 1 ]; then
         drier='echo -e Please use the following command to send your commits to review:\n\n'
