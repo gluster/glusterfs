@@ -234,14 +234,15 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                                   int   brick_index, int *online,
                                   gf_boolean_t *node_present)
 {
-        int             ret = -1;
-        char            *hostname = NULL;
-        char            *path = NULL;
-        char            *uuid = NULL;
-        int             port = 0;
-        int             status = 0;
-        int             pid = 0;
-        char            key[1024] = {0,};
+        int             ret             = -1;
+        char            *hostname       = NULL;
+        char            *path           = NULL;
+        char            *uuid           = NULL;
+        int             port            = 0;
+        int             rdma_port       = 0;
+        int             status          = 0;
+        int             pid             = 0;
+        char            key[1024]       = {0,};
 
         snprintf (key, sizeof (key), "brick%d.hostname", brick_index);
         ret = dict_get_str (dict, key, &hostname);
@@ -294,19 +295,62 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         if (ret)
                 goto out;
 
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "brick%d.rdma_port", brick_index);
+        ret = dict_get_int32 (dict, key, &rdma_port);
+
         /* If the process is either offline or doesn't provide a port (shd)
          * port = "N/A"
          * else print the port number of the process.
          */
 
+        /*
+         * Tag 'port' can be removed once console management is started
+         * to support new tag ports.
+         */
+
         if (*online == 1 && port != 0)
+                 ret = xmlTextWriterWriteFormatElement (writer,
+                                                    (xmlChar *)"port",
+                                                        "%d", port);
+         else
+                 ret = xmlTextWriterWriteFormatElement (writer,
+                                                        (xmlChar *)"port",
+                                                        "%s", "N/A");
+
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"ports");
+        if (*online == 1 && (port != 0 || rdma_port != 0)) {
+
+                if (port) {
                 ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"port",
+                                                       (xmlChar *)"tcp",
                                                        "%d", port);
-        else
+                } else {
                 ret = xmlTextWriterWriteFormatElement (writer,
-                                                       (xmlChar *)"port",
+                                                       (xmlChar *)"tcp",
                                                        "%s", "N/A");
+                }
+
+                if (rdma_port) {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"rdma",
+                                                       "%d", rdma_port);
+                } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"rdma",
+                                                       "%s", "N/A");
+                }
+
+        } else {
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"tcp",
+                                                       "%s", "N/A");
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"rdma",
+                                                       "%s", "N/A");
+        }
+
+        ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         memset (key, 0, sizeof (key));
