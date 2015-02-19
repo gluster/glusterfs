@@ -578,6 +578,7 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	unsigned char          *healed_sinks          = NULL;
 	struct afr_reply       *locked_replies        = NULL;
 	afr_private_t          *priv                  = NULL;
+        gf_boolean_t            did_sh                = _gf_true;
 
 	priv = this->private;
 
@@ -606,12 +607,19 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                     data_lock, sources, sinks,
                                                     healed_sinks,
 						    locked_replies, &source);
+                if (AFR_COUNT(healed_sinks, priv->child_count) == 0) {
+                        did_sh = _gf_false;
+                        goto unlock;
+                }
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, fd->inode, this->name, NULL,
 				data_lock);
 	if (ret < 0)
 		goto out;
+
+        if (!did_sh)
+                goto out;
 
 	ret = afr_selfheal_entry_do (frame, this, fd, source, sources,
                                      healed_sinks);
@@ -648,8 +656,11 @@ postop_unlock:
         afr_selfheal_unentrylk (frame, this, fd->inode, this->name, NULL,
                                 postop_lock);
 out:
-        afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
-                          healed_sinks);
+        if (did_sh)
+                afr_log_selfheal (fd->inode->gfid, this, ret, "entry", source,
+                                  healed_sinks);
+        else
+                ret = 1;
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);

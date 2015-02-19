@@ -531,7 +531,7 @@ gf_pump_traverse_directory (loc_t *loc)
 			}
 
 			ret = afr_selfheal (this, iatt.ia_gfid);
-			if (ret) {
+			if (ret < 0) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"%s: self-heal failed (%s)",
 					entry_loc.path, uuid_utoa (iatt.ia_gfid));
