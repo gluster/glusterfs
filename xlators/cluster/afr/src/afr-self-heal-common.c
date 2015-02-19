@@ -1310,23 +1310,18 @@ out:
 	return ret;
 }
 
-/*
- * This is the entry point for healing a given GFID
- */
-
 int
-afr_selfheal (xlator_t *this, uuid_t gfid)
+afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
 {
-        inode_t *inode = NULL;
-	call_frame_t *frame = NULL;
-	int ret = -1, entry_ret = 0, metadata_ret = 0, data_ret = 0;
-	gf_boolean_t data_selfheal = _gf_false;
-	gf_boolean_t metadata_selfheal = _gf_false;
-	gf_boolean_t entry_selfheal = _gf_false;
-
-	frame = afr_frame_create (this);
-	if (!frame)
-		goto out;
+	int           ret               = -1;
+        int           entry_ret         = 1;
+        int           metadata_ret      = 1;
+        int           data_ret          = 1;
+        int           or_ret            = 0;
+        inode_t      *inode             = NULL;
+	gf_boolean_t  data_selfheal     = _gf_false;
+	gf_boolean_t  metadata_selfheal = _gf_false;
+	gf_boolean_t  entry_selfheal    = _gf_false;
 
 	ret = afr_selfheal_unlocked_inspect (frame, this, gfid, &inode,
 					     &data_selfheal,
@@ -1344,14 +1339,42 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 	if (entry_selfheal)
                 entry_ret = afr_selfheal_entry (frame, this, inode);
 
+        or_ret = (data_ret | metadata_ret | entry_ret);
+
         if (data_ret == -EIO || metadata_ret == -EIO || entry_ret == -EIO)
                 ret = -EIO;
+        else if (data_ret == 1 && metadata_ret == 1 && entry_ret == 1)
+                ret = 1;
+        else if (or_ret < 0)
+                ret = or_ret;
         else
-                ret = (data_ret | metadata_ret | entry_ret);
+                ret = 0;
 
-	inode_forget (inode, 1);
-        inode_unref (inode);
 out:
+        if (inode) {
+                inode_forget (inode, 1);
+                inode_unref (inode);
+        }
+        return ret;
+}
+/*
+ * This is the entry point for healing a given GFID
+ * The function returns 0 if self-heal was successful, appropriate errno
+ * in case of a failure and 1 in case self-heal was never needed on the gfid.
+ */
+
+int
+afr_selfheal (xlator_t *this, uuid_t gfid)
+{
+        int           ret   = -1;
+	call_frame_t *frame = NULL;
+
+	frame = afr_frame_create (this);
+	if (!frame)
+		return ret;
+
+        ret = afr_selfheal_do (frame, this, gfid);
+
 	if (frame)
 		AFR_STACK_DESTROY (frame);
 

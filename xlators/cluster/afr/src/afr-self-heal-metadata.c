@@ -377,6 +377,7 @@ afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	unsigned char *data_lock = NULL;
 	unsigned char *healed_sinks = NULL;
 	struct afr_reply *locked_replies = NULL;
+        gf_boolean_t did_sh = _gf_true;
 	int source = -1;
 
 	priv = this->private;
@@ -406,7 +407,7 @@ afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
 		source = ret;
 
                 if (AFR_COUNT (healed_sinks, priv->child_count) == 0) {
-                        ret = -ENOTCONN;
+                        did_sh = _gf_false;
                         goto unlock;
                 }
 
@@ -424,8 +425,11 @@ unlock:
 	afr_selfheal_uninodelk (frame, this, inode, this->name,
 				LLONG_MAX -1, 0, data_lock);
 
-        afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
-                          healed_sinks);
+        if (did_sh)
+                afr_log_selfheal (inode->gfid, this, ret, "metadata", source,
+                                  healed_sinks);
+        else
+                ret = 1;
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
