@@ -2062,7 +2062,6 @@ fini (xlator_t *this)
 {
         ioc_table_t         *table = NULL;
         struct ioc_priority *curr  = NULL, *tmp = NULL;
-        int                  i     = 0;
 
         table = this->private;
 
@@ -2082,11 +2081,15 @@ fini (xlator_t *this)
                 GF_FREE (curr);
         }
 
-        for (i = 0; i < table->max_pri; i++) {
+        /* inode_lru and inodes list can be empty in case fini() is
+         * called soon after init()? Hence commenting the below asserts.
+         */
+        /*for (i = 0; i < table->max_pri; i++) {
                 GF_ASSERT (list_empty (&table->inode_lru[i]));
         }
 
         GF_ASSERT (list_empty (&table->inodes));
+        */
         pthread_mutex_destroy (&table->table_lock);
         GF_FREE (table);
 

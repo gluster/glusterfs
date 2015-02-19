@@ -572,7 +572,7 @@ pub_glfs_new (const char *volname)
 	if (ret)
 		return NULL;
 
-	fs = GF_CALLOC (1, sizeof (*fs), glfs_mt_glfs_t);
+	fs = CALLOC (1, sizeof (*fs));
 	if (!fs)
 		return NULL;
 	fs->ctx = ctx;
@@ -581,7 +581,7 @@ pub_glfs_new (const char *volname)
 
 	fs->ctx->cmd_args.volfile_id = gf_strdup (volname);
 
-	fs->volname = gf_strdup (volname);
+	fs->volname = strdup (volname);
 
 	pthread_mutex_init (&fs->mutex, NULL);
 	pthread_cond_init (&fs->cond, NULL);
@@ -603,7 +603,7 @@ priv_glfs_new_from_ctx (glusterfs_ctx_t *ctx)
         if (!ctx)
                 return NULL;
 
-        fs = GF_CALLOC (1, sizeof (*fs), glfs_mt_glfs_t);
+        fs = CALLOC (1, sizeof (*fs));
         if (!fs)
                 return NULL;
         fs->ctx = ctx;
@@ -631,7 +631,8 @@ priv_glfs_free_from_ctx (struct glfs *fs)
 
         (void) pthread_mutex_destroy (&fs->mutex);
 
-        GF_FREE (fs);
+        FREE (fs->volname);
+        FREE (fs);
 }
 
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_free_from_ctx, 3.7.0);
@@ -813,6 +814,73 @@ pub_glfs_init (struct glfs *fs)
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_init, 3.4.0);
 
+static int
+glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
+{
+        call_pool_t       *pool            = NULL;
+        int               ret              = 0;
+        glusterfs_graph_t *trav_graph      = NULL;
+        glusterfs_graph_t *tmp             = NULL;
+
+        if (ctx == NULL)
+                return 0;
+
+        /* For all the graphs, crawl through the xlator_t structs and free
+         * all its members except for the mem_acct.rec member,
+         * as GF_FREE will be referencing it.
+         */
+        list_for_each_entry_safe (trav_graph, tmp, &ctx->graphs, list) {
+                xlator_tree_free_members (trav_graph->first);
+        }
+
+        /* Free the memory pool */
+        if (ctx->stub_mem_pool)
+                mem_pool_destroy (ctx->stub_mem_pool);
+        if (ctx->dict_pool)
+                mem_pool_destroy (ctx->dict_pool);
+        if (ctx->dict_data_pool)
+                mem_pool_destroy (ctx->dict_data_pool);
+        if (ctx->dict_pair_pool)
+                mem_pool_destroy (ctx->dict_pair_pool);
+        if (ctx->logbuf_pool)
+                mem_pool_destroy (ctx->logbuf_pool);
+
+        pool = ctx->pool;
+        if (pool) {
+                if (pool->frame_mem_pool)
+                        mem_pool_destroy (pool->frame_mem_pool);
+                if (pool->stack_mem_pool)
+                        mem_pool_destroy (pool->stack_mem_pool);
+                LOCK_DESTROY (&pool->lock);
+                GF_FREE (pool);
+        }
+
+        /* Free the event pool */
+        ret = event_pool_destroy (ctx->event_pool);
+
+        /* Free the iobuf pool */
+        iobuf_pool_destroy (ctx->iobuf_pool);
+
+        GF_FREE (ctx->process_uuid);
+        GF_FREE (ctx->cmd_args.volfile_id);
+
+        pthread_mutex_destroy (&(ctx->lock));
+        pthread_mutex_destroy (&(ctx->notify_lock));
+        pthread_cond_destroy (&(ctx->notify_cond));
+
+        /* Free all the graph structs and its containing xlator_t structs
+         * from this point there should be no reference to GF_FREE/GF_CALLOC
+         * as it will try to access mem_acct and the below funtion would
+         * have freed the same.
+         */
+        list_for_each_entry_safe (trav_graph, tmp, &ctx->graphs, list) {
+                glusterfs_graph_destroy_residual (trav_graph);
+        }
+
+        FREE (ctx);
+
+        return ret;
+}
 
 int
 pub_glfs_fini (struct glfs *fs)
@@ -901,11 +969,59 @@ pub_glfs_fini (struct glfs *fs)
                 glfs_subvol_done (fs, subvol);
         }
 
-        if (gf_log_fini(ctx) != 0)
+        ctx->cleanup_started = 1;
+
+        if (fs_init != 0) {
+                /* Destroy all the inode tables of all the graphs.
+                 * NOTE:
+                 * - inode objects should be destroyed before calling fini()
+                 *   of each xlator, as fini() and forget() of the xlators
+                 *   can share few common locks or data structures, calling
+                 *   fini first might destroy those required by forget
+                 *   ( eg: in quick-read)
+                 * - The call to inode_table_destroy_all is not required when
+                 *   the cleanup during graph switch is implemented to perform
+                 *   inode table destroy.
+                 */
+                inode_table_destroy_all (ctx);
+
+                /* Call fini() of all the xlators in the active graph
+                 * NOTE:
+                 * - xlator fini() should be called before destroying any of
+                 *   the threads. (eg: fini() in protocol-client uses timer
+                 *   thread) */
+                glusterfs_graph_deactivate (ctx->active);
+
+                /* Join the syncenv_processor threads and cleanup
+                 * syncenv resources*/
+                syncenv_destroy (ctx->env);
+
+                /* Join the poller thread */
+                if (event_dispatch_destroy (ctx->event_pool) != 0)
+                        ret = -1;
+        }
+
+        /* log infra has to be brought down before destroying
+         * timer registry, as logging uses timer infra
+         */
+        if (gf_log_fini (ctx) != 0)
                 ret = -1;
+
+        /* Join the timer thread */
+        if (fs_init != 0) {
+                gf_timer_registry_destroy (ctx);
+        }
+
+        /* Destroy the context and the global pools */
+        if (glusterfs_ctx_destroy (ctx) != 0)
+                ret = -1;
+
+        glfs_free_from_ctx (fs);
+
 fail:
         if (!ret)
                 ret = err;
+
         return ret;
 }
 
