@@ -3456,6 +3456,7 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
         MAKE_INODE_HANDLE (leaf_path, this, loc, NULL);
         if (!leaf_path) {
                 GF_FREE (loc);
+                *op_errno = ESTALE;
                 goto out;
         }
         GF_FREE (loc);
@@ -5140,8 +5141,8 @@ posix_entry_xattr_fill (xlator_t *this, inode_t *inode,
         MAKE_HANDLE_PATH (entry_path, this, fd->inode->gfid, name);
         if (!entry_path) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "Failed to create handle path for %s (%s)",
-                        name, uuid_utoa (fd->inode->gfid));
+                        "Failed to create handle path for %s/%s",
+                        uuid_utoa (fd->inode->gfid), name);
 
                 return NULL;
         }
