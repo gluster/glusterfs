@@ -3255,7 +3255,6 @@ static int
 fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
-        int             need_to_free_dict = 0;
         char           *value = "";
         fuse_state_t   *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -3339,9 +3338,6 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } /* if(op_ret>=0)...else */
 
 out:
-        if (need_to_free_dict)
-                dict_unref (dict);
-
         free_fuse_state (state);
         STACK_DESTROY (frame->root);
 
