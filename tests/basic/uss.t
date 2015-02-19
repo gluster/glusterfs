@@ -65,7 +65,7 @@ TEST $CLI snapshot create snap4 $V0;
 ## Test that features.uss takes only options enable/disable and throw error for
 ## any other argument.
 for i in {1..10}; do
-        RANDOM_STRING=`cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1`
+        RANDOM_STRING=$(uuidgen | tr -dc 'a-zA-Z' | head -c 8)
         TEST_IN_LOOP ! $CLI volume set $V0 features.uss $RANDOM_STRING
 done
 

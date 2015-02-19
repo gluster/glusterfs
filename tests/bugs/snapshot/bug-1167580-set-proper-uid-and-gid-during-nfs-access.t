@@ -38,12 +38,11 @@ function check_if_permitted () {
 
 # Create a directory in /tmp to specify which directory to make
 # as home directory for user
-home_dir=$(cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1)
-home_dir="/tmp/bug-1167580-$home_dir"
-mkdir $home_dir
+home_dir=$(mktemp -d)
+chmod 777 $home_dir
 
 function get_new_user() {
-        local temp=$(cat /dev/urandom | tr -dc 'a-zA-Z' | fold -w 8 | head -n 1)
+        local temp=$(uuidgen | tr -dc 'a-zA-Z' | head -c 8)
         id $temp
         if [ "$?" == "0" ]
         then
@@ -59,9 +58,9 @@ function create_user() {
 
         if [ "$group" == "" ]
         then
-                useradd -d $home_dir/$user $user
+                /usr/sbin/useradd -d $home_dir/$user $user
         else
-                useradd -d $home_dir/$user -G $group $user
+                /usr/sbin/useradd -d $home_dir/$user -G $group $user
         fi
 
         return $?
