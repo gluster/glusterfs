@@ -245,4 +245,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                                gf_boolean_t *data_selfheal,
                                gf_boolean_t *metadata_selfheal,
                                gf_boolean_t *entry_selfheal);
+
+int
+afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid);
 #endif /* !_AFR_SELFHEAL_H */
