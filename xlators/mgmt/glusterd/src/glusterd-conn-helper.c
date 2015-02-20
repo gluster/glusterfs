@@ -14,5 +14,5 @@
 glusterd_svc_t *
 glusterd_conn_get_svc_object (glusterd_conn_t *conn)
 {
-        return list_entry (conn, glusterd_svc_t, conn);
+        return cds_list_entry (conn, glusterd_svc_t, conn);
 }
