@@ -8264,12 +8264,13 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
 
         ret = 0;
 out:
-        if (ret && NULL != new_volinfo) {
+        if (ret) {
                 /* In case of any failure we should free new_volinfo. Doing
                  * this will also remove the entry we added in conf->volumes
                  * if it was added there.
                  */
-                (void)glusterd_volinfo_delete (new_volinfo);
+                if (new_volinfo)
+                        (void)glusterd_volinfo_delete (new_volinfo);
         } else {
                 list_for_each_entry_safe (voliter, temp_volinfo,
                                  &orig_vol->snap_volumes, snapvol_list) {
