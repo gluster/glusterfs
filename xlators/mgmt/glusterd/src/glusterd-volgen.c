@@ -35,6 +35,9 @@
 #include "run.h"
 #include "options.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-svc-helper.h"
+#include "glusterd-snapd-svc-helper.h"
 
 extern struct volopt_map_entry glusterd_volopt_map[];
 
@@ -43,13 +46,6 @@ extern struct volopt_map_entry glusterd_volopt_map[];
  * xlator generation / graph manipulation API
  *
  *********************************************/
-
-
-struct volgen_graph {
-        char **errstr;
-        glusterfs_graph_t graph;
-};
-typedef struct volgen_graph volgen_graph_t;
 
 static void
 set_graph_errstr (volgen_graph_t *graph, const char *str)
@@ -3428,7 +3424,7 @@ out:
         return ret;
 }
 
-static int
+int
 build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
 {
         glusterd_volinfo_t *voliter       = NULL;
@@ -3475,7 +3471,7 @@ out:
 }
 
 /* builds a graph for nfs server role, with option overrides in mod_dict */
-static int
+int
 build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
 {
         volgen_graph_t      cgraph        = {0,};
@@ -3725,7 +3721,7 @@ glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
-static int
+int
 build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
 {
         volgen_graph_t     cgraph         = {0};
@@ -4042,238 +4038,8 @@ out:
 }
 
 int
-glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
-                             glusterd_brickinfo_t *brickinfo)
-{
-        int ret = -1;
-
-        ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
-        if (!ret)
-                ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
-        if (!ret)
-                ret = glusterd_fetchspec_notify (THIS);
-
-        return ret;
-}
-
-int
-glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
-{
-        int        ret  = -1;
-        xlator_t  *this = NULL;
-
-        this = THIS;
-
-        ret = generate_brick_volfiles (volinfo);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not generate volfiles for bricks");
-                goto out;
-        }
-
-        ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not generate trusted client volfiles");
-                goto out;
-        }
-
-        ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
-        if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not generate client volfiles");
-
-out:
-        return ret;
-}
-
-int
-glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
-{
-        int        ret  = -1;
-        xlator_t  *this = NULL;
-
-        this = THIS;
-
-        ret = glusterd_create_volfiles (volinfo);
-        if (ret)
-                goto out;
-
-        ret = glusterd_fetchspec_notify (this);
-
-out:
-        return ret;
-}
-
-int
-glusterd_create_global_volfile (int (*builder) (volgen_graph_t *graph,
-                                                dict_t *set_dict),
-                                char *filepath, dict_t  *mod_dict)
-{
-        volgen_graph_t graph = {0,};
-        int     ret = -1;
-
-        ret = builder (&graph, mod_dict);
-        if (!ret)
-                ret = volgen_write_volfile (&graph, filepath);
-
-        volgen_graph_free (&graph);
-
-        return ret;
-}
-
-int
-glusterd_create_nfs_volfile ()
-{
-        char            filepath[PATH_MAX] = {0,};
-        glusterd_conf_t *conf = THIS->private;
-
-        glusterd_get_nodesvc_volfile ("nfs", conf->workdir,
-                                            filepath, sizeof (filepath));
-        return glusterd_create_global_volfile (build_nfs_graph,
-                                               filepath, NULL);
-}
-
-int
-glusterd_create_shd_volfile ()
-{
-        char            filepath[PATH_MAX] = {0,};
-        int             ret = -1;
-        glusterd_conf_t *conf = THIS->private;
-        dict_t          *mod_dict = NULL;
-
-        mod_dict = dict_new ();
-        if (!mod_dict)
-                goto out;
-
-        ret = dict_set_uint32 (mod_dict, "cluster.background-self-heal-count", 0);
-        if (ret)
-                goto out;
-
-        ret = dict_set_str (mod_dict, "cluster.data-self-heal", "on");
-        if (ret)
-                goto out;
-
-        ret = dict_set_str (mod_dict, "cluster.metadata-self-heal", "on");
-        if (ret)
-                goto out;
-
-        ret = dict_set_str (mod_dict, "cluster.entry-self-heal", "on");
-        if (ret)
-                goto out;
-
-        glusterd_get_nodesvc_volfile ("glustershd", conf->workdir,
-                                      filepath, sizeof (filepath));
-        ret = glusterd_create_global_volfile (build_shd_graph, filepath,
-                                              mod_dict);
-out:
-        if (mod_dict)
-                dict_unref (mod_dict);
-        return ret;
-}
-
-int
-glusterd_check_nfs_volfile_identical (gf_boolean_t *identical)
-{
-        char            nfsvol[PATH_MAX]        = {0,};
-        char            tmpnfsvol[PATH_MAX]     = {0,};
-        glusterd_conf_t *conf                   = NULL;
-        xlator_t        *this                   = NULL;
-        int             ret                     = -1;
-        int             need_unlink             = 0;
-        int             tmp_fd                  = -1;
-
-        this = THIS;
-
-        GF_ASSERT (this);
-        GF_ASSERT (identical);
-        conf = this->private;
-
-        glusterd_get_nodesvc_volfile ("nfs", conf->workdir,
-                                      nfsvol, sizeof (nfsvol));
-
-        snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
-
-        tmp_fd = mkstemp (tmpnfsvol);
-        if (tmp_fd < 0) {
-                gf_log ("", GF_LOG_WARNING, "Unable to create temp file %s: "
-                                "(%s)", tmpnfsvol, strerror (errno));
-                goto out;
-        }
-
-        need_unlink = 1;
-
-        ret = glusterd_create_global_volfile (build_nfs_graph,
-                                              tmpnfsvol, NULL);
-        if (ret)
-                goto out;
-
-        ret = glusterd_check_files_identical (nfsvol, tmpnfsvol,
-                                              identical);
-        if (ret)
-                goto out;
-
-out:
-        if (need_unlink)
-                unlink (tmpnfsvol);
-
-        if (tmp_fd >= 0)
-                close (tmp_fd);
-
-        return ret;
-}
-
-int
-glusterd_check_nfs_topology_identical (gf_boolean_t *identical)
-{
-        char            nfsvol[PATH_MAX]        = {0,};
-        char            tmpnfsvol[PATH_MAX]     = {0,};
-        glusterd_conf_t *conf                   = NULL;
-        xlator_t        *this                   = THIS;
-        int             ret                     = -1;
-        int             tmpclean                = 0;
-        int             tmpfd                   = -1;
-
-        if ((!identical) || (!this) || (!this->private))
-                goto out;
-
-        conf = (glusterd_conf_t *) this->private;
-
-        /* Fetch the original NFS volfile */
-        glusterd_get_nodesvc_volfile ("nfs", conf->workdir,
-                                      nfsvol, sizeof (nfsvol));
-
-        /* Create the temporary NFS volfile */
-        snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
-        tmpfd = mkstemp (tmpnfsvol);
-        if (tmpfd < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                                    "Unable to create temp file %s: (%s)",
-                                    tmpnfsvol, strerror (errno));
-                goto out;
-        }
-
-        tmpclean = 1; /* SET the flag to unlink() tmpfile */
-
-        ret = glusterd_create_global_volfile (build_nfs_graph,
-                                              tmpnfsvol, NULL);
-        if (ret)
-                goto out;
-
-        /* Compare the topology of volfiles */
-        ret = glusterd_check_topology_identical (nfsvol, tmpnfsvol,
-                                                 identical);
-out:
-        if (tmpfd >= 0)
-                close (tmpfd);
-        if (tmpclean)
-                unlink (tmpnfsvol);
-        return ret;
-}
-
-int
-glusterd_generate_snapd_volfile (volgen_graph_t *graph,
-                                 glusterd_volinfo_t *volinfo)
+glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
+                                    glusterd_volinfo_t *volinfo)
 {
         xlator_t       *xl              = NULL;
         char           *username        = NULL;
@@ -4370,15 +4136,15 @@ glusterd_generate_snapd_volfile (volgen_graph_t *graph,
 }
 
 int
-glusterd_create_snapd_volfile (glusterd_volinfo_t *volinfo)
+glusterd_snapdsvc_create_volfile (glusterd_volinfo_t *volinfo)
 {
         volgen_graph_t  graph                   = {0,};
         int             ret                     = -1;
         char            filename [PATH_MAX]     = {0,};
 
-        glusterd_get_snapd_volfile (volinfo, filename, PATH_MAX);
+        glusterd_svc_build_snapd_volfile (volinfo, filename, PATH_MAX);
 
-        ret = glusterd_generate_snapd_volfile (&graph, volinfo);
+        ret = glusterd_snapdsvc_generate_volfile (&graph, volinfo);
         if (!ret)
                 ret = volgen_write_volfile (&graph, filename);
 
@@ -4388,17 +4154,85 @@ glusterd_create_snapd_volfile (glusterd_volinfo_t *volinfo)
 }
 
 int
-glusterd_create_quotad_volfile (void *data)
+glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
+                             glusterd_brickinfo_t *brickinfo)
 {
-        char             filepath[PATH_MAX] = {0,};
-        glusterd_conf_t *conf               = THIS->private;
+        int ret = -1;
 
-        glusterd_get_nodesvc_volfile ("quotad", conf->workdir,
-                                      filepath, sizeof (filepath));
-        return glusterd_create_global_volfile (build_quotad_graph,
-                                               filepath, NULL);
+        ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
+        if (!ret)
+                ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
+        if (!ret)
+                ret = glusterd_fetchspec_notify (THIS);
+
+        return ret;
 }
 
+int
+glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
+{
+        int        ret  = -1;
+        xlator_t  *this = NULL;
+
+        this = THIS;
+
+        ret = generate_brick_volfiles (volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate volfiles for bricks");
+                goto out;
+        }
+
+        ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate trusted client volfiles");
+                goto out;
+        }
+
+        ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate client volfiles");
+
+out:
+        return ret;
+}
+
+int
+glusterd_create_volfiles_and_notify_services (glusterd_volinfo_t *volinfo)
+{
+        int        ret  = -1;
+        xlator_t  *this = NULL;
+
+        this = THIS;
+
+        ret = glusterd_create_volfiles (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_fetchspec_notify (this);
+
+out:
+        return ret;
+}
+
+int
+glusterd_create_global_volfile (int (*builder) (volgen_graph_t *graph,
+                                                dict_t *set_dict),
+                                char *filepath, dict_t  *mod_dict)
+{
+        volgen_graph_t graph = {0,};
+        int     ret = -1;
+
+        ret = builder (&graph, mod_dict);
+        if (!ret)
+                ret = volgen_write_volfile (&graph, filepath);
+
+        volgen_graph_free (&graph);
+
+        return ret;
+}
 
 int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,

@@ -23,6 +23,9 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-svc-mgmt.h"
+#include "glusterd-snapd-svc-helper.h"
+#include "glusterd-quotad-svc.h"
 
 #include "glusterfs3.h"
 #include "protocol-common.h"
@@ -187,7 +190,7 @@ build_volfile_path (char *volume_id, char *path,
                                 "Couldn't find volinfo");
                         goto out;
                 }
-                glusterd_get_snapd_volfile (volinfo, path, path_len);
+                glusterd_svc_build_snapd_volfile (volinfo, path, path_len);
                 ret = 0;
                 goto out;
 
@@ -202,8 +205,14 @@ build_volfile_path (char *volume_id, char *path,
                 }
                 volid_ptr++;
 
-                glusterd_get_nodesvc_volfile (volid_ptr, priv->workdir,
-                                              path, path_len);
+                if (strcmp (volid_ptr, "quotad") == 0)
+                        glusterd_quotadsvc_build_volfile_path (volid_ptr,
+                                                               priv->workdir,
+                                                               path, path_len);
+                else
+                        glusterd_svc_build_volfile_path (volid_ptr,
+                                                         priv->workdir,
+                                                         path, path_len);
                 ret = 0;
                 goto out;
 

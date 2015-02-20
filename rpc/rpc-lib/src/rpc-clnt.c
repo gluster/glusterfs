@@ -1744,6 +1744,47 @@ out:
         return;
 }
 
+void
+rpc_clnt_disconnect (struct rpc_clnt *rpc)
+{
+        rpc_clnt_connection_t *conn  = NULL;
+        rpc_transport_t       *trans = NULL;
+
+        if (!rpc)
+                goto out;
+
+        conn = &rpc->conn;
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                if (conn->timer) {
+                        gf_timer_call_cancel (rpc->ctx, conn->timer);
+                        conn->timer = NULL;
+                }
+
+                if (conn->reconnect) {
+                        gf_timer_call_cancel (rpc->ctx, conn->reconnect);
+                        conn->reconnect = NULL;
+                }
+                conn->connected = 0;
+
+                if (conn->ping_timer) {
+                        gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
+                        conn->ping_timer = NULL;
+                        conn->ping_started = 0;
+                }
+                trans = conn->trans;
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        if (trans) {
+                rpc_transport_disconnect (trans);
+        }
+
+out:
+        return;
+}
+
 
 void
 rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)

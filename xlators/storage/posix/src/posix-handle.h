@@ -146,6 +146,8 @@
                 break;                                                  \
         var = alloca (__len);                                           \
         __len = posix_handle_path (this, gfid, base, var, __len);       \
+        if (__len <= 0)                                                 \
+                var = NULL;                                             \
         } while (0)
 
 
@@ -192,7 +194,13 @@
         errno = 0;                                                      \
         op_ret = posix_istat (this, loc->gfid, NULL, iatt_p);           \
         if (errno != ELOOP) {                                           \
-                MAKE_HANDLE_PATH (rpath, this, loc->gfid, NULL);        \
+                MAKE_HANDLE_PATH (rpath, this, (loc)->gfid, NULL);        \
+                if (!rpath) {                                           \
+                        op_ret = -1;                                    \
+                        gf_log (this->name, GF_LOG_ERROR,               \
+                        "Failed to create inode handle "                \
+                        "for path %s", (loc)->path);                      \
+                }                                                       \
                 break;                                                  \
         }                                                               \
         /* __ret == -1 && errno == ELOOP */                             \
@@ -220,6 +228,11 @@
         if (errno != ELOOP) {                                           \
                 MAKE_HANDLE_PATH (parp, this, loc->pargfid, NULL);      \
                 MAKE_HANDLE_PATH (entp, this, loc->pargfid, loc->name); \
+                if (!parp || !entp) {                                   \
+                        gf_log (this->name, GF_LOG_ERROR,               \
+                        "Failed to create entry handle "                \
+                        "for path %s", loc->path);                      \
+                }                                                       \
                 break;                                                  \
         }                                                               \
         /* __ret == -1 && errno == ELOOP */                             \

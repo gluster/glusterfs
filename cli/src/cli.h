@@ -357,9 +357,19 @@ int
 cli_xml_output_vol_info (cli_local_t *local, dict_t *dict);
 
 int
-cli_xml_output_vol_quota_limit_list (char *volname, char *limit_list,
-                                      int op_ret, int op_errno,
-                                      char *op_errstr);
+cli_xml_output_vol_quota_limit_list_begin (cli_local_t *local, int op_ret,
+                                           int op_errno, char *op_errstr);
+int
+cli_xml_output_vol_quota_limit_list_end (cli_local_t *local);
+
+int
+cli_quota_list_xml_error (cli_local_t *local, char *path,
+                          char *errstr);
+
+int
+cli_quota_xml_output (cli_local_t *local, char *path, char *hl_str,
+                      char *sl_final, void *used, void *avail,
+                      char *sl, char *hl);
 
 int
 cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
