@@ -65,6 +65,12 @@
 #define GLFS_MSGID_COMP_DHT_END            GLFS_MSGID_COMP_DHT +\
                                            GLFS_MSGID_SEGMENT
 
+/* there is no component called 'common', however reserving this segment
+ * for common actions/errors like dict_{get/set}, memory accounting*/
+
+#define GLFS_MSGID_COMP_COMMON             GLFS_MSGID_COMP_DHT_END
+#define GLFS_MSGID_COMP_COMMON_END         (GLFS_MSGID_COMP_COMMON +\
+                                           GLFS_MSGID_SEGMENT)
 
 /* --- new segments for messages goes above this line --- */
 
