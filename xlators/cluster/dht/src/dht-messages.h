@@ -441,12 +441,25 @@
 
 #define DHT_MSG_LOG_FIXED_LAYOUT     (GLFS_DHT_BASE + 36)
 
+/*
+ * @messageid 109037
+ * @diagnosis Informational message regarding error in tier operation
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LOG_TIER_ERROR     (GLFS_DHT_BASE + 37)
+
+/*
+ * @messageid 109038
+ * @diagnosis Informational message regarding tier operation
+ * @recommendedaction None
+ */
+
+#define DHT_MSG_LOG_TIER_STATUS     (GLFS_DHT_BASE + 38)
+
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
 
 #endif /* _DHT_MESSAGES_H_ */
-
-
-
-

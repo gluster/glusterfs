@@ -26,7 +26,6 @@
 #include "gfdb_data_store_types.h"
 #include "gfdb_sqlite3.h"
 
-
 /* GFDB Connection Node:
  * ~~~~~~~~~~~~~~~~~~~~
  * Represents the connection to the database while using libgfdb

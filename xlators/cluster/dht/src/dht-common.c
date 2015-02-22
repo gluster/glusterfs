@@ -3175,6 +3175,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol   = NULL;
         dht_local_t  *local    = NULL;
         dht_conf_t   *conf     = NULL;
+        dht_methods_t *methods = NULL;
         dht_layout_t *layout   = NULL;
         int           i        = 0;
         int           op_errno = EINVAL;
@@ -3191,6 +3192,10 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
 
         conf   = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, err);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
 
         GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
                                    op_errno, err);
@@ -3255,8 +3260,8 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                local->rebalance.target_node =
-                        dht_subvol_get_hashed (this, &local->loc);
+                methods->migration_get_dst_subvol(this, local);
+
                 if (!local->rebalance.target_node) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_HASHED_SUBVOL_GET_FAILED,
@@ -3719,7 +3724,6 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (this->private, err);
 
         conf = this->private;
@@ -3730,7 +3734,7 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto err;
         }
 
-        if (IA_ISDIR (loc->inode->ia_type)) {
+        if (!loc->inode || IA_ISDIR (loc->inode->ia_type)) {
                 local->call_cnt = conf->subvolume_cnt;
 
                 for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -3820,6 +3824,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         int           count = 0;
         dht_layout_t *layout = 0;
         dht_conf_t   *conf   = NULL;
+        dht_methods_t *methods = NULL;
         xlator_t     *subvol = 0;
         xlator_t     *hashed_subvol = 0;
         int           ret    = 0;
@@ -3828,7 +3833,12 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
+
         conf  = this->private;
+        GF_VALIDATE_OR_GOTO(this->name, conf, unwind);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO(this->name, conf->methods, done);
 
         if (op_ret < 0)
                 goto done;
@@ -3867,8 +3877,8 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
                         }
 
-                        hashed_subvol = dht_layout_search (this, layout, \
-                                                           orig_entry->d_name);
+                        hashed_subvol = methods->layout_search (this, layout,
+                                                         orig_entry->d_name);
 
                         if (prev->this == hashed_subvol)
                                 goto list;
@@ -3894,8 +3904,8 @@ list:
 
                 /* Do this if conf->search_unhashed is set to "auto" */
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
-                        subvol = dht_layout_search (this, layout,
-                                                    orig_entry->d_name);
+                        subvol = methods->layout_search (this, layout,
+                                                         orig_entry->d_name);
                         if (!subvol || (subvol != prev->this)) {
                                 /* TODO: Count the number of entries which need
                                    linkfile to prove its existence in fs */
@@ -4008,10 +4018,18 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           count = 0;
         dht_layout_t *layout = 0;
         xlator_t     *subvol = 0;
+        dht_conf_t   *conf = NULL;
+        dht_methods_t *methods = NULL;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, done);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, done);
 
         if (op_ret < 0)
                 goto done;
@@ -4024,7 +4042,8 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
 
-                subvol = dht_layout_search (this, layout, orig_entry->d_name);
+                subvol = methods->layout_search (this, layout,
+                                                 orig_entry->d_name);
 
                 if (!subvol || (subvol == prev->this)) {
                         entry = gf_dirent_for_name (orig_entry->d_name);
@@ -6073,11 +6092,13 @@ dht_notify (xlator_t *this, int event, void *data, ...)
         gf_defrag_type           cmd    = 0;
         dict_t                  *output = NULL;
         va_list                  ap;
-
+        dht_methods_t           *methods = NULL;
 
         conf = this->private;
-        if (!conf)
-                return ret;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, methods, out);
 
         /* had all subvolumes reported status once till now? */
         had_heard_from_all = 1;
@@ -6271,12 +6292,18 @@ unlock:
                  * not need to handle CHILD_DOWN event here.
                  */
                 if (conf->defrag) {
-                        ret = gf_thread_create (&conf->defrag->th, NULL,
-						gf_defrag_start, this);
-                        if (ret) {
-                                conf->defrag = NULL;
+                        if (methods->migration_needed(this)) {
+                                ret = gf_thread_create(&conf->defrag->th,
+                                                       NULL,
+                                                       gf_defrag_start, this);
+                                if (ret) {
+                                        GF_FREE (conf->defrag);
+                                        conf->defrag = NULL;
+                                        kill (getpid(), SIGTERM);
+                                }
+                        } else {
                                 GF_FREE (conf->defrag);
-                                kill (getpid(), SIGTERM);
+                                conf->defrag = NULL;
                         }
                 }
         }
@@ -6284,7 +6311,7 @@ unlock:
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
-
+out:
         return ret;
 }
 
@@ -6411,4 +6438,41 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
 err:
         GF_FREE (output_string);
+}
+
+int32_t dht_migration_get_dst_subvol(xlator_t *this, dht_local_t  *local)
+{
+        int ret = -1;
+
+        if (!local)
+                goto out;
+
+        local->rebalance.target_node =
+                dht_subvol_get_hashed (this, &local->loc);
+
+        if (local->rebalance.target_node)
+                ret = 0;
+
+out:
+        return ret;
+}
+
+int32_t dht_migration_needed(xlator_t *this)
+{
+        gf_defrag_info_t        *defrag = NULL;
+        dht_conf_t              *conf   = NULL;
+        int                      ret = 0;
+
+        conf = this->private;
+
+        GF_VALIDATE_OR_GOTO ("dht", conf, out);
+        GF_VALIDATE_OR_GOTO ("dht", conf->defrag, out);
+
+        defrag = conf->defrag;
+
+        if (defrag->cmd != GF_DEFRAG_CMD_START_TIER)
+                ret = 1;
+
+out:
+        return ret;
 }

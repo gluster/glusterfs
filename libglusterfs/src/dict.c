@@ -2156,6 +2156,32 @@ err:
         return ret;
 }
 
+int
+dict_add_dynstr_with_alloc (dict_t *this, char *key, char *str)
+{
+        data_t  *data = NULL;
+        int      ret  = 0;
+        char    *alloc_str = NULL;
+
+        alloc_str = gf_strdup (str);
+        if (!alloc_str)
+                goto out;
+
+        data = data_from_dynstr (alloc_str);
+        if (!data) {
+                GF_FREE (alloc_str);
+                ret = -EINVAL;
+                goto out;
+        }
+
+        ret = dict_add (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
+
+out:
+        return ret;
+}
+
 /*
   for malloced strings we should do a free instead of GF_FREE
 */
