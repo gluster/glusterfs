@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>
+#include "tier.h"
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
@@ -919,6 +920,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         tmp_loc.inode = inode_ref (loc->inode);
         uuid_copy (tmp_loc.gfid, loc->gfid);
+        tmp_loc.path = gf_strdup(loc->path);
 
         ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc, F_SETLKW,
                               &flock, NULL, NULL);
@@ -984,6 +986,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
 
         ret = __dht_check_free_space (to, from, loc, &stbuf, flag);
+
         if (ret) {
                 goto out;
         }
@@ -1713,7 +1716,8 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 goto out;
         }
 
-        if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
+        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
+            (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
                 ret = gf_defrag_migrate_data (this, defrag, loc, migrate_data);
                 if (ret)
                         goto out;
@@ -1863,7 +1867,6 @@ out:
 
 }
 
-
 int
 gf_defrag_start_crawl (void *data)
 {
@@ -1878,6 +1881,7 @@ gf_defrag_start_crawl (void *data)
         dict_t                  *migrate_data = NULL;
         dict_t                  *status = NULL;
         glusterfs_ctx_t         *ctx = NULL;
+        dht_methods_t           *methods = NULL;
 
         this = data;
         if (!this)
@@ -1942,7 +1946,8 @@ gf_defrag_start_crawl (void *data)
                 goto out;
         }
 
-        if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
+        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
+            (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
                 migrate_data = dict_new ();
                 if (!migrate_data) {
                         ret = -1;
@@ -1959,14 +1964,27 @@ gf_defrag_start_crawl (void *data)
                 if (ret)
                         goto out;
         }
+
         ret = gf_defrag_fix_layout (this, defrag, &loc, fix_layout,
                                     migrate_data);
+
+        if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+                methods = conf->methods;
+                if (!methods) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOG_TIER_ERROR,
+                                "Methods invalid for translator.");
+                        defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                        ret = -1;
+                        goto out;
+                }
+                methods->migration_other(this, defrag);
+        }
+
         if ((defrag->defrag_status != GF_DEFRAG_STATUS_STOPPED) &&
             (defrag->defrag_status != GF_DEFRAG_STATUS_FAILED)) {
                 defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
         }
-
-
 
 out:
         LOCK (&defrag->lock);

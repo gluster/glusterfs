@@ -267,6 +267,8 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_STATUS = 1 + 2,
         GF_DEFRAG_CMD_START_LAYOUT_FIX = 1 + 3,
         GF_DEFRAG_CMD_START_FORCE = 1 + 4,
+        GF_DEFRAG_CMD_START_TIER = 1 + 5,
+        GF_DEFRAG_CMD_STATUS_TIER = 1 + 6,
 };
 typedef enum gf_defrag_type gf_defrag_type;
 
@@ -310,9 +312,30 @@ struct gf_defrag_info_ {
         struct timeval               start_time;
         gf_boolean_t                 stats;
         gf_defrag_pattern_list_t    *defrag_pattern;
+        int                          tier_promote_frequency;
+        int                          tier_demote_frequency;
+
+        /*Data Tiering params for scanner*/
+        uint64_t                     total_files_promoted;
+        uint64_t                     total_files_demoted;
+        int                          write_freq_threshold;
+        int                          read_freq_threshold;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
+
+struct dht_methods_s {
+        int32_t      (*migration_get_dst_subvol)(xlator_t *this,
+                                                 dht_local_t *local);
+        int32_t      (*migration_other)(xlator_t *this,
+                                        gf_defrag_info_t *defrag);
+        int32_t      (*migration_needed)(xlator_t *this);
+        xlator_t*    (*layout_search)(xlator_t *this,
+                                      dht_layout_t *layout,
+                                         const char *name);
+};
+
+typedef struct dht_methods_s dht_methods_t;
 
 struct dht_conf {
         gf_lock_t      subvolume_lock;
@@ -370,6 +393,8 @@ struct dht_conf {
         /* Support size-weighted rebalancing (heterogeneous bricks). */
         gf_boolean_t    do_weighting;
         gf_boolean_t    randomize_by_gfid;
+
+        dht_methods_t  *methods;
 
         struct mem_pool *lock_pool;
 };
@@ -477,6 +502,10 @@ dht_layout_t                            *dht_layout_get (xlator_t *this, inode_t
 dht_layout_t                            *dht_layout_for_subvol (xlator_t *this, xlator_t *subvol);
 xlator_t *dht_layout_search (xlator_t   *this, dht_layout_t *layout,
                              const char *name);
+int32_t
+dht_migration_get_dst_subvol(xlator_t *this, dht_local_t  *local);
+int32_t
+dht_migration_needed(xlator_t *this);
 int                                      dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout);
 int dht_layout_anomalies (xlator_t      *this, loc_t *loc, dht_layout_t *layout,
                           uint32_t      *holes_p, uint32_t *overlaps_p,

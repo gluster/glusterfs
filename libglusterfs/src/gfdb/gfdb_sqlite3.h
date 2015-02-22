@@ -143,7 +143,6 @@ do {\
         };\
 } while (0)
 
-
 #define GF_SQLITE3_SET_PRAGMA(sqlite3_config_str, param_key, format, value,\
                         ret, error)\
 do {\

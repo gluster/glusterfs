@@ -1064,7 +1064,6 @@ dht_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
-        VALIDATE_OR_GOTO (loc->path, err);
 
         local = dht_local_init (frame, loc, NULL, GF_FOP_INODELK);
         if (!local) {

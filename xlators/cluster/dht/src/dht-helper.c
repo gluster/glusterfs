@@ -502,9 +502,17 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
 {
         dht_layout_t *layout = NULL;
         xlator_t     *subvol = NULL;
+        dht_conf_t *conf = NULL;
+        dht_methods_t *methods = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, out);
 
         if (__is_root_gfid (loc->gfid)) {
                 subvol = dht_first_up_subvol (this);
@@ -523,7 +531,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        subvol = dht_layout_search (this, layout, loc->name);
+        subvol = methods->layout_search (this, layout, loc->name);
 
         if (!subvol) {
                 gf_msg_debug (this->name, 0,
@@ -844,6 +852,18 @@ dht_migration_complete_check_task (void *data)
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
                                        conf->link_xattr_name, NULL);
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+        }
+
+        /*
+         * temporary check related to tier promoting/demoting the file;
+         * the lower level DHT detects the migration (due to sticky
+         * bits) when it is the responsibility of the tier translator
+         * to complete the rebalance transaction. It will be corrected
+         * when rebalance and tier migration are fixed to work together.
+         */
+        if (strcmp(this->parents->xlator->type, "cluster/tier") == 0) {
+                ret = 0;
+                goto out;
         }
 
         if (!ret)
