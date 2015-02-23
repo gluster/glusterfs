@@ -2172,6 +2172,7 @@ glusterd_snap_use_rsp_dict (dict_t *dst, dict_t *src)
         switch (snap_command) {
         case GF_SNAP_OPTION_TYPE_CREATE:
         case GF_SNAP_OPTION_TYPE_DELETE:
+        case GF_SNAP_OPTION_TYPE_CLONE:
                 ret = glusterd_snap_create_use_rsp_dict (dst, src);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to use rsp dict");
@@ -2780,6 +2781,21 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                                 "failed during snapshot create command");
                         goto out;
                 }
+                break;
+        case GF_SNAP_OPTION_TYPE_CLONE:
+
+                if (!does_gd_meet_server_quorum (this, peers_list, _gf_true)) {
+                        ret = -1;
+                        snprintf (err_str, sizeof (err_str),
+                                  "glusterds are not in quorum");
+                        gf_log (this->name, GF_LOG_WARNING, "%s",
+                                err_str);
+                        *op_errstr = gf_strdup (err_str);
+                        goto out;
+                }
+
+                gf_log (this->name, GF_LOG_DEBUG, "glusterds are in "
+                        "quorum");
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
         case GF_SNAP_OPTION_TYPE_RESTORE:

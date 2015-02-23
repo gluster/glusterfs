@@ -3358,6 +3358,83 @@ out:
         return ret;
 }
 
+/* snapshot clone <clonename> <snapname>
+ * @arg-0, dict     : Request Dictionary to be sent to server side.
+ * @arg-1, words    : Contains individual words of CLI command.
+ * @arg-2, wordcount: Contains number of words present in the CLI command.
+ *
+ * return value : -1 on failure
+ *                 0 on success
+ */
+int
+cli_snap_clone_parse (dict_t *dict, const char **words, int wordcount) {
+        uint64_t        i               =       0;
+        int             ret             =       -1;
+        char            key[PATH_MAX]   =       "";
+        char            *clonename      =       NULL;
+        unsigned int    cmdi            =       2;
+        int             flags           =       0;
+        /* cmdi is command index, here cmdi is "2" (gluster snapshot clone)*/
+
+        GF_ASSERT (words);
+        GF_ASSERT (dict);
+
+        if (wordcount == cmdi + 1) {
+                cli_err ("Invalid Syntax.");
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Invalid number of  words for snap clone command");
+                goto out;
+        }
+
+        if (strlen(words[cmdi]) >= GLUSTERD_MAX_SNAP_NAME) {
+                cli_err ("snapshot clone: failed: clonename cannot exceed "
+                         "255 characters.");
+                gf_log ("cli", GF_LOG_ERROR, "Clone name too long");
+
+                goto out;
+        }
+
+        clonename = (char *) words[cmdi];
+        for (i = 0 ; i < strlen (clonename); i++) {
+                /* Following volume name convention */
+                if (!isalnum (clonename[i]) && (clonename[i] != '_'
+                                           && (clonename[i] != '-'))) {
+                        /* TODO : Is this message enough?? */
+                        cli_err ("Clonename can contain only alphanumeric, "
+                                 "\"-\" and \"_\" characters");
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (dict, "volcount", 1);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save volcount");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "clonename", (char *)words[cmdi]);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save clone "
+                        "name(%s)", (char *)words[cmdi]);
+                goto out;
+        }
+
+        /* Filling snap name in the dictionary */
+        ret = dict_set_str (dict, "snapname", (char *)words[cmdi+1]);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not "
+                        "save snap name(%s)", (char *)words[cmdi+1]);
+                goto out;
+        }
+
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+
 /* snapshot create <snapname> <vol-name(s)> [description <description>]
  *                                           [force]
  * @arg-0, dict     : Request Dictionary to be sent to server side.
@@ -4223,16 +4300,16 @@ out:
 }
 
 int
-validate_snapname (const char *snapname, char **opwords) {
+validate_op_name (const char *op, const char *opname, char **opwords) {
         int     ret     =       -1;
         int     i       =       0;
 
-        GF_ASSERT (snapname);
+        GF_ASSERT (opname);
         GF_ASSERT (opwords);
 
         for (i = 0 ; opwords[i] != NULL; i++) {
-                if (strcmp (opwords[i], snapname) == 0) {
-                        cli_out ("\"%s\" cannot be a snapname", snapname);
+                if (strcmp (opwords[i], opname) == 0) {
+                        cli_out ("\"%s\" cannot be a %s", opname, op);
                         goto out;
                 }
         }
@@ -4251,9 +4328,19 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         char               *w         = NULL;
         char               *opwords[] = {"create", "delete", "restore",
                                         "activate", "deactivate", "list",
-                                        "status", "config", "info", NULL};
+                                        "status", "config", "info", "clone",
+                                        NULL};
         char               *invalid_snapnames[] = {"description", "force",
                                                   "volume", "all", NULL};
+        char               *invalid_volnames[]  = {"volume", "type",
+                                                   "subvolumes", "option",
+                                                   "end-volume", "all",
+                                                   "volume_not_in_ring",
+                                                   "description", "force",
+                                                   "snap-max-hard-limit",
+                                                   "snap-max-soft-limit",
+                                                   "auto-delete",
+                                                   "activate-on-create", NULL};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -4295,6 +4382,8 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                 type = GF_SNAP_OPTION_TYPE_ACTIVATE;
         } else if (!strcmp (w, "deactivate")) {
                 type = GF_SNAP_OPTION_TYPE_DEACTIVATE;
+        } else if (!strcmp(w, "clone")) {
+                type = GF_SNAP_OPTION_TYPE_CLONE;
         }
 
         if (type != GF_SNAP_OPTION_TYPE_CONFIG &&
@@ -4339,7 +4428,8 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
 
-                ret = validate_snapname (words[2], invalid_snapnames);
+                ret = validate_op_name ("snapname", words[2],
+                                        invalid_snapnames);
                 if (ret) {
                         goto out;
                 }
@@ -4351,6 +4441,35 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
                 break;
+
+        case GF_SNAP_OPTION_TYPE_CLONE:
+                /* Syntax :
+                 * gluster snapshot clone <clonename> <snapname>
+                 */
+                /* In cases where the clonename is not given then
+                 * parsing fails & snapname cannot be "description",
+                 * "force" and "volume", that check is made here
+                 */
+                if (wordcount == 2) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                        goto out;
+                }
+
+                ret = validate_op_name ("clonename", words[2],
+                                        invalid_volnames);
+                if (ret) {
+                        goto out;
+                }
+
+                ret = cli_snap_clone_parse (dict, words, wordcount);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "clone command parsing failed.");
+                        goto out;
+                }
+                break;
+
 
         case GF_SNAP_OPTION_TYPE_INFO:
                 /* Syntax :
