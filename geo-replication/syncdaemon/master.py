@@ -14,11 +14,12 @@ import time
 import stat
 import json
 import logging
+import fcntl
 import socket
 import string
 import errno
 import tarfile
-from errno import ENOENT, ENODATA, EPIPE, EEXIST
+from errno import ENOENT, ENODATA, EPIPE, EEXIST, EACCES, EAGAIN
 from threading import Condition, Lock
 from datetime import datetime
 from gconf import gconf
@@ -452,8 +453,40 @@ class GMasterCommon(object):
             t = Thread(target=keep_alive)
             t.start()
 
-    def should_crawl(cls):
-        return gconf.glusterd_uuid in cls.master.server.node_uuid()
+    def mgmt_lock(self):
+        """Take management volume lock """
+        bname = str(gconf.volume_id) + "_subvol_" + str(gconf.subvol_num) \
+            + ".lock"
+        path = os.path.join(gconf.working_dir, gconf.meta_volume, bname)
+        logging.debug("lock_file_path: %s" % path)
+        fd = os.open(path, os.O_CREAT | os.O_RDWR)
+        try:
+            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except:
+            ex = sys.exc_info()[1]
+            os.close(fd)
+            if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+                # cannot grab, it's taken
+                logging.debug("Lock held by someother worker process")
+                return False
+            raise
+        logging.debug("Got the lock")
+        return True
+
+
+    def should_crawl(self):
+        if not gconf.meta_volume:
+            return gconf.glusterd_uuid in self.master.server.node_uuid()
+
+        mgmt_mnt = os.path.join(gconf.working_dir, gconf.meta_volume)
+        if not os.path.ismount(mgmt_mnt):
+            po = Popen(["mount", "-t", "glusterfs", "localhost:%s"
+                        % gconf.meta_volume, mgmt_mnt], stdout=PIPE,
+                       stderr=PIPE)
+            po.wait()
+            po.terminate_geterr()
+        return self.mgmt_lock()
+
 
     def register(self):
         self.register()

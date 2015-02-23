@@ -18,6 +18,7 @@ import xml.etree.ElementTree as XET
 from subprocess import PIPE
 from resource import Popen, FILE, GLUSTER, SSH
 from threading import Lock
+from errno import EEXIST
 import re
 import random
 from gconf import gconf
@@ -27,6 +28,16 @@ from syncdutils import escape, Thread, finalize, memoize
 
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
+
+
+def get_subvol_num(brick_idx, replica_count, disperse_count):
+    subvol_size = disperse_count if disperse_count > 0 else replica_count
+    cnt = int((brick_idx + 1) / subvol_size)
+    rem = (brick_idx + 1) % subvol_size
+    if rem > 0:
+        return cnt + 1
+    else:
+        return cnt
 
 
 def get_slave_bricks_status(host, vol):
@@ -104,6 +115,15 @@ class Volinfo(object):
                               self.volume, self.host)
         return ids[0].text
 
+    @property
+    @memoize
+    def replica_count(self):
+        return int(self.get('replicaCount')[0].text)
+
+    @property
+    @memoize
+    def disperse_count(self):
+        return int(self.get('disperseCount')[0].text)
 
 class Monitor(object):
 
@@ -153,6 +173,7 @@ class Monitor(object):
         set_term_handler(lambda *a: set_term_handler())
         # give a chance to graceful exit
         os.kill(-os.getpid(), signal.SIGTERM)
+
 
     def monitor(self, w, argv, cpids, agents, slave_vol, slave_host):
         """the monitor loop
@@ -247,6 +268,7 @@ class Monitor(object):
                                                  '--rpc-fd',
                                                  ','.join([str(rw), str(ww),
                                                            str(ra), str(wa)]),
+                                                 '--subvol-num', str(w[2]),
                                                  '--resource-remote',
                                                  remote_host])
 
@@ -374,7 +396,8 @@ def distribute(*resources):
             else:
                 slaves = slavevols
 
-    workerspex = [(brick['dir'], slaves[idx % len(slaves)])
+    workerspex = [(brick['dir'], slaves[idx % len(slaves)],
+                  get_subvol_num(idx, mvol.replica_count, mvol.disperse_count))
                   for idx, brick in enumerate(mvol.bricks)
                   if is_host_local(brick['host'])]
     logging.info('worker specs: ' + repr(workerspex))
@@ -382,6 +405,26 @@ def distribute(*resources):
 
 
 def monitor(*resources):
+    # Mount geo-rep management volume
+    if gconf.meta_volume:
+        mgmt_mnt = os.path.join(gconf.working_dir, gconf.meta_volume)
+        if not os.path.exists(mgmt_mnt):
+            try:
+                os.makedirs(mgmt_mnt)
+            except OSError:
+                ex = sys.exc_info()[1]
+                if ex.errno == EEXIST:
+                    pass
+                else:
+                    raise
+
+        if not os.path.ismount(mgmt_mnt):
+            po = Popen(["mount", "-t", "glusterfs", "localhost:%s"
+                        % gconf.meta_volume, mgmt_mnt], stdout=PIPE,
+                       stderr=PIPE)
+            po.wait()
+            po.terminate_geterr()
+
     # Check if gsyncd restarted in pause state. If
     # yes, send SIGSTOP to negative of monitor pid
     # to go back to pause state.

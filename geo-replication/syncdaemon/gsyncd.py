@@ -255,6 +255,8 @@ def main_i():
                   type=int, default=1)
     op.add_option('--changelog-archive-format', metavar='N',
                   type=str, default="%Y%m")
+    op.add_option('--meta-volume', metavar='N',
+                  type=str, default="")
     op.add_option(
         '--turns', metavar='N', type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network', metavar='IPS', default='')
@@ -297,6 +299,8 @@ def main_i():
     op.add_option('--feedback-fd', dest='feedback_fd', type=int,
                   help=SUPPRESS_HELP, action='callback', callback=store_local)
     op.add_option('--rpc-fd', dest='rpc_fd', type=str, help=SUPPRESS_HELP)
+    op.add_option('--subvol-num', dest='subvol_num', type=int,
+                  help=SUPPRESS_HELP)
     op.add_option('--listen', dest='listen', help=SUPPRESS_HELP,
                   action='callback', callback=store_local_curry(True))
     op.add_option('-N', '--no-daemon', dest="go_daemon",
