@@ -833,7 +833,7 @@ fi
 ## All %files should be placed here and keep them sorted
 ##
 %files
-%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README THANKS
+%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README.md THANKS
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
 %config(noreplace) %{_sysconfdir}/sysconfig/*
 %if ( 0%{!?_without_syslog:1} )
