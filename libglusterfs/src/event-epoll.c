@@ -88,7 +88,9 @@ __event_slot_alloc (struct event_pool *event_pool, int fd)
 				table = __event_newtable (event_pool, i);
 				if (!table)
 					return -1;
-			}
+			} else {
+                                table = event_pool->ereg[i];
+                        }
 			break;
 		default:
 			table = event_pool->ereg[i];
