@@ -151,6 +151,7 @@ enum gf1_cli_snapshot {
         GF_SNAP_OPTION_TYPE_LIST,
         GF_SNAP_OPTION_TYPE_STATUS,
         GF_SNAP_OPTION_TYPE_CONFIG,
+        GF_SNAP_OPTION_TYPE_CLONE,
         GF_SNAP_OPTION_TYPE_INFO
 };
 

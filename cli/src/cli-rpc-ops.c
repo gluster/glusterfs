@@ -8870,6 +8870,7 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
         gf_cli_rsp            rsp                      = {0, };
         dict_t               *dict                     = NULL;
         char                 *snap_name                = NULL;
+        char                 *clone_name               = NULL;
         int32_t               type                     =  0;
         call_frame_t         *frame                    = NULL;
         gf_boolean_t         snap_driven               = _gf_false;
@@ -8958,6 +8959,35 @@ gf_cli_snapshot_cbk (struct rpc_req *req, struct iovec *iov,
                                 "reached. Snapshot creation is not possible "
                                 "once hard-limit is reached.", volname);
                 }
+                ret = 0;
+                break;
+
+        case GF_SNAP_OPTION_TYPE_CLONE:
+                if (rsp.op_ret) {
+                        cli_err("snapshot clone: failed: %s",
+                                 rsp.op_errstr ? rsp.op_errstr :
+                                 "Please check log file for details");
+                                 ret = rsp.op_ret;
+                                 goto out;
+                }
+
+                ret = dict_get_str (dict, "clonename", &clone_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get clone name");
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, "snapname", &snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to get snapname name");
+                        goto out;
+                }
+
+                cli_out ("snapshot clone: success: Clone %s created "
+                                        "successfully", clone_name);
+
                 ret = 0;
                 break;
 

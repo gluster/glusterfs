@@ -87,6 +87,10 @@ struct cli_cmd snapshot_cmds[] = {
           cli_cmd_snapshot_cbk,
           "Snapshot Create."
         },
+        { "snapshot clone <clonename> <snapname>",
+          cli_cmd_snapshot_cbk,
+          "Snapshot Clone."
+        },
         { "snapshot restore <snapname>",
           cli_cmd_snapshot_cbk,
           "Snapshot Restore."
