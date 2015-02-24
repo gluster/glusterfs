@@ -19,6 +19,7 @@
 #define EC_XATTR_SIZE    EC_XATTR_PREFIX"size"
 #define EC_XATTR_VERSION EC_XATTR_PREFIX"version"
 #define EC_XATTR_HEAL    EC_XATTR_PREFIX"heal"
+#define EC_XATTR_DIRTY   EC_XATTR_PREFIX"dirty"
 
 struct _ec;
 typedef struct _ec ec_t;
