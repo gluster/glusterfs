@@ -42,6 +42,13 @@
 #include <dirent.h>
 #include <sys/statvfs.h>
 
+#if defined(HAVE_SYS_ACL_H) || (defined(USE_POSIX_ACLS) && USE_POSIX_ACLS)
+#include <sys/acl.h>
+#else
+typedef void *acl_t;
+typedef int acl_type_t;
+#endif
+
 /* Portability non glibc c++ build systems */
 #ifndef __THROW
 # if defined __cplusplus
