@@ -18,7 +18,7 @@ libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(top_srcdir)/rpc/xdr/src
 
 libgfapi_la_LDFLAGS = -version-info $(GFAPI_LT_VERSION) \
-	$(GFAPI_EXTRA_LDFLAGS)
+	$(GFAPI_EXTRA_LDFLAGS) $(ACL_LIBS)
 
 xlator_LTLIBRARIES = api.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount

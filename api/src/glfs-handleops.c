@@ -231,14 +231,13 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_getattrs, 3.4.2);
 
 
 int
-pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
-                      const char *name, void *value, size_t size)
+glfs_h_getxattrs_common (struct glfs *fs, struct glfs_object *object,
+                         dict_t **xattr, const char *name)
 {
         int                 ret = 0;
         xlator_t        *subvol = NULL;
         inode_t         *inode = NULL;
         loc_t            loc = {0, };
-        dict_t                *xattr = NULL;
 
         /* validate in args */
         if ((fs == NULL) || (object == NULL)) {
@@ -266,9 +265,35 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
         /* populate loc */
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
-        ret = syncop_getxattr (subvol, &loc, &xattr, name, NULL);
+        ret = syncop_getxattr (subvol, &loc, xattr, name, NULL);
         DECODE_SYNCOP_ERR (ret);
 
+out:
+        loc_wipe (&loc);
+
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}
+
+
+int
+pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
+                      const char *name, void *value, size_t size)
+{
+        int                 ret = 0;
+        dict_t                *xattr = NULL;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        ret = glfs_h_getxattrs_common (fs, object, &xattr, name);
         if (ret)
                 goto out;
 
@@ -279,13 +304,8 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
                 ret = glfs_listxattr_process (value, size, xattr);
 
 out:
-        loc_wipe (&loc);
-
-        if (inode)
-                inode_unref (inode);
-
-        glfs_subvol_done (fs, subvol);
-
+        if (xattr)
+                dict_unref (xattr);
         return ret;
 }
 
@@ -1723,3 +1743,89 @@ err:
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.0);
+
+#ifdef HAVE_ACL_LIBACL_H
+#include "glusterfs-acl.h"
+#include <acl/libacl.h>
+
+int
+pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type, const acl_t acl)
+{
+        int ret = -1;
+        char *acl_s = NULL;
+        const char *acl_key = NULL;
+        ssize_t acl_len = 0;
+
+        if (!fs || !object || !acl) {
+                errno = EINVAL;
+                return ret;
+        }
+
+        acl_key = gf_posix_acl_get_key (type);
+        if (!acl_key)
+                return ret;
+
+        acl_s = acl_to_any_text (acl, NULL, ',',
+                                 TEXT_ABBREVIATE | TEXT_NUMERIC_IDS);
+        if (!acl_s)
+                return ret;
+
+        ret = pub_glfs_h_setxattrs (fs, object, acl_key, acl_s, acl_len, 0);
+
+        acl_free (acl_s);
+        return ret;
+}
+
+acl_t
+pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type)
+{
+        int                 ret = 0;
+        acl_t acl = NULL;
+        char *acl_s = NULL;
+        dict_t *xattr = NULL;
+        const char *acl_key = NULL;
+
+        if (!fs || !object) {
+                errno = EINVAL;
+                return NULL;
+        }
+
+        acl_key = gf_posix_acl_get_key (type);
+        if (!acl_key)
+                return NULL;
+
+        ret = glfs_h_getxattrs_common (fs, object, &xattr, acl_key);
+        if (ret)
+                return NULL;
+
+        ret = dict_get_str (xattr, (char *)acl_key, &acl_s);
+        if (ret == -1)
+                goto out;
+
+        acl = acl_from_text (acl_s);
+
+out:
+        GF_FREE (acl_s);
+        return acl;
+}
+#else /* !HAVE_ACL_LIBACL_H */
+acl_t
+pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type)
+{
+        errno = ENOTSUP;
+        return NULL;
+}
+
+int
+pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
+                    const acl_type_t type, const acl_t acl)
+{
+        errno = ENOTSUP;
+        return -1;
+}
+#endif
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_set, 3.7.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_get, 3.7.0);

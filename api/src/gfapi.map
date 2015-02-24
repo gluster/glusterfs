@@ -149,6 +149,8 @@ GFAPI_3.7.0 {
 	global:
 		glfs_ipc;
                 glfs_h_poll_upcall;
+                glfs_h_acl_set;
+                glfs_h_acl_get;
 } GFAPI_3.6.0;
 
 GFAPI_PRIVATE_3.7.0 {
