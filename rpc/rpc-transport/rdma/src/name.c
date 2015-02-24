@@ -437,7 +437,14 @@ gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
                                 "cannot bind rdma_cm_id to port "
                                 "less than %d (%s)", GF_CLIENT_PORT_CEILING,
                                 strerror (errno));
-                        ret = 0;
+                        if (sockaddr->sa_family == AF_INET6) {
+                                ((struct sockaddr_in6 *)sockaddr)->sin6_port
+                                        = htons (0);
+                        } else {
+                                ((struct sockaddr_in *)sockaddr)->sin_port
+                                        = htons (0);
+                        }
+                        ret = rdma_bind_addr (cm_id, sockaddr);
                 }
                 break;
 
