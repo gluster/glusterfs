@@ -363,9 +363,18 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
         UNLOCK (&frame->lock);
 out:
+        /* Make sure, the thread executing dht_discover_complete is the one
+         * which calls STACK_DESTROY (frame). In the case of "attempt_unwind",
+         * this makes sure that the thread don't call dht_frame_return, till
+         * call to dht_discover_complete is done.
+         */
+        if (attempt_unwind) {
+                dht_discover_complete (this, frame);
+        }
+
         this_call_cnt = dht_frame_return (frame);
 
-        if (is_last_call (this_call_cnt) || attempt_unwind) {
+        if (is_last_call (this_call_cnt) && !attempt_unwind) {
                 dht_discover_complete (this, frame);
         }
 
