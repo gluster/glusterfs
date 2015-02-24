@@ -4120,13 +4120,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         if (ret)
                 goto out;
 
-        /* TODO: Re-enable ordered insertion after implementing it for rculist
-         */
-        /*
-         *list_add_order (&new_volinfo->vol_list, &priv->volumes,
-         *                glusterd_compare_volume_name);
-         */
-        cds_list_add_tail (&new_volinfo->vol_list, &priv->volumes);
+        glusterd_list_add_order (&new_volinfo->vol_list, &priv->volumes,
+                                 glusterd_compare_volume_name);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
@@ -9916,3 +9911,23 @@ glusterd_is_volume_started (glusterd_volinfo_t  *volinfo)
         return (volinfo->status == GLUSTERD_STATUS_STARTED);
 }
 
+/* This function will insert the element to the list in a order.
+   Order will be based on the compare function provided as a input.
+   If element to be inserted in ascending order compare should return:
+    0: if both the arguments are equal
+   >0: if first argument is greater than second argument
+   <0: if first argument is less than second argument */
+void
+glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
+                        int (*compare)(struct cds_list_head *,
+                                       struct cds_list_head *))
+{
+        struct cds_list_head *pos = NULL;
+
+        cds_list_for_each_rcu (pos, head) {
+                if (compare (new, pos) >= 0)
+                        break;
+        }
+
+        cds_list_add_rcu (new, pos);
+}

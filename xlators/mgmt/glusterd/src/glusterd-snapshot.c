@@ -2201,16 +2201,10 @@ glusterd_list_add_snapvol (glusterd_volinfo_t *origin_vol,
         cds_list_add_tail (&snap_vol->vol_list, &snap->volumes);
         LOCK (&origin_vol->lock);
         {
-                /* TODO: Re-enable ordered insertion after implementing it for
-                 * rculist
-                 */
-                /*
-                 *list_add_order (&snap_vol->snapvol_list,
-                 *               &origin_vol->snap_volumes,
-                 *               glusterd_compare_snap_vol_time);
-                 */
-                cds_list_add_tail (&snap_vol->snapvol_list,
-                                   &origin_vol->snap_volumes);
+                glusterd_list_add_order (&snap_vol->snapvol_list,
+                                         &origin_vol->snap_volumes,
+                                         glusterd_compare_snap_vol_time);
+
                 origin_vol->snap_count++;
         }
         UNLOCK (&origin_vol->lock);
@@ -3844,13 +3838,8 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        /* TODO: Re-enable ordered insertion after implementing it for rculist
-         */
-        /*
-         *list_add_order (&snap->snap_list, &priv->snapshots,
-         *                glusterd_compare_snap_time);
-         */
-        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
+        glusterd_list_add_order (&snap->snap_list, &priv->snapshots,
+                                 glusterd_compare_snap_time);
 
         gf_log (this->name, GF_LOG_TRACE, "Snapshot %s added to the list",
                 snap->snapname);

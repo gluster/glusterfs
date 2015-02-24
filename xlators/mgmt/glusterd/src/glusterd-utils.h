@@ -688,4 +688,9 @@ glusterd_nfs_pmap_deregister ();
 gf_boolean_t
 glusterd_is_volume_started (glusterd_volinfo_t  *volinfo);
 
+void
+glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
+                        int (*compare)(struct cds_list_head *,
+                                       struct cds_list_head *));
+
 #endif

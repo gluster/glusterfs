@@ -2901,14 +2901,9 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
 
 
         if (!snap) {
-                /* TODO: Re-enable ordered insertion after implementing it for
-                 * rculist
-                 */
-                /*
-                 *list_add_order (&volinfo->vol_list, &priv->volumes,
-                 *                glusterd_compare_volume_name);
-                 */
-                cds_list_add_tail (&volinfo->vol_list, &priv->volumes);
+                glusterd_list_add_order (&volinfo->vol_list, &priv->volumes,
+                                         glusterd_compare_volume_name);
+
         } else {
                 ret = glusterd_volinfo_find (volinfo->parent_volname,
                                              &origin_volinfo);
@@ -3460,13 +3455,8 @@ glusterd_store_retrieve_snap (char *snapname)
         /* TODO: list_add_order can do 'N-square' comparisions and
            is not efficient. Find a better solution to store the snap
            in order */
-        /* TODO: Re-enable ordered insertion after implementing it for rculist
-         */
-        /*
-         *list_add_order (&snap->snap_list, &priv->snapshots,
-         *                glusterd_compare_snap_time);
-         */
-        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
+        glusterd_list_add_order (&snap->snap_list, &priv->snapshots,
+                                 glusterd_compare_snap_time);
 
 out:
         gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);

@@ -1435,13 +1435,9 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
-        /* TODO: Re-enable ordered insertion after implementing it for rculist
-         */
-        /*
-         *list_add_order (&snap->snap_list, &priv->snapshots,
-         *                glusterd_compare_snap_time);
-         */
-        cds_list_add_tail (&snap->snap_list, &priv->snapshots);
+        glusterd_list_add_order (&snap->snap_list, &priv->snapshots,
+                                 glusterd_compare_snap_time);
+
 
         for (i = 1; i <= volcount; i++) {
                 ret = glusterd_import_volinfo (peer_data, i,
