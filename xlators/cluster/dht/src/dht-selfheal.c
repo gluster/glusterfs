@@ -260,6 +260,13 @@ dht_refresh_layout (call_frame_t *frame)
                 dict_del (local->xattr, conf->xattr_name);
         }
 
+        if (local->xattr_req == NULL) {
+                local->xattr_req = dict_new ();
+                if (local->xattr_req == NULL) {
+                        goto out;
+                }
+        }
+
         if (dict_get (local->xattr_req, conf->xattr_name) == 0) {
                 ret = dict_set_uint32 (local->xattr_req, conf->xattr_name,
                                        4 * 4);
@@ -440,14 +447,14 @@ gf_boolean_t
 dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
                        dht_layout_t **ondisk)
 {
-        gf_boolean_t             fixit                        = _gf_true;
-        dht_local_t             *local                        = NULL;
-        int                      layout_span                  = 0;
-        int                      ondisk_decommissioned_bricks = 0;
-        int                      ret                          = 0;
-        dht_conf_t              *conf                         = NULL;
-        dht_distribution_type_t  inmem_dist_type              = 0;
-        dht_distribution_type_t  ondisk_dist_type             = 0;
+        gf_boolean_t             fixit                 = _gf_true;
+        dht_local_t             *local                 = NULL;
+        int                      layout_span           = 0;
+        int                      decommissioned_bricks = 0;
+        int                      ret                   = 0;
+        dht_conf_t              *conf                  = NULL;
+        dht_distribution_type_t  inmem_dist_type       = 0;
+        dht_distribution_type_t  ondisk_dist_type      = 0;
 
         conf = frame->this->private;
 
@@ -477,13 +484,13 @@ dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
 
         layout_span = dht_layout_span (*ondisk);
 
-        ondisk_decommissioned_bricks
+        decommissioned_bricks
                 = dht_decommissioned_bricks_in_layout (frame->this,
                                                        *ondisk);
         inmem_dist_type = dht_distribution_type (frame->this, *inmem);
         ondisk_dist_type = dht_distribution_type (frame->this, *ondisk);
 
-        if ((ondisk_decommissioned_bricks == 0)
+        if ((decommissioned_bricks == 0)
             && (layout_span == (conf->subvolume_cnt
                                 - conf->decommission_subvols_cnt))
             && (inmem_dist_type == ondisk_dist_type))
