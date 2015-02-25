@@ -736,12 +736,15 @@ main (int argc, char **argv)
         }
 
         ret = glfs_set_volfile_server (fs, "tcp", "localhost", 24007);
+        if (ret) {
+                printf("Setting the volfile server failed, %s\n", strerror (errno));
+                goto out;
+        }
         snprintf (logfilepath, sizeof (logfilepath),
                   DEFAULT_HEAL_LOG_FILE_DIRECTORY"/glfsheal-%s.log", volname);
         ret = glfs_set_logging(fs, logfilepath, GF_LOG_INFO);
         if (ret < 0) {
-                ret = -1;
-                printf ("Not able to initialize volume '%s'\n", volname);
+                printf ("Failed to set the log file path, %s\n", strerror (errno));
                 goto out;
         }
 
