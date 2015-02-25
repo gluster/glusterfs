@@ -91,6 +91,7 @@ typedef enum {
         GF_XLATOR_MARKER,
         GF_XLATOR_IO_STATS,
         GF_XLATOR_BD,
+        GF_XLATOR_SERVER,
         GF_XLATOR_NONE,
 } glusterd_server_xlator_t;
 
@@ -124,6 +125,21 @@ struct volopt_map_entry {
          */
         //gf_boolean_t client_option;
 };
+
+typedef
+int (*brick_xlator_builder) (volgen_graph_t *graph,
+                             glusterd_volinfo_t *volinfo, dict_t *set_dict,
+                             glusterd_brickinfo_t *brickinfo);
+
+struct volgen_brick_xlator {
+        /* function that builds a xlator */
+        brick_xlator_builder builder;
+        /* debug key for a xlator that
+         * gets used for adding debug translators like trace, error-gen
+         * before this xlator */
+        char *dbg_key;
+};
+typedef struct volgen_brick_xlator volgen_brick_xlator_t;
 
 int
 glusterd_snapdsvc_create_volfile (glusterd_volinfo_t *volinfo);

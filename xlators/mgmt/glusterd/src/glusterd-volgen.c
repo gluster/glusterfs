@@ -569,107 +569,6 @@ optget_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
         return 0;
 }
 
-static glusterd_server_xlator_t
-get_server_xlator (char *xlator)
-{
-        glusterd_server_xlator_t subvol = GF_XLATOR_NONE;
-
-        if (strcmp (xlator, "posix") == 0)
-                subvol = GF_XLATOR_POSIX;
-        if (strcmp (xlator, "acl") == 0)
-                subvol = GF_XLATOR_ACL;
-        if (strcmp (xlator, "locks") == 0)
-                subvol = GF_XLATOR_LOCKS;
-        if (strcmp (xlator, "io-threads") == 0)
-                subvol = GF_XLATOR_IOT;
-        if (strcmp (xlator, "index") == 0)
-                subvol = GF_XLATOR_INDEX;
-        if (strcmp (xlator, "marker") == 0)
-                subvol = GF_XLATOR_MARKER;
-        if (strcmp (xlator, "io-stats") == 0)
-                subvol = GF_XLATOR_IO_STATS;
-        if (strcmp (xlator, "bd") == 0)
-                subvol = GF_XLATOR_BD;
-
-        return subvol;
-}
-
-static glusterd_client_xlator_t
-get_client_xlator (char *xlator)
-{
-        glusterd_client_xlator_t subvol = GF_CLNT_XLATOR_NONE;
-
-        if (strcmp (xlator, "client") == 0)
-                subvol = GF_CLNT_XLATOR_FUSE;
-
-        return subvol;
-}
-
-static int
-debugxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
-                       void *param)
-{
-        char *volname = NULL;
-        gf_boolean_t enabled = _gf_false;
-
-        volname = param;
-
-        if (strcmp (vme->option, "!debug") != 0)
-                return 0;
-
-        if (!strcmp (vme->key , "debug.trace") ||
-            !strcmp (vme->key, "debug.error-gen")) {
-                if (get_server_xlator (vme->value) == GF_XLATOR_NONE &&
-                    get_client_xlator (vme->value) == GF_CLNT_XLATOR_NONE)
-                        return 0;
-                else
-                        goto add_graph;
-        }
-
-        if (gf_string2boolean (vme->value, &enabled) == -1)
-                return -1;
-        if (!enabled)
-                return 0;
-
-add_graph:
-        if (volgen_graph_add (graph, vme->voltype, volname))
-                return 0;
-        else
-                return -1;
-}
-
-int
-check_and_add_debug_xl (volgen_graph_t *graph, dict_t *set_dict, char *volname,
-                        char *xlname)
-{
-        int       ret       = 0;
-        char     *value_str = NULL;
-
-        ret = dict_get_str (set_dict, "debug.trace", &value_str);
-        if (!ret) {
-                if (strcmp (xlname, value_str) == 0) {
-                        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
-                                                                &debugxl_option_handler);
-                        if (ret)
-                                goto out;
-                }
-        }
-
-        ret = dict_get_str (set_dict, "debug.error-gen", &value_str);
-        if (!ret) {
-                if (strcmp (xlname, value_str) == 0) {
-                        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
-                                                                &debugxl_option_handler);
-                        if (ret)
-                                goto out;
-                }
-        }
-
-        ret = 0;
-
-out:
-        return ret;
-}
 
 /* This getter considers defaults also. */
 static int
@@ -1517,49 +1416,17 @@ server_spec_extended_option_handler (volgen_graph_t *graph,
 static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
 
 static int
-server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                      dict_t *set_dict, void *param)
+brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                        dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
-        char                 *volname       = NULL;
-        char                 *path          = NULL;
-        int                   pump          = 0;
-        xlator_t             *xl            = NULL;
-        xlator_t             *txl           = NULL;
-        xlator_t             *rbxl          = NULL;
-        char      transt[16]                = {0,};
-        char                 *ptranst       = NULL;
-        char      volume_id[64]             = {0,};
-        char      tstamp_file[PATH_MAX]     = {0,};
-        int                   ret           = 0;
-        char                 *xlator        = NULL;
-        char                 *loglevel      = NULL;
-        char                 *username      = NULL;
-        char                 *password      = NULL;
-        char     index_basepath[PATH_MAX]   = {0};
-        char     key[1024]                  = {0};
-        glusterd_brickinfo_t *brickinfo     = NULL;
-        char changelog_basepath[PATH_MAX]   = {0,};
-        gf_boolean_t          quota_enabled = _gf_true;
-        gf_boolean_t          pgfid_feat    = _gf_false;
-        char                 *value         = NULL;
-        char                 *ssl_user      = NULL;
+        int             ret = -1;
+        gf_boolean_t    quota_enabled = _gf_true;
+        gf_boolean_t    pgfid_feat    = _gf_false;
+        char            *value = NULL;
+        xlator_t        *xl = NULL;
 
-        brickinfo = param;
-        path      = brickinfo->path;
-        volname = volinfo->volname;
-        get_vol_transport_type (volinfo, transt);
-
-        ret = dict_get_str (set_dict, "xlator", &xlator);
-
-        /* got a cli log level request */
-        if (!ret) {
-                ret = dict_get_str (set_dict, "loglevel", &loglevel);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "could not get both"
-                                " translator name and loglevel for log level request");
-                        goto out;
-                }
-        }
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
 
         ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_QUOTA, &value);
         if (value) {
@@ -1577,93 +1444,480 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        xl = volgen_graph_add (graph, "storage/posix", volname);
-        if (!xl)
-                return -1;
+        ret = -1;
 
-        ret = xlator_set_option (xl, "directory", path);
+        xl = volgen_graph_add (graph, "storage/posix", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "directory", brickinfo->path);
         if (ret)
-                return -1;
+                goto out;
 
         ret = xlator_set_option (xl, "volume-id",
                                  uuid_utoa (volinfo->volume_id));
         if (ret)
-                return -1;
+                goto out;
 
         if (quota_enabled || pgfid_feat)
                 xlator_set_option (xl, "update-link-count-parent",
                                    "on");
+out:
+        return ret;
+}
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname,
-                                      "posix");
-        if (ret)
-                return -1;
+static int
+brick_graph_add_bd (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int ret = -1;
+
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
+
+        ret = 0;
+
 #ifdef HAVE_BD_XLATOR
         if (*brickinfo->vg != '\0') {
+                xlator_t *xl = NULL;
                 /* Now add BD v2 xlator if volume is BD type */
-                xl = volgen_graph_add (graph, "storage/bd", volname);
-                if (!xl)
-                        return -1;
+                xl = volgen_graph_add (graph, "storage/bd", volinfo->volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
 
                 ret = xlator_set_option (xl, "device", "vg");
                 if (ret)
-                        return -1;
+                        goto out;
+
                 ret = xlator_set_option (xl, "export", brickinfo->vg);
                 if (ret)
-                        return -1;
-
-                ret = check_and_add_debug_xl (graph, set_dict, volname, "bd");
-                if (ret)
-                        return -1;
-
+                        goto out;
         }
 #endif
 
-        xl = volgen_graph_add (graph, "features/changelog", volname);
-        if (!xl)
-                return -1;
+out:
+        return ret;
+}
 
-        ret = xlator_set_option (xl, "changelog-brick", path);
+static int
+brick_graph_add_changelog (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                            dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t        *xl = NULL;
+        char            changelog_basepath[PATH_MAX]    = {0,};
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/changelog", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "changelog-brick", brickinfo->path);
         if (ret)
-                return -1;
+                goto out;
 
         snprintf (changelog_basepath, sizeof (changelog_basepath),
-                  "%s/%s", path, ".glusterfs/changelogs");
+                  "%s/%s", brickinfo->path, ".glusterfs/changelogs");
         ret = xlator_set_option (xl, "changelog-dir", changelog_basepath);
         if (ret)
-                return -1;
+                goto out;
+out:
+        return ret;
+}
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname, "changelog");
-        if (ret)
-                return -1;
+static int
+brick_graph_add_acl (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
 
-        xl = volgen_graph_add (graph, "features/access-control", volname);
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/access-control",
+                                volinfo->volname);
         if (!xl)
-                return -1;
+                goto out;
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname, "acl");
-        if (ret)
-                return -1;
+        ret = 0;
+out:
+        return ret;
+}
 
-        xl = volgen_graph_add (graph, "features/locks", volname);
+static int
+brick_graph_add_locks (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                        dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/locks",
+                                volinfo->volname);
         if (!xl)
-                return -1;
+                goto out;
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname, "locks");
-        if (ret)
-                return -1;
+        ret = 0;
+out:
+        return ret;
+}
 
-        xl = volgen_graph_add (graph, "performance/io-threads", volname);
+static int
+brick_graph_add_iot (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "performance/io-threads",
+                                volinfo->volname);
         if (!xl)
-                return -1;
+                goto out;
+        ret = 0;
+out:
+        return ret;
+}
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname, "io-threads");
-        if (ret)
-                return -1;
+static int
+brick_graph_add_barrier (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
 
-        xl = volgen_graph_add (graph, "features/barrier", volname);
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/barrier", volinfo->volname);
         if (!xl)
-               return -1;
+                goto out;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                        dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t        *xl = NULL;
+        char            index_basepath[PATH_MAX]   = {0};
+        int             ret = -1;
+
+        if (!graph || !volinfo || !brickinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/index", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
+                  brickinfo->path, ".glusterfs/indices");
+        ret = xlator_set_option (xl, "index-base", index_basepath);
+        if (ret)
+                goto out;
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_marker (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+        char            tstamp_file[PATH_MAX] = {0,};
+        char            volume_id[64] = {0,};
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/marker", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        uuid_unparse (volinfo->volume_id, volume_id);
+        ret = xlator_set_option (xl, "volume-uuid", volume_id);
+        if (ret)
+                goto out;
+        get_vol_tstamp_file (tstamp_file, volinfo);
+        ret = xlator_set_option (xl, "timestamp-file", tstamp_file);
+        if (ret)
+                goto out;
+
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_quota (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+        char            *value = NULL;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/quota", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "volume-uuid", volinfo->volname);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_QUOTA, &value);
+        if (value) {
+                ret = xlator_set_option (xl, "server-quota", value);
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_ro (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
+            dict_get_str_boolean (set_dict, "features.worm", 0)) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "read-only and worm cannot be set together");
+                ret = -1;
+                goto out;
+        }
+
+        /* Check for read-only volume option, and add it to the graph */
+        if (dict_get_str_boolean (set_dict, "features.read-only", 0)){
+                xl = volgen_graph_add (graph, "features/read-only",
+                                       volinfo->volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_worm (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                       dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
+            dict_get_str_boolean (set_dict, "features.worm", 0)) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "read-only and worm cannot be set together");
+                ret = -1;
+                goto out;
+        }
+
+        /* Check for worm volume option, and add it to the graph */
+        if (dict_get_str_boolean (set_dict, "features.worm", 0)) {
+                xl = volgen_graph_add (graph, "features/worm",
+                                       volinfo->volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_cdc (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        /* Check for compress volume option, and add it to the graph on
+         * server side */
+        ret = dict_get_str_boolean (set_dict, "network.compression", 0);
+        if (ret == -1)
+                goto out;
+        if (ret) {
+                xl = volgen_graph_add (graph, "features/cdc",
+                                       volinfo->volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = xlator_set_option (xl, "mode", "server");
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_io_stats (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                           dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
+
+        xl = volgen_graph_add_as (graph, "debug/io-stats", brickinfo->path);
+        if (!xl)
+                goto out;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+        char            transt[16] = {0,};
+        char            *username = NULL;
+        char            *password = NULL;
+        char            key[1024] = {0};
+        char            *ssl_user = NULL;
+        char            *value = NULL;
+
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
+
+        get_vol_transport_type (volinfo, transt);
+
+        username = glusterd_auth_get_username (volinfo);
+        password = glusterd_auth_get_password (volinfo);
+
+        xl = volgen_graph_add (graph, "protocol/server", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "transport-type", transt);
+        if (ret)
+                goto out;
+
+        /*In the case of running multiple glusterds on a single machine,
+         * we should ensure that bricks don't listen on all IPs on that
+         * machine and break the IP based separation being brought about.*/
+        if (dict_get (THIS->options, "transport.socket.bind-address")) {
+                ret = xlator_set_option (xl, "transport.socket.bind-address",
+                                         brickinfo->hostname);
+                if (ret)
+                        return -1;
+        }
+
+        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cert-depth", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cert-depth");
+                        return -1;
+                }
+        }
+
+        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
+                ret = xlator_set_option (xl, "ssl-cipher-list", value);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_WARNING,
+                                "failed to set ssl-cipher-list");
+                        return -1;
+                }
+        }
+
+        if (username) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "auth.login.%s.allow",
+                                        brickinfo->path);
+
+                ret = xlator_set_option (xl, key, username);
+                if (ret)
+                        return -1;
+        }
+
+        if (password) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "auth.login.%s.password",
+                          username);
+
+                ret = xlator_set_option (xl, key, password);
+                if (ret)
+                        return -1;
+        }
+
+        if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "auth.login.%s.ssl-allow",
+                                       brickinfo->path);
+
+                ret = xlator_set_option (xl, key, ssl_user);
+                if (ret)
+                        return -1;
+        }
+
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_pump (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                       dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        int             pump          = 0;
+        xlator_t        *xl            = NULL;
+        xlator_t        *txl           = NULL;
+        xlator_t        *rbxl          = NULL;
+        char            *username      = NULL;
+        char            *password      = NULL;
+        char            *ptranst       = NULL;
+        char            *value         = NULL;
+
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
 
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
         if (ret == -ENOENT)
@@ -1678,7 +1932,8 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 txl = first_of (graph);
 
                 rbxl = volgen_graph_add_nolink (graph, "protocol/client",
-                                                "%s-replace-brick", volname);
+                                                "%s-replace-brick",
+                                                volinfo->volname);
                 if (!rbxl)
                         return -1;
 
@@ -1723,7 +1978,7 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         return -1;
 
                 xl = volgen_graph_add_nolink (graph, "cluster/pump", "%s-pump",
-                                              volname);
+                                              volinfo->volname);
                 if (!xl)
                         return -1;
                 ret = volgen_xlator_link (xl, txl);
@@ -1734,158 +1989,171 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         return -1;
         }
 
-        xl = volgen_graph_add (graph, "features/index", volname);
-        if (!xl)
-                return -1;
+out:
+        return ret;
+}
 
-        snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
-                  path, ".glusterfs/indices");
-        ret = xlator_set_option (xl, "index-base", index_basepath);
-        if (ret)
-                return -1;
 
-        ret = check_and_add_debug_xl (graph, set_dict, volname,
-                                      "index");
-        if (ret)
-                return -1;
+/* The order of xlator definition here determines
+ * the topology of the brick graph */
+static volgen_brick_xlator_t server_graph_table[] = {
+        {brick_graph_add_server, NULL},
+        {brick_graph_add_io_stats, NULL},
+        {brick_graph_add_cdc, NULL},
+        {brick_graph_add_ro, NULL},
+        {brick_graph_add_worm, NULL},
+        {brick_graph_add_quota, "quota"},
+        {brick_graph_add_marker, "marker"},
+        {brick_graph_add_index, "index"},
+        {brick_graph_add_barrier, NULL},
+        {brick_graph_add_iot, "io-threads"},
+        {brick_graph_add_pump, NULL},
+        {brick_graph_add_locks, "locks"},
+        {brick_graph_add_acl, "acl"},
+        {brick_graph_add_changelog, "changelog"},
+        {brick_graph_add_bd, "bd"},
+        {brick_graph_add_posix, "posix"},
+};
 
-        xl = volgen_graph_add (graph, "features/marker", volname);
-        if (!xl)
-                return -1;
+static glusterd_server_xlator_t
+get_server_xlator (char *xlator)
+{
+        int i = 0;
+        int size = sizeof (server_graph_table)/sizeof (server_graph_table[0]);
 
-        uuid_unparse (volinfo->volume_id, volume_id);
-        ret = xlator_set_option (xl, "volume-uuid", volume_id);
-        if (ret)
-                return -1;
-        get_vol_tstamp_file (tstamp_file, volinfo);
-        ret = xlator_set_option (xl, "timestamp-file", tstamp_file);
-        if (ret)
-                return -1;
-
-        ret = check_and_add_debug_xl (graph, set_dict, volname, "marker");
-        if (ret)
-                return -1;
-
-        xl = volgen_graph_add (graph, "features/quota", volname);
-        if (!xl)
-                return -1;
-        ret = xlator_set_option (xl, "volume-uuid", volname);
-        if (ret)
-                return -1;
-
-        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_QUOTA, &value);
-        if (value) {
-                ret = xlator_set_option (xl, "server-quota", value);
-                if (ret)
-                        return -1;
+        for (i = 0; i < size; i++) {
+                if (!server_graph_table[i].dbg_key)
+                        continue;
+                if (strcmp (xlator, server_graph_table[i].dbg_key))
+                        return GF_XLATOR_SERVER;
         }
 
-         if (dict_get_str_boolean (set_dict, "features.read-only", 0) &&
-            dict_get_str_boolean (set_dict, "features.worm",0)) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "read-only and worm cannot be set together");
-                ret = -1;
+        return GF_XLATOR_NONE;
+}
+
+static glusterd_client_xlator_t
+get_client_xlator (char *xlator)
+{
+        glusterd_client_xlator_t subvol = GF_CLNT_XLATOR_NONE;
+
+        if (strcmp (xlator, "client") == 0)
+                subvol = GF_CLNT_XLATOR_FUSE;
+
+        return subvol;
+}
+
+static int
+debugxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        char *volname = NULL;
+        gf_boolean_t enabled = _gf_false;
+
+        volname = param;
+
+        if (strcmp (vme->option, "!debug") != 0)
+                return 0;
+
+        if (!strcmp (vme->key , "debug.trace") ||
+            !strcmp (vme->key, "debug.error-gen")) {
+                if (get_server_xlator (vme->value) == GF_XLATOR_NONE &&
+                    get_client_xlator (vme->value) == GF_CLNT_XLATOR_NONE)
+                        return 0;
+                else
+                        goto add_graph;
+        }
+
+        if (gf_string2boolean (vme->value, &enabled) == -1)
+                return -1;
+        if (!enabled)
+                return 0;
+
+add_graph:
+        if (volgen_graph_add (graph, vme->voltype, volname))
+                return 0;
+        else
+                return -1;
+}
+
+int
+check_and_add_debug_xl (volgen_graph_t *graph, dict_t *set_dict, char *volname,
+                        char *xlname)
+{
+        int       ret       = 0;
+        char     *value_str = NULL;
+
+        if (!xlname)
                 goto out;
+
+        ret = dict_get_str (set_dict, "debug.trace", &value_str);
+        if (!ret) {
+                if (strcmp (xlname, value_str) == 0) {
+                        ret = volgen_graph_set_options_generic (graph,
+                                                set_dict, volname,
+                                                &debugxl_option_handler);
+                        if (ret)
+                                goto out;
+                }
         }
 
-        /* Check for read-only volume option, and add it to the graph */
-        if (dict_get_str_boolean (set_dict, "features.read-only", 0)){
-                xl = volgen_graph_add (graph, "features/read-only", volname);
-                if (!xl) {
-                        ret = -1;
+        ret = dict_get_str (set_dict, "debug.error-gen", &value_str);
+        if (!ret) {
+                if (strcmp (xlname, value_str) == 0) {
+                        ret = volgen_graph_set_options_generic (graph,
+                                                set_dict, volname,
+                                                &debugxl_option_handler);
+                        if (ret)
                         goto out;
                 }
         }
 
-        /* Check for worm volume option, and add it to the graph */
-        if (dict_get_str_boolean (set_dict, "features.worm", 0)) {
-                xl = volgen_graph_add (graph, "features/worm", volname);
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
-        }
+        ret = 0;
 
-        /* Check for compress volume option, and add it to the graph on server side */
-        ret = dict_get_str_boolean (set_dict, "network.compression", 0);
-        if (ret == -1)
-                goto out;
-        if (ret) {
-                xl = volgen_graph_add (graph, "features/cdc", volname);
-                if (!xl) {
-                        ret = -1;
-                        goto out;
-                }
-                ret = xlator_set_option (xl, "mode", "server");
-                if (ret)
-                        goto out;
-        }
+out:
+        return ret;
+}
 
-        xl = volgen_graph_add_as (graph, "debug/io-stats", path);
-        if (!xl)
-                return -1;
+static int
+server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, void *param)
+{
+        int                   ret           = 0;
+        char                 *xlator        = NULL;
+        char                 *loglevel      = NULL;
+        int                   i             = 0;
 
-        xl = volgen_graph_add (graph, "protocol/server", volname);
-        if (!xl)
-                return -1;
-        ret = xlator_set_option (xl, "transport-type", transt);
-        if (ret)
-                return -1;
 
-        /*In the case of running multiple glusterds on a single machine,
-         * we should ensure that bricks don't listen on all IPs on that
-         * machine and break the IP based separation being brought about.*/
-        if (dict_get (THIS->options, "transport.socket.bind-address")) {
-                ret = xlator_set_option (xl, "transport.socket.bind-address",
-                                         brickinfo->hostname);
-                if (ret)
-                        return -1;
-        }
+        i = sizeof (server_graph_table)/sizeof (server_graph_table[0]) - 1;
 
-        if (dict_get_str (set_dict, SSL_CERT_DEPTH_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cert-depth", value);
+        while (i >= 0) {
+                ret = server_graph_table[i].builder (graph, volinfo, set_dict,
+                                                     param);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
-                                "failed to set ssl-cert-depth");
-                        return -1;
+                        gf_log ("glusterd", GF_LOG_ERROR, "Builing graph "
+                                "failed for server graph table entry: %d", i);
+                        goto out;
                 }
+
+                ret = check_and_add_debug_xl (graph, set_dict,
+                                              volinfo->volname,
+                                              server_graph_table[i].dbg_key);
+                if (ret)
+                        goto out;
+
+                i--;
         }
 
-        if (dict_get_str (set_dict, SSL_CIPHER_LIST_OPT, &value) == 0) {
-                ret = xlator_set_option (xl, "ssl-cipher-list", value);
+
+        ret = dict_get_str (set_dict, "xlator", &xlator);
+
+        /* got a cli log level request */
+        if (!ret) {
+                ret = dict_get_str (set_dict, "loglevel", &loglevel);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_WARNING,
-                                "failed to set ssl-cipher-list");
-                        return -1;
+                        gf_log ("glusterd", GF_LOG_ERROR, "could not get both"
+                                " translator name and loglevel for log level request");
+                        goto out;
                 }
-        }
-
-        if (username) {
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "auth.login.%s.allow", path);
-
-                ret = xlator_set_option (xl, key, username);
-                if (ret)
-                        return -1;
-        }
-
-        if (password) {
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "auth.login.%s.password",
-                          username);
-
-                ret = xlator_set_option (xl, key, password);
-                if (ret)
-                        return -1;
-        }
-
-        if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "auth.login.%s.ssl-allow", path);
-
-                ret = xlator_set_option (xl, key, ssl_user);
-                if (ret)
-                        return -1;
         }
 
         ret = volgen_graph_set_options_generic (graph, set_dict,
