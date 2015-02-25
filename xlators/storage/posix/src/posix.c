@@ -3737,8 +3737,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
                 dyn_rpath = gf_strdup (host_buf);
                 if (!dyn_rpath) {
-                        ret = -1;
-                        goto done;
+                        op_errno = ENOMEM;
+                        goto out;
                 }
 
                 size = strlen (dyn_rpath) + 1;
@@ -3749,6 +3749,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                 "could not set value (%s) in dictionary",
                                 dyn_rpath);
                         GF_FREE (dyn_rpath);
+                        op_errno = -ret;
+                        goto out;
                 }
                 goto done;
         }
@@ -3757,17 +3759,21 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
             (strcmp (name, GFID_TO_PATH_KEY) == 0)) {
                 ret = inode_path (loc->inode, NULL, &path);
                 if (ret < 0) {
+                        op_errno = -ret;
                         gf_log (this->name, GF_LOG_WARNING, "%s: could not get "
                                 "inode path", uuid_utoa (loc->inode->gfid));
-                        goto done;
+                        goto out;
                 }
 
+                size = ret;
                 ret = dict_set_dynstr (dict, GFID_TO_PATH_KEY, path);
                 if (ret < 0) {
+                        op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_WARNING,
                                 "could not set value (%s) in dictionary",
                                 host_buf);
                         GF_FREE (path);
+                        goto out;
                 }
                 goto done;
         }
