@@ -355,6 +355,10 @@ cli_validate_disperse_volume (char *word, gf1_cluster_type type,
                 cli_err ("striped-replicated-dispersed volume "
                          "is not supported");
                 goto out;
+        case GF_CLUSTER_TYPE_TIER:
+                cli_err ("tier-dispersed volume is not "
+                         "supported");
+                goto out;
         case GF_CLUSTER_TYPE_STRIPE:
                 cli_err ("striped-dispersed volume is not "
                          "supported");
@@ -490,6 +494,11 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         case GF_CLUSTER_TYPE_STRIPE:
                                 type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
                                 break;
+                        case GF_CLUSTER_TYPE_TIER:
+                                cli_err ("replicated-tiered volume is not "
+                                         "supported");
+                                goto out;
+                                break;
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 cli_err ("replicated-dispersed volume is not "
                                          "supported");
@@ -527,6 +536,10 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 break;
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 cli_err ("striped-dispersed volume is not "
+                                         "supported");
+                                goto out;
+                        case GF_CLUSTER_TYPE_TIER:
+                                cli_err ("striped-tier volume is not "
                                          "supported");
                                 goto out;
                         }
@@ -3384,6 +3397,16 @@ cli_cmd_volume_defrag_parse (const char **words, int wordcount,
                 if (strcmp (words[3], "start") && strcmp (words[3], "stop") &&
                     strcmp (words[3], "status"))
                             goto out;
+        } else if ((strcmp (words[3], "tier") == 0) &&
+               (strcmp (words[4], "start") == 0)) {
+                volname = (char *) words[2];
+                cmd = GF_DEFRAG_CMD_START_TIER;
+                goto done;
+        } else if ((strcmp (words[3], "tier") == 0) &&
+               (strcmp (words[4], "status") == 0)) {
+                volname = (char *) words[2];
+                cmd = GF_DEFRAG_CMD_STATUS_TIER;
+                goto done;
         } else {
                 if (strcmp (words[3], "fix-layout") &&
                     strcmp (words[3], "start"))

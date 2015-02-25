@@ -840,6 +840,142 @@ out:
         return ret;
 }
 
+int
+cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
+                                struct cli_cmd_word *word, const char **words,
+                                int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
+        gf_answer_t             answer = GF_ANSWER_NO;
+        cli_local_t             *local = NULL;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        if (state->mode & GLUSTER_MODE_WIGNORE) {
+                ret = dict_set_int32 (options, "force", _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set force "
+                                "option");
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (options, "attach-tier", 1);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "type", GF_CLUSTER_TYPE_TIER);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ATTACH_TIER];
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("attach-tier failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
+int
+cli_cmd_volume_detach_tier_cbk (struct cli_state *state,
+                              struct cli_cmd_word *word, const char **words,
+                              int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
+        gf_answer_t             answer = GF_ANSWER_NO;
+        cli_local_t             *local = NULL;
+        int                     need_question = 0;
+
+        const char *question = "Removing tier can result in data loss. "
+                               "Do you want to Continue?";
+
+        if (wordcount != 3)
+                goto out;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        options = dict_new ();
+        if (!options)
+                goto out;
+
+        ret = dict_set_int32 (options, "force", 1);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "command", GF_OP_CMD_DETACH);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (options, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "count", 1);
+        if (ret)
+                goto out;
+
+        if (!(state->mode & GLUSTER_MODE_SCRIPT) && need_question) {
+                /* we need to ask question only in case of 'commit or force' */
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_DETACH_TIER];
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume detach-tier failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
 static int
 gf_cli_create_auxiliary_mount (char *volname)
 {
@@ -2434,6 +2570,14 @@ struct cli_cmd volume_cmds[] = {
         /*{ "volume rename <VOLNAME> <NEW-VOLNAME>",
           cli_cmd_volume_rename_cbk,
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
+
+        { "volume attach-tier <VOLNAME> [<replica COUNT>] <NEW-BRICK>...",
+          cli_cmd_volume_attach_tier_cbk,
+          "attach tier to volume <VOLNAME>"},
+
+        { "volume detach-tier <VOLNAME>",
+          cli_cmd_volume_detach_tier_cbk,
+          "detach tier from volume <VOLNAME>"},
 
         { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,

@@ -448,6 +448,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
         char                    name[1024] = {0,};
         gf_xl_afr_op_t          heal_op = GF_SHD_OP_INVALID;
         xlator_t                *this = NULL;
+        glusterd_volinfo_t        *volinfo      = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -514,7 +515,11 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 ret = dict_get_str (dict, "volname", &volname);
                 if (ret)
                         goto out;
-                snprintf (name, 1024, "%s-dht",volname);
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                        snprintf (name, 1024, "tier-dht");
+                else
+                        snprintf (name, 1024, "%s-dht", volname);
                 brick_req->name = gf_strdup (name);
 
                 break;
@@ -5159,6 +5164,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
 
         while ( i <= count) {
                 snprintf (key, 256, "brick%d", i);
+
                 ret = dict_get_str (dict, key, &brick);
                 if (ret) {
                         gf_log ("glusterd", GF_LOG_ERROR, "Unable to get brick");
@@ -5167,8 +5173,10 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
 
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
                                                               &brickinfo);
+
                 if (ret)
                         goto out;
+
                 if (glusterd_is_brick_started (brickinfo)) {
                         pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                   gf_gld_mt_pending_node_t);

@@ -61,6 +61,7 @@ char *cli_vol_type_str[] = {"Distribute",
                             "Replicate",
                             "Striped-Replicate",
                             "Disperse",
+                            "Tier",
                             "Distributed-Stripe",
                             "Distributed-Replicate",
                             "Distributed-Striped-Replicate",
@@ -739,8 +740,9 @@ xml_output:
                 vol_type = type;
 
                 // Distributed (stripe/replicate/stripe-replica) setups
-                if ((type > 0) && ( dist_count < brick_count))
-                        vol_type = type + 4;
+                if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
+                    (dist_count < brick_count))
+                       vol_type = type + 5;
 
                 cli_out ("Volume Name: %s", volname);
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);
@@ -1441,6 +1443,134 @@ out:
 }
 
 int
+gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
+{
+        int                ret          = -1;
+        int                count        = 0;
+        int                i            = 1;
+        char               key[256]     = {0,};
+        gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
+        uint64_t           files        = 0;
+        uint64_t           size         = 0;
+        uint64_t           lookup       = 0;
+        char               *node_name   = NULL;
+        uint64_t           failures     = 0;
+        uint64_t           skipped      = 0;
+        double             elapsed      = 0;
+        char               *status_str  = NULL;
+        char               *size_str    = NULL;
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "count not set");
+                goto out;
+        }
+
+
+        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "Node",
+                 "Rebalanced-files", "size", "scanned", "failures", "skipped",
+                 "status", "run time in secs");
+        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "---------",
+                 "-----------", "-----------", "-----------", "-----------",
+                 "-----------", "------------", "--------------");
+        for (i = 1; i <= count; i++) {
+                /* Reset the variables to prevent carryover of values */
+                node_name = NULL;
+                files = 0;
+                size = 0;
+                lookup = 0;
+                skipped = 0;
+                status_str = NULL;
+                elapsed = 0;
+
+                /* Check if status is NOT_STARTED, and continue early */
+                memset (key, 0, 256);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get status");
+                        goto out;
+                }
+                if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
+                        continue;
+
+
+                snprintf (key, 256, "node-name-%d", i);
+                ret = dict_get_str (dict, key, &node_name);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "files-%d", i);
+                ret = dict_get_uint64 (dict, key, &files);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE,
+                                "failed to get file count");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "size-%d", i);
+                ret = dict_get_uint64 (dict, key, &size);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE,
+                                "failed to get size of xfer");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "lookups-%d", i);
+                ret = dict_get_uint64 (dict, key, &lookup);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE,
+                                "failed to get lookedup file count");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "failures-%d", i);
+                ret = dict_get_uint64 (dict, key, &failures);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE,
+                                "failed to get failures count");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "skipped-%d", i);
+                ret = dict_get_uint64 (dict, key, &skipped);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE,
+                                "failed to get skipped count");
+
+                /* For remove-brick include skipped count into failure count*/
+                if (task_type != GF_TASK_TYPE_REBALANCE) {
+                        failures += skipped;
+                        skipped = 0;
+                }
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "run-time-%d", i);
+                ret = dict_get_double (dict, key, &elapsed);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
+
+                /* Check for array bound */
+                if (status_rcd >= GF_DEFRAG_STATUS_MAX)
+                        status_rcd = GF_DEFRAG_STATUS_MAX;
+
+                status_str = cli_vol_task_status_str[status_rcd];
+                size_str = gf_uint64_2human_readable(size);
+                if (size_str) {
+                        cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
+                                 PRIu64" %13"PRIu64 " %20s %18.2f", node_name,
+                                 files, size_str, lookup, failures, skipped,
+                                 status_str, elapsed);
+                } else {
+                        cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"PRIu64
+                                 " %13"PRIu64" %13"PRIu64 " %20s %18.2f",
+                                 node_name, files, size, lookup, failures,
+                                 skipped, status_str, elapsed);
+                }
+                GF_FREE(size_str);
+        }
+out:
+        return ret;
+}
+
+int
 gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
@@ -1504,7 +1634,9 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         }
 
-        if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS)) &&
+        if (!((cmd == GF_DEFRAG_CMD_STOP) ||
+              (cmd == GF_DEFRAG_CMD_STATUS) ||
+              (cmd == GF_DEFRAG_CMD_STATUS_TIER)) &&
              !(global_state->mode & GLUSTER_MODE_XML)) {
                 /* All other possibilites are about starting a rebalance */
                 ret = dict_get_str (dict, GF_REBALANCE_TID_KEY, &task_id_str);
@@ -1577,7 +1709,12 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REBALANCE);
+        if (cmd == GF_DEFRAG_CMD_STATUS_TIER)
+                ret = gf_cli_print_tier_status (dict, GF_TASK_TYPE_REBALANCE);
+        else
+                ret = gf_cli_print_rebalance_status (dict,
+                                                     GF_TASK_TYPE_REBALANCE);
+
         if (ret)
                 gf_log ("cli", GF_LOG_ERROR,
                         "Failed to print rebalance status");
@@ -3616,7 +3753,7 @@ int32_t
 gf_cli_reset_volume (call_frame_t *frame, xlator_t *this,
                         void *data)
 {
-        gf_cli_req              req =  {{0,}};
+        gf_cli_req              req =  {{0,} };
         int                     ret = 0;
         dict_t                  *dict = NULL;
 
@@ -3665,7 +3802,7 @@ int32_t
 gf_cli_set_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
-        gf_cli_req              req =  {{0,}};
+        gf_cli_req              req =  {{0,} };
         int                     ret = 0;
         dict_t                  *dict = NULL;
 
@@ -3691,7 +3828,7 @@ int32_t
 gf_cli_add_brick (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
-        gf_cli_req              req =  {{0,}};
+        gf_cli_req              req =  {{0,} };
         int                     ret = 0;
         dict_t                  *dict = NULL;
         char                    *volname = NULL;
@@ -3724,6 +3861,66 @@ out:
 
         return ret;
 }
+
+int32_t
+gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
+                    void *data)
+{
+        gf_cli_req              req =  {{0,} };
+        int                     ret = 0;
+        dict_t                  *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        if (ret)
+                goto out;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_add_brick_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_ATTACH_TIER, this,
+                               cli_rpc_prog, NULL);
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
+int32_t
+gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
+                    void *data)
+{
+        gf_cli_req              req =  {{0,} };
+        int                     ret = 0;
+        dict_t                  *dict = NULL;
+        char                    *volname = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_remove_brick_cbk,
+                              (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_DETACH_TIER, this,
+                               cli_rpc_prog, NULL);
+
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+
+        return ret;
+}
+
 
 int32_t
 gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
@@ -9965,7 +10162,9 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_BARRIER_VOLUME]   = {"BARRIER VOLUME", gf_cli_barrier_volume},
         [GLUSTER_CLI_GANESHA]          = {"GANESHA", gf_cli_ganesha},
         [GLUSTER_CLI_GET_VOL_OPT]      = {"GET_VOL_OPT", gf_cli_get_vol_opt},
-        [GLUSTER_CLI_BITROT]           = {"BITROT", gf_cli_bitrot}
+        [GLUSTER_CLI_BITROT]           = {"BITROT", gf_cli_bitrot},
+        [GLUSTER_CLI_ATTACH_TIER]      = {"ATTACH_TIER", gf_cli_attach_tier},
+        [GLUSTER_CLI_DETACH_TIER]      = {"DETACH_TIER", gf_cli_detach_tier}
 };
 
 struct rpc_clnt_program cli_prog = {

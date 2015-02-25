@@ -278,6 +278,13 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                          "--xlator-option", "*replicate*.readdir-failover=off",
                          "--xlator-option", "*dht.readdir-optimize=on",
                          NULL);
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                runner_add_arg (&runner, "--xlator-option");
+                runner_argprintf (&runner,
+                                  "*tier-dht.xattr-name=trusted.tier-gfid");
+        }
+
         runner_add_arg (&runner, "--xlator-option");
         runner_argprintf ( &runner, "*dht.rebalance-cmd=%d",cmd);
         runner_add_arg (&runner, "--xlator-option");
@@ -487,6 +494,7 @@ __glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 goto out;
 
         if ((cmd == GF_DEFRAG_CMD_STATUS) ||
+            (cmd == GF_DEFRAG_CMD_STATUS_TIER) ||
               (cmd == GF_DEFRAG_CMD_STOP)) {
                 ret = glusterd_op_begin (req, GD_OP_DEFRAG_BRICK_VOLUME,
                                          dict, msg, sizeof (msg));
@@ -556,6 +564,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
         switch (cmd) {
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+        case GF_DEFRAG_CMD_START_TIER:
                 /* Check if the connected clients are all of version
                  * glusterfs-3.6 and higher. This is needed to prevent some data
                  * loss issues that could occur when older clients are connected
@@ -690,7 +699,9 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         /* Set task-id, if available, in op_ctx dict for operations other than
          * start
          */
-        if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP) {
+        if (cmd == GF_DEFRAG_CMD_STATUS ||
+            cmd == GF_DEFRAG_CMD_STOP ||
+            cmd == GF_DEFRAG_CMD_STATUS_TIER) {
                 if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
                         ctx = glusterd_op_get_ctx ();
                         if (!ctx) {
@@ -720,6 +731,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
+        case GF_DEFRAG_CMD_START_TIER:
                 /* Reset defrag status to 'NOT STARTED' whenever a
                  * remove-brick/rebalance command is issued to remove
                  * stale information from previous run.
@@ -791,6 +803,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 break;
 
         case GF_DEFRAG_CMD_STATUS:
+        case GF_DEFRAG_CMD_STATUS_TIER:
                 break;
         default:
                 break;
