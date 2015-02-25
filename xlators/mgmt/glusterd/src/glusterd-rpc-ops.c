@@ -267,8 +267,10 @@ __glusterd_probe_cbk (struct rpc_req *req, struct iovec *iov,
         rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (rsp.uuid, rsp.hostname);
         if (peerinfo == NULL) {
-                rcu_read_unlock ();
-                GF_ASSERT (0);
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Could not find peerd %s(%s)",
+                        rsp.hostname, uuid_utoa (rsp.uuid));
+                goto unlock;
         }
 
         /*
@@ -328,7 +330,10 @@ reply:
                 ctx = ((call_frame_t *)myframe)->local;
                 ((call_frame_t *)myframe)->local = NULL;
 
-                GF_ASSERT (ctx);
+                if (!ctx) {
+                        ret = -1;
+                        goto unlock;
+                }
 
                 if (ctx->req) {
                         glusterd_xfer_cli_probe_resp (ctx->req, ret,
@@ -350,7 +355,10 @@ reply:
                 ctx = ((call_frame_t *)myframe)->local;
                 ((call_frame_t *)myframe)->local = NULL;
 
-                GF_ASSERT (ctx);
+                if (!ctx) {
+                        ret = -1;
+                        goto unlock;
+                }
 
                 rsp.op_errno = GF_PROBE_FRIEND;
                 if (ctx->req) {
@@ -1554,6 +1562,8 @@ glusterd_rpc_friend_update (call_frame_t *frame, xlator_t *this,
         ret = dict_get_ptr (friends, "peerinfo", VOID(&peerinfo));
         if (ret)
                 goto out;
+        /* Don't want to send the pointer over */
+        dict_del (friends, "peerinfo");
 
         ret = dict_allocate_and_serialize (friends, &req.friends.friends_val,
                                            &req.friends.friends_len);

@@ -1115,13 +1115,15 @@ gd_build_local_xaction_peers_list (struct cds_list_head *peers,
                 local_peers = GF_CALLOC (1, sizeof (*local_peers),
                                          gf_gld_mt_local_peers_t);
                 if (!local_peers) {
-                        return -1;
+                        npeers = -1;
+                        goto unlock;
                 }
                 CDS_INIT_LIST_HEAD (&local_peers->op_peers_list);
                 local_peers->peerinfo = peerinfo;
                 cds_list_add_tail (&local_peers->op_peers_list, xact_peers);
                 npeers++;
         }
+unlock:
         rcu_read_unlock ();
 
         return npeers;

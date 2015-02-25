@@ -161,10 +161,14 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
                 if (!peerinfo->connected || !peerinfo->peer)
                         continue;
 
+                /* Setting a direct reference to peerinfo in the dict is okay as
+                 * it is only going to be used within this read critical section
+                 * (in glusterd_rpc_friend_update)
+                 */
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
-                        goto out;
+                        goto unlock;
                 }
 
                 proc = &peerinfo->peer->proctable[GLUSTERD_FRIEND_UPDATE];
@@ -172,6 +176,7 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
                         ret = proc->fn (NULL, this, friends);
                 }
         }
+unlock:
         rcu_read_unlock ();
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -628,15 +633,19 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
 
                 ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
                                                     &new_event);
-                if (ret)
+                if (ret) {
+                        rcu_read_unlock ();
                         goto out;
+                }
 
                 new_event->peername = gf_strdup (peerinfo->hostname);
                 uuid_copy (new_event->peerid, peerinfo->uuid);
 
                 ret = glusterd_friend_sm_inject_event (new_event);
-                if (ret)
+                if (ret) {
+                        rcu_read_unlock ();
                         goto out;
+                }
 
                 new_event = NULL;
         }

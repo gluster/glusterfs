@@ -123,8 +123,8 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                 return ret;
         }
 
-        event->peername = gf_strdup (rhost);
-        uuid_copy (event->peerid, uuid);
+        event->peername = gf_strdup (peerinfo->hostname);
+        uuid_copy (event->peerid, peerinfo->uuid);
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_friend_req_ctx_t);
 
@@ -179,6 +179,8 @@ out:
                 } else {
                     free (friend_req->vols.vols_val);
                 }
+                if (event)
+                        GF_FREE (event->peername);
                 GF_FREE (event);
         } else {
                 if (peerinfo && (0 == peerinfo->connected))
@@ -3010,7 +3012,6 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         if (args)
                 peerctx->args = *args;
 
-        /*peerctx->peerinfo = peerinfo;*/
         uuid_copy (peerctx->peerid, peerinfo->uuid);
         peerctx->peername = gf_strdup (peerinfo->hostname);
 
@@ -3609,10 +3610,13 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                         ret = gd_add_peer_detail_to_dict (entry,
                                                                 friends, count);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 }
         }
+unlock:
         rcu_read_unlock ();
+        if (ret)
+                goto out;
 
         if (flags == GF_CLI_LIST_POOL_NODES) {
                 count++;

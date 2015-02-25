@@ -48,6 +48,8 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
          */
         synchronize_rcu ();
 
+        /* We don't have a cds_list_del_init_rcu, so doing the below in 2 steps
+         */
         cds_list_del_rcu (&peerinfo->uuid_list);
         CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 

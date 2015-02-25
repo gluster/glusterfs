@@ -188,6 +188,7 @@ glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
                                                     brick_count + 1,
                                                     op);
                                 if (ret) {
+                                        rcu_read_unlock ();
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Failed to add missed snapshot "
                                                 "info for %s:%s in the "
