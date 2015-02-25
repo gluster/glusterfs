@@ -803,6 +803,11 @@ pub_glfs_init (struct glfs *fs)
 
 	ret = glfs_init_wait (fs);
 
+        /* Set the initial current working directory to "/" */
+        if (ret >= 0) {
+                ret = glfs_chdir (fs, "/");
+        }
+
 	return ret;
 }
 
