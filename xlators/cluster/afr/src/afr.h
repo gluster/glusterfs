@@ -733,6 +733,11 @@ typedef struct _afr_local {
 } afr_local_t;
 
 
+typedef struct _afr_inode_ctx {
+        uint64_t        read_subvol;
+        int             spb_choice;
+} afr_inode_ctx_t;
+
 /* did a call fail due to a child failing? */
 #define child_went_down(op_ret, op_errno) (((op_ret) < 0) &&            \
                                            ((op_errno == ENOTCONN) ||   \
@@ -1026,4 +1031,13 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc);
 
 int
 afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc);
+
+int
+afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
+                                  int spb_choice);
+int
+afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
+                                  int *spb_choice);
+int
+afr_get_child_index_from_name (xlator_t *this, char *name);
 #endif /* __AFR_H__ */
