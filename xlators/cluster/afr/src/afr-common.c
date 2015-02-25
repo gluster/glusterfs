@@ -1442,62 +1442,6 @@ afr_final_errno (afr_local_t *local, afr_private_t *priv)
 	return op_errno;
 }
 
-static int
-get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
-{
-        char    *start = NULL;
-        char    *end = NULL;
-        int     ret  = -1;
-        int     i    = 0;
-
-        if (!pathinfo)
-                goto out;
-
-        start = strchr (pathinfo, ':');
-        if (!start)
-                goto out;
-        end = strrchr (pathinfo, ':');
-        if (start == end)
-                goto out;
-
-        memset (hostname, 0, size);
-        i = 0;
-        while (++start != end)
-                hostname[i++] = *start;
-        ret = 0;
-out:
-        return ret;
-}
-
-int
-afr_local_pathinfo (char *pathinfo, gf_boolean_t *local)
-{
-        int             ret   = 0;
-        char            pathinfohost[1024] = {0};
-        char            localhost[1024] = {0};
-        xlator_t        *this = THIS;
-
-        *local = _gf_false;
-        ret = get_pathinfo_host (pathinfo, pathinfohost, sizeof (pathinfohost));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Invalid pathinfo: %s",
-                        pathinfo);
-                goto out;
-        }
-
-        ret = gethostname (localhost, sizeof (localhost));
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "gethostname() failed, "
-                        "reason: %s", strerror (errno));
-                goto out;
-        }
-
-        if (!strcmp (localhost, pathinfohost))
-                *local = _gf_true;
-out:
-        return ret;
-}
-
 static int32_t
 afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			 int32_t op_ret, int32_t op_errno, dict_t *dict,
@@ -1521,7 +1465,7 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        ret = afr_local_pathinfo (pathinfo, &is_local);
+        ret = glusterfs_is_local_pathinfo (pathinfo, &is_local);
         if (ret) {
                 goto out;
         }
