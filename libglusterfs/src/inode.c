@@ -1185,7 +1185,7 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
         if (!inode || uuid_is_null (inode->gfid)) {
                 GF_ASSERT (0);
                 gf_log_callingfn (THIS->name, GF_LOG_WARNING, "invalid inode");
-                return -1;
+                return -EINVAL;
         }
 
         table = inode->table;
@@ -1276,7 +1276,7 @@ inode_path (inode_t *inode, const char *name, char **bufp)
         int            ret   = -1;
 
         if (!inode)
-                return -1;
+                return -EINVAL;
 
         table = inode->table;
 

@@ -679,4 +679,7 @@ recursive_rmdir (const char *delete_path);
 
 int
 gf_get_index_by_elem (char **array, char *elem);
+
+int
+glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *local);
 #endif /* _COMMON_UTILS_H */

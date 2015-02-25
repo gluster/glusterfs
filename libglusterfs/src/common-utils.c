@@ -3648,3 +3648,54 @@ gf_get_index_by_elem (char **array, char *elem)
 
         return -1;
 }
+
+static int
+get_pathinfo_host (char *pathinfo, char *hostname, size_t size)
+{
+        char    *start = NULL;
+        char    *end = NULL;
+        int     ret  = -1;
+        int     i    = 0;
+
+        if (!pathinfo)
+                goto out;
+
+        start = strchr (pathinfo, ':');
+        if (!start)
+                goto out;
+
+        end = strrchr (pathinfo, ':');
+        if (start == end)
+                goto out;
+
+        memset (hostname, 0, size);
+        i = 0;
+        while (++start != end)
+                hostname[i++] = *start;
+        ret = 0;
+out:
+        return ret;
+}
+
+/*Note: 'pathinfo' should be gathered only from one brick*/
+int
+glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *is_local)
+{
+        int             ret   = 0;
+        char            pathinfohost[1024] = {0};
+        char            localhost[1024] = {0};
+
+        *is_local = _gf_false;
+        ret = get_pathinfo_host (pathinfo, pathinfohost, sizeof (pathinfohost));
+        if (ret)
+                goto out;
+
+        ret = gethostname (localhost, sizeof (localhost));
+        if (ret)
+                goto out;
+
+        if (!strcmp (localhost, pathinfohost))
+                *is_local = _gf_true;
+out:
+        return ret;
+}

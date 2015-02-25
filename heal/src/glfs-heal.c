@@ -16,6 +16,7 @@
 #include "glfs-internal.h"
 #include "protocol-common.h"
 #include "syncop.h"
+#include "syncop-utils.h"
 #include <string.h>
 #include <time.h>
 
@@ -121,43 +122,6 @@ glfsh_index_purge (xlator_t *subvol, inode_t *inode, char *name)
         ret = syncop_unlink (subvol, &loc);
 
         loc_wipe (&loc);
-        return ret;
-}
-
-int
-glfsh_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p)
-{
-        int      ret   = 0;
-        char    *path  = NULL;
-        loc_t    loc   = {0,};
-        dict_t  *xattr = NULL;
-
-        uuid_copy (loc.gfid, gfid);
-        loc.inode = inode_new (this->itable);
-
-        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);
-        if (ret)
-                goto out;
-
-        ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
-        if (ret || !path) {
-                ret = -EINVAL;
-                goto out;
-        }
-
-        *path_p = gf_strdup (path);
-        if (!*path_p) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        if (xattr)
-                dict_unref (xattr);
-        loc_wipe (&loc);
-
         return ret;
 }
 
@@ -275,7 +239,7 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                 if (ret)
                         continue;
 
-                ret = glfsh_gfid_to_path (this, xl, gfid, &path);
+                ret = syncop_gfid_to_path (this->itable, xl, gfid, &path);
 
                 if (ret == -ENOENT || ret == -ESTALE) {
                         glfsh_index_purge (xl, fd->inode, entry->d_name);
