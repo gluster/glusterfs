@@ -302,9 +302,6 @@ typedef struct tier_info_ {
         int                       hot_type;
         int                       hot_brick_count;
         int                       hot_replica_count;
-        int                       hot_disperse_count;
-        /*Commented for now Dan's DHT Tier patch will have it*/
-        /*tier_group_t             *root;*/
 } gd_tier_info_t;
 
 struct glusterd_volinfo_ {
@@ -812,6 +809,12 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
 
 int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
+
+int
+glusterd_handle_attach_tier (rpcsvc_request_t *req);
+
+int
+glusterd_handle_detach_tier (rpcsvc_request_t *req);
 
 int
 glusterd_handle_replace_brick (rpcsvc_request_t *req);

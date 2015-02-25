@@ -64,6 +64,14 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_VOL_OP_VERSION       "op-version"
 #define GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION "client-op-version"
 
+#define GLUSTERD_STORE_KEY_COLD_TYPE            "cold_type"
+#define GLUSTERD_STORE_KEY_COLD_COUNT           "cold_count"
+#define GLUSTERD_STORE_KEY_COLD_REPLICA_COUNT   "cold_replica_count"
+#define GLUSTERD_STORE_KEY_COLD_DISPERSE_COUNT  "cold_disperse_count"
+#define GLUSTERD_STORE_KEY_HOT_TYPE             "hot_type"
+#define GLUSTERD_STORE_KEY_HOT_COUNT            "hot_count"
+#define GLUSTERD_STORE_KEY_HOT_REPLICA_COUNT    "hot_replica_count"
+
 #define GLUSTERD_STORE_KEY_SNAP_NAME            "name"
 #define GLUSTERD_STORE_KEY_SNAP_ID              "snap-id"
 #define GLUSTERD_STORE_KEY_SNAP_DESC            "desc"
