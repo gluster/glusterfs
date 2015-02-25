@@ -119,8 +119,13 @@ enum _gf_client_pid
         GF_CLIENT_PID_GLFS_HEAL         = -7,
 };
 
+enum _gf_xlator_ipc_targets {
+        GF_IPC_TARGET_CHANGELOG = 0,
+};
+
 typedef enum _gf_boolean gf_boolean_t;
 typedef enum _gf_client_pid gf_client_pid_t;
+typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
 typedef int (*gf_cmp) (void *, void *);
 
 void gf_global_variable_init(void);
