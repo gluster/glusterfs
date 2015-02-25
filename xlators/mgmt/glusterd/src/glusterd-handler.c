@@ -2374,12 +2374,18 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                 goto out;
         }
 
+        ret = 0;
+        rcu_read_lock ();
         if (glusterd_peerinfo_find (friend_req.uuid, NULL) == NULL) {
                 ret = -1;
+        }
+        rcu_read_unlock ();
+        if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Received friend update request "
                         "from unknown peer %s", uuid_utoa (friend_req.uuid));
                 goto out;
         }
+
         gf_log ("glusterd", GF_LOG_INFO,
                 "Received friend update from uuid: %s", uuid_utoa (friend_req.uuid));
 
@@ -2432,6 +2438,7 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d", i);
 
+                rcu_read_lock ();
                 peerinfo = glusterd_peerinfo_find (uuid, NULL);
                 if (peerinfo == NULL) {
                         /* Create a new peer and add it to the list as there is
@@ -2443,7 +2450,7 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Could not create peerinfo from dict "
                                         "for prefix %s", key);
-                                goto out;
+                                goto unlock;
                         }
 
                         /* As this is a new peer, it should be added as a
@@ -2463,9 +2470,13 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR, "Failed to "
                                         "update peer %s", peerinfo->hostname);
-                                goto out;
+                                goto unlock;
                         }
                 }
+unlock:
+                rcu_read_unlock ();
+                if (ret)
+                        break;
 
                 peerinfo = NULL;
                 i++;

@@ -492,7 +492,7 @@ gd_add_address_to_peer (glusterd_peerinfo_t *peerinfo, const char *address)
         if (ret)
                 goto out;
 
-        cds_list_add_tail (&hostname->hostname_list, &peerinfo->hostnames);
+        cds_list_add_tail_rcu (&hostname->hostname_list, &peerinfo->hostnames);
 
         ret = 0;
 out:
@@ -708,6 +708,7 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         glusterd_conf_t     *conf     = NULL;
         char                 key[100] = {0,};
         char                *hostname = NULL;
+        char                *old_name = NULL;
         int                  count    = 0;
         int                  i        = 0;
 
