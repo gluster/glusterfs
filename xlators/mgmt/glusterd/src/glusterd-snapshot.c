@@ -551,6 +551,14 @@ glusterd_copy_geo_rep_session_files (char *session,
                 }
         }
 out:
+        /* files are malloc'd by scandir, free them */
+        if (file_count > 0) {
+                while (file_count--) {
+                        free(files[file_count]);
+                }
+                free(files);
+        }
+
         if (reg_exp)
                 GF_FREE (reg_exp);
 
