@@ -59,6 +59,7 @@ typedef enum {
         SP_STATE_RPCFRAG_INIT,
         SP_STATE_READING_MSGTYPE,
         SP_STATE_READ_MSGTYPE,
+        SP_STATE_NOTIFYING_XID
 } sp_rpcfrag_state_t;
 
 typedef enum {

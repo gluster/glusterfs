@@ -1904,6 +1904,7 @@ __socket_read_reply (rpc_transport_t *this)
                 /* release priv->lock, so as to avoid deadlock b/w conn->lock
                  * and priv->lock, since we are doing an upcall here.
                  */
+                frag->state = SP_STATE_NOTIFYING_XID;
                 pthread_mutex_unlock (&priv->lock);
                 {
                         ret = rpc_transport_notify (this,
@@ -1911,6 +1912,9 @@ __socket_read_reply (rpc_transport_t *this)
                                                     in->request_info);
                 }
                 pthread_mutex_lock (&priv->lock);
+
+                /* Transition back to externally visible state. */
+                frag->state = SP_STATE_READ_MSGTYPE;
 
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -1999,6 +2003,14 @@ __socket_read_frag (rpc_transport_t *this)
                 }
 
                 break;
+
+        case SP_STATE_NOTIFYING_XID:
+                /* Another epoll thread is notifying higher layers
+                 *of reply's xid. */
+                errno = EAGAIN;
+                return -1;
+                break;
+
         }
 
 out:
