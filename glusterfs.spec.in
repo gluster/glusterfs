@@ -232,7 +232,7 @@ gluster command line, libglusterfs and glusterfs translator modules common to
 both GlusterFS server and client framework.
 
 %package api
-Summary:          GlusterFs api library
+Summary:          GlusterFS api library
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
@@ -740,9 +740,9 @@ fi
 # Legacy server
 %_init_enable glusterd
 %_init_enable glusterfsd
-# ".cmd_log_history" is renamed to "cmd_history.log" in GlusterFs-3.7 .
-# While upgrading glusterfs-server package form GlusterFs version <= 3.6 to
-# GlusterFs version 3.7, ".cmd_log_history" should be renamed to
+# ".cmd_log_history" is renamed to "cmd_history.log" in GlusterFS-3.7 .
+# While upgrading glusterfs-server package form GlusterFS version <= 3.6 to
+# GlusterFS version 3.7, ".cmd_log_history" should be renamed to
 # "cmd_history.log" to retain cli command history contents.
 if [ -f %{_localstatedir}/log/glusterfs/.cmd_log_history ]; then
     mv %{_localstatedir}/log/glusterfs/.cmd_log_history \
