@@ -141,7 +141,9 @@
 
 #define GF_AFR_HEAL_INFO "glusterfs.heal-info"
 #define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"
-#define GF_AFR_SBRAIN_STATUS "afr.split-brain-status"
+#define GF_AFR_SBRAIN_STATUS "replica.split-brain-status"
+#define GF_AFR_SBRAIN_CHOICE "replica.split-brain-choice"
+#define GF_AFR_SBRAIN_RESOLVE "replica.split-brain-heal-finalize"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */

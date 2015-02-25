@@ -34,8 +34,8 @@
 #include "common-utils.h"
 #include "compat-errno.h"
 #include "compat.h"
+#include "protocol-common.h"
 
-#include "afr.h"
 #include "afr-transaction.h"
 
 
@@ -961,6 +961,145 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this, int subvol)
         return 0;
 }
 
+int
+afr_split_brain_resolve_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                            char *data)
+{
+        afr_local_t    *local             = NULL;
+        int     ret                       = -1;
+        int     op_errno                  = EINVAL;
+
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local)
+                goto out;
+
+        local->op = GF_FOP_SETXATTR;
+
+        local->xdata_req = dict_new ();
+
+        if (!local->xdata_req) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        ret = dict_set_int32 (local->xdata_req, "heal-op",
+                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+        ret = dict_set_str (local->xdata_req, "child-name", data);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+        afr_heal_splitbrain_file (frame, this, loc);
+out:
+        if (ret < 0)
+                AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+int
+afr_set_split_brain_choice (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                            int spb_choice)
+{
+        int     ret       = -1;
+        int     op_errno  = ENOMEM;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+
+        ret = afr_inode_split_brain_choice_set (loc->inode, this, spb_choice);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set"
+                        "split-brain choice as %s for %s",
+                        priv->children[spb_choice]->name,
+                        loc->name);
+        }
+        inode_invalidate (loc->inode);
+        AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
+        return ret;
+}
+
+int
+afr_get_split_brain_child_index (xlator_t *this, void *value, size_t len)
+{
+        int             spb_child_index   = -1;
+        char           *spb_child_str     = NULL;
+
+        spb_child_str =  alloca0 (len + 1);
+        memcpy (spb_child_str, value, len);
+
+        if (!strcmp (spb_child_str, "none"))
+                return -2;
+
+        spb_child_index = afr_get_child_index_from_name (this,
+                                                         spb_child_str);
+        if (spb_child_index < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid subvol: %s",
+                        spb_child_str);
+        }
+        return spb_child_index;
+}
+
+int
+afr_handle_split_brain_commands (xlator_t *this, call_frame_t *frame,
+                                loc_t *loc, dict_t *dict)
+{
+        int             len               = 0;
+        void           *value             = NULL;
+        int             spb_child_index   = -1;
+        int             ret               = -1;
+        int             op_errno          = EINVAL;
+        afr_private_t  *priv              = NULL;
+
+        priv = this->private;
+
+        ret =  dict_get_ptr_and_len (dict, GF_AFR_SBRAIN_CHOICE, &value,
+                                     &len);
+        if (value) {
+                spb_child_index = afr_get_split_brain_child_index (this, value,
+                                                                   len);
+                if (spb_child_index < 0) {
+                        /* Case where value was "none" */
+                        if (spb_child_index == -2)
+                                spb_child_index = -1;
+                        else {
+                                ret = 1;
+                                goto out;
+                        }
+                }
+
+                afr_set_split_brain_choice (frame, this, loc,
+                                            spb_child_index);
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_ptr_and_len (dict, GF_AFR_SBRAIN_RESOLVE, &value, &len);
+        if (value) {
+                spb_child_index = afr_get_split_brain_child_index (this, value,
+                                                                   len);
+                if (spb_child_index < 0) {
+                        ret = 1;
+                        goto out;
+                }
+
+                afr_split_brain_resolve_do (frame, this, loc,
+                                            priv->children[spb_child_index]->name);
+                ret = 0;
+        }
+out:
+        /* key was correct but value was invalid when ret == 1 */
+        if (ret == 1) {
+                AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+                ret = 0;
+        }
+        return ret;
+}
 
 int
 afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
@@ -976,6 +1115,11 @@ afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
                                    op_errno, out);
+
+        ret = afr_handle_split_brain_commands (this, frame, loc, dict);
+
+        if (ret == 0)
+                return 0;
 
         transaction_frame = copy_frame (frame);
         if (!transaction_frame)

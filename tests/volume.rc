@@ -242,6 +242,12 @@ function gf_gfid_xattr_to_str {
         echo "${xval:2:8}-${xval:10:4}-${xval:14:4}-${xval:18:4}-${xval:22:12}"
 }
 
+function get_text_xattr {
+        local key=$1
+        local path=$2
+        getfattr -d -m. -e text $path 2>/dev/null | grep $key | cut -f2 -d'='
+}
+
 function gf_check_file_opened_in_brick {
         vol=$1
         host=$2

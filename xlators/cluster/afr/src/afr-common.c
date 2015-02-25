@@ -67,6 +67,37 @@ afr_copy_frame (call_frame_t *base)
 	return frame;
 }
 
+int
+__afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
+{
+        uint64_t                ctx_int = 0;
+        int                     ret     = -1;
+        afr_inode_ctx_t        *tmp_ctx = NULL;
+
+        ret = __inode_ctx_get (inode, this, &ctx_int);
+        if (ret) {
+                tmp_ctx = GF_CALLOC (1, sizeof (afr_inode_ctx_t),
+                                     gf_afr_mt_inode_ctx_t);
+                if (!tmp_ctx)
+                        goto out;
+
+                ctx_int = (long) tmp_ctx;
+                ret = __inode_ctx_set (inode, this, &ctx_int);
+                if (ret) {
+                        GF_FREE (tmp_ctx);
+                        goto out;
+                }
+                tmp_ctx->spb_choice = -1;
+                tmp_ctx->read_subvol = 0;
+        } else {
+                tmp_ctx = (afr_inode_ctx_t *) ctx_int;
+        }
+
+        *ctx = tmp_ctx;
+        ret = 0;
+out:
+        return ret;
+}
 /*
  * INODE CTX 64-bit VALUE FORMAT FOR SMALL (<= 16) SUBVOL COUNTS:
  *
@@ -109,12 +140,15 @@ __afr_inode_read_subvol_get_small (inode_t *inode, xlator_t *this,
 	uint32_t event = 0;
 	uint64_t val = 0;
 	int i = 0;
+        afr_inode_ctx_t *ctx = NULL;
 
 	priv = this->private;
 
-	ret = __inode_ctx_get (inode, this, &val);
+	ret = __afr_inode_ctx_get (this, inode, &ctx);
 	if (ret < 0)
 		return ret;
+
+        val = ctx->read_subvol;
 
 	metadatamap = (val & 0x000000000000ffff);
 	datamap =     (val & 0x00000000ffff0000) >> 16;
@@ -143,8 +177,14 @@ __afr_inode_read_subvol_set_small (inode_t *inode, xlator_t *this,
 	uint16_t metadatamap = 0;
 	uint64_t val = 0;
 	int i = 0;
+        int ret = -1;
+        afr_inode_ctx_t *ctx = NULL;
 
 	priv = this->private;
+
+        ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret)
+                goto out;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (data[i])
@@ -157,9 +197,12 @@ __afr_inode_read_subvol_set_small (inode_t *inode, xlator_t *this,
 		(((uint64_t) datamap) << 16) |
 		(((uint64_t) event) << 32);
 
-	return __inode_ctx_set (inode, this, &val);
-}
+        ctx->read_subvol = val;
 
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
@@ -169,9 +212,13 @@ __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
 	uint16_t metadatamap = 0;
 	uint32_t event = 0;
 	uint64_t val = 0;
+        afr_inode_ctx_t *ctx = NULL;
 
-	ret = __inode_ctx_get (inode, this, &val);
-	(void) ret;
+	ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret)
+                return ret;
+
+        val = ctx->read_subvol;
 
 	metadatamap = (val & 0x000000000000ffff) >> 0;
 	datamap =     (val & 0x00000000ffff0000) >> 16;
@@ -181,7 +228,9 @@ __afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
 		(((uint64_t) datamap) << 16) |
 		(((uint64_t) event) << 32);
 
-	return __inode_ctx_set (inode, this, &val);
+        ctx->read_subvol = val;
+
+        return ret;
 }
 
 
@@ -205,6 +254,20 @@ __afr_inode_read_subvol_get (inode_t *inode, xlator_t *this,
 	return ret;
 }
 
+int
+__afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
+			            int *spb_choice)
+{
+        afr_inode_ctx_t *ctx = NULL;
+        int ret = -1;
+
+        ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret < 0)
+                return ret;
+
+        *spb_choice = ctx->spb_choice;
+        return 0;
+}
 
 int
 __afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data,
@@ -224,6 +287,23 @@ __afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data
 	return ret;
 }
 
+int
+__afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
+                                    int spb_choice)
+{
+        afr_inode_ctx_t *ctx = NULL;
+	int ret = -1;
+
+	ret = __afr_inode_ctx_get (this, inode, &ctx);
+        if (ret)
+                goto out;
+
+        ctx->spb_choice = spb_choice;
+
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 __afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
@@ -258,6 +338,22 @@ afr_inode_read_subvol_get (inode_t *inode, xlator_t *this, unsigned char *data,
 	return ret;
 }
 
+int
+afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
+                                  int *spb_choice)
+{
+	int ret = -1;
+
+	LOCK(&inode->lock);
+	{
+		ret = __afr_inode_split_brain_choice_get (inode, this,
+                                                          spb_choice);
+	}
+	UNLOCK(&inode->lock);
+
+	return ret;
+}
+
 
 int
 afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data,
@@ -269,6 +365,22 @@ afr_inode_read_subvol_set (inode_t *inode, xlator_t *this, unsigned char *data,
 	{
 		ret = __afr_inode_read_subvol_set (inode, this, data, metadata,
 						   event);
+	}
+	UNLOCK(&inode->lock);
+
+	return ret;
+}
+
+int
+afr_inode_split_brain_choice_set (inode_t *inode, xlator_t *this,
+                                  int spb_choice)
+{
+	int ret = -1;
+
+	LOCK(&inode->lock);
+	{
+		ret = __afr_inode_split_brain_choice_set (inode, this,
+                                                          spb_choice);
 	}
 	UNLOCK(&inode->lock);
 
@@ -1220,6 +1332,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	gf_boolean_t        locked_entry = _gf_false;
 	gf_boolean_t        can_interpret = _gf_true;
         inode_t            *parent = NULL;
+        int                 spb_choice = -1;
 
         priv  = this->private;
         local = frame->local;
@@ -1232,6 +1345,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
 	afr_inode_read_subvol_get (parent, this, readable, NULL, &event);
 
+        afr_inode_split_brain_choice_get (local->inode, this,
+                                                &spb_choice);
 	/* First, check if we have a gfid-change from somewhere,
 	   If so, propagate that so that a fresh lookup can be
 	   issued
@@ -1321,18 +1436,24 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		}
 	} else {
 	cant_interpret:
-		if (read_subvol == -1)
-			dict_del (replies[0].xdata, GF_CONTENT_KEY);
-		else
-			dict_del (replies[read_subvol].xdata, GF_CONTENT_KEY);
+                if (read_subvol == -1) {
+                        if (spb_choice >= 0)
+                                read_subvol = spb_choice;
+                        else
+                                read_subvol = 0;
+                }
+		dict_del (replies[read_subvol].xdata, GF_CONTENT_KEY);
 	}
 
 	afr_handle_quota_size (frame, this);
 
 unwind:
-	if (read_subvol == -1)
-		read_subvol = 0;
-
+        if (read_subvol == -1) {
+                if (spb_choice >= 0)
+                        read_subvol = spb_choice;
+                else
+                        read_subvol = 0;
+        }
         par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
                                                       readable);
 
@@ -1741,8 +1862,12 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
 	}
 
 unwind:
-	if (read_subvol == -1)
-		read_subvol = 0;
+	if (read_subvol == -1) {
+                afr_inode_split_brain_choice_get (local->inode, this,
+                                                        &read_subvol);
+                if (read_subvol == -1)
+                        read_subvol = 0;
+        }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->replies[read_subvol].poststat,
@@ -3468,6 +3593,15 @@ out:
 int
 afr_forget (xlator_t *this, inode_t *inode)
 {
+        uint64_t        ctx_int = 0;
+        afr_inode_ctx_t *ctx    = NULL;
+
+        inode_ctx_del (inode, this, &ctx_int);
+        if (!ctx_int)
+                return 0;
+
+        ctx = (afr_inode_ctx_t *)ctx_int;
+        GF_FREE (ctx);
         return 0;
 }
 
@@ -4594,8 +4728,26 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
 out:
-        AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        if (local->op == GF_FOP_GETXATTR)
+                AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
+        else if (local->op == GF_FOP_SETXATTR)
+                AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
         if (dict)
                 dict_unref(dict);
         return ret;
+}
+
+int
+afr_get_child_index_from_name (xlator_t *this, char *name)
+{
+        afr_private_t *priv  = this->private;
+        int            index = -1;
+
+        for (index = 0; index < priv->child_count; index++) {
+                if (!strcmp (priv->children[index]->name, name))
+                        goto out;
+        }
+        index = -1;
+out:
+        return index;
 }
