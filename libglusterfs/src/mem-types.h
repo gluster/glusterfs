@@ -128,6 +128,9 @@ enum gf_common_mem_types_ {
         gf_common_mt_ereg                 = 112,
         gf_common_mt_wr                   = 113,
         gf_common_mt_rdma_arena_mr        = 114,
+        gf_common_mt_rbuf_t               = 115,
+        gf_common_mt_rlist_t              = 116,
+        gf_common_mt_rvec_t               = 117,
         gf_common_mt_end
 };
 #endif

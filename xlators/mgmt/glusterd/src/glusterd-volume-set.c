@@ -1655,6 +1655,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version    = GD_OP_VERSION_3_7_0,
           .validate_fn   = validate_disperse_heal_enable_disable
         },
+        { .key        = "features.bitrot",
+          .voltype    = "features/bitrot-stub",
+          .value      = "disable",
+          .op_version = GD_OP_VERSION_3_7_0,
+          .type       = NO_DOC,
+        },
         { .key         = NULL
         }
 };

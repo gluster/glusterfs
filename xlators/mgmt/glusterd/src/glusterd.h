@@ -39,6 +39,7 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
+#include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
 #include "protocol-common.h"
 #include "glusterd-pmap.h"
@@ -136,6 +137,7 @@ typedef struct {
         rpcsvc_t                *rpc;
         glusterd_svc_t           shd_svc;
         glusterd_svc_t           nfs_svc;
+        glusterd_svc_t           bitd_svc;
         glusterd_svc_t           quotad_svc;
         struct pmap_registry    *pmap;
         struct list_head         volumes;
@@ -377,6 +379,9 @@ struct glusterd_volinfo_ {
         gd_quorum_status_t        quorum_status;
 
         glusterd_snapdsvc_t       snapd;
+
+        glusterd_bitdsvc_t        bitd;
+
 };
 
 typedef enum gd_snap_status_ {
@@ -476,6 +481,7 @@ typedef enum {
 #define GLUSTERD_PEER_DIR_PREFIX "peers"
 #define GLUSTERD_VOLUME_INFO_FILE "info"
 #define GLUSTERD_VOLUME_SNAPD_INFO_FILE "snapd.info"
+#define GLUSTERD_VOLUME_BITD_INFO_FILE  "bitd.info"
 #define GLUSTERD_SNAP_INFO_FILE "info"
 #define GLUSTERD_VOLUME_RBSTATE_FILE "rbstate"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"

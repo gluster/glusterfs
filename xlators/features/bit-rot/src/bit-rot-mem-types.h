@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2014 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -8,12 +8,17 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CHANGELOG_NOTIFIER_H
-#define _CHANGELOG_NOTIFIER_H
+#ifndef _BR_MEM_TYPES_H
+#define _BR_MEM_TYPES_H
 
-#include "changelog-helpers.h"
+#include "mem-types.h"
 
-void *
-changelog_notifier (void *data);
+enum br_mem_types {
+        gf_br_mt_br_private_t = gf_common_mt_end + 1,
+        gf_br_mt_br_local_t,
+        gf_br_mt_br_inode_t,
+        gf_br_mt_br_fd_t,
+        gf_br_mt_end
+};
 
 #endif

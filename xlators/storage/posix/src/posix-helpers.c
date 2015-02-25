@@ -1776,3 +1776,73 @@ posix_fsyncer (void *d)
                 }
         }
 }
+
+/**
+ * fetch on-disk ongoing version and object signature extended
+ * attribute.
+ */
+int32_t
+posix_get_objectsignature (char *real_path, dict_t *xattr)
+{
+        int32_t  op_ret    = 0;
+        char    *memptr    = NULL;
+        ssize_t  xattrsize = 0;
+        ssize_t  allocsize = 0;
+
+        op_ret = -EINVAL;
+        xattrsize = sys_lgetxattr (real_path,
+                                   BITROT_CURRENT_VERSION_KEY, NULL, 0);
+        if (xattrsize == -1)
+                goto error_return;
+        allocsize += xattrsize;
+
+        xattrsize = sys_lgetxattr (real_path,
+                                   BITROT_SIGNING_VERSION_KEY, NULL, 0);
+        if (xattrsize == -1)
+                goto error_return;
+        allocsize += xattrsize;
+
+        op_ret = -ENOMEM;
+        /* bulk alloc */
+        memptr = GF_CALLOC (allocsize + 2, sizeof (char), gf_posix_mt_char);
+        if (!memptr)
+                goto error_return;
+
+        op_ret = sys_lgetxattr (real_path, BITROT_CURRENT_VERSION_KEY,
+                                memptr, allocsize - xattrsize);
+        if (op_ret == -1) {
+                op_ret = -errno;
+                goto dealloc_mem;
+        }
+
+        xattrsize = op_ret; /* save for correct _in_ memory pointing */
+
+        op_ret = sys_lgetxattr (real_path, BITROT_SIGNING_VERSION_KEY,
+                                (memptr + op_ret + 1), allocsize - op_ret);
+        if (op_ret == -1) {
+                op_ret = -errno;
+                goto dealloc_mem;
+        }
+
+        /* this is a dynamic set */
+        op_ret = dict_set_dynptr (xattr, BITROT_CURRENT_VERSION_KEY,
+                                  memptr, allocsize);
+        if (op_ret < 0)
+                goto dealloc_mem;
+
+        /* rest all should be static */
+        op_ret = dict_set_static_ptr (xattr, BITROT_SIGNING_VERSION_KEY,
+                                      memptr + xattrsize + 1);
+        if (op_ret < 0)
+                goto delkey;
+
+        return allocsize;
+
+ delkey:
+        dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
+ dealloc_mem:
+        GF_FREE (memptr);
+ error_return:
+        return op_ret;
+
+}

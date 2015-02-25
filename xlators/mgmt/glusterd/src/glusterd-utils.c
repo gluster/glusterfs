@@ -3034,6 +3034,37 @@ glusterd_spawn_daemons (void *opaque)
         return ret;
 }
 
+/*
+ * As  of now, bitd is per node, per volume. But in future if
+ * bitd is made per node only (i.e. one bitd on a peer will
+ * take care of all the bricks from all the volumes on that node),
+ * then the below things such as the location of the info file for
+ * the bitd has to change.
+ */
+int
+glusterd_restart_bitds (glusterd_conf_t *priv)
+{
+        glusterd_volinfo_t      *volinfo        = NULL;
+        int                      ret            = 0;
+        xlator_t                *this           = THIS;
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                if (volinfo->status == GLUSTERD_STATUS_STARTED) {
+                        //&& glusterd_is_bitd_enabled (volinfo)) {
+                        ret = glusterd_bitd_start (volinfo,
+                                                    _gf_false);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Couldn't start snapd for "
+                                        "vol: %s", volinfo->volname);
+                                goto out;
+                        }
+                }
+        }
+out:
+        return ret;
+}
+
 void
 glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                                   gf_boolean_t meets_quorum)
@@ -6847,6 +6878,23 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
         ret = 0;
 out:
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_get_bitd_filepath (char *filepath, glusterd_volinfo_t *volinfo)
+{
+        int   ret             = 0;
+        char  path[PATH_MAX]  = {0,};
+        glusterd_conf_t *priv = NULL;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+
+        snprintf (filepath, PATH_MAX,
+                  "%s/%s-bitd.vol", path, volinfo->volname);
+
         return ret;
 }
 
