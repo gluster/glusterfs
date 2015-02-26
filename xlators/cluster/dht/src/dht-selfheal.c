@@ -380,15 +380,41 @@ dht_layout_span (dht_layout_t *layout)
         return count;
 }
 
+int
+dht_decommissioned_bricks_in_layout (xlator_t *this, dht_layout_t *layout)
+{
+        dht_conf_t *conf  = NULL;
+        int         count = 0, i = 0, j = 0;
+
+        if ((this == NULL) || (layout == NULL))
+                goto out;
+
+        conf = this->private;
+
+        for (i = 0; i < layout->cnt; i++) {
+                for (j = 0; j < conf->subvolume_cnt; j++) {
+                        if (conf->decommissioned_bricks[j] &&
+                            conf->decommissioned_bricks[j]
+                            == layout->list[i].xlator) {
+                                count++;
+                        }
+                }
+        }
+
+out:
+        return count;
+}
+
 gf_boolean_t
 dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
                        dht_layout_t **ondisk)
 {
-        gf_boolean_t  fixit       = _gf_true;
-        dht_local_t  *local       = NULL;
-        int           layout_span = 0;
-        int           ret         = 0;
-        dht_conf_t   *conf        = NULL;
+        gf_boolean_t  fixit        = _gf_true;
+        dht_local_t  *local        = NULL;
+        int           layout_span  = 0, decommissioned_bricks = 0;
+        int           spread_count = 0;
+        int           ret          = 0;
+        dht_conf_t   *conf         = NULL;
 
         conf = frame->this->private;
 
@@ -418,7 +444,13 @@ dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
 
         layout_span = dht_layout_span (*ondisk);
 
-        if (layout_span == conf->subvolume_cnt)
+        decommissioned_bricks = dht_decommissioned_bricks_in_layout (frame->this,
+                                                                     *ondisk);
+        spread_count = conf->dir_spread_cnt ? conf->dir_spread_cnt
+                : conf->subvolume_cnt;
+
+        if ((decommissioned_bricks == 0) && (layout_span
+                                             == spread_count))
                 fixit = _gf_false;
 
 out:
