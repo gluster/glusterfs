@@ -1223,7 +1223,9 @@ gf_rdma_cm_event_handler (void *data)
                         this = event->id->context;
 
                         gf_log (this->name, GF_LOG_WARNING,
-                                "cma event %s, error %d (me:%s peer:%s)\n",
+                                "cma event %s, error %d (me:%s peer:%s)\n "
+                                "Host Unreachable, Check your connection "
+                                "with IPoIB",
                                 rdma_event_str(event->event), event->status,
                                 this->myinfo.identifier,
                                 this->peerinfo.identifier);
