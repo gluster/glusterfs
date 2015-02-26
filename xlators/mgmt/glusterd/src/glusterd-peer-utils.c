@@ -703,7 +703,6 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         glusterd_conf_t     *conf     = NULL;
         char                 key[100] = {0,};
         char                *hostname = NULL;
-        char                *old_name = NULL;
         int                  count    = 0;
         int                  i        = 0;
 
