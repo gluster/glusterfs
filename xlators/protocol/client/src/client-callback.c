@@ -19,7 +19,7 @@
 int
 client_cbk_null (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        gf_log (THIS->name, GF_LOG_WARNING,
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
                 "this function should not be called");
         return 0;
 }
@@ -27,7 +27,7 @@ client_cbk_null (struct rpc_clnt *rpc, void *mydata, void *data)
 int
 client_cbk_fetchspec (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        gf_log (THIS->name, GF_LOG_WARNING,
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUCNTION_CALL_ERROR,
                 "this function should not be called");
         return 0;
 }
@@ -35,7 +35,7 @@ client_cbk_fetchspec (struct rpc_clnt *rpc, void *mydata, void *data)
 int
 client_cbk_ino_flush (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        gf_log (THIS->name, GF_LOG_WARNING,
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
                 "this function should not be called");
         return 0;
 }
