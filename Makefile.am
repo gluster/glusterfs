@@ -3,9 +3,10 @@ EXTRA_DIST = autogen.sh \
 	INSTALL README AUTHORS THANKS NEWS \
 	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in \
 	run-tests.sh \
+	argp-standalone \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
-SUBDIRS = argp-standalone libglusterfs rpc api xlators glusterfsd \
+SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api xlators glusterfsd \
 	$(FUSERMOUNT_SUBDIR) doc extras cli heal @SYNCDAEMON_SUBDIR@
 
 pkgconfigdir = @pkgconfigdir@
@@ -19,10 +20,13 @@ gitclean: distclean
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
-	rm -fr argp-standalone/autom4te.cache
-	rm -f argp-standalone/aclocal.m4 argp-standalone/config.h.in
-	rm -f argp-standalone/configure argp-standalone/depcomp
-	rm -f argp-standalone/install-sh argp-standalone/missing
+	-rm -fr argp-standalone/autom4te.cache
+	-rm -f argp-standalone/aclocal.m4
+	-rm -f argp-standalone/config.h.in
+	-rm -f argp-standalone/configure
+	-rm -f argp-standalone/depcomp
+	-rm -f argp-standalone/install-sh
+	-rm -f argp-standalone/missing
 
 dist-hook:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
