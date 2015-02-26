@@ -907,7 +907,7 @@ dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
 void
 dht_lock_array_free (dht_lock_t **lk_array, int count);
 
-inline int32_t
+int32_t
 dht_lock_count (dht_lock_t **lk_array, int lk_count);
 
 int

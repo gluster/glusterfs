@@ -1431,7 +1431,7 @@ dht_inodelk_cleanup_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
-inline int32_t
+int32_t
 dht_lock_count (dht_lock_t **lk_array, int lk_count)
 {
         int i = 0, locked = 0;
