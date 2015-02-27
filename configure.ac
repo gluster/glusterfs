@@ -144,6 +144,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/protect/src/Makefile
                 xlators/features/gfid-access/Makefile
                 xlators/features/gfid-access/src/Makefile
+                xlators/features/trash/Makefile
+                xlators/features/trash/src/Makefile
                 xlators/features/snapview-server/Makefile
                 xlators/features/snapview-server/src/Makefile
                 xlators/features/snapview-client/Makefile

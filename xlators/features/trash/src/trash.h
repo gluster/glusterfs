@@ -37,7 +37,6 @@
 #define GF_ALLOWED_MAX_FILE_SIZE (1 * GF_UNIT_GB)
 #endif
 
-
 struct trash_struct {
         fd_t    *fd;         /* for the fd of existing file */
         fd_t    *newfd;      /* for the newly created file */
@@ -54,26 +53,31 @@ struct trash_struct {
 };
 typedef struct trash_struct trash_local_t;
 
-struct _trash_elim_pattern;
-typedef struct _trash_elim_pattern {
-        struct _trash_elim_pattern *next;
-        char                       *pattern;
-} trash_elim_pattern_t;
+struct _trash_elim_path {
+        struct _trash_elim_path    *next;
+        char                       *path;
+};
+typedef struct _trash_elim_path trash_elim_path;
 
 struct trash_priv {
-        char                 *trash_dir;
-        trash_elim_pattern_t *eliminate;
+        char                 *oldtrash_dir;
+        char                 *newtrash_dir;
+        char                 *brick_path;
+        trash_elim_path      *eliminate;
         size_t                max_trash_file_size;
+        gf_boolean_t          state;
+        gf_boolean_t          internal;
+        inode_t              *trash_inode;
+        inode_table_t        *trash_itable;
 };
 typedef struct trash_priv trash_private_t;
 
-#define TRASH_STACK_UNWIND(op, frame, params ...) do {     \
-		trash_local_t *__local = NULL;         \
-		__local = frame->local;                \
-		frame->local = NULL;		       \
-		STACK_UNWIND_STRICT (op, frame, params);          \
-		trash_local_wipe (__local);	       \
-	} while (0)
-
+#define TRASH_STACK_UNWIND(op, frame, params ...) do {    \
+                trash_local_t *__local = NULL;            \
+                __local = frame->local;                   \
+                frame->local = NULL;                      \
+                STACK_UNWIND_STRICT (op, frame, params);  \
+                trash_local_wipe (__local);               \
+        } while (0)
 
 #endif /* __TRASH_H__ */
