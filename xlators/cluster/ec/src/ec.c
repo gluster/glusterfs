@@ -18,6 +18,7 @@
 #include "ec-fops.h"
 #include "ec-method.h"
 #include "ec.h"
+#include "ec-heald.h"
 
 #define EC_MAX_FRAGMENTS EC_METHOD_MAX_FRAGMENTS
 /* The maximum number of nodes is derived from the maximum allowed fragments
@@ -186,8 +187,8 @@ reconfigure (xlator_t *this, dict_t *options)
 {
         ec_t *ec = this->private;
 
-        GF_OPTION_RECONF ("self-heal-daemon", ec->shd, options, bool, failed);
-        GF_OPTION_RECONF ("iam-self-heal-daemon", ec->iamshd, options,
+        GF_OPTION_RECONF ("self-heal-daemon", ec->shd.enabled, options, bool, failed);
+        GF_OPTION_RECONF ("iam-self-heal-daemon", ec->shd.iamshd, options,
                           bool, failed);
 
         return 0;
@@ -329,13 +330,35 @@ ec_handle_down (xlator_t *this, ec_t *ec, int32_t idx)
 }
 
 int32_t
-notify (xlator_t *this, int32_t event, void *data, ...)
+ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 {
-    ec_t * ec = this->private;
-    int32_t idx = 0;
-    int32_t error = 0;
-    glusterfs_event_t old_event = GF_EVENT_MAXVAL;
-    glusterfs_event_t new_event = GF_EVENT_MAXVAL;
+        ec_t             *ec        = this->private;
+        int32_t           idx       = 0;
+        int32_t           error     = 0;
+        glusterfs_event_t old_event = GF_EVENT_MAXVAL;
+        glusterfs_event_t new_event = GF_EVENT_MAXVAL;
+        dict_t            *input    = NULL;
+        dict_t            *output   = NULL;
+
+        if (event == GF_EVENT_TRANSLATOR_OP) {
+                if (!ec->up) {
+                        error = -1;
+                        goto out;
+                } else {
+                        input = data;
+                        output = data2;
+                        error = ec_xl_op (this, input, output);
+                }
+                goto out;
+        }
+
+        for (idx = 0; idx < ec->nodes; idx++) {
+                if (ec->xl_list[idx] == data) {
+                        if (event == GF_EVENT_CHILD_UP)
+                                ec_selfheal_childup (ec, idx);
+                        break;
+                }
+        }
 
         LOCK (&ec->lock);
 
@@ -346,11 +369,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                  */
                 ec_launch_notify_timer (this, ec);
                 goto unlock;
-        }
-
-        for (idx = 0; idx < ec->nodes; idx++) {
-                if (ec->xl_list[idx] == data)
-                        break;
         }
 
         gf_log (this->name, GF_LOG_TRACE, "NOTIFY(%d): %p, %d",
@@ -381,13 +399,28 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 if (new_event != GF_EVENT_MAXVAL)
                         error = default_notify (this, new_event, data);
         }
-unlock:
-        UNLOCK (&ec->lock);
+    unlock:
+            UNLOCK (&ec->lock);
 
-        if (event != GF_EVENT_MAXVAL)
-                return default_notify (this, event, data);
+            if (event != GF_EVENT_MAXVAL)
+                    return default_notify (this, event, data);
+out:
+            return error;
+}
 
-        return error;
+int32_t
+notify (xlator_t *this, int32_t event, void *data, ...)
+{
+        int ret = -1;
+        va_list         ap;
+        void *data2 = NULL;
+
+        va_start (ap, data);
+        data2 = va_arg (ap, dict_t*);
+        va_end (ap);
+        ret = ec_notify (this, event, data, data2);
+
+        return ret;
 }
 
 int32_t
@@ -440,9 +473,11 @@ init (xlator_t *this)
     }
 
     ec_method_initialize();
-    GF_OPTION_INIT ("self-heal-daemon", ec->shd, bool, failed);
-    GF_OPTION_INIT ("iam-self-heal-daemon", ec->iamshd, bool, failed);
+    GF_OPTION_INIT ("self-heal-daemon", ec->shd.enabled, bool, failed);
+    GF_OPTION_INIT ("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
 
+    if (ec->shd.iamshd)
+            ec_selfheal_daemon_init (this);
     gf_log(this->name, GF_LOG_DEBUG, "Disperse translator initialized.");
 
     return 0;

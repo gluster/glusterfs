@@ -286,21 +286,21 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 if (list_empty (&entries.list))
                         goto out;
 
-                if (heal_op == GF_AFR_OP_INDEX_SUMMARY) {
+                if (heal_op == GF_SHD_OP_INDEX_SUMMARY) {
                         ret = glfsh_process_entries (readdir_xl, fd,
                                                      &entries, &offset,
                                                      &num_entries,
                                                      glfsh_print_heal_status);
                         if (ret < 0)
                                 goto out;
-                } else if (heal_op == GF_AFR_OP_SPLIT_BRAIN_FILES) {
+                } else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES) {
                         ret = glfsh_process_entries (readdir_xl, fd,
                                                      &entries, &offset,
                                                      &num_entries,
                                                      glfsh_print_spb_status);
                         if (ret < 0)
                                 goto out;
-                } else if (heal_op == GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK) {
+                } else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) {
                         ret = glfsh_heal_entries (fs, top_subvol, rootloc,
                                                   &entries, &offset,
                                                   &num_entries, xattr_req);
@@ -316,12 +316,12 @@ out:
                 printf ("Failed to complete gathering info. "
                          "Number of entries so far: %"PRIu64"\n", num_entries);
         } else {
-                if (heal_op == GF_AFR_OP_INDEX_SUMMARY)
+                if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
                         printf ("Number of entries: %"PRIu64"\n", num_entries);
-                else if (heal_op == GF_AFR_OP_SPLIT_BRAIN_FILES)
+                else if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES)
                         printf ("Number of entries in split-brain: %"PRIu64"\n"
                                 , num_entries);
-                else if (heal_op == GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK)
+                else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK)
                         printf ("Number of healed entries: %"PRIu64"\n",
                                 num_entries);
         }
@@ -422,10 +422,10 @@ glfsh_print_pending_heals (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         if (xattr_req)
                 dict_unref (xattr_req);
         if (ret < 0) {
-                if (heal_op == GF_AFR_OP_INDEX_SUMMARY)
+                if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
                         printf ("Failed to find entries with pending"
                                 " self-heal\n");
-                if (heal_op == GF_AFR_OP_SPLIT_BRAIN_FILES)
+                if (heal_op == GF_SHD_OP_SPLIT_BRAIN_FILES)
                         printf ("Failed to find entries in split-brain\n");
         }
 out:
@@ -605,7 +605,7 @@ glfsh_heal_from_brick (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         if (!xattr_req)
                 goto out;
         ret = dict_set_int32 (xattr_req, "heal-op",
-                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
         if (ret)
                 goto out;
         client = _brick_path_to_client_xlator (top_subvol, hostname, brickpath);
@@ -652,7 +652,7 @@ glfsh_heal_from_bigger_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         if (!xattr_req)
                 goto out;
         ret = dict_set_int32 (xattr_req, "heal-op",
-                              GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
+                              GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
         if (ret)
                 goto out;
         ret = glfsh_heal_splitbrain_file (fs, top_subvol, rootloc, file,
@@ -685,11 +685,11 @@ main (int argc, char **argv)
         volname = argv[1];
         switch (argc) {
         case 2:
-                heal_op = GF_AFR_OP_INDEX_SUMMARY;
+                heal_op = GF_SHD_OP_INDEX_SUMMARY;
                 break;
         case 3:
                 if (!strcmp (argv[2], "split-brain-info")) {
-                        heal_op = GF_AFR_OP_SPLIT_BRAIN_FILES;
+                        heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
                 } else {
                         printf (USAGE_STR, argv[0]);
                         ret = -1;
@@ -698,10 +698,10 @@ main (int argc, char **argv)
                 break;
         case 4:
                 if (!strcmp (argv[2], "bigger-file")) {
-                        heal_op = GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
                         file = argv[3];
                 } else if (!strcmp (argv[2], "source-brick")) {
-                        heal_op = GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK;
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
                         hostname = strtok (argv[3], ":");
                         path = strtok (NULL, ":");
                 } else {
@@ -712,7 +712,7 @@ main (int argc, char **argv)
                 break;
         case 5:
                 if (!strcmp (argv[2], "source-brick")) {
-                        heal_op = GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK;
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
                         hostname = strtok (argv[3], ":");
                         path = strtok (NULL, ":");
                         file = argv[4];
@@ -786,16 +786,16 @@ main (int argc, char **argv)
         glfs_loc_touchup (&rootloc);
 
         switch (heal_op) {
-        case GF_AFR_OP_INDEX_SUMMARY:
-        case GF_AFR_OP_SPLIT_BRAIN_FILES:
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
                 ret = glfsh_gather_heal_info (fs, top_subvol, &rootloc,
                                               heal_op);
                 break;
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
                 ret = glfsh_heal_from_bigger_file (fs, top_subvol,
                                                    &rootloc, file);
                         break;
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = glfsh_heal_from_brick (fs, top_subvol, &rootloc,
                                              hostname, path, file);
                 break;

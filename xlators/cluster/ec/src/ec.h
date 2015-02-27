@@ -13,6 +13,7 @@
 
 #include "xlator.h"
 #include "timer.h"
+#include "ec-heald.h"
 
 #define EC_XATTR_PREFIX  "trusted.ec."
 #define EC_XATTR_CONFIG  EC_XATTR_PREFIX"config"
@@ -20,9 +21,6 @@
 #define EC_XATTR_VERSION EC_XATTR_PREFIX"version"
 #define EC_XATTR_HEAL    EC_XATTR_PREFIX"heal"
 #define EC_XATTR_DIRTY   EC_XATTR_PREFIX"dirty"
-
-struct _ec;
-typedef struct _ec ec_t;
 
 struct _ec
 {
@@ -46,8 +44,6 @@ struct _ec
     struct mem_pool * fop_pool;
     struct mem_pool * cbk_pool;
     struct mem_pool * lock_pool;
-    gf_boolean_t      shd;
-    gf_boolean_t      iamshd;
+    ec_self_heald_t   shd;
 };
-
 #endif /* __EC_H__ */

@@ -646,20 +646,20 @@ static int
 glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
                                      glusterd_volinfo_t *volinfo)
 {
-        gf_xl_afr_op_t                  heal_op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t                  heal_op = GF_SHD_OP_INVALID;
         int                             ret = 0;
         xlator_t                        *this = THIS;
         char                            *key = NULL;
         char                            *value = NULL;
 
         ret = dict_get_int32 (dict, "heal-op", (int32_t *)&heal_op);
-        if (ret || (heal_op == GF_AFR_OP_INVALID)) {
+        if (ret || (heal_op == GF_SHD_OP_INVALID)) {
                 ret = -1;
                 goto out;
         }
 
-        if ((heal_op != GF_AFR_OP_HEAL_ENABLE) &&
-            (heal_op != GF_AFR_OP_HEAL_DISABLE)) {
+        if ((heal_op != GF_SHD_OP_HEAL_ENABLE) &&
+            (heal_op != GF_SHD_OP_HEAL_DISABLE)) {
                 ret = -EINVAL;
                 goto out;
         }
@@ -675,9 +675,9 @@ glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
         if (ret)
                 goto out;
 
-        if (heal_op == GF_AFR_OP_HEAL_ENABLE) {
+        if (heal_op == GF_SHD_OP_HEAL_ENABLE) {
                 value = "enable";
-        } else if (heal_op == GF_AFR_OP_HEAL_DISABLE) {
+        } else if (heal_op == GF_SHD_OP_HEAL_DISABLE) {
                 value = "disable";
         }
 
@@ -1619,7 +1619,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         char                                    msg[2048];
         glusterd_conf_t                         *priv = NULL;
         dict_t                                  *opt_dict = NULL;
-        gf_xl_afr_op_t                          heal_op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t                          heal_op = GF_SHD_OP_INVALID;
         xlator_t                                *this = NULL;
 
         this = THIS;
@@ -1689,7 +1689,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         }
 
         ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
-        if (ret || (heal_op == GF_AFR_OP_INVALID)) {
+        if (ret || (heal_op == GF_SHD_OP_INVALID)) {
                 ret = -1;
                 *op_errstr = gf_strdup("Invalid heal-op");
                 gf_log (this->name, GF_LOG_WARNING, "%s", "Invalid heal-op");
@@ -1697,8 +1697,8 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         }
 
         switch (heal_op) {
-                case GF_AFR_OP_HEALED_FILES:
-                case GF_AFR_OP_HEAL_FAILED_FILES:
+                case GF_SHD_OP_HEALED_FILES:
+                case GF_SHD_OP_HEAL_FAILED_FILES:
                         ret = -1;
                         snprintf (msg, sizeof (msg),"Command not supported. "
                                   "Please use \"gluster volume heal %s info\" "
@@ -1707,9 +1707,9 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                         *op_errstr = gf_strdup (msg);
                         goto out;
 
-                case GF_AFR_OP_INDEX_SUMMARY:
-                case GF_AFR_OP_STATISTICS_HEAL_COUNT:
-                case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                case GF_SHD_OP_INDEX_SUMMARY:
+                case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+                case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                         break;
                 default:
                         if (!priv->shd_svc.online) {
