@@ -284,85 +284,82 @@ nfs3_fill_lookup3res_error (lookup3res *res, nfsstat3 stat,
 
 }
 
-fattr3
-nfs3_stat_to_fattr3 (struct iatt *buf)
+void
+nfs3_stat_to_fattr3 (struct iatt *buf, fattr3 *fa)
 {
-        fattr3          fa = {0, };
-
-        if (buf == NULL)
-                goto out;
-
-        if (IA_ISDIR (buf->ia_type))
-                fa.type = NF3DIR;
-        else if (IA_ISREG (buf->ia_type))
-                fa.type = NF3REG;
-        else if (IA_ISCHR (buf->ia_type))
-                fa.type = NF3CHR;
-        else if (IA_ISBLK (buf->ia_type))
-                fa.type = NF3BLK;
-        else if (IA_ISFIFO (buf->ia_type))
-                fa.type = NF3FIFO;
-        else if (IA_ISLNK (buf->ia_type))
-                fa.type = NF3LNK;
-        else if (IA_ISSOCK (buf->ia_type))
-                fa.type = NF3SOCK;
-
-        if (IA_PROT_RUSR (buf->ia_prot))
-                fa.mode |= NFS3MODE_ROWNER;
-        if (IA_PROT_WUSR (buf->ia_prot))
-                fa.mode |= NFS3MODE_WOWNER;
-        if (IA_PROT_XUSR (buf->ia_prot))
-                fa.mode |= NFS3MODE_XOWNER;
-
-        if (IA_PROT_RGRP (buf->ia_prot))
-                fa.mode |= NFS3MODE_RGROUP;
-        if (IA_PROT_WGRP (buf->ia_prot))
-                fa.mode |= NFS3MODE_WGROUP;
-        if (IA_PROT_XGRP (buf->ia_prot))
-                fa.mode |= NFS3MODE_XGROUP;
-
-        if (IA_PROT_ROTH (buf->ia_prot))
-                fa.mode |= NFS3MODE_ROTHER;
-        if (IA_PROT_WOTH (buf->ia_prot))
-                fa.mode |= NFS3MODE_WOTHER;
-        if (IA_PROT_XOTH (buf->ia_prot))
-                fa.mode |= NFS3MODE_XOTHER;
-
-        if (IA_PROT_SUID (buf->ia_prot))
-                fa.mode |= NFS3MODE_SETXUID;
-        if (IA_PROT_SGID (buf->ia_prot))
-                fa.mode |= NFS3MODE_SETXGID;
-        if (IA_PROT_STCKY (buf->ia_prot))
-                fa.mode |= NFS3MODE_SAVESWAPTXT;
-
-        fa.nlink = buf->ia_nlink;
-        fa.uid = buf->ia_uid;
-        fa.gid = buf->ia_gid;
-        fa.size = buf->ia_size;
-        fa.used = (buf->ia_blocks * 512);
-
-        if ((IA_ISCHR (buf->ia_type) || IA_ISBLK (buf->ia_type))) {
-                fa.rdev.specdata1 = ia_major (buf->ia_rdev);
-                fa.rdev.specdata2 = ia_minor (buf->ia_rdev);
-        } else {
-                fa.rdev.specdata1 = 0;
-                fa.rdev.specdata2 = 0;
+        if (buf == NULL || fa == NULL) {
+                errno = EINVAL;
+                return;
         }
 
-        fa.fsid = buf->ia_dev;
-        fa.fileid = nfs3_iatt_gfid_to_ino (buf);
+        if (IA_ISDIR (buf->ia_type))
+                fa->type = NF3DIR;
+        else if (IA_ISREG (buf->ia_type))
+                fa->type = NF3REG;
+        else if (IA_ISCHR (buf->ia_type))
+                fa->type = NF3CHR;
+        else if (IA_ISBLK (buf->ia_type))
+                fa->type = NF3BLK;
+        else if (IA_ISFIFO (buf->ia_type))
+                fa->type = NF3FIFO;
+        else if (IA_ISLNK (buf->ia_type))
+                fa->type = NF3LNK;
+        else if (IA_ISSOCK (buf->ia_type))
+                fa->type = NF3SOCK;
 
-        fa.atime.seconds = buf->ia_atime;
-        fa.atime.nseconds = buf->ia_atime_nsec;
+        if (IA_PROT_RUSR (buf->ia_prot))
+                fa->mode |= NFS3MODE_ROWNER;
+        if (IA_PROT_WUSR (buf->ia_prot))
+                fa->mode |= NFS3MODE_WOWNER;
+        if (IA_PROT_XUSR (buf->ia_prot))
+                fa->mode |= NFS3MODE_XOWNER;
 
-        fa.ctime.seconds = buf->ia_ctime;
-        fa.ctime.nseconds = buf->ia_ctime_nsec;
+        if (IA_PROT_RGRP (buf->ia_prot))
+                fa->mode |= NFS3MODE_RGROUP;
+        if (IA_PROT_WGRP (buf->ia_prot))
+                fa->mode |= NFS3MODE_WGROUP;
+        if (IA_PROT_XGRP (buf->ia_prot))
+                fa->mode |= NFS3MODE_XGROUP;
 
-        fa.mtime.seconds = buf->ia_mtime;
-        fa.mtime.nseconds = buf->ia_mtime_nsec;
+        if (IA_PROT_ROTH (buf->ia_prot))
+                fa->mode |= NFS3MODE_ROTHER;
+        if (IA_PROT_WOTH (buf->ia_prot))
+                fa->mode |= NFS3MODE_WOTHER;
+        if (IA_PROT_XOTH (buf->ia_prot))
+                fa->mode |= NFS3MODE_XOTHER;
 
-out:
-        return fa;
+        if (IA_PROT_SUID (buf->ia_prot))
+                fa->mode |= NFS3MODE_SETXUID;
+        if (IA_PROT_SGID (buf->ia_prot))
+                fa->mode |= NFS3MODE_SETXGID;
+        if (IA_PROT_STCKY (buf->ia_prot))
+                fa->mode |= NFS3MODE_SAVESWAPTXT;
+
+        fa->nlink = buf->ia_nlink;
+        fa->uid = buf->ia_uid;
+        fa->gid = buf->ia_gid;
+        fa->size = buf->ia_size;
+        fa->used = (buf->ia_blocks * 512);
+
+        if ((IA_ISCHR (buf->ia_type) || IA_ISBLK (buf->ia_type))) {
+                fa->rdev.specdata1 = ia_major (buf->ia_rdev);
+                fa->rdev.specdata2 = ia_minor (buf->ia_rdev);
+        } else {
+                fa->rdev.specdata1 = 0;
+                fa->rdev.specdata2 = 0;
+        }
+
+        fa->fsid = buf->ia_dev;
+        fa->fileid = nfs3_iatt_gfid_to_ino (buf);
+
+        fa->atime.seconds = buf->ia_atime;
+        fa->atime.nseconds = buf->ia_atime_nsec;
+
+        fa->ctime.seconds = buf->ia_ctime;
+        fa->ctime.nseconds = buf->ia_ctime_nsec;
+
+        fa->mtime.seconds = buf->ia_mtime;
+        fa->mtime.nseconds = buf->ia_mtime_nsec;
 }
 
 
@@ -381,7 +378,7 @@ nfs3_stat_to_post_op_attr (struct iatt *buf)
         if (nfs_zero_filled_stat (buf))
                 goto out;
 
-        attr.post_op_attr_u.attributes = nfs3_stat_to_fattr3 (buf);
+        nfs3_stat_to_fattr3 (buf, &(attr.post_op_attr_u.attributes));
         attr.attributes_follow = TRUE;
 
 out:
@@ -472,8 +469,7 @@ nfs3_fill_getattr3res (getattr3res *res, nfsstat3 stat, struct iatt *buf,
                 return;
 
         nfs3_map_deviceid_to_statdev (buf, deviceid);
-        res->getattr3res_u.resok.obj_attributes = nfs3_stat_to_fattr3 (buf);
-
+        nfs3_stat_to_fattr3 (buf, &(res->getattr3res_u.resok.obj_attributes));
 }
 
 
