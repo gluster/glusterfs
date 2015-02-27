@@ -271,6 +271,10 @@ acl3_getacl_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) && (op_errno != ENODATA && op_errno != ENOATTR)) {
                 stat = nfs3_cbk_errno_status (op_ret, op_errno);
                 goto err;
+        } else if (!dict) {
+                /* no ACL has been set */
+                stat = NFS3_OK;
+                goto err;
         }
 
         getaclreply->aclentry.aclentry_val = cs->aclentry;
