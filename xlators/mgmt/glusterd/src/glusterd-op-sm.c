@@ -5264,15 +5264,33 @@ out:
         return ret;
 }
 
+int
+_get_hxl_children_count (glusterd_volinfo_t *volinfo)
+{
+        if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
+                return volinfo->disperse_count;
+        } else {
+                return volinfo->replica_count;
+        }
+}
+
 static int
-_add_rxlator_to_dict (dict_t *dict, char *volname, int index, int count)
+_add_hxlator_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int index,
+                      int count)
 {
         int     ret             = -1;
         char    key[128]        = {0,};
         char    *xname          = NULL;
+        char    *xl_type        = 0;
 
+        if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
+                xl_type = "disperse";
+        } else {
+                xl_type = "replicate";
+        }
         snprintf (key, sizeof (key), "xl-%d", count);
-        ret = gf_asprintf (&xname, "%s-replicate-%d", volname, index);
+        ret = gf_asprintf (&xname, "%s-%s-%d", volinfo->volname, xl_type,
+                           index);
         if (ret == -1)
                 goto out;
 
@@ -5287,7 +5305,8 @@ out:
 
 int
 get_replica_index_for_per_replica_cmd (glusterd_volinfo_t *volinfo,
-                                       dict_t *dict) {
+                                       dict_t *dict)
+{
         int                     ret = 0;
         char                    *hostname = NULL;
         char                    *path = NULL;
@@ -5331,83 +5350,94 @@ out:
 }
 
 int
-_select_rxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
-                                    dict_t *dict, cli_cmd_type type)
+_select_hxlator_with_matching_brick (xlator_t *this,
+                                     glusterd_volinfo_t *volinfo, dict_t *dict)
 {
+        char                    *hostname = NULL;
+        char                    *path = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_conf_t         *priv   = NULL;
-        int                     index = 0;
-        int                     rxlator_count = 0;
-        int                     replica_count = 0;
-        gf_boolean_t            add     = _gf_false;
-        int                     ret = 0;
-        int                     cmd_replica_index = -1;
+        int                     index = 1;
+        int                     hxl_children = 0;
 
         priv = this->private;
-        replica_count = volinfo->replica_count;
+        if (!dict ||
+            dict_get_str (dict, "per-replica-cmd-hostname", &hostname) ||
+            dict_get_str (dict, "per-replica-cmd-path", &path))
+                return -1;
 
-        if (type == PER_REPLICA) {
-
-                cmd_replica_index = get_replica_index_for_per_replica_cmd
-                                    (volinfo, dict);
-                if (cmd_replica_index == -1) {
-                        ret = -1;
-                        goto err;
-                }
-        }
-
-        index = 1;
+        hxl_children = _get_hxl_children_count (volinfo);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                switch (type) {
-                        case ALL_REPLICA:
-                                if (!uuid_compare (MY_UUID, brickinfo->uuid))
-                                        add = _gf_true;
-                                break;
-                        case PER_REPLICA:
-                                if (!uuid_compare (MY_UUID, brickinfo->uuid) &&
-                                 ((index-1)/replica_count == cmd_replica_index))
-
-                                                add = _gf_true;
-                                break;
+                if (!uuid_compare (MY_UUID, brickinfo->uuid)) {
+                        _add_hxlator_to_dict (dict, volinfo,
+                                              (index - 1)/hxl_children, 0);
+                        return 1;
                 }
+                index++;
+        }
 
-                if (index % replica_count == 0) {
+        return 0;
+}
+int
+_select_hxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
+                                    dict_t *dict)
+{
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_conf_t         *priv   = NULL;
+        int                     index = 1;
+        int                     hxlator_count = 0;
+        int                     hxl_children = 0;
+        gf_boolean_t            add     = _gf_false;
+        int                     cmd_replica_index = -1;
+
+        priv = this->private;
+        hxl_children = _get_hxl_children_count (volinfo);
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_is_null (brickinfo->uuid))
+                        (void)glusterd_resolve_brick (brickinfo);
+
+                if (!uuid_compare (MY_UUID, brickinfo->uuid))
+                        add = _gf_true;
+
+                if (index % hxl_children == 0) {
                         if (add) {
-                                _add_rxlator_to_dict (dict, volinfo->volname,
-                                                      (index-1)/replica_count,
-                                                      rxlator_count);
-                                rxlator_count++;
+                                _add_hxlator_to_dict (dict, volinfo,
+                                                      (index - 1)/hxl_children,
+                                                      hxlator_count);
+                                hxlator_count++;
                         }
                         add = _gf_false;
                 }
 
                 index++;
         }
-err:
-        if (ret)
-                rxlator_count = -1;
 
-        return rxlator_count;
+        return hxlator_count;
 }
 
 int
-_select_rxlators_for_full_self_heal (xlator_t *this,
+_select_hxlators_for_full_self_heal (xlator_t *this,
                                      glusterd_volinfo_t *volinfo,
                                      dict_t *dict)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_conf_t         *priv   = NULL;
         int                     index = 1;
-        int                     rxlator_count = 0;
-        int                     replica_count = 0;
+        int                     hxlator_count = 0;
+        int                     hxl_children = 0;
         uuid_t                  candidate = {0};
 
         priv = this->private;
-        replica_count = volinfo->replica_count;
+        if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
+                hxl_children = volinfo->disperse_count;
+        } else {
+                hxl_children = volinfo->replica_count;
+        }
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_is_null (brickinfo->uuid))
@@ -5416,19 +5446,19 @@ _select_rxlators_for_full_self_heal (xlator_t *this,
                 if (uuid_compare (brickinfo->uuid, candidate) > 0)
                         uuid_copy (candidate, brickinfo->uuid);
 
-                if (index % replica_count == 0) {
+                if (index % hxl_children == 0) {
                         if (!uuid_compare (MY_UUID, candidate)) {
-                                _add_rxlator_to_dict (dict, volinfo->volname,
-                                                      (index-1)/replica_count,
-                                                      rxlator_count);
-                                rxlator_count++;
+                                _add_hxlator_to_dict (dict, volinfo,
+                                                      (index-1)/hxl_children,
+                                                      hxlator_count);
+                                hxlator_count++;
                         }
                         uuid_clear (candidate);
                 }
 
                 index++;
         }
-        return rxlator_count;
+        return hxlator_count;
 }
 
 
@@ -5502,7 +5532,7 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
         this = THIS;
         snprintf (msg, sizeof (msg), "self-heal-daemon is not running on");
 
-        if (type == PER_REPLICA) {
+        if (type == PER_HEAL_XL) {
                 cmd_replica_index = get_replica_index_for_per_replica_cmd
                                     (volinfo, req_dict);
                 if (cmd_replica_index == -1) {
@@ -5522,7 +5552,7 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                         continue;
                 }
 
-                if (type == PER_REPLICA) {
+                if (type == PER_HEAL_XL) {
                       if (cmd_replica_index != (index/volinfo->replica_count)) {
                               index++;
                               continue;
@@ -5554,7 +5584,6 @@ out:
 
 }
 
-
 static int
 glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
                                     struct cds_list_head *selected,
@@ -5568,7 +5597,7 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         char                                    msg[2048] = {0,};
         glusterd_pending_node_t                 *pending_node = NULL;
         gf_xl_afr_op_t                          heal_op = GF_SHD_OP_INVALID;
-        int                                     rxlator_count = 0;
+        int                                     hxlator_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5598,80 +5627,80 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         }
 
         switch (heal_op) {
-                case GF_SHD_OP_INDEX_SUMMARY:
-                case GF_SHD_OP_STATISTICS_HEAL_COUNT:
-                if (!priv->shd_svc.online) {
-                        if (!rsp_dict) {
-                                gf_log (this->name, GF_LOG_ERROR, "Received "
-                                        "empty ctx.");
-                                goto out;
-                        }
-
-                        ret = fill_shd_status_for_local_bricks (rsp_dict,
-                                                                volinfo,
-                                                                ALL_REPLICA,
-                                                                dict);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
-                                        "fill the shd status for the local "
-                                        "bricks");
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+        if (!priv->shd_svc.online) {
+                if (!rsp_dict) {
+                        gf_log (this->name, GF_LOG_ERROR, "Received "
+                                "empty ctx.");
                         goto out;
-
                 }
-                break;
-                case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                if (!priv->shd_svc.online) {
-                        if (!rsp_dict) {
-                                gf_log (this->name, GF_LOG_ERROR, "Received "
-                                        "empty ctx.");
-                                goto out;
-                        }
-                        ret = fill_shd_status_for_local_bricks (rsp_dict,
-                                                                volinfo,
-                                                                PER_REPLICA,
-                                                                dict);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
-                                        "fill the shd status for the local"
-                                        " bricks.");
+
+                ret = fill_shd_status_for_local_bricks (rsp_dict,
+                                                        volinfo,
+                                                        ALL_HEAL_XL,
+                                                        dict);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                                "fill the shd status for the local "
+                                "bricks");
+                goto out;
+        }
+        break;
+
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+        if (!priv->shd_svc.online) {
+                if (!rsp_dict) {
+                        gf_log (this->name, GF_LOG_ERROR, "Received "
+                                "empty ctx.");
                         goto out;
-
                 }
+                ret = fill_shd_status_for_local_bricks (rsp_dict,
+                                                        volinfo,
+                                                        PER_HEAL_XL,
+                                                        dict);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                                "fill the shd status for the local"
+                                " bricks.");
+                goto out;
+
+        }
+        break;
+
+        default:
                 break;
-                default:
-                        break;
         }
 
 
         switch (heal_op) {
         case GF_SHD_OP_HEAL_FULL:
-                rxlator_count = _select_rxlators_for_full_self_heal (this,
+                hxlator_count = _select_hxlators_for_full_self_heal (this,
                                                                      volinfo,
                                                                      dict);
                 break;
         case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                rxlator_count = _select_rxlators_with_local_bricks (this,
-                                                                   volinfo,
-                                                                   dict,
-                                                                   PER_REPLICA);
+                hxlator_count = _select_hxlator_with_matching_brick (this,
+                                                                     volinfo,
+                                                                     dict);
                 break;
         default:
-                rxlator_count = _select_rxlators_with_local_bricks (this,
+                hxlator_count = _select_hxlators_with_local_bricks (this,
                                                                     volinfo,
-                                                                    dict,
-                                                                   ALL_REPLICA);
+                                                                    dict);
                 break;
         }
-        if (!rxlator_count)
+
+        if (!hxlator_count)
                 goto out;
-        if (rxlator_count == -1){
+        if (hxlator_count == -1) {
                 gf_log (this->name, GF_LOG_ERROR, "Could not determine the"
                         "translator count");
                 ret = -1;
                 goto out;
         }
 
-        ret = dict_set_int32 (dict, "count", rxlator_count);
+        ret = dict_set_int32 (dict, "count", hxlator_count);
         if (ret)
                 goto out;
 
