@@ -15,6 +15,7 @@ ec_sources += ec-combine.c
 ec_sources += ec-gf.c
 ec_sources += ec-method.c
 ec_sources += ec-heal.c
+ec_sources += ec-heald.c
 
 ec_headers := ec.h
 ec_headers += ec-mem-types.h
@@ -25,6 +26,7 @@ ec_headers += ec-common.h
 ec_headers += ec-combine.h
 ec_headers += ec-gf.h
 ec_headers += ec-method.h
+ec_headers += ec-heald.h
 
 ec_ext_sources = $(top_builddir)/xlators/lib/src/libxlator.c
 
@@ -37,6 +39,7 @@ ec_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 AM_CPPFLAGS  = $(GF_CPPFLAGS)
 AM_CPPFLAGS += -I$(top_srcdir)/libglusterfs/src
 AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
+AM_CPPFLAGS += -I$(top_srcdir)/rpc/rpc-lib/src
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

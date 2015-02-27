@@ -1006,7 +1006,7 @@ out:
 int
 afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 {
-        gf_xl_afr_op_t   op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t   op = GF_SHD_OP_INVALID;
         int              ret = 0;
         int              xl_id = 0;
 	afr_private_t   *priv = NULL;
@@ -1034,7 +1034,7 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
         if (ret)
                 goto out;
         switch (op) {
-        case GF_AFR_OP_HEAL_INDEX:
+        case GF_SHD_OP_HEAL_INDEX:
 		op_ret = -1;
 
 		for (i = 0; i < priv->child_count; i++) {
@@ -1059,7 +1059,7 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 			}
 		}
                 break;
-        case GF_AFR_OP_HEAL_FULL:
+        case GF_SHD_OP_HEAL_FULL:
 		op_ret = -1;
 
 		for (i = 0; i < priv->child_count; i++) {
@@ -1084,23 +1084,23 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 			}
 		}
                 break;
-        case GF_AFR_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_INDEX_SUMMARY:
 		for (i = 0; i < priv->child_count; i++)
 			if (shd->index_healers[i].local)
 				afr_shd_gather_index_entries (this, i, output);
                 break;
-        case GF_AFR_OP_HEALED_FILES:
-        case GF_AFR_OP_HEAL_FAILED_FILES:
+        case GF_SHD_OP_HEALED_FILES:
+        case GF_SHD_OP_HEAL_FAILED_FILES:
                 for (i = 0; i < priv->child_count; i++) {
                         snprintf (key, sizeof (key), "%d-%d-status", xl_id, i);
                         ret = dict_set_str (output, key, "Operation Not "
                                             "Supported");
                 }
                 break;
-        case GF_AFR_OP_SPLIT_BRAIN_FILES:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
 		eh_dump (shd->split_brain, output, afr_add_shd_event);
                 break;
-        case GF_AFR_OP_STATISTICS:
+        case GF_SHD_OP_STATISTICS:
 		for (i = 0; i < priv->child_count; i++) {
 			eh_dump (shd->statistics[i], output,
 				 afr_add_crawl_event);
@@ -1110,8 +1110,8 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 						      &shd->full_healers[i].crawl_event);
 		}
                 break;
-        case GF_AFR_OP_STATISTICS_HEAL_COUNT:
-        case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
 		op_ret = -1;
 
 		for (i = 0; i < priv->child_count; i++) {

@@ -446,7 +446,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
         gd1_mgmt_brick_op_req   *brick_req = NULL;
         char                    *volname = NULL;
         char                    name[1024] = {0,};
-        gf_xl_afr_op_t          heal_op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t          heal_op = GF_SHD_OP_INVALID;
         xlator_t                *this = NULL;
 
         this = THIS;
@@ -5567,7 +5567,7 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         xlator_t                                *this = NULL;
         char                                    msg[2048] = {0,};
         glusterd_pending_node_t                 *pending_node = NULL;
-        gf_xl_afr_op_t                          heal_op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t                          heal_op = GF_SHD_OP_INVALID;
         int                                     rxlator_count = 0;
 
         this = THIS;
@@ -5592,14 +5592,14 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         }
 
         ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
-        if (ret || (heal_op == GF_AFR_OP_INVALID)) {
+        if (ret || (heal_op == GF_SHD_OP_INVALID)) {
                 gf_log ("glusterd", GF_LOG_ERROR, "heal op invalid");
                 goto out;
         }
 
         switch (heal_op) {
-                case GF_AFR_OP_INDEX_SUMMARY:
-                case GF_AFR_OP_STATISTICS_HEAL_COUNT:
+                case GF_SHD_OP_INDEX_SUMMARY:
+                case GF_SHD_OP_STATISTICS_HEAL_COUNT:
                 if (!priv->shd_svc.online) {
                         if (!rsp_dict) {
                                 gf_log (this->name, GF_LOG_ERROR, "Received "
@@ -5619,7 +5619,7 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
 
                 }
                 break;
-                case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                 if (!priv->shd_svc.online) {
                         if (!rsp_dict) {
                                 gf_log (this->name, GF_LOG_ERROR, "Received "
@@ -5644,12 +5644,12 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
 
 
         switch (heal_op) {
-        case GF_AFR_OP_HEAL_FULL:
+        case GF_SHD_OP_HEAL_FULL:
                 rxlator_count = _select_rxlators_for_full_self_heal (this,
                                                                      volinfo,
                                                                      dict);
                 break;
-        case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                 rxlator_count = _select_rxlators_with_local_bricks (this,
                                                                    volinfo,
                                                                    dict,

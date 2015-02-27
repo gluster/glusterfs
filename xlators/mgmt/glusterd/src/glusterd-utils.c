@@ -8618,7 +8618,7 @@ glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
         rsp_ctx.dict = op_ctx;
         rsp_ctx.volinfo = volinfo;
         rsp_ctx.this = THIS;
-        if (heal_op == GF_AFR_OP_STATISTICS)
+        if (heal_op == GF_SHD_OP_STATISTICS)
                 dict_foreach (rsp_dict, _heal_volume_add_shd_rsp_of_statistics,
                               &rsp_ctx);
         else

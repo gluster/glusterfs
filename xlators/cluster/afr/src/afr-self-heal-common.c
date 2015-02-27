@@ -409,7 +409,7 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
         xdata_rsp = local->xdata_rsp;
 
         switch (heal_op) {
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
                 if (type == AFR_METADATA_TRANSACTION) {
                         ret = dict_set_str (xdata_rsp, "sh-fail-msg",
                                             "Use source-brick option to"
@@ -435,7 +435,7 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                 sinks[source] = 0;
                 healed_sinks[source] = 0;
                 break;
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = dict_get_str (xdata_req, "child-name", &name);
                 if (ret)
                         goto out;

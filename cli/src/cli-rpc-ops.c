@@ -7379,22 +7379,22 @@ gf_is_cli_heal_get_command (gf_xl_afr_op_t heal_op)
 {
         /* If the command is get command value is 1 otherwise 0, for
            invalid commands -1 */
-        int    get_cmds[GF_AFR_OP_HEAL_DISABLE + 1] = {
-                       [GF_AFR_OP_INVALID] = -1,
-                       [GF_AFR_OP_HEAL_INDEX] = 0,
-                       [GF_AFR_OP_HEAL_FULL] = 0,
-                       [GF_AFR_OP_INDEX_SUMMARY] = 1,
-                       [GF_AFR_OP_HEALED_FILES] = 1,
-                       [GF_AFR_OP_HEAL_FAILED_FILES] = 1,
-                       [GF_AFR_OP_SPLIT_BRAIN_FILES] = 1,
-                       [GF_AFR_OP_STATISTICS] = 1,
-                       [GF_AFR_OP_STATISTICS_HEAL_COUNT] = 1,
-                       [GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA] = 1,
-                       [GF_AFR_OP_HEAL_ENABLE] = 0,
-                       [GF_AFR_OP_HEAL_DISABLE] = 0,
+        int    get_cmds[GF_SHD_OP_HEAL_DISABLE + 1] = {
+                       [GF_SHD_OP_INVALID] = -1,
+                       [GF_SHD_OP_HEAL_INDEX] = 0,
+                       [GF_SHD_OP_HEAL_FULL] = 0,
+                       [GF_SHD_OP_INDEX_SUMMARY] = 1,
+                       [GF_SHD_OP_HEALED_FILES] = 1,
+                       [GF_SHD_OP_HEAL_FAILED_FILES] = 1,
+                       [GF_SHD_OP_SPLIT_BRAIN_FILES] = 1,
+                       [GF_SHD_OP_STATISTICS] = 1,
+                       [GF_SHD_OP_STATISTICS_HEAL_COUNT] = 1,
+                       [GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA] = 1,
+                       [GF_SHD_OP_HEAL_ENABLE] = 0,
+                       [GF_SHD_OP_HEAL_DISABLE] = 0,
                 };
 
-        if (heal_op > GF_AFR_OP_INVALID && heal_op <= GF_AFR_OP_HEAL_DISABLE)
+        if (heal_op > GF_SHD_OP_INVALID && heal_op <= GF_SHD_OP_HEAL_DISABLE)
                 return get_cmds[heal_op] == 1;
         return _gf_false;
 }
@@ -7412,7 +7412,7 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t                  *dict = NULL;
         int                     brick_count = 0;
         int                     i = 0;
-        gf_xl_afr_op_t          heal_op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t          heal_op = GF_SHD_OP_INVALID;
         char                    *operation = NULL;
         char                    *substr = NULL;
         char                    *heal_op_str = NULL;
@@ -7461,56 +7461,56 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         operation = "Gathering ";
         substr = "";
         switch (heal_op) {
-                case    GF_AFR_OP_HEAL_INDEX:
-                        operation   = "Launching heal operation ";
-                        heal_op_str = "to perform index self heal";
-                        substr      = "\nUse heal info commands to check"
-                                      " status";
-                        break;
-                case    GF_AFR_OP_HEAL_FULL:
-                        operation   = "Launching heal operation ";
-                        heal_op_str = "to perform full self heal";
-                        substr      = "\nUse heal info commands to check"
-                                      " status";
-                        break;
-                case    GF_AFR_OP_INDEX_SUMMARY:
-                        heal_op_str = "list of entries to be healed";
-                        break;
-                case    GF_AFR_OP_HEALED_FILES:
-                        heal_op_str = "list of healed entries";
-                        break;
-                case    GF_AFR_OP_HEAL_FAILED_FILES:
-                        heal_op_str = "list of heal failed entries";
-                        break;
-                case    GF_AFR_OP_SPLIT_BRAIN_FILES:
-                        heal_op_str = "list of split brain entries";
-                        break;
-                case    GF_AFR_OP_STATISTICS:
-                        heal_op_str =  "crawl statistics";
-                        break;
-                case    GF_AFR_OP_STATISTICS_HEAL_COUNT:
-                        heal_op_str = "count of entries to be healed";
-                        break;
-                case    GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                        heal_op_str = "count of entries to be healed per replica";
-                        break;
-                /* The below 2 cases are never hit; they're coded only to make
-                 * compiler warnings go away.*/
-                case    GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
-                case    GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
-                        break;
+        case    GF_SHD_OP_HEAL_INDEX:
+                operation   = "Launching heal operation ";
+                heal_op_str = "to perform index self heal";
+                substr      = "\nUse heal info commands to check"
+                              " status";
+                break;
+        case    GF_SHD_OP_HEAL_FULL:
+                operation   = "Launching heal operation ";
+                heal_op_str = "to perform full self heal";
+                substr      = "\nUse heal info commands to check"
+                              " status";
+                break;
+        case    GF_SHD_OP_INDEX_SUMMARY:
+                heal_op_str = "list of entries to be healed";
+                break;
+        case    GF_SHD_OP_HEALED_FILES:
+                heal_op_str = "list of healed entries";
+                break;
+        case    GF_SHD_OP_HEAL_FAILED_FILES:
+                heal_op_str = "list of heal failed entries";
+                break;
+        case    GF_SHD_OP_SPLIT_BRAIN_FILES:
+                heal_op_str = "list of split brain entries";
+                break;
+        case    GF_SHD_OP_STATISTICS:
+                heal_op_str =  "crawl statistics";
+                break;
+        case    GF_SHD_OP_STATISTICS_HEAL_COUNT:
+                heal_op_str = "count of entries to be healed";
+                break;
+        case    GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                heal_op_str = "count of entries to be healed per replica";
+                break;
+        /* The below 2 cases are never hit; they're coded only to make
+         * compiler warnings go away.*/
+        case    GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+        case    GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
+                break;
 
-                case    GF_AFR_OP_INVALID:
-                        heal_op_str = "invalid heal op";
-                        break;
-                case    GF_AFR_OP_HEAL_ENABLE:
-                        operation   = "";
-                        heal_op_str = "Enable heal";
-                        break;
-                case    GF_AFR_OP_HEAL_DISABLE:
-                        operation   = "";
-                        heal_op_str = "Disable heal";
-                        break;
+        case    GF_SHD_OP_INVALID:
+                heal_op_str = "invalid heal op";
+                break;
+        case    GF_SHD_OP_HEAL_ENABLE:
+                operation   = "";
+                heal_op_str = "Enable heal";
+                break;
+        case    GF_SHD_OP_HEAL_DISABLE:
+                operation   = "";
+                heal_op_str = "Disable heal";
+                break;
         }
 
         if (rsp.op_ret) {
@@ -7559,25 +7559,25 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         switch (heal_op) {
-                case GF_AFR_OP_STATISTICS:
-                        for (i = 0; i < brick_count; i++)
-                                cmd_heal_volume_statistics_out (dict, i);
-                        break;
-                case GF_AFR_OP_STATISTICS_HEAL_COUNT:
-                case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                        for (i = 0; i < brick_count; i++)
-                                cmd_heal_volume_statistics_heal_count_out (dict,
-                                                                           i);
-                        break;
-                case GF_AFR_OP_INDEX_SUMMARY:
-                case GF_AFR_OP_HEALED_FILES:
-                case GF_AFR_OP_HEAL_FAILED_FILES:
-                case GF_AFR_OP_SPLIT_BRAIN_FILES:
-                        for (i = 0; i < brick_count; i++)
-                                cmd_heal_volume_brick_out (dict, i);
-                        break;
-                default:
-                        break;
+        case GF_SHD_OP_STATISTICS:
+                for (i = 0; i < brick_count; i++)
+                        cmd_heal_volume_statistics_out (dict, i);
+                break;
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                for (i = 0; i < brick_count; i++)
+                        cmd_heal_volume_statistics_heal_count_out (dict,
+                                                                   i);
+                break;
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_HEALED_FILES:
+        case GF_SHD_OP_HEAL_FAILED_FILES:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
+                for (i = 0; i < brick_count; i++)
+                        cmd_heal_volume_brick_out (dict, i);
+                break;
+        default:
+                break;
         }
 
         ret = rsp.op_ret;
