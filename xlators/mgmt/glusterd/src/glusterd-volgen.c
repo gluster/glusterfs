@@ -1421,6 +1421,7 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
         int             ret = -1;
         gf_boolean_t    quota_enabled = _gf_true;
+        gf_boolean_t    trash_enabled = _gf_false;
         gf_boolean_t    pgfid_feat    = _gf_false;
         char            *value = NULL;
         xlator_t        *xl = NULL;
@@ -1431,6 +1432,13 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_QUOTA, &value);
         if (value) {
                 ret = gf_string2boolean (value, &quota_enabled);
+                if (ret)
+                        goto out;
+        }
+
+        ret = glusterd_volinfo_get (volinfo, VKEY_FEATURES_TRASH, &value);
+        if (value) {
+                ret = gf_string2boolean (value, &trash_enabled);
                 if (ret)
                         goto out;
         }
@@ -1459,9 +1467,32 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        if (quota_enabled || pgfid_feat)
+        if (quota_enabled || pgfid_feat || trash_enabled)
                 xlator_set_option (xl, "update-link-count-parent",
                                    "on");
+out:
+        return ret;
+}
+
+static int
+brick_graph_add_trash (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                        dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int ret = -1;
+        xlator_t *xl = NULL;
+
+        xl = volgen_graph_add (graph, "features/trash", volinfo->volname);
+        if (!xl)
+                goto out;
+        ret = xlator_set_option (xl, "trash-dir", ".trashcan");
+        if (ret)
+                goto out;
+        ret = xlator_set_option (xl, "brick-path", brickinfo->path);
+        if (ret)
+                goto out;
+        ret = xlator_set_option (xl, "trash-internal-op", "off");
+        if (ret)
+                goto out;
 out:
         return ret;
 }
@@ -2018,6 +2049,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_acl, "acl"},
         {brick_graph_add_changelog, "changelog"},
         {brick_graph_add_bd, "bd"},
+        {brick_graph_add_trash, "trash"},
         {brick_graph_add_posix, "posix"},
 };
 

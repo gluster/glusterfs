@@ -647,11 +647,14 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         char                            *key                    = NULL;
         char                            *key_fixed              = NULL;
         char                            *value                  = NULL;
+        char                            *val_dup                = NULL;
         char                            str[100]                = {0, };
+        char                            *trash_path             = NULL;
         int                             count                   = 0;
         int                             dict_count              = 0;
         char                            errstr[2048]            = {0, };
         glusterd_volinfo_t              *volinfo                = NULL;
+        glusterd_brickinfo_t            *brickinfo              = NULL;
         dict_t                          *val_dict               = NULL;
         gf_boolean_t                    global_opt              = _gf_false;
         glusterd_volinfo_t              *voliter                = NULL;
@@ -663,7 +666,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         uint32_t                        local_key_op_version    = 0;
         gf_boolean_t                    origin_glusterd         = _gf_true;
         gf_boolean_t                    check_op_version        = _gf_true;
+        gf_boolean_t                    trash_enabled           = _gf_false;
         gf_boolean_t                    all_vol                 = _gf_false;
+        struct          stat            stbuf                   = {0, };
 
         GF_ASSERT (dict);
         this = THIS;
@@ -940,6 +945,76 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (glusterd_check_globaloption (key))
                         global_opt = _gf_true;
 
+                if (volinfo) {
+                        ret = glusterd_volinfo_get (volinfo,
+                                                VKEY_FEATURES_TRASH, &val_dup);
+                        if (val_dup) {
+                                ret = gf_string2boolean (val_dup,
+                                                        &trash_enabled);
+                                if (ret)
+                                        goto out;
+                        }
+                }
+
+                if (!strcmp(key, "features.trash-dir") && trash_enabled) {
+                        if (strchr (value, '/')) {
+                                snprintf (errstr, sizeof (errstr),
+                                          "Path is not allowed as option");
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to set the options in 'volume "
+                                        "set': %s", errstr);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        list_for_each_entry (brickinfo, &volinfo->bricks,
+                                             brick_list) {
+                                /* Check for local brick */
+                                if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+                                        trash_path = gf_strdup (brickinfo->path);
+                                        strcat(trash_path, "/");
+                                        strcat(trash_path, value);
+
+                                        /* Checks whether a directory with
+                                           given option exists or not */
+                                        if (!stat(trash_path, &stbuf)) {
+                                                snprintf (errstr, sizeof (errstr),
+                                                          "Path %s exists", value);
+                                                gf_log (this->name, GF_LOG_ERROR,
+                                                        "Unable to set the options in "
+                                                        "'volume set': %s", errstr);
+                                                ret = -1;
+                                                goto out;
+                                        } else {
+                                                gf_log (this->name, GF_LOG_DEBUG,
+                                                        "Directory with given name "
+                                                        "does not exists, continuing");
+                                        }
+
+                                        if (volinfo->status == GLUSTERD_STATUS_STARTED
+                                                && brickinfo->status != GF_BRICK_STARTED) {
+                                                /* If volume is in started state , checks
+                                                   whether bricks are online */
+                                                snprintf (errstr, sizeof (errstr),
+                                                          "One or more bricks are down");
+                                                gf_log (this->name, GF_LOG_ERROR,
+                                                        "Unable to set the options in "
+                                                        "'volume set': %s", errstr);
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                }
+                        }
+                } else if (!strcmp(key, "features.trash-dir") && !trash_enabled) {
+                        snprintf (errstr, sizeof (errstr),
+                                        "Trash translator is not enabled. Use "
+                                        "volume set %s trash on", volname);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to set the options in 'volume "
+                                "set': %s", errstr);
+                        ret = -1;
+                        goto out;
+                }
                 ret = dict_set_str (val_dict, key, value);
 
                 if (ret) {
@@ -1014,6 +1089,9 @@ cont:
 out:
         if (val_dict)
                 dict_unref (val_dict);
+
+        if (trash_path)
+                GF_FREE (trash_path);
 
         GF_FREE (key_fixed);
         if (errstr[0] != '\0')
