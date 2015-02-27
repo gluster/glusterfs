@@ -49,8 +49,8 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v);
 extern int
 nfs3_fh_validate (struct nfs3_fh *fh);
 
-extern fattr3
-nfs3_stat_to_fattr3 (struct iatt *buf);
+extern void
+nfs3_stat_to_fattr3 (struct iatt *buf, fattr3 *fa);
 
 #define acl3_validate_nfs3_state(request, state, status, label, retval) \
         do      {                                                       \
@@ -409,7 +409,7 @@ acl3_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         getaclreply->attr_follows = TRUE;
         deviceid = nfs3_request_xlator_deviceid (cs->req);
         nfs3_map_deviceid_to_statdev (buf, deviceid);
-        getaclreply->attr = nfs3_stat_to_fattr3 (buf);
+        nfs3_stat_to_fattr3 (buf, &(getaclreply->attr));
 
         nfs_request_user_init (&nfu, cs->req);
         if (buf->ia_type == IA_IFDIR) {
