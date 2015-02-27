@@ -40,6 +40,12 @@
 #include <rpc/xdr.h>
 #include <statedump.h>
 
+#ifdef __NetBSD__
+#define KILLALL_CMD "pkill"
+#else
+#define KILLALL_CMD "killall"
+#endif
+
 /* TODO:
  * 1) 2 opens racing .. creating an fd leak.
  * 2) use mempool for nlmclnt - destroy if no fd exists, create during 1st call
@@ -2455,7 +2461,7 @@ nlm4svc_init(xlator_t *nfsx)
                 if (ret <= 0) {
                         gf_log (GF_NLM, GF_LOG_WARNING, "unable to get pid of "
                                 "rpc.statd from %s ", GF_RPC_STATD_PIDFILE);
-                        ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+                        ret = runcmd (KILLALL_CMD, "-9", "rpc.statd", NULL);
                 } else
                         kill (pid, SIGKILL);
 
@@ -2466,7 +2472,7 @@ nlm4svc_init(xlator_t *nfsx)
                 /* if ret == -1, do nothing - case either statd was not
                  * running or was running in valgrind mode
                  */
-                ret = runcmd ("killall", "-9", "rpc.statd", NULL);
+                ret = runcmd (KILLALL_CMD, "-9", "rpc.statd", NULL);
         }
 
         ret = unlink (GF_RPC_STATD_PIDFILE);
