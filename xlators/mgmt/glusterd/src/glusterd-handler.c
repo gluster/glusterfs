@@ -3272,7 +3272,7 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
         if (ret) {
                 gf_log ("glusterd", GF_LOG_ERROR,
                                 "Unable to get new event");
-                return ret;
+                goto out;
         }
 
         ctx = GF_CALLOC (1, sizeof(*ctx), gf_gld_mt_probe_ctx_t);

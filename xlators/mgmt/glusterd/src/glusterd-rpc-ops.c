@@ -478,7 +478,7 @@ __glusterd_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         if (ret) {
                 gf_log ("glusterd", GF_LOG_ERROR,
                          "Unable to get event");
-                goto out;
+                goto unlock;
         }
 
         ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx),

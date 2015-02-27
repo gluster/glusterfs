@@ -189,8 +189,9 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
         }
         rcu_read_unlock ();
 
-        gf_log (this->name, GF_LOG_DEBUG, "Friend with uuid: %s, not found",
-                uuid_utoa (uuid));
+        if (!found)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Friend with uuid: %s, not found", uuid_utoa (uuid));
         return found;
 }
 
@@ -392,6 +393,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                                 *down_peerstr = gf_strdup (peerinfo->hostname);
                                 gf_log ("", GF_LOG_DEBUG, "Peer %s is down. ",
                                         peerinfo->hostname);
+                                rcu_read_unlock ();
                                 goto out;
                         }
                 }
