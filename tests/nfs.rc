@@ -29,7 +29,7 @@ function mount_nfs ()
         for o in ${opt//,/ }; do
                 case $OSTYPE in
                 NetBSD)
-                        test "x${nopt}" = "x" && nopt="tcp,"
+                        test "x${nopt}" = "x" && nopt="tcp,-R=2,"
 
                         case $o in
                         nolock|noac|actimeo=*|mountproto=udp)
