@@ -163,8 +163,8 @@ typedef struct glusterd_txn_opinfo_object_ {
 } glusterd_txn_opinfo_obj;
 
 typedef enum cli_cmd_type_ {
-        PER_REPLICA,
-        ALL_REPLICA,
+        PER_HEAL_XL,
+        ALL_HEAL_XL,
  } cli_cmd_type;
 
 int

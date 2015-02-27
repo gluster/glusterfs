@@ -1631,6 +1631,12 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = xlator_set_option (xl, "index-base", index_basepath);
         if (ret)
                 goto out;
+        if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE) {
+                ret = xlator_set_option (xl, "xattrop64-watchlist",
+                                         "trusted.ec.dirty");
+                if (ret)
+                        goto out;
+        }
 out:
         return ret;
 }

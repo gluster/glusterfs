@@ -1609,6 +1609,87 @@ out:
         return ret;
 }
 
+static int
+glusterd_handle_heal_cmd (xlator_t *this, glusterd_volinfo_t *volinfo,
+                          dict_t *dict, char **op_errstr)
+{
+        glusterd_conf_t          *priv        = NULL;
+        gf_xl_afr_op_t           heal_op      = GF_SHD_OP_INVALID;
+        int                      ret          = 0;
+        char                     msg[2408]    = {0,};
+        char                     *offline_msg = "Self-heal daemon is not running. "
+                                      "Check self-heal daemon log file.";
+
+        priv = this->private;
+        ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
+        if (ret) {
+                ret = -1;
+                *op_errstr = gf_strdup("Heal operation not specified");
+                goto out;
+        }
+
+        switch (heal_op) {
+        case GF_SHD_OP_INVALID:
+        case GF_SHD_OP_HEAL_ENABLE: /* This op should be handled in volume-set*/
+        case GF_SHD_OP_HEAL_DISABLE:/* This op should be handled in volume-set*/
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:/*glfsheal cmd*/
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:/*glfsheal cmd*/
+                ret = -1;
+                *op_errstr = gf_strdup("Invalid heal-op");
+                goto out;
+
+        case GF_SHD_OP_HEAL_INDEX:
+        case GF_SHD_OP_HEAL_FULL:
+                if (!glusterd_is_shd_compatible_volume (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s is not of type "
+                                  "replicate or disperse", volinfo->volname);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+
+                if (!priv->shd_svc.online) {
+                        ret = -1;
+                        *op_errstr = gf_strdup (offline_msg);
+                        goto out;
+                }
+                break;
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
+        case GF_SHD_OP_STATISTICS:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+                if (!glusterd_is_volume_replicate (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s is not of type "
+                                  "replicate", volinfo->volname);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+
+                if (!priv->shd_svc.online) {
+                        ret = -1;
+                        *op_errstr = gf_strdup (offline_msg);
+                        goto out;
+                }
+                break;
+        case GF_SHD_OP_HEALED_FILES:
+        case GF_SHD_OP_HEAL_FAILED_FILES:
+                ret = -1;
+                snprintf (msg, sizeof (msg), "Command not supported. "
+                          "Please use \"gluster volume heal %s info\" "
+                          "and logs to find the heal information.",
+                          volinfo->volname);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+
+        }
+out:
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "%s", *op_errstr);
+        return ret;
+}
+
 int
 glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
 {
@@ -1619,7 +1700,6 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         char                                    msg[2048];
         glusterd_conf_t                         *priv = NULL;
         dict_t                                  *opt_dict = NULL;
-        gf_xl_afr_op_t                          heal_op = GF_SHD_OP_INVALID;
         xlator_t                                *this = NULL;
 
         this = THIS;
@@ -1652,15 +1732,6 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
         if (ret)
                 goto out;
 
-        if (!glusterd_is_volume_replicate (volinfo)) {
-                ret = -1;
-                snprintf (msg, sizeof (msg), "Volume %s is not of type "
-                          "replicate", volname);
-                *op_errstr = gf_strdup (msg);
-                gf_log (this->name, GF_LOG_WARNING, "%s", msg);
-                goto out;
-        }
-
         if (!glusterd_is_volume_started (volinfo)) {
                 ret = -1;
                 snprintf (msg, sizeof (msg), "Volume %s is not started.",
@@ -1676,7 +1747,7 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        enabled = dict_get_str_boolean (opt_dict, "cluster.self-heal-daemon",
+        enabled = dict_get_str_boolean (opt_dict, volgen_get_shd_key (volinfo),
                                         1);
         if (!enabled) {
                 ret = -1;
@@ -1688,41 +1759,9 @@ glusterd_op_stage_heal_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
-        if (ret || (heal_op == GF_SHD_OP_INVALID)) {
-                ret = -1;
-                *op_errstr = gf_strdup("Invalid heal-op");
-                gf_log (this->name, GF_LOG_WARNING, "%s", "Invalid heal-op");
+        ret = glusterd_handle_heal_cmd (this, volinfo, dict, op_errstr);
+        if (ret)
                 goto out;
-        }
-
-        switch (heal_op) {
-                case GF_SHD_OP_HEALED_FILES:
-                case GF_SHD_OP_HEAL_FAILED_FILES:
-                        ret = -1;
-                        snprintf (msg, sizeof (msg),"Command not supported. "
-                                  "Please use \"gluster volume heal %s info\" "
-                                  "and logs to find the heal information.",
-                                  volname);
-                        *op_errstr = gf_strdup (msg);
-                        goto out;
-
-                case GF_SHD_OP_INDEX_SUMMARY:
-                case GF_SHD_OP_STATISTICS_HEAL_COUNT:
-                case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-                        break;
-                default:
-                        if (!priv->shd_svc.online) {
-                                ret = -1;
-                                *op_errstr = gf_strdup ("Self-heal daemon is "
-                                                "not running. Check self-heal "
-                                                "daemon log file.");
-                                gf_log (this->name, GF_LOG_WARNING, "%s",
-                                        "Self-heal daemon is not running."
-                                        "Check self-heal daemon log file.");
-                                goto out;
-                        }
-        }
 
         ret = 0;
 out:

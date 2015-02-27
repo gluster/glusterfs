@@ -877,12 +877,11 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
         if ((pnode->type == GD_NODE_NFS) ||
             (pnode->type == GD_NODE_QUOTAD) ||
             ((pnode->type == GD_NODE_SHD) && (op == GD_OP_STATUS_VOLUME))) {
-                ret = glusterd_node_op_build_payload
-                        (op, &req, dict_out);
+                ret = glusterd_node_op_build_payload (op, &req, dict_out);
 
         } else {
-                ret = glusterd_brick_op_build_payload
-                        (op, pnode->node, &req, dict_out);
+                ret = glusterd_brick_op_build_payload (op, pnode->node, &req,
+                                                       dict_out);
 
         }
 
