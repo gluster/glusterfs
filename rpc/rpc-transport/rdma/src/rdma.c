@@ -802,7 +802,9 @@ out:
                 mem_pool_destroy (trav->ioq_pool);
                 mem_pool_destroy (trav->request_ctx_pool);
                 mem_pool_destroy (trav->reply_info_pool);
-                ibv_dealloc_pd (trav->pd);
+                if (trav->pd != NULL) {
+                        ibv_dealloc_pd (trav->pd);
+                }
                 gf_rdma_destroy_cq (this);
                 ibv_destroy_comp_channel (trav->recv_chan);
                 ibv_destroy_comp_channel (trav->send_chan);
