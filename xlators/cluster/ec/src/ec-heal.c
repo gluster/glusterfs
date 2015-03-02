@@ -489,7 +489,8 @@ int32_t ec_heal_unlink_cbk(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-int32_t ec_heal_init(ec_fop_data_t * fop)
+int32_t
+ec_heal_init (ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
     struct iobuf_pool * pool;
@@ -518,7 +519,6 @@ int32_t ec_heal_init(ec_fop_data_t * fop)
 
     if (ec_loc_from_loc(fop->xl, &heal->loc, &fop->loc[0]) != 0) {
         error = ENOMEM;
-
         goto out;
     }
 
@@ -993,11 +993,23 @@ void ec_heal_attr(ec_heal_t * heal)
     }
 }
 
-void ec_heal_open(ec_heal_t * heal)
+void
+ec_heal_open (ec_heal_t * heal)
 {
     heal->bad = ec_heal_needs_data_rebuild(heal);
     if (heal->bad == 0) {
         return;
+    }
+
+    if (!heal->fd) {
+            /* name-less loc heal */
+            heal->fd = fd_create (heal->loc.inode,
+                                  heal->fop->frame->root->pid);
+    }
+
+    if (!heal->fd) {
+            ec_fop_set_error(heal->fop, ENOMEM);
+            return;
     }
 
     if (ec_heal_open_others(heal))
@@ -1261,7 +1273,8 @@ void ec_wind_heal(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
     ec_complete(fop);
 }
 
-int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
+int32_t
+ec_manager_heal (ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
     ec_heal_t *heal = fop->heal;
@@ -1277,7 +1290,16 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
-            return EC_STATE_DISPATCH;
+            heal = fop->heal;
+            /* root loc doesn't have pargfid/parent */
+            if (loc_is_root (&heal->loc) ||
+                !uuid_is_null(heal->loc.pargfid) || heal->loc.parent) {
+                    heal->nameheal = _gf_true;
+                    return EC_STATE_DISPATCH;
+            } else {
+                    /* No need to perform 'name' heal.*/
+                    return EC_STATE_HEAL_PRE_INODELK_LOCK;
+            }
 
         case EC_STATE_DISPATCH:
             if (heal->done) {
@@ -1306,7 +1328,10 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_HEAL_PRE_INODELK_LOCK;
 
         case EC_STATE_HEAL_PRE_INODELK_LOCK:
-            // Only heal data/metadata if enough information is supplied.
+            if (heal->done)
+                    return EC_STATE_HEAL_DISPATCH;
+
+            /* Only heal data/metadata if enough information is supplied. */
             if (uuid_is_null(heal->loc.gfid))
             {
                 ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
@@ -1364,7 +1389,8 @@ int32_t ec_manager_heal(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_HEAL_PRE_INODE_LOOKUP:
         case -EC_STATE_HEAL_UNLOCK_ENTRY:
         case EC_STATE_HEAL_UNLOCK_ENTRY:
-            ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
+            if (heal->nameheal)
+                    ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
 
             heal->bad = ec_heal_needs_data_rebuild(heal);
             if (heal->bad != 0)

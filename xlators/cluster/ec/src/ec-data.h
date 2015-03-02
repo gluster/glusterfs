@@ -271,6 +271,7 @@ struct _ec_heal
     fd_t             *fd;
     int32_t           partial;
     int32_t           done;
+    gf_boolean_t      nameheal;
     uintptr_t         available;
     uintptr_t         good;
     uintptr_t         bad;
