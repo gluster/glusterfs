@@ -48,11 +48,13 @@ TEST ! ln $M0/.gfid $M0/hlink
 TEST ! mknod $M0/.gfid b 0 0
 
 #Test that first level directory/file creations inside .gfid are not allowed.
+tmpfile=$(mktemp)
 TEST ! mkdir $M0/.gfid/a
 TEST ! touch $M0/.gfid/a
-TEST ! mv /etc/passwd $M0/.gfid
+TEST ! mv $tmpfile $M0/.gfid
 TEST ! mv $M0/a $M0/.gfid
 TEST ! mknod $M0/.gfid/b b 0 0
+rm -f $tmpfile
 
 #Operations on File
 TEST setfattr -n trusted.abc -v abc $M0/b
