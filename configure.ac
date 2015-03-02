@@ -1196,14 +1196,9 @@ AC_ARG_ENABLE([cmocka],
                              [Enable cmocka build options.]))
 if test "x$enable_cmocka" = "xyes"; then
     BUILD_UNITTEST="yes"
-    PKG_CHECK_MODULES([UNITTEST], [cmocka], [],[
-      AC_CHECK_LIB([cmocka], [mock_assert], [
-        UNITTEST_LDFLAGS="-lcmocka -lgcov"
-        UNITTEST_CFLAGS="-Wall -Werror"
-      ], [
-        AC_MSG_ERROR([cmocka library is required to build glusterfs])
-      ])
-    ])
+    PKG_CHECK_MODULES([UNITTEST], [cmocka >= 1.0.1], [BUILD_UNITTEST="yes"],
+        [AC_MSG_ERROR([cmocka library is required to build glusterfs])]
+    )
 fi
 AM_CONDITIONAL([UNITTEST], [test x$BUILD_UNITTEST = xyes])
 
