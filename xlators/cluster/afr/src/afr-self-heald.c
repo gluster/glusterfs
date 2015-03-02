@@ -18,6 +18,7 @@
 #include "afr-self-heal.h"
 #include "afr-self-heald.h"
 #include "protocol-common.h"
+#include "syncop-utils.h"
 
 #define SHD_INODE_LRU_LIMIT          2048
 #define AFR_EH_SPLIT_BRAIN_LIMIT     1024
@@ -76,46 +77,15 @@ afr_destroy_shd_event_data (void *data)
 gf_boolean_t
 afr_shd_is_subvol_local (xlator_t *this, int subvol)
 {
-	char *pathinfo = NULL;
-	afr_private_t *priv = NULL;
-	dict_t *xattr = NULL;
-	int ret = 0;
-	gf_boolean_t is_local = _gf_false;
-	loc_t loc = {0, };
+	afr_private_t *priv    = NULL;
+	gf_boolean_t  is_local = _gf_false;
+        loc_t         loc      = {0, };
 
+        loc.inode = this->itable->root;
+        uuid_copy (loc.gfid, loc.inode->gfid);
 	priv = this->private;
-
-	loc.inode = this->itable->root;
-	uuid_copy (loc.gfid, loc.inode->gfid);
-
-	ret = syncop_getxattr (priv->children[subvol], &loc, &xattr,
-			       GF_XATTR_PATHINFO_KEY, NULL);
-	if (ret) {
-		is_local = _gf_false;
-                goto out;
-        }
-
-	if (!xattr) {
-		is_local = _gf_false;
-                goto out;
-        }
-
-	ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &pathinfo);
-	if (ret) {
-		is_local =  _gf_false;
-                goto out;
-        }
-
-	afr_local_pathinfo (pathinfo, &is_local);
-
-	gf_log (this->name, GF_LOG_DEBUG, "subvol %s is %slocal",
-		priv->children[subvol]->name, is_local? "" : "not ");
-
-out:
-        if (xattr)
-                dict_unref (xattr);
-
-	return is_local;
+        syncop_is_subvol_local(priv->children[subvol], &loc, &is_local);
+        return is_local;
 }
 
 
@@ -301,7 +271,7 @@ afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
 	subvol = priv->children[child];
 
         //If this fails with ENOENT/ESTALE index is stale
-        ret = afr_shd_gfid_to_path (this, subvol, gfid, &path);
+        ret = syncop_gfid_to_path (this->itable, subvol, gfid, &path);
         if (ret < 0)
                 return ret;
 
@@ -805,44 +775,6 @@ out:
         return ret;
 }
 
-
-int
-afr_shd_gfid_to_path (xlator_t *this, xlator_t *subvol, uuid_t gfid, char **path_p)
-{
-        int      ret   = 0;
-        char    *path  = NULL;
-        loc_t    loc   = {0,};
-        dict_t  *xattr = NULL;
-
-	uuid_copy (loc.gfid, gfid);
-	loc.inode = inode_new (this->itable);
-
-	ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);
-	if (ret)
-		goto out;
-
-	ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
-	if (ret || !path) {
-		ret = -EINVAL;
-                goto out;
-        }
-
-	*path_p = gf_strdup (path);
-	if (!*path_p) {
-		ret = -ENOMEM;
-                goto out;
-        }
-
-	ret = 0;
-
-out:
-        if (xattr)
-                dict_unref (xattr);
-	loc_wipe (&loc);
-
-        return ret;
-}
-
 int
 afr_shd_gather_entry (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                       void *data)
@@ -872,7 +804,7 @@ afr_shd_gather_entry (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (child == priv->child_count)
                 return 0;
 
-        ret = afr_shd_gfid_to_path (this, subvol, gfid, &path);
+        ret = syncop_gfid_to_path (this->itable, subvol, gfid, &path);
 
         if (ret == -ENOENT || ret == -ESTALE) {
                 afr_shd_index_purge (subvol, parent->inode, entry->d_name);

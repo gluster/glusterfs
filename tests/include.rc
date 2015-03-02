@@ -383,11 +383,11 @@ function cleanup()
         done
 
         killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused || true
+        test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused rpc.statd || true
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
         killall -9 glusterfs glusterfsd glusterd 2>/dev/null || true;
-        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused || true
+        test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused rpc.statd || true
 
         # unregister nfs and related services from portmapper/rpcbind
         ## nfs

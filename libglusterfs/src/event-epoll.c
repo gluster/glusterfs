@@ -573,9 +573,11 @@ pre_unlock:
 		   thread calling event_select_on_epoll() while this
 		   thread was busy in handler()
 		*/
-		event->events = slot->events;
-		ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD,
-				 fd, event);
+                if (slot->in_handler == 0) {
+                        event->events = slot->events;
+                        ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD,
+                                         fd, event);
+                }
 	}
 post_unlock:
 	UNLOCK (&slot->lock);
