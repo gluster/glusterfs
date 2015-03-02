@@ -1493,7 +1493,7 @@ gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
                         value *= GF_UNIT_TB;
                 else if (strcasecmp (tail, GF_UNIT_PB_STRING) == 0)
                         value *= GF_UNIT_PB;
-                else
+                else if (strcasecmp (tail, GF_UNIT_B_STRING) != 0)
                         return -1;
         }
 
