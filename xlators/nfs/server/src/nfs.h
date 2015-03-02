@@ -61,6 +61,7 @@ struct nfs_initer_list {
         struct list_head list;
         nfs_version_initer_t    init;
         rpcsvc_program_t        *program;
+        gf_boolean_t            required;
 };
 
 struct nfs_state {

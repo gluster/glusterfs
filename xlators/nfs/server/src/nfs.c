@@ -46,10 +46,12 @@
 #define NFS_DATADIR                     GLUSTERD_DEFAULT_WORKDIR "/nfs"
 
 /* Forward declaration */
-int nfs_add_initer (struct list_head *list, nfs_version_initer_t init);
+static int nfs_add_initer (struct list_head *list, nfs_version_initer_t init,
+                           gf_boolean_t required);
 
 static int
-nfs_init_version (xlator_t *this, nfs_version_initer_t init)
+nfs_init_version (xlator_t *this, nfs_version_initer_t init,
+                  gf_boolean_t required)
 {
         int                       ret       = -1;
         struct nfs_initer_list    *version  = NULL;
@@ -64,7 +66,7 @@ nfs_init_version (xlator_t *this, nfs_version_initer_t init)
 
         nfs = (struct nfs_state *)this->private;
 
-        ret = nfs_add_initer (&nfs->versions, init);
+        ret = nfs_add_initer (&nfs->versions, init, required);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR,
                                 "Failed to add protocol initializer");
@@ -163,7 +165,7 @@ nfs_reconfigure_acl3 (xlator_t *this)
 
         /* ACL is enabled */
         if (nfs->enable_acl)
-                return nfs_init_version (this, acl3svc_init);
+                return nfs_init_version (this, acl3svc_init, _gf_false);
 
         /* ACL is disabled */
         return nfs_deinit_version (nfs, acl3svc_init);
@@ -181,7 +183,7 @@ nfs_reconfigure_nlm4 (xlator_t *this)
 
         /* NLM is enabled */
         if (nfs->enable_nlm)
-                return nfs_init_version (this, nlm4svc_init);
+                return nfs_init_version (this, nlm4svc_init, _gf_false);
 
         /* NLM is disabled */
         return nfs_deinit_version (nfs, nlm4svc_init);
@@ -236,8 +238,9 @@ nfs_program_unregister_portmap_all (struct nfs_state *nfs)
 /* Every NFS version must call this function with the init function
  * for its particular version.
  */
-int
-nfs_add_initer (struct list_head *list, nfs_version_initer_t init)
+static int
+nfs_add_initer (struct list_head *list, nfs_version_initer_t init,
+                gf_boolean_t required)
 {
         struct nfs_initer_list  *new = NULL;
         if ((!list) || (!init))
@@ -250,6 +253,7 @@ nfs_add_initer (struct list_head *list, nfs_version_initer_t init)
         }
 
         new->init = init;
+        new->required = required;
         list_add_tail (&new->list, list);
         return 0;
 }
@@ -327,9 +331,14 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                                                                prog->progport);
                         if (ret == -1) {
                                 gf_log (GF_NFS, GF_LOG_ERROR,
-                                        "Program  %s registration failed",
+                                        "%s program %s registration failed",
+                                        version->required ?
+                                                "Required" : "Optional",
                                         prog->progname);
-                                goto err;
+
+                                /* fatal error if the program is required */
+                                if (version->required)
+                                        goto err;
                         }
                 }
 
@@ -347,21 +356,21 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         int     ret = 0;
 
         /* Add the initializers for all versions. */
-        ret = nfs_add_initer (&nfs->versions, mnt3svc_init);
+        ret = nfs_add_initer (&nfs->versions, mnt3svc_init, _gf_true);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
                                 "MOUNT3 protocol initializer");
                 goto ret;
         }
 
-        ret = nfs_add_initer (&nfs->versions, mnt1svc_init);
+        ret = nfs_add_initer (&nfs->versions, mnt1svc_init, _gf_true);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
                                 "MOUNT1 protocol initializer");
                 goto ret;
         }
 
-        ret = nfs_add_initer (&nfs->versions, nfs3svc_init);
+        ret = nfs_add_initer (&nfs->versions, nfs3svc_init, _gf_true);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
                                 "NFS3 protocol initializer");
@@ -369,7 +378,7 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         }
 
         if (nfs->enable_nlm == _gf_true) {
-                ret = nfs_add_initer (&nfs->versions, nlm4svc_init);
+                ret = nfs_add_initer (&nfs->versions, nlm4svc_init, _gf_false);
                 if (ret == -1) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
                                 " initializer");
@@ -378,7 +387,7 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         }
 
         if (nfs->enable_acl == _gf_true) {
-                ret = nfs_add_initer (&nfs->versions, acl3svc_init);
+                ret = nfs_add_initer (&nfs->versions, acl3svc_init, _gf_false);
                 if (ret == -1) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add "
                                 "ACL protocol initializer");
