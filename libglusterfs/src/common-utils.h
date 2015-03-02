@@ -60,6 +60,7 @@ void trap (void);
 #define GF_UNIT_TB    1099511627776ULL
 #define GF_UNIT_PB    1125899906842624ULL
 
+#define GF_UNIT_B_STRING     "B"
 #define GF_UNIT_KB_STRING    "KB"
 #define GF_UNIT_MB_STRING    "MB"
 #define GF_UNIT_GB_STRING    "GB"

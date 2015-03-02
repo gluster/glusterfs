@@ -47,7 +47,9 @@ TEST $CLI volume quota $V0 enable
 TEST $CLI volume quota $V0 alert-time 10
 TEST $CLI volume quota $V0 hard-timeout 0
 TEST $CLI volume quota $V0 soft-timeout 0
-TEST $CLI volume quota $V0 limit-usage / 200KB
+
+# Set limit to 200KB (204800B)
+TEST $CLI volume quota $V0 limit-usage / 204800B
 TEST $CLI volume quota $V0 limit-usage /$QUOTA_LIMIT_DIR 100KB
 
 #16
