@@ -127,7 +127,7 @@ cli_quotad_clnt_init (xlator_t *this, dict_t *options)
                 goto out;
 
         ret = dict_set_str (options, "transport.socket.connect-path",
-                            "/tmp/quotad.socket");
+                            "/var/run/gluster/quotad.socket");
         if (ret)
                 goto out;
 
