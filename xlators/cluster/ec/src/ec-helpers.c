@@ -335,7 +335,7 @@ int32_t ec_loc_setup_inode(xlator_t *xl, loc_t *loc)
     } else if (loc->parent != NULL) {
         if (!uuid_is_null(loc->gfid)) {
             loc->inode = inode_find(loc->parent->table, loc->gfid);
-        } else if (loc->path != NULL) {
+        } else if (loc->path && strchr (loc->path, '/')) {
             loc->inode = inode_resolve(loc->parent->table, (char *)loc->path);
         }
     }
@@ -358,7 +358,7 @@ int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
     } else if (loc->inode != NULL) {
         if (!uuid_is_null(loc->pargfid)) {
             loc->parent = inode_find(loc->inode->table, loc->pargfid);
-        } else if (loc->path != NULL) {
+        } else if (loc->path && strchr (loc->path, '/')) {
             path = gf_strdup(loc->path);
             if (path == NULL) {
                 gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
@@ -387,10 +387,8 @@ int32_t ec_loc_setup_path(xlator_t *xl, loc_t *loc)
     if (loc->path != NULL) {
         name = strrchr(loc->path, '/');
         if (name == NULL) {
-            gf_log(xl->name, GF_LOG_ERROR, "Invalid path '%s' in loc",
-                   loc->path);
-
-            goto out;
+                ret = 0; /*<gfid:gfid-str>*/
+                goto out;
         }
         if (name == loc->path) {
             if (name[1] == 0) {
@@ -436,7 +434,7 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
     if (!uuid_is_null(loc->pargfid)) {
         uuid_copy(parent->gfid, loc->pargfid);
     }
-    if (loc->path != NULL) {
+    if (loc->path && strchr (loc->path, '/')) {
         str = gf_strdup(loc->path);
         if (str == NULL) {
             gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
