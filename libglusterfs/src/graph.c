@@ -328,6 +328,19 @@ glusterfs_graph_init (glusterfs_graph_t *graph)
         return 0;
 }
 
+int
+glusterfs_graph_deactivate (glusterfs_graph_t *graph)
+{
+        xlator_t           *top = NULL;
+
+        if (graph == NULL)
+                goto out;
+
+        top = graph->top;
+        xlator_tree_fini (top);
+ out:
+        return 0;
+}
 
 static int
 _log_if_unknown_option (dict_t *dict, char *key, data_t *value, void *data)
@@ -763,14 +776,53 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
 }
 
 int
-glusterfs_graph_destroy (glusterfs_graph_t *graph)
+glusterfs_graph_destroy_residual (glusterfs_graph_t *graph)
 {
-        GF_VALIDATE_OR_GOTO ("graph", graph, out);
+        int ret = -1;
 
-        xlator_tree_free (graph->first);
+        if (graph == NULL)
+                return ret;
+
+        ret = xlator_tree_free_memacct (graph->first);
 
         list_del_init (&graph->list);
         GF_FREE (graph);
+
+        return ret;
+}
+
+/* This function destroys all the xlator members except for the
+ * xlator strcuture and its mem accounting field.
+ *
+ * If otherwise, it would destroy the master xlator object as well
+ * its mem accounting, which would mean after calling glusterfs_graph_destroy()
+ * there cannot be any reference to GF_FREE() from the master xlator, this is
+ * not possible because of the following dependencies:
+ * - glusterfs_ctx_t will have mem pools allocated by the master xlators
+ * - xlator objects will have references to those mem pools(g: dict)
+ *
+ * Ordering the freeing in any of the order will also not solve the dependency:
+ * - Freeing xlator objects(including memory accounting) before mem pools
+ *   destruction will mean not use GF_FREE while destroying mem pools.
+ * - Freeing mem pools and then destroying xlator objects would lead to crashes
+ *   when xlator tries to unref dict or other mem pool objects.
+ *
+ * Hence the way chosen out of this interdependency is to split xlator object
+ * free into two stages:
+ * - Free all the xlator members excpet for its mem accounting structure
+ * - Free all the mem accouting structures of xlator along with the xlator
+ *   object itself.
+ */
+int
+glusterfs_graph_destroy (glusterfs_graph_t *graph)
+{
+        int ret = 0;
+
+        GF_VALIDATE_OR_GOTO ("graph", graph, out);
+
+        ret = xlator_tree_free_members (graph->first);
+
+        ret = glusterfs_graph_destroy_residual (graph);
 out:
-        return 0;
+        return ret;
 }

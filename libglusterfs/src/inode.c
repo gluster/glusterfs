@@ -135,6 +135,7 @@ __dentry_unset (dentry_t *dentry)
         list_del_init (&dentry->inode_list);
 
         GF_FREE (dentry->name);
+        dentry->name = NULL;
 
         if (dentry->parent) {
                 __inode_unref (dentry->parent);
@@ -294,7 +295,7 @@ __dentry_search_for_inode (inode_t *inode, uuid_t pargfid, const char *name)
 
 
 static void
-__inode_destroy (inode_t *inode)
+__inode_ctx_free (inode_t *inode)
 {
         int          index = 0;
         xlator_t    *xl = NULL;
@@ -310,7 +311,7 @@ __inode_destroy (inode_t *inode)
                 goto noctx;
         }
 
-        for (index = 0; index < inode->table->ctxcount; index++) {
+        for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
                 if (inode->_ctx[index].xl_key) {
                         xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
                         old_THIS = THIS;
@@ -322,12 +323,26 @@ __inode_destroy (inode_t *inode)
         }
 
         GF_FREE (inode->_ctx);
+        inode->_ctx = NULL;
+
 noctx:
+        return;
+}
+
+static void
+__inode_destroy (inode_t *inode)
+{
+        if (!inode) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                return;
+        }
+
+        __inode_ctx_free (inode);
+
         LOCK_DESTROY (&inode->lock);
         //  memset (inode, 0xb, sizeof (*inode));
         mem_put (inode);
 }
-
 
 static void
 __inode_activate (inode_t *inode)
@@ -581,6 +596,41 @@ inode_new (inode_table_t *table)
                 }
         }
         pthread_mutex_unlock (&table->lock);
+
+        return inode;
+}
+
+
+/* Reduce the ref count by value 'nref'
+ * Args:
+ * inode - address of the inode to operate on
+ * nref - number to subtracted from inode->ref
+ *        if nref is 0, then the ref count is overwritten 0
+ *
+ * This function may cause the purging of the inode,
+ * hence to be used only in destructor functions and not otherwise.
+ */
+static inode_t *
+__inode_ref_reduce_by_n (inode_t *inode, uint64_t nref)
+{
+        if (!inode)
+                return NULL;
+
+        GF_ASSERT (inode->ref >= nref);
+
+        inode->ref -= nref;
+
+        if (!nref)
+                inode->ref = 0;
+
+        if (!inode->ref) {
+                inode->table->active_size--;
+
+                if (inode->nlookup)
+                        __inode_passivate (inode);
+                else
+                        __inode_retire (inode);
+        }
 
         return inode;
 }
@@ -962,6 +1012,30 @@ inode_lookup (inode_t *inode)
                 __inode_lookup (inode);
         }
         pthread_mutex_unlock (&table->lock);
+
+        return 0;
+}
+
+
+int
+inode_ref_reduce_by_n (inode_t *inode, uint64_t nref)
+{
+        inode_table_t *table = NULL;
+
+        if (!inode) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                return -1;
+        }
+
+        table = inode->table;
+
+        pthread_mutex_lock (&table->lock);
+        {
+                __inode_ref_reduce_by_n (inode, nref);
+        }
+        pthread_mutex_unlock (&table->lock);
+
+        inode_table_prune (table);
 
         return 0;
 }
@@ -1467,6 +1541,152 @@ out:
         return new;
 }
 
+int
+inode_table_ctx_free (inode_table_t *table)
+{
+        int ret = 0;
+        inode_t *del = NULL;
+        inode_t *tmp = NULL;
+        int purge_count = 0;
+        int lru_count = 0;
+        int active_count = 0;
+        xlator_t *this = NULL;
+        int itable_size = 0;
+
+        if (!table)
+                return -1;
+
+        this = THIS;
+
+        pthread_mutex_lock (&table->lock);
+        {
+                list_for_each_entry_safe (del, tmp, &table->purge, list) {
+                        if (del->_ctx) {
+                                __inode_ctx_free (del);
+                                purge_count++;
+                        }
+                }
+
+                list_for_each_entry_safe (del, tmp, &table->lru, list) {
+                        if (del->_ctx) {
+                                __inode_ctx_free (del);
+                                lru_count++;
+                        }
+                }
+
+                /* should the contexts of active inodes be freed?
+                 * Since before this function being called fds would have
+                 * been migrated and would have held the ref on the new
+                 * inode from the new inode table, the older inode would not
+                 * be used.
+                 */
+                list_for_each_entry_safe (del, tmp, &table->active, list) {
+                        if (del->_ctx) {
+                                __inode_ctx_free (del);
+                                active_count++;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&table->lock);
+
+        ret = purge_count + lru_count + active_count;
+        itable_size = table->active_size + table->lru_size + table->purge_size;
+        gf_log_callingfn (this->name, GF_LOG_INFO, "total %d (itable size: %d) "
+                        "inode contexts have been freed (active: %d, "
+                        "(active size: %d), lru: %d, (lru size: %d), "
+                        " purge: %d, (purge size: %d))", ret, itable_size,
+                        active_count, table->active_size, lru_count,
+                        table->lru_size, purge_count, table->purge_size);
+        return ret;
+}
+
+void
+inode_table_destroy_all (glusterfs_ctx_t *ctx) {
+
+        glusterfs_graph_t *trav_graph  = NULL, *tmp = NULL;
+        xlator_t          *tree        = NULL;
+        inode_table_t     *inode_table = NULL;
+
+        if (ctx == NULL)
+                goto out;
+
+        /* TODO: Traverse ctx->graphs with in ctx->lock and also the other
+         * graph additions and traversals in ctx->lock.
+         */
+        list_for_each_entry_safe (trav_graph, tmp, &ctx->graphs, list) {
+                tree = trav_graph->first;
+                inode_table = tree->itable;
+                tree->itable = NULL;
+                if (inode_table)
+                        inode_table_destroy (inode_table);
+        }
+ out:
+        return;
+}
+
+void
+inode_table_destroy (inode_table_t *inode_table) {
+
+        xlator_t *this = NULL;
+        inode_t  *tmp = NULL, *trav = NULL;
+
+        this = THIS;
+
+        if (inode_table == NULL)
+                return;
+
+        /* Ideally at this point in time, there should be no inodes with
+         * refs remaining. But there are quite a few chances where the inodes
+         * leak. So we can take three approaches for cleaning up the inode table:
+         * 1. Assume there are no leaks and then send a forget on all the inodes
+         *    in lru list.(If no leaks there should be no inodes in active list)
+         * 2. Knowing there could be leaks and not freeing those inodes will
+         *    also not free its inode context and this could leak a lot of
+         *    memory, force free the inodes by changeing the ref to 0.
+         *    The problem with this is that any refence ti inode after this
+         *    calling this funtion will lead to a crash.
+         * 3. Knowing there could be leakes, just free the inode contexts of
+         *    all the inodes. and let the inodes be alive. This way the major
+         *    memory consumed by the inode contexts are freed, but there can
+         *    be errors when any inode contexts are accessed after destroying
+         *    this table.
+         *
+         * Not sure which is the approach to be taken, going by approach 2.
+         */
+
+        /* Approach 3:
+         * ret = inode_table_ctx_free (inode_table);
+         */
+        pthread_mutex_lock (&inode_table->lock);
+        {
+                list_for_each_entry_safe (trav, tmp, &inode_table->active, list) {
+                        __inode_ref_reduce_by_n (trav, 0);
+                }
+
+                list_for_each_entry_safe (trav, tmp, &inode_table->lru, list) {
+                        __inode_forget (trav, 0);
+                }
+        }
+        pthread_mutex_unlock (&inode_table->lock);
+
+        inode_table_prune (inode_table);
+
+        GF_FREE (inode_table->inode_hash);
+        GF_FREE (inode_table->name_hash);
+        if (inode_table->dentry_pool)
+                mem_pool_destroy (inode_table->dentry_pool);
+        if (inode_table->inode_pool)
+                mem_pool_destroy (inode_table->inode_pool);
+        if (inode_table->fd_mem_pool)
+                mem_pool_destroy (inode_table->fd_mem_pool);
+
+        pthread_mutex_destroy (&inode_table->lock);
+
+        GF_FREE (inode_table->name);
+        GF_FREE (inode_table);
+
+        return;
+}
 
 inode_t *
 inode_from_path (inode_table_t *itable, const char *path)
@@ -1535,7 +1755,7 @@ __inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
         int index = 0;
         int set_idx = -1;
 
-        if (!inode || !xlator)
+        if (!inode || !xlator || !inode->_ctx)
                 return -1;
 
         for (index = 0; index < inode->table->ctxcount; index++) {
@@ -1637,7 +1857,7 @@ __inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
         int index = 0;
         int ret = -1;
 
-        if (!inode || !xlator)
+        if (!inode || !xlator || !inode->_ctx)
                 goto out;
 
         for (index = 0; index < inode->table->ctxcount; index++) {
@@ -1756,6 +1976,9 @@ inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
         LOCK (&inode->lock);
         {
+                if (!inode->_ctx)
+                        goto unlock;
+
                 for (index = 0; index < inode->table->ctxcount;
                      index++) {
                         if (inode->_ctx[index].xl_key == xlator)
@@ -1773,6 +1996,7 @@ inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                         *value2 = inode->_ctx[index].value2;
 
                 inode->_ctx[index].key    = 0;
+                inode->_ctx[index].xl_key = NULL;
                 inode->_ctx[index].value1 = 0;
                 inode->_ctx[index].value2 = 0;
         }

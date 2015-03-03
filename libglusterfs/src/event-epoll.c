@@ -88,7 +88,9 @@ __event_slot_alloc (struct event_pool *event_pool, int fd)
 				table = __event_newtable (event_pool, i);
 				if (!table)
 					return -1;
-			}
+			} else {
+                                table = event_pool->ereg[i];
+                        }
 			break;
 		default:
 			table = event_pool->ereg[i];
@@ -335,7 +337,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 
 	LOCK (&slot->lock);
 	{
-		/* make epoll edge triggered and 'singleshot', which
+		/* make epoll 'singleshot', which
 		   means we need to re-add the fd with
 		   epoll_ctl(EPOLL_CTL_MOD) after delivery of every
 		   single event. This assures us that while a poller
@@ -344,7 +346,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 		   time as well.
 		*/
 
-		slot->events = EPOLLPRI | EPOLLET | EPOLLONESHOT;
+		slot->events = EPOLLPRI | EPOLLONESHOT;
 		slot->handler = handler;
 		slot->data = data;
 

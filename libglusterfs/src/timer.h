@@ -58,4 +58,6 @@ gf_timer_proc (void *data);
 gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx);
 
+void
+gf_timer_registry_destroy (glusterfs_ctx_t *ctx);
 #endif /* _TIMER_H */

@@ -2263,16 +2263,9 @@ socket_event_poll_in (rpc_transport_t *this)
         rpc_transport_pollin_t *pollin = NULL;
         socket_private_t       *priv = this->private;
 
-	do {
-		/* consume all we can, this is our only chance
-		   (Edge Triggered polling in epoll)
-		*/
-		pollin = NULL;
-		ret = socket_proto_state_machine (this, &pollin);
+	ret = socket_proto_state_machine (this, &pollin);
 
-		if (!pollin)
-			break;
-
+	if (pollin) {
                 priv->ot_state = OT_CALLBACK;
                 ret = rpc_transport_notify (this, RPC_TRANSPORT_MSG_RECEIVED,
                                             pollin);
@@ -2280,8 +2273,7 @@ socket_event_poll_in (rpc_transport_t *this)
                         priv->ot_state = OT_RUNNING;
                 }
                 rpc_transport_pollin_destroy (pollin);
-
-        } while (pollin);
+        }
 
         return ret;
 }
