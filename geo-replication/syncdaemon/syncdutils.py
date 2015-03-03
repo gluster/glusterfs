@@ -203,7 +203,12 @@ def finalize(*a, **kw):
                 else:
                     raise
     if gconf.ssh_ctl_dir and not gconf.cpid:
-        shutil.rmtree(gconf.ssh_ctl_dir)
+        def handle_rm_error(func, path, exc_info):
+            if exc_info[1].errno == ENOENT:
+                return
+            raise exc_info[1]
+
+        shutil.rmtree(gconf.ssh_ctl_dir, onerror=handle_rm_error)
     if getattr(gconf, 'state_socket', None):
         try:
             os.unlink(gconf.state_socket)
