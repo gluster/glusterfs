@@ -4701,7 +4701,10 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (volinfo->status != GLUSTERD_STATUS_STARTED)
                         continue;
-                start_svcs = _gf_true;
+                if (start_svcs == _gf_false) {
+                        start_svcs = _gf_true;
+                        glusterd_svcs_manager (NULL);
+                }
                 gf_log (this->name, GF_LOG_DEBUG, "starting the volume %s",
                         volinfo->volname);
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
@@ -4714,6 +4717,10 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                         if (volinfo->status != GLUSTERD_STATUS_STARTED)
                                 continue;
+                        if (start_svcs == _gf_false) {
+                                start_svcs = _gf_true;
+                                glusterd_svcs_manager (NULL);
+                        }
                         start_svcs = _gf_true;
                         gf_log (this->name, GF_LOG_DEBUG, "starting the snap "
                                 "volume %s", volinfo->volname);
@@ -4724,9 +4731,6 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         }
                 }
         }
-
-        if (start_svcs)
-                glusterd_svcs_manager (NULL);
 
         return ret;
 }
