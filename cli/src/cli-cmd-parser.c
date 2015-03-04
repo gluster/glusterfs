@@ -2028,7 +2028,7 @@ out:
 }
 
 static int32_t
-force_push_pem_parse (const char **words, int wordcount,
+force_push_pem_no_verify_parse (const char **words, int wordcount,
                       dict_t *dict, unsigned *cmdi)
 {
         int32_t            ret     = 0;
@@ -2037,6 +2037,7 @@ force_push_pem_parse (const char **words, int wordcount,
                 if ((strcmp ((char *)words[wordcount-2], "start")) &&
                     (strcmp ((char *)words[wordcount-2], "stop")) &&
                     (strcmp ((char *)words[wordcount-2], "create")) &&
+                    (strcmp ((char *)words[wordcount-2], "no-verify")) &&
                     (strcmp ((char *)words[wordcount-2], "push-pem")) &&
                     (strcmp ((char *)words[wordcount-2], "pause")) &&
                     (strcmp ((char *)words[wordcount-2], "resume"))) {
@@ -2058,6 +2059,16 @@ force_push_pem_parse (const char **words, int wordcount,
                         if (ret)
                                 goto out;
                         (*cmdi)++;
+                } else if (!strcmp ((char *)words[wordcount-2], "no-verify")) {
+                        if (strcmp ((char *)words[wordcount-3], "create")) {
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_uint32 (dict, "no_verify",
+                                               _gf_true);
+                        if (ret)
+                                goto out;
+                        (*cmdi)++;
                 }
         } else if (!strcmp ((char *)words[wordcount-1], "push-pem")) {
                 if (strcmp ((char *)words[wordcount-2], "create")) {
@@ -2065,6 +2076,16 @@ force_push_pem_parse (const char **words, int wordcount,
                         goto out;
                 }
                 ret = dict_set_int32 (dict, "push_pem", 1);
+                if (ret)
+                        goto out;
+                (*cmdi)++;
+        } else if (!strcmp ((char *)words[wordcount-1], "no-verify")) {
+                if ((strcmp ((char *)words[wordcount-2], "create"))) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_uint32 (dict, "no_verify",
+                                       _gf_true);
                 if (ret)
                         goto out;
                 (*cmdi)++;
@@ -2088,7 +2109,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         unsigned           glob    = 0;
         unsigned           cmdi    = 0;
         char               *opwords[] = { "create", "status", "start", "stop",
-                                          "config", "force", "delete",
+                                          "config", "force", "delete", "no-verify"
                                           "push-pem", "detail", "pause",
                                           "resume", NULL };
         char               *w = NULL;
@@ -2102,7 +2123,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
 
         /* new syntax:
          *
-         * volume geo-replication $m $s create [push-pem] [force]
+         * volume geo-replication $m $s create [[no-verify] | [push-pem]] [force]
          * volume geo-replication [$m [$s]] status [detail]
          * volume geo-replication [$m] $s config [[!]$opt [$val]]
          * volume geo-replication $m $s start|stop [force]
@@ -2215,7 +2236,7 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         } else
                 GF_ASSERT (!"opword mismatch");
 
-        ret = force_push_pem_parse (words, wordcount, dict, &cmdi);
+        ret = force_push_pem_no_verify_parse (words, wordcount, dict, &cmdi);
         if (ret)
                 goto out;
 
