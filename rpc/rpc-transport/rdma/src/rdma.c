@@ -3587,8 +3587,8 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                         wr[i].opcode     = IBV_WR_RDMA_READ;
                         wr[i].send_flags = IBV_SEND_SIGNALED;
                         wr[i].wr.rdma.remote_addr =
-                                readch->rc_target.rs_offset;
-                        wr[i].wr.rdma.rkey = readch->rc_target.rs_handle;
+                                readch[i].rc_target.rs_offset;
+                        wr[i].wr.rdma.rkey = readch[i].rc_target.rs_handle;
 
                         ptr += readch[i].rc_target.rs_length;
                         total_ref++;
