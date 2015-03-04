@@ -16,7 +16,6 @@ create_files () {
 
 move_files_inner () {
 	sfile=$M0/status_$(basename $1)
-	echo "running" > $sfile
 	for i in {1..1000}; do
 		src=$(printf %s/src%04d $1 $i)
 		dst=$(printf %s/dst%04d $1 $i)
@@ -26,6 +25,11 @@ move_files_inner () {
 }
 
 move_files () {
+        #Create the status file here to prevent spurious failures
+        #caused by the file not being created in time by the
+        #background process
+	sfile=$M0/status_$(basename $1)
+	echo "running" > $sfile
 	move_files_inner $* &
 }
 
