@@ -33,6 +33,17 @@ gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> crea
 
 If the total available size in slave volume is less than the total size of master, the command will throw error message. In such cases 'force' option can be used.
 
+In use cases where the rsa-keys of nodes in master volume is distributed to slave nodes through an external agent and slave side verifications like:
+- if ssh port 22 is open in slave
+- has proper passwordless ssh login setup
+- slave volume is created and is empty
+- if slave has enough memory
+is taken care by the external agent, the following command can be used to create geo-replication:
+```sh
+gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> create no-verify [force]
+```
+In this case the master node rsa-key distribution to slave node does not happen and above mentioned slave verification is not performed and these two things has to be taken care externaly.
+
 #### Starting a geo-rep session
 There is no change in this command from previous versions to this version.
 ```sh

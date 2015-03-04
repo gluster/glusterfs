@@ -2205,6 +2205,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         int                 ret                       = -1;
         int                 is_pem_push               = -1;
         gf_boolean_t        is_force                  = -1;
+        gf_boolean_t        is_no_verify              = -1;
         gf_boolean_t        is_force_blocker          = -1;
         gf_boolean_t        exists                    = _gf_false;
         gf_boolean_t        is_template_in_use        = _gf_false;
@@ -2289,23 +2290,28 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                          down_peerstr = NULL;
                 }
 
-                /* Checking if slave host is pingable, has proper passwordless
-                 * ssh login setup, slave volume is created, slave vol is empty,
-                 * and if it has enough memory and bypass in case of force if
-                 * the error is not a force blocker */
-                ret = glusterd_verify_slave (volname, slave_url, slave_vol,
-                                             op_errstr, &is_force_blocker);
-                if (ret) {
-                        if (is_force && !is_force_blocker) {
-                                gf_log ("", GF_LOG_INFO, "%s is not a valid slave"
-                                        " volume. Error: %s. Force creating geo-rep"
-                                        " session.", slave, *op_errstr);
-                        } else {
-                                gf_log ("", GF_LOG_ERROR,
-                                        "%s is not a valid slave volume. Error: %s",
-                                        slave, *op_errstr);
-                                ret = -1;
-                                goto out;
+                is_no_verify = dict_get_str_boolean (dict, "no_verify", _gf_false);
+
+                if (!is_no_verify) {
+                        /* Checking if slave host is pingable, has proper passwordless
+                        * ssh login setup, slave volume is created, slave vol is empty,
+                        * and if it has enough memory and bypass in case of force if
+                        * the error is not a force blocker */
+                        ret = glusterd_verify_slave (volname, slave_url, slave_vol,
+                                                     op_errstr, &is_force_blocker);
+                        if (ret) {
+                                if (is_force && !is_force_blocker) {
+                                        gf_log ("", GF_LOG_INFO, "%s is not a valid slave"
+                                                " volume. Error: %s. Force creating geo-rep"
+                                                " session.", slave, *op_errstr);
+                                } else {
+                                        gf_log ("", GF_LOG_ERROR,
+                                                "%s is not a valid slave volume. Error: %s",
+                                                slave, *op_errstr);
+                                        ret = -1;
+
+                                        goto out;
+                                }
                         }
                 }
 
