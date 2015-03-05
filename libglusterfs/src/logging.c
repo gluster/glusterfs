@@ -870,6 +870,10 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 
         len = strlen (str1);
         msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto out;
+        }
 
         strcpy (msg, str1);
         strcpy (msg + len, str2);
@@ -1397,6 +1401,10 @@ gf_log_glusterlog (glusterfs_ctx_t *ctx, const char *domain, const char *file,
         flen = footer? strlen (footer) : 0;
         mlen = strlen (*appmsgstr);
         msg = GF_MALLOC (hlen + flen + mlen + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto err;
+        }
 
         strcpy (msg, header);
         strcpy (msg + hlen, *appmsgstr);
@@ -1531,6 +1539,10 @@ gf_glusterlog_log_repetitions (glusterfs_ctx_t *ctx, const char *domain,
         flen = strlen (footer);
         mlen = strlen (*appmsgstr);
         msg = GF_MALLOC (hlen + flen + mlen + 1, gf_common_mt_char);
+        if (!msg) {
+                ret = -1;
+                goto err;
+        }
 
         strcpy (msg, header);
         strcpy (msg + hlen, *appmsgstr);
@@ -2195,6 +2207,9 @@ log:
 
         len = strlen (str1);
         msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                goto err;
+        }
 
         strcpy (msg, str1);
         strcpy (msg + len, str2);
@@ -2376,6 +2391,9 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
 
         len = strlen (str1);
         msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+        if (!msg) {
+                goto out;
+        }
 
         strcpy (msg, str1);
         strcpy (msg + len, str2);
