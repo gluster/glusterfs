@@ -665,7 +665,7 @@ iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size)
                 if (!iobuf)
                         goto unlock;
 
-                __iobuf_ref (iobuf);
+                iobuf_ref (iobuf);
          }
 unlock:
         pthread_mutex_unlock (&iobuf_pool->mutex);
@@ -698,7 +698,7 @@ iobuf_get (struct iobuf_pool *iobuf_pool)
                         goto unlock;
                 }
 
-                __iobuf_ref (iobuf);
+                iobuf_ref (iobuf);
         }
 unlock:
         pthread_mutex_unlock (&iobuf_pool->mutex);
