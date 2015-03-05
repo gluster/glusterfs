@@ -392,6 +392,11 @@ typedef enum {
         GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS
 } gf_dht_migrate_data_type_t;
 
+typedef enum {
+        GF_DHT_EQUAL_DISTRIBUTION,
+        GF_DHT_WEIGHTED_DISTRIBUTION
+} dht_distribution_type_t;
+
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_revalidate(loc) (dht_inode_ctx_layout_get (loc->inode, this, NULL) == 0)
