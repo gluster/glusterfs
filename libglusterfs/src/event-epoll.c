@@ -317,12 +317,31 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 {
         int                 idx = -1;
         int                 ret = -1;
+        int             destroy = 0;
         struct epoll_event  epoll_event = {0, };
         struct event_data  *ev_data = (void *)&epoll_event.data;
 	struct event_slot_epoll *slot = NULL;
 
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
+
+        /* TODO: Even with the below check, there is a possiblity of race,
+         * What if the destroy mode is set after the check is done.
+         * Not sure of the best way to prevent this race, ref counting
+         * is one possibility.
+         * There is no harm in registering and unregistering the fd
+         * even after destroy mode is set, just that such fds will remain
+         * open until unregister is called, also the events on that fd will be
+         * notified, until one of the poller thread is alive.
+         */
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                destroy = event_pool->destroy;
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
+
+        if (destroy == 1)
+               goto out;
 
 	idx = event_slot_alloc (event_pool, fd);
 	if (idx == -1) {
@@ -609,6 +628,12 @@ event_dispatch_epoll_worker (void *data)
 
         gf_log ("epoll", GF_LOG_INFO, "Started thread with index %d", myindex);
 
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                event_pool->activethreadcount++;
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
+
 	for (;;) {
                 if (event_pool->eventthreadcount < myindex) {
                         /* ...time to die, thread count was decreased below
@@ -623,7 +648,9 @@ event_dispatch_epoll_worker (void *data)
                                         /* if found true in critical section,
                                          * die */
                                         event_pool->pollers[myindex - 1] = 0;
+                                        event_pool->activethreadcount--;
                                         timetodie = 1;
+                                        pthread_cond_broadcast (&event_pool->cond);
                                 }
                         }
                         pthread_mutex_unlock (&event_pool->mutex);
@@ -675,6 +702,8 @@ event_dispatch_epoll (struct event_pool *event_pool)
                 /* Default pollers to 1 in case this is incorrectly set */
                 if (pollercount <= 0)
                         pollercount = 1;
+
+                event_pool->activethreadcount++;
 
                 for (i = 0; i < pollercount; i++) {
                         ev_data = GF_CALLOC (1, sizeof (*ev_data),
@@ -729,6 +758,12 @@ event_dispatch_epoll (struct event_pool *event_pool)
         if (event_pool->pollers[0] != 0)
 		pthread_join (event_pool->pollers[0], NULL);
 
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                event_pool->activethreadcount--;
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
+
 	return ret;
 }
 
@@ -736,21 +771,26 @@ int
 event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
 {
         int                              i;
-        int                              ret;
+        int                              ret = 0;
         pthread_t                        t_id;
         int                              oldthreadcount;
         struct event_thread_data        *ev_data = NULL;
 
-        /* Set to MAX if greater */
-        if (value > EVENT_MAX_THREADS)
-                value = EVENT_MAX_THREADS;
-
-        /* Default pollers to 1 in case this is set incorrectly */
-        if (value <= 0)
-                value = 1;
-
         pthread_mutex_lock (&event_pool->mutex);
         {
+                /* Reconfigure to 0 threads is allowed only in destroy mode */
+                if (event_pool->destroy == 1) {
+                        value = 0;
+                } else {
+                        /* Set to MAX if greater */
+                        if (value > EVENT_MAX_THREADS)
+                                value = EVENT_MAX_THREADS;
+
+                        /* Default pollers to 1 in case this is set incorrectly */
+                        if (value <= 0)
+                                value = 1;
+                }
+
                 oldthreadcount = event_pool->eventthreadcount;
 
                 if (oldthreadcount < value) {
@@ -797,6 +837,39 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
         return 0;
 }
 
+/* This function is the destructor for the event_pool data structure
+ * Should be called only after poller_threads_destroy() is called,
+ * else will lead to crashes.
+ */
+static int
+event_pool_destroy_epoll (struct event_pool *event_pool)
+{
+        int ret = 0, i = 0, j = 0;
+        struct event_slot_epoll *table = NULL;
+
+        ret = close (event_pool->fd);
+
+        for (i = 0; i < EVENT_EPOLL_TABLES; i++) {
+                if (event_pool->ereg[i]) {
+                        table = event_pool->ereg[i];
+                        event_pool->ereg[i] = NULL;
+                                for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
+                                        LOCK_DESTROY (&table[j].lock);
+                                }
+                        GF_FREE (table);
+                }
+        }
+
+        pthread_mutex_destroy (&event_pool->mutex);
+        pthread_cond_destroy (&event_pool->cond);
+
+        GF_FREE (event_pool->evcache);
+        GF_FREE (event_pool->reg);
+        GF_FREE (event_pool);
+
+        return ret;
+}
+
 struct event_ops event_ops_epoll = {
         .new                       = event_pool_new_epoll,
         .event_register            = event_register_epoll,
@@ -804,7 +877,8 @@ struct event_ops event_ops_epoll = {
         .event_unregister          = event_unregister_epoll,
         .event_unregister_close    = event_unregister_close_epoll,
         .event_dispatch            = event_dispatch_epoll,
-        .event_reconfigure_threads = event_reconfigure_threads_epoll
+        .event_reconfigure_threads = event_reconfigure_threads_epoll,
+        .event_pool_destroy        = event_pool_destroy_epoll
 };
 
 #endif

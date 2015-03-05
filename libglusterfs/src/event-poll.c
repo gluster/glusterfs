@@ -449,7 +449,24 @@ event_dispatch_poll (struct event_pool *event_pool)
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
+        pthread_mutex_lock (&event_pool->mutex);
+        {
+                event_pool->activethreadcount = 1;
+        }
+        pthread_mutex_unlock (&event_pool->mutex);
+
         while (1) {
+                pthread_mutex_lock (&event_pool->mutex);
+                {
+                        if (event_pool->destroy == 1) {
+                                event_pool->activethreadcount = 0;
+                                pthread_cond_broadcast (&event_pool->cond);
+                                pthread_mutex_unlock (&event_pool->mutex);
+                                return 0;
+                        }
+                }
+                pthread_mutex_unlock (&event_pool->mutex);
+
                 size = event_dispatch_poll_resize (event_pool, ufds, size);
                 ufds = event_pool->evcache;
 
@@ -482,6 +499,31 @@ event_reconfigure_threads_poll (struct event_pool *event_pool, int value)
         return 0;
 }
 
+/* This function is the destructor for the event_pool data structure
+ * Should be called only after poller_threads_destroy() is called,
+ * else will lead to crashes.
+ */
+static int
+event_pool_destroy_poll (struct event_pool *event_pool)
+{
+        int ret = 0;
+
+        ret = close (event_pool->breaker[0]);
+        if (ret)
+                return ret;
+
+        ret = close (event_pool->breaker[1]);
+        if (ret)
+                return ret;
+
+        event_pool->breaker[0] = event_pool->breaker[1] = -1;
+
+        GF_FREE (event_pool->reg);
+        GF_FREE (event_pool);
+
+        return ret;
+}
+
 struct event_ops event_ops_poll = {
         .new                    = event_pool_new_poll,
         .event_register         = event_register_poll,
@@ -489,5 +531,6 @@ struct event_ops event_ops_poll = {
         .event_unregister       = event_unregister_poll,
         .event_unregister_close = event_unregister_close_poll,
         .event_dispatch         = event_dispatch_poll,
-        .event_reconfigure_threads = event_reconfigure_threads_poll
+        .event_reconfigure_threads = event_reconfigure_threads_poll,
+        .event_pool_destroy     = event_pool_destroy_poll
 };

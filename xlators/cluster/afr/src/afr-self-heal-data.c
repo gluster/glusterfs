@@ -645,6 +645,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	struct afr_reply *locked_replies = NULL;
 	int source = -1;
 	gf_boolean_t compat = _gf_false;
+        gf_boolean_t did_sh = _gf_true;
 	unsigned char *compat_lock = NULL;
 
 	priv = this->private;
@@ -676,6 +677,11 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		if (ret < 0)
 			goto unlock;
 
+                if (AFR_COUNT(healed_sinks, priv->child_count) == 0) {
+                        did_sh = _gf_false;
+                        goto unlock;
+                }
+
 		source = ret;
 
 		ret = __afr_selfheal_truncate_sinks (frame, this, fd, healed_sinks,
@@ -701,6 +707,9 @@ unlock:
         if (ret < 0)
 		goto out;
 
+        if (!did_sh)
+                goto out;
+
 	ret = afr_selfheal_data_do (frame, this, fd, source, healed_sinks,
 				    locked_replies);
 	if (ret)
@@ -714,8 +723,11 @@ out:
 		afr_selfheal_uninodelk (frame, this, fd->inode, this->name,
 					LLONG_MAX - 2, 1, compat_lock);
 
-        afr_log_selfheal (fd->inode->gfid, this, ret, "data", source,
-                          healed_sinks);
+        if (did_sh)
+                afr_log_selfheal (fd->inode->gfid, this, ret, "data", source,
+                                  healed_sinks);
+        else
+                ret = 1;
 
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);

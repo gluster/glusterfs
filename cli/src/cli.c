@@ -548,7 +548,7 @@ cli_quotad_clnt_rpc_init (void)
                 goto out;
 
         ret = dict_set_str (rpc_opts, "transport.socket.connect-path",
-                                            "/tmp/quotad.socket");
+                                            "/var/run/gluster/quotad.socket");
         if (ret)
                 goto out;
 

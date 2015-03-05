@@ -361,7 +361,7 @@ quotad_aggregator_init (xlator_t *this)
                 goto out;
 
         ret = dict_set_str (this->options, "transport.socket.listen-path",
-                            "/tmp/quotad.socket");
+                            "/var/run/gluster/quotad.socket");
         if (ret)
                 goto out;
 

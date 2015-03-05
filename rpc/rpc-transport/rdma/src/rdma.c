@@ -802,7 +802,9 @@ out:
                 mem_pool_destroy (trav->ioq_pool);
                 mem_pool_destroy (trav->request_ctx_pool);
                 mem_pool_destroy (trav->reply_info_pool);
-                ibv_dealloc_pd (trav->pd);
+                if (trav->pd != NULL) {
+                        ibv_dealloc_pd (trav->pd);
+                }
                 gf_rdma_destroy_cq (this);
                 ibv_destroy_comp_channel (trav->recv_chan);
                 ibv_destroy_comp_channel (trav->send_chan);
@@ -3585,8 +3587,8 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
                         wr[i].opcode     = IBV_WR_RDMA_READ;
                         wr[i].send_flags = IBV_SEND_SIGNALED;
                         wr[i].wr.rdma.remote_addr =
-                                readch->rc_target.rs_offset;
-                        wr[i].wr.rdma.rkey = readch->rc_target.rs_handle;
+                                readch[i].rc_target.rs_offset;
+                        wr[i].wr.rdma.rkey = readch[i].rc_target.rs_handle;
 
                         ptr += readch[i].rc_target.rs_length;
                         total_ref++;
