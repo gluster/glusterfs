@@ -345,10 +345,11 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
 
         GF_ASSERT (conf);
 
+        rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (NULL, probe_ctx->hostname);
         if (peerinfo == NULL) {
                 //We should not reach this state ideally
-                GF_ASSERT (0);
+                ret = -1;
                 goto out;
         }
 
@@ -372,6 +373,10 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
                 if (ret)
                         goto out;
 
+                /* The peerinfo reference being set here is going to be used
+                 * only within this critical section, in glusterd_rpc_probe
+                 * (ie. proc->fn).
+                 */
                 ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
@@ -384,8 +389,9 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
 
         }
 
-
 out:
+        rcu_read_unlock ();
+
         if (dict)
                 dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -851,14 +857,16 @@ glusterd_friend_sm_transition_state (uuid_t peerid, char *peername,
                                      glusterd_sm_t *state,
                                      glusterd_friend_sm_event_type_t event_type)
 {
+        int ret = -1;
         glusterd_peerinfo_t *peerinfo = NULL;
 
         GF_ASSERT (state);
         GF_ASSERT (peername);
 
+        rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (peerid, peername);
         if (!peerinfo) {
-                return 1;
+                goto out;
         }
 
         (void) glusterd_sm_tr_log_transition_add (&peerinfo->sm_log,
@@ -869,7 +877,10 @@ glusterd_friend_sm_transition_state (uuid_t peerid, char *peername,
         synchronize_rcu ();
         uatomic_set (&peerinfo->state.state, state[event_type].next_state);
 
-        return 0;
+        ret = 0;
+out:
+        rcu_read_unlock ();
+        return ret;
 }
 
 
@@ -1236,6 +1247,27 @@ glusterd_friend_sm ()
                                 goto out;
                         }
 
+                        peerinfo = NULL;
+                        /* We need to obtain peerinfo reference once again as we
+                         * had exited the read critical section above.
+                         */
+                        rcu_read_lock ();
+                        peerinfo = glusterd_peerinfo_find (event->peerid,
+                                        event->peername);
+                        if (!peerinfo) {
+                                rcu_read_unlock ();
+                                /* A peer can only be deleted as a effect of
+                                 * this state machine, and two such state
+                                 * machines can never run at the same time.
+                                 * So if we cannot find the peerinfo here,
+                                 * something has gone terribly wrong.
+                                 */
+                                ret = -1;
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "Cannot find peer %s(%s)",
+                                        event->peername, uuid_utoa (event->peerid));
+                                goto out;
+                        }
                         if (gd_does_peer_affect_quorum (old_state, event_type,
                                                         peerinfo)) {
                                 peerinfo->quorum_contrib = QUORUM_UP;
@@ -1246,6 +1278,7 @@ glusterd_friend_sm ()
                         }
 
                         ret = glusterd_store_peerinfo (peerinfo);
+                        rcu_read_unlock ();
 
                         glusterd_destroy_friend_event_context (event);
                         GF_FREE (event);

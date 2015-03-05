@@ -975,9 +975,11 @@ gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req)
         if (ret)
                 return _gf_false;
 
-        peer = glusterd_peerinfo_find (NULL, hostname);
-        if (peer == NULL) {
-                ret = -1;
+        rcu_read_lock ();
+        ret = (glusterd_peerinfo_find (NULL, hostname) == NULL);
+        rcu_read_unlock ();
+
+        if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Rejecting management "
                         "handshake request from unknown peer %s",
                         req->trans->peerinfo.identifier);
@@ -2023,8 +2025,8 @@ out:
 
         rcu_read_unlock ();
 
-        glusterd_friend_sm();
-        glusterd_op_sm();
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
 
         /* don't use GF_FREE, buffer was allocated by libc */
         if (rsp.prog) {
@@ -2066,6 +2068,8 @@ glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
                 goto out;
 
         frame->local = peerctx;
+        if (!peerctx)
+                goto out;
 
         rcu_read_lock ();
 

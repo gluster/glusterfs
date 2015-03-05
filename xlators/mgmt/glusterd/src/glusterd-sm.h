@@ -29,7 +29,6 @@
 #include "rpcsvc.h"
 #include "store.h"
 
-#define _LGPL_SOURCE
 #include <urcu/rculist.h>
 
 typedef enum gd_quorum_contribution_ {

@@ -408,8 +408,10 @@ out:
         /* Attempt to start the state machine. Needed as no state machine could
          * be running at time this RPC reply was recieved
          */
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
+        if (!ret) {
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
+        }
 
         return ret;
 }
@@ -724,8 +726,11 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 "Received lock %s from uuid: %s", (op_ret) ? "RJT" : "ACC",
                 uuid_utoa (rsp.uuid));
 
-        peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
-        if (peerinfo == NULL) {
+        rcu_read_lock ()
+        ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
+        rcu_read_unlock ();
+
+        if (ret) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "cluster lock response received from unknown peer: %s."
                         "Ignoring response", uuid_utoa (rsp.uuid));
@@ -780,7 +785,6 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int                           ret   = -1;
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
-        glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
         call_frame_t                  *frame  = NULL;
         uuid_t                        *txn_id = NULL;
@@ -823,8 +827,11 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 "Received mgmt_v3 lock %s from uuid: %s",
                 (op_ret) ? "RJT" : "ACC", uuid_utoa (rsp.uuid));
 
-        peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
-        if (peerinfo == NULL) {
+        rcu_read_lock ()
+        ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
+        rcu_read_unlock ();
+
+        if (ret) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "mgmt_v3 lock response received "
                         "from unknown peer: %s. Ignoring response",
@@ -870,7 +877,6 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int                           ret   = -1;
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
-        glusterd_peerinfo_t           *peerinfo = NULL;
         xlator_t                      *this = NULL;
         call_frame_t                  *frame = NULL;
         uuid_t                        *txn_id = NULL;
@@ -917,8 +923,11 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 (op_ret) ? "RJT" : "ACC",
                 uuid_utoa (rsp.uuid));
 
-        peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
-        if (peerinfo == NULL) {
+        rcu_read_lock ()
+        ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
+        rcu_read_unlock ();
+
+        if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_CLUSTER_UNLOCK_FAILED,
                         "mgmt_v3 unlock response received "
@@ -1009,8 +1018,11 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 "Received unlock %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
-        peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
-        if (peerinfo == NULL) {
+        rcu_read_lock ()
+        ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
+        rcu_read_unlock ();
+
+        if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_CLUSTER_UNLOCK_FAILED,
                         "Unlock response received from unknown peer %s",
@@ -1120,6 +1132,7 @@ out:
         gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
                 uuid_utoa (*txn_id));
 
+        rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
                 gf_log (this->name, GF_LOG_CRITICAL, "Stage response received "
@@ -1146,6 +1159,8 @@ out:
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
+
+        rcu_read_unlock ();
 
         switch (rsp.op) {
         case GD_OP_REPLACE_BRICK:
@@ -1256,6 +1271,7 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
                 uuid_utoa (*txn_id));
 
+        rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
                 gf_log (this->name, GF_LOG_CRITICAL, "Commit response for "
@@ -1279,7 +1295,7 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
                 if (!opinfo.op_errstr) {
                         ret = -1;
-                        goto out;
+                        goto unlock;
                 }
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
@@ -1287,44 +1303,44 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 case GD_OP_REPLACE_BRICK:
                         ret = glusterd_rb_use_rsp_dict (NULL, dict);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 break;
 
                 case GD_OP_SYNC_VOLUME:
                         ret = glusterd_sync_use_rsp_dict (NULL, dict);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 break;
 
                 case GD_OP_PROFILE_VOLUME:
                         ret = glusterd_profile_volume_use_rsp_dict (NULL, dict);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 break;
 
                 case GD_OP_GSYNC_SET:
                         ret = glusterd_gsync_use_rsp_dict (NULL, dict, rsp.op_errstr);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 break;
 
                 case GD_OP_STATUS_VOLUME:
                         ret = glusterd_volume_status_copy_to_op_ctx_dict (NULL, dict);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 break;
 
                 case GD_OP_REBALANCE:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
                         ret = glusterd_volume_rebalance_use_rsp_dict (NULL, dict);
                         if (ret)
-                                goto out;
+                                goto unlock;
                 break;
 
                 case GD_OP_HEAL_VOLUME:
                         ret = glusterd_volume_heal_use_rsp_dict (NULL, dict);
                         if (ret)
-                                goto out;
+                                goto unlock;
 
                 break;
 
@@ -1332,6 +1348,8 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
                 }
         }
+unlock:
+        rcu_read_unlock ();
 
 out:
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
