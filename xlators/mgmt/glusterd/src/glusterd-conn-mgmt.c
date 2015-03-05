@@ -14,6 +14,7 @@
 #include "glusterd-conn-mgmt.h"
 #include "glusterd-conn-helper.h"
 #include "glusterd-utils.h"
+#include "glusterd-messages.h"
 
 int
 glusterd_conn_init (glusterd_conn_t *conn, char *sockpath,
@@ -30,7 +31,8 @@ glusterd_conn_init (glusterd_conn_t *conn, char *sockpath,
 
         svc = glusterd_conn_get_svc_object (conn);
         if (!svc) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get the service");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SVC_GET_FAIL, "Failed to get the service");
                 goto out;
         }
 

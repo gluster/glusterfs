@@ -25,7 +25,8 @@ glusterd_svc_create_rundir (char *rundir)
 
         ret = mkdir (rundir, 0777);
         if ((ret == -1) && (EEXIST != errno)) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to create rundir %s",
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "Unable to create rundir %s",
                         rundir);
         }
         return ret;
@@ -112,7 +113,7 @@ glusterd_svc_init_common (glusterd_svc_t *svc,
                 goto out;
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -173,7 +174,8 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
 
         ret = access (svc->proc.volfile, F_OK);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Volfile %s is not present",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_NOT_FOUND, "Volfile %s is not present",
                         svc->proc.volfile);
                 goto out;
         }
@@ -201,7 +203,7 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         if (cmdline)
                 dict_foreach (cmdline, svc_add_args, (void *) &runner);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Starting %s service", svc->name);
+        gf_msg_debug (this->name, 0, "Starting %s service", svc->name);
 
         if (flags == PROC_START_NO_WAIT) {
                 ret = runner_run_nowait (&runner);
@@ -214,7 +216,7 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -233,7 +235,7 @@ int glusterd_svc_stop (glusterd_svc_t *svc, int sig)
                 (void) glusterd_unlink_file ((char *)svc->conn.sockpath);
         }
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -309,13 +311,14 @@ glusterd_svc_common_rpc_notify (glusterd_conn_t *conn,
         /* Get the parent onject i.e. svc using list_entry macro */
         svc = cds_list_entry (conn, glusterd_svc_t, conn);
         if (!svc) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get the service");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SVC_GET_FAIL, "Failed to get the service");
                 return -1;
         }
 
         switch (event) {
         case RPC_CLNT_CONNECT:
-                gf_log (this->name, GF_LOG_DEBUG, "%s has connected with "
+                gf_msg_debug (this->name, 0, "%s has connected with "
                         "glusterd.", svc->name);
                 svc->online =  _gf_true;
                 break;
@@ -330,7 +333,7 @@ glusterd_svc_common_rpc_notify (glusterd_conn_t *conn,
                 break;
 
         default:
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "got some other RPC event %d", event);
                 break;
         }
