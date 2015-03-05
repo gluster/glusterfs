@@ -726,7 +726,7 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 "Received lock %s from uuid: %s", (op_ret) ? "RJT" : "ACC",
                 uuid_utoa (rsp.uuid));
 
-        rcu_read_lock ()
+        rcu_read_lock ();
         ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
         rcu_read_unlock ();
 
@@ -827,7 +827,7 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 "Received mgmt_v3 lock %s from uuid: %s",
                 (op_ret) ? "RJT" : "ACC", uuid_utoa (rsp.uuid));
 
-        rcu_read_lock ()
+        rcu_read_lock ();
         ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
         rcu_read_unlock ();
 
@@ -923,7 +923,7 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 (op_ret) ? "RJT" : "ACC",
                 uuid_utoa (rsp.uuid));
 
-        rcu_read_lock ()
+        rcu_read_lock ();
         ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
         rcu_read_unlock ();
 
@@ -1018,7 +1018,7 @@ __glusterd_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 "Received unlock %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
-        rcu_read_lock ()
+        rcu_read_lock ();
         ret = (glusterd_peerinfo_find (rsp.uuid, NULL) == NULL);
         rcu_read_unlock ();
 
