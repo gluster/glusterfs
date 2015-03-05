@@ -22,6 +22,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-messages.h"
 
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
@@ -130,7 +131,8 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                         len = snprintf (err_str, sizeof(err_str),
                                 "%s", cli_err_str);
 
-                gf_log (this->name, GF_LOG_ERROR, "%s", op_err);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_OP_FAIL, "%s", op_err);
                 args->errstr = gf_strdup (err_str);
         }
 
@@ -158,7 +160,8 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                                                      rsp_dict);
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
                                 "Snapshot Prevalidate Failed");
                         goto out;
                 }
@@ -171,7 +174,7 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "OP = %d. Returning %d", op, ret);
+        gf_msg_debug (this->name, 0, "OP = %d. Returning %d", op, ret);
         return ret;
 }
 
@@ -193,8 +196,9 @@ gd_mgmt_v3_brick_op_fn (glusterd_op_t op, dict_t *dict,
         {
                 ret = glusterd_snapshot_brickop (dict, op_errstr, rsp_dict);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "snapshot brickop "
-                                "failed");
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_BRICK_OP_FAIL,
+                                "snapshot brickop failed");
                         goto out;
                 }
                 break;
@@ -205,7 +209,7 @@ gd_mgmt_v3_brick_op_fn (glusterd_op_t op, dict_t *dict,
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_TRACE, "OP = %d. Returning %d", op, ret);
+        gf_msg_trace (this->name, 0, "OP = %d. Returning %d", op, ret);
         return ret;
 }
 
@@ -227,9 +231,10 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                {
                        ret = glusterd_snapshot (dict, op_errstr, rsp_dict);
                        if (ret) {
-                               gf_log (this->name, GF_LOG_WARNING,
-                                       "Snapshot Commit Failed");
-                               goto out;
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                               GD_MSG_COMMIT_OP_FAIL,
+                                               "Snapshot Commit Failed");
+                                goto out;
                        }
                        break;
                }
@@ -239,7 +244,7 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "OP = %d. Returning %d", op, ret);
+        gf_msg_debug (this->name, 0, "OP = %d. Returning %d", op, ret);
         return ret;
 }
 
@@ -263,9 +268,10 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                                              op_errstr,
                                                              rsp_dict);
                        if (ret) {
-                               gf_log (this->name, GF_LOG_WARNING,
-                                       "postvalidate operation failed");
-                               goto out;
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                               GD_MSG_POST_VALIDATION_FAIL,
+                                               "postvalidate operation failed");
+                                goto out;
                        }
                        break;
                }
@@ -276,7 +282,7 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
         ret = 0;
 
 out:
-        gf_log (this->name, GF_LOG_TRACE, "OP = %d. Returning %d", op, ret);
+        gf_msg_trace (this->name, 0, "OP = %d. Returning %d", op, ret);
         return ret;
 }
 
@@ -385,7 +391,7 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_lock_req);
 out:
         GF_FREE (req.dict.dict_val);
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -416,7 +422,8 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
         /* Trying to acquire multiple mgmt_v3 locks on local node */
         ret = glusterd_multiple_mgmt_v3_lock (dict, MY_UUID);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_LOCK_GET_FAIL,
                         "Failed to acquire mgmt_v3 locks on localhost");
                 goto out;
         }
@@ -460,12 +467,13 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent lock op req for %s "
+        gf_msg_debug (this->name, 0, "Sent lock op req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
         if (ret) {
                 if (*op_errstr)
-                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MGMTV3_LOCK_GET_FAIL, "%s",
                                 *op_errstr);
 
                 if (volname)
@@ -503,7 +511,8 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
         case GD_OP_SNAP:
                 ret = glusterd_snap_pre_validate_use_rsp_dict (aggr, rsp);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
                                 "Failed to aggregate prevalidate "
                                 "response dictionaries.");
                         goto out;
@@ -511,7 +520,8 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
                 break;
         default:
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Invalid op (%s)",
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "Invalid op (%s)",
                         gd_op_list[op]);
 
                 break;
@@ -583,7 +593,8 @@ gd_mgmt_v3_pre_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
         pthread_mutex_unlock (&args->lock_dict);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RESP_AGGR_FAIL, "%s",
                         "Failed to aggregate response from "
                         " node/brick");
                 if (!rsp.op_ret)
@@ -657,7 +668,7 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_pre_val_req);
 out:
         GF_FREE (req.dict.dict_val);
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -685,7 +696,8 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_CREATE_FAIL,
                         "Failed to create response dictionary");
                 goto out;
         }
@@ -695,7 +707,8 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
                                           rsp_dict);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL,
                         "Pre Validation failed for "
                         "operation %s on local node",
                         gd_op_list[op]);
@@ -716,7 +729,8 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
         ret = glusterd_pre_validate_aggr_rsp_dict (op, req_dict,
                                                    rsp_dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL, "%s",
                         "Failed to aggregate response from "
                         " node/brick");
                 goto out;
@@ -758,7 +772,8 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL,
                         "Pre Validation failed on peers");
 
                 if (args.errstr)
@@ -767,7 +782,7 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent pre valaidation req for %s "
+        gf_msg_debug (this->name, 0, "Sent pre valaidation req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
         return ret;
@@ -912,7 +927,7 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_brick_op_req);
 out:
         GF_FREE (req.dict.dict_val);
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -939,7 +954,8 @@ glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_CREATE_FAIL,
                         "Failed to create response dictionary");
                 goto out;
         }
@@ -949,7 +965,8 @@ glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
                                      rsp_dict);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_FAIL,
                         "Brick ops failed for "
                         "operation %s on local node",
                         gd_op_list[op]);
@@ -1003,7 +1020,8 @@ glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_FAIL,
                         "Brick ops failed on peers");
 
                 if (args.errstr)
@@ -1012,7 +1030,7 @@ glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent brick op req for %s "
+        gf_msg_debug (this->name, 0, "Sent brick op req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
         return ret;
@@ -1081,7 +1099,8 @@ gd_mgmt_v3_commit_cbk_fn (struct rpc_req *req, struct iovec *iov,
         pthread_mutex_unlock (&args->lock_dict);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RESP_AGGR_FAIL, "%s",
                         "Failed to aggregate response from "
                         " node/brick");
                 if (!rsp.op_ret)
@@ -1152,7 +1171,7 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_commit_req);
 out:
         GF_FREE (req.dict.dict_val);
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1180,7 +1199,8 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_CREATE_FAIL,
                         "Failed to create response dictionary");
                 goto out;
         }
@@ -1190,7 +1210,8 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                                    rsp_dict);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL,
                         "Commit failed for "
                         "operation %s on local node",
                         gd_op_list[op]);
@@ -1211,7 +1232,8 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         ret = glusterd_syncop_aggr_rsp_dict (op, op_ctx,
                                              rsp_dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RESP_AGGR_FAIL, "%s",
                         "Failed to aggregate response from "
                         " node/brick");
                 goto out;
@@ -1253,7 +1275,8 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL,
                         "Commit failed on peers");
 
                 if (args.errstr)
@@ -1262,7 +1285,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent commit req for %s to %d "
+        gf_msg_debug (this->name, 0, "Sent commit req for %s to %d "
                 "peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
         return ret;
@@ -1371,7 +1394,7 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_post_val_req);
 out:
         GF_FREE (req.dict.dict_val);
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1400,7 +1423,8 @@ glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_CREATE_FAIL,
                         "Failed to create response dictionary");
                 goto out;
         }
@@ -1413,7 +1437,8 @@ glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                            rsp_dict);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_POST_VALIDATION_FAIL,
                         "Post Validation failed for "
                         "operation %s on local node",
                         gd_op_list[op]);
@@ -1467,7 +1492,8 @@ glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_POST_VALIDATION_FAIL,
                         "Post Validation failed on peers");
 
                 if (args.errstr)
@@ -1476,7 +1502,7 @@ glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent post valaidation req for %s "
+        gf_msg_debug (this->name, 0, "Sent post valaidation req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
         return ret;
@@ -1580,7 +1606,7 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_unlock_req);
 out:
         GF_FREE (req.dict.dict_val);
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1644,7 +1670,8 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_UNLOCK_FAIL,
                         "Unlock failed on peers");
 
                 if (!op_ret && args.errstr)
@@ -1653,7 +1680,7 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent unlock op req for %s "
+        gf_msg_debug (this->name, 0, "Sent unlock op req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 
 out:
@@ -1690,7 +1717,6 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
          * processor.
          */
 
-
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
          * is the originator node for a command. */
@@ -1705,7 +1731,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = dict_set_bin (dict, "originator_uuid",
                             originator_uuid, sizeof (uuid_t));
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set originator_uuid.");
                 goto out;
         }
@@ -1713,7 +1740,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         /* Marking the operation as complete synctasked */
         ret = dict_set_int32 (dict, "is_synctasked", _gf_true);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set synctasked flag.");
                 goto out;
         }
@@ -1722,7 +1750,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
          * the unlock and the volname in the dict might be removed */
         tmp_dict = dict_new();
         if (!tmp_dict) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to create dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_CREATE_FAIL, "Unable to create dict");
                 goto out;
         }
         dict_copy (dict, tmp_dict);
@@ -1731,14 +1760,17 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
                                                   &is_acquired, txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "mgmt_v3 lockdown failed.");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_LOCKDOWN_FAIL,
+                        "mgmt_v3 lockdown failed.");
                 goto out;
         }
 
         /* BUILD PAYLOAD */
         ret = glusterd_mgmt_v3_build_payload (&req_dict, &op_errstr, dict, op);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_PAYLOAD_BUILD_FAIL, LOGSTR_BUILD_PAYLOAD,
                         gd_op_list[op]);
                 if (op_errstr == NULL)
                         gf_asprintf (&op_errstr, OPERRSTR_BUILD_PAYLOAD);
@@ -1749,7 +1781,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_pre_validate (op, req_dict, &op_errstr,
                                              txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Pre Validation Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL, "Pre Validation Failed");
                 goto out;
         }
 
@@ -1757,7 +1790,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_commit (op, dict, req_dict, &op_errstr,
                                        txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Commit Op Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL, "Commit Op Failed");
                 goto out;
         }
 
@@ -1769,7 +1803,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_post_validate (op, 0, dict, req_dict, &op_errstr,
                                               txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Post Validation Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_POST_VALIDATION_FAIL, "Post Validation Failed");
                 goto out;
         }
 
@@ -1786,7 +1821,8 @@ out:
                 /* Trying to release multiple mgmt_v3 locks */
                 ret = glusterd_multiple_mgmt_v3_unlock (tmp_dict, MY_UUID);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MGMTV3_UNLOCK_FAIL,
                                 "Failed to release mgmt_v3 locks on localhost");
                         op_ret = ret;
                 }
@@ -1829,21 +1865,24 @@ glusterd_set_barrier_value (dict_t *dict, char *option)
          */
         ret = dict_get_str (dict, "volname1", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Volname not present in "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Volname not present in "
                         "dict");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &vol);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Volume %s not found ",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "Volume %s not found ",
                         volname);
                 goto out;
         }
 
         ret = dict_set_dynstr_with_alloc (dict, "barrier", option);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set barrier op "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set barrier op "
                         "in request dictionary");
                 goto out;
         }
@@ -1851,7 +1890,8 @@ glusterd_set_barrier_value (dict_t *dict, char *option)
         ret = dict_set_dynstr_with_alloc (vol->dict, "features.barrier",
                                           option);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set barrier op "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set barrier op "
                         "in volume option dict");
                 goto out;
         }
@@ -1860,14 +1900,16 @@ glusterd_set_barrier_value (dict_t *dict, char *option)
 
         ret = glusterd_create_volfiles (vol);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to create volfiles");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
+                        "Failed to create volfiles");
                 goto out;
         }
 
         ret = glusterd_store_volinfo (vol, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1917,7 +1959,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = dict_set_bin (dict, "originator_uuid",
                             originator_uuid, sizeof (uuid_t));
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set originator_uuid.");
                 goto out;
         }
@@ -1925,7 +1968,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         /* Marking the operation as complete synctasked */
         ret = dict_set_int32 (dict, "is_synctasked", _gf_true);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set synctasked flag.");
                 goto out;
         }
@@ -1934,7 +1978,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
          * the unlock and the volname in the dict might be removed */
         tmp_dict = dict_new();
         if (!tmp_dict) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to create dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_CREATE_FAIL, "Unable to create dict");
                 goto out;
         }
         dict_copy (dict, tmp_dict);
@@ -1943,14 +1988,17 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
                                                   &is_acquired, txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "mgmt_v3 lockdown failed.");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_LOCKDOWN_FAIL,
+                        "mgmt_v3 lockdown failed.");
                 goto out;
         }
 
         /* BUILD PAYLOAD */
         ret = glusterd_mgmt_v3_build_payload (&req_dict, &op_errstr, dict, op);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MGMTV3_PAYLOAD_BUILD_FAIL, LOGSTR_BUILD_PAYLOAD,
                         gd_op_list[op]);
                 if (op_errstr == NULL)
                         gf_asprintf (&op_errstr, OPERRSTR_BUILD_PAYLOAD);
@@ -1961,15 +2009,16 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_pre_validate (op, req_dict, &op_errstr,
                                              txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Pre Validation Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL, "Pre Validation Failed");
                 goto out;
         }
 
         /* quorum check of the volume is done here */
         ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                                "Volume quorum check failed");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_QUORUM_CHECK_FAIL, "Volume quorum check failed");
                 goto out;
         }
 
@@ -1978,7 +2027,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
          */
         ret = dict_set_dynstr_with_alloc (req_dict, "operation-type", "pre");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set "
                         "operation-type in dictionary");
                 goto out;
         }
@@ -1986,7 +2036,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         ret = glusterd_mgmt_v3_brick_op (op, req_dict, &op_errstr,
                                          txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_FAIL, "Brick Ops Failed");
                 goto unbarrier;
         }
 
@@ -2010,14 +2061,16 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         */
         ret = dict_set_int32 (req_dict, "cleanup", 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to set dict");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "failed to set dict");
                 goto unbarrier;
         }
 
         ret = glusterd_mgmt_v3_commit (op, dict, req_dict, &op_errstr,
                                        txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Commit Op Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL,  "Commit Op Failed");
                 /* If the main op fails, we should save the error string.
                    Because, op_errstr will be used for unbarrier and
                    unlock ops also. We might lose the actual error that
@@ -2035,7 +2088,8 @@ unbarrier:
          */
         ret = dict_set_dynstr_with_alloc (req_dict, "operation-type", "post");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set "
                         "operation-type in dictionary");
                 goto out;
         }
@@ -2044,7 +2098,8 @@ unbarrier:
                                          txn_generation);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_FAIL, "Brick Ops Failed");
                 goto out;
         }
 
@@ -2053,7 +2108,8 @@ unbarrier:
                 //quorum check of the snapshot volume
                 ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, 
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_QUORUM_CHECK_FAIL,
                                 "Snapshot Volume quorum check failed");
                         goto out;
                 }
@@ -2071,7 +2127,8 @@ out:
         ret = glusterd_mgmt_v3_post_validate (op, op_ret, dict, req_dict,
                                               &op_errstr, txn_generation);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Post Validation Failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL, "Post Validation Failed");
                 op_ret = -1;
         }
 
@@ -2097,7 +2154,8 @@ out:
                 /* Trying to release multiple mgmt_v3 locks */
                 ret = glusterd_multiple_mgmt_v3_unlock (tmp_dict, MY_UUID);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MGMTV3_UNLOCK_FAIL,
                                 "Failed to release mgmt_v3 locks on localhost");
                         op_ret = ret;
                 }
