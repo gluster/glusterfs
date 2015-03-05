@@ -405,6 +405,11 @@ gf_rdma_register_arena (void **arg1, void *arg2)
         for (i = 0; i < count; i++) {
                 new = GF_CALLOC(1, sizeof(gf_rdma_arena_mr),
                                 gf_common_mt_rdma_arena_mr);
+                if (new == NULL) {
+                      gf_log ("rdma", GF_LOG_INFO, "Out of memory:"
+                              " registering pre allocated buffer wth rdma device failed.");
+                      return -1;
+                }
                 INIT_LIST_HEAD (&new->list);
                 new->iobuf_arena = iobuf_arena;
 
@@ -446,6 +451,11 @@ gf_rdma_register_iobuf_pool (rpc_transport_t *this)
                 list_for_each_entry (tmp, &iobuf_pool->all_arenas, all_list) {
                         new = GF_CALLOC(1, sizeof(gf_rdma_arena_mr),
                                         gf_common_mt_rdma_arena_mr);
+                        if (new == NULL) {
+                              gf_log ("rdma", GF_LOG_INFO, "Out of memory:"
+                                      " registering pre allocated buffer with rdma device failed.");
+                              return -1;
+                        }
                         INIT_LIST_HEAD (&new->list);
                         new->iobuf_arena = tmp;
 
@@ -3556,8 +3566,19 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
 
                 list = GF_CALLOC (post->ctx.gf_rdma_reads,
                                 sizeof (struct ibv_sge), gf_common_mt_sge);
+
+                if (list == NULL) {
+                       errno =  ENOMEM;
+                       ret = -1;
+                       goto unlock;
+                }
                 wr   = GF_CALLOC (post->ctx.gf_rdma_reads,
                                 sizeof (struct ibv_send_wr), gf_common_mt_wr);
+                if (wr == NULL) {
+                       errno =  ENOMEM;
+                       ret = -1;
+                       goto unlock;
+                }
                 for (i = 0; readch[i].rc_discrim != 0; i++) {
                         count = post->ctx.count++;
                         post->ctx.vector[count].iov_base = ptr;
@@ -3604,7 +3625,7 @@ gf_rdma_do_reads (gf_rdma_peer_t *peer, gf_rdma_post_t *post,
 
                         if (!bad_wr) {
                                 ret = -1;
-                                goto out;
+                                goto unlock;
                         }
 
                         for (i = 0; i < post->ctx.gf_rdma_reads; i++) {
