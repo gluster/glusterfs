@@ -73,11 +73,10 @@ function is_file_heal_done {
 
 function count_sh_entries()
 {
-    val1=0
-    for g in $(ls $1/.glusterfs/indices/xattrop)
-    do
-        val1=$(( val1 + 1 ))
-    done
+    ls $1/.glusterfs/indices/xattrop | grep -v "xattrop-" | wc -l
+}
 
-    echo $val1;
+function count_index_entries()
+{
+    ls $1/.glusterfs/indices/xattrop | wc -l
 }

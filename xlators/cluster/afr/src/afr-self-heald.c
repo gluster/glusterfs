@@ -238,6 +238,53 @@ afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
 	return ret;
 }
 
+void
+afr_shd_zero_xattrop (xlator_t *this, uuid_t gfid)
+{
+
+        call_frame_t *frame = NULL;
+        inode_t *inode = NULL;
+        afr_private_t *priv = NULL;
+        dict_t  *xattr = NULL;
+        int ret = 0;
+        int i = 0;
+        int raw[AFR_NUM_CHANGE_LOGS] = {0};
+
+        priv = this->private;
+        frame = afr_frame_create (this);
+        if (!frame)
+                goto out;
+        inode = afr_inode_find (this, gfid);
+        if (!inode)
+                goto out;
+        xattr = dict_new();
+        if (!xattr)
+                goto out;
+        ret = dict_set_static_bin (xattr, AFR_DIRTY, raw,
+                                   sizeof(int) * AFR_NUM_CHANGE_LOGS);
+        if (ret)
+                goto out;
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_set_static_bin (xattr, priv->pending_key[i], raw,
+                                           sizeof(int) * AFR_NUM_CHANGE_LOGS);
+                if (ret)
+                        goto out;
+        }
+
+        /*Send xattrop to all bricks. Doing a lookup to see if bricks are up or
+        * has valid repies for this gfid seems a bit of an overkill.*/
+        for (i = 0; i < priv->child_count; i++)
+                afr_selfheal_post_op (frame, this, inode, i, xattr);
+
+out:
+        if (frame)
+                AFR_STACK_DESTROY (frame);
+        if (inode)
+                inode_unref (inode);
+        if (xattr)
+                dict_unref (xattr);
+        return;
+}
 
 int
 afr_shd_selfheal_name (struct subvol_healer *healer, int child, uuid_t parent,
@@ -369,6 +416,13 @@ afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
 
         if (ret == -ENOENT || ret == -ESTALE)
                 afr_shd_index_purge (subvol, parent->inode, entry->d_name);
+        if (ret == 2)
+                /* If bricks crashed in pre-op after creating indices/xattrop
+                 * link but before setting afr changelogs, we end up with stale
+                 * xattrop links but zero changelogs. Remove such entries by
+                 * sending a post-op with zero changelogs.
+                 */
+                afr_shd_zero_xattrop (healer->this, gfid);
 
         return 0;
 }

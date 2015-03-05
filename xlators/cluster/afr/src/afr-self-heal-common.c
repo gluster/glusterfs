@@ -1330,6 +1330,11 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
 	if (ret)
 		goto out;
 
+        if (!(data_selfheal || metadata_selfheal || entry_selfheal)) {
+                ret = 2;
+                goto out;
+        }
+
 	if (data_selfheal)
                 data_ret = afr_selfheal_data (frame, this, inode);
 
@@ -1358,9 +1363,12 @@ out:
         return ret;
 }
 /*
- * This is the entry point for healing a given GFID
- * The function returns 0 if self-heal was successful, appropriate errno
- * in case of a failure and 1 in case self-heal was never needed on the gfid.
+ * This is the entry point for healing a given GFID. The return values for this
+ * function are as follows:
+ * '0' if the self-heal is successful
+ * '1' if the afr-xattrs are non-zero (due to on-going IO) and no heal is needed
+ * '2' if the afr-xattrs are all-zero and no heal is needed
+ * $errno if the heal on the gfid failed.
  */
 
 int

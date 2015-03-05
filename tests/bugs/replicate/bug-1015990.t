@@ -54,36 +54,10 @@ done <<< "$command_output"
 brick_2_entries_count=$(($count-$value))
 brick_4_entries_count=$value
 
-
 xattrop_count_brick_2=$(count_sh_entries $B0/$V0"2")
-##Remove the count of the xattrop-gfid entry count as it does not contribute
-##to the number of files to be healed
-
-sub_val=1
-xattrop_count_brick_2=$(($xattrop_count_brick_2-$sub_val))
-
 xattrop_count_brick_4=$(count_sh_entries $B0/$V0"4")
-##Remove xattrop-gfid entry count
-
-xattrop_count_brick_4=$(($xattrop_count_brick_4-$sub_val))
-
-
-ret=0
-if [ "$xattrop_count_brick_2" -eq "$brick_2_entries_count" ]
-        then
-                ret=$(($ret + $sub_val))
-fi
-
-EXPECT "1" echo $ret
-
-
-ret=0
-if [ "$xattrop_count_brick_4" -eq "$brick_4_entries_count" ]
-        then
-                ret=$(($ret + $sub_val))
-fi
-
-EXPECT "1" echo $ret
+EXPECT $brick_2_entries_count echo $xattrop_count_brick_2
+EXPECT $brick_4_entries_count echo $xattrop_count_brick_4
 
 ## Finish up
 TEST $CLI volume stop $V0;
