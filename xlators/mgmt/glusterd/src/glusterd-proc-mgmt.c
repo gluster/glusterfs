@@ -78,18 +78,19 @@ glusterd_proc_stop (glusterd_proc_t *proc, int sig, int flags)
 
         if (!gf_is_service_running (proc->pidfile, &pid)) {
                 ret = 0;
-                gf_log (this->name, GF_LOG_INFO, "%s already stopped",
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_ALREADY_STOPPED, "%s already stopped",
                         proc->name);
                 goto out;
         }
-        gf_log (this->name, GF_LOG_DEBUG, "Stopping %s daemon running in pid: "
+        gf_msg_debug (this->name, 0, "Stopping %s daemon running in pid: "
                 "%d", proc->name, pid);
 
         ret = kill (pid, sig);
         if (ret) {
                 switch (errno) {
                 case ESRCH:
-                        gf_log (this->name, GF_LOG_DEBUG, "%s is already "
+                        gf_msg_debug (this->name, 0, "%s is already "
                                 "stopped", proc->name);
                         ret = 0;
                         goto out;
