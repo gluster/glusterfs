@@ -32,8 +32,6 @@ sleep 5
 
 for  i in  {1..100}; do echo "STRING" > $M0/File$i; done
 
-brick_2_sh_entries=$(count_sh_entries $B0/$V0"2")
-brick_4_sh_entries=$(count_sh_entries $B0/$V0"4")
 
 command_output=$(gluster volume heal $V0 statistics heal-count replica $H0:$B0/$V0"1")
 
@@ -58,19 +56,9 @@ brick_2_entries_count=$count
 
 
 xattrop_count_brick_2=$(count_sh_entries $B0/$V0"2")
-##Remove the count of the xattrop-gfid entry count as it does not contribute
-##to the number of files to be healed
 
-sub_val=1
-xattrop_count_brick_2=$(($xattrop_count_brick_2-$sub_val))
+EXPECT $brick_2_entries_count echo $xattrop_count_brick_2
 
-ret=0
-if [ "$xattrop_count_brick_2" -eq "$brick_2_entries_count" ]
-        then
-                ret=$(($ret + $sub_val))
-fi
-
-EXPECT "1" echo $ret
 ## Finish up
 TEST $CLI volume stop $V0;
 EXPECT 'Stopped' volinfo_field $V0 'Status';

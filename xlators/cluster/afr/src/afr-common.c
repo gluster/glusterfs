@@ -4574,7 +4574,7 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = afr_selfheal_do (frame, this, loc->gfid);
 
-        if (ret == 1) {
+        if (ret == 1 || ret == 2) {
                 ret = dict_set_str (dict, "sh-fail-msg",
                                     "File not in split-brain");
                 if (ret)
