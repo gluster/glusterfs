@@ -37,6 +37,72 @@
 
 #include "afr-transaction.h"
 
+/*
+ * Quota size xattrs are not maintained by afr. There is a
+ * possibility that they differ even when both the directory changelog xattrs
+ * suggest everything is fine. So if there is at least one 'source' check among
+ * the sources which has the maximum quota size. Otherwise check among all the
+ * available ones for maximum quota size. This way if there is a source and
+ * stale copies it always votes for the 'source'.
+ * */
+
+int
+afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
+{
+        unsigned char *readable = NULL;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        struct afr_reply *replies = NULL;
+        int i = 0;
+        uint64_t size = 0;
+        uint64_t max_size = 0;
+        int readable_cnt = 0;
+        int read_subvol = -1;
+
+        local = frame->local;
+        priv = this->private;
+        replies = local->replies;
+
+        readable = alloca0 (priv->child_count);
+
+        afr_inode_read_subvol_get (local->inode, this, readable, 0, 0);
+
+        readable_cnt = AFR_COUNT (readable, priv->child_count);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+                if (readable_cnt && !readable[i])
+                        continue;
+                if (!replies[i].xdata)
+                        continue;
+                if (dict_get_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, &size))
+                        continue;
+                if (read_subvol == -1)
+                        read_subvol = i;
+                if (size > max_size) {
+                        read_subvol = i;
+                        max_size = size;
+                }
+        }
+
+        if (!max_size)
+                return read_subvol;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+                if (readable_cnt && !readable[i])
+                        continue;
+                if (!replies[i].xdata)
+                        continue;
+                if (dict_set_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, max_size))
+                        continue;
+        }
+
+        return read_subvol;
+}
+
 
 /* {{{ access */
 
@@ -685,6 +751,37 @@ afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
 }
 
 int32_t
+afr_getxattr_quota_size_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno,
+                             dict_t *dict, dict_t *xdata)
+{
+        int         idx         = (long) cookie;
+        int         call_count  = 0;
+        afr_local_t *local      = frame->local;
+        int         read_subvol = -1;
+
+        local->replies[idx].valid = 1;
+        local->replies[idx].op_ret = op_ret;
+        local->replies[idx].op_errno = op_errno;
+        if (dict)
+                local->replies[idx].xdata = dict_ref (dict);
+        call_count = afr_frame_return (frame);
+        if (call_count == 0) {
+                local->inode = inode_ref (local->loc.inode);
+                read_subvol = afr_handle_quota_size (frame, this);
+                if (read_subvol != -1) {
+                        op_ret = local->replies[read_subvol].op_ret;
+                        op_errno = local->replies[read_subvol].op_errno;
+                        dict = local->replies[read_subvol].xdata;
+                }
+                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
+                                  xdata);
+        }
+
+        return 0;
+}
+
+int32_t
 afr_getxattr_lockinfo_cbk (call_frame_t *frame, void *cookie,
                            xlator_t *this, int32_t op_ret, int32_t op_errno,
                            dict_t *dict, dict_t *xdata)
@@ -1256,6 +1353,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                 }
         } else if (fnmatch (GF_XATTR_STIME_PATTERN, name, FNM_NOESCAPE) == 0) {
                 *cbk = afr_common_getxattr_stime_cbk;
+        } else if (strcmp (name, QUOTA_SIZE_KEY) == 0) {
+                *cbk = afr_getxattr_quota_size_cbk;
         } else {
                 is_spl = _gf_false;
         }
@@ -1390,8 +1489,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
         /*
-         * if we are doing getxattr with pathinfo as the key then we
-         * collect information from all childs
+         * Special xattrs which need responses from all subvols
          */
         if (afr_is_special_xattr (name, &cbk, 0)) {
                 afr_getxattr_all_subvols (this, frame, name, loc, cbk);
