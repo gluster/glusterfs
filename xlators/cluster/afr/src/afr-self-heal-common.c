@@ -13,6 +13,7 @@
 #include "afr-self-heal.h"
 #include "byte-order.h"
 #include "protocol-common.h"
+#include "afr-messages.h"
 
 int
 afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -162,8 +163,6 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		xattr = afr_selfheal_output_xattr (this, type, output_dirty,
 						   output_matrix, i);
 		if (!xattr) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"unable to allocate xdata for subvol %d", i);
 			continue;
 		}
 
@@ -641,7 +640,8 @@ afr_log_selfheal (uuid_t gfid, xlator_t *this, int ret, char *type,
                 loglevel = GF_LOG_INFO;
         }
 
-        gf_log (this->name, loglevel, "%s %s selfheal on %s. "
+        gf_msg (this->name, loglevel, 0,
+                AFR_MSG_SELF_HEAL_INFO, "%s %s selfheal on %s. "
                 "source=%d sinks=%s", status, type, uuid_utoa (gfid),
                 source, sinks_str);
 }
@@ -1119,7 +1119,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, type)) {
-			gf_msg (this->name, GF_LOG_ERROR, 0,
+		        gf_msg (this->name, GF_LOG_ERROR, 0,
                                 AFR_MSG_SPLIT_BRAIN,
 				"TYPE mismatch %d vs %d on %s for gfid:%s",
 				(int) first.ia_type,
@@ -1131,36 +1131,40 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, uid)) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"UID mismatch %d vs %d on %s for gfid:%s",
-				(int) first.ia_uid,
-				(int) replies[i].poststat.ia_uid,
-				priv->children[i]->name,
-				uuid_utoa (replies[i].poststat.ia_gfid));
+		        gf_msg_debug (this->name, 0,
+				      "UID mismatch "
+                                      "%d vs %d on %s for gfid:%s",
+				      (int) first.ia_uid,
+				      (int) replies[i].poststat.ia_uid,
+				      priv->children[i]->name,
+				      uuid_utoa (replies[i].poststat.ia_gfid));
 
                         if (metadata_selfheal)
                                 *metadata_selfheal = _gf_true;
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, gid)) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"GID mismatch %d vs %d on %s for gfid:%s",
-				(int) first.ia_uid,
-				(int) replies[i].poststat.ia_uid,
-				priv->children[i]->name,
-				uuid_utoa (replies[i].poststat.ia_gfid));
+		        gf_msg_debug (this->name, 0,
+				      "GID mismatch "
+                                      "%d vs %d on %s for gfid:%s",
+				      (int) first.ia_uid,
+				      (int) replies[i].poststat.ia_uid,
+				      priv->children[i]->name,
+				      uuid_utoa (replies[i].poststat.ia_gfid));
 
                         if (metadata_selfheal)
                                 *metadata_selfheal = _gf_true;
 		}
 
 		if (!IA_EQUAL (first, replies[i].poststat, prot)) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"MODE mismatch %d vs %d on %s for gfid:%s",
-				(int) st_mode_from_ia (first.ia_prot, 0),
-				(int) st_mode_from_ia (replies[i].poststat.ia_prot, 0),
-				priv->children[i]->name,
-				uuid_utoa (replies[i].poststat.ia_gfid));
+		        gf_msg_debug (this->name, 0,
+			              "MODE mismatch "
+                                      "%d vs %d on %s for gfid:%s",
+				      (int) st_mode_from_ia (first.ia_prot, 0),
+				      (int) st_mode_from_ia
+                                      (replies[i].poststat.ia_prot, 0),
+				      priv->children[i]->name,
+				      uuid_utoa (replies[i].poststat.ia_gfid));
 
                         if (metadata_selfheal)
                                 *metadata_selfheal = _gf_true;
@@ -1168,12 +1172,13 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 
 		if (IA_ISREG(first.ia_type) &&
 		    !IA_EQUAL (first, replies[i].poststat, size)) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"SIZE mismatch %lld vs %lld on %s for gfid:%s",
-				(long long) first.ia_size,
-				(long long) replies[i].poststat.ia_size,
-				priv->children[i]->name,
-				uuid_utoa (replies[i].poststat.ia_gfid));
+		        gf_msg_debug (this->name, 0,
+                                      "SIZE mismatch "
+                                      "%lld vs %lld on %s for gfid:%s",
+                                      (long long) first.ia_size,
+                                      (long long) replies[i].poststat.ia_size,
+                                      priv->children[i]->name,
+                                      uuid_utoa (replies[i].poststat.ia_gfid));
 
                         if (data_selfheal)
                                 *data_selfheal = _gf_true;

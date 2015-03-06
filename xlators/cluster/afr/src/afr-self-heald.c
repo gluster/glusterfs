@@ -14,6 +14,7 @@
 #include "afr-self-heald.h"
 #include "protocol-common.h"
 #include "syncop-utils.h"
+#include "afr-messages.h"
 
 #define SHD_INODE_LRU_LIMIT          2048
 #define AFR_EH_SPLIT_BRAIN_LIMIT     1024
@@ -204,8 +205,8 @@ afr_shd_index_inode (xlator_t *this, xlator_t *subvol)
 	if (ret)
 		goto out;
 
-	gf_log (this->name, GF_LOG_DEBUG, "index-dir gfid for %s: %s",
-		subvol->name, uuid_utoa (index_gfid));
+        gf_msg_debug (this->name, 0, "index-dir gfid for %s: %s",
+	              subvol->name, uuid_utoa (index_gfid));
 
 	inode = afr_shd_inode_find (this, subvol, index_gfid);
 
@@ -400,8 +401,8 @@ afr_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (!priv->shd.enabled)
                 return -EBUSY;
 
-        gf_log (healer->this->name, GF_LOG_DEBUG, "got entry: %s",
-                entry->d_name);
+        gf_msg_debug (healer->this->name, 0, "got entry: %s",
+                      entry->d_name);
 
         ret = gf_uuid_parse (entry->d_name, gfid);
         if (ret)
@@ -435,8 +436,9 @@ afr_shd_index_sweep (struct subvol_healer *healer)
 
 	loc.inode = afr_shd_index_inode (healer->this, subvol);
 	if (!loc.inode) {
-		gf_log (healer->this->name, GF_LOG_WARNING,
-			"unable to get index-dir on %s", subvol->name);
+	        gf_msg (healer->this->name, GF_LOG_WARNING,
+                        0, AFR_MSG_INDEX_DIR_GET_FAILED,
+		        "unable to get index-dir on %s", subvol->name);
 		return -errno;
 	}
 
@@ -502,9 +504,9 @@ afr_shd_index_healer (void *data)
 		ASSERT_LOCAL(this, healer);
 
 		do {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"starting index sweep on subvol %s",
-				afr_subvol_name (this, healer->subvol));
+		        gf_msg_debug (this->name, 0,
+		                      "starting index sweep on subvol %s",
+			              afr_subvol_name (this, healer->subvol));
 
 			afr_shd_sweep_prepare (healer);
 
@@ -519,9 +521,9 @@ afr_shd_index_healer (void *data)
 			  could not be healed thus far.
 			*/
 
-			gf_log (this->name, GF_LOG_DEBUG,
-				"finished index sweep on subvol %s",
-				afr_subvol_name (this, healer->subvol));
+		        gf_msg_debug (this->name, 0,
+			              "finished index sweep on subvol %s",
+			              afr_subvol_name (this, healer->subvol));
 			/*
 			  Give a pause before retrying to avoid a busy loop
 			  in case the only entry in index is because of
@@ -559,9 +561,9 @@ afr_shd_full_healer (void *data)
 
 		ASSERT_LOCAL(this, healer);
 
-		gf_log (this->name, GF_LOG_INFO,
-			"starting full sweep on subvol %s",
-			afr_subvol_name (this, healer->subvol));
+	        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_SELF_HEAL_INFO,
+		        "starting full sweep on subvol %s",
+		        afr_subvol_name (this, healer->subvol));
 
 		afr_shd_sweep_prepare (healer);
 
@@ -569,9 +571,9 @@ afr_shd_full_healer (void *data)
 
 		afr_shd_sweep_done (healer);
 
-		gf_log (this->name, GF_LOG_INFO,
-			"finished full sweep on subvol %s",
-			afr_subvol_name (this, healer->subvol));
+	        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_SELF_HEAL_INFO,
+		        "finished full sweep on subvol %s",
+		        afr_subvol_name (this, healer->subvol));
 	}
 
 	return NULL;
@@ -676,7 +678,8 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 
         ret = dict_get_int32 (output, this->name, &xl_id);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "xl does not have id");
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        AFR_MSG_DICT_GET_FAILED, "xl does not have id");
                 goto out;
         }
 
@@ -688,8 +691,9 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
                   xl_id, child, count);
         ret = dict_set_uint64(output, key, healed_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_healed_count to outout");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+		        "Could not add statistics_healed_count to outout");
                 goto out;
 	}
 
@@ -697,8 +701,9 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
                   xl_id, child, count);
         ret = dict_set_uint64 (output, key, split_brain_count);
 	if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_split_brain_count to outout");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+		        "Could not add statistics_split_brain_count to outout");
                 goto out;
         }
 
@@ -706,8 +711,9 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
                   xl_id, child, count);
         ret = dict_set_str (output, key, crawl_type);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_crawl_type to output");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+	                "Could not add statistics_crawl_type to output");
                 goto out;
         }
 
@@ -715,8 +721,9 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
                   xl_id, child, count);
         ret = dict_set_uint64 (output, key, heal_failed_count);
 	if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_healed_failed_count to outout");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+	                "Could not add statistics_healed_failed_count to outout");
                 goto out;
         }
 
@@ -724,8 +731,9 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
                   xl_id, child, count);
         ret = dict_set_dynstr (output, key, start_time_str);
 	if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_crawl_start_time to outout");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+		        "Could not add statistics_crawl_start_time to outout");
                 goto out;
         } else {
 		start_time_str = NULL;
@@ -742,8 +750,9 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
                 end_time_str = gf_strdup ("Could not determine the end time");
         ret = dict_set_dynstr (output, key, end_time_str);
 	if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_crawl_end_time to outout");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+		        "Could not add statistics_crawl_end_time to outout");
                 goto out;
         } else {
 		end_time_str = NULL;
@@ -754,16 +763,18 @@ afr_shd_dict_add_crawl_event (xlator_t *this, dict_t *output,
 
         ret = dict_set_int32 (output, key, progress);
 	if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not add statistics_inprogress to outout");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+		        "Could not add statistics_inprogress to outout");
                 goto out;
         }
 
 	snprintf (key, sizeof (key), "statistics-%d-%d-count", xl_id, child);
 	ret = dict_set_uint64 (output, key, count + 1);
 	if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-			"Could not increment the counter.");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+		        "Could not increment the counter.");
                 goto out;
 	}
 out:
@@ -784,7 +795,8 @@ afr_shd_dict_add_path (xlator_t *this, dict_t *output, int child, char *path,
 
         ret = dict_get_int32 (output, this->name, &xl_id);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "xl does not have id");
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        AFR_MSG_DICT_GET_FAILED, "xl does not have id");
                 goto out;
         }
 
@@ -795,7 +807,8 @@ afr_shd_dict_add_path (xlator_t *this, dict_t *output, int child, char *path,
 	ret = dict_set_dynstr (output, key, path);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s: Could not add to output",
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        AFR_MSG_DICT_SET_FAILED, "%s: Could not add to output",
                         path);
                 goto out;
         }
@@ -805,8 +818,10 @@ afr_shd_dict_add_path (xlator_t *this, dict_t *output, int child, char *path,
 			  child, count);
 		ret = dict_set_uint32 (output, key, tv->tv_sec);
 		if (ret) {
-			gf_log (this->name, GF_LOG_ERROR, "%s: Could not set time",
-				path);
+		        gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
+                                "%s: Could not set time",
+			        path);
 			goto out;
 		}
 	}
@@ -815,7 +830,9 @@ afr_shd_dict_add_path (xlator_t *this, dict_t *output, int child, char *path,
 
         ret = dict_set_uint64 (output, key, count + 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not increment count");
+                gf_msg (this->name, GF_LOG_ERROR,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
+                        "Could not increment count");
                 goto out;
         }
 
@@ -839,8 +856,8 @@ afr_shd_gather_entry (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         this = THIS;
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "got entry: %s",
-                entry->d_name);
+        gf_msg_debug (this->name, 0, "got entry: %s",
+                      entry->d_name);
 
         ret = gf_uuid_parse (entry->d_name, gfid);
         if (ret)
@@ -877,7 +894,8 @@ afr_shd_gather_index_entries (xlator_t *this, int child, dict_t *output)
 
         loc.inode = afr_shd_index_inode (this, subvol);
         if (!loc.inode) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        0, AFR_MSG_INDEX_DIR_GET_FAILED,
                         "unable to get index-dir on %s", subvol->name);
                 return -errno;
         }
@@ -1182,7 +1200,8 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
                 break;
 
         default:
-                gf_log (this->name, GF_LOG_ERROR, "Unknown set op %d", op);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "Unknown set op %d", op);
                 break;
         }
 out:

@@ -967,7 +967,8 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
                 ret = dict_set_uint64 (xattr_req, priv->pending_key[i],
                                        AFR_NUM_CHANGE_LOGS * sizeof(int));
                 if (ret < 0)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
                                 "Unable to set dict value for %s",
                                 priv->pending_key[i]);
                 /* 3 = data+metadata+entry */
@@ -975,14 +976,14 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
         ret = dict_set_uint64 (xattr_req, AFR_DIRTY,
 			       AFR_NUM_CHANGE_LOGS * sizeof(int));
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "failed to set dirty "
-                        "query flag");
+                gf_msg_debug (this->name, -ret, "failed to set dirty "
+                              "query flag");
         }
 
         ret = dict_set_int32 (xattr_req, "list-xattr", 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Unable to set list-xattr in dict ");
+                gf_msg_debug (this->name, -ret,
+                              "Unable to set list-xattr in dict ");
         }
 
 	return ret;
@@ -1004,27 +1005,26 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
                 dict_copy (xattr_req, local->xattr_req);
 
         ret = afr_xattr_req_prepare (this, local->xattr_req);
-	if (ret < 0) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"%s: Unable to prepare xattr_req", loc->path);
-	}
 
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_INODELK_COUNT);
         }
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_ENTRYLK_COUNT);
         }
 
         ret = dict_set_uint32 (local->xattr_req, GLUSTERFS_PARENT_ENTRYLK, 0);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        -ret, AFR_MSG_DICT_SET_FAILED,
                         "%s: Unable to set dict value for %s",
                         loc->path, GLUSTERFS_PARENT_ENTRYLK);
         }
@@ -1735,9 +1735,10 @@ afr_local_discovery_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if ((priv->arbiter_count == 1) &&
                     (child_index == ARBITER_BRICK_INDEX))
                         goto out;
-                gf_log (this->name, GF_LOG_INFO,
-                        "selecting local read_child %s",
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_LOCAL_CHILD, "selecting local read_child %s",
                         priv->children[child_index]->name);
+
                 priv->read_child = child_index;
         }
 out:
@@ -2048,7 +2049,8 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
 
 	read_subvol = afr_data_subvol_get (local->inode, this, 0, 0, NULL);
 	if (read_subvol == -1) {
-		gf_log (this->name, GF_LOG_WARNING, "no read subvols for %s",
+	        gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_READ_SUBVOL_ERROR, "no read subvols for %s",
 			local->loc.path);
 
 		for (i = 0; i < priv->child_count; i++) {
@@ -2487,8 +2489,8 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to set fd ctx (%p)", fd);
+                gf_msg_debug (this->name, 0,
+                              "failed to set fd ctx (%p)", fd);
 out:
         return ret;
 }
@@ -2618,7 +2620,8 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         if (fd_ctx) {
                 //no need to take any locks
                 if (!list_empty (&fd_ctx->eager_locked))
-                        gf_log (this->name, GF_LOG_WARNING, "%s: Stale "
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_INVALID_DATA, "%s: Stale "
                                 "Eager-lock stubs found",
                                 uuid_utoa (fd->inode->gfid));
 
@@ -3043,7 +3046,9 @@ afr_unlock_partial_inodelk_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret < 0 && op_errno != ENOTCONN) {
                 loc_gfid (&local->loc, gfid);
-                gf_log (this->name, GF_LOG_ERROR, "%s: Failed to unlock %s "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_INODE_UNLOCK_FAIL,
+                        "%s: Failed to unlock %s "
                         "with lk_owner: %s (%s)", uuid_utoa (gfid),
                         priv->children[child_index]->name,
                         lkowner_utoa (&frame->root->lk_owner),
@@ -4117,7 +4122,8 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
                 sizeof (*local->child_up) * priv->child_count);
         local->call_count = AFR_COUNT (local->child_up, priv->child_count);
         if (local->call_count == 0) {
-                gf_log (THIS->name, GF_LOG_INFO, "no subvolumes up");
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        AFR_MSG_ALL_SUBVOLS_DOWN, "no subvolumes up");
                 if (op_errno)
                         *op_errno = ENOTCONN;
                 goto out;
@@ -4675,20 +4681,23 @@ afr_set_heal_info (char *status)
         if (!strcmp (status, "heal")) {
                 ret = dict_set_str (dict, "heal-info", "heal");
                 if (ret)
-                        gf_log ("", GF_LOG_WARNING,
-                                "Failed to set heal-info key to"
+                        gf_msg ("", GF_LOG_WARNING, -ret,
+                                AFR_MSG_DICT_SET_FAILED,
+                                "Failed to set heal-info key to "
                                 "heal");
         } else if (!strcmp (status, "split-brain")) {
                 ret = dict_set_str (dict, "heal-info", "split-brain");
                 if (ret)
-                        gf_log ("", GF_LOG_WARNING,
-                                "Failed to set heal-info key to"
+                        gf_msg ("", GF_LOG_WARNING, -ret,
+                                AFR_MSG_DICT_SET_FAILED,
+                                "Failed to set heal-info key to "
                                 "split-brain");
         } else if (!strcmp (status, "possibly-healing")) {
                 ret = dict_set_str (dict, "heal-info", "possibly-healing");
                 if (ret)
-                       gf_log ("", GF_LOG_WARNING,
-                                "Failed to set heal-info key to"
+                        gf_msg ("", GF_LOG_WARNING, -ret,
+                                AFR_MSG_DICT_SET_FAILED,
+                                "Failed to set heal-info key to "
                                 "possibly-healing");
         }
 out:
@@ -4927,7 +4936,8 @@ afr_heal_splitbrain_file(call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = dict_set_str (dict, "sh-fail-msg",
                                     "File not in split-brain");
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
                                 "Failed to set sh-fail-msg in dict");
                 ret = 0;
                 goto out;

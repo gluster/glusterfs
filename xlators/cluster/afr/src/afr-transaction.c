@@ -16,6 +16,8 @@
 #include "afr.h"
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
+#include "afr-messages.h"
+
 #include <signal.h>
 
 gf_boolean_t
@@ -1220,13 +1222,14 @@ afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO,
+                        0, AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking inodelks failed.");
                 local->transaction.done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking inodelks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Blocking inodelks done. Proceeding to FOP");
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1245,14 +1248,14 @@ afr_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 
         /* Initiate blocking locks if non-blocking has failed */
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking inodelks failed. Proceeding to blocking");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking inodelks failed. Proceeding to blocking");
                 int_lock->lock_cbk = afr_post_blocking_inodelk_cbk;
                 afr_blocking_lock (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking inodelks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking inodelks done. Proceeding to FOP");
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1270,13 +1273,14 @@ afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking entrylks failed.");
                 local->transaction.done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking entrylks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                             "Blocking entrylks done. Proceeding to FOP");
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1295,14 +1299,15 @@ afr_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
 
         /* Initiate blocking locks if non-blocking has failed */
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking entrylks failed. Proceeding to blocking");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking entrylks failed. Proceeding to blocking");
                 int_lock->lock_cbk = afr_post_blocking_entrylk_cbk;
                 afr_blocking_lock (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking entrylks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Non blocking entrylks done. Proceeding to FOP");
+
                 afr_internal_lock_finish (frame, this);
         }
 
@@ -1320,13 +1325,16 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking entrylks failed.");
+
                 local->transaction.done (frame, this);
         } else {
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking entrylks done. Proceeding to FOP");
+                gf_msg_debug (this->name, 0,
+                              "Blocking entrylks done. Proceeding to FOP");
+
                 afr_internal_lock_finish (frame, this);
         }
         return 0;
@@ -1477,7 +1485,8 @@ afr_are_multiple_fds_opened (fd_t *fd, xlator_t *this)
                 /* If false is returned, it may keep on taking eager-lock
                  * which may lead to starvation, so return true to avoid that.
                  */
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid fd");
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, EBADF,
+                                  AFR_MSG_INVALID_ARG, "Invalid fd");
                 return _gf_true;
         }
         /* Lets say mount1 has eager-lock(full-lock) and after the eager-lock
@@ -1597,7 +1606,8 @@ afr_changelog_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Failure of fsync() is as good as failure of previous
                    write(). So treat it like one.
 		*/
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING,
+                        op_errno, AFR_MSG_FSYNC_FAILED,
                         "fsync(%s) failed on subvolume %s. Transaction was %s",
                         uuid_utoa (local->fd->inode->gfid),
                         priv->children[child_index]->name,

@@ -13,6 +13,7 @@
 #include "afr-self-heal.h"
 #include "byte-order.h"
 #include "afr-transaction.h"
+#include "afr-messages.h"
 
 /* Max file name length is 255 this filename is of length 256. No file with
  * this name can ever come, entry-lock with this name is going to prevent
@@ -46,7 +47,8 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 	if (replies[child].valid && replies[child].op_ret == 0) {
 		switch (replies[child].poststat.ia_type) {
 		case IA_IFDIR:
-			gf_log (this->name, GF_LOG_WARNING,
+		        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_EXPUNGING_FILE_OR_DIR,
 				"expunging dir %s/%s (%s) on %s",
 				uuid_utoa (dir->gfid), name,
 				uuid_utoa_r (replies[child].poststat.ia_gfid, g),
@@ -54,7 +56,8 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 			ret = syncop_rmdir (subvol, &loc, 1, NULL, NULL);
 			break;
 		default:
-			gf_log (this->name, GF_LOG_WARNING,
+		        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_EXPUNGING_FILE_OR_DIR,
 				"expunging file %s/%s (%s) on %s",
 				uuid_utoa (dir->gfid), name,
 				uuid_utoa_r (replies[child].poststat.ia_gfid, g),
@@ -234,7 +237,8 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
 
                 if (gf_uuid_compare (replies[src_idx].poststat.ia_gfid,
                                   replies[i].poststat.ia_gfid)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Gfid mismatch "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "Gfid mismatch "
                                 "detected for <%s/%s>, %s on %s and %s on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
@@ -247,7 +251,8 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
 
                 if ((replies[src_idx].poststat.ia_type) !=
                     (replies[i].poststat.ia_type)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Type mismatch "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "Type mismatch "
                                 "detected for <%s/%s>, %d on %s and %d on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
@@ -457,10 +462,11 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
                                     locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "entry self-heal as only %d sub-volumes could "
-                                "be locked in %s domain",
-                                uuid_utoa (fd->inode->gfid), ret, this->name);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "entry self-heal as only %d sub-volumes "
+                                      " could be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid),
+                                      ret, this->name);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -573,7 +579,8 @@ afr_selfheal_entry_do (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	priv = this->private;
 
-	gf_log (this->name, GF_LOG_INFO, "performing entry selfheal on %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                AFR_MSG_SELF_HEAL_INFO, "performing entry selfheal on %s",
 		uuid_utoa (fd->inode->gfid));
 
 	for (i = 0; i < priv->child_count; i++) {
@@ -623,11 +630,11 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				    data_lock);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "entry self-heal as only %d sub-volumes could "
-                                "be locked in %s domain",
-                                uuid_utoa (fd->inode->gfid), ret,
-                                this->name);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "entry self-heal as only %d sub-volumes could "
+                                      "be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid), ret,
+                                      this->name);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -666,12 +673,13 @@ unlock:
                                     postop_lock);
         {
                 if (AFR_CMP (data_lock, postop_lock, priv->child_count) != 0) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "post-op after entry self-heal as %d "
-                                "sub-volumes, as opposed to %d, could be locked"
-                                " in %s domain", uuid_utoa (fd->inode->gfid),
-                                ret, AFR_COUNT (data_lock, priv->child_count),
-                                this->name);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "post-op after entry self-heal as %d "
+                                      "sub-volumes, as opposed to %d, "
+                                      "could be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid),
+                                      ret, AFR_COUNT (data_lock,
+                                      priv->child_count), this->name);
                         ret = -ENOTCONN;
                         goto postop_unlock;
                 }
@@ -746,11 +754,11 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 				       locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "entry self-heal as only %d sub-volumes could "
-                                "be locked in %s domain",
-                                uuid_utoa (fd->inode->gfid), ret,
-                                priv->sh_domain);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "entry self-heal as only %d sub-volumes could "
+                                      "be locked in %s domain",
+                                      uuid_utoa (fd->inode->gfid), ret,
+                                      priv->sh_domain);
 			/* Either less than two subvols available, or another
 			   selfheal (from another server) is in progress. Skip
 			   for now in any case there isn't anything to do.
@@ -763,12 +771,13 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
                                                LONG_FILENAME, long_name_locked);
                 {
                         if (ret < 1) {
-                                gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping"
-                                        " entry self-heal as only %d "
-                                        "sub-volumes could be locked in "
-                                        "special-filename domain",
-                                        uuid_utoa (fd->inode->gfid),
-                                        ret);
+                                gf_msg_debug (this->name, 0, "%s: Skipping"
+                                              " entry self-heal as only %d "
+                                              "sub-volumes could be "
+                                              "locked in special-filename "
+                                              "domain",
+                                              uuid_utoa (fd->inode->gfid),
+                                              ret);
                                 ret = -ENOTCONN;
                                 goto unlock;
                         }

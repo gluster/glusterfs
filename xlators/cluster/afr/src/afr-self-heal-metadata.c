@@ -46,7 +46,8 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	gf_log (this->name, GF_LOG_INFO, "performing metadata selfheal on %s",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                AFR_MSG_SELF_HEAL_INFO, "performing metadata selfheal on %s",
 		uuid_utoa (inode->gfid));
 
 	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL,
@@ -227,7 +228,8 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		source = afr_dirtime_splitbrain_source (frame, this,
 							replies, locked_on);
 		if (source != -1) {
-			gf_log (this->name, GF_LOG_NOTICE, "clear time "
+		        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_SPLIT_BRAIN, "clear time "
 				"split brain on %s",
 				 uuid_utoa (replies[source].poststat.ia_gfid));
 			sources[source] = 1;
@@ -272,10 +274,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 		    !IA_EQUAL (first, replies[i].poststat, uid) ||
 		    !IA_EQUAL (first, replies[i].poststat, gid) ||
 		    !IA_EQUAL (first, replies[i].poststat, prot)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: iatt mismatch "
-                                "for source(%d) vs (%d)",
-                                uuid_utoa (replies[source].poststat.ia_gfid),
-                                source, i);
+                        gf_msg_debug (this->name, 0, "%s: iatt mismatch "
+                                      "for source(%d) vs (%d)",
+                                      uuid_utoa
+                                      (replies[source].poststat.ia_gfid),
+                                      source, i);
 			sources[i] = 0;
 			healed_sinks[i] = 1;
 		}
@@ -286,10 +289,11 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 			continue;
                 if (!afr_xattrs_are_equal (replies[source].xdata,
                                            replies[i].xdata)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: xattr mismatch "
-                                "for source(%d) vs (%d)",
-                                uuid_utoa (replies[source].poststat.ia_gfid),
-                                source, i);
+                        gf_msg_debug (this->name, 0, "%s: xattr mismatch "
+                                      "for source(%d) vs (%d)",
+                                      uuid_utoa
+                                      (replies[source].poststat.ia_gfid),
+                                      source, i);
                         sources[i] = 0;
                         healed_sinks[i] = 1;
                 }

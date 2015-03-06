@@ -11,6 +11,7 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
+#include "afr-messages.h"
 
 int
 __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
@@ -167,20 +168,24 @@ __afr_selfheal_name_expunge (xlator_t *this, inode_t *parent, uuid_t pargfid,
 
 		switch (replies[i].poststat.ia_type) {
 		case IA_IFDIR:
-			gf_log (this->name, GF_LOG_WARNING,
-				"expunging dir %s/%s (%s) on %s",
-				uuid_utoa (pargfid), bname,
-				uuid_utoa_r (replies[i].poststat.ia_gfid, g),
-				priv->children[i]->name);
+		        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_EXPUNGING_FILE_OR_DIR,
+			        "expunging dir %s/%s (%s) on %s",
+			        uuid_utoa (pargfid), bname,
+			        uuid_utoa_r (replies[i].poststat.ia_gfid, g),
+			        priv->children[i]->name);
+
 			ret |= syncop_rmdir (priv->children[i], &loc, 1, NULL,
                                              NULL);
 			break;
 		default:
-			gf_log (this->name, GF_LOG_WARNING,
-				"expunging file %s/%s (%s) on %s",
-				uuid_utoa (pargfid), bname,
-				uuid_utoa_r (replies[i].poststat.ia_gfid, g),
-				priv->children[i]->name);
+		        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                AFR_MSG_EXPUNGING_FILE_OR_DIR,
+		                "expunging file %s/%s (%s) on %s",
+			        uuid_utoa (pargfid), bname,
+			        uuid_utoa_r (replies[i].poststat.ia_gfid, g),
+			        priv->children[i]->name);
+
 			ret |= syncop_unlink (priv->children[i], &loc, NULL,
                                               NULL);
 			break;
@@ -289,15 +294,16 @@ afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies
                 if (sources[i] || source == -1) {
                         if ((sources[type_idx] || source == -1) &&
                             (inode_type != replies[i].poststat.ia_type)) {
-                                    gf_msg (this->name, GF_LOG_WARNING, 0,
-                                            AFR_MSG_SPLIT_BRAIN,
-                                            "Type mismatch for <gfid:%s>/%s: "
-                                            "%d on %s and %d on %s",
-                                            uuid_utoa(pargfid), bname,
-                                            replies[i].poststat.ia_type,
-                                            priv->children[i]->name,
-                                            replies[type_idx].poststat.ia_type,
-                                            priv->children[type_idx]->name);
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        AFR_MSG_SPLIT_BRAIN,
+                                        "Type mismatch for <gfid:%s>/%s: "
+                                        "%d on %s and %d on %s",
+                                        uuid_utoa(pargfid), bname,
+                                        replies[i].poststat.ia_type,
+                                        priv->children[i]->name,
+                                        replies[type_idx].poststat.ia_type,
+                                        priv->children[type_idx]->name);
+
                                     return -EIO;
                         }
                         inode_type = replies[i].poststat.ia_type;
@@ -337,7 +343,7 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
 		if (sources[i] || source == -1) {
 			if ((sources[gfid_idx_iter] || source == -1) &&
 			    gf_uuid_compare (gfid, replies[i].poststat.ia_gfid)) {
-				gf_msg (this->name, GF_LOG_WARNING, 0,
+			        gf_msg (this->name, GF_LOG_WARNING, 0,
                                         AFR_MSG_SPLIT_BRAIN,
 					"GFID mismatch for <gfid:%s>/%s "
 					"%s on %s and %s on %s",
@@ -346,6 +352,7 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
 					priv->children[i]->name,
 					uuid_utoa_r (replies[gfid_idx_iter].poststat.ia_gfid, g2),
 					priv->children[gfid_idx_iter]->name);
+
 				return -EIO;
 			}
 
