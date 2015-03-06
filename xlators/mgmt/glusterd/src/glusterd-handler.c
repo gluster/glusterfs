@@ -4361,6 +4361,16 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                           " details", key);
                         }
                 }
+
+                /* Request is for a single option, explicitly set count to 1
+                 * in the dictionary.
+                 */
+                ret = dict_set_int32 (dict, "count", 1);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set count "
+                                "value in the dictionary");
+                        goto out;
+                }
         } else {
                 /* Handle the "all" volume option request */
                 ret = glusterd_get_default_val_for_volopt (dict, _gf_true, NULL,
