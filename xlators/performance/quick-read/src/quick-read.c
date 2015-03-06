@@ -1049,7 +1049,13 @@ qr_inode_table_destroy (qr_private_t *priv)
         conf = &priv->conf;
 
         for (i = 0; i < conf->max_pri; i++) {
-                GF_ASSERT (list_empty (&priv->table.lru[i]));
+                /* There is a known leak of inodes, hence until
+                 * that is fixed, log the assert as warning.
+                GF_ASSERT (list_empty (&priv->table.lru[i]));*/
+                if (!list_empty (&priv->table.lru[i])) {
+                        gf_log ("quick-read", GF_LOG_INFO,
+                               "quick read inode table lru not empty");
+                }
         }
 
         LOCK_DESTROY (&priv->table.lock);

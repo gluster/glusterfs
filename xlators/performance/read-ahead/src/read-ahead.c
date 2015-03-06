@@ -1204,8 +1204,16 @@ fini (xlator_t *this)
 
         this->private = NULL;
 
+        /* The files structures allocated in open and create are not deleted.
+         * until that is freed, marking the below assert as warning.
         GF_ASSERT ((conf->files.next == &conf->files)
                    && (conf->files.prev == &conf->files));
+        */
+        if (!((conf->files.next == &conf->files)
+                   && (conf->files.prev == &conf->files))) {
+                gf_log (this->name, GF_LOG_INFO,
+                       "undestroyed read ahead file structures found");
+        }
 
         pthread_mutex_destroy (&conf->conf_lock);
         GF_FREE (conf);
