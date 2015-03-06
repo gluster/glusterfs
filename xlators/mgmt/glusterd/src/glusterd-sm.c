@@ -874,7 +874,6 @@ glusterd_friend_sm_transition_state (uuid_t peerid, char *peername,
                                            state[event_type].next_state,
                                            event_type);
 
-        synchronize_rcu ();
         uatomic_set (&peerinfo->state.state, state[event_type].next_state);
 
         ret = 0;
