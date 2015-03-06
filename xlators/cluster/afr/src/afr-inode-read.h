@@ -39,4 +39,7 @@ int32_t
 afr_fgetxattr (call_frame_t *frame, xlator_t *this,
                fd_t *fd, const char *name, dict_t *xdata);
 
+
+int
+afr_handle_quota_size (call_frame_t *frame, xlator_t *this);
 #endif /* __INODE_READ_H__ */
