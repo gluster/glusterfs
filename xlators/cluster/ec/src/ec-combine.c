@@ -55,25 +55,27 @@ int32_t ec_iatt_combine(struct iatt * dst, struct iatt * src, int32_t count)
 
     for (i = 0; i < count; i++)
     {
-        if ((dst->ia_ino != src->ia_ino) ||
-            (dst->ia_uid != src->ia_uid) ||
-            (dst->ia_gid != src->ia_gid) ||
-            (((dst->ia_type == IA_IFBLK) || (dst->ia_type == IA_IFCHR)) &&
-             (dst->ia_rdev != src->ia_rdev)) ||
-            ((dst->ia_type == IA_IFREG) && (dst->ia_size != src->ia_size)) ||
-            (st_mode_from_ia(dst->ia_prot, dst->ia_type) !=
-             st_mode_from_ia(src->ia_prot, src->ia_type)) ||
-            (uuid_compare(dst->ia_gfid, src->ia_gfid) != 0))
+        if ((dst[i].ia_ino != src[i].ia_ino) ||
+            (dst[i].ia_uid != src[i].ia_uid) ||
+            (dst[i].ia_gid != src[i].ia_gid) ||
+            (((dst[i].ia_type == IA_IFBLK) || (dst[i].ia_type == IA_IFCHR)) &&
+             (dst[i].ia_rdev != src[i].ia_rdev)) ||
+            ((dst[i].ia_type == IA_IFREG) &&
+             (dst[i].ia_size != src[i].ia_size)) ||
+            (st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type) !=
+             st_mode_from_ia(src[i].ia_prot, src[i].ia_type)) ||
+            (uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0))
         {
             gf_log(THIS->name, GF_LOG_WARNING,
                    "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "
                    "uid: %u-%u, gid: %u-%u, rdev: %lu-%lu, size: %lu-%lu, "
                    "mode: %o-%o)",
-                   dst->ia_ino, src->ia_ino, dst->ia_nlink, src->ia_nlink,
-                   dst->ia_uid, src->ia_uid, dst->ia_gid, src->ia_gid,
-                   dst->ia_rdev, src->ia_rdev, dst->ia_size, src->ia_size,
-                   st_mode_from_ia(dst->ia_prot, dst->ia_type),
-                   st_mode_from_ia(src->ia_prot, dst->ia_type));
+                   dst[i].ia_ino, src[i].ia_ino, dst[i].ia_nlink,
+                   src[i].ia_nlink, dst[i].ia_uid, src[i].ia_uid,
+                   dst[i].ia_gid, src[i].ia_gid, dst[i].ia_rdev,
+                   src[i].ia_rdev, dst[i].ia_size, src[i].ia_size,
+                   st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type),
+                   st_mode_from_ia(src[i].ia_prot, dst[i].ia_type));
 
             return 0;
         }
@@ -81,18 +83,18 @@ int32_t ec_iatt_combine(struct iatt * dst, struct iatt * src, int32_t count)
 
     while (count-- > 0)
     {
-        dst->ia_blocks += src->ia_blocks;
-        if (dst->ia_blksize < src->ia_blksize)
+        dst[count].ia_blocks += src[count].ia_blocks;
+        if (dst[count].ia_blksize < src[count].ia_blksize)
         {
-            dst->ia_blksize = src->ia_blksize;
+            dst[count].ia_blksize = src[count].ia_blksize;
         }
 
-        ec_iatt_time_merge(&dst->ia_atime, &dst->ia_atime_nsec, src->ia_atime,
-                           src->ia_atime_nsec);
-        ec_iatt_time_merge(&dst->ia_mtime, &dst->ia_mtime_nsec, src->ia_mtime,
-                           src->ia_mtime_nsec);
-        ec_iatt_time_merge(&dst->ia_ctime, &dst->ia_ctime_nsec, src->ia_ctime,
-                           src->ia_ctime_nsec);
+        ec_iatt_time_merge(&dst[count].ia_atime, &dst[count].ia_atime_nsec,
+                           src[count].ia_atime, src[count].ia_atime_nsec);
+        ec_iatt_time_merge(&dst[count].ia_mtime, &dst[count].ia_mtime_nsec,
+                           src[count].ia_mtime, src[count].ia_mtime_nsec);
+        ec_iatt_time_merge(&dst[count].ia_ctime, &dst[count].ia_ctime_nsec,
+                           src[count].ia_ctime, src[count].ia_ctime_nsec);
     }
 
     return 1;
@@ -811,61 +813,61 @@ int32_t ec_combine_check(ec_cbk_data_t * dst, ec_cbk_data_t * src,
     return 1;
 }
 
-void ec_combine(ec_cbk_data_t * cbk, ec_combine_f combine)
+void ec_combine (ec_cbk_data_t *newcbk, ec_combine_f combine)
 {
-    ec_fop_data_t * fop = cbk->fop;
-    ec_cbk_data_t * ans = NULL, * tmp = NULL;
-    struct list_head * item = NULL;
+    ec_fop_data_t *fop = newcbk->fop;
+    ec_cbk_data_t *cbk = NULL, *tmp = NULL;
+    struct list_head *item = NULL;
     int32_t needed = 0, resume = 0;
     char str[32];
 
     LOCK(&fop->lock);
 
     item = fop->cbk_list.prev;
-    list_for_each_entry(ans, &fop->cbk_list, list)
+    list_for_each_entry(cbk, &fop->cbk_list, list)
     {
-        if (ec_combine_check(cbk, ans, combine))
+        if (ec_combine_check(newcbk, cbk, combine))
         {
-            cbk->count += ans->count;
-            cbk->mask |= ans->mask;
+            newcbk->count += cbk->count;
+            newcbk->mask |= cbk->mask;
 
-            item = ans->list.prev;
+            item = cbk->list.prev;
             while (item != &fop->cbk_list)
             {
                 tmp = list_entry(item, ec_cbk_data_t, list);
-                if (tmp->count >= cbk->count)
+                if (tmp->count >= newcbk->count)
                 {
                     break;
                 }
                 item = item->prev;
             }
-            list_del(&ans->list);
+            list_del(&cbk->list);
 
-            cbk->next = ans;
+            newcbk->next = cbk;
 
             break;
         }
     }
-    list_add(&cbk->list, item);
+    list_add(&newcbk->list, item);
 
     ec_trace("ANSWER", fop, "combine=%s[%d]",
-             ec_bin(str, sizeof(str), cbk->mask, 0), cbk->count);
+             ec_bin(str, sizeof(str), newcbk->mask, 0), newcbk->count);
 
-    if ((cbk->count == fop->expected) && (fop->answer == NULL)) {
-        fop->answer = cbk;
+    if ((newcbk->count == fop->expected) && (fop->answer == NULL)) {
+        fop->answer = newcbk;
 
         resume = 1;
     }
 
-    ans = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
-    needed = fop->minimum - ans->count - fop->winds + 1;
+    cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
+    needed = fop->minimum - cbk->count - fop->winds + 1;
 
     UNLOCK(&fop->lock);
 
     if (needed > 0) {
-        ec_dispatch_next(fop, cbk->idx);
+        ec_dispatch_next(fop, newcbk->idx);
     } else if (resume) {
-        ec_update_bad(fop, cbk->mask);
+        ec_update_bad(fop, newcbk->mask);
 
         ec_resume(fop, 0);
     }
