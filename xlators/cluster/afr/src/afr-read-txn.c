@@ -10,6 +10,7 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
+#include "afr-messages.h"
 
 int
 afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
@@ -216,9 +217,9 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		/* very first transaction on this inode */
 		goto refresh;
 
-        gf_log (this->name, GF_LOG_DEBUG, "%s: generation now vs cached: %d, "
-                "%d", uuid_utoa (inode->gfid), local->event_generation,
-                event_generation);
+        gf_msg_debug (this->name, 0, "%s: generation now vs cached: %d, "
+                      "%d", uuid_utoa (inode->gfid), local->event_generation,
+                      event_generation);
 	if (local->event_generation != event_generation)
 		/* servers have disconnected / reconnected, and possibly
 		   rebooted, very likely changing the state of freshness
@@ -229,7 +230,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 							local->readable, NULL);
 
 	if (read_subvol < 0 || read_subvol > priv->child_count) {
-		gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,
+	        gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_SPLIT_BRAIN,
                        "Unreadable subvolume %d found with event generation "
                        "%d for gfid %s. (Possible split-brain)",
                         read_subvol, event_generation, uuid_utoa(inode->gfid));
@@ -238,7 +239,8 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	if (!local->child_up[read_subvol]) {
 		/* should never happen, just in case */
-		gf_log (this->name, GF_LOG_WARNING, "subvolume %d is the "
+	        gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_READ_SUBVOL_ERROR, "subvolume %d is the "
 			"read subvolume in this generation, but is not up",
 			read_subvol);
 		goto refresh;
