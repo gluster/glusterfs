@@ -14,6 +14,7 @@
 
 #include "afr.h"
 #include "afr-transaction.h"
+#include "afr-messages.h"
 
 #include <signal.h>
 
@@ -111,9 +112,9 @@ afr_set_lock_number (call_frame_t *frame, xlator_t *this)
 void
 afr_set_lk_owner (call_frame_t *frame, xlator_t *this, void *lk_owner)
 {
-        gf_log (this->name, GF_LOG_TRACE,
-                "Setting lk-owner=%llu",
-                (unsigned long long) (unsigned long)lk_owner);
+        gf_msg_trace (this->name, 0,
+                      "Setting lk-owner=%llu",
+                      (unsigned long long) (unsigned long)lk_owner);
 
         set_lk_owner_from_ptr (&frame->root->lk_owner, lk_owner);
 }
@@ -308,7 +309,7 @@ afr_trace_inodelk_out (call_frame_t *frame, xlator_t *this,
 
         afr_print_verdict (op_ret, op_errno, verdict);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_LOCK_INFO,
                 "[%s %s] [%s] lk-owner=%s Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REPLY" : "UNLOCK REPLY",
@@ -338,7 +339,7 @@ afr_trace_inodelk_in (call_frame_t *frame, xlator_t *this,
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_LOCK_INFO,
                 "[%s %s] Lock={%s} Lockee={%s} Number={%llu}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REQUEST" : "UNLOCK REQUEST",
@@ -379,7 +380,7 @@ afr_trace_entrylk_in (call_frame_t *frame, xlator_t *this,
 
         afr_set_lock_call_type (lock_call_type, lock_call_type_str, int_lock);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_LOCK_INFO,
                 "[%s %s] Lock={%s} Lockee={%s} Number={%llu}, Cookie={%d}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REQUEST" : "UNLOCK REQUEST",
@@ -423,7 +424,7 @@ afr_trace_entrylk_out (call_frame_t *frame, xlator_t *this,
 
         afr_print_verdict (op_ret, op_errno, verdict);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_LOCK_INFO,
                 "[%s %s] [%s] Lock={%s} Lockee={%s} Number={%llu} Cookie={%d}",
                 lock_call_type_str,
                 lk_op_type == AFR_LOCK_OP ? "LOCK REPLY" : "UNLOCK REPLY",
@@ -443,20 +444,20 @@ transaction_lk_op (afr_local_t *local)
         int_lock = &local->internal_lock;
 
         if (int_lock->transaction_lk_type == AFR_TRANSACTION_LK) {
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "lk op is for a transaction");
+                gf_msg_debug (THIS->name, 0,
+                              "lk op is for a transaction");
                 ret = 1;
         }
         else if (int_lock->transaction_lk_type == AFR_SELFHEAL_LK) {
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "lk op is for a self heal");
+                gf_msg_debug (THIS->name, 0,
+                              "lk op is for a self heal");
 
                 ret = 0;
         }
 
         if (ret == -1)
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "lk op is not set");
+                gf_msg_debug (THIS->name, 0,
+                              "lk op is not set");
 
         return ret;
 
@@ -626,8 +627,9 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (call_count == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "All internal locks unlocked");
+                gf_msg_trace (this->name, 0,
+                              "All internal locks unlocked");
+
                 int_lock->lock_cbk (frame, this);
         }
 
@@ -708,8 +710,9 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         int_lock->lk_call_count = call_count;
 
         if (!call_count) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "No internal locks unlocked");
+                gf_msg_trace (this->name, 0,
+                              "No internal locks unlocked");
+
                 int_lock->lock_cbk (frame, this);
                 goto out;
         }
@@ -842,8 +845,8 @@ afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
         int_lock->lk_call_count = call_count;
 
         if (!call_count){
-                gf_log (this->name, GF_LOG_TRACE,
-                        "No internal locks unlocked");
+                gf_msg_trace (this->name, 0,
+                              "No internal locks unlocked");
                 int_lock->lock_cbk (frame, this);
                 goto out;
         }
@@ -899,7 +902,8 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret == -1) {
                         if (op_errno == ENOSYS) {
                                 /* return ENOTSUP */
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, ENOSYS,
+                                        AFR_MSG_LOCK_XLATOR_NOT_LOADED,
                                         "subvolume does not support locking. "
                                         "please load features/locks xlator on server");
                                 local->op_ret = op_ret;
@@ -1058,7 +1062,8 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                 ret = fd_ctx_get (local->fd, this, &ctx);
 
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_FD_CTX_GET_FAILED,
                                 "unable to get fd ctx for fd=%p",
                                 local->fd);
 
@@ -1076,7 +1081,8 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
         if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
                 if ((is_entrylk && int_lock->entrylk_lock_count == 0) ||
                     (!is_entrylk && int_lock->lock_count == 0)) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_BLOCKING_LKS_FAILED,
                                 "unable to lock on even one child");
 
                         local->op_ret           = -1;
@@ -1093,8 +1099,8 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
         if (int_lock->lk_expected_count == int_lock->lk_attempted_count) {
                 /* we're done locking */
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "we're done locking");
+                gf_msg_debug (this->name, 0,
+                              "we're done locking");
 
                 afr_copy_locked_nodes (frame, this);
 
@@ -1246,9 +1252,11 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret < 0 ) {
 			if (op_errno == ENOSYS) {
                         /* return ENOTSUP */
-				gf_log (this->name, GF_LOG_ERROR,
-					"subvolume does not support locking. "
-					"please load features/locks xlator on server");
+			        gf_msg (this->name, GF_LOG_ERROR,
+                                        ENOSYS, AFR_MSG_LOCK_XLATOR_NOT_LOADED,
+                                        "subvolume does not support "
+                                        "locking. please load features/locks"
+                                        " xlator on server");
 				local->op_ret         = op_ret;
 				int_lock->lock_op_ret = op_ret;
 
@@ -1267,22 +1275,23 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (call_count == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Last locking reply received");
+                gf_msg_trace (this->name, 0,
+                              "Last locking reply received");
                 /* all locks successful. Proceed to call FOP */
                 if (int_lock->entrylk_lock_count ==
                                 int_lock->lk_expected_count) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "All servers locked. Calling the cbk");
+                        gf_msg_trace (this->name, 0,
+                                      "All servers locked. Calling the cbk");
                         int_lock->lock_op_ret = 0;
                         int_lock->lock_cbk (frame, this);
                 }
                 /* Not all locks were successful. Unlock and try locking
                    again, this time with serially blocking locks */
                 else {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "%d servers locked. Trying again with blocking calls",
-                                int_lock->lock_count);
+                        gf_msg_trace (this->name, 0,
+                                      "%d servers locked. Trying again "
+                                      "with blocking calls",
+                                      int_lock->lock_count);
 
                         afr_unlock(frame, this);
                 }
@@ -1314,7 +1323,8 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
         if (local->fd) {
                 fd_ctx = afr_fd_ctx_get (local->fd, this);
                 if (!fd_ctx) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_FD_CTX_GET_FAILED,
                                 "unable to get fd ctx for fd=%p",
                                 local->fd);
 
@@ -1332,7 +1342,8 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                 int_lock->lk_expected_count = call_count;
 
                 if (!call_count) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_INFO_COMMON,
                                 "fd not open on any subvolumes. aborting.");
                         afr_unlock (frame, this);
                         goto out;
@@ -1421,10 +1432,11 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret < 0) {
 			if (op_errno == ENOSYS) {
 				/* return ENOTSUP */
-				gf_log (this->name, GF_LOG_ERROR,
-					"subvolume does not support locking. "
-					"please load features/locks xlator on "
-					"server");
+		                gf_msg (this->name, GF_LOG_ERROR, ENOSYS,
+                                        AFR_MSG_LOCK_XLATOR_NOT_LOADED,
+					"subvolume does not support "
+                                        "locking. please load features/locks"
+                                        " xlator on server");
 				local->op_ret                = op_ret;
 				int_lock->lock_op_ret        = op_ret;
 				int_lock->lock_op_errno      = op_errno;
@@ -1454,21 +1466,22 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (call_count == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Last inode locking reply received");
+                gf_msg_trace (this->name, 0,
+                              "Last inode locking reply received");
                 /* all locks successful. Proceed to call FOP */
                 if (inodelk->lock_count == int_lock->lk_expected_count) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "All servers locked. Calling the cbk");
+                        gf_msg_trace (this->name, 0,
+                                      "All servers locked. Calling the cbk");
                         int_lock->lock_op_ret = 0;
                         int_lock->lock_cbk (frame, this);
                 }
                 /* Not all locks were successful. Unlock and try locking
                    again, this time with serially blocking locks */
                 else {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "%d servers locked. Trying again with blocking calls",
-                                int_lock->lock_count);
+                        gf_msg_trace (this->name, 0,
+                                      "%d servers locked. "
+                                      "Trying again with blocking calls",
+                                      int_lock->lock_count);
 
                         afr_unlock(frame, this);
                 }
@@ -1510,7 +1523,8 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
         if (local->fd) {
                 fd_ctx = afr_fd_ctx_get (local->fd, this);
                 if (!fd_ctx) {
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_FD_CTX_GET_FAILED,
                                 "unable to get fd ctx for fd=%p",
                                 local->fd);
 
@@ -1529,8 +1543,9 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                 int_lock->lk_expected_count = call_count;
 
                 if (!call_count) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "fd not open on any subvolumes. aborting.");
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                AFR_MSG_ALL_SUBVOLS_DOWN,
+                                "All bricks are down, aborting.");
                         afr_unlock (frame, this);
                         goto out;
                 }

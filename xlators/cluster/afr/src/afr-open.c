@@ -177,9 +177,9 @@ afr_openfd_fix_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local    = frame->local;
 
         if (op_ret >= 0) {
-                gf_log (this->name, GF_LOG_DEBUG, "fd for %s opened "
-                        "successfully on subvolume %s", local->loc.path,
-                        priv->children[child_index]->name);
+                gf_msg_debug (this->name, 0, "fd for %s opened "
+                              "successfully on subvolume %s", local->loc.path,
+                              priv->children[child_index]->name);
         } else {
                 gf_msg (this->name, fop_log_level (GF_FOP_OPEN, op_errno),
                         op_errno, AFR_MSG_OPEN_FAIL, "Failed to open %s on "
@@ -286,17 +286,17 @@ afr_fix_open (fd_t *fd, xlator_t *this)
 
         local->call_count = call_count;
 
-        gf_log (this->name, GF_LOG_DEBUG, "need open count: %d",
-                call_count);
+        gf_msg_debug (this->name, 0, "need open count: %d",
+                      call_count);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!need_open[i])
                         continue;
 
                 if (IA_IFDIR == fd->inode->ia_type) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "opening fd for dir %s on subvolume %s",
-                                local->loc.path, priv->children[i]->name);
+                        gf_msg_debug (this->name, 0,
+                                      "opening fd for dir %s on subvolume %s",
+                                      local->loc.path, priv->children[i]->name);
 
                         STACK_WIND_COOKIE (frame, afr_openfd_fix_open_cbk,
                                            (void*) (long) i,
@@ -305,9 +305,9 @@ afr_fix_open (fd_t *fd, xlator_t *this)
                                            &local->loc, local->fd,
                                            NULL);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "opening fd for file %s on subvolume %s",
-                                local->loc.path, priv->children[i]->name);
+                        gf_msg_debug (this->name, 0,
+                                      "opening fd for file %s on subvolume %s",
+                                      local->loc.path, priv->children[i]->name);
 
                         STACK_WIND_COOKIE (frame, afr_openfd_fix_open_cbk,
                                            (void *)(long) i,

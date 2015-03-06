@@ -33,6 +33,7 @@
 #include "quota-common-utils.h"
 
 #include "afr-transaction.h"
+#include "afr-messages.h"
 
 /*
  * Quota size xattrs are not maintained by afr. There is a
@@ -589,8 +590,6 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error serializing dictionary");
                         goto unwind;
                 }
                 if (serz_len == -1)
@@ -601,7 +600,8 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                ENOMEM, AFR_MSG_DICT_SET_FAILED,
                                 "Error setting dictionary");
                         goto unwind;
                 }
@@ -677,8 +677,6 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error serializing dictionary");
                         goto unwind;
                 }
                 if (serz_len == -1)
@@ -689,7 +687,8 @@ unlock:
                 if (ret) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                ENOMEM, AFR_MSG_DICT_SET_FAILED,
                                 "Error setting dictionary");
                         goto unwind;
                 }
@@ -1042,7 +1041,8 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         int32_t      tlen           = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "possible NULL deref");
                 goto out;
         }
 
@@ -1081,7 +1081,8 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                         ret = dict_set_dynstr (local->dict,
                                                xattr_cky, xattr);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        -ret, AFR_MSG_DICT_SET_FAILED,
                                         "Cannot set xattr cookie key");
                                 goto unlock;
                         }
@@ -1122,8 +1123,6 @@ unlock:
                                                        + strlen (xattr_serz),
                                                        &tlen, ' ');
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Error serializing"
-                                " dictionary");
                         goto unwind;
                 }
 
@@ -1134,8 +1133,9 @@ unlock:
                 ret = dict_set_dynstr (nxattr, local->cont.getxattr.name,
                                        xattr_serz);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo"
-                                " key in dict");
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
+                                "Cannot set pathinfo key in dict");
 
         unwind:
                 AFR_STACK_UNWIND (fgetxattr, frame, local->op_ret,
@@ -1166,7 +1166,8 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
         int32_t      tlen           = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "possible NULL deref");
                 goto out;
         }
 
@@ -1205,8 +1206,11 @@ afr_getxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
                                 ret = dict_set_dynstr (local->dict,
                                                        xattr_cky, xattr);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Cannot set xattr cookie key");
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                -ret,
+                                                AFR_MSG_DICT_SET_FAILED,
+                                                "Cannot set xattr "
+                                                "cookie key");
                                         goto unlock;
                                 }
 
@@ -1243,8 +1247,6 @@ unlock:
                                                        xattr_serz + strlen (xattr_serz),
                                                        &tlen, ' ');
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Error serializing"
-                                " dictionary");
                         goto unwind;
                 }
 
@@ -1255,8 +1257,9 @@ unlock:
                 ret = dict_set_dynstr (nxattr, local->cont.getxattr.name,
                                        xattr_serz);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Cannot set pathinfo"
-                                " key in dict");
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
+                                "Cannot set pathinfo key in dict");
 
         unwind:
                 AFR_STACK_UNWIND (getxattr, frame, local->op_ret,
@@ -1290,7 +1293,8 @@ afr_common_getxattr_stime_cbk (call_frame_t *frame, void *cookie,
         int32_t      callcnt        = 0;
 
         if (!frame || !frame->local || !this) {
-                gf_log ("", GF_LOG_ERROR, "possible NULL deref");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_ARG, "possible NULL deref");
                 goto out;
         }
 
@@ -1460,9 +1464,6 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (!strncmp (name, AFR_XATTR_PREFIX,
                       strlen (AFR_XATTR_PREFIX))) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%s: no data present for key %s",
-                        loc->path, name);
                 op_errno = ENODATA;
                 goto out;
         }

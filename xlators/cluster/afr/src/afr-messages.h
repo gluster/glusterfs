@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2014 Red Hat, Inc. <http://www.redhat.com>
+ Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com>
  This file is part of GlusterFS.
 
  This file is licensed to you under your choice of the GNU Lesser
@@ -39,9 +39,9 @@
  * holes.
  */
 
-#define GLFS_COMP_BASE_AFR GLFS_MSGID_COMP_AFR
-#define GLFS_NUM_MESSAGES 11
-#define GLFS_MSGID_END (GLFS_COMP_BASE_AFR + GLFS_NUM_MESSAGES + 1)
+#define GLFS_COMP_BASE_AFR      GLFS_MSGID_COMP_AFR
+#define GLFS_NUM_MESSAGES       37
+#define GLFS_MSGID_END          (GLFS_COMP_BASE_AFR + GLFS_NUM_MESSAGES + 1)
 
 #define glfs_msg_start_x GLFS_COMP_BASE_AFR, "Invalid: Start of messages"
 
@@ -136,7 +136,6 @@
 */
 #define AFR_MSG_INODE_UNLOCK_FAIL       (GLFS_COMP_BASE_AFR + 10)
 
-
 /*!
  * @messageid 108011
  * @diagnosis Setting of pending xattrs succeeded/failed during replace-brick
@@ -146,7 +145,189 @@
 */
 #define AFR_MSG_REPLACE_BRICK_STATUS     (GLFS_COMP_BASE_AFR + 11)
 
+/*!
+ * @messageid 108012
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_GFID_NULL                       (GLFS_COMP_BASE_AFR + 12)
+
+/*!
+ * @messageid 108013
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_FD_CREATE_FAILED                (GLFS_COMP_BASE_AFR + 13)
+
+/*!
+ * @messageid 108014
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_DICT_SET_FAILED                 (GLFS_COMP_BASE_AFR + 14)
+
+/*!
+ * @messageid 108015
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_EXPUNGING_FILE_OR_DIR           (GLFS_COMP_BASE_AFR + 15)
+
+/*!
+ * @messageid 108016
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_MIGRATION_IN_PROGRESS           (GLFS_COMP_BASE_AFR + 16)
+
+/*!
+ * @messageid 108017
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_CHILD_MISCONFIGURED             (GLFS_COMP_BASE_AFR + 17)
+
+/*!
+ * @messageid 108018
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_VOL_MISCONFIGURED               (GLFS_COMP_BASE_AFR + 18)
+
+/*!
+ * @messageid 108019
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_BLOCKING_LKS_FAILED             (GLFS_COMP_BASE_AFR + 19)
+
+/*!
+ * @messageid 108020
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INVALID_FD                      (GLFS_COMP_BASE_AFR + 20)
+
+/*!
+ * @messageid 108021
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_LOCK_INFO                       (GLFS_COMP_BASE_AFR + 21)
+
+/*!
+ * @messageid 108022
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_LOCK_XLATOR_NOT_LOADED          (GLFS_COMP_BASE_AFR + 22)
+
+/*!
+ * @messageid 108023
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_FD_CTX_GET_FAILED               (GLFS_COMP_BASE_AFR + 23)
+
+/*!
+ * @messageid 108024
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INVALID_SUBVOL                    (GLFS_COMP_BASE_AFR + 24)
+
+/*!
+ * @messageid 108025
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_PUMP_XLATOR_ERROR               (GLFS_COMP_BASE_AFR + 25)
+
+/*!
+ * @messageid 108026
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_SELF_HEAL_INFO                  (GLFS_COMP_BASE_AFR + 26)
+
+/*!
+ * @messageid 108027
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_READ_SUBVOL_ERROR               (GLFS_COMP_BASE_AFR + 27)
+
+/*!
+ * @messageid 108028
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_DICT_GET_FAILED                 (GLFS_COMP_BASE_AFR + 28)
+
+
+/*!
+ * @messageid 108029
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INFO_COMMON                     (GLFS_COMP_BASE_AFR + 29)
+
+/*!
+ * @messageid 108030
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR         (GLFS_COMP_BASE_AFR + 30)
+
+/*!
+ * @messageid 108031
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_LOCAL_CHILD         (GLFS_COMP_BASE_AFR + 31)
+
+/*!
+ * @messageid 108032
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INVALID_DATA         (GLFS_COMP_BASE_AFR + 32)
+
+/*!
+ * @messageid 108033
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INVALID_ARG         (GLFS_COMP_BASE_AFR + 33)
+
+/*!
+ * @messageid 108034
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INDEX_DIR_GET_FAILED         (GLFS_COMP_BASE_AFR + 34)
+
+/*!
+ * @messageid 108035
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_FSYNC_FAILED         (GLFS_COMP_BASE_AFR + 35)
+
+/*!
+ * @messageid 108036
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_FAVORITE_CHILD         (GLFS_COMP_BASE_AFR + 36)
+/*!
+ * @messageid 108037
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_SELF_HEAL_FAILED                (GLFS_COMP_BASE_AFR + 37)
+
+
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
-
 #endif /* !_AFR_MESSAGES_H_ */

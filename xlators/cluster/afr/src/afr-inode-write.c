@@ -1181,7 +1181,8 @@ afr_split_brain_resolve_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
          */
         ret = afr_inode_split_brain_choice_set (loc->inode, this, -1);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set"
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR, "Failed to set"
                         "split-brain choice to -1");
         afr_heal_splitbrain_file (frame, this, loc);
         ret = 0;
@@ -1206,7 +1207,8 @@ afr_get_split_brain_child_index (xlator_t *this, void *value, size_t len)
         spb_child_index = afr_get_child_index_from_name (this,
                                                          spb_child_str);
         if (spb_child_index < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Invalid subvol: %s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_INVALID_SUBVOL, "Invalid subvol: %s",
                         spb_child_str);
         }
         return spb_child_index;
@@ -1229,7 +1231,9 @@ afr_can_set_split_brain_choice (void *opaque)
                                   &data->d_spb, &data->m_spb);
 
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Failed to determine if %s"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
+                        "Failed to determine if %s"
                         " is in split-brain. "
                         "Aborting split-brain-choice set.",
                         uuid_utoa (loc->gfid));
@@ -1287,7 +1291,9 @@ afr_handle_split_brain_commands (xlator_t *this, call_frame_t *frame,
                                     afr_can_set_split_brain_choice,
                                     afr_set_split_brain_choice, NULL, data);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to create"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
+                                "Failed to create"
                                 " synctask. Aborting split-brain choice set"
                                 " for %s", loc->name);
                         ret = 1;

@@ -16,6 +16,7 @@
 #include <signal.h>
 
 #include "afr-common.c"
+#include "afr-messages.h"
 
 struct volume_options options[];
 
@@ -46,8 +47,6 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_afr_mt_end + 1);
 
         if (ret != 0) {
-                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
-                       "failed");
                 return ret;
         }
 
@@ -158,7 +157,8 @@ reconfigure (xlator_t *this, dict_t *options)
         if (read_subvol) {
                 index = xlator_subvolume_index (this, read_subvol);
                 if (index == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s not a subvolume",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume",
                                 read_subvol->name);
                         goto out;
                 }
@@ -170,8 +170,9 @@ reconfigure (xlator_t *this, dict_t *options)
         if (read_subvol_index >-1) {
                 index=read_subvol_index;
                 if (index >= priv->child_count) {
-                        gf_log (this->name, GF_LOG_ERROR, "%d not a subvolume-index",
-                                index);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_INVALID_SUBVOL,
+                                "%d not a subvolume-index", index);
                         goto out;
                 }
                 priv->read_child = index;
@@ -245,15 +246,16 @@ init (xlator_t *this)
         char          *qtype       = NULL;
 
         if (!this->children) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_CHILD_MISCONFIGURED,
                         "replicate translator needs more than one "
                         "subvolume defined.");
                 return -1;
         }
 
         if (!this->parents) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Volume is dangling.");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        AFR_MSG_VOL_MISCONFIGURED, "Volume is dangling.");
         }
 
 	this->private = GF_CALLOC (1, sizeof (afr_private_t),
@@ -283,7 +285,8 @@ init (xlator_t *this)
         if (read_subvol) {
                 priv->read_child = xlator_subvolume_index (this, read_subvol);
                 if (priv->read_child == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s not a subvolume",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume",
                                 read_subvol->name);
                         goto out;
                 }
@@ -291,8 +294,9 @@ init (xlator_t *this)
         GF_OPTION_INIT ("read-subvolume-index",read_subvol_index,int32,out);
         if (read_subvol_index > -1) {
                 if (read_subvol_index >= priv->child_count) {
-                        gf_log (this->name, GF_LOG_ERROR, "%d not a subvolume-index",
-                                read_subvol_index);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_INVALID_SUBVOL,
+                                "%d not a subvolume-index", read_subvol_index);
                         goto out;
                 }
                 priv->read_child = read_subvol_index;
@@ -306,11 +310,13 @@ init (xlator_t *this)
         if (fav_child) {
                 priv->favorite_child = xlator_subvolume_index (this, fav_child);
                 if (priv->favorite_child == -1) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s not a subvolume",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume, "
+                                "cannot set it as favorite child",
                                 fav_child->name);
                         goto out;
                 }
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_FAVORITE_CHILD,
                         favorite_child_warning_str, fav_child->name,
                         fav_child->name, fav_child->name);
         }
@@ -440,8 +446,6 @@ init (xlator_t *this)
         this->local_pool = mem_pool_new (afr_local_t, 512);
         if (!this->local_pool) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to create local_t's memory pool");
                 goto out;
         }
 

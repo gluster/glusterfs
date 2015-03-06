@@ -13,6 +13,7 @@
 #include "afr-self-heal.h"
 #include "byte-order.h"
 #include "protocol-common.h"
+#include "afr-messages.h"
 
 enum {
 	AFR_SELFHEAL_DATA_FULL = 0,
@@ -655,10 +656,12 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 				    data_lock);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "self-heal as only %d number of subvolumes "
-                                "could be locked", uuid_utoa (fd->inode->gfid),
-                                ret);
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "self-heal as only %d number "
+                                      "of subvolumes "
+                                      "could be locked",
+                                      uuid_utoa (fd->inode->gfid),
+                                      ret);
 			ret = -ENOTCONN;
 			goto unlock;
 		}
@@ -773,8 +776,8 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 
 	fd = afr_selfheal_data_open (this, inode);
 	if (!fd) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s: Failed to open",
-                        uuid_utoa (inode->gfid));
+                gf_msg_debug (this->name, 0, "%s: Failed to open",
+                              uuid_utoa (inode->gfid));
                 return -EIO;
         }
 
@@ -784,9 +787,10 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 				       locked_on);
 	{
 		if (ret < AFR_SH_MIN_PARTICIPANTS) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s: Skipping "
-                                "self-heal as only %d number of subvolumes "
-                                "could be locked", uuid_utoa (fd->inode->gfid),
+                        gf_msg_debug (this->name, 0, "%s: Skipping "
+                                      "self-heal as only %d number of "
+                                      "subvolumes could be locked",
+                                      uuid_utoa (fd->inode->gfid),
                                 ret);
 			/* Either less than two subvols available, or another
 			   selfheal (from another server) is in progress. Skip
