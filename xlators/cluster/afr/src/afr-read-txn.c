@@ -195,6 +195,15 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	local->readfn = readfn;
 	local->inode = inode_ref (inode);
 
+        if (priv->quorum_reads &&
+            priv->quorum_count && !afr_has_quorum (priv->child_up, this)) {
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+                read_subvol = -1;
+                goto read;
+        }
+
+
 	local->transaction.type = type;
 	ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
 					      &event_generation, type);
@@ -232,6 +241,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	local->read_attempted[read_subvol] = 1;
 
+read:
 	local->readfn (frame, this, read_subvol);
 
 	return 0;

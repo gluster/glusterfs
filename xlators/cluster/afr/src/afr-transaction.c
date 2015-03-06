@@ -28,6 +28,13 @@ int
 afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 		  afr_changelog_resume_t changelog_resume);
 
+static int32_t
+afr_quorum_errno (afr_private_t *priv)
+{
+        if (priv->quorum_reads)
+                return ENOTCONN;
+        return EROFS;
+}
 
 int
 __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
@@ -558,7 +565,7 @@ afr_handle_quorum (call_frame_t *frame)
         }
 
         local->op_ret = -1;
-        local->op_errno = EROFS;
+        local->op_errno = afr_quorum_errno (priv);
 }
 
 int
@@ -992,7 +999,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
          * quorum number of nodes.
          */
         if (priv->quorum_count && !afr_has_fop_quorum (frame)) {
-                op_errno = EROFS;
+                op_errno = afr_quorum_errno (priv);
                 goto err;
         }
 

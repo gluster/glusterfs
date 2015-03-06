@@ -457,3 +457,11 @@ function volgen_volume_option {
         local xl_option="$5"
         sed -e "/./{H;\$!d;}" -e "x;/volume $xl_vol/!d;/type $xl_type\/$xl_feature/!d;/option $xl_option/!d" $volfile | grep " $xl_option " | awk '{print $3}'
 }
+
+function mount_get_option_value {
+        local m=$1
+        local subvol=$2
+        local key=$3
+
+        grep "$3" $m/.meta/graphs/active/$subvol/private | awk '{print $3}'
+}

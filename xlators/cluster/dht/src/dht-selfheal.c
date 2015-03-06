@@ -405,16 +405,49 @@ out:
         return count;
 }
 
+dht_distribution_type_t
+dht_distribution_type (xlator_t *this, dht_layout_t *layout)
+{
+        dht_distribution_type_t type        = GF_DHT_EQUAL_DISTRIBUTION;
+        int                     i           = 0;
+        uint32_t                start_range = 0, range = 0, diff = 0;
+
+        if ((this == NULL) || (layout == NULL) || (layout->cnt < 1)) {
+                goto out;
+        }
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (start_range == 0) {
+                        start_range = layout->list[i].stop
+                                - layout->list[i].start;
+                        continue;
+                }
+
+                range = layout->list[i].stop - layout->list[i].start;
+                diff = abs (range - start_range);
+
+                if ((range != 0) && (diff > layout->cnt)) {
+                        type = GF_DHT_WEIGHTED_DISTRIBUTION;
+                        break;
+                }
+        }
+
+out:
+        return type;
+}
+
 gf_boolean_t
 dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
                        dht_layout_t **ondisk)
 {
-        gf_boolean_t  fixit        = _gf_true;
-        dht_local_t  *local        = NULL;
-        int           layout_span  = 0, decommissioned_bricks = 0;
-        int           spread_count = 0;
-        int           ret          = 0;
-        dht_conf_t   *conf         = NULL;
+        gf_boolean_t             fixit                        = _gf_true;
+        dht_local_t             *local                        = NULL;
+        int                      layout_span                  = 0;
+        int                      ondisk_decommissioned_bricks = 0;
+        int                      ret                          = 0;
+        dht_conf_t              *conf                         = NULL;
+        dht_distribution_type_t  inmem_dist_type              = 0;
+        dht_distribution_type_t  ondisk_dist_type             = 0;
 
         conf = frame->this->private;
 
@@ -444,13 +477,16 @@ dht_should_fix_layout (call_frame_t *frame, dht_layout_t **inmem,
 
         layout_span = dht_layout_span (*ondisk);
 
-        decommissioned_bricks = dht_decommissioned_bricks_in_layout (frame->this,
-                                                                     *ondisk);
-        spread_count = conf->dir_spread_cnt ? conf->dir_spread_cnt
-                : conf->subvolume_cnt;
+        ondisk_decommissioned_bricks
+                = dht_decommissioned_bricks_in_layout (frame->this,
+                                                       *ondisk);
+        inmem_dist_type = dht_distribution_type (frame->this, *inmem);
+        ondisk_dist_type = dht_distribution_type (frame->this, *ondisk);
 
-        if ((decommissioned_bricks == 0) && (layout_span
-                                             == spread_count))
+        if ((ondisk_decommissioned_bricks == 0)
+            && (layout_span == (conf->subvolume_cnt
+                                - conf->decommission_subvols_cnt))
+            && (inmem_dist_type == ondisk_dist_type))
                 fixit = _gf_false;
 
 out:
@@ -1536,7 +1572,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 }
         }
 
-        if (weight_by_size) {
+        if (weight_by_size && total_size) {
                 /* We know total_size is not zero. */
                 chunk = ((unsigned long) 0xffffffff) / total_size;
                 gf_log (this->name, GF_LOG_INFO,
@@ -1544,6 +1580,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                         total_size, chunk);
         }
         else {
+                weight_by_size = _gf_false;
                 chunk = ((unsigned long) 0xffffffff) / bricks_to_use;
         }
 

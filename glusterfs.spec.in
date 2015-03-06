@@ -9,6 +9,10 @@
 ## All argument definitions should be placed here and keep them sorted
 ##
 
+# if you wish to compile an rpm with cmocka unit testing...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with cmocka
+%{?_with_cmocka:%global _with_cmocka --enable-cmocka}
+
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
 %{?_without_rdma:%global _without_rdma --disable-ibverbs}
@@ -196,8 +200,10 @@ BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
-BuildRequires:    cmockery2-devel
 BuildRequires:    userspace-rcu-devel >= 0.7
+%if ( 0%{?_with_cmocka:0} )
+BuildRequires:    libcmocka-devel >= 1.0.0
+%endif
 %if ( 0%{!?_without_systemtap:1} )
 BuildRequires:    systemtap-sdt-devel
 %endif
@@ -501,7 +507,8 @@ This package provides the glusterfs server daemon.
         %{?_without_syslog} \
         %{?_without_bd} \
         %{?_without_qemu_block} \
-        %{?_without_systemtap}
+        %{?_without_systemtap} \
+        %{?_with_cmocka}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -1039,6 +1046,12 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Thu Feb 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- enable cmocka unittest support only when asked for (#1067059)
+
+* Wed Feb 18 2015 Andreas Schneider <asn@redhat.com>
+- Change cmockery2 to cmocka.
+
 * Wed Feb 18 2015 Kaushal M <kaushal@redhat.com>
 - add userspace-rcu as a requirement
 

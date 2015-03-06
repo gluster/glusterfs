@@ -344,21 +344,6 @@ AC_CHECK_LIB([crypto], [MD5], , AC_MSG_ERROR([OpenSSL crypto library is required
 
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
 
-
-PKG_CHECK_MODULES([UNITTEST], [cmockery2], [
-    UNITTEST_CPPFLAGS=`${PKG_CONFIG} --print-errors --cflags-only-I "cmockery2"`
-    UNITTEST_CFLAGS=`${PKG_CONFIG} --print-errors --cflags-only-other "cmockery2"`
-    UNITTEST_LDFLAGS=`${PKG_CONFIG} --print-errors --libs-only-L "cmockery2"`
-    UNITTEST_LIBS=`${PKG_CONFIG} --print-errors --libs-only-l "cmockery2"`
-],[
-  AC_CHECK_LIB([cmockery], [mock_assert], [
-    UNITTEST_LDFLAGS="-lcmockery -lgcov"
-    UNITTEST_CFLAGS="-Wall -Werror -DUNIT_TESTING=1"
-  ], [
-    AC_MSG_ERROR([cmockery2 library is required to build glusterfs])
-  ])
-])
-
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
 AC_CHECK_LIB([readline], [rl_do_undo], [RL_UNDO="yes"], [RL_UNDO="no"])
@@ -740,22 +725,6 @@ dnl check for Monotonic clock
 AC_CHECK_LIB([rt], [clock_gettime], ,
              AC_MSG_WARN([System doesn't have monotonic clock using contrib]))
 
-dnl Add cmockery2 for unit tests
-case $host_os in
-  freebsd*)
-    dnl remove --coverage on FreeBSD due to a known llvm packaging bug
-    UNITTEST_CFLAGS="${UNITTEST_CPPFLAGS} ${UNITTEST_CFLAGS} -g -DDEBUG -O0"
-    UNITTEST_LDFLAGS="${UNITTEST_LIBS} ${UNITTEST_LDFLAGS}"
-    ;;
-  *)
-    UNITTEST_CFLAGS="${UNITTEST_CPPFLAGS} ${UNITTEST_CFLAGS} -g -DDEBUG -O0 --coverage"
-    UNITTEST_LDFLAGS="${UNITTEST_LIBS} ${UNITTEST_LDFLAGS}"
-    ;;
-esac
-
-AC_SUBST(UNITTEST_CFLAGS)
-AC_SUBST(UNITTEST_LDFLAGS)
-
 dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
 
@@ -1105,11 +1074,44 @@ PKG_CHECK_MODULES([URCU_CDS], [liburcu-cds >= 0.8], [],
     [AC_DEFINE(URCU_0_7, 1, [Define if liburcu 0.7 is found])],
     [AC_MSG_ERROR([liburcu >= 0.7 required])])])
 
+BUILD_UNITTEST="no"
+AC_ARG_ENABLE([cmocka],
+              AC_HELP_STRING([--enable-cmocka],
+                             [Enable cmocka build options.]))
+if test "x$enable_cmocka" = "xyes"; then
+    BUILD_UNITTEST="yes"
+    PKG_CHECK_MODULES([UNITTEST], [cmocka], [],[
+      AC_CHECK_LIB([cmocka], [mock_assert], [
+        UNITTEST_LDFLAGS="-lcmocka -lgcov"
+        UNITTEST_CFLAGS="-Wall -Werror"
+      ], [
+        AC_MSG_ERROR([cmocka library is required to build glusterfs])
+      ])
+    ])
+fi
+AM_CONDITIONAL([UNITTEST], [test x$BUILD_UNITTEST = xyes])
+
+dnl Define UNIT_TESTING only for building cmocka binaries.
+UNITTEST_CFLAGS="${UNITTEST_CFLAGS} -DUNIT_TESTING=1"
+
+dnl Add cmocka for unit tests
+case $host_os in
+  freebsd*)
+    dnl remove --coverage on FreeBSD due to a known llvm packaging bug
+    UNITTEST_CFLAGS="${UNITTEST_CPPFLAGS} ${UNITTEST_CFLAGS} -g -DDEBUG -O0"
+    UNITTEST_LDFLAGS="${UNITTEST_LIBS} ${UNITTEST_LDFLAGS}"
+    ;;
+  *)
+    UNITTEST_CFLAGS="${UNITTEST_CPPFLAGS} ${UNITTEST_CFLAGS} -g -DDEBUG -O0 --coverage"
+    UNITTEST_LDFLAGS="${UNITTEST_LIBS} ${UNITTEST_LDFLAGS}"
+    ;;
+esac
+
+AC_SUBST(UNITTEST_CFLAGS)
+AC_SUBST(UNITTEST_LDFLAGS)
+
 AC_SUBST(CFLAGS)
 # end enable debug section
-
-dnl Required if cmockery2 headers are not in standar paths
-GF_CFLAGS="${GF_CFLAGS} ${UNITTEST_CPPFLAGS}"
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_CFLAGS)
@@ -1189,4 +1191,5 @@ echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
+echo "Unit Tests           : $BUILD_UNITTEST"
 echo

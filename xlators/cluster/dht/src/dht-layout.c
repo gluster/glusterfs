@@ -19,6 +19,7 @@
 #include "dht-common.h"
 #include "byte-order.h"
 #include "dht-messages.h"
+#include "unittest/unittest.h"
 
 
 #define layout_base_size (sizeof (dht_layout_t))
@@ -26,18 +27,6 @@
 #define layout_entry_size (sizeof ((dht_layout_t *)NULL)->list[0])
 
 #define layout_size(cnt) (layout_base_size + (cnt * layout_entry_size))
-
-#include <cmockery/pbc.h>
-#include <cmockery/cmockery_override.h>
-
-// Change GF_CALLOC and GF_FREE to use
-// cmockery2 memory allocation versions
-#ifdef UNIT_TESTING
-#undef GF_CALLOC
-#define GF_CALLOC(n, s, t) test_calloc(n, s)
-#undef GF_FREE
-#define GF_FREE test_free
-#endif
 
 dht_layout_t *
 dht_layout_new (xlator_t *this, int cnt)

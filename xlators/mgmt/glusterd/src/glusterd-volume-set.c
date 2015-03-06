@@ -1655,6 +1655,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version    = GD_OP_VERSION_3_7_0,
           .validate_fn   = validate_disperse_heal_enable_disable
         },
+        { .key           = "cluster.quorum-reads",
+          .voltype       = "cluster/replicate",
+          .op_version    = GD_OP_VERSION_3_7_0,
+        },
         { .key         = NULL
         }
 };
