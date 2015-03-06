@@ -32,7 +32,20 @@ function test_bad_opt ()
         glusterfsd --print-exports $1 2>&1 | sed -n 1p
 }
 
-EXPECT_KEYWORD "/test @test(rw,anonuid=0,sec=sys,) 10.35.11.31(rw,anonuid=0,sec=sys,)" test_good_file $EXP_FILES/exports
+function check_export_line() {
+  if [ "$1" == "$2" ]; then
+     echo "Y"
+  else
+    echo "N"
+  fi
+  return
+}
+
+export_result=$(test_good_file $EXP_FILES/exports)
+EXPECT "Y" check_export_line '/test @test(rw,anonuid=0,sec=sys,) 10.35.11.31(rw,anonuid=0,sec=sys,) ' "$export_result"
+
+export_result=$(test_good_file $EXP_FILES/exports-v6)
+EXPECT "Y" check_export_line '/test @test(rw,anonuid=0,sec=sys,) 2401:db00:11:1:face:0:3d:0(rw,anonuid=0,sec=sys,) ' "$export_result"
 
 EXPECT_KEYWORD "Error parsing netgroups for:" test_bad_line $EXP_FILES/bad_exports
 EXPECT_KEYWORD "Error parsing netgroups for:" test_long_netgroup $EXP_FILES/bad_exports
