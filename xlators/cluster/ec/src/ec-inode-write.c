@@ -900,9 +900,9 @@ int32_t ec_truncate_write(ec_fop_data_t * fop, uintptr_t mask)
 
     vector.iov_base = iobuf->ptr;
     vector.iov_len = fop->offset * ec->fragments - fop->user_size;
+    memset(vector.iov_base, 0, vector.iov_len);
 
-    memset(iobuf->ptr, 0, vector.iov_len);
-
+    iobuf_unref (iobuf);
     iobuf = NULL;
 
     ec_writev(fop->frame, fop->xl, mask, fop->minimum, NULL, NULL, fop->fd,
