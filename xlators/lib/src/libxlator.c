@@ -143,10 +143,10 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int               ret             = -1;
         uint32_t          *net_timebuf    = NULL;
         uint32_t          host_timebuf[2] = {0,};
-        char              *marker_xattr   = NULL;
+        char              marker_xattr[128]   = {0};
         xl_marker_local_t *local          = NULL;
-        char              *vol_uuid       = NULL;
         char              need_unwind     = 0;
+        gf_boolean_t      unref           = _gf_false;
 
         if (!this || !frame || !frame->local || !cookie) {
                 gf_log ("", GF_LOG_DEBUG, "possible NULL deref");
@@ -161,23 +161,17 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        snprintf (marker_xattr, sizeof (marker_xattr), "%s.%s.%s",
+                  MARKER_XATTR_PREFIX, local->vol_uuid, XTIME);
+
         LOCK (&frame->lock);
         {
                 callcnt = --local->call_count;
-
-                vol_uuid = local->vol_uuid;
 
                 if (op_ret) {
                         marker_local_incr_errcount (local, op_errno);
                         goto unlock;
                 }
-
-                if (!gf_asprintf (&marker_xattr, "%s.%s.%s",
-                                MARKER_XATTR_PREFIX, vol_uuid, XTIME)) {
-                        op_errno = ENOMEM;
-                        goto unlock;
-                }
-
 
                 if (dict_get_ptr (dict, marker_xattr, (void **)&net_timebuf)) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -211,8 +205,16 @@ unlock:
                 need_unwind = 1;
 
                 if (local->count[MCNT_FOUND]) {
-                        if (!dict)
+                        if (!dict) {
                                 dict = dict_new();
+                                if (dict) {
+                                        unref = _gf_true;
+                                } else {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        goto out;
+                                }
+                        }
 
                         ret = dict_set_static_bin (dict, marker_xattr,
                                            (void *)local->net_timebuf, 8);
@@ -239,7 +241,9 @@ out:
                                      dict, xdata);
         }
 
-        GF_FREE (marker_xattr);
+        if (unref)
+                dict_unref (dict);
+
         return 0;
 
 }
