@@ -3034,7 +3034,7 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 32,
           .default_value = "2",
-          .description = "Specifies the number of event threads to execute in"
+          .description = "Specifies the number of event threads to execute "
                          "in parallel. Larger values would help process"
                          " responses faster, depending on available processing"
                          " power. Range 1-32 threads."
