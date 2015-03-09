@@ -199,9 +199,6 @@ parent:
 
         op_ret = entry_ret;
 out:
-        if (xattr)
-                dict_ref (xattr);
-
         if (!op_ret && !gfidless && uuid_is_null (buf.ia_gfid)) {
                 gf_log (this->name, GF_LOG_ERROR, "buf->ia_gfid is null for "
                         "%s", (real_path) ? real_path: "");
@@ -5210,8 +5207,6 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
                                 posix_entry_xattr_fill (this, entry->inode,
                                                         fd, entry->d_name,
                                                         dict, &stbuf);
-                        if (entry->dict)
-                                dict_ref (entry->dict);
                 }
 
                 entry->d_stat = stbuf;

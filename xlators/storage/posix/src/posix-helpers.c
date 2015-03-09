@@ -641,7 +641,7 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
                 list = _gf_true;
         }
 
-        xattr = get_new_dict();
+        xattr = dict_new ();
         if (!xattr) {
                 goto out;
         }
