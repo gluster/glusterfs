@@ -18,6 +18,7 @@
 #include "portmap-xdr.h"
 #include "xdr-generic.h"
 #include "protocol-common.h"
+#include "glusterd-messages.h"
 #include "rpcsvc.h"
 
 #include <sys/socket.h>
@@ -218,7 +219,8 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
         pmap->ports[p].type = type;
         pmap->ports[p].xprt = xprt;
 
-        gf_log ("pmap", GF_LOG_INFO, "adding brick %s on port %d",
+        gf_msg ("pmap", GF_LOG_INFO, 0,
+                GD_MSG_BRICK_ADD, "adding brick %s on port %d",
                 brickname, port);
 
         if (pmap->last_alloc < p)
@@ -262,7 +264,8 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
 
         goto out;
 remove:
-        gf_log ("pmap", GF_LOG_INFO, "removing brick %s on port %d",
+        gf_msg ("pmap", GF_LOG_INFO, 0,
+                GD_MSG_BRICK_REMOVE, "removing brick %s on port %d",
                 pmap->ports[p].brickname, p);
 
         free (pmap->ports[p].brickname);

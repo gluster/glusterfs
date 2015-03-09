@@ -51,7 +51,7 @@ is_key_glusterd_hooks_friendly (char *key)
 
         /* This is very specific to hooks friendly behavior */
         if (fnmatch (GD_HOOKS_SPECIFIC_KEY, key, FNM_NOESCAPE) == 0) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "user namespace key %s", key);
+                gf_msg_debug (THIS->name, 0, "user namespace key %s", key);
                 is_friendly = _gf_true;
         }
 

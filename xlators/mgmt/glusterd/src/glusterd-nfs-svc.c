@@ -14,6 +14,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-nfs-svc.h"
+#include "glusterd-messages.h"
 
 char *nfs_svc_name = "nfs";
 
@@ -84,7 +85,8 @@ glusterd_nfssvc_check_volfile_identical (gf_boolean_t *identical)
 
         tmp_fd = mkstemp (tmpnfsvol);
         if (tmp_fd < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "Unable to create temp file"
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
                         " %s:(%s)", tmpnfsvol, strerror (errno));
                 goto out;
         }
@@ -136,7 +138,8 @@ glusterd_nfssvc_check_topology_identical (gf_boolean_t *identical)
         snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
         tmpfd = mkstemp (tmpnfsvol);
         if (tmpfd < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "Unable to create temp file"
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
                         " %s: (%s)", tmpnfsvol, strerror (errno));
                 goto out;
         }
@@ -182,7 +185,7 @@ glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
                         goto out;
         }
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -211,7 +214,7 @@ glusterd_nfssvc_stop (glusterd_svc_t *svc, int sig)
                 glusterd_nfs_pmap_deregister ();
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }

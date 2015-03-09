@@ -14,6 +14,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-quotad-svc.h"
+#include "glusterd-messages.h"
 
 char *quotad_svc_name = "quotad";
 
@@ -94,7 +95,7 @@ glusterd_quotadsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                 }
         }
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -134,7 +135,7 @@ out:
         if (cmdline)
                 dict_unref (cmdline);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
