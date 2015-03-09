@@ -502,7 +502,7 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode)
 		}
 
 		afr_accused_fill (this, replies[i].xdata, data_accused,
-				  (inode->ia_type == IA_IFDIR) ?
+				  (replies[i].poststat.ia_type == IA_IFDIR) ?
 				   AFR_ENTRY_TRANSACTION : AFR_DATA_TRANSACTION);
 
 		afr_accused_fill (this, replies[i].xdata,
