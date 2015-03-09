@@ -454,7 +454,7 @@ gf_rdma_register_iobuf_pool (rpc_transport_t *this)
                         if (new == NULL) {
                               gf_log ("rdma", GF_LOG_INFO, "Out of memory:"
                                       " registering pre allocated buffer with rdma device failed.");
-                              return -1;
+                              return;
                         }
                         INIT_LIST_HEAD (&new->list);
                         new->iobuf_arena = tmp;
