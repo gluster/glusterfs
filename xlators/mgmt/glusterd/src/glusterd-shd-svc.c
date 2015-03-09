@@ -61,14 +61,15 @@ glusterd_shdsvc_create_volfile ()
         ret = glusterd_create_global_volfile (build_shd_graph, filepath,
                                               mod_dict);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to create volfile");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL, "Failed to create volfile");
                 goto out;
         }
 
 out:
         if (mod_dict)
                 dict_unref (mod_dict);
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -116,7 +117,7 @@ glusterd_shdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                 }
         }
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -154,7 +155,7 @@ out:
         if (cmdline)
                 dict_unref (cmdline);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }

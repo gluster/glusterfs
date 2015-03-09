@@ -27,6 +27,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-utils.h"
+#include "glusterd-messages.h"
 #include "run.h"
 #include "options.h"
 #include "glusterd-snapshot-utils.h"

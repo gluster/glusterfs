@@ -126,14 +126,15 @@ validate_cache_max_min_size (glusterd_volinfo_t *volinfo, dict_t *dict,
                           "cache-min-file-size (%s) is greater than "
                           "cache-max-file-size (%s)",
                           current_min_value, current_max_value);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CACHE_MINMAX_SIZE_INVALID,  "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -183,7 +184,8 @@ validate_quota (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 
         ret = glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_QUOTA);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_QUOTA_GET_STAT_FAIL,
                         "failed to get the quota status");
                 goto out;
         }
@@ -191,7 +193,8 @@ validate_quota (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         if (ret == _gf_false) {
                 snprintf (errstr, sizeof (errstr),
                           "Cannot set %s. Enable quota first.", key);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_QUOTA_DISABLED, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
@@ -199,7 +202,7 @@ validate_quota (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -221,12 +224,13 @@ validate_uss (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 snprintf (errstr, sizeof (errstr), "%s is not a valid boolean "
                           "value. %s expects a valid boolean value.", value,
                           key);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 goto out;
         }
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -248,14 +252,15 @@ validate_stripe (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         if (volinfo->stripe_count == 1) {
                 snprintf (errstr, sizeof (errstr),
                           "Cannot set %s for a non-stripe volume.", key);
-                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NON_STRIPE_VOL, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                goto out;
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -284,7 +289,8 @@ validate_subvols_per_directory (glusterd_volinfo_t *volinfo, dict_t *dict,
                           "subvols-per-directory(%d) is greater "
                           "than the number of subvolumes(%d).",
                           subvols, volinfo->subvol_count);
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SUBVOLUMES_EXCEED,
                         "%s.", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
@@ -292,7 +298,7 @@ validate_subvols_per_directory (glusterd_volinfo_t *volinfo, dict_t *dict,
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }

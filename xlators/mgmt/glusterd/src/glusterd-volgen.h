@@ -16,6 +16,7 @@
 #endif
 
 #include "glusterd.h"
+#include "glusterd-messages.h"
 
 /* volopt map key name definitions */
 
@@ -59,12 +60,15 @@ typedef struct volgen_graph volgen_graph_t;
                 if (!strchr (key, '.')) {                               \
                         ret = option_complete (key, &completion);       \
                         if (ret) {                                      \
-                                gf_log ("", GF_LOG_ERROR, "Out of memory"); \
+                                gf_msg ("", GF_LOG_ERROR, ENOMEM,       \
+                                        GD_MSG_NO_MEMORY, "Out of memory"); \
                                 return _gf_false;                       \
                         }                                               \
                                                                         \
                         if (!completion) {                              \
-                                gf_log ("", GF_LOG_ERROR, "option %s does not" \
+                                gf_msg ("", GF_LOG_ERROR, 0,            \
+                                        GD_MSG_INVALID_ENTRY,           \
+                                        "option %s does not"            \
                                         "exist", key);                  \
                                 return _gf_false;                       \
                         }                                               \
