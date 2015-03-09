@@ -1627,10 +1627,7 @@ inode_table_destroy_all (glusterfs_ctx_t *ctx) {
 void
 inode_table_destroy (inode_table_t *inode_table) {
 
-        xlator_t *this = NULL;
         inode_t  *tmp = NULL, *trav = NULL;
-
-        this = THIS;
 
         if (inode_table == NULL)
                 return;
@@ -1642,8 +1639,8 @@ inode_table_destroy (inode_table_t *inode_table) {
          *    in lru list.(If no leaks there should be no inodes in active list)
          * 2. Knowing there could be leaks and not freeing those inodes will
          *    also not free its inode context and this could leak a lot of
-         *    memory, force free the inodes by changeing the ref to 0.
-         *    The problem with this is that any refence ti inode after this
+         *    memory, force free the inodes by changing the ref to 0.
+         *    The problem with this is that any reference to inode after this
          *    calling this funtion will lead to a crash.
          * 3. Knowing there could be leakes, just free the inode contexts of
          *    all the inodes. and let the inodes be alive. This way the major
