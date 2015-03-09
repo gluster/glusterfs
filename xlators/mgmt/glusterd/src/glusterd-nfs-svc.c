@@ -17,6 +17,28 @@
 
 char *nfs_svc_name = "nfs";
 
+static gf_boolean_t
+glusterd_nfssvc_need_start ()
+{
+        glusterd_conf_t    *priv    = NULL;
+        gf_boolean_t       start   = _gf_false;
+        glusterd_volinfo_t *volinfo = NULL;
+
+        priv = THIS->private;
+
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                if (!glusterd_is_volume_started (volinfo))
+                        continue;
+
+                if (dict_get_str_boolean (volinfo->dict, "nfs.disable", 0))
+                        continue;
+                start = _gf_true;
+                break;
+        }
+
+        return start;
+}
+
 int
 glusterd_nfssvc_init (glusterd_svc_t *svc)
 {
@@ -142,8 +164,9 @@ glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = -1;
 
-        if (glusterd_are_all_volumes_stopped ()) {
+        if (!glusterd_nfssvc_need_start ()) {
                 ret = svc->stop (svc, SIGKILL);
+
         } else {
                 ret = glusterd_nfssvc_create_volfile ();
                 if (ret)
@@ -170,7 +193,10 @@ out:
 int
 glusterd_nfssvc_start (glusterd_svc_t *svc, int flags)
 {
-        return glusterd_svc_start (svc, flags, NULL);
+        if (glusterd_nfssvc_need_start ())
+                return glusterd_svc_start (svc, flags, NULL);
+
+        return 0;
 }
 
 int
