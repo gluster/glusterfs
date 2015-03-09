@@ -2937,6 +2937,8 @@ glusterd_friend_remove (uuid_t uuid, char *hostname)
         int                           ret = -1;
         glusterd_peerinfo_t           *peerinfo = NULL;
 
+        rcu_read_lock ();
+
         peerinfo = glusterd_peerinfo_find (uuid, hostname);
         if (peerinfo == NULL)
                 goto out;
@@ -2944,6 +2946,11 @@ glusterd_friend_remove (uuid_t uuid, char *hostname)
         ret = glusterd_friend_remove_cleanup_vols (peerinfo->uuid);
         if (ret)
                 gf_log (THIS->name, GF_LOG_WARNING, "Volumes cleanup failed");
+
+        rcu_read_unlock ();
+        /* Giving up the critical section here as glusterd_peerinfo_cleanup must
+         * be called from outside a critical section
+         */
         ret = glusterd_peerinfo_cleanup (peerinfo);
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
