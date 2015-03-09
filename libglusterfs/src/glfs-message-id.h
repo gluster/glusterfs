@@ -72,6 +72,9 @@
 #define GLFS_MSGID_COMP_COMMON_END         (GLFS_MSGID_COMP_COMMON +\
                                            GLFS_MSGID_SEGMENT)
 
+#define GLFS_MSGID_COMP_PC                 GLFS_MSGID_COMP_COMMON_END
+#define GLFS_MSGID_COMP_PC_END             (GLFS_MSGID_COMP_PC +\
+                                           GLFS_MSGID_SEGMENT)
 /* --- new segments for messages goes above this line --- */
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */

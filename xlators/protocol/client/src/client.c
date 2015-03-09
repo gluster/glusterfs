@@ -24,6 +24,7 @@
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"
+#include "client-messages.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
 extern rpc_clnt_prog_t clnt_dump_prog;

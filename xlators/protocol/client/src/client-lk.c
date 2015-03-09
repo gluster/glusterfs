@@ -12,6 +12,7 @@
 #include "xlator.h"
 #include "client.h"
 #include "lkowner.h"
+#include "client-messages.h"
 
 static void
 __insert_and_merge (clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock);

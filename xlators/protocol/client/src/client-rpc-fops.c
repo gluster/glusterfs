@@ -18,6 +18,7 @@
 #include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
 #include "compat-errno.h"
+#include "client-messages.h"
 
 int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
 rpc_clnt_prog_t clnt3_3_fop_prog;

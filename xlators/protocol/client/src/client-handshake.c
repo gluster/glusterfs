@@ -24,6 +24,7 @@
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
 #include "rpc-common-xdr.h"
+#include "client-messages.h"
 
 #define CLIENT_REOPEN_MAX_ATTEMPTS 1024
 extern rpc_clnt_prog_t clnt3_3_fop_prog;

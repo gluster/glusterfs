@@ -15,6 +15,7 @@
 
 #include "client.h"
 #include "rpc-clnt.h"
+#include "client-messages.h"
 
 int
 client_cbk_null (struct rpc_clnt *rpc, void *mydata, void *data)
