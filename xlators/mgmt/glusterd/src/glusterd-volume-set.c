@@ -1643,13 +1643,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "locks.trace",
           .voltype     = "features/locks",
-          .value       = "disable",
           .type        = NO_DOC,
           .op_version  = GD_OP_VERSION_3_7_0,
         },
         { .key           = "cluster.disperse-self-heal-daemon",
           .voltype       = "cluster/disperse",
-          .value         = "enable",
           .type          = NO_DOC,
           .option        = "self-heal-daemon",
           .op_version    = GD_OP_VERSION_3_7_0,
@@ -1658,6 +1656,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key           = "cluster.quorum-reads",
           .voltype       = "cluster/replicate",
           .op_version    = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "client.bind-insecure",
+          .voltype    = "protocol/client",
+          .option     = "client-bind-insecure",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = NULL
         }

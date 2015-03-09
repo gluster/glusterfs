@@ -139,30 +139,15 @@ __glfs_refresh_inode (struct glfs *fs, xlator_t *subvol, inode_t *inode)
 int
 priv_glfs_loc_touchup (loc_t *loc)
 {
-	char *path = NULL;
-	int   ret = -1;
-	char *bn = NULL;
+        int     ret = 0;
 
-	if (loc->parent)
-		ret = inode_path (loc->parent, loc->name, &path);
-	else
-		ret = inode_path (loc->inode, 0, &path);
+        ret = loc_touchup (loc, loc->name);
+        if (ret < 0) {
+                errno = -ret;
+                ret = -1;
+        }
 
-	loc->path = path;
-
-	if (ret < 0 || !path) {
-		ret = -1;
-		errno = ENOMEM;
-		goto out;
-	}
-
-	bn = strrchr (path, '/');
-	if (bn)
-		bn++;
-	loc->name = bn;
-	ret = 0;
-out:
-	return ret;
+        return ret;
 }
 
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_loc_touchup, 3.4.0);

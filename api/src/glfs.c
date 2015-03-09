@@ -554,6 +554,11 @@ pub_glfs_new (const char *volname)
 	int              ret = -1;
 	glusterfs_ctx_t *ctx = NULL;
 
+        if (!volname) {
+                errno = EINVAL;
+                return NULL;
+        }
+
 	ctx = glusterfs_ctx_new ();
 	if (!ctx) {
 		return NULL;
@@ -893,6 +898,11 @@ pub_glfs_fini (struct glfs *fs)
         call_pool_t        *call_pool = NULL;
         int                fs_init = 0;
         int                err = -1;
+
+        if (!fs) {
+                errno = EINVAL;
+                return 0;
+        }
 
         ctx = fs->ctx;
         if (ctx->mgmt) {
