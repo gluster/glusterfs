@@ -6189,10 +6189,36 @@ out:
         return ret;
 }
 
+static gf_boolean_t
+glusterd_nfs_need_start ()
+{
+        gf_boolean_t            start    = _gf_false;
+        glusterd_conf_t         *priv    = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+
+        priv = THIS->private;
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                if (!glusterd_is_volume_started (volinfo))
+                        continue;
+
+                if (dict_get_str_boolean (volinfo->dict, "nfs.disable", 0))
+                        continue;
+
+                start = _gf_true;
+                break;
+        }
+
+        return start;
+}
+
 int
 glusterd_nfs_server_start ()
 {
-        return glusterd_nodesvc_start ("nfs", _gf_false);
+        if (glusterd_nfs_need_start ())
+                return glusterd_nodesvc_start ("nfs", _gf_false);
+
+        return 0;
 }
 
 int
