@@ -3661,6 +3661,8 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 goto out;
         }
 
+        /* Reset ret to 0, needed to prevent failure incase no peers exist */
+        ret = 0;
         rcu_read_lock ();
         if (!cds_list_empty (&priv->peers)) {
                 cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
