@@ -416,11 +416,13 @@ case $host_os in
         AC_MSG_WARN([NetBSD does not support POSIX ACLs... disabling them])
         ACL_LIBS=''
         USE_POSIX_ACLS='0'
+        BUILD_POSIX_ACLS='no'
         ;;
      *)
         AC_CHECK_HEADERS([sys/acl.h], ,
                          AC_MSG_ERROR([Support for POSIX ACLs is required]))
         USE_POSIX_ACLS='1'
+        BUILD_POSIX_ACLS='yes'
         case $host_os in
              linux*)
                 ACL_LIBS='-lacl'
@@ -1323,6 +1325,6 @@ echo "XML output           : $BUILD_XML_OUTPUT"
 echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
-echo "POSIX ACLs           : $USE_POSIX_ACLS"
+echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
 echo
