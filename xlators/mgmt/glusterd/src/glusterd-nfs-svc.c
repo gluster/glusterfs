@@ -164,7 +164,7 @@ glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = -1;
 
-        if (!glusterd_nfssvc_need_start ()) {
+        if (glusterd_are_all_volumes_stopped ()) {
                 ret = svc->stop (svc, SIGKILL);
 
         } else {
