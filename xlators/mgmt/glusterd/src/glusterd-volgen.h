@@ -33,6 +33,7 @@
 #define VKEY_CHANGELOG            "changelog.changelog"
 #define VKEY_FEATURES_QUOTA       "features.quota"
 #define VKEY_FEATURES_TRASH       "features.trash"
+#define VKEY_FEATURES_BITROT      "features.bitrot"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"

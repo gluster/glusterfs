@@ -5,8 +5,9 @@ glusterd_la_LDFLAGS = -module -avoid-version
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-op-sm.c glusterd-utils.c glusterd-rpc-ops.c \
 	glusterd-store.c glusterd-handshake.c glusterd-pmap.c \
-	glusterd-volgen.c glusterd-rebalance.c glusterd-ganesha.c glusterd-quota.c \
-	glusterd-geo-rep.c glusterd-replace-brick.c glusterd-log-ops.c \
+	glusterd-volgen.c glusterd-rebalance.c glusterd-ganesha.c \
+	glusterd-quota.c glusterd-bitrot.c glusterd-geo-rep.c \
+	glusterd-replace-brick.c glusterd-log-ops.c \
 	glusterd-volume-ops.c glusterd-brick-ops.c glusterd-mountbroker.c \
 	glusterd-syncop.c glusterd-hooks.c glusterd-volume-set.c \
 	glusterd-locks.c glusterd-snapshot.c glusterd-mgmt-handler.c \

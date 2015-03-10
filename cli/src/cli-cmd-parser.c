@@ -4765,3 +4765,222 @@ out:
 
         return ret;
 }
+
+int
+cli_cmd_validate_volume (char *volname)
+{
+        int       i        =  0;
+        int       ret      = -1;
+
+
+        if (volname[0] == '-')
+                return ret;
+
+        if (!strcmp (volname, "all")) {
+                cli_err ("\"all\" cannot be the name of a volume.");
+                return ret;
+        }
+
+        if (strchr (volname, '/')) {
+                cli_err ("Volume name should not contain \"/\" character.");
+                return ret;
+        }
+
+        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                cli_err ("Volname can not exceed %d characters.",
+                        GD_VOLUME_NAME_MAX);
+                return ret;
+        }
+
+        for (i = 0; i < strlen (volname); i++)
+                if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                    (volname[i] != '-')) {
+                        cli_err ("Volume name should not contain \"%c\""
+                                 " character.\nVolume names can only"
+                                 "contain alphanumeric, '-' and '_' "
+                                 "characters.", volname[i]);
+                        return ret;
+                }
+
+        ret = 0;
+
+        return ret;
+}
+
+int32_t
+cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
+{
+        int32_t            ret                    = -1;
+        char               *w                     = NULL;
+        char               *volname               = NULL;
+        char               *opwords[]             = {"enable", "disable",
+                                                     "scrub-throttle",
+                                                     "scrub-frequency",
+                                                     "scrub"};
+        char               *scrub_throt_values[]  = {"frozen", "lazy", "normal",
+                                                     "aggressive"};
+        char               *scrub_freq_values[]   = {"daily", "weekly",
+                                                     "biweekly", "monthly"};
+        char               *scrub_values[]        = {"pause", "resume"};
+        dict_t             *dict                  = NULL;
+        gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount < 4 || wordcount > 5) {
+                gf_log ("", GF_LOG_ERROR, "Invalid syntax");
+                goto out;
+        }
+
+        volname = (char *)words[2];
+        if (!volname) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_validate_volume (volname);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to validate volume name");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret) {
+                cli_out ("Failed to set volume name in dictionary ");
+                goto out;
+        }
+
+        w = str_getunamb (words[3], opwords);
+        if (!w) {
+                cli_out ("Invalid bit rot option : %s", words[3]);
+                ret = -1;
+                goto out;
+        }
+
+        if (strcmp (w, "enable") == 0) {
+                if (wordcount == 4) {
+                        type = GF_BITROT_OPTION_TYPE_ENABLE;
+                        ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (strcmp (w, "disable") == 0) {
+                if (wordcount == 4) {
+                        type = GF_BITROT_OPTION_TYPE_DISABLE;
+                        ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (!strcmp (w, "scrub-throttle")) {
+                if (!words[4]) {
+                        cli_err ("Missing scrub-throttle value for bitrot "
+                                 "option");
+                        ret = -1;
+                        goto out;
+                } else {
+                        w = str_getunamb (words[4], scrub_throt_values);
+                        if (!w) {
+                                cli_err ("Invalid scrub-throttle option for "
+                                         "bitrot");
+                                ret = -1;
+                                goto out;
+                        } else {
+                                type = GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE;
+                                ret =  dict_set_str (dict,
+                                                     "scrub-throttle-value",
+                                                     (char *) words[4]);
+                                if (ret) {
+                                        cli_out ("Failed to set scrub-throttle "
+                                                 "value in the dict");
+                                        goto out;
+                                }
+                                goto set_type;
+                        }
+                }
+        }
+
+        if (!strcmp (words[3], "scrub-frequency")) {
+                if (!words[4]) {
+                        cli_err ("Missing scrub-frequency value");
+                        ret = -1;
+                        goto out;
+                } else {
+                        w = str_getunamb (words[4], scrub_freq_values);
+                        if (!w) {
+                                cli_err ("Invalid frequency option for bitrot");
+                                ret = -1;
+                                goto out;
+                        } else {
+                                type = GF_BITROT_OPTION_TYPE_SCRUB_FREQ;
+                                ret = dict_set_str (dict,
+                                                    "scrub-frequency-value",
+                                                    (char *) words[4]);
+                                if (ret) {
+                                        cli_out ("Failed to set dict for "
+                                                 "bitrot");
+                                        goto out;
+                                }
+                                goto set_type;
+                        }
+                }
+        }
+
+        if (!strcmp (words[3], "scrub")) {
+                if (!words[4]) {
+                        cli_err ("Missing scrub value for bitrot option");
+                        ret = -1;
+                        goto out;
+                } else {
+                        w = str_getunamb (words[4], scrub_values);
+                        if (!w) {
+                                cli_err ("Invalid scrub option for bitrot");
+                                ret = -1;
+                                goto out;
+                        } else {
+                                type = GF_BITROT_OPTION_TYPE_SCRUB;
+                                ret =  dict_set_str (dict, "scrub-value",
+                                                    (char *) words[4]);
+                                if (ret) {
+                                        cli_out ("Failed to set dict for "
+                                                 "bitrot");
+                                        goto out;
+                                }
+                                goto set_type;
+                        }
+                }
+        } else {
+                cli_err ("Invalid option %s for bitrot. Please enter valid "
+                         "bitrot option", words[3]);
+                ret = -1;
+                goto out;
+        }
+
+set_type:
+        ret = dict_set_int32 (dict, "type", type);
+        if (ret < 0)
+                goto out;
+
+        *options = dict;
+
+out:
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse bitrot command");
+                if (dict)
+                        dict_destroy (dict);
+        }
+
+        return ret;
+}

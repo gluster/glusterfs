@@ -111,6 +111,7 @@ typedef enum glusterd_op_ {
         GD_OP_SNAP,
         GD_OP_BARRIER,
         GD_OP_GANESHA,
+        GD_OP_BITROT,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -849,6 +850,9 @@ int
 glusterd_handle_quota (rpcsvc_request_t *req);
 
 int
+glusterd_handle_bitrot (rpcsvc_request_t *req);
+
+int
 glusterd_handle_fsm_log (rpcsvc_request_t *req);
 
 int
@@ -935,7 +939,13 @@ int glusterd_op_sys_exec (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr);
 int glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
+int glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
 int glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
+int glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
 int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                      dict_t *rsp_dict);
 int glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict);
