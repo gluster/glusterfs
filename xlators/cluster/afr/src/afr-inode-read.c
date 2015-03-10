@@ -30,6 +30,7 @@
 #include "stack.h"
 #include "list.h"
 #include "call-stub.h"
+#include "byte-order.h"
 #include "defaults.h"
 #include "common-utils.h"
 #include "compat-errno.h"
@@ -78,6 +79,7 @@ afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
                         continue;
                 if (dict_get_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, &size))
                         continue;
+                size = ntoh64 (size);
                 if (read_subvol == -1)
                         read_subvol = i;
                 if (size > max_size) {
@@ -88,6 +90,8 @@ afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
 
         if (!max_size)
                 return read_subvol;
+
+        max_size = hton64 (max_size);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!replies[i].valid || replies[i].op_ret == -1)
