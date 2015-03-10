@@ -2984,7 +2984,7 @@ set_hostname_path_in_dict (const char *token, dict_t *dict, int heal_op)
                 goto out;
 
         switch (heal_op) {
-        case GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK:
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
                 ret = dict_set_dynstr (dict, "heal-source-hostname",
                                        hostname);
                 if (ret)
@@ -2992,7 +2992,7 @@ set_hostname_path_in_dict (const char *token, dict_t *dict, int heal_op)
                 ret = dict_set_dynstr (dict, "heal-source-brickpath",
                                        path);
                 break;
-        case GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                 ret = dict_set_dynstr (dict, "per-replica-cmd-hostname",
                                        hostname);
                 if (ret)
@@ -3014,29 +3014,29 @@ heal_command_type_get (const char *command)
 {
         int     i = 0;
         /* subcommands are set as NULL */
-        char    *heal_cmds[GF_AFR_OP_HEAL_DISABLE + 1] = {
-                [GF_AFR_OP_INVALID]                            = NULL,
-                [GF_AFR_OP_HEAL_INDEX]                         = NULL,
-                [GF_AFR_OP_HEAL_FULL]                          = "full",
-                [GF_AFR_OP_INDEX_SUMMARY]                      = "info",
-                [GF_AFR_OP_HEALED_FILES]                       = NULL,
-                [GF_AFR_OP_HEAL_FAILED_FILES]                  = NULL,
-                [GF_AFR_OP_SPLIT_BRAIN_FILES]                  = NULL,
-                [GF_AFR_OP_STATISTICS]                         = "statistics",
-                [GF_AFR_OP_STATISTICS_HEAL_COUNT]              = NULL,
-                [GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA]  = NULL,
-                [GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE]       = "split-brain",
-                [GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK]             = "split-brain",
-                [GF_AFR_OP_HEAL_ENABLE]                        = "enable",
-                [GF_AFR_OP_HEAL_DISABLE]                       = "disable",
+        char    *heal_cmds[GF_SHD_OP_HEAL_DISABLE + 1] = {
+                [GF_SHD_OP_INVALID]                            = NULL,
+                [GF_SHD_OP_HEAL_INDEX]                         = NULL,
+                [GF_SHD_OP_HEAL_FULL]                          = "full",
+                [GF_SHD_OP_INDEX_SUMMARY]                      = "info",
+                [GF_SHD_OP_HEALED_FILES]                       = NULL,
+                [GF_SHD_OP_HEAL_FAILED_FILES]                  = NULL,
+                [GF_SHD_OP_SPLIT_BRAIN_FILES]                  = NULL,
+                [GF_SHD_OP_STATISTICS]                         = "statistics",
+                [GF_SHD_OP_STATISTICS_HEAL_COUNT]              = NULL,
+                [GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA]  = NULL,
+                [GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE]       = "split-brain",
+                [GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK]             = "split-brain",
+                [GF_SHD_OP_HEAL_ENABLE]                        = "enable",
+                [GF_SHD_OP_HEAL_DISABLE]                       = "disable",
         };
 
-        for (i = 0; i <= GF_AFR_OP_HEAL_DISABLE; i++) {
+        for (i = 0; i <= GF_SHD_OP_HEAL_DISABLE; i++) {
                 if (heal_cmds[i] && (strcmp (heal_cmds[i], command) == 0))
                         return i;
         }
 
-        return GF_AFR_OP_INVALID;
+        return GF_SHD_OP_INVALID;
 }
 
 int
@@ -3047,7 +3047,7 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
         dict_t  *dict = NULL;
         char    *hostname = NULL;
         char    *path = NULL;
-        gf_xl_afr_op_t op = GF_AFR_OP_INVALID;
+        gf_xl_afr_op_t op = GF_SHD_OP_INVALID;
 
         dict = dict_new ();
         if (!dict)
@@ -3060,13 +3060,13 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
         }
 
         if (wordcount == 3) {
-                ret = dict_set_int32 (dict, "heal-op", GF_AFR_OP_HEAL_INDEX);
+                ret = dict_set_int32 (dict, "heal-op", GF_SHD_OP_HEAL_INDEX);
                 goto done;
         }
 
         if (wordcount == 4) {
                 op = heal_command_type_get (words[3]);
-                if (op == GF_AFR_OP_INVALID) {
+                if (op == GF_SHD_OP_INVALID) {
                         ret = -1;
                         goto out;
                 }
@@ -3085,17 +3085,17 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 if (!strcmp (words[3], "info")) {
                         if (!strcmp (words[4], "healed")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                                      GF_AFR_OP_HEALED_FILES);
+                                                      GF_SHD_OP_HEALED_FILES);
                                 goto done;
                         }
                         if (!strcmp (words[4], "heal-failed")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                                   GF_AFR_OP_HEAL_FAILED_FILES);
+                                                   GF_SHD_OP_HEAL_FAILED_FILES);
                                 goto done;
                         }
                         if (!strcmp (words[4], "split-brain")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                                   GF_AFR_OP_SPLIT_BRAIN_FILES);
+                                                   GF_SHD_OP_SPLIT_BRAIN_FILES);
                                 goto done;
                         }
                 }
@@ -3103,7 +3103,7 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 if (!strcmp (words[3], "statistics")) {
                         if (!strcmp (words[4], "heal-count")) {
                                 ret = dict_set_int32 (dict, "heal-op",
-                                               GF_AFR_OP_STATISTICS_HEAL_COUNT);
+                                               GF_SHD_OP_STATISTICS_HEAL_COUNT);
                                 goto done;
                         }
                 }
@@ -3117,7 +3117,7 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 }
                 if (!strcmp (words[4], "bigger-file")) {
                         ret = dict_set_int32 (dict, "heal-op",
-                                        GF_AFR_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
+                                        GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE);
                         if (ret)
                                 goto out;
                         ret = dict_set_str (dict, "file", (char *)words[5]);
@@ -3127,11 +3127,11 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 }
                 if (!strcmp (words[4], "source-brick")) {
                         ret = dict_set_int32 (dict, "heal-op",
-                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
                         if (ret)
                                 goto out;
                         ret = set_hostname_path_in_dict (words[5], dict,
-                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
                         if (ret)
                                 goto out;
                         goto done;
@@ -3145,11 +3145,11 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                     && !strcmp (words[5], "replica")) {
 
                         ret = dict_set_int32 (dict, "heal-op",
-                                   GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
+                                   GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
                         if (ret)
                                 goto out;
                         ret = set_hostname_path_in_dict (words[6], dict,
-                                   GF_AFR_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
+                                   GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA);
                         if (ret)
                                 goto out;
                         goto done;
@@ -3158,9 +3158,9 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 if (!strcmp (words[3], "split-brain") &&
                     !strcmp (words[4], "source-brick")) {
                         ret = dict_set_int32 (dict, "heal-op",
-                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
                         ret = set_hostname_path_in_dict (words[5], dict,
-                                              GF_AFR_OP_SBRAIN_HEAL_FROM_BRICK);
+                                              GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK);
                         if (ret)
                                 goto out;
                         ret = dict_set_str (dict, "file",

@@ -1092,65 +1092,6 @@ afr_is_entry_possibly_under_txn (afr_local_t *local, xlator_t *this)
 }
 
 
-/*
- * Quota size xattrs are not maintained by afr. There is a
- * possibility that they differ even when both the directory changelog xattrs
- * suggest everything is fine. So if there is at least one 'source' check among
- * the sources which has the maximum quota size. Otherwise check among all the
- * available ones for maximum quota size. This way if there is a source and
- * stale copies it always votes for the 'source'.
- * */
-
-static void
-afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
-{
-	unsigned char *readable = NULL;
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
-	struct afr_reply *replies = NULL;
-	int i = 0;
-	uint64_t size = 0;
-	uint64_t max_size = 0;
-	int readable_cnt = 0;
-
-	local = frame->local;
-	priv = this->private;
-	replies = local->replies;
-
-	readable = alloca0 (priv->child_count);
-
-	afr_inode_read_subvol_get (local->inode, this, readable, 0, 0);
-
-	readable_cnt = AFR_COUNT (readable, priv->child_count);
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid || replies[i].op_ret == -1)
-			continue;
-		if (readable_cnt && !readable[i])
-			continue;
-		if (!replies[i].xdata)
-			continue;
-		if (dict_get_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, &size))
-			continue;
-		if (size > max_size)
-			max_size = size;
-	}
-
-	if (!max_size)
-		return;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid || replies[i].op_ret == -1)
-			continue;
-		if (readable_cnt && !readable[i])
-			continue;
-		if (!replies[i].xdata)
-			continue;
-		if (dict_set_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, max_size))
-			continue;
-	}
-}
-
 static char *afr_ignore_xattrs[] = {
         GLUSTERFS_OPEN_FD_COUNT,
         GLUSTERFS_PARENT_ENTRYLK,

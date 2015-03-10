@@ -197,7 +197,7 @@ BuildRequires:    bison flex
 BuildRequires:    gcc make automake libtool
 BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
-BuildRequires:    libaio-devel
+BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 BuildRequires:    userspace-rcu-devel >= 0.7
@@ -1048,6 +1048,9 @@ fi
 %changelog
 * Thu Feb 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - enable cmocka unittest support only when asked for (#1067059)
+
+* Tue Feb 24 2015 Niels de Vos <ndevos@redhat.com>
+- POSIX ACL conversion needs BuildRequires libacl-devel (#1185654)
 
 * Wed Feb 18 2015 Andreas Schneider <asn@redhat.com>
 - Change cmockery2 to cmocka.

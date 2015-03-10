@@ -40,7 +40,7 @@ parser_init (const char *regex)
         int           rc      = 0;
         struct parser *parser = NULL;
 
-        parser = MALLOC (sizeof(*parser));
+        parser = GF_MALLOC (sizeof(*parser), gf_common_mt_parser_t);
         if (!parser)
                 goto out;
 
@@ -48,7 +48,7 @@ parser_init (const char *regex)
         if (!parser->regex) {
                 gf_log (GF_PARSE, GF_LOG_INFO,
                         "Failed to duplicate regex string!");
-                FREE (parser);
+                GF_FREE (parser);
                 parser = NULL;
                 goto out;
         }
@@ -135,9 +135,9 @@ parser_deinit (struct parser *ptr)
                 return;
 
         regfree (&ptr->preg);
-        FREE (ptr->complete_str);
+        GF_FREE (ptr->complete_str);
         GF_FREE (ptr->regex);
-        FREE (ptr);
+        GF_FREE (ptr);
 }
 
 /**
