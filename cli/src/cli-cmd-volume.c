@@ -1300,6 +1300,58 @@ out:
 }
 
 int
+cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                    const char **words, int wordcount)
+{
+
+        int                     ret        = -1;
+        int                     parse_err  = 0;
+        call_frame_t            *frame     = NULL;
+        dict_t                  *options   = NULL;
+        cli_local_t             *local     = NULL;
+        rpc_clnt_procedure_t    *proc      = NULL;
+        int                     sent       = 0;
+
+        ret = cli_cmd_bitrot_parse (words, wordcount, &options);
+        if (ret < 0) {
+                cli_usage_out (word->pattern);
+                parse_err = 1;
+                goto out;
+        }
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_BITROT];
+        if (proc == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_err == 0))
+                    cli_err ("Bit rot command failed. Please check the cli "
+                             "logs for more details");
+
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
+int
 cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                    const char **words, int wordcount)
 {
@@ -2492,7 +2544,17 @@ struct cli_cmd volume_cmds[] = {
         },
         {"volume get <VOLNAME> <key|all>",
          cli_cmd_volume_getopt_cbk,
-         "Get the value of the all options or given option for volume <VOLNAME>"},
+         "Get the value of the all options or given option for volume <VOLNAME>"
+        },
+        { "volume bitrot <volname> {enable|disable} |\n"
+          "volume bitrot <volname> {scrub-throttle frozen|lazy|normal"
+          "|aggressive} |\n"
+          "volume bitrot <volname> {scrub-frequency daily|weekly|biweekly"
+          "|monthly} |\n"
+          "volume bitrot <volname> {scrub pause|resume}",
+          cli_cmd_bitrot_cbk,
+          "Bitrot translator specific operations."
+        },
         { NULL, NULL, NULL }
 };
 

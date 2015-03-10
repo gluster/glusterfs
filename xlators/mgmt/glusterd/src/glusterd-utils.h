@@ -448,6 +448,7 @@ glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 
 int32_t
 glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo);
+
 int
 glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp);
 int
@@ -554,6 +555,9 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_is_bitrot_enabled (glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
 glusterd_all_volumes_with_quota_stopped ();

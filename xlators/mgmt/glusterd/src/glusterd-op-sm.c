@@ -3441,6 +3441,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_CLEARLOCKS_VOLUME:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
                 case GD_OP_BARRIER:
+                case GD_OP_BITROT:
                         {
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
@@ -4927,6 +4928,11 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_barrier (dict, op_errstr);
                         break;
 
+                case GD_OP_BITROT:
+                        ret = glusterd_op_stage_bitrot (dict, op_errstr,
+                                                        rsp_dict);
+                        break;
+
                 default:
                         gf_log (this->name, GF_LOG_ERROR, "Unknown op %s",
                                 gd_op_list[op]);
@@ -5043,6 +5049,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
 
                 case GD_OP_BARRIER:
                         ret = glusterd_op_barrier (dict, op_errstr);
+                        break;
+
+                case GD_OP_BITROT:
+                        ret = glusterd_op_bitrot (dict, op_errstr, rsp_dict);
                         break;
 
                 default:

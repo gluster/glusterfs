@@ -9159,6 +9159,12 @@ glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo)
 }
 
 int
+glusterd_is_bitrot_enabled (glusterd_volinfo_t *volinfo)
+{
+        return glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_BITROT);
+}
+
+int
 glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
                                 char **op_errstr)
 {

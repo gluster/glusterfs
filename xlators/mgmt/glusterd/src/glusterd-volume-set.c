@@ -1265,6 +1265,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = 1
         },
 
+        { .key         = VKEY_FEATURES_BITROT,
+          .voltype     = "features/bitrot",
+          .option      = "bitrot",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+
         /* Debug xlators options */
         { .key        = "debug.trace",
           .voltype    = "debug/trace",

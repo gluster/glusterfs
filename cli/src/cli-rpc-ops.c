@@ -9804,6 +9804,123 @@ out:
 
 }
 
+int
+gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
+                   int count, void *myframe)
+{
+        int                  ret                       = -1;
+        gf_cli_rsp           rsp                       = {0, };
+        dict_t               *dict                     = NULL;
+        call_frame_t         *frame                    = NULL;
+
+        if (req->rpc_status == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        frame = myframe;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        if (rsp.op_ret) {
+                ret = -1;
+                if (global_state->mode & GLUSTER_MODE_XML)
+                        goto xml_output;
+
+                if (strcmp (rsp.op_errstr, ""))
+                        cli_err ("Bitrot command failed : %s", rsp.op_errstr);
+                else
+                        cli_err ("Bitrot command : failed");
+
+                goto out;
+        }
+
+        if (rsp.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict = dict_new ();
+
+                if (!dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                        rsp.dict.dict_len,
+                                        &dict);
+
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "failed to unserialize "
+                                "req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to bit rot command");
+
+xml_output:
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_profile (dict, rsp.op_ret,
+                                                  rsp.op_errno,
+                                                  rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (!rsp.op_ret)
+                cli_out ("volume bitrot: success");
+
+        ret = rsp.op_ret;
+
+out:
+        if (dict)
+            dict_unref (dict);
+
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+
+        cli_cmd_broadcast_response (ret);
+
+        return ret;
+
+}
+
+int32_t
+gf_cli_bitrot (call_frame_t *frame, xlator_t *this, void *data)
+{
+        gf_cli_req        req           = { {0,} };
+        dict_t           *options       = NULL;
+        int               ret           = -1;
+
+        if (!frame || !this || !data)
+                goto out;
+
+        options = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_bitrot_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, options,
+                               GLUSTER_CLI_BITROT, this, cli_rpc_prog,
+                               NULL);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "cli_to_glusterd for "
+                        "bitrot failed");
+                goto out;
+        }
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+
+        return ret;
+}
+
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
         [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli_probe},
@@ -9848,6 +9965,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_BARRIER_VOLUME]   = {"BARRIER VOLUME", gf_cli_barrier_volume},
         [GLUSTER_CLI_GANESHA]          = {"GANESHA", gf_cli_ganesha},
         [GLUSTER_CLI_GET_VOL_OPT]      = {"GET_VOL_OPT", gf_cli_get_vol_opt},
+        [GLUSTER_CLI_BITROT]           = {"BITROT", gf_cli_bitrot}
 };
 
 struct rpc_clnt_program cli_prog = {

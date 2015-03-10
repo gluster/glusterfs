@@ -4841,6 +4841,7 @@ rpcsvc_actor_t gd_svc_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_BARRIER_VOLUME]     = {"BARRIER_VOLUME",     GLUSTER_CLI_BARRIER_VOLUME,   glusterd_handle_barrier,               NULL, 0, DRC_NA},
         [GLUSTER_CLI_GANESHA]            = { "GANESHA"  ,         GLUSTER_CLI_GANESHA,          glusterd_handle_ganesha_cmd,           NULL, 0, DRC_NA},
         [GLUSTER_CLI_GET_VOL_OPT]        = {"GET_VOL_OPT",        GLUSTER_CLI_GET_VOL_OPT,      glusterd_handle_get_vol_opt,           NULL, 0, DRC_NA},
+        [GLUSTER_CLI_BITROT]             = {"BITROT",             GLUSTER_CLI_BITROT,           glusterd_handle_bitrot,                NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {
