@@ -125,7 +125,7 @@ __afr_is_sink_zero_filled (xlator_t *this, fd_t *fd, size_t size,
 
         priv = this->private;
         ret = syncop_readv (priv->children[sink], fd, size, offset, 0, &iovec,
-                            &count, &iobref);
+                            &count, &iobref, NULL, NULL);
         if (ret < 0)
                 goto out;
         ret = iov_0filled (iovec, count);
@@ -155,7 +155,7 @@ __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	priv = this->private;
 
 	ret = syncop_readv (priv->children[source], fd, size, offset, 0,
-			    &iovec, &count, &iobref);
+			    &iovec, &count, &iobref, NULL, NULL);
 	if (ret <= 0)
 		return ret;
 
@@ -204,7 +204,7 @@ __afr_selfheal_data_read_write (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
 
 		ret = syncop_writev (priv->children[i], fd, iovec, count,
-				     offset, iobref, 0);
+				     offset, iobref, 0, NULL, NULL);
 		if (ret != iov_length (iovec, count)) {
 			/* write() failed on this sink. unset the corresponding
 			   member in sinks[] (which is healed_sinks[] in the
@@ -750,7 +750,7 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode)
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd);
+	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd, NULL, NULL);
 	if (ret) {
 		fd_unref (fd);
 		fd = NULL;

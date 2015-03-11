@@ -4163,7 +4163,7 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
                 goto out;
         }
 
-        ret = syncop_lookup (xl, loc, xattr_req, &iatt, NULL, NULL);
+        ret = syncop_lookup (xl, loc, &iatt, NULL, xattr_req, NULL);
         if (ret < 0)
                 goto out;
 
@@ -4249,10 +4249,10 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
         GF_VALIDATE_OR_GOTO ("glusterfs-fuse", newfd_ctx, out);
 
         if (IA_ISDIR (basefd->inode->ia_type)) {
-                ret = syncop_opendir (new_subvol, &loc, newfd);
+                ret = syncop_opendir (new_subvol, &loc, newfd, NULL, NULL);
         } else {
                 flags = basefd->flags & ~(O_CREAT | O_EXCL | O_TRUNC);
-                ret = syncop_open (new_subvol, &loc, flags, newfd);
+                ret = syncop_open (new_subvol, &loc, flags, newfd, NULL, NULL);
         }
 
         if (ret < 0) {
@@ -4321,7 +4321,7 @@ fuse_migrate_locks (xlator_t *this, fd_t *basefd, fd_t *oldfd,
         UNLOCK (&basefd->lock);
 
         ret = syncop_fgetxattr (old_subvol, oldfd, &lockinfo,
-                                GF_XATTR_LOCKINFO_KEY, NULL);
+                                GF_XATTR_LOCKINFO_KEY, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
 			"getting lockinfo failed while migrating locks"
@@ -4348,7 +4348,7 @@ fuse_migrate_locks (xlator_t *this, fd_t *basefd, fd_t *oldfd,
                 goto out;
         }
 
-        ret = syncop_fsetxattr (new_subvol, newfd, lockinfo, 0);
+        ret = syncop_fsetxattr (new_subvol, newfd, lockinfo, 0, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
 			"migrating locks failed (oldfd:%p newfd:%p "
@@ -4418,7 +4418,7 @@ fuse_migrate_fd (xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
         }
 
         if (oldfd->inode->table->xl == old_subvol) {
-                ret = syncop_fsync (old_subvol, oldfd, 0);
+                ret = syncop_fsync (old_subvol, oldfd, 0, NULL, NULL);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "syncop_fsync failed (%s) on fd (%p)"

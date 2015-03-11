@@ -34,7 +34,7 @@ syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid)
                 goto out;
         }
 
-        ret = syncop_opendir (subvol, loc, dirfd);
+        ret = syncop_opendir (subvol, loc, dirfd, NULL, NULL);
         if (ret) {
         /*
          * On Linux, if the brick was not updated, opendir will
@@ -88,8 +88,8 @@ syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
 
         INIT_LIST_HEAD (&entries.list);
 
-        while ((ret = syncop_readdirp (subvol, fd, 131072, offset, 0,
-                                       &entries))) {
+        while ((ret = syncop_readdirp (subvol, fd, 131072, offset, &entries,
+                                       NULL, NULL))) {
                 if (ret < 0)
                         break;
 
@@ -167,8 +167,8 @@ syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
 
         INIT_LIST_HEAD (&entries.list);
 
-        while ((ret = syncop_readdirp (subvol, fd, 131072, offset, 0,
-                                       &entries))) {
+        while ((ret = syncop_readdirp (subvol, fd, 131072, offset, &entries,
+                                       NULL, NULL))) {
                 if (ret < 0)
                         break;
 
@@ -236,7 +236,8 @@ syncop_dir_scan (xlator_t *subvol, loc_t *loc, int pid, void *data,
 
         INIT_LIST_HEAD (&entries.list);
 
-        while ((ret = syncop_readdir  (subvol, fd, 131072, offset, &entries))) {
+        while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries,
+                                      NULL, NULL))) {
                 if (ret < 0)
                         break;
 
@@ -283,7 +284,8 @@ syncop_is_subvol_local (xlator_t *this, loc_t *loc, gf_boolean_t *is_local)
 
         *is_local = _gf_false;
 
-        ret = syncop_getxattr (this, loc, &xattr, GF_XATTR_PATHINFO_KEY, NULL);
+        ret = syncop_getxattr (this, loc, &xattr, GF_XATTR_PATHINFO_KEY, NULL,
+                               NULL);
         if (ret < 0) {
                 ret = -1;
                 goto out;
@@ -322,7 +324,8 @@ syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
         gf_uuid_copy (loc.gfid, gfid);
         loc.inode = inode_new (itable);
 
-        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);
+        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL,
+                               NULL);
         if (ret < 0)
                 goto out;
 

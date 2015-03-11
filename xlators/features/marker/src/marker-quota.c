@@ -2100,8 +2100,8 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
         if (ret < 0)
                 goto out;
 
-        ret = syncop_lookup (FIRST_CHILD(this), loc, dict, &stbuf, &rsp_dict,
-                             NULL);
+        ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                             dict, &rsp_dict);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
@@ -2198,7 +2198,7 @@ mq_create_xattrs (xlator_t *this, loc_t *loc, gf_boolean_t objects)
         }
 
         ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                             dict, NULL);
+                             dict, NULL, NULL);
 
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
@@ -2264,8 +2264,8 @@ mq_get_dirty (xlator_t *this, loc_t *loc, int32_t *dirty)
                 goto out;
         }
 
-        ret = syncop_lookup (FIRST_CHILD(this), loc, dict, &stbuf, &rsp_dict,
-                             NULL);
+        ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                             dict, &rsp_dict);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
@@ -2311,7 +2311,7 @@ mq_mark_dirty (xlator_t *this, loc_t *loc, int32_t dirty)
                 goto out;
         }
 
-        ret = syncop_setxattr (FIRST_CHILD(this), loc, dict, 0);
+        ret = syncop_setxattr (FIRST_CHILD(this), loc, dict, 0, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "setxattr dirty = %d "
@@ -2377,8 +2377,8 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
                         goto out;
         }
 
-        ret = syncop_lookup (FIRST_CHILD(this), loc, dict, &stbuf, &rsp_dict,
-                             NULL);
+        ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                             dict, &rsp_dict);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "lookup failed "
@@ -2548,7 +2548,7 @@ mq_remove_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri)
                 goto out;
         }
 
-        ret = syncop_removexattr (FIRST_CHILD(this), loc, contri_key, 0);
+        ret = syncop_removexattr (FIRST_CHILD(this), loc, contri_key, 0, NULL);
         if (ret < 0) {
                 if (-ret == ENOENT || -ret == ESTALE) {
                         /* Remove contri in done when unlink operation is
@@ -2615,7 +2615,7 @@ mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
                 goto out;
 
         ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                             dict, NULL);
+                             dict, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
@@ -2674,7 +2674,7 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
                 goto out;
 
         ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                             dict, NULL);
+                             dict, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
@@ -3256,7 +3256,7 @@ mq_update_dirty_inode_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                 goto out;
         }
 
-        ret = syncop_opendir (this, loc, fd);
+        ret = syncop_opendir (this, loc, fd, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                         ? GF_LOG_DEBUG:GF_LOG_ERROR, "opendir failed "
@@ -3265,8 +3265,8 @@ mq_update_dirty_inode_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
         }
 
         INIT_LIST_HEAD (&entries.list);
-        while ((ret = syncop_readdirp (this, fd, 131072, offset, NULL,
-                                       &entries)) != 0) {
+        while ((ret = syncop_readdirp (this, fd, 131072, offset, &entries,
+                                       NULL, NULL)) != 0) {
                 if (ret < 0) {
                         gf_log (this->name, (-ret == ENOENT || -ret == ESTALE)
                                 ? GF_LOG_DEBUG:GF_LOG_ERROR, "readdirp failed "

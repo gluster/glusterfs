@@ -177,7 +177,8 @@ __afr_selfheal_name_expunge (xlator_t *this, inode_t *parent, uuid_t pargfid,
 				uuid_utoa (pargfid), bname,
 				uuid_utoa_r (replies[i].poststat.ia_gfid, g),
 				priv->children[i]->name);
-			ret |= syncop_rmdir (priv->children[i], &loc, 1);
+			ret |= syncop_rmdir (priv->children[i], &loc, 1, NULL,
+                                             NULL);
 			break;
 		default:
 			gf_log (this->name, GF_LOG_WARNING,
@@ -185,7 +186,8 @@ __afr_selfheal_name_expunge (xlator_t *this, inode_t *parent, uuid_t pargfid,
 				uuid_utoa (pargfid), bname,
 				uuid_utoa_r (replies[i].poststat.ia_gfid, g),
 				priv->children[i]->name);
-			ret |= syncop_unlink (priv->children[i], &loc);
+			ret |= syncop_unlink (priv->children[i], &loc, NULL,
+                                              NULL);
 			break;
 		}
 	}

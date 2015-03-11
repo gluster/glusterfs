@@ -98,7 +98,7 @@ glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode)
 	if (!loc.inode)
 		return NULL;
 
-	ret = syncop_lookup (subvol, &loc, 0, &iatt, 0, 0);
+	ret = syncop_lookup (subvol, &loc, &iatt, 0, 0, 0);
         DECODE_SYNCOP_ERR (ret);
 
 	if (ret) {
@@ -168,7 +168,7 @@ glfs_resolve_symlink (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 		goto out;
 	loc.path = rpath;
 
-	ret = syncop_readlink (subvol, &loc, &path, 4096);
+	ret = syncop_readlink (subvol, &loc, &path, 4096, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	if (ret < 0)
@@ -198,7 +198,7 @@ glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 	if (ret < 0)
 		goto out;
 
-	ret = syncop_lookup (subvol, &loc, NULL, iatt, NULL, NULL);
+	ret = syncop_lookup (subvol, &loc, iatt, NULL, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
 	loc_wipe (&loc);
@@ -283,7 +283,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 		goto out;
 	}
 
-        ret = syncop_lookup (subvol, &loc, xattr_req, &ciatt, NULL, NULL);
+        ret = syncop_lookup (subvol, &loc, &ciatt, NULL, xattr_req, NULL);
         if (ret && reval) {
                 /*
                  * A stale mapping might exist for a dentry/inode that has been
@@ -313,8 +313,8 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 			goto out;
 		}
 
-		ret = syncop_lookup (subvol, &loc, xattr_req, &ciatt,
-				     NULL, NULL);
+		ret = syncop_lookup (subvol, &loc, &ciatt, NULL,
+				     xattr_req, NULL);
 	}
         DECODE_SYNCOP_ERR (ret);
 	if (ret)
@@ -550,7 +550,7 @@ glfs_migrate_fd_locks_safe (struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
 	newfd->lk_ctx = fd_lk_ctx_ref (oldfd->lk_ctx);
 
 	ret = syncop_fgetxattr (oldsubvol, oldfd, &lockinfo,
-				GF_XATTR_LOCKINFO_KEY, NULL);
+				GF_XATTR_LOCKINFO_KEY, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 	if (ret < 0) {
 		gf_log (fs->volname, GF_LOG_WARNING,
@@ -569,7 +569,7 @@ glfs_migrate_fd_locks_safe (struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
 		goto out;
 	}
 
-	ret = syncop_fsetxattr (newsubvol, newfd, lockinfo, 0);
+	ret = syncop_fsetxattr (newsubvol, newfd, lockinfo, 0, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 	if (ret < 0) {
 		gf_log (fs->volname, GF_LOG_WARNING,
@@ -605,7 +605,7 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 		return fd_ref (oldfd);
 
 	if (!oldsubvol->switched) {
-		ret = syncop_fsync (oldsubvol, oldfd, 0);
+		ret = syncop_fsync (oldsubvol, oldfd, 0, NULL, NULL);
                 DECODE_SYNCOP_ERR (ret);
 		if (ret) {
 			gf_log (fs->volname, GF_LOG_WARNING,
@@ -648,11 +648,11 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 
 
 	if (IA_ISDIR (oldinode->ia_type))
-		ret = syncop_opendir (newsubvol, &loc, newfd);
+		ret = syncop_opendir (newsubvol, &loc, newfd, NULL, NULL);
 	else
 		ret = syncop_open (newsubvol, &loc,
 				   oldfd->flags & ~(O_TRUNC|O_EXCL|O_CREAT),
-				   newfd);
+				   newfd, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 	loc_wipe (&loc);
 

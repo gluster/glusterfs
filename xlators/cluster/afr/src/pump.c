@@ -287,7 +287,8 @@ pump_save_path (xlator_t *this, const char *path)
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to set the key %s", path, PUMP_PATH);
 
-        ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
+        ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0, NULL,
+                               NULL);
 
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -464,7 +465,7 @@ gf_pump_traverse_directory (loc_t *loc)
                 goto out;
         }
 
-        ret = syncop_opendir (this, loc, fd);
+        ret = syncop_opendir (this, loc, fd, NULL, NULL);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "opendir failed on %s", loc->path);
@@ -475,7 +476,8 @@ gf_pump_traverse_directory (loc_t *loc)
                 "pump opendir on %s returned=%d",
                 loc->path, ret);
 
-        while (syncop_readdirp (this, fd, 131072, offset, NULL, &entries)) {
+        while (syncop_readdirp (this, fd, 131072, offset, &entries, NULL,
+                                NULL)) {
                 free_entries = _gf_true;
 
                 if (list_empty (&entries.list)) {
@@ -511,8 +513,8 @@ gf_pump_traverse_directory (loc_t *loc)
 				entry_loc.path,
 				iatt.ia_ino);
 
-			ret = syncop_lookup (this, &entry_loc, NULL, &iatt,
-					     &xattr_rsp, &parent);
+			ret = syncop_lookup (this, &entry_loc, &iatt, &parent,
+					     NULL, &xattr_rsp);
 
 			if (ret) {
 				gf_log (this->name, GF_LOG_ERROR,
@@ -625,14 +627,14 @@ pump_xattr_cleaner (call_frame_t *frame, void *cookie, xlator_t *this,
         afr_build_root_loc (this, &loc);
 
         ret = syncop_removexattr (priv->children[source], &loc,
-				  PUMP_PATH, 0);
+				  PUMP_PATH, 0, NULL);
 
         ret = syncop_removexattr (priv->children[sink], &loc,
-                                  PUMP_SINK_COMPLETE, 0);
+                                  PUMP_SINK_COMPLETE, 0, NULL);
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = syncop_removexattr (priv->children[i], &loc,
-                                          PUMP_SOURCE_COMPLETE, 0);
+                                          PUMP_SOURCE_COMPLETE, 0, NULL);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG, "removexattr "
                                 "failed with %s", strerror (-ret));
@@ -676,7 +678,8 @@ pump_complete_migration (xlator_t *this)
                                 "%s: failed to set the key %s",
                                 loc.path, PUMP_SOURCE_COMPLETE);
 
-                ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
+                ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0,
+                                       NULL, NULL);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "setxattr failed - while  notifying source complete");
@@ -687,7 +690,8 @@ pump_complete_migration (xlator_t *this)
                                 "%s: failed to set the key %s",
                                 loc.path, PUMP_SINK_COMPLETE);
 
-                ret = syncop_setxattr (PUMP_SINK_CHILD (this), &loc, dict, 0);
+                ret = syncop_setxattr (PUMP_SINK_CHILD (this), &loc, dict, 0,
+                                       NULL, NULL);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "setxattr failed - while notifying sink complete");
@@ -722,8 +726,8 @@ pump_lookup_sink (loc_t *loc)
         if (ret)
                 goto out;
 
-        ret = syncop_lookup (PUMP_SINK_CHILD (this), loc,
-                             xattr_req, &iatt, &xattr_rsp, &parent);
+        ret = syncop_lookup (PUMP_SINK_CHILD (this), loc, &iatt, &parent,
+                             xattr_req, &xattr_rsp);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -768,8 +772,8 @@ pump_task (void *data)
         }
 
         afr_set_root_gfid (xattr_req);
-        ret = syncop_lookup (this, &loc, xattr_req,
-                             &iatt, &xattr_rsp, &parent);
+        ret = syncop_lookup (this, &loc, &iatt, &parent,
+                             xattr_req, &xattr_rsp);
 
         gf_log (this->name, GF_LOG_TRACE,
                 "lookup: path=%s gfid=%s",

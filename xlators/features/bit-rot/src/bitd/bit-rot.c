@@ -167,10 +167,12 @@ bitd_is_bad_file (xlator_t *this, br_child_t *child, loc_t *loc, fd_t *fd)
 
         if (fd)
                 ret = syncop_fgetxattr (child->xl, fd, &xattr,
-                                        "trusted.glusterfs.bad-file", NULL);
+                                        "trusted.glusterfs.bad-file", NULL,
+                                        NULL);
         else if (loc)
                 ret = syncop_getxattr (child->xl, loc, &xattr,
-                                       "trusted.glusterfs.bad-file", NULL);
+                                       "trusted.glusterfs.bad-file", NULL,
+                                       NULL);
 
         if (!ret) {
                 gf_log (this->name, GF_LOG_DEBUG, "[GFID: %s] is marked "
@@ -213,7 +215,7 @@ br_object_lookup (xlator_t *this, br_object_t *object,
 
 	gf_uuid_copy (loc.gfid, object->gfid);
 
-	ret = syncop_lookup (object->child->xl, &loc, NULL, iatt, NULL, NULL);
+	ret = syncop_lookup (object->child->xl, &loc, iatt, NULL, NULL, NULL);
 	if (ret < 0)
 		goto out;
 
@@ -259,7 +261,7 @@ br_object_open (xlator_t *this,
         loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-        ret = syncop_open (object->child->xl, &loc, O_RDONLY, fd);
+        ret = syncop_open (object->child->xl, &loc, O_RDONLY, fd, NULL, NULL);
 	if (ret) {
                 br_log_object (this, "open", inode->gfid, -ret);
 		fd_unref (fd);
@@ -295,7 +297,8 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
         GF_VALIDATE_OR_GOTO (this->name, child, out);
 
         ret = syncop_readv (child->xl, fd,
-                            size, offset, 0, &iovec, &count, &iobref);
+                            size, offset, 0, &iovec, &count, &iobref, NULL,
+                            NULL);
 
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "readv on %s failed (%s)",
@@ -422,7 +425,7 @@ br_object_read_sign (inode_t *linked_inode, fd_t *fd, br_object_t *object,
                 goto free_isign;
         }
 
-        ret = syncop_fsetxattr (object->child->xl, fd, xattr, 0);
+        ret = syncop_fsetxattr (object->child->xl, fd, xattr, 0, NULL, NULL);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "fsetxattr of signature to "
                         "the object %s failed", uuid_utoa (fd->inode->gfid));
@@ -799,7 +802,7 @@ br_trigger_sign (xlator_t *this, br_child_t *child, inode_t *linked_inode,
                 goto out;
         }
 
-        ret = syncop_open (child->xl, loc, O_RDWR, fd);
+        ret = syncop_open (child->xl, loc, O_RDWR, fd, NULL, NULL);
 	if (ret) {
                 br_log_object (this, "open", linked_inode->gfid, -ret);
 		fd_unref (fd);
@@ -891,7 +894,7 @@ bitd_oneshot_crawl (xlator_t *subvol,
         if (!ret)
                 goto out;
 
-        ret = syncop_lookup (child->xl, &loc, NULL, &iatt, NULL, &parent_buf);
+        ret = syncop_lookup (child->xl, &loc, &iatt, &parent_buf, NULL, NULL);
         if (ret) {
                 br_log_object_path (this, "lookup", loc.path, -ret);
                 goto out;
@@ -931,7 +934,7 @@ bitd_oneshot_crawl (xlator_t *subvol,
         }
 
         ret = syncop_getxattr (child->xl, &loc, &xattr,
-                               GLUSTERFS_GET_OBJECT_SIGNATURE, NULL);
+                               GLUSTERFS_GET_OBJECT_SIGNATURE, NULL, NULL);
         if (ret < 0) {
                 op_errno = -ret;
                 br_log_object (this, "getxattr", linked_inode->gfid, op_errno);
@@ -1088,7 +1091,7 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         gf_uuid_copy (loc.gfid, loc.inode->gfid);
         loc.path = gf_strdup ("/");
 
-        ret = syncop_lookup (child->xl, &loc, NULL, &buf, NULL, &parent);
+        ret = syncop_lookup (child->xl, &loc, &buf, &parent, NULL, NULL);
         if (ret) {
                 op_errno = -ret;
                 ret = -1;
@@ -1098,7 +1101,7 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         }
 
         ret = syncop_getxattr (child->xl, &loc, &xattr,
-                               GLUSTERFS_GET_BR_STUB_INIT_TIME, NULL);
+                               GLUSTERFS_GET_BR_STUB_INIT_TIME, NULL, NULL);
         if (ret) {
                 op_errno = -ret;
                 ret = -1;
