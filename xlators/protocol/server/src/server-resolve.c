@@ -15,6 +15,7 @@
 
 #include "server.h"
 #include "server-helpers.h"
+#include "server-messages.h"
 
 
 int
@@ -63,11 +64,18 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve_loc = &resolve->resolve_loc;
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_WARNING),
-                        "%s/%s: failed to resolve (%s)",
-                        uuid_utoa (resolve_loc->pargfid), resolve_loc->name,
-                        strerror (op_errno));
+                if (op_errno == ENOENT) {
+                        gf_msg_debug (this->name, 0, "%s/%s: failed to resolve"
+                                      " (%s)",
+                                      uuid_utoa (resolve_loc->pargfid),
+                                      resolve_loc->name, strerror (op_errno));
+                } else {
+                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                                PS_MSG_GFID_RESOLVE_FAILED, "%s/%s: failed to "
+                                "resolve (%s)",
+                                uuid_utoa (resolve_loc->pargfid),
+                                resolve_loc->name, strerror (op_errno));
+                }
                 goto out;
         }
 
@@ -104,10 +112,18 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve_loc = &resolve->resolve_loc;
 
         if (op_ret == -1) {
-                gf_log (this->name, ((op_errno == ENOENT) ? GF_LOG_DEBUG :
-                                     GF_LOG_WARNING),
-                        "%s: failed to resolve (%s)",
-                        uuid_utoa (resolve_loc->gfid), strerror (op_errno));
+                if (op_errno == ENOENT) {
+                        gf_msg_debug (this->name, GF_LOG_DEBUG,
+                                      "%s: failed to resolve (%s)",
+                                      uuid_utoa (resolve_loc->gfid),
+                                      strerror (op_errno));
+                } else {
+                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                                PS_MSG_GFID_RESOLVE_FAILED,
+                                "%s: failed to resolve (%s)",
+                                uuid_utoa (resolve_loc->gfid),
+                                strerror (op_errno));
+                }
                 loc_wipe (&resolve->resolve_loc);
                 goto out;
         }
@@ -213,8 +229,8 @@ resolve_continue (call_frame_t *frame)
         else if (!gf_uuid_is_null (resolve->gfid))
                 ret = resolve_inode_simple (frame);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "return value of resolve_*_simple %d", ret);
+                gf_msg_debug (this->name, 0, "return value of resolve_*_"
+                              "simple %d", ret);
 
         resolve_loc_touchup (frame);
 out:
@@ -281,9 +297,9 @@ resolve_entry_simple (call_frame_t *frame)
         }
 
         if (resolve->type == RESOLVE_NOT) {
-                gf_log (this->name, GF_LOG_DEBUG, "inode (pointer: %p gfid:%s"
-                        " found for path (%s) while type is RESOLVE_NOT",
-                        inode, uuid_utoa (inode->gfid), resolve->path);
+                gf_msg_debug (this->name, 0, "inode (pointer: %p gfid:%s found"
+                              " for path (%s) while type is RESOLVE_NOT",
+                              inode, uuid_utoa (inode->gfid), resolve->path);
                 resolve->op_ret   = -1;
                 resolve->op_errno = EEXIST;
                 ret = -1;
@@ -420,8 +436,9 @@ out:
                 inode_unref (inode);
 
         if (ret != 0)
-                gf_log ("server", GF_LOG_WARNING, "inode for the gfid (%s) is "
-                        "not found. anonymous fd creation failed",
+                gf_msg ("server", GF_LOG_WARNING, 0,
+                        PS_MSG_ANONYMOUS_FD_CREATE_FAILED, "inode for the gfid"
+                        "(%s) is not found. anonymous fd creation failed",
                         uuid_utoa (resolve->gfid));
         return ret;
 }
@@ -476,7 +493,8 @@ server_resolve_fd (call_frame_t *frame)
         serv_ctx = server_ctx_get (client, client->this);
 
         if (serv_ctx == NULL) {
-                gf_log ("", GF_LOG_INFO, "server_ctx_get() failed");
+                gf_msg ("", GF_LOG_INFO, ENOMEM, PS_MSG_NO_MEMORY,
+                        "server_ctx_get() failed");
                 resolve->op_ret   = -1;
                 resolve->op_errno = ENOMEM;
                 return 0;
@@ -485,7 +503,8 @@ server_resolve_fd (call_frame_t *frame)
         state->fd = gf_fd_fdptr_get (serv_ctx->fdtable, fd_no);
 
         if (!state->fd) {
-                gf_log ("", GF_LOG_INFO, "fd not found in context");
+                gf_msg ("", GF_LOG_INFO, EBADF, PS_MSG_FD_NOT_FOUND, "fd not "
+                        "found in context");
                 resolve->op_ret   = -1;
                 resolve->op_errno = EBADF;
         }
@@ -519,7 +538,8 @@ server_resolve (call_frame_t *frame)
 
         } else {
                 if (resolve == &state->resolve)
-                        gf_log (frame->this->name, GF_LOG_WARNING,
+                        gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                                PS_MSG_INVALID_ENTRY,
                                 "no resolution type for %s (%s)",
                                 resolve->path, gf_fop_list[frame->root->op]);
 
@@ -580,8 +600,9 @@ server_resolve_all (call_frame_t *frame)
                 server_resolve_done (frame);
 
         } else {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Invalid pointer for state->resolve_now");
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        PS_MSG_INVALID_ENTRY, "Invalid pointer for "
+                        "state->resolve_now");
         }
 
         return 0;

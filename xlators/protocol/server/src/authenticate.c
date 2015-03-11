@@ -23,6 +23,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include "authenticate.h"
+#include "server-messages.h"
 
 static int
 init (dict_t *this, char *key, data_t *value, void *data)
@@ -38,9 +39,9 @@ init (dict_t *this, char *key, data_t *value, void *data)
         error = data;
 
         if (!strncasecmp (key, "ip", strlen ("ip"))) {
-                gf_log ("authenticate", GF_LOG_ERROR,
-                        "AUTHENTICATION MODULE \"IP\" HAS BEEN REPLACED "
-                        "BY \"ADDR\"");
+                gf_msg ("authenticate", GF_LOG_ERROR, 0,
+                        PS_MSG_AUTHENTICATE_ERROR, "AUTHENTICATION MODULE "
+                        "\"IP\" HAS BEEN REPLACED BY \"ADDR\"");
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 /* TODO: 1.3.x backword compatibility */
                 // *error = -1;
@@ -57,7 +58,8 @@ init (dict_t *this, char *key, data_t *value, void *data)
 
         handle = dlopen (auth_file, RTLD_LAZY);
         if (!handle) {
-                gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n",
+                gf_msg ("authenticate", GF_LOG_ERROR, 0,
+                        PS_MSG_AUTHENTICATE_ERROR, "dlopen(%s): %s\n",
                         auth_file, dlerror ());
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 GF_FREE (auth_file);
@@ -68,8 +70,9 @@ init (dict_t *this, char *key, data_t *value, void *data)
 
         authenticate = dlsym (handle, "gf_auth");
         if (!authenticate) {
-                gf_log ("authenticate", GF_LOG_ERROR,
-                        "dlsym(gf_auth) on %s\n", dlerror ());
+                gf_msg ("authenticate", GF_LOG_ERROR, 0,
+                        PS_MSG_AUTHENTICATE_ERROR, "dlsym(gf_auth) on %s\n",
+                        dlerror ());
                 dict_set (this, key, data_from_dynptr (NULL, 0));
                 dlclose (handle);
                 *error = -1;
@@ -95,8 +98,8 @@ init (dict_t *this, char *key, data_t *value, void *data)
         }
         auth_handle->vol_opt->given_opt = dlsym (handle, "options");
         if (auth_handle->vol_opt->given_opt == NULL) {
-                gf_log ("authenticate", GF_LOG_DEBUG,
-                        "volume option validation not specified");
+                gf_msg_debug ("authenticate", 0, "volume option validation "
+                              "not specified");
         }
 
         auth_handle->authenticate = authenticate;
@@ -135,8 +138,9 @@ _gf_auth_option_validate (dict_t *d, char *k, data_t *v, void *tmp)
         ret = xlator_options_validate_list (xl, xl->options,
                                             handle->vol_opt, NULL);
         if (ret) {
-                gf_log ("authenticate", GF_LOG_ERROR,
-                        "volume option validation failed");
+                gf_msg ("authenticate", GF_LOG_ERROR, 0,
+                        PS_MSG_VOL_VALIDATE_FAILED, "volume option validation "
+                        "failed");
                 return -1;
         }
         return 0;
@@ -155,7 +159,8 @@ gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 
 out:
         if (ret) {
-                gf_log (xl->name, GF_LOG_ERROR, "authentication init failed");
+                gf_msg (xl->name, GF_LOG_ERROR, 0, PS_MSG_AUTH_INIT_FAILED,
+                        "authentication init failed");
                 dict_foreach (auth_modules, fini, &ret);
                 ret = -1;
         }
@@ -234,7 +239,7 @@ gf_authenticate (dict_t *input_params,
                         name = peerinfo_data->data;
                 }
 
-                gf_log ("auth", GF_LOG_ERROR,
+                gf_msg ("auth", GF_LOG_ERROR, 0, PS_MSG_REMOTE_CLIENT_REFUSED,
                         "no authentication module is interested in "
                         "accepting remote-client %s", name);
                 result = AUTH_REJECT;
