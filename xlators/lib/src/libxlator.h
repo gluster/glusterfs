@@ -139,13 +139,13 @@ int32_t
 cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *dict, dict_t *xdata);
 
-int32_t
-cluster_getmarkerattr (call_frame_t *frame,xlator_t *this, loc_t *loc,
-                       const char *name, void *xl_local,
-                       xlator_specf_unwind_t xl_specf_getxattr_unwind,
-                       xlator_t **sub_volumes, int count, int type,
-                       int *gauge, char *vol_uuid);
-
+int
+cluster_handle_marker_getxattr (call_frame_t *frame, loc_t *loc,
+                                const char *name, char *vol_uuid,
+                                xlator_specf_unwind_t unwind,
+                                int (*populate_args) (call_frame_t *frame,
+                                                      int type, int *gauge,
+                                                      xlator_t **subvols));
 int
 match_uuid_local (const char *name, char *uuid);
 

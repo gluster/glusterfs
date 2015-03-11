@@ -1408,6 +1408,23 @@ afr_getxattr_all_subvols (xlator_t *this, call_frame_t *frame,
         return;
 }
 
+int
+afr_marker_populate_args (call_frame_t *frame, int type, int *gauge,
+                          xlator_t **subvols)
+{
+        xlator_t *this = frame->this;
+        afr_private_t *priv = this->private;
+
+        memcpy (subvols, priv->children, sizeof (*subvols) * priv->child_count);
+
+        if (type == MARKER_XTIME_TYPE) {
+                /*Don't error out on ENOENT/ENOTCONN */
+                gauge[MCNT_NOTFOUND] = 0;
+                gauge[MCNT_ENOTCONN] = 0;
+        }
+        return priv->child_count;
+}
+
 int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *name, dict_t *xdata)
@@ -1415,13 +1432,10 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
         afr_private_t           *priv         = NULL;
         xlator_t                **children    = NULL;
         afr_local_t             *local        = NULL;
-        xlator_list_t           *trav         = NULL;
-        xlator_t                **sub_volumes = NULL;
         int                     i             = 0;
         int32_t                 op_errno      = 0;
         int                     ret           = -1;
         fop_getxattr_cbk_t      cbk           = NULL;
-        int                     afr_xtime_gauge[MCNT_MAX] = {0,};
 
 
 	local = AFR_FRAME_INIT (frame, op_errno);
@@ -1457,35 +1471,11 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = ENODATA;
                 goto out;
         }
-        if ((strcmp (GF_XATTR_MARKER_KEY, name) == 0)
-            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
 
-                local->marker.call_count = priv->child_count;
-
-                sub_volumes = alloca ( priv->child_count * sizeof (xlator_t *));
-                for (i = 0, trav = this->children; trav ;
-                     trav = trav->next, i++) {
-
-                        *(sub_volumes + i)  = trav->xlator;
-                }
-
-                if (cluster_getmarkerattr (frame, this, loc, name,
-                                           local, afr_getxattr_unwind,
-                                           sub_volumes,
-                                           priv->child_count,
-                                           MARKER_UUID_TYPE,
-                                           marker_uuid_default_gauge,
-                                           priv->vol_uuid)) {
-
-                        gf_log (this->name, GF_LOG_INFO,
-                                "%s: failed to get marker attr (%s)",
-                                loc->path, name);
-                        op_errno = EINVAL;
-                        goto out;
-                }
-
+        if (cluster_handle_marker_getxattr (frame, loc, name, priv->vol_uuid,
+                                            afr_getxattr_unwind,
+                                            afr_marker_populate_args) == 0)
                 return 0;
-        }
 
         if (!strcmp (name, GF_AFR_HEAL_INFO)) {
                 afr_get_heal_info (frame, this, loc, xdata);
@@ -1517,46 +1507,6 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                                    children[i]->fops->getxattr,
                                    loc, name, xdata);
                 return 0;
-        }
-
-        if (*priv->vol_uuid) {
-                if ((match_uuid_local (name, priv->vol_uuid) == 0)
-                    && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-                        local->marker.call_count = priv->child_count;
-
-                        sub_volumes = alloca ( priv->child_count
-                                               * sizeof (xlator_t *));
-                        for (i = 0, trav = this->children; trav ;
-                             trav = trav->next, i++) {
-
-                                *(sub_volumes + i)  = trav->xlator;
-
-                        }
-
-                        /* don't err out on getting ENOTCONN (brick down)
-                         * from a subset of the bricks
-                         */
-                        memcpy (afr_xtime_gauge, marker_xtime_default_gauge,
-                                sizeof (afr_xtime_gauge));
-                        afr_xtime_gauge[MCNT_NOTFOUND] = 0;
-                        afr_xtime_gauge[MCNT_ENOTCONN] = 0;
-                        if (cluster_getmarkerattr (frame, this, loc,
-                                                   name, local,
-                                                   afr_getxattr_unwind,
-                                                   sub_volumes,
-                                                   priv->child_count,
-                                                   MARKER_XTIME_TYPE,
-                                                   afr_xtime_gauge,
-                                                   priv->vol_uuid)) {
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "%s: failed to get marker attr (%s)",
-                                        loc->path, name);
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-
-                        return 0;
-                }
         }
 
 no_name:

@@ -14,6 +14,7 @@
 #include "xlator.h"
 #include "timer.h"
 #include "ec-heald.h"
+#include "libxlator.h"
 
 #define EC_XATTR_PREFIX  "trusted.ec."
 #define EC_XATTR_CONFIG  EC_XATTR_PREFIX"config"
@@ -45,5 +46,6 @@ struct _ec
     struct mem_pool * cbk_pool;
     struct mem_pool * lock_pool;
     ec_self_heald_t   shd;
+    char              vol_uuid[UUID_SIZE + 1];
 };
 #endif /* __EC_H__ */
