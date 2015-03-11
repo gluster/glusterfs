@@ -1333,8 +1333,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     g3.crawlwrap(oneshot=True)
                 else:
                     g1.crawlwrap(oneshot=True)
-            except (ChangelogException, NoPurgeTimeAvailable,
-                    PartialHistoryAvailable) as e:
+            except (ChangelogException, PartialHistoryAvailable,
+                    NoPurgeTimeAvailable) as e:
                 if isinstance(e, ChangelogException):
                     logging.info('Changelog history crawl failed, fallback '
                                  'to xsync: %s - %s' % (e.errno, e.strerror))
@@ -1342,8 +1342,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     logging.info('Partial history available, using xsync crawl'
                                  ' after consuming history '
                                  'till %s' % str(e))
-                g1.crawlwrap(oneshot=True, no_stime_update=True,
-                             register_time=register_time)
+                g1.crawlwrap(oneshot=True, register_time=register_time)
 
             # crawl loop: Try changelog crawl, if failed
             # switch to FS crawl
