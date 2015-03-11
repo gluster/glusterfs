@@ -2679,6 +2679,8 @@ afr_sh_erase_pending (call_frame_t *frame, xlator_t *this,
                                            GF_XATTROP_ADD_ARRAY, erase_xattr[i],
                                            NULL);
                 }
+                if (!--call_count)
+                        break;
         }
 
         ret = 0;

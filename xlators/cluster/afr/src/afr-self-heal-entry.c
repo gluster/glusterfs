@@ -982,9 +982,9 @@ afr_sh_entry_impunge_setattr (call_frame_t *impunge_frame, xlator_t *this)
                                    priv->children[i]->fops->setattr,
                                    &impunge_local->loc,
                                    &impunge_sh->entrybuf, valid, NULL);
-                call_count--;
+                if (!--call_count)
+                        break;
         }
-        GF_ASSERT (!call_count);
         return 0;
 out:
         if (setattr_frame)

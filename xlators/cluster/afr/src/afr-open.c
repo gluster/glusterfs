@@ -304,6 +304,7 @@ afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
         int           ret      = -1;
         int32_t       op_errno = 0;
         afr_fd_ctx_t  *fd_ctx  = NULL;
+        int call_count         = -1;
 
         priv  = this->private;
 
@@ -335,6 +336,7 @@ afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
 
         local->fd = fd_ref (fd);
         local->call_count = need_open_count;
+        call_count = need_open_count;
 
         gf_log (this->name, GF_LOG_DEBUG, "need open count: %zd",
                 need_open_count);
@@ -367,6 +369,8 @@ afr_fix_open (xlator_t *this, fd_t *fd, size_t need_open_count, int *need_open)
                                            fd_ctx->flags & (~O_TRUNC),
                                            local->fd, NULL);
                 }
+                if (!--call_count)
+                        break;
 
         }
         op_errno = 0;

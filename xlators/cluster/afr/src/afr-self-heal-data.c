@@ -497,6 +497,8 @@ afr_sh_data_fsync (call_frame_t *frame, xlator_t *this)
                                    (void *) (long) i, priv->children[i],
                                    priv->children[i]->fops->fsync,
                                    sh->healing_fd, 1, NULL);
+                if (!--call_count)
+                        break;
         }
 
         return 0;
@@ -1225,9 +1227,9 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
                                    priv->children[child],
                                    priv->children[child]->fops->fstat,
                                    sh->healing_fd, NULL);
-                --call_count;
+                if (!--call_count)
+                        break;
         }
-        GF_ASSERT (!call_count);
 out:
         GF_FREE (fstat_children);
         return 0;

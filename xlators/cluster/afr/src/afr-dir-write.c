@@ -147,6 +147,7 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
         afr_private_t *priv       = NULL;
         dict_t        **xattr     = NULL;
         int32_t       **changelog = NULL;
+        int           call_count  = -1;
         int           i           = 0;
         GF_UNUSED int op_errno    = 0;
 
@@ -186,6 +187,7 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
         uuid_copy (new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
         new_local->loc.inode = inode_ref (local->cont.dir_fop.inode);
         new_local->call_count = local->success_count;
+        call_count = new_local->call_count;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_errno[i])
@@ -197,6 +199,8 @@ afr_mark_new_entry_changelog (call_frame_t *frame, xlator_t *this)
                                    priv->children[i]->fops->xattrop,
                                    &new_local->loc, GF_XATTROP_ADD_ARRAY,
                                    xattr[i], NULL);
+                if (!--call_count)
+                        break;
         }
         new_frame = NULL;
 out:
