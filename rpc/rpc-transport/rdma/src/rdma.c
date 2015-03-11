@@ -366,6 +366,30 @@ gf_rdma_post_recv (struct ibv_srq *srq,
         return ibv_post_srq_recv (srq, &wr, &bad_wr);
 }
 
+static void
+gf_rdma_deregister_iobuf_pool (gf_rdma_device_t *device)
+{
+
+        gf_rdma_arena_mr   *arena_mr  = NULL;
+        gf_rdma_arena_mr   *tmp       = NULL;
+
+        while (device) {
+                if (!list_empty(&device->all_mr)) {
+                        list_for_each_entry_safe (arena_mr, tmp,
+                                                  &device->all_mr, list) {
+                                if (ibv_dereg_mr(arena_mr->mr)) {
+                                        gf_log ("rdma", GF_LOG_WARNING,
+                                                "deallocation of memory region "
+                                                "failed");
+                                        return;
+                                }
+                                list_del(&arena_mr->list);
+                                GF_FREE(arena_mr);
+                        }
+                }
+                device = device->next;
+        }
+}
 int
 gf_rdma_deregister_arena (struct list_head **mr_list,
                           struct iobuf_arena *iobuf_arena)
@@ -442,19 +466,13 @@ gf_rdma_register_arena (void **arg1, void *arg2)
 }
 
 static void
-gf_rdma_register_iobuf_pool (rpc_transport_t *this)
+gf_rdma_register_iobuf_pool (gf_rdma_device_t *device,
+                        struct iobuf_pool *iobuf_pool)
 {
-        struct iobuf_pool   *iobuf_pool = NULL;
         struct iobuf_arena  *tmp        = NULL;
         struct iobuf_arena  *dummy      = NULL;
-        gf_rdma_private_t   *priv       = NULL;
-        gf_rdma_device_t    *device     = NULL;
         struct ibv_mr       *mr         = NULL;
         gf_rdma_arena_mr    *new        = NULL;
-
-        priv = this->private;
-        device = priv->device;
-        iobuf_pool = this->ctx->iobuf_pool;
 
         if (!list_empty(&iobuf_pool->all_arenas)) {
 
@@ -492,6 +510,16 @@ gf_rdma_register_iobuf_pool (rpc_transport_t *this)
         }
 
        return;
+}
+
+static void
+gf_rdma_register_iobuf_pool_with_device (gf_rdma_device_t *device,
+                                         struct iobuf_pool *iobuf_pool)
+{
+        while (device) {
+                gf_rdma_register_iobuf_pool (device, iobuf_pool);
+                device = device->next;
+        }
 }
 
 static struct ibv_mr*
@@ -780,7 +808,7 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 gf_rdma_queue_init (&trav->recvq);
 
                 INIT_LIST_HEAD (&trav->all_mr);
-                gf_rdma_register_iobuf_pool(this);
+                gf_rdma_register_iobuf_pool(trav, iobuf_pool);
 
                 if (gf_rdma_create_posts (this) < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -4559,7 +4587,7 @@ __gf_rdma_ctx_create (void)
         if (rdma_ctx == NULL) {
                 goto out;
         }
-
+        pthread_mutex_init (&rdma_ctx->lock, NULL);
         rdma_ctx->rdma_cm_event_channel = rdma_create_event_channel ();
         if (rdma_ctx->rdma_cm_event_channel == NULL) {
                 gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, errno,
@@ -4878,12 +4906,20 @@ init (rpc_transport_t *this)
                 return -1;
         }
         rdma_ctx = this->ctx->ib;
-        if (rdma_ctx != NULL) {
-                rdma_ctx->dlcount++;
+        pthread_mutex_lock (&rdma_ctx->lock);
+        {
+                if (rdma_ctx != NULL) {
+                        if (this->dl_handle && (++(rdma_ctx->dlcount)) == 1) {
+                        iobuf_pool = this->ctx->iobuf_pool;
+                        iobuf_pool->rdma_registration = gf_rdma_register_arena;
+                        iobuf_pool->rdma_deregistration =
+                                                      gf_rdma_deregister_arena;
+                        gf_rdma_register_iobuf_pool_with_device
+                                                (rdma_ctx->device, iobuf_pool);
+                        }
+                }
         }
-        iobuf_pool = this->ctx->iobuf_pool;
-        iobuf_pool->rdma_registration = gf_rdma_register_arena;
-        iobuf_pool->rdma_deregistration = gf_rdma_deregister_arena;
+        pthread_mutex_unlock (&rdma_ctx->lock);
 
         return 0;
 }
@@ -4913,12 +4949,17 @@ fini (struct rpc_transport *this)
         if (!rdma_ctx)
                 return;
 
-        rdma_ctx->dlcount--;
-        if (rdma_ctx->dlcount == 0) {
-                iobuf_pool = this->ctx->iobuf_pool;
-                iobuf_pool->rdma_registration = NULL;
-                iobuf_pool->rdma_deregistration = NULL;
+        pthread_mutex_lock (&rdma_ctx->lock);
+        {
+                if (this->dl_handle && (--(rdma_ctx->dlcount)) == 0) {
+                        iobuf_pool = this->ctx->iobuf_pool;
+                        gf_rdma_deregister_iobuf_pool (rdma_ctx->device);
+                        iobuf_pool->rdma_registration = NULL;
+                        iobuf_pool->rdma_deregistration = NULL;
+                }
         }
+        pthread_mutex_unlock (&rdma_ctx->lock);
+
         return;
 }
 

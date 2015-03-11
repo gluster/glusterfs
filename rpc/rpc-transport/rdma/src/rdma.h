@@ -345,6 +345,7 @@ struct __gf_rdma_ctx {
         gf_rdma_device_t          *device;
         struct rdma_event_channel *rdma_cm_event_channel;
         pthread_t                  rdma_cm_thread;
+        pthread_mutex_t            lock;
         int32_t                    dlcount;
 };
 typedef struct __gf_rdma_ctx gf_rdma_ctx_t;
