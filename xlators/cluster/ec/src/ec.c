@@ -576,15 +576,38 @@ int32_t ec_gf_fsyncdir(call_frame_t * frame, xlator_t * this, fd_t * fd,
     return 0;
 }
 
+int
+ec_marker_populate_args (call_frame_t *frame, int type, int *gauge,
+                         xlator_t **subvols)
+{
+        xlator_t *this = frame->this;
+        ec_t *ec = this->private;
+
+        memcpy (subvols, ec->xl_list, sizeof (*subvols) * ec->nodes);
+
+        if (type == MARKER_XTIME_TYPE) {
+                /*Don't error out on ENOENT/ENOTCONN */
+                gauge[MCNT_NOTFOUND] = 0;
+                gauge[MCNT_ENOTCONN] = 0;
+        }
+
+        return ec->nodes;
+}
+
 int32_t
 ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata)
 {
         int     error = 0;
+        ec_t    *ec = this->private;
 
         if (name && strcmp (name, EC_XATTR_HEAL) != 0) {
                 EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
         }
+
+        if (cluster_handle_marker_getxattr (frame, loc, name, ec->vol_uuid,
+                                            NULL, ec_marker_populate_args) == 0)
+                return 0;
 
         ec_getxattr (frame, this, -1, EC_MINIMUM_MIN, default_getxattr_cbk,
                      NULL, loc, name, xdata);

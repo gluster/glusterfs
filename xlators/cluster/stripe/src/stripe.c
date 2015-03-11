@@ -5454,6 +5454,25 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
         return ret;
 }
 
+int
+stripe_marker_populate_args (call_frame_t *frame, int type, int *gauge,
+                            xlator_t **subvols)
+{
+        xlator_t         *this  = frame->this;
+        stripe_private_t *priv  = this->private;
+        stripe_local_t   *local = frame->local;
+        int              count  = 0;
+
+        count = priv->child_count;
+        if (MARKER_XTIME_TYPE == type) {
+                if (!IA_FILE_OR_DIR (local->loc.inode->ia_type))
+                        count = 1;
+        }
+        memcpy (subvols, priv->xl_array, sizeof (*subvols) * count);
+
+        return count;
+}
+
 int32_t
 stripe_getxattr (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, const char *name, dict_t *xdata)
@@ -5463,7 +5482,6 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         stripe_private_t  *priv     = NULL;
         int32_t            op_errno = EINVAL;
         int                i        = 0;
-        xlator_t         **sub_volumes;
         int                ret      = 0;
 
         VALIDATE_OR_GOTO (frame, err);
@@ -5485,31 +5503,6 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
         frame->local = local;
         loc_copy (&local->loc, loc);
 
-
-        if (name && (strcmp (GF_XATTR_MARKER_KEY, name) == 0)
-            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-                local->marker.call_count = priv->child_count;
-
-                sub_volumes = alloca ( priv->child_count *
-                                       sizeof (xlator_t *));
-                for (i = 0, trav = this->children; trav ;
-                     trav = trav->next, i++) {
-
-                        *(sub_volumes + i)  = trav->xlator;
-
-                }
-
-                if (cluster_getmarkerattr (frame, this, loc, name,
-                                           local, stripe_getxattr_unwind,
-                                           sub_volumes, priv->child_count,
-                                           MARKER_UUID_TYPE, marker_uuid_default_gauge,
-                                           priv->vol_uuid)) {
-                        op_errno = EINVAL;
-                        goto err;
-                }
-
-                return 0;
-        }
 
         if (name && strncmp (name, GF_XATTR_QUOTA_SIZE_KEY,
                              strlen (GF_XATTR_QUOTA_SIZE_KEY)) == 0) {
@@ -5555,41 +5548,10 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (name &&(*priv->vol_uuid)) {
-                if ((match_uuid_local (name, priv->vol_uuid) == 0)
-                    && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-
-                        if (!IA_FILE_OR_DIR (loc->inode->ia_type))
-                                local->marker.call_count = 1;
-                        else
-                                local->marker.call_count = priv->child_count;
-
-                        sub_volumes = alloca (local->marker.call_count *
-                                              sizeof (xlator_t *));
-
-                        for (i = 0, trav = this->children;
-                             i < local->marker.call_count;
-                             i++, trav = trav->next) {
-                                *(sub_volumes + i) = trav->xlator;
-
-                        }
-
-                        if (cluster_getmarkerattr (frame, this, loc, name,
-                                                   local,
-                                                   stripe_getxattr_unwind,
-                                                   sub_volumes,
-                                                   local->marker.call_count,
-                                                   MARKER_XTIME_TYPE,
-                                                   marker_xtime_default_gauge,
-                                                   priv->vol_uuid)) {
-                                op_errno = EINVAL;
-                                goto err;
-                        }
-
-                        return 0;
-                }
-        }
-
+        if (cluster_handle_marker_getxattr (frame, loc, name, priv->vol_uuid,
+                                            stripe_getxattr_unwind,
+                                            stripe_marker_populate_args) == 0)
+                return 0;
 
         STACK_WIND (frame, stripe_internal_getxattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr, loc, name, xdata);

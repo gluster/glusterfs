@@ -469,5 +469,9 @@ function mount_get_option_value {
         local subvol=$2
         local key=$3
 
-        grep "$3" $m/.meta/graphs/active/$subvol/private | awk '{print $3}'
+        grep -w "$3" $m/.meta/graphs/active/$subvol/private | awk '{print $3}'
+}
+
+function get_volume_mark {
+        getfattr -n trusted.glusterfs.volume-mark -ehex $1 | sed -n 's/^trusted.glusterfs.volume-mark=0x//p' | cut -b5-36 | sed 's/\([a-f0-9]\{8\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)/\1-\2-\3-\4-/'
 }

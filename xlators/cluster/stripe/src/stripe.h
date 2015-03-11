@@ -190,8 +190,6 @@ struct stripe_local {
         int32_t              nallocs;
         char xsel[256];
 
-        struct marker_str    marker;
-
         /* General usage */
         off_t                offset;
         off_t                stripe_size;
