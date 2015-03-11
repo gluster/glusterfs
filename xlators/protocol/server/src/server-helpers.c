@@ -16,6 +16,7 @@
 #include "server.h"
 #include "server-helpers.h"
 #include "gidcache.h"
+#include "server-messages.h"
 
 #include <fnmatch.h>
 #include <pwd.h>
@@ -42,25 +43,27 @@ gid_resolve (server_conf_t *conf, call_stack_t *root)
 
         ret = getpwuid_r (root->uid, &mypw, mystrs, sizeof(mystrs), &result);
         if (ret != 0) {
-                gf_log("gid-cache", GF_LOG_ERROR, "getpwuid_r(%u) failed",
-                       root->uid);
+                gf_msg ("gid-cache", GF_LOG_ERROR, errno,
+                        PS_MSG_GET_UID_FAILED, "getpwuid_r(%u) failed",
+                        root->uid);
                 return -1;
         }
 
         if (!result) {
-                gf_log ("gid-cache", GF_LOG_ERROR, "getpwuid_r(%u) found "
-                        "nothing", root->uid);
+                gf_msg ("gid-cache", GF_LOG_ERROR, 0, PS_MSG_UID_NOT_FOUND,
+                        "getpwuid_r(%u) found nothing", root->uid);
                 return -1;
         }
 
-        gf_log ("gid-cache", GF_LOG_TRACE, "mapped %u => %s", root->uid,
-                result->pw_name);
+        gf_msg_trace ("gid-cache", 0, "mapped %u => %s", root->uid,
+                      result->pw_name);
 
         ngroups = GF_MAX_AUX_GROUPS;
         ret = getgrouplist (result->pw_name, root->gid, mygroups, &ngroups);
         if (ret == -1) {
-                gf_log ("gid-cache", GF_LOG_ERROR, "could not map %s to group "
-                        "list (%d gids)", result->pw_name, root->ngrps);
+                gf_msg ("gid-cache", GF_LOG_ERROR, 0, PS_MSG_MAPPING_ERROR,
+                        "could not map %s to group list (%d gids)",
+                        result->pw_name, root->ngrps);
                 return -1;
         }
         root->ngrps = (uint16_t) ngroups;
@@ -286,12 +289,14 @@ do_fd_cleanup (xlator_t *this, client_t* client, fdentry_t *fdentries, int fd_co
                         ret = inode_path (fd->inode, NULL, &path);
 
                         if (ret > 0) {
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        PS_MSG_FD_CLEANUP,
                                         "fd cleanup on %s", path);
                                 GF_FREE (path);
                         }  else {
 
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        PS_MSG_FD_CLEANUP,
                                         "fd cleanup on inode with gfid %s",
                                         uuid_utoa (fd->inode->gfid));
                         }
@@ -334,7 +339,9 @@ server_connection_cleanup (xlator_t *this, client_t *client,
         serv_ctx = server_ctx_get (client, client->this);
 
         if (serv_ctx == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "server_ctx_get() failed");
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        PS_MSG_SERVER_CTX_GET_FAILED, "server_ctx_get() "
+                        "failed");
                 goto out;
         }
 
@@ -356,7 +363,8 @@ server_connection_cleanup (xlator_t *this, client_t *client,
         if (fdentries != NULL)
                 ret = do_fd_cleanup (this, client, fdentries, fd_count);
         else
-                gf_log (this->name, GF_LOG_INFO, "no fdentries to clean");
+                gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_FDENTRY_NULL,
+                        "no fdentries to clean");
 
         if (cd_ret || ret)
                 ret = -1;
@@ -521,9 +529,9 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         if (data) {
                 ret = gf_string2boolean(data->data, &conf->verify_volfile);
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "wrong value for 'verify-volfile-checksum', "
-                                "Neglecting option");
+                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                                PS_MSG_INVALID_ENTRY, "wrong value for '"
+                                "verify-volfile-checksum', Neglecting option");
                 }
         }
 
@@ -531,9 +539,9 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         if (data) {
                 ret = gf_string2boolean (data->data, &conf->trace);
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "'trace' takes on only boolean values. "
-                                "Neglecting option");
+                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                                PS_MSG_INVALID_ENTRY, "'trace' takes on only "
+                                "boolean values. Neglecting option");
                 }
         }
 
@@ -541,9 +549,8 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         ret = dict_get_int32 (this->options, "limits.transaction-size",
                               &conf->rpc_conf.max_block_size);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "defaulting limits.transaction-size to %d",
-                        DEFAULT_BLOCK_SIZE);
+                gf_msg_trace (this->name, 0, "defaulting limits.transaction-"
+                              "size to %d", DEFAULT_BLOCK_SIZE);
                 conf->rpc_conf.max_block_size = DEFAULT_BLOCK_SIZE;
         }
 
@@ -553,16 +560,17 @@ server_build_config (xlator_t *this, server_conf_t *conf)
                    or directory specified is non standard */
                 ret = stat (data->data, &buf);
                 if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Directory '%s' doesn't exist, exiting.",
-                                data->data);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_DIR_NOT_FOUND, "Directory '%s' doesn't "
+                                "exist, exiting.", data->data);
                         ret = -1;
                         goto out;
                 }
                 /* Make sure that conf-dir doesn't contain ".." in path */
                 if ((gf_strstr (data->data, "/", "..")) == -1) {
                         ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_CONF_DIR_INVALID,
                                 "%s: invalid conf_dir", data->data);
                         goto out;
                 }
@@ -759,9 +767,8 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
         if (state->fd)
                 snprintf (fdstr, 32, " fd=%p", state->fd);
 
-        gf_log (this->name, GF_LOG_INFO,
-                "%s%s => (%d, %d)%s",
-                op, caller, op_ret, op_errno, fdstr);
+        gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_SERVER_MSG,
+                "%s%s => (%d, %d)%s", op, caller, op_ret, op_errno, fdstr);
 out:
         return;
 }
@@ -822,9 +829,8 @@ server_print_request (call_frame_t *frame)
                 break;
         }
 
-        gf_log (this->name, GF_LOG_INFO,
-                "%s%s%s%s%s%s%s",
-                op, caller,
+        gf_msg (this->name, GF_LOG_INFO, 0, PS_MSG_SERVER_MSG,
+                "%s%s%s%s%s%s%s", op, caller,
                 resolve_vars, loc_vars, resolve2_vars, loc2_vars, other_vars);
 out:
         return;
@@ -859,9 +865,9 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                 if (entry->dict) {
                         trav->dict.dict_len = dict_serialized_length (entry->dict);
                         if (trav->dict.dict_len > UINT_MAX) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
-                                        "failed to get serialized length "
-                                        "of reply dict");
+                                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
+                                        PS_MSG_INVALID_ENTRY, "failed to get "
+                                        "serialized length of reply dict");
                                 errno = EINVAL;
                                 trav->dict.dict_len = 0;
                                 goto out;
@@ -877,7 +883,8 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
 
                         ret = dict_serialize (entry->dict, trav->dict.dict_val);
                         if (ret < 0) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        PS_MSG_DICT_SERIALIZE_FAIL,
                                         "failed to serialize reply dict");
                                 errno = -ret;
                                 trav->dict.dict_len = 0;
@@ -989,7 +996,8 @@ gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
                 pthread_mutex_lock (&conf->mutex);
                 {
                         list_for_each_entry (xprt, &conf->xprt_list, list) {
-                                gf_log ("mount-point-list", GF_LOG_INFO,
+                                gf_msg ("mount-point-list", GF_LOG_INFO, 0,
+                                        PS_MSG_MOUNT_PT_FAIL,
                                         "%s", xprt->peerinfo.identifier);
                         }
                 }
@@ -1021,7 +1029,7 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
                         total_read  += xprt->total_bytes_read;
                         total_write += xprt->total_bytes_write;
                 }
-                gf_log ("stats", GF_LOG_INFO,
+                gf_msg ("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT,
                         "total-read %"PRIu64", total-write %"PRIu64,
                         total_read, total_write);
         }
@@ -1038,7 +1046,7 @@ server_cancel_grace_timer (xlator_t *this, client_t *client)
         gf_boolean_t   cancelled = _gf_false;
 
         if (!this || !client) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
                         "Invalid arguments to cancel connection timer");
                 return cancelled;
         }
@@ -1046,7 +1054,9 @@ server_cancel_grace_timer (xlator_t *this, client_t *client)
         serv_ctx = server_ctx_get (client, client->this);
 
         if (serv_ctx == NULL) {
-                gf_log (this->name, GF_LOG_INFO, "server_ctx_get() failed");
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        PS_MSG_SERVER_CTX_GET_FAILED,
+                        "server_ctx_get() failed");
                 goto out;
         }
 
@@ -1124,8 +1134,8 @@ auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
 
         ret = dict_get_str (input_params, "username", &username);
         if (ret) {
-                gf_log ("auth/login", GF_LOG_DEBUG,
-                        "username not found, returning DONT-CARE");
+                gf_msg_debug ("auth/login", 0, "username not found, returning "
+                              "DONT-CARE");
                 /* For non trusted clients username and password
                    will not be there. So dont reject the client.
                 */
@@ -1135,14 +1145,15 @@ auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
 
         ret = dict_get_str (input_params, "password", &password);
         if (ret) {
-                gf_log ("auth/login", GF_LOG_WARNING,
+                gf_msg ("auth/login", GF_LOG_WARNING, 0,
+                        PS_MSG_DICT_GET_FAILED,
                         "password not found, returning DONT-CARE");
                 goto out;
         }
 
         ret = dict_get_str (input_params, "remote-subvolume", &brick_name);
         if (ret) {
-                gf_log ("auth/login", GF_LOG_ERROR,
+                gf_msg ("auth/login", GF_LOG_ERROR, 0, PS_MSG_DICT_GET_FAILED,
                         "remote-subvolume not specified");
                 ret = -1;
                 goto out;
@@ -1177,8 +1188,9 @@ auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
                                 GF_FREE (searchstr);
 
                                 if (!passwd_data) {
-                                        gf_log ("auth/login", GF_LOG_ERROR,
-                                                "wrong username/password "
+                                        gf_msg ("auth/login", GF_LOG_ERROR, 0,
+                                                PS_MSG_LOGIN_ERROR, "wrong "
+                                                "username/password "
                                                 "combination");
                                         ret = -1;
                                         goto out;
@@ -1193,8 +1205,9 @@ auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
                                                 gf_strdup (password);
                                 }
                                 if (ret == -1)
-                                        gf_log ("auth/login", GF_LOG_ERROR,
-                                                "wrong password for user %s",
+                                        gf_msg ("auth/login", GF_LOG_ERROR, 0,
+                                                PS_MSG_LOGIN_ERROR, "wrong "
+                                                "password for user %s",
                                                 username);
                                 break;
                         }
