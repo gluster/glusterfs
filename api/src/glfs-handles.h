@@ -310,6 +310,16 @@ glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
                 const acl_type_t type) __THROW;
         GFAPI_PUBLIC(glfs_h_acl_get, 3.7.0);
 
+size_t
+glfs_h_anonymous_write (struct glfs *fs, struct glfs_object *object,
+                        const void *buf, size_t count, off_t offset) __THROW
+        GFAPI_PUBLIC(glfs_h_anonymous_write, 3.7.0);
+
+ssize_t
+glfs_h_anonymous_read (struct glfs *fs, struct glfs_object *object,
+                      const void *buf, size_t count, off_t offset) __THROW
+        GFAPI_PUBLIC(glfs_h_anonymous_read, 3.7.0);
+
 __END_DECLS
 
 #endif /* !_GLFS_HANDLES_H */

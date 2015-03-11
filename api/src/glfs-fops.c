@@ -3625,3 +3625,158 @@ out:
 }
 
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_process_upcall_event, 3.7.0);
+
+ssize_t
+glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
+                        const struct iovec *iovec, int iovcnt,
+                        off_t offset, int flags)
+{
+        xlator_t        *subvol = NULL;
+        struct iobref   *iobref = NULL;
+        struct iobuf    *iobuf  = NULL;
+        struct iovec    iov     = {0, };
+        inode_t         *inode  = NULL;
+        fd_t            *fd     = NULL;
+        int             ret     = -1;
+        size_t          size    = -1;
+
+        __glfs_entry_fs (fs);
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                ret = -1;
+                errno = ESTALE;
+                goto out;
+        }
+
+        fd = fd_anonymous (inode);
+        if (!fd) {
+                ret = -1;
+                gf_msg ("gfapi", GF_LOG_ERROR, ENOMEM, API_MSG_FDCREATE_FAILED,
+                        "Allocating anonymous fd failed");
+                errno = ENOMEM;
+                goto out;
+        }
+
+        size = iov_length (iovec, iovcnt);
+
+        iobuf = iobuf_get2 (subvol->ctx->iobuf_pool, size);
+        if (!iobuf) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        iobref = iobref_new ();
+        if (!iobref) {
+                iobuf_unref (iobuf);
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        ret = iobref_add (iobref, iobuf);
+        if (ret) {
+                iobuf_unref (iobuf);
+                iobref_unref (iobref);
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        iov_unload (iobuf_ptr (iobuf), iovec, iovcnt);
+
+        iov.iov_base = iobuf_ptr (iobuf);
+        iov.iov_len = size;
+
+        ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags,
+                             NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+        iobuf_unref (iobuf);
+        iobref_unref (iobref);
+
+        if (ret <= 0)
+                goto out;
+
+out:
+
+        if (fd)
+                fd_unref(fd);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}
+
+ssize_t
+glfs_anonymous_preadv (struct glfs *fs,  struct glfs_object *object,
+                       const struct iovec *iovec, int iovcnt,
+                       off_t offset, int flags)
+{
+        xlator_t        *subvol = NULL;
+        struct iovec    *iov    = NULL;
+        struct iobref   *iobref = NULL;
+        inode_t         *inode  = NULL;
+        fd_t            *fd     = NULL;
+        int             cnt     = 0;
+        ssize_t         ret     = -1;
+        ssize_t         size    = -1;
+
+        __glfs_entry_fs (fs);
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                ret = -1;
+                errno = ESTALE;
+                goto out;
+        }
+
+        fd = fd_anonymous (inode);
+        if (!fd) {
+                ret = -1;
+                gf_msg ("gfapi", GF_LOG_ERROR, ENOMEM, API_MSG_FDCREATE_FAILED,
+                        "Allocating anonymous fd failed");
+                errno = ENOMEM;
+                goto out;
+        }
+
+        size = iov_length (iovec, iovcnt);
+
+	ret = syncop_readv (subvol, fd, size, offset, flags, &iov, &cnt,
+                            &iobref, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+        if (ret <= 0)
+                goto out;
+
+        size = iov_copy (iovec, iovcnt, iov, cnt);
+
+        ret = size;
+out:
+        if (iov)
+                GF_FREE (iov);
+        if (iobref)
+                iobref_unref (iobref);
+        if (fd)
+                fd_unref(fd);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}

@@ -1962,3 +1962,51 @@ pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
 #endif
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_set, 3.7.0);
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_acl_get, 3.7.0);
+
+/* The API to perform read using anonymous fd */
+ssize_t
+pub_glfs_h_anonymous_read (struct glfs *fs, struct glfs_object *object,
+                           const void *buf, size_t count, off_t offset)
+{
+        struct iovec    iov     = {0, };
+        ssize_t         ret     = 0;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        iov.iov_base = (void *) buf;
+        iov.iov_len = count;
+
+        ret = glfs_anonymous_preadv (fs, object, &iov, 1, offset, 0);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_read, 3.7.0);
+
+/* The API to perform write using anonymous fd */
+ssize_t
+pub_glfs_h_anonymous_write (struct glfs *fs, struct glfs_object *object,
+                            const void *buf, size_t count, off_t offset)
+{
+        struct iovec iov        = {0, };
+        ssize_t      ret        = 0;
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        iov.iov_base = (void *) buf;
+        iov.iov_len = count;
+
+        ret = glfs_anonymous_pwritev (fs, object, &iov, 1, offset, 0);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_write, 3.7.0);

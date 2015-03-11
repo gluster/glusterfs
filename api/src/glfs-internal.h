@@ -342,4 +342,12 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
                                 struct callback_arg *up_arg,
                                 struct gf_upcall *upcall_data);
 
+ssize_t
+glfs_anonymous_preadv (struct glfs *fs, struct glfs_object *object,
+                       const struct iovec *iovec, int iovcnt,
+                       off_t offset, int flags);
+ssize_t
+glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
+                        const struct iovec *iovec, int iovcnt,
+                        off_t offset, int flags);
 #endif /* !_GLFS_INTERNAL_H */

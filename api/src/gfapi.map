@@ -152,6 +152,8 @@ GFAPI_3.7.0 {
 		glfs_h_acl_set;
 		glfs_h_acl_get;
 		glfs_h_statfs;
+		glfs_h_anonymous_read;
+		glfs_h_anonymous_write;
 } GFAPI_3.6.0;
 
 GFAPI_PRIVATE_3.7.0 {
