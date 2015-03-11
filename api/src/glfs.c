@@ -614,6 +614,7 @@ priv_glfs_new_from_ctx (glusterfs_ctx_t *ctx)
         fs->ctx = ctx;
 
         (void) pthread_cond_init (&fs->cond, NULL);
+        (void) pthread_cond_init (&fs->child_down_cond, NULL);
 
         (void) pthread_mutex_init (&fs->mutex, NULL);
 
