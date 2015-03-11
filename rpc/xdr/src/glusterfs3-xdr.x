@@ -640,6 +640,18 @@ struct gfs3_fstat_req {
 }  ;
 
 
+struct gfs3_ipc_req {
+	int     op;
+	opaque  xdata<>;
+};
+
+struct gfs3_ipc_rsp {
+	int     op_ret;
+	int     op_errno;
+	opaque  xdata<>;
+};
+
+
  struct gf_setvolume_req {
         opaque dict<>;
 }  ;

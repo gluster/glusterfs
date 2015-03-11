@@ -70,7 +70,8 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_FREMOVEXATTR]= "FREMOVEXATTR",
 	[GF_FOP_FALLOCATE]   = "FALLOCATE",
 	[GF_FOP_DISCARD]     = "DISCARD",
-        [GF_FOP_ZEROFILL]     = "ZEROFILL",
+        [GF_FOP_ZEROFILL]    = "ZEROFILL",
+        [GF_FOP_IPC]         = "IPC",
 };
 /* THIS */
 

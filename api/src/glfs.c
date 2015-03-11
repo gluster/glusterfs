@@ -1067,3 +1067,27 @@ pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volfile, 3.6.0);
 
+int
+pub_glfs_ipc (struct glfs *fs, int opcode)
+{
+	xlator_t        *subvol = NULL;
+        int             ret;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = syncop_ipc (subvol, opcode, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+out:
+        glfs_subvol_done (fs, subvol);
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ipc, 3.7.0);

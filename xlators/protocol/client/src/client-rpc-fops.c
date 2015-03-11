@@ -2103,6 +2103,55 @@ out:
 }
 
 int
+client3_3_ipc_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                      void *myframe)
+{
+        call_frame_t    *frame         = NULL;
+        gfs3_ipc_rsp     rsp          = {0,};
+        int              ret           = 0;
+        xlator_t *this                 = NULL;
+        dict_t  *xdata                 = NULL;
+
+        this = THIS;
+
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+        ret = xdr_to_generic(*iov, &rsp, (xdrproc_t) xdr_gfs3_ipc_rsp);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
+                                      (rsp.xdata.xdata_len), ret,
+                                      rsp.op_errno, out);
+
+out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
+        CLIENT_STACK_UNWIND (ipc, frame,
+                             rsp.op_ret, gf_error_to_errno (rsp.op_errno),
+                             xdata);
+
+        free (rsp.xdata.xdata_val);
+
+        if (xdata)
+                dict_unref (xdata);
+
+        return 0;
+}
+
+int
 client3_3_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
 {
@@ -6098,58 +6147,98 @@ unwind:
         return 0;
 }
 
+int32_t
+client3_3_ipc (call_frame_t *frame, xlator_t *this, void *data)
+{
+        clnt_args_t       *args        = NULL;
+        clnt_conf_t       *conf        = NULL;
+        gfs3_ipc_req       req        = {0,};
+        int                op_errno    = ESTALE;
+        int                ret         = 0;
+
+        GF_ASSERT (frame);
+
+        if (!this || !data)
+                goto unwind;
+
+        args = data;
+        conf = this->private;
+
+        req.op = args->cmd;
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
+
+        ret = client_submit_request(this, &req, frame, conf->fops,
+                                    GFS3_OP_IPC, client3_3_ipc_cbk,
+                                    NULL, NULL, 0, NULL, 0, NULL,
+                                    (xdrproc_t) xdr_gfs3_ipc_req);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
+
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+unwind:
+        CLIENT_STACK_UNWIND(ipc, frame, -1, op_errno, NULL);
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+}
+
 /* Table Specific to FOPS */
 
 
 rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
-        [GF_FOP_NULL]        = { "NULL",        NULL},
-        [GF_FOP_STAT]        = { "STAT",        client3_3_stat },
-        [GF_FOP_READLINK]    = { "READLINK",    client3_3_readlink },
-        [GF_FOP_MKNOD]       = { "MKNOD",       client3_3_mknod },
-        [GF_FOP_MKDIR]       = { "MKDIR",       client3_3_mkdir },
-        [GF_FOP_UNLINK]      = { "UNLINK",      client3_3_unlink },
-        [GF_FOP_RMDIR]       = { "RMDIR",       client3_3_rmdir },
-        [GF_FOP_SYMLINK]     = { "SYMLINK",     client3_3_symlink },
-        [GF_FOP_RENAME]      = { "RENAME",      client3_3_rename },
-        [GF_FOP_LINK]        = { "LINK",        client3_3_link },
-        [GF_FOP_TRUNCATE]    = { "TRUNCATE",    client3_3_truncate },
-        [GF_FOP_OPEN]        = { "OPEN",        client3_3_open },
-        [GF_FOP_READ]        = { "READ",        client3_3_readv },
-        [GF_FOP_WRITE]       = { "WRITE",       client3_3_writev },
-        [GF_FOP_STATFS]      = { "STATFS",      client3_3_statfs },
-        [GF_FOP_FLUSH]       = { "FLUSH",       client3_3_flush },
-        [GF_FOP_FSYNC]       = { "FSYNC",       client3_3_fsync },
-        [GF_FOP_SETXATTR]    = { "SETXATTR",    client3_3_setxattr },
-        [GF_FOP_GETXATTR]    = { "GETXATTR",    client3_3_getxattr },
-        [GF_FOP_REMOVEXATTR] = { "REMOVEXATTR", client3_3_removexattr },
-        [GF_FOP_OPENDIR]     = { "OPENDIR",     client3_3_opendir },
-        [GF_FOP_FSYNCDIR]    = { "FSYNCDIR",    client3_3_fsyncdir },
-        [GF_FOP_ACCESS]      = { "ACCESS",      client3_3_access },
-        [GF_FOP_CREATE]      = { "CREATE",      client3_3_create },
-        [GF_FOP_FTRUNCATE]   = { "FTRUNCATE",   client3_3_ftruncate },
-        [GF_FOP_FSTAT]       = { "FSTAT",       client3_3_fstat },
-        [GF_FOP_LK]          = { "LK",          client3_3_lk },
-        [GF_FOP_LOOKUP]      = { "LOOKUP",      client3_3_lookup },
-        [GF_FOP_READDIR]     = { "READDIR",     client3_3_readdir },
-        [GF_FOP_INODELK]     = { "INODELK",     client3_3_inodelk },
-        [GF_FOP_FINODELK]    = { "FINODELK",    client3_3_finodelk },
-        [GF_FOP_ENTRYLK]     = { "ENTRYLK",     client3_3_entrylk },
-        [GF_FOP_FENTRYLK]    = { "FENTRYLK",    client3_3_fentrylk },
-        [GF_FOP_XATTROP]     = { "XATTROP",     client3_3_xattrop },
-        [GF_FOP_FXATTROP]    = { "FXATTROP",    client3_3_fxattrop },
-        [GF_FOP_FGETXATTR]   = { "FGETXATTR",   client3_3_fgetxattr },
-        [GF_FOP_FSETXATTR]   = { "FSETXATTR",   client3_3_fsetxattr },
-        [GF_FOP_RCHECKSUM]   = { "RCHECKSUM",   client3_3_rchecksum },
-        [GF_FOP_SETATTR]     = { "SETATTR",     client3_3_setattr },
-        [GF_FOP_FSETATTR]    = { "FSETATTR",    client3_3_fsetattr },
-        [GF_FOP_READDIRP]    = { "READDIRP",    client3_3_readdirp },
-	[GF_FOP_FALLOCATE]   = { "FALLOCATE",	client3_3_fallocate },
-	[GF_FOP_DISCARD]     = { "DISCARD",	client3_3_discard },
-        [GF_FOP_ZEROFILL]    = { "ZEROFILL",    client3_3_zerofill},
-        [GF_FOP_RELEASE]     = { "RELEASE",     client3_3_release },
-        [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client3_3_releasedir },
-        [GF_FOP_GETSPEC]     = { "GETSPEC",     client3_getspec },
+        [GF_FOP_NULL]         = { "NULL",         NULL},
+        [GF_FOP_STAT]         = { "STAT",         client3_3_stat },
+        [GF_FOP_READLINK]     = { "READLINK",     client3_3_readlink },
+        [GF_FOP_MKNOD]        = { "MKNOD",        client3_3_mknod },
+        [GF_FOP_MKDIR]        = { "MKDIR",        client3_3_mkdir },
+        [GF_FOP_UNLINK]       = { "UNLINK",       client3_3_unlink },
+        [GF_FOP_RMDIR]        = { "RMDIR",        client3_3_rmdir },
+        [GF_FOP_SYMLINK]      = { "SYMLINK",      client3_3_symlink },
+        [GF_FOP_RENAME]       = { "RENAME",       client3_3_rename },
+        [GF_FOP_LINK]         = { "LINK",         client3_3_link },
+        [GF_FOP_TRUNCATE]     = { "TRUNCATE",     client3_3_truncate },
+        [GF_FOP_OPEN]         = { "OPEN",         client3_3_open },
+        [GF_FOP_READ]         = { "READ",         client3_3_readv },
+        [GF_FOP_WRITE]        = { "WRITE",        client3_3_writev },
+        [GF_FOP_STATFS]       = { "STATFS",       client3_3_statfs },
+        [GF_FOP_FLUSH]        = { "FLUSH",        client3_3_flush },
+        [GF_FOP_FSYNC]        = { "FSYNC",        client3_3_fsync },
+        [GF_FOP_SETXATTR]     = { "SETXATTR",     client3_3_setxattr },
+        [GF_FOP_GETXATTR]     = { "GETXATTR",     client3_3_getxattr },
+        [GF_FOP_REMOVEXATTR]  = { "REMOVEXATTR",  client3_3_removexattr },
+        [GF_FOP_OPENDIR]      = { "OPENDIR",      client3_3_opendir },
+        [GF_FOP_FSYNCDIR]     = { "FSYNCDIR",     client3_3_fsyncdir },
+        [GF_FOP_ACCESS]       = { "ACCESS",       client3_3_access },
+        [GF_FOP_CREATE]       = { "CREATE",       client3_3_create },
+        [GF_FOP_FTRUNCATE]    = { "FTRUNCATE",    client3_3_ftruncate },
+        [GF_FOP_FSTAT]        = { "FSTAT",        client3_3_fstat },
+        [GF_FOP_LK]           = { "LK",           client3_3_lk },
+        [GF_FOP_LOOKUP]       = { "LOOKUP",       client3_3_lookup },
+        [GF_FOP_READDIR]      = { "READDIR",      client3_3_readdir },
+        [GF_FOP_INODELK]      = { "INODELK",      client3_3_inodelk },
+        [GF_FOP_FINODELK]     = { "FINODELK",     client3_3_finodelk },
+        [GF_FOP_ENTRYLK]      = { "ENTRYLK",      client3_3_entrylk },
+        [GF_FOP_FENTRYLK]     = { "FENTRYLK",     client3_3_fentrylk },
+        [GF_FOP_XATTROP]      = { "XATTROP",      client3_3_xattrop },
+        [GF_FOP_FXATTROP]     = { "FXATTROP",     client3_3_fxattrop },
+        [GF_FOP_FGETXATTR]    = { "FGETXATTR",    client3_3_fgetxattr },
+        [GF_FOP_FSETXATTR]    = { "FSETXATTR",    client3_3_fsetxattr },
+        [GF_FOP_RCHECKSUM]    = { "RCHECKSUM",    client3_3_rchecksum },
+        [GF_FOP_SETATTR]      = { "SETATTR",      client3_3_setattr },
+        [GF_FOP_FSETATTR]     = { "FSETATTR",     client3_3_fsetattr },
+        [GF_FOP_READDIRP]     = { "READDIRP",     client3_3_readdirp },
+	[GF_FOP_FALLOCATE]    = { "FALLOCATE",	  client3_3_fallocate },
+	[GF_FOP_DISCARD]      = { "DISCARD",	  client3_3_discard },
+        [GF_FOP_ZEROFILL]     = { "ZEROFILL",     client3_3_zerofill},
+        [GF_FOP_RELEASE]      = { "RELEASE",      client3_3_release },
+        [GF_FOP_RELEASEDIR]   = { "RELEASEDIR",   client3_3_releasedir },
+        [GF_FOP_GETSPEC]      = { "GETSPEC",      client3_getspec },
         [GF_FOP_FREMOVEXATTR] = { "FREMOVEXATTR", client3_3_fremovexattr },
+        [GF_FOP_IPC]          = { "IPC",          client3_3_ipc },
 };
 
 /* Used From RPC-CLNT library to log proper name of procedure based on number */
@@ -6201,6 +6290,7 @@ char *clnt3_3_fop_names[GFS3_OP_MAXVALUE] = {
 	[GFS3_OP_FALLOCATE]   = "FALLOCATE",
 	[GFS3_OP_DISCARD]     = "DISCARD",
         [GFS3_OP_ZEROFILL]    = "ZEROFILL",
+        [GFS3_OP_IPC]         = "IPC",
 
 };
 

@@ -885,6 +885,20 @@ err:
 
 }
 
+static int32_t
+posix_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        /*
+         * IPC is for inter-translator communication.  If one gets here, it
+         * means somebody sent one that nobody else recognized, which is an
+         * error much like an uncaught exception.
+         */
+        gf_log (this->name, GF_LOG_ERROR, "GF_LOG_IPC(%d) not handled", op);
+        STACK_UNWIND_STRICT (ipc, frame, -1, -EOPNOTSUPP, NULL);
+        return 0;
+
+}
+
 int32_t
 posix_opendir (call_frame_t *frame, xlator_t *this,
                loc_t *loc, fd_t *fd, dict_t *xdata)
@@ -6193,6 +6207,7 @@ struct xlator_fops fops = {
 	.fallocate   = _posix_fallocate,
 	.discard     = posix_discard,
         .zerofill    = posix_zerofill,
+        .ipc         = posix_ipc,
 };
 
 struct xlator_cbks cbks = {

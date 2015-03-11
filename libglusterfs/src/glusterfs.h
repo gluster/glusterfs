@@ -238,7 +238,7 @@ typedef enum {
         GF_FOP_WRITE,
         GF_FOP_STATFS,
         GF_FOP_FLUSH,
-        GF_FOP_FSYNC,      /* 15 */
+        GF_FOP_FSYNC,      /* 16 */
         GF_FOP_SETXATTR,
         GF_FOP_GETXATTR,
         GF_FOP_REMOVEXATTR,
@@ -271,6 +271,7 @@ typedef enum {
 	GF_FOP_FALLOCATE,
 	GF_FOP_DISCARD,
         GF_FOP_ZEROFILL,
+        GF_FOP_IPC,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 

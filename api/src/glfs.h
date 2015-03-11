@@ -760,6 +760,14 @@ int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock) __THROW
 glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_dup, 3.4.0);
 
+/*
+ * No xdata support for now.  Nobody needs this call at all yet except for the
+ * test script, and that doesn't need xdata.  Adding dict_t support and a new
+ * header-file requirement doesn't seem worth it until the need is greater.
+ */
+int glfs_ipc (glfs_fd_t *fd, int cmd) __THROW
+        GFAPI_PUBLIC(glfs_ipc, 3.7.0);
+
 __END_DECLS
 
 #endif /* !_GLFS_H */
