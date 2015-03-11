@@ -846,11 +846,11 @@ dht_migration_complete_check_task (void *data)
 
         if (!local->loc.inode) {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
-                                        conf->link_xattr_name, NULL);
+                                        conf->link_xattr_name, NULL, NULL);
         } else {
                 SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
-                                       conf->link_xattr_name, NULL);
+                                       conf->link_xattr_name, NULL, NULL);
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         }
 
@@ -880,8 +880,8 @@ dht_migration_complete_check_task (void *data)
                 }
 
                 /* Need to do lookup on hashed subvol, then get the file */
-                ret = syncop_lookup (this, &local->loc, NULL, &stbuf, NULL,
-                                     NULL);
+                ret = syncop_lookup (this, &local->loc, &stbuf, NULL,
+                                     NULL, NULL);
                 if (ret) {
                         local->op_errno = -ret;
                         ret = -1;
@@ -902,8 +902,8 @@ dht_migration_complete_check_task (void *data)
 
         /* lookup on dst */
         if (local->loc.inode) {
-                ret = syncop_lookup (dst_node, &local->loc, NULL, &stbuf, NULL,
-                                     NULL);
+                ret = syncop_lookup (dst_node, &local->loc, &stbuf, NULL,
+                                     NULL, NULL);
 
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -990,7 +990,8 @@ dht_migration_complete_check_task (void *data)
                  * truncate the file again as rebalance is moving the data */
                 ret = syncop_open (dst_node, &tmp_loc,
                                    (iter_fd->flags &
-                                   ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd);
+                                   ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd,
+                                   NULL, NULL);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
@@ -1073,11 +1074,11 @@ dht_rebalance_inprogress_task (void *data)
         if (local->loc.inode) {
                 SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
-                                       conf->link_xattr_name, NULL);
+                                       conf->link_xattr_name, NULL, NULL);
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
         } else {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
-                                        conf->link_xattr_name, NULL);
+                                        conf->link_xattr_name, NULL, NULL);
         }
 
         if (ret < 0) {
@@ -1101,8 +1102,8 @@ dht_rebalance_inprogress_task (void *data)
 
         if (local->loc.inode) {
                 /* lookup on dst */
-                ret = syncop_lookup (dst_node, &local->loc, NULL,
-                                     &stbuf, NULL, NULL);
+                ret = syncop_lookup (dst_node, &local->loc, &stbuf, NULL,
+                                     NULL, NULL);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "%s: failed to lookup the file on %s",
@@ -1145,7 +1146,8 @@ dht_rebalance_inprogress_task (void *data)
                  * truncate the file again as rebalance is moving the data */
                 ret = syncop_open (dst_node, &tmp_loc,
                                    (iter_fd->flags &
-                                   ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd);
+                                   ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd,
+                                   NULL, NULL);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to send open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",

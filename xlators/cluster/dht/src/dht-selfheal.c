@@ -1913,7 +1913,7 @@ dht_dir_attr_heal (void *data)
                         continue;
                 ret = syncop_setattr (subvol, &local->loc, &local->stbuf,
                                       (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
-                                      NULL, NULL);
+                                      NULL, NULL, NULL, NULL);
                 if (ret) {
                         gf_uuid_unparse(local->loc.gfid, gfid);
 

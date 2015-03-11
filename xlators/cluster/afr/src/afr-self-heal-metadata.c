@@ -55,7 +55,7 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		uuid_utoa (inode->gfid));
 
 	ret = syncop_getxattr (priv->children[source], &loc, &xattr, NULL,
-                               NULL);
+                               NULL, NULL);
 	if (ret < 0) {
 		ret = -EIO;
                 goto out;
@@ -74,19 +74,20 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 		ret = syncop_setattr (priv->children[i], &loc,
 				      &locked_replies[source].poststat,
-				      AFR_HEAL_ATTR, NULL, NULL);
+				      AFR_HEAL_ATTR, NULL, NULL, NULL, NULL);
 		if (ret)
 			healed_sinks[i] = 0;
 
 		ret = syncop_getxattr (priv->children[i], &loc, &old_xattr, 0,
-                                       NULL);
+                                       NULL, NULL);
 		if (old_xattr) {
 			afr_delete_ignorable_xattrs (old_xattr);
 			ret = syncop_removexattr (priv->children[i], &loc, "",
-						  old_xattr);
+						  old_xattr, NULL);
 		}
 
-		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0);
+		ret = syncop_setxattr (priv->children[i], &loc, xattr, 0, NULL,
+                                       NULL);
 		if (ret)
 			healed_sinks[i] = 0;
 	}

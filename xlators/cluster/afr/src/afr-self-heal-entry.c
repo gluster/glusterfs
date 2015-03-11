@@ -56,7 +56,7 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 				uuid_utoa (dir->gfid), name,
 				uuid_utoa_r (replies[child].poststat.ia_gfid, g),
 				subvol->name);
-			ret = syncop_rmdir (subvol, &loc, 1);
+			ret = syncop_rmdir (subvol, &loc, 1, NULL, NULL);
 			break;
 		default:
 			gf_log (this->name, GF_LOG_WARNING,
@@ -64,7 +64,7 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 				uuid_utoa (dir->gfid), name,
 				uuid_utoa_r (replies[child].poststat.ia_gfid, g),
 				subvol->name);
-			ret = syncop_unlink (subvol, &loc);
+			ret = syncop_unlink (subvol, &loc, NULL, NULL);
 			break;
 		}
 	}
@@ -119,21 +119,23 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 
 	switch (iatt->ia_type) {
 	case IA_IFDIR:
-		ret = syncop_mkdir (priv->children[dst], &loc, mode, xdata, 0);
+		ret = syncop_mkdir (priv->children[dst], &loc, mode, 0,
+                                    xdata, NULL);
                 if (ret == 0)
                         newentry[dst] = 1;
 		break;
 	case IA_IFLNK:
 		ret = syncop_lookup (priv->children[dst], &srcloc, 0, 0, 0, 0);
 		if (ret == 0) {
-			ret = syncop_link (priv->children[dst], &srcloc, &loc);
+			ret = syncop_link (priv->children[dst], &srcloc, &loc,
+					   NULL, NULL);
 		} else {
 			ret = syncop_readlink (priv->children[source], &srcloc,
-					       &linkname, 4096);
+					       &linkname, 4096, NULL, NULL);
 			if (ret <= 0)
 				goto out;
-			ret = syncop_symlink (priv->children[dst], &loc, linkname,
-					      xdata, NULL);
+			ret = syncop_symlink (priv->children[dst], &loc,
+                                              linkname, NULL, xdata, NULL);
                         if (ret == 0)
                                 newentry[dst] = 1;
                 }
@@ -143,7 +145,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		if (ret)
 			goto out;
 		ret = syncop_mknod (priv->children[dst], &loc, mode,
-				    iatt->ia_rdev, xdata, &newent);
+				    iatt->ia_rdev, &newent, xdata, NULL);
 		if (ret == 0 && newent.ia_nlink == 1) {
 			/* New entry created. Mark @dst pending on all sources */
                         newentry[dst] = 1;
@@ -508,7 +510,8 @@ afr_selfheal_entry_do_subvol (call_frame_t *frame, xlator_t *this,
 	if (!iter_frame)
 		return -ENOMEM;
 
-	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries))) {
+	while ((ret = syncop_readdir (subvol, fd, 131072, offset, &entries,
+                                      NULL, NULL))) {
 		if (ret > 0)
 			ret = 0;
 		list_for_each_entry (entry, &entries.list, list) {
@@ -682,7 +685,7 @@ afr_selfheal_data_opendir (xlator_t *this, inode_t *inode)
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	ret = syncop_opendir (this, &loc, fd);
+	ret = syncop_opendir (this, &loc, fd, NULL, NULL);
 	if (ret) {
 		fd_unref (fd);
 		fd = NULL;

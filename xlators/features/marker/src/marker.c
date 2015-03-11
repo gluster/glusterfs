@@ -2197,7 +2197,7 @@ remove_quota_keys (dict_t *dict, char *k, data_t *v, void *data)
 	xlator_t 	*this = frame->this;
 	int 		ret = -1;
 
-	ret = syncop_removexattr (FIRST_CHILD (this), &local->loc, k, 0);
+	ret = syncop_removexattr (FIRST_CHILD (this), &local->loc, k, 0, NULL);
 	if (ret) {
 		gf_log (this->name, GF_LOG_ERROR, "%s: Failed to remove "
 			"extended attribute: %s", local->loc.path, k);
@@ -2243,7 +2243,8 @@ quota_xattr_cleaner (void *args)
         this  = frame->this;
         local = frame->local;
 
-        ret = syncop_listxattr (FIRST_CHILD(this), &local->loc, &xdata);
+        ret = syncop_listxattr (FIRST_CHILD(this), &local->loc, &xdata, NULL,
+                                NULL);
         if (ret == -1) {
                 ret = -errno;
                 goto out;
