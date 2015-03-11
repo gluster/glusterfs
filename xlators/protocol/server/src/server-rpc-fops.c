@@ -2026,6 +2026,42 @@ out:
 }
 
 
+int
+server_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        gf_common_rsp      rsp   = {0,};
+        server_state_t    *state = NULL;
+        rpcsvc_request_t  *req   = NULL;
+
+        req = frame->local;
+        state  = CALL_STATE (frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&rsp.xdata.xdata_val),
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "%"PRId64": IPC%"PRId64" (%s) ==> (%s)",
+                        frame->root->unique, state->resolve.fd_no,
+                        uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
+                            (xdrproc_t) xdr_gf_common_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
+
+
 /* Resume function section */
 
 int
@@ -3425,6 +3461,63 @@ server3_3_zerofill(rpcsvc_request_t *req)
 
         ret = 0;
         resolve_and_resume (frame, server_zerofill_resume);
+
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                req->rpc_err = GARBAGE_ARGS;
+
+        return ret;
+}
+
+int
+server3_3_ipc (rpcsvc_request_t *req)
+{
+        call_frame_t    *frame          = NULL;
+        gfs3_ipc_req     args           = {0,};
+        int              ret            = -1;
+        int              op_errno       = 0;
+        dict_t          *xdata          = NULL;
+        xlator_t        *bound_xl       = NULL;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gfs3_ipc_req);
+        if (ret < 0) {
+                /*failed to decode msg*/;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                /* something wrong, mostly insufficient memory*/
+                req->rpc_err = GARBAGE_ARGS; /* TODO */
+                goto out;
+        }
+        frame->root->op = GF_FOP_IPC;
+
+        bound_xl = frame->root->client->bound_xl;
+        if (!bound_xl) {
+                /* auth failure, request on subvolume without setvolume */
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (bound_xl, xdata,
+                                      args.xdata.xdata_val,
+                                      args.xdata.xdata_len,
+                                      ret, op_errno, out);
+
+        ret = 0;
+        STACK_WIND (frame, server_ipc_cbk, bound_xl, bound_xl->fops->ipc,
+                    args.op, xdata);
+        if (xdata) {
+                dict_unref(xdata);
+        }
 
 out:
         free (args.xdata.xdata_val);
@@ -6165,6 +6258,7 @@ rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_FALLOCATE]    = {"FALLOCATE",    GFS3_OP_FALLOCATE,    server3_3_fallocate,    NULL, 0, DRC_NA},
         [GFS3_OP_DISCARD]      = {"DISCARD",      GFS3_OP_DISCARD,      server3_3_discard,      NULL, 0, DRC_NA},
         [GFS3_OP_ZEROFILL]    =  {"ZEROFILL",     GFS3_OP_ZEROFILL,     server3_3_zerofill,     NULL, 0, DRC_NA},
+        [GFS3_OP_IPC]         =  {"IPC",          GFS3_OP_IPC,          server3_3_ipc,          NULL, 0, DRC_NA},
 };
 
 

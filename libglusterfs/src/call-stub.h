@@ -72,6 +72,7 @@ typedef struct {
 		fop_fallocate_t fallocate;
 		fop_discard_t discard;
                 fop_zerofill_t zerofill;
+                fop_ipc_t ipc;
 	} fn;
 
 	union {
@@ -119,6 +120,7 @@ typedef struct {
 		fop_fallocate_cbk_t fallocate;
 		fop_discard_cbk_t discard;
                 fop_zerofill_cbk_t zerofill;
+                fop_ipc_cbk_t ipc;
 	} fn_cbk;
 
 	struct {
@@ -760,6 +762,14 @@ fop_zerofill_cbk_stub(call_frame_t *frame,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *statpre, struct iatt *statpost,
                      dict_t *xdata);
+
+call_stub_t *
+fop_ipc_stub (call_frame_t *frame, fop_ipc_t fn, int32_t op, dict_t *xdata);
+
+call_stub_t *
+fop_ipc_cbk_stub (call_frame_t *frame, fop_ipc_cbk_t fn,
+                  int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

@@ -435,4 +435,8 @@ int syncop_lk (xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock);
 int
 syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
                 struct gf_flock *lock, dict_t *xdata_req, dict_t **xdata_rsp);
+
+int
+syncop_ipc (xlator_t *subvol, int op, dict_t *xdata_in, dict_t **xdata_out);
+
 #endif /* _SYNCOP_H */
