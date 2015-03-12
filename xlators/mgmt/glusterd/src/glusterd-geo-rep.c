@@ -667,6 +667,128 @@ glusterd_gsync_get_config (char *master, char *slave, char *conf_path, dict_t *d
 }
 
 static int
+_fcbk_statustostruct (char *resbuf, size_t blen, FILE *fp,
+                      void *data)
+{
+        char                  *ptr = NULL;
+        char                    *v = NULL;
+        char                    *k = NULL;
+        gf_gsync_status_t *sts_val = NULL;
+
+        sts_val = (gf_gsync_status_t *)data;
+
+        for (;;) {
+                errno = 0;
+                ptr = fgets (resbuf, blen, fp);
+                if (!ptr)
+                        break;
+                v = resbuf + strlen(resbuf) - 1;
+                while (isspace (*v))
+                        /* strip trailing space */
+                        *v-- = '\0';
+                if (v == resbuf)
+                        /* skip empty line */
+                        continue;
+                v = strchr (resbuf, ':');
+                if (!v)
+                        return -1;
+                *v++ = '\0';
+                while (isspace (*v))
+                        v++;
+                v = gf_strdup (v);
+                if (!v)
+                        return -1;
+
+                k = gf_strdup (resbuf);
+                if (!k)
+                        return -1;
+
+                if (strcmp (k, "worker_status") == 0) {
+                        memcpy (sts_val->worker_status, v,
+                                strlen(v));
+                        sts_val->worker_status[strlen(v)] = '\0';
+                } else if (strcmp (k, "slave_node") == 0) {
+                        memcpy (sts_val->slave_node, v,
+                                strlen(v));
+                        sts_val->slave_node[strlen(v)] = '\0';
+                } else if (strcmp (k, "crawl_status") == 0) {
+                        memcpy (sts_val->crawl_status, v,
+                                strlen(v));
+                        sts_val->crawl_status[strlen(v)] = '\0';
+                } else if (strcmp (k, "last_synced") == 0) {
+                        memcpy (sts_val->last_synced, v,
+                                strlen(v));
+                        sts_val->last_synced[strlen(v)] = '\0';
+                } else if (strcmp (k, "last_synced_utc") == 0) {
+                        memcpy (sts_val->last_synced_utc, v,
+                                strlen(v));
+                        sts_val->last_synced_utc[strlen(v)] = '\0';
+                } else if (strcmp (k, "entry") == 0) {
+                        memcpy (sts_val->entry, v,
+                                strlen(v));
+                        sts_val->entry[strlen(v)] = '\0';
+                } else if (strcmp (k, "data") == 0) {
+                        memcpy (sts_val->data, v,
+                                strlen(v));
+                        sts_val->data[strlen(v)] = '\0';
+                } else if (strcmp (k, "meta") == 0) {
+                        memcpy (sts_val->meta, v,
+                                strlen(v));
+                        sts_val->meta[strlen(v)] = '\0';
+                } else if (strcmp (k, "failures") == 0) {
+                        memcpy (sts_val->failures, v,
+                                strlen(v));
+                        sts_val->failures[strlen(v)] = '\0';
+                } else if (strcmp (k, "checkpoint_time") == 0) {
+                        memcpy (sts_val->checkpoint_time, v,
+                                strlen(v));
+                        sts_val->checkpoint_time[strlen(v)] = '\0';
+                } else if (strcmp (k, "checkpoint_time_utc") == 0) {
+                        memcpy (sts_val->checkpoint_time_utc, v,
+                                strlen(v));
+                        sts_val->checkpoint_time_utc[strlen(v)] = '\0';
+                } else if (strcmp (k, "checkpoint_completed") == 0) {
+                        memcpy (sts_val->checkpoint_completed, v,
+                                strlen(v));
+                        sts_val->checkpoint_completed[strlen(v)] = '\0';
+                } else if (strcmp (k, "checkpoint_completion_time") == 0) {
+                        memcpy (sts_val->checkpoint_completion_time, v,
+                                strlen(v));
+                        sts_val->checkpoint_completion_time[strlen(v)] = '\0';
+                } else if (strcmp (k, "checkpoint_completion_time_utc") == 0) {
+                        memcpy (sts_val->checkpoint_completion_time_utc, v,
+                                strlen(v));
+                        sts_val->checkpoint_completion_time_utc[strlen(v)] =
+                                '\0';
+                }
+        }
+
+        return errno ? -1 : 0;
+}
+
+
+static int
+glusterd_gsync_get_status (char *master, char *slave, char *conf_path,
+                           char *brick_path, gf_gsync_status_t *sts_val)
+{
+        /* key + value, where value must be able to accommodate a path */
+        char resbuf[256 + PATH_MAX] = {0,};
+        runner_t             runner = {0,};
+
+        runinit (&runner);
+        runner_add_args  (&runner, GSYNCD_PREFIX"/gsyncd", "-c", NULL);
+        runner_argprintf (&runner, "%s", conf_path);
+        runner_argprintf (&runner, "--iprefix=%s", DATADIR);
+        runner_argprintf (&runner, ":%s", master);
+        runner_add_args  (&runner, slave, "--status-get", NULL);
+        runner_add_args  (&runner, "--path", brick_path, NULL);
+
+        return glusterd_query_extutil_generic (resbuf, sizeof (resbuf),
+                                               &runner, sts_val,
+                                               _fcbk_statustostruct);
+}
+
+static int
 glusterd_gsync_get_param_file (char *prmfile, const char *param, char *master,
                                char *slave, char *conf_path)
 {
@@ -2804,7 +2926,6 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
         gf_boolean_t    is_template_in_use       = _gf_false;
         char            monitor_status[NAME_MAX] = {0,};
         char            *statefile               = NULL;
-        char            *token                   = NULL;
         xlator_t        *this                    = NULL;
 
         this = THIS;
@@ -2869,10 +2990,10 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
                           do not update status again*/
                         if (strstr (monitor_status, "Paused"))
                                 goto out;
-                        (void) strcat (monitor_status, "(Paused)");
+
                         ret = glusterd_create_status_file ( master, slave,
                                                      slave_host, slave_vol,
-                                                     monitor_status);
+                                                     "Paused");
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable  to update state_file."
@@ -2893,10 +3014,10 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
                                 goto out;
                         }
                 } else {
-                        token = strtok (monitor_status, "(");
                         ret = glusterd_create_status_file (master, slave,
                                                            slave_host,
-                                                           slave_vol, token);
+                                                           slave_vol,
+                                                           "Started");
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Resume Failed: Unable to update "
@@ -3321,159 +3442,6 @@ out:
         return ret;
 }
 
-static int
-glusterd_parse_gsync_status (char *buf, gf_gsync_status_t *sts_val)
-{
-        int              ret      = -1;
-        int              i      = -1;
-        int              num_of_fields = 8;
-        char            *token    = NULL;
-        char           **tokens   = NULL;
-        char           **ptr   = NULL;
-        char            *save_ptr = NULL;
-        char             na_buf[] = "N/A";
-
-        if (!buf) {
-                gf_log ("", GF_LOG_ERROR, "Empty buf");
-                goto out;
-        }
-
-        tokens = calloc (num_of_fields, sizeof (char *));
-        if (!tokens) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
-                goto out;
-        }
-
-        ptr = tokens;
-
-        for (token = strtok_r (buf, ",", &save_ptr); token;
-             token = strtok_r (NULL, ",", &save_ptr)) {
-                *ptr = gf_strdup(token);
-                if (!*ptr) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
-                        goto out;
-                }
-                ptr++;
-        }
-
-        for (i = 0; i < num_of_fields; i++) {
-                token = strtok_r (tokens[i], ":", &save_ptr);
-                token = strtok_r (NULL, "\0", &save_ptr);
-                token++;
-
-                /* token NULL check */
-                if (!token && (i != 0) &&
-                    (i != 5) && (i != 7))
-                    token = na_buf;
-
-                if (i == 0) {
-                        if (!token)
-                            token = na_buf;
-                        else {
-                            token++;
-                            if (!token)
-                                token = na_buf;
-                            else
-                                token[strlen(token) - 1] = '\0';
-                        }
-                        memcpy (sts_val->slave_node, token, strlen(token));
-                }
-                if (i == 1)
-                        memcpy (sts_val->files_syncd, token, strlen(token));
-                if (i == 2)
-                        memcpy (sts_val->purges_remaining, token, strlen(token));
-                if (i == 3)
-                        memcpy (sts_val->total_files_skipped, token, strlen(token));
-                if (i == 4)
-                        memcpy (sts_val->files_remaining, token, strlen(token));
-                if (i == 5) {
-                        if (!token)
-                            token = na_buf;
-                        else {
-                            token++;
-                            if (!token)
-                                token = na_buf;
-                            else
-                                token[strlen(token) - 1] = '\0';
-                        }
-                        memcpy (sts_val->worker_status, token, strlen(token));
-                }
-                if (i == 6)
-                        memcpy (sts_val->bytes_remaining, token, strlen(token));
-                if (i == 7) {
-                        if (!token)
-                            token = na_buf;
-                        else {
-                            token++;
-                            if (!token)
-                                token = na_buf;
-                            else
-                                token[strlen(token) - 2] = '\0';
-                        }
-                        memcpy (sts_val->crawl_status, token, strlen(token));
-                }
-        }
-
-        ret = 0;
-out:
-        for (i = 0; i< num_of_fields; i++)
-               if (tokens[i])
-                       GF_FREE(tokens[i]);
-
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-static int
-glusterd_gsync_fetch_status_extra (char *path, gf_gsync_status_t *sts_val)
-{
-        char sockpath[PATH_MAX] = {0,};
-        struct sockaddr_un   sa = {0,};
-        int                   s = -1;
-        struct pollfd       pfd = {0,};
-        int                 ret = 0;
-
-        glusterd_set_socket_filepath (path, sockpath, sizeof (sockpath));
-
-        strncpy(sa.sun_path, sockpath, sizeof(sa.sun_path));
-        if (sa.sun_path[sizeof (sa.sun_path) - 1])
-                return -1;
-        sa.sun_family = AF_UNIX;
-
-        s = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (s == -1)
-                return -1;
-        ret = fcntl (s, F_GETFL);
-        if (ret != -1)
-                ret = fcntl (s, F_SETFL, ret | O_NONBLOCK);
-        if (ret == -1)
-                goto out;
-
-        ret = connect (s, (struct sockaddr *)&sa, sizeof (sa));
-        if (ret == -1)
-                goto out;
-        pfd.fd = s;
-        pfd.events = POLLIN;
-        /* we don't want to hang on gsyncd */
-        if (poll (&pfd, 1, 5000) < 1 ||
-            !(pfd.revents & POLLIN)) {
-                ret = -1;
-                goto out;
-        }
-        ret = read(s, sts_val->checkpoint_status,
-                   sizeof(sts_val->checkpoint_status));
-        /* we expect a terminating 0 byte */
-        if (ret == 0 || (ret > 0 && sts_val->checkpoint_status[ret - 1]))
-                ret = -1;
-        if (ret > 0) {
-                ret = 0;
-        }
-
-out:
-        close (s);
-        return ret;
-}
-
 int
 glusterd_fetch_values_from_config (char *master, char *slave,
                                    char *confpath, dict_t *confd,
@@ -3567,6 +3535,7 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         gf_boolean_t            is_template_in_use         = _gf_false;
         glusterd_conf_t        *priv                       = NULL;
         struct stat             stbuf                      = {0,};
+        dict_t                 *statusd                    = NULL;
 
         GF_ASSERT (THIS);
         GF_ASSERT (THIS->private);
@@ -3657,114 +3626,7 @@ fetch_data:
                         goto out;
                 }
 
-                /* Creating the brick state file's path */
-                memset(brick_state_file, '\0', PATH_MAX);
-                memcpy (brick_path, brickinfo->path, PATH_MAX - 1);
-                for (i = 0; i < strlen(brick_path) - 1; i++)
-                        if (brick_path[i] == '/')
-                                brick_path[i] = '_';
-                ret = snprintf(brick_state_file, PATH_MAX - 1, "%s%s.status",
-                               georep_session_wrkng_dir, brick_path);
-                brick_state_file[ret] = '\0';
-
-                gf_log ("", GF_LOG_DEBUG, "brick_state_file = %s", brick_state_file);
-
-                memset (tmp, '\0', sizeof(tmp));
-
-                ret = glusterd_gsync_read_frm_status (brick_state_file,
-                                                      tmp, sizeof (tmp));
-                if (ret <= 0) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to read the status"
-                                "file for %s brick for  %s(master), %s(slave) "
-                                "session", brickinfo->path, master, slave);
-                        memcpy (sts_val->slave_node, slave, strlen(slave));
-                        sts_val->slave_node[strlen(slave)] = '\0';
-                        ret = snprintf (sts_val->worker_status, sizeof(sts_val->worker_status), "N/A");
-                        sts_val->worker_status[ret] = '\0';
-                        ret = snprintf (sts_val->checkpoint_status, sizeof(sts_val->checkpoint_status), "N/A");
-                        sts_val->checkpoint_status[ret] = '\0';
-                        ret = snprintf (sts_val->crawl_status, sizeof(sts_val->crawl_status), "N/A");
-                        sts_val->crawl_status[ret] = '\0';
-                        ret = snprintf (sts_val->files_syncd, sizeof(sts_val->files_syncd), "N/A");
-                        sts_val->files_syncd[ret] = '\0';
-                        ret = snprintf (sts_val->purges_remaining, sizeof(sts_val->purges_remaining), "N/A");
-                        sts_val->purges_remaining[ret] = '\0';
-                        ret = snprintf (sts_val->total_files_skipped, sizeof(sts_val->total_files_skipped), "N/A");
-                        sts_val->total_files_skipped[ret] = '\0';
-                        ret = snprintf (sts_val->files_remaining, sizeof(sts_val->files_remaining), "N/A");
-                        sts_val->files_remaining[ret] = '\0';
-                        ret = snprintf (sts_val->bytes_remaining, sizeof(sts_val->bytes_remaining), "N/A");
-                        sts_val->bytes_remaining[ret] = '\0';
-                        goto store_status;
-                }
-
-                ret = glusterd_gsync_fetch_status_extra (socketfile, sts_val);
-                if (ret || strlen(sts_val->checkpoint_status) == 0) {
-                        gf_log ("", GF_LOG_DEBUG, "No checkpoint status"
-                                "for %s(master), %s(slave)", master, slave);
-                        ret = snprintf (sts_val->checkpoint_status, sizeof(sts_val->checkpoint_status), "N/A");
-                        sts_val->checkpoint_status[ret] = '\0';
-                }
-
-                ret = glusterd_parse_gsync_status (tmp, sts_val);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Unable to parse the gsync status for %s",
-                                brickinfo->path);
-                        memcpy (sts_val->slave_node, slave, strlen(slave));
-                        sts_val->slave_node[strlen(slave)] = '\0';
-                        ret = snprintf (sts_val->worker_status, sizeof(sts_val->worker_status), "N/A");
-                        sts_val->worker_status[ret] = '\0';
-                        ret = snprintf (sts_val->checkpoint_status, sizeof(sts_val->checkpoint_status), "N/A");
-                        sts_val->checkpoint_status[ret] = '\0';
-                        ret = snprintf (sts_val->crawl_status, sizeof(sts_val->crawl_status), "N/A");
-                        sts_val->crawl_status[ret] = '\0';
-                        ret = snprintf (sts_val->files_syncd, sizeof(sts_val->files_syncd), "N/A");
-                        sts_val->files_syncd[ret] = '\0';
-                        ret = snprintf (sts_val->purges_remaining, sizeof(sts_val->purges_remaining), "N/A");
-                        sts_val->purges_remaining[ret] = '\0';
-                        ret = snprintf (sts_val->total_files_skipped, sizeof(sts_val->total_files_skipped), "N/A");
-                        sts_val->total_files_skipped[ret] = '\0';
-                        ret = snprintf (sts_val->files_remaining, sizeof(sts_val->files_remaining), "N/A");
-                        sts_val->files_remaining[ret] = '\0';
-                        ret = snprintf (sts_val->bytes_remaining, sizeof(sts_val->bytes_remaining), "N/A");
-                        sts_val->bytes_remaining[ret] = '\0';
-                }
-
-store_status:
-                if ((strcmp (monitor_status, "Stable"))) {
-                        memcpy (sts_val->worker_status, monitor_status, strlen(monitor_status));
-                        sts_val->worker_status[strlen(monitor_status)] = '\0';
-                        ret = snprintf (sts_val->crawl_status, sizeof(sts_val->crawl_status), "N/A");
-                        sts_val->crawl_status[ret] = '\0';
-                        ret = snprintf (sts_val->checkpoint_status, sizeof(sts_val->checkpoint_status), "N/A");
-                        sts_val->checkpoint_status[ret] = '\0';
-                }
-
-                if (is_template_in_use) {
-                        ret = snprintf (sts_val->worker_status,
-                                        sizeof(sts_val->worker_status),
-                                        "Config Corrupted");
-                        sts_val->worker_status[ret] = '\0';
-                }
-
-                if (strcmp (sts_val->worker_status, "Active")) {
-                        ret = snprintf (sts_val->checkpoint_status, sizeof(sts_val->checkpoint_status), "N/A");
-                        sts_val->checkpoint_status[ret] = '\0';
-                        ret = snprintf (sts_val->crawl_status, sizeof(sts_val->crawl_status), "N/A");
-                        sts_val->crawl_status[ret] = '\0';
-                }
-
-                if (!strcmp (sts_val->slave_node, "N/A")) {
-                        memcpy (sts_val->slave_node, slave, strlen(slave));
-                        sts_val->slave_node[strlen(slave)] = '\0';
-                }
-
-                memcpy (sts_val->node, node, strlen(node));
-                sts_val->node[strlen(node)] = '\0';
-                memcpy (sts_val->brick, brickinfo->path, strlen(brickinfo->path));
-                sts_val->brick[strlen(brickinfo->path)] = '\0';
-
+                /* Slave Key */
                 ret = glusterd_get_slave (volinfo, slave, &slavekey);
                 if (ret < 0) {
                         GF_FREE (sts_val);
@@ -3773,14 +3635,87 @@ store_status:
                 memcpy (sts_val->slavekey, slavekey, strlen(slavekey));
                 sts_val->slavekey[strlen(slavekey)] = '\0';
 
+                /* Master Volume */
+                memcpy (sts_val->master, master, strlen(master));
+                sts_val->master[strlen(master)] = '\0';
+
+                /* Master Brick Node */
+                memcpy (sts_val->node, node, strlen(node));
+                sts_val->node[strlen(node)] = '\0';
+
+                /* Master Brick Path */
+                memcpy (sts_val->brick, brickinfo->path,
+                        strlen(brickinfo->path));
+                sts_val->brick[strlen(brickinfo->path)] = '\0';
+
+                /* Brick Host UUID */
                 brick_host_uuid = uuid_utoa(brickinfo->uuid);
                 brick_host_uuid_length = strlen (brick_host_uuid);
                 memcpy (sts_val->brick_host_uuid, brick_host_uuid,
                         brick_host_uuid_length);
                 sts_val->brick_host_uuid[brick_host_uuid_length] = '\0';
 
-                memcpy (sts_val->master, master, strlen(master));
-                sts_val->master[strlen(master)] = '\0';
+                /* Slave */
+                memcpy (sts_val->slave, slave, strlen(slave));
+                sts_val->slave[strlen(slave)] = '\0';
+
+                snprintf (sts_val->slave_node,
+                          sizeof(sts_val->slave_node), "N/A");
+
+                snprintf (sts_val->worker_status,
+                          sizeof(sts_val->worker_status), "N/A");
+
+                snprintf (sts_val->crawl_status,
+                          sizeof(sts_val->crawl_status), "N/A");
+
+                snprintf (sts_val->last_synced,
+                          sizeof(sts_val->last_synced), "N/A");
+
+                snprintf (sts_val->last_synced_utc,
+                          sizeof(sts_val->last_synced_utc), "N/A");
+
+                snprintf (sts_val->entry, sizeof(sts_val->entry), "N/A");
+
+                snprintf (sts_val->data, sizeof(sts_val->data), "N/A");
+
+                snprintf (sts_val->meta, sizeof(sts_val->meta), "N/A");
+
+                snprintf (sts_val->failures, sizeof(sts_val->failures), "N/A");
+
+                snprintf (sts_val->checkpoint_time,
+                          sizeof(sts_val->checkpoint_time), "N/A");
+
+                snprintf (sts_val->checkpoint_time_utc,
+                          sizeof(sts_val->checkpoint_time_utc), "N/A");
+
+                snprintf (sts_val->checkpoint_completed,
+                          sizeof(sts_val->checkpoint_completed), "N/A");
+
+                snprintf (sts_val->checkpoint_completion_time,
+                          sizeof(sts_val->checkpoint_completion_time),
+                          "N/A");
+
+                snprintf (sts_val->checkpoint_completion_time_utc,
+                          sizeof(sts_val->checkpoint_completion_time_utc),
+                          "N/A");
+
+                /* Get all the other values from Gsyncd */
+                ret = glusterd_gsync_get_status (master, slave, conf_path,
+                                                 brickinfo->path, sts_val);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get status data "
+                                "for %s(master), %s(slave), %s(brick)",
+                                master, slave, brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (is_template_in_use) {
+                        snprintf (sts_val->worker_status,
+                                  sizeof(sts_val->worker_status),
+                                  "Config Corrupted");
+                }
 
                 ret = dict_get_str (volinfo->gsync_slaves, slavekey,
                                     &slaveentry);
@@ -3809,8 +3744,10 @@ store_status:
                         strlen(slaveuser));
                 sts_val->slave_user[strlen(slaveuser)] = '\0';
 
-                snprintf (sts_val_name, sizeof (sts_val_name), "status_value%d", gsync_count);
-                ret = dict_set_bin (dict, sts_val_name, sts_val, sizeof(gf_gsync_status_t));
+                snprintf (sts_val_name, sizeof (sts_val_name),
+                          "status_value%d", gsync_count);
+                ret = dict_set_bin (dict, sts_val_name, sts_val,
+                                    sizeof(gf_gsync_status_t));
                 if (ret) {
                         GF_FREE (sts_val);
                         goto out;
@@ -5258,7 +5195,7 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
         } else {
                 ret = glusterd_create_status_file (volinfo->volname, slave,
                                                    slave_host, slave_vol,
-                                                   "Not Started");
+                                                   "Created");
                 if (ret || lstat (statefile, &stbuf)) {
                         snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
                                   ". Error : %s", statefile, strerror (errno));

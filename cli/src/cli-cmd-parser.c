@@ -2274,8 +2274,8 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                                 ret = -1;
                                 goto out;
                         }
-                        snprintf (append_str, 300, "now:%" GF_PRI_SECOND ".%06"GF_PRI_SUSECONDS,
-                                  tv.tv_sec, tv.tv_usec);
+                        snprintf (append_str, 300, "%" GF_PRI_SECOND,
+                                  tv.tv_sec);
                 }
 
                 ret = dict_set_dynstr (dict, "op_value", append_str);

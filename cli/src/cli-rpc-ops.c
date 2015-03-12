@@ -4406,18 +4406,24 @@ get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
         case 1:  return (sts_val->master);
         case 2:  return (sts_val->brick);
         case 3:  return (sts_val->slave_user);
-        case 4:  return (sts_val->slave_node);
-        case 5:  return (sts_val->worker_status);
-        case 6:  return (sts_val->checkpoint_status);
+        case 4:  return (sts_val->slave);
+        case 5:  return (sts_val->slave_node);
+        case 6:  return (sts_val->worker_status);
         case 7:  return (sts_val->crawl_status);
-        case 8:  return (sts_val->files_syncd);
-        case 9:  return (sts_val->files_remaining);
-        case 10:  return (sts_val->bytes_remaining);
-        case 11: return (sts_val->purges_remaining);
-        case 12: return (sts_val->total_files_skipped);
-        case 13: return (sts_val->brick_host_uuid);
-        case 14: return (sts_val->slavekey);
-        case 15: return (sts_val->session_slave);
+        case 8:  return (sts_val->last_synced);
+        case 9:  return (sts_val->entry);
+        case 10:  return (sts_val->data);
+        case 11:  return (sts_val->meta);
+        case 12: return (sts_val->failures);
+        case 13:  return (sts_val->checkpoint_time);
+        case 14:  return (sts_val->checkpoint_completed);
+        case 15:  return (sts_val->checkpoint_completion_time);
+        case 16: return (sts_val->brick_host_uuid);
+        case 17: return (sts_val->last_synced_utc);
+        case 18: return (sts_val->checkpoint_time_utc);
+        case 19: return (sts_val->checkpoint_completion_time_utc);
+        case 20: return (sts_val->slavekey);
+        case 21: return (sts_val->session_slave);
         default:
                  goto out;
         }
@@ -4435,7 +4441,7 @@ gf_cli_print_status (char **title_values,
         int     i                        = 0;
         int     j                        = 0;
         int     ret                      = 0;
-        int     status_fields            = 7; /* Indexed at 0 */
+        int     status_fields            = 8; /* Indexed at 0 */
         int     total_spacing            = 0;
         char  **output_values            = NULL;
         char   *tmp                      = NULL;
@@ -4494,13 +4500,15 @@ gf_cli_print_status (char **title_values,
                         strlen(title_values[j]));
                 output_values[j][spacing[j]] = '\0';
         }
-        cli_out ("%s %s %s %s %s %s %s %s %s %s %s %s",
+        cli_out ("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
                  output_values[0], output_values[1],
                  output_values[2], output_values[3],
                  output_values[4], output_values[5],
                  output_values[6], output_values[7],
                  output_values[8], output_values[9],
-                 output_values[10], output_values[11]);
+                 output_values[10], output_values[11],
+                 output_values[12], output_values[13],
+                 output_values[14], output_values[15]);
 
         /* setting and printing the hyphens */
         memset (hyphens, '-', total_spacing);
@@ -4527,13 +4535,15 @@ gf_cli_print_status (char **title_values,
                         output_values[j][spacing[j]] = '\0';
                 }
 
-                cli_out ("%s %s %s %s %s %s %s %s %s %s %s %s",
+                cli_out ("%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s",
                          output_values[0], output_values[1],
                          output_values[2], output_values[3],
                          output_values[4], output_values[5],
                          output_values[6], output_values[7],
                          output_values[8], output_values[9],
-                         output_values[10], output_values[11]);
+                         output_values[10], output_values[11],
+                         output_values[12], output_values[13],
+                         output_values[14], output_values[15]);
         }
 
 out:
@@ -4549,6 +4559,23 @@ out:
                 GF_FREE (hyphens);
 
         return ret;
+}
+
+int
+gf_gsync_status_t_comparator (const void *p, const void *q)
+{
+        char *slavekey1 = NULL;
+        char *slavekey2 = NULL;
+
+        slavekey1 = get_struct_variable (20, (*(gf_gsync_status_t **)p));
+        slavekey2 = get_struct_variable (20, (*(gf_gsync_status_t **)q));
+        if (!slavekey1 || !slavekey2) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "struct member empty.");
+                return 0;
+        }
+
+        return strcmp (slavekey1, slavekey2);
 }
 
 int
@@ -4586,6 +4613,11 @@ gf_cli_read_status_data (dict_t *dict,
                 }
         }
 
+        /* Sort based on Session Slave */
+        qsort(sts_vals, gsync_count,
+              sizeof(gf_gsync_status_t *),
+              gf_gsync_status_t_comparator);
+
 out:
         return ret;
 }
@@ -4596,18 +4628,20 @@ gf_cli_gsync_status_output (dict_t *dict, gf_boolean_t is_detail)
         int                     gsync_count    = 0;
         int                     i              = 0;
         int                     ret            = 0;
-        int                     spacing[13]    = {0};
-        int                     num_of_fields  = 13;
+        int                     spacing[16]    = {0};
+        int                     num_of_fields  = 16;
         char                    errmsg[1024]   = "";
         char                   *master         = NULL;
         char                   *slave          = NULL;
         char                   *title_values[] = {"MASTER NODE", "MASTER VOL",
                                                   "MASTER BRICK", "SLAVE USER",
-                                                  "SLAVE",
-                                                  "STATUS", "CHECKPOINT STATUS",
-                                                  "CRAWL STATUS", "FILES SYNCD",
-                                                  "FILES PENDING", "BYTES PENDING",
-                                                  "DELETES PENDING", "FILES SKIPPED"};
+                                                  "SLAVE", "SLAVE NODE",
+                                                  "STATUS", "CRAWL STATUS",
+                                                  "LAST_SYNCED", "ENTRY",
+                                                  "DATA", "META", "FAILURES",
+                                                  "CHECKPOINT TIME",
+                                                  "CHECKPOINT COMPLETED",
+                                                  "CHECKPOINT COMPLETION TIME"};
         gf_gsync_status_t     **sts_vals       = NULL;
 
         /* Checks if any session is active or not */

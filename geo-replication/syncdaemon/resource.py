@@ -38,6 +38,7 @@ from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoPurgeTimeAvailable, PartialHistoryAvailable
 from syncdutils import ChangelogException
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
+from gsyncdstatus import GeorepStatus
 
 
 UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
@@ -611,6 +612,9 @@ class Server(object):
         def collect_failure(e, cmd_ret):
             # We do this for failing fops on Slave
             # Master should be logging this
+            if cmd_ret is None:
+                return
+
             if cmd_ret == EEXIST:
                 disk_gfid = cls.gfid_mnt(e['entry'])
                 if isinstance(disk_gfid, basestring):
@@ -1344,6 +1348,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             os.close(int(ra))
             os.close(int(wa))
             changelog_agent = RepceClient(int(inf), int(ouf))
+            status = GeorepStatus(gconf.state_file, gconf.local_path)
+            status.reset_on_worker_start()
             rv = changelog_agent.version()
             if int(rv) != CHANGELOG_AGENT_CLIENT_VERSION:
                 raise GsyncdError(
@@ -1367,13 +1373,13 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                                              g2.CHANGELOG_CONN_RETRIES)
 
                 register_time = int(time.time())
-                g2.register(register_time, changelog_agent)
-                g3.register(register_time, changelog_agent)
+                g2.register(register_time, changelog_agent, status)
+                g3.register(register_time, changelog_agent, status)
             except ChangelogException as e:
                 logging.error("Changelog register failed, %s" % e)
                 sys.exit(1)
 
-            g1.register()
+            g1.register(status=status)
             logging.info("Register time: %s" % register_time)
             # oneshot: Try to use changelog history api, if not
             # available switch to FS crawl
