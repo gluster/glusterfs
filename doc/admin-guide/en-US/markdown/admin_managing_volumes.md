@@ -59,8 +59,8 @@ cluster.ensure-durability | This option makes sure the data/metadata is durable 
 diagnostics.brick-log-level | Changes the log-level of the bricks. | INFO | DEBUG/WARNING/ERROR/CRITICAL/NONE/TRACE
 diagnostics.client-log-level  |  Changes the log-level of the clients. | INFO | DEBUG/WARNING/ERROR/CRITICAL/NONE/TRACE
 diagnostics.latency-measurement | Statistics related to the latency of each operation would be tracked. | Off | On/Off 
-diagnostics.dump-fd-stats | Statistics related to file-operations would be tracked. | Off | On 
-feature.read-only | Enables you to mount the entire volume as read-only for all the clients (including NFS clients) accessing it. | Off | On/Off 
+diagnostics.dump-fd-stats | Statistics related to file-operations would be tracked. | Off | On
+features.read-only | Enables you to mount the entire volume as read-only for all the clients (including NFS clients) accessing it. | Off | On/Off 
 features.lock-heal | Enables self-healing of locks when the network disconnects. | On | On/Off 
 features.quota-timeout | For performance reasons, quota caches the directory sizes on client. You can set timeout indicating the maximum duration of directory sizes in cache, from the time they are populated, during which they are considered valid | 0 |  0 - 3600 secs
 geo-replication.indexing | Use this option to automatically sync the changes in the filesystem from Master to Slave. | Off | On/Off 
