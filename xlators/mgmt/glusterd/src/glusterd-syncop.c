@@ -109,7 +109,8 @@ gd_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                                         "%s", op_err);
                 err_str[len] = '\0';
 
-                gf_log ("", GF_LOG_ERROR, "%s", op_err);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_MGMT_OP_FAIL, "%s", op_err);
                 args->errstr = gf_strdup (err_str);
         }
 
@@ -237,7 +238,8 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
         case GD_OP_START_VOLUME:
                 ret = glusterd_aggr_brick_mount_dirs (aggr, rsp);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_MOUNDIRS_AGGR_FAIL, "Failed to "
                                 "aggregate brick mount dirs");
                         goto out;
                 }
@@ -418,7 +420,7 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
                                         (xdrproc_t)
                                         xdr_gd1_mgmt_v3_lock_req);
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -517,7 +519,7 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
                                         (xdrproc_t)
                                         xdr_gd1_mgmt_v3_unlock_req);
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -766,7 +768,8 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         rcu_read_unlock ();
         if (ret) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_CRITICAL, "Staging response "
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_RESP_FROM_UNKNOWN_PEER, "Staging response "
                         "for 'Volume %s' received from unknown "
                         "peer: %s", gd_op_list[rsp.op],
                         uuid_utoa (rsp.uuid));
@@ -782,7 +785,8 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = glusterd_syncop_aggr_rsp_dict (rsp.op, args->dict,
                                                              rsp_dict);
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR, "%s",
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_RESP_AGGR_FAIL, "%s",
                                         "Failed to aggregate response from "
                                         " node/brick");
                 }
@@ -963,7 +967,8 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
         if (GD_OP_STATUS_VOLUME == op) {
                 ret = dict_set_int32 (args.dict, "index", pnode->index);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Error setting index on brick status"
                                 " rsp dict");
                         args.op_ret = -1;
@@ -1042,7 +1047,8 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         rcu_read_unlock ();
         if (ret) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_CRITICAL, "Commit response "
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_RESP_FROM_UNKNOWN_PEER, "Commit response "
                         "for 'Volume %s' received from unknown "
                         "peer: %s", gd_op_list[rsp.op],
                         uuid_utoa (rsp.uuid));
@@ -1053,7 +1059,8 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (rsp.op == GD_OP_QUOTA) {
                 ret = dict_get_int32 (args->dict, "type", &type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "Failed to get "
                                 "opcode");
                         goto out;
                 }
@@ -1065,7 +1072,8 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = glusterd_syncop_aggr_rsp_dict (rsp.op, args->dict,
                                                              rsp_dict);
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR, "%s",
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_RESP_AGGR_FAIL, "%s",
                                         "Failed to aggregate response from "
                                         " node/brick");
                 }
@@ -1193,7 +1201,8 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                         if (ret == -1)
                                 *op_errstr = NULL;
 
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PEER_LOCK_FAIL,
                                 "Failed to acquire lock");
 
                 }
@@ -1201,7 +1210,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent lock op req for 'Volume %s' "
+        gf_msg_debug (this->name, 0, "Sent lock op req for 'Volume %s' "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
 out:
         return ret;
@@ -1257,7 +1266,8 @@ gd_stage_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
              op == GD_OP_START_VOLUME)) {
                 ret = glusterd_syncop_aggr_rsp_dict (op, aggr_dict, rsp_dict);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RESP_AGGR_FAIL, "%s",
                                 "Failed to aggregate response from node/brick");
                         goto out;
                 }
@@ -1267,7 +1277,8 @@ gd_stage_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
 stage_done:
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_STAGE_FAIL,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VALIDATE_FAILED, LOGSTR_STAGE_FAIL,
                         gd_op_list[op], hostname, (*op_errstr) ? ":" : " ",
                         (*op_errstr) ? *op_errstr : " ");
                 if (*op_errstr == NULL)
@@ -1306,7 +1317,7 @@ stage_done:
         }
 
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent stage op req for 'Volume %s' "
+        gf_msg_debug (this->name, 0, "Sent stage op req for 'Volume %s' "
                 "to %d peers", gd_op_list[op], peer_cnt);
 
         gd_synctask_barrier_wait((&args), peer_cnt);
@@ -1323,7 +1334,8 @@ out:
                 ret = glusterd_validate_and_set_gfid (op_ctx, req_dict,
                                                       op_errstr);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_GFID_VALIDATE_SET_FAIL,
                                 "Failed to validate and set gfid");
         }
 
@@ -1368,7 +1380,8 @@ gd_commit_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         if (op == GD_OP_QUOTA) {
                 ret = dict_get_int32 (op_ctx, "type", &type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "Failed to get "
                                 "opcode");
                         goto out;
                 }
@@ -1381,9 +1394,11 @@ gd_commit_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 ret =  glusterd_syncop_aggr_rsp_dict (op, op_ctx,
                                                       rsp_dict);
                 if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s", "Failed to aggregate "
-                        "response from node/brick");
-                goto out;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RESP_AGGR_FAIL, "%s",
+                                "Failed to aggregate "
+                                "response from node/brick");
+                        goto out;
                 }
         }
 
@@ -1392,7 +1407,8 @@ gd_commit_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
 commit_done:
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_COMMIT_FAIL,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL, LOGSTR_COMMIT_FAIL,
                         gd_op_list[op], hostname, (*op_errstr) ? ":" : " ",
                         (*op_errstr) ? *op_errstr : " ");
                 if (*op_errstr == NULL)
@@ -1438,7 +1454,7 @@ commit_done:
         else if (dict_get_str (op_ctx, "errstr", &errstr) == 0)
                 *op_errstr = gf_strdup (errstr);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent commit op req for 'Volume %s' "
+        gf_msg_debug (this->name, 0, "Sent commit op req for 'Volume %s' "
                 "to %d peers", gd_op_list[op], peer_cnt);
 out:
         if (!ret)
@@ -1547,10 +1563,11 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
 
         ret = args.op_ret;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent unlock op req for 'Volume %s' "
+        gf_msg_debug (this->name, 0, "Sent unlock op req for 'Volume %s' "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to unlock "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_UNLOCK_FAIL, "Failed to unlock "
                         "on some peer(s)");
         }
 
@@ -1574,7 +1591,8 @@ out:
                                 ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
                                                                type);
                                 if (ret)
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_MGMTV3_UNLOCK_FAIL,
                                                 "Unable to release lock for %s",
                                                 volname);
                         }
@@ -1631,8 +1649,9 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         ret = glusterd_op_bricks_select (op, req_dict, op_errstr, &selected,
                                          rsp_dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "%s",
-                       (*op_errstr)? *op_errstr: "Brick op failed. Check "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_FAIL, "%s",
+                        (*op_errstr) ? *op_errstr : "Brick op failed. Check "
                        "glusterd log file for more details.");
                 goto out;
         }
@@ -1657,7 +1676,8 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                         }
 
                         ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR, "Brick Op failed "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RPC_FAILURE, "Brick Op failed "
                                 "due to rpc failure.");
                         goto out;
                 }
@@ -1694,7 +1714,7 @@ out:
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
-        gf_log (this->name, GF_LOG_DEBUG, "Sent op req to %d bricks",
+        gf_msg_debug (this->name, 0, "Sent op req to %d bricks",
                 brick_count);
         return ret;
 }
@@ -1726,7 +1746,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
         ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get volume "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get volume "
                         "operation");
                 goto out;
         }
@@ -1736,7 +1757,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
          * save it in the dict */
         ret = glusterd_generate_txn_id (op_ctx, &txn_id);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_IDGEN_FAIL,
                         "Failed to generate transaction id");
                 goto out;
         }
@@ -1745,16 +1767,18 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL);
         ret = glusterd_set_txn_opinfo (txn_id, &txn_opinfo);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_OPINFO_SET_FAIL,
                         "Unable to set transaction's opinfo");
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Transaction ID : %s", uuid_utoa (*txn_id));
 
         /* Save the MY_UUID as the originator_uuid */
         ret = glusterd_set_originator_uuid (op_ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UUID_SET_FAIL,
                         "Failed to set originator_uuid.");
                 goto out;
         }
@@ -1763,7 +1787,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         if (conf->op_version < GD_OP_VERSION_3_6_0) {
                 ret = glusterd_lock (MY_UUID);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_GLUSTERD_LOCK_FAIL,
                                 "Unable to acquire lock");
                         gf_asprintf (&op_errstr,
                                      "Another transaction is in progress. "
@@ -1782,7 +1807,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                  * not be held */
                 ret = dict_get_str (op_ctx, "volname", &tmp);
                 if (ret) {
-                        gf_log ("", GF_LOG_DEBUG, "Failed to get volume "
+                        gf_msg_debug ("glusterd", 0,
+                                "Failed to get volume "
                                 "name");
                         goto local_locking_done;
                 } else {
@@ -1797,7 +1823,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 ret = glusterd_mgmt_v3_lock (volname, MY_UUID,
                                              &op_errno, "vol");
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MGMTV3_LOCK_GET_FAIL,
                                 "Unable to acquire lock for %s", volname);
                         gf_asprintf (&op_errstr,
                                      "Another transaction is in progress "
@@ -1833,7 +1860,8 @@ local_locking_done:
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr, *txn_id,
                                         &txn_opinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PEER_LOCK_FAIL,
                                 "Locking Peers Failed.");
                         goto out;
                 }
@@ -1841,7 +1869,9 @@ local_locking_done:
 
         ret = glusterd_op_build_payload (&req_dict, &op_errstr, op_ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_PAYLOAD_BUILD_FAIL,
+                        LOGSTR_BUILD_PAYLOAD,
                         gd_op_list[op]);
                 if (op_errstr == NULL)
                         gf_asprintf (&op_errstr, OPERRSTR_BUILD_PAYLOAD);
@@ -1878,7 +1908,8 @@ out:
                 /* Clearing the transaction opinfo */
                 ret = glusterd_clear_txn_opinfo (txn_id);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_TRANS_OPINFO_CLEAR_FAIL,
                                 "Unable to clear transaction's "
                                 "opinfo for transaction ID : %s",
                                 uuid_utoa (*txn_id));
@@ -1912,7 +1943,8 @@ glusterd_op_begin_synctask (rpcsvc_request_t *req, glusterd_op_t op,
 
         ret = dict_set_int32 (dict, GD_SYNC_OPCODE_KEY, op);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "dict set failed for setting operations");
                 goto out;
         }

@@ -26,6 +26,7 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-snapd-svc-helper.h"
 #include "glusterd-quotad-svc.h"
+#include "glusterd-messages.h"
 
 #include "glusterfs3.h"
 #include "protocol-common.h"
@@ -75,20 +76,25 @@ get_snap_volname_and_volinfo (const char *volpath, char **volname,
         strtok_r (str_token, "/",  &save_ptr);
         snapname  = strtok_r(NULL, "/", &save_ptr);
         if (!snapname) {
-                gf_log(this->name, GF_LOG_ERROR, "Invalid path: %s", volpath);
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                       GD_MSG_INVALID_ENTRY,
+                       "Invalid path: %s", volpath);
                 goto out;
         }
 
         volname_token = strtok_r(NULL, "/", &save_ptr);
         if (!volname_token) {
-                gf_log(this->name, GF_LOG_ERROR, "Invalid path: %s", volpath);
+                gf_msg (this->name, GF_LOG_ERROR,
+                        EINVAL, GD_MSG_INVALID_ENTRY,
+                        "Invalid path: %s", volpath);
                 goto out;
         }
 
         snap = glusterd_find_snap_by_name (snapname);
         if (!snap) {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to "
-                                "fetch snap %s", snapname);
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                       GD_MSG_SNAP_NOT_FOUND, "Failed to "
+                       "fetch snap %s", snapname);
                 goto out;
         }
 
@@ -110,14 +116,16 @@ get_snap_volname_and_volinfo (const char *volpath, char **volname,
                         /* Split the volume name */
                         vol = strtok_r (volname_token, ".", &save_ptr);
                         if (!vol) {
-                                gf_log(this->name, GF_LOG_ERROR, "Invalid "
+                                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                        GD_MSG_INVALID_ENTRY, "Invalid "
                                                 "volname (%s)", volname_token);
                                 goto out;
                         }
 
                         ret = glusterd_snap_volinfo_find (vol, snap, volinfo);
                         if (ret) {
-                                gf_log(this->name, GF_LOG_ERROR, "Failed to "
+                                gf_msg(this->name, GF_LOG_ERROR, 0,
+                                       GD_MSG_SNAP_INFO_FAIL, "Failed to "
                                        "fetch snap volume from volname (%s)",
                                        vol);
                                 goto out;
@@ -128,9 +136,10 @@ get_snap_volname_and_volinfo (const char *volpath, char **volname,
                 ret = glusterd_snap_volinfo_find_from_parent_volname (
                                 volname_token, snap, volinfo);
                 if (ret) {
-                        gf_log(this->name, GF_LOG_ERROR, "Failed to "
-                                        "fetch snap volume from parent "
-                                        "volname (%s)", volname_token);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_INFO_FAIL, "Failed to "
+                                "fetch snap volume from parent "
+                                "volname (%s)", volname_token);
                         goto out;
                 }
 
@@ -187,7 +196,8 @@ build_volfile_path (char *volume_id, char *path,
 
                 ret = glusterd_volinfo_find (volid_ptr, &volinfo);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_GET_FAIL,
                                 "Couldn't find volinfo");
                         goto out;
                 }
@@ -224,7 +234,8 @@ build_volfile_path (char *volume_id, char *path,
                 ret = get_snap_volname_and_volinfo (volid_ptr, &volname,
                                                     &volinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get snap"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_INFO_FAIL, "Failed to get snap"
                                 " volinfo from path (%s)", volume_id);
                         ret = -1;
                         goto out;
@@ -252,7 +263,8 @@ build_volfile_path (char *volume_id, char *path,
 
                 ret = glusterd_volinfo_find (volid_ptr, &volinfo);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_GET_FAIL,
                                 "Couldn't find volinfo");
                         goto out;
                 }
@@ -371,7 +383,8 @@ glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
         ret = dict_unserialize (args->xdata.xdata_val,
                                 args->xdata.xdata_len, &dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_UNSERIALIZE_FAIL,
                         "Failed to unserialize request dictionary");
                 goto out;
         }
@@ -379,7 +392,8 @@ glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
         ret = dict_get_int32 (dict, "min-op-version",
                               &client_min_op_version);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to get client-min-op-version");
                 goto out;
         }
@@ -387,7 +401,8 @@ glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
         ret = dict_get_int32 (dict, "max-op-version",
                               &client_max_op_version);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to get client-max-op-version");
                 goto out;
         }
@@ -395,13 +410,13 @@ glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
         ret = dict_get_str (dict, "brick_name",
                             brick_name);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "No brick name present");
                 ret = 0;
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "brick_name = %s", *brick_name);
+        gf_msg_debug (this->name, 0, "brick_name = %s", *brick_name);
 out:
         peerinfo->max_op_version = client_max_op_version;
         peerinfo->min_op_version = client_min_op_version;
@@ -439,7 +454,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         /* Find the snap-object */
         snap = glusterd_find_snap_by_id (snap_uuid);
         if (!snap) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_NOT_FOUND,
                         "Unable to find the snap with snap_uuid %s",
                         missed_snapinfo->snap_uuid);
                 ret = -1;
@@ -456,7 +472,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         if (!snap_vol) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND,
                         "Unable to find the snap_vol(%s) "
                         "for snap(%s)", snap_opinfo->snap_vol_id,
                         snap->snapname);
@@ -472,7 +489,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         if (brickinfo->snap_status != -1) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_STATUS_NOT_PENDING,
                         "The snap status of the missed "
                         "brick(%s) is not pending", brickinfo->path);
                 goto out;
@@ -481,7 +499,9 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         /* Fetch the device path */
         device = glusterd_get_brick_mount_device (snap_opinfo->brick_path);
         if (!device) {
-                gf_log (this->name, GF_LOG_ERROR, "Getting device name for the"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_GET_INFO_FAIL,
+                        "Getting device name for the"
                         "brick %s:%s failed", brickinfo->hostname,
                         snap_opinfo->brick_path);
                 ret = -1;
@@ -491,7 +511,9 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         device = glusterd_build_snap_device_path (device, snap_vol->volname,
                                                   snap_opinfo->brick_num - 1);
         if (!device) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot copy the snapshot "
+                gf_msg (this->name, GF_LOG_ERROR, ENXIO,
+                        GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
+                        "cannot copy the snapshot "
                         "device name (volname: %s, snapname: %s)",
                          snap_vol->volname, snap->snapname);
                 ret = -1;
@@ -504,7 +526,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
          * snap volinfo. */
         ret = glusterd_update_mntopts (snap_opinfo->brick_path, brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRK_MOUNTOPTS_FAIL, "Failed to update "
                         "mount options for %s brick", brickinfo->path);
                 /* We should not fail snapshot operation if we fail to get
                  * the file-system type */
@@ -512,7 +535,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
 
         ret = glusterd_take_lvm_snapshot (brickinfo, snap_opinfo->brick_path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAPSHOT_OP_FAILED,
                         "Failed to take snapshot of %s",
                         snap_opinfo->brick_path);
                 goto out;
@@ -525,7 +549,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
          */
         ret = glusterd_update_fs_label (brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to update "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_SET_INFO_FAIL, "Failed to update "
                         "file-system label for %s brick", brickinfo->path);
                 /* Failing to update label should not cause snapshot failure.
                  * Currently label is updated only for XFS and ext2/ext3/ext4
@@ -537,7 +562,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         ret = glusterd_snap_brick_create (snap_vol, brickinfo,
                                           snap_opinfo->brick_num - 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_CREATION_FAIL, "Failed to "
                         " create and mount the brick(%s) for the snap %s",
                         snap_opinfo->brick_path,
                         snap_vol->snapshot->snapname);
@@ -548,7 +574,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         ret = glusterd_store_volinfo (snap_vol,
                                       GLUSTERD_VOLINFO_VER_AC_NONE);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to store snapshot "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_STORE_FAIL, "Failed to store snapshot "
                         "volinfo (%s) for snap %s", snap_vol->volname,
                         snap->snapname);
                 goto out;
@@ -556,7 +583,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
 
         ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "starting the "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_BRICK_DISCONNECTED, "starting the "
                         "brick %s:%s for the snap %s failed",
                         brickinfo->hostname, brickinfo->path,
                         snap->snapname);
@@ -615,8 +643,9 @@ glusterd_take_missing_brick_snapshots (char *brick_name)
                                                               (missed_snapinfo,
                                                                snap_opinfo);
                                         if (ret) {
-                                                gf_log (this->name,
-                                                        GF_LOG_ERROR,
+                                                gf_msg (this->name,
+                                                        GF_LOG_ERROR, 0,
+                                                        GD_MSG_MISSED_SNAP_CREATE_FAIL,
                                                         "Failed to create "
                                                         "missed snap for %s",
                                                         brick_name);
@@ -647,7 +676,8 @@ glusterd_take_missing_brick_snapshots (char *brick_name)
         if (update_list == _gf_true) {
                 ret = glusterd_store_update_missed_snaps ();
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MISSED_SNAP_LIST_STORE_FAIL,
                                 "Failed to update missed_snaps_list");
                         goto out;
                 }
@@ -683,7 +713,8 @@ _client_supports_volume (peer_info_t *peerinfo, int32_t *op_errno)
              (peerinfo->max_op_version < volinfo->client_op_version))) {
                 ret = _gf_false;
                 *op_errno = ENOTSUP;
-                gf_log ("glusterd", GF_LOG_INFO,
+                gf_msg ("glusterd", GF_LOG_INFO, ENOTSUP,
+                        GD_MSG_UNSUPPORTED_VERSION,
                         "Client %s (%d -> %d) doesn't support required "
                         "op-version (%d). Rejecting volfile request.",
                         peerinfo->identifier, peerinfo->min_op_version,
@@ -738,7 +769,8 @@ __server_getspec (rpcsvc_request_t *req)
 
         ret = glusterd_get_args_from_dict (&args, peerinfo, &brick_name);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to get args from dict");
                 goto fail;
         }
@@ -778,7 +810,8 @@ __server_getspec (rpcsvc_request_t *req)
                 /* to allocate the proper buffer to hold the file data */
                 ret = stat (filename, &stbuf);
                 if (ret < 0){
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED,
                                 "Unable to stat %s (%s)",
                                 filename, strerror (errno));
                         goto fail;
@@ -786,7 +819,8 @@ __server_getspec (rpcsvc_request_t *req)
 
                 spec_fd = open (filename, O_RDONLY);
                 if (spec_fd < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED,
                                 "Unable to open %s (%s)",
                                 filename, strerror (errno));
                         goto fail;
@@ -808,11 +842,12 @@ __server_getspec (rpcsvc_request_t *req)
         }
 
         if (brick_name) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Look for missing snap creates for %s", brick_name);
                 op_ret = glusterd_take_missing_brick_snapshots (brick_name);
                 if (op_ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MISSED_SNAP_CREATE_FAIL,
                                 "Failed to take missing brick snapshots");
                         ret = -1;
                         goto fail;
@@ -872,14 +907,17 @@ __server_event_notify (rpcsvc_request_t *req)
                 ret = dict_unserialize (args.dict.dict_val,
                                         args.dict.dict_len, &dict);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Failed to unserialize req");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
+                                "Failed to unserialize req");
                         goto fail;
                 }
         }
 
         switch (args.op) {
         case GF_EN_DEFRAG_STATUS:
-                gf_log ("", GF_LOG_INFO,
+                gf_msg ("glusterd", GF_LOG_INFO, 0,
+                        GD_MSG_DEFRAG_STATUS_UPDATED,
                         "received defrag status updated");
                 if (dict) {
                         glusterd_defrag_event_notify_handle (dict);
@@ -887,7 +925,8 @@ __server_event_notify (rpcsvc_request_t *req)
                 }
                 break;
         default:
-                gf_log ("", GF_LOG_ERROR, "Unknown op received in event "
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_OP_UNSUPPORTED, "Unknown op received in event "
                         "notify");
                 ret = -1;
                 break;
@@ -925,7 +964,8 @@ gd_validate_cluster_op_version (xlator_t *this, int cluster_op_version,
         conf = this->private;
 
         if (cluster_op_version > GD_OP_VERSION_MAX) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_VERSION_MISMATCH,
                         "operating version %d is more than the maximum "
                         "supported (%d) on the machine (as per peer request "
                         "from %s)", cluster_op_version, GD_OP_VERSION_MAX,
@@ -939,7 +979,8 @@ gd_validate_cluster_op_version (xlator_t *this, int cluster_op_version,
          */
         if ((cluster_op_version < conf->op_version) &&
             !cds_list_empty (&conf->volumes)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_VERS_ADJUST_FAIL,
                         "cannot reduce operating version to %d from current "
                         "version %d as volumes exist (as per peer request from "
                         "%s)", cluster_op_version, conf->op_version, peerid);
@@ -1000,7 +1041,8 @@ gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req, dict_t *dict)
         rcu_read_unlock ();
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Rejecting management "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_HANDSHAKE_REQ_REJECTED, "Rejecting management "
                         "handshake request from unknown peer %s",
                         req->trans->peerinfo.identifier);
                 return _gf_false;
@@ -1048,7 +1090,8 @@ __glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
 
         ret = dict_set_int32 (dict, GD_OP_VERSION_KEY, conf->op_version);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set operating version");
                 rsp.op_ret = ret;
                 goto out;
@@ -1056,7 +1099,8 @@ __glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
 
         ret = dict_set_int32 (dict, GD_MIN_OP_VERSION_KEY, GD_OP_VERSION_MIN);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set %s", GD_MIN_OP_VERSION_KEY);
                 rsp.op_ret = ret;
                 goto out;
@@ -1064,7 +1108,8 @@ __glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
 
         ret = dict_set_int32 (dict, GD_MAX_OP_VERSION_KEY, GD_OP_VERSION_MAX);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set %s", GD_MAX_OP_VERSION_KEY);
                 rsp.op_ret = ret;
                 goto out;
@@ -1132,7 +1177,8 @@ __glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
 
         ret = dict_get_int32 (clnt_dict, GD_OP_VERSION_KEY, &peer_op_version);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "failed to get the op-version key peer=%s",
                         req->trans->peerinfo.identifier);
                 goto out;
@@ -1147,12 +1193,15 @@ __glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
         /* As this is ACK from the Cluster for the versions supported,
            can set the op-version of 'this' glusterd to the one
            received. */
-        gf_log (this->name, GF_LOG_INFO, "using the op-version %d",
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_VERS_INFO, "using the op-version %d",
                 peer_op_version);
         conf->op_version = peer_op_version;
         ret = glusterd_store_global_info (this);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Failed to store op-version");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLOBAL_OP_VERSION_SET_FAIL,
+                        "Failed to store op-version");
 
 out:
         rsp.op_ret = ret;
@@ -1200,13 +1249,15 @@ __server_get_volume_info (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        gf_log ("glusterd", GF_LOG_INFO, "Received get volume info req");
+        gf_msg ("glusterd", GF_LOG_INFO, 0,
+                GD_MSG_VOL_INFO_REQ_RECVD, "Received get volume info req");
 
         if (vol_info_req.dict.dict_len) {
                 /* Unserialize the dictionary */
                 dict  = dict_new ();
                 if (!dict) {
-                        gf_log ("", GF_LOG_WARNING, "Out of Memory");
+                        gf_msg ("glusterd", GF_LOG_WARNING, ENOMEM,
+                                GD_MSG_NO_MEMORY, "Out of Memory");
                         op_errno = ENOMEM;
                         ret = -1;
                         goto out;
@@ -1216,7 +1267,8 @@ __server_get_volume_info (rpcsvc_request_t *req)
                                         vol_info_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         op_errno = -ret;
@@ -1229,7 +1281,8 @@ __server_get_volume_info (rpcsvc_request_t *req)
 
         ret = dict_get_int32 (dict, "flags", &flags);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get flags");
+                gf_msg (THIS->name, GF_LOG_ERROR, -ret,
+                        GD_MSG_DICT_GET_FAILED, "failed to get flags");
                 op_errno = -ret;
                 ret = -1;
                 goto out;
@@ -1237,7 +1290,8 @@ __server_get_volume_info (rpcsvc_request_t *req)
 
         if (!flags) {
                 /* Nothing to query about. Just return success */
-                gf_log (THIS->name, GF_LOG_ERROR, "No flags set");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NO_FLAG_SET, "No flags set");
                 ret = 0;
                 goto out;
         }
@@ -1266,7 +1320,8 @@ __server_get_volume_info (rpcsvc_request_t *req)
 
                 dict_rsp = dict_new ();
                 if (!dict_rsp) {
-                        gf_log ("", GF_LOG_WARNING, "Out of Memory");
+                        gf_msg ("glusterd", GF_LOG_WARNING, ENOMEM,
+                                GD_MSG_NO_MEMORY, "Out of Memory");
                         op_errno = ENOMEM;
                         ret = -1;
                         goto out;
@@ -1337,7 +1392,8 @@ __server_get_snap_info (rpcsvc_request_t *req)
                               (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
         if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_REQ_DECODE_FAIL,
                         "Failed to decode management handshake response");
                 goto out;
         }
@@ -1354,7 +1410,8 @@ __server_get_snap_info (rpcsvc_request_t *req)
                                         snap_info_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
                                 "Failed to unserialize dictionary");
                         op_errno = EINVAL;
                         ret = -1;
@@ -1367,7 +1424,8 @@ __server_get_snap_info (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 op_errno = EINVAL;
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to retrieve volname");
                 ret = -1;
                 goto out;
@@ -1384,7 +1442,8 @@ __server_get_snap_info (rpcsvc_request_t *req)
                                                     &snap_info_rsp);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOL_NOT_FOUND,
                         "Error getting snapshot volume names and uuids : %s",
                         volname);
                 op_errno = EINVAL;
@@ -1513,7 +1572,8 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
                         (GD_FRIEND_EVENT_CONNECTED, &event);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get new event");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_EVENT_NEW_GET_FAIL, "Unable to get new event");
                 goto out;
         }
 
@@ -1521,7 +1581,8 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
 
         if (!ctx) {
                 ret = -1;
-                gf_log ("", GF_LOG_ERROR, "Memory not available");
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Memory not available");
                 goto out;
         }
 
@@ -1530,7 +1591,8 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 ret = -1;
-                gf_log (THIS->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
                 goto unlock;
         }
@@ -1546,13 +1608,14 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
         ret = glusterd_friend_sm_inject_event (event);
 
         if (ret)
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_EVENT_INJECT_FAIL, "Unable to inject "
                         "EVENT_CONNECTED ret = %d", ret);
 unlock:
         rcu_read_unlock ();
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "returning %d", ret);
         return ret;
 }
 
@@ -1598,7 +1661,7 @@ gd_validate_peer_op_version (xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
         ret = 0;
 out:
-        gf_log (this->name , GF_LOG_DEBUG, "Peer %s %s", peerinfo->hostname,
+        gf_msg_debug (this->name , 0, "Peer %s %s", peerinfo->hostname,
                 ((ret < 0) ? "rejected" : "accepted"));
         return ret;
 }
@@ -1623,7 +1686,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
-                gf_log (this->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
+                gf_msg_debug (this->name, 0, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
                 ret = -1;
                 goto out;
@@ -1632,7 +1695,8 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 snprintf (msg, sizeof (msg),
                           "Error through RPC layer, retry again later");
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_LAYER_ERROR, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1640,7 +1704,8 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_mgmt_hndsk_rsp);
         if (ret < 0) {
                 snprintf (msg, sizeof (msg), "Failed to decode XDR");
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REQ_DECODE_FAIL, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1650,7 +1715,8 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = -1;
                 snprintf (msg, sizeof (msg),
                           "Failed to get handshake ack from remote server");
-                gf_log (frame->this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (frame->this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NO_HANDSHAKE_ACK, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1670,7 +1736,8 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
                 peerctx->args.mode = GD_MODE_ON;
         } else {
-                gf_log (this->name, GF_LOG_WARNING, "unknown mode %d",
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_UNKNOWN_MODE, "unknown mode %d",
                         peerctx->args.mode);
         }
 
@@ -1728,7 +1795,7 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
+                gf_msg_debug (this->name, 0, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
                 goto out;
         }
@@ -1737,7 +1804,8 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = -1;
                 snprintf (msg, sizeof (msg),
                           "Error through RPC layer, retry again later");
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_LAYER_ERROR, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1746,7 +1814,8 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret < 0) {
                 snprintf (msg, sizeof (msg), "Failed to decode management "
                           "handshake response");
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REQ_DECODE_FAIL, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1757,7 +1826,8 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
 
         op_errno = rsp.op_errno;
         if (-1 == rsp.op_ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        GD_MSG_VERS_GET_FAIL,
                         "failed to get the 'versions' from peer (%s)",
                         req->conn->trans->peerinfo.identifier);
                 goto out;
@@ -1767,7 +1837,8 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
         ret = gd_validate_peer_op_version (this, peerinfo, dict,
                                            &peerctx->errstr);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OP_VERSION_MISMATCH,
                         "failed to validate the operating version of peer (%s)",
                         peerinfo->hostname);
                 goto out;
@@ -1779,7 +1850,8 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_set_int32 (rsp_dict, GD_OP_VERSION_KEY, conf->op_version);
         if (ret) {
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_DICT_SET_FAILED,
                        "failed to set operating version in dict");
                 goto out;
         }
@@ -1849,7 +1921,8 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
         ret = dict_set_dynstr (req_dict, GD_PEER_ID_KEY,
                                gf_strdup (uuid_utoa (MY_UUID)));
         if (ret) {
-                gf_log(this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED,
                        "failed to set peer ID in dict");
                 goto out;
         }
@@ -1861,7 +1934,7 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
 
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
+                gf_msg_debug (THIS->name, 0, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
                 goto unlock;
         }
@@ -1908,7 +1981,7 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
                 }
 
                 if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_msg_debug ("glusterd", 0,
                                 "%s (%"PRId64":%"PRId64") not supported",
                                 trav->progname, trav->prognum,
                                 trav->progver);
@@ -1918,21 +1991,24 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
         }
 
         if (peerinfo->mgmt) {
-                 gf_log ("", GF_LOG_INFO,
+                 gf_msg ("glusterd", GF_LOG_INFO, 0,
+                         GD_MSG_VERS_INFO,
                          "Using Program %s, Num (%d), Version (%d)",
                          peerinfo->mgmt->progname, peerinfo->mgmt->prognum,
                          peerinfo->mgmt->progver);
         }
 
         if (peerinfo->peer) {
-                 gf_log ("", GF_LOG_INFO,
+                 gf_msg ("glusterd", GF_LOG_INFO, 0,
+                         GD_MSG_VERS_INFO,
                          "Using Program %s, Num (%d), Version (%d)",
                          peerinfo->peer->progname, peerinfo->peer->prognum,
                          peerinfo->peer->progver);
         }
 
         if (peerinfo->mgmt_v3) {
-                 gf_log ("", GF_LOG_INFO,
+                 gf_msg ("glusterd", GF_LOG_INFO, 0,
+                         GD_MSG_VERS_INFO,
                          "Using Program %s, Num (%d), Version (%d)",
                          peerinfo->mgmt_v3->progname,
                          peerinfo->mgmt_v3->prognum,
@@ -1990,7 +2066,7 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
 
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
-                gf_log (this->name, GF_LOG_DEBUG, "Couldn't find peer %s(%s)",
+                gf_msg_debug (this->name, 0, "Couldn't find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
                 goto out;
         }
@@ -1998,7 +2074,8 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 snprintf (msg, sizeof (msg),
                           "Error through RPC layer, retry again later");
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RPC_LAYER_ERROR, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
@@ -2006,20 +2083,22 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_dump_rsp);
         if (ret < 0) {
                 snprintf (msg, sizeof (msg), "Failed to decode XDR");
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REQ_DECODE_FAIL, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
         if (-1 == rsp.op_ret) {
                 snprintf (msg, sizeof (msg),
                           "Failed to get the 'versions' from remote server");
-                gf_log (frame->this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (frame->this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VERS_GET_FAIL, "%s", msg);
                 peerctx->errstr = gf_strdup (msg);
                 goto out;
         }
 
         if (_mgmt_hndsk_prog_present (rsp.prog)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Proceeding to op-version handshake with peer %s",
                         peerinfo->hostname);
                 ret = glusterd_mgmt_handshake (this, peerctx);
@@ -2030,14 +2109,17 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
                           "Peer %s does not support required op-version",
                           peerinfo->hostname);
                 peerctx->errstr = gf_strdup (msg);
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VERSION_UNSUPPORTED, "%s", msg);
                 goto out;
         }
 
         /* Make sure we assign the proper program to peer */
         ret = glusterd_set_clnt_mgmt_program (peerinfo, rsp.prog);
         if (ret) {
-                gf_log ("", GF_LOG_WARNING, "failed to set the mgmt program");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_MGMT_PGM_SET_FAIL,
+                        "failed to set the mgmt program");
                 goto out;
         }
 
@@ -2049,7 +2131,8 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
                 peerctx->args.mode = GD_MODE_ON;
         } else {
-                gf_log ("", GF_LOG_WARNING, "unknown mode %d",
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_UNKNOWN_MODE, "unknown mode %d",
                         peerctx->args.mode);
         }
 
@@ -2111,7 +2194,7 @@ glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
 
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
-                gf_log (this->name, GF_LOG_DEBUG, "Couldn't find peer %s(%s)",
+                gf_msg_debug (this->name, 0, "Couldn't find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
                 goto unlock;
         }
