@@ -27,6 +27,7 @@
 #include "common-utils.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-messages.h"
 
 static int
 seq_dict_foreach (dict_t *dict,
@@ -213,7 +214,8 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 
  out:
         if (ret == SYNTAX_ERR) {
-                gf_log ("", GF_LOG_ERROR, "cannot parse mount patterns %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "cannot parse mount patterns %s",
                         pdesc);
         }
 
@@ -666,7 +668,9 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
 
         if (*op_errno) {
                 ret = -1;
-                gf_log ("", GF_LOG_WARNING, "unsuccessful mount request (%s)",
+                gf_msg (this->name, GF_LOG_WARNING, *op_errno,
+                        GD_MSG_MOUNT_REQ_FAIL,
+                        "unsuccessful mount request (%s)",
                         strerror (*op_errno));
                 if (mtptemp) {
                         *cookieswitch = '/';
