@@ -4013,10 +4013,10 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         timestamp = dict_get_str_boolean (dict, "no-timestamp", _gf_false);
-        if (ret) {
-                gf_msg_debug (this->name, 0, "no-timestamp flag "
-                        "is not set");
-                goto out;
+        if (timestamp == -1) {
+                 gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                         "no-timestamp flag ");
+                 goto out;
         }
 
         ret = dict_set_int64 (dict, "snap-time", (int64_t)time(&snap_time));
