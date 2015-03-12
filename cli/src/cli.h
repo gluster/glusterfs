@@ -449,4 +449,7 @@ print_quota_list_header (int type);
 void
 print_quota_list_empty (char *path, int type);
 
+int
+gf_gsync_status_t_comparator (const void *p, const void *q);
+
 #endif /* __CLI_H__ */

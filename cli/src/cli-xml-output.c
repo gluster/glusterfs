@@ -3839,25 +3839,6 @@ out:
 
 #if (HAVE_LIB_XML)
 int
-gf_gsync_status_t_comparator (const void *p, const void *q)
-{
-        char *master1 = NULL;
-        char *master2 = NULL;
-
-        master1 = get_struct_variable (1, (*(gf_gsync_status_t **)p));
-        master2 = get_struct_variable (1, (*(gf_gsync_status_t **)q));
-        if (!master1 || !master2) {
-                gf_log ("cli", GF_LOG_ERROR,
-                        "struct member empty.");
-                return 0;
-        }
-
-        return strcmp (master1,master2);
-}
-#endif
-
-#if (HAVE_LIB_XML)
-int
 cli_xml_output_vol_gsync_status (dict_t *dict,
                                  xmlTextWriterPtr writer)
 {
@@ -3865,8 +3846,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         int                  i                           = 1;
         int                  j                           = 0;
         int                  count                       = 0;
-        const int            number_of_fields            = 13;
-        const int            number_of_basic_fields      = 8;
+        const int            number_of_fields            = 20;
         int                  closed                      = 1;
         int                  session_closed              = 1;
         gf_gsync_status_t  **status_values               = NULL;
@@ -3878,18 +3858,31 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         char                *slave                       = NULL;
         char                *slave_next                  = NULL;
         char                *title_values[]              = {"master_node",
-                                                            "master_node_uuid",
+                                                            "",
                                                             "master_brick",
                                                             "slave_user",
                                                             "slave",
+                                                            "slave_node",
                                                             "status",
-                                                            "checkpoint_status",
                                                             "crawl_status",
-                                                            "files_syncd",
-                                                            "files_pending",
-                                                            "bytes_pending",
-                                                            "deletes_pending",
-                                                            "files_skipped"};
+                                                            /* last_synced */
+                                                            "",
+                                                            "entry",
+                                                            "data",
+                                                            "meta",
+                                                            "failures",
+                                                           /* checkpoint_time */
+                                                            "",
+                                                         "checkpoint_completed",
+                                               /* checkpoint_completion_time */
+                                                            "",
+                                                            "master_node_uuid",
+                                                           /* last_synced_utc */
+                                                            "last_synced",
+                                                       /* checkpoint_time_utc */
+                                                            "checkpoint_time",
+                                            /* checkpoint_completion_time_utc */
+                                                 "checkpoint_completion_time"};
 
         GF_ASSERT (dict);
 
@@ -3963,7 +3956,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
 
                         session_closed = 0;
 
-                        tmp = get_struct_variable (15, status_values[i]);
+                        tmp = get_struct_variable (21, status_values[i]);
                         if (!tmp) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "struct member empty.");
@@ -3980,18 +3973,11 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 for (j = 0; j < number_of_fields; j++) {
-                  // if detail option is not set and field is not under
-                  // basic fields or if field is volume then skip
-                        if(!status_detail && j >= number_of_basic_fields)
+                        /* XML ignore fields */
+                        if (strcmp(title_values[j], "") == 0)
                                 continue;
 
-                        // Displaying the master_node uuid as second field
-
-                        if (j == 1)
-                                tmp = get_struct_variable (13,
-                                                           status_values[i]);
-                        else
-                                tmp = get_struct_variable (j, status_values[i]);
+                        tmp = get_struct_variable (j, status_values[i]);
                         if (!tmp) {
                                 gf_log ("cli", GF_LOG_ERROR,
                                         "struct member empty.");
@@ -4009,8 +3995,8 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 if (i+1 < count) {
-                        slave = get_struct_variable (14, status_values[i]);
-                        slave_next = get_struct_variable (14,
+                        slave = get_struct_variable (20, status_values[i]);
+                        slave_next = get_struct_variable (20,
                                                           status_values[i+1]);
                         volume = get_struct_variable (1, status_values[i]);
                         volume_next = get_struct_variable (1,
