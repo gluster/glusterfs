@@ -1122,7 +1122,8 @@ ng_file_parse (const char *filepath)
                 }
         }
 
-        GF_FREE (line);
+        /* line got allocated through getline(), don't use GF_FREE() for it */
+        free (line);
 
         if (fp)
                 fclose(fp);
