@@ -1276,6 +1276,8 @@ __argp_input (const struct argp *argp, const struct argp_state *state)
 weak_alias (__argp_input, _argp_input)
 #endif
 
+#if __STDC_VERSION__ - 199900L < 1
+
 /* Defined here, in case a user is not inlining the definitions in
  * argp.h */
 void
@@ -1303,3 +1305,6 @@ __option_is_end (__const struct argp_option *__opt)
 {
   return !__opt->key && !__opt->name && !__opt->doc && !__opt->group;
 }
+
+#endif /* __STDC_VERSION__ - 199900L < 1 */
+
