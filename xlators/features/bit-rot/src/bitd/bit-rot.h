@@ -91,6 +91,8 @@ struct br_private {
                                              signing and the workers which sign
                                              the objects */
         int32_t expiry_time;              /* objects "wait" time */
+
+        gf_boolean_t iamscrubber;         /* function as a fs scrubber */
 };
 
 typedef struct br_private br_private_t;
@@ -118,9 +120,13 @@ void
 br_log_object_path (xlator_t *, char *, const char *, int32_t);
 
 int32_t
-br_object_checksum (unsigned char *, br_object_t *, fd_t *, struct iatt *);
+br_calculate_obj_checksum (unsigned char *,
+                           br_child_t *, fd_t *, struct iatt *);
 
 int32_t
 br_prepare_loc (xlator_t *, br_child_t *, loc_t *, gf_dirent_t *, loc_t *);
+
+gf_boolean_t
+bitd_is_bad_file (xlator_t *, br_child_t *, loc_t *, fd_t *);
 
 #endif /* __BIT_ROT_H__ */
