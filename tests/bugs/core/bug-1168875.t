@@ -54,7 +54,7 @@ for i in {1..10} ; do echo "foo" > $M0/dir2/foo$i ; done
 for i in {11..20} ; do echo "foo" > $M0/dir1/foo$i ; done
 for i in {11..20} ; do echo "foo" > $M0/dir2/foo$i ; done
 
-TEST $CLI snapshot create snap1 $V0;
+TEST $CLI snapshot create snap1 $V0 no-timestamp;
 TEST $CLI snapshot activate snap1;
 
 TEST $CLI volume set $V0 features.uss enable;

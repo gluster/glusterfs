@@ -34,7 +34,7 @@ TEST $CLI_1 volume create $V0 $H1:$L1 $H2:$L2
 TEST $CLI_1 volume start $V0
 
 #Create snapshot and add a peer together
-$CLI_1 snapshot create ${V0}_snap1 ${V0} &
+$CLI_1 snapshot create ${V0}_snap1 ${V0} no-timestamp &
 PID_1=$!
 $CLI_1  peer probe $H3
 wait $PID_1

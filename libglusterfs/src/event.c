@@ -201,11 +201,26 @@ event_dispatch_destroy (struct event_pool *event_pool)
         int  ret     = -1;
         int  fd[2]   = {-1};
         int  idx     = -1;
+        int  flags   = 0;
         struct timespec   sleep_till = {0, };
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
-        ret = pipe2 (fd, O_NONBLOCK);
+        ret = pipe (fd);
+        if (ret < 0)
+                goto out;
+
+        /* Make the read end of the pipe nonblocking */
+        flags = fcntl(fd[0], F_GETFL);
+        flags |= O_NONBLOCK;
+        ret = fcntl(fd[0], F_SETFL, flags);
+        if (ret < 0)
+                goto out;
+
+        /* Make the write end of the pipe nonblocking */
+        flags = fcntl(fd[1], F_GETFL);
+        flags |= O_NONBLOCK;
+        fcntl(fd[1], F_SETFL, flags);
         if (ret < 0)
                 goto out;
 

@@ -93,7 +93,7 @@ chmod 700 $M0/README
 # enable uss and take a snapshot
 TEST $CLI volume set $V0 uss enable
 TEST $CLI snapshot config activate-on-create on
-TEST $CLI snapshot create snap1 $V0
+TEST $CLI snapshot create snap1 $V0 no-timestamp
 
 # try to access the file using user1 account.
 # It should succeed with both normal mount and snapshot world.
@@ -146,7 +146,7 @@ create_user $user5
 
 chgrp $group3 $M0/file3
 
-TEST $CLI snapshot create snap2 $V0
+TEST $CLI snapshot create snap2 $V0 no-timestamp
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" check_if_permitted $user3 $M0/file3 cat
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" check_if_permitted $user3 $M0/.snaps/snap2/file3 cat

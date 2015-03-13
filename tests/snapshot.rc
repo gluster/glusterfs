@@ -228,7 +228,7 @@ function create_n_snapshots() {
         local snap_name=$3
         local ret=0
         for i in `seq 1 $snap_count`; do
-                $CLI_1 snapshot create $snap_name$i ${vol}&
+                $CLI_1 snapshot create $snap_name$i ${vol} no-timestamp &
                 PID_1=$!
                 wait $PID_1
                 ret=$?
@@ -337,7 +337,7 @@ function snap_create()
 
         while [ $i -lt $limit ]
         do
-                $cli_index snapshot create snap$i $volname
+                $cli_index snapshot create snap$i $volname no-timestamp
                 i=$[$i+1]
         done
 }

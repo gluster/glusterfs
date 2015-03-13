@@ -16,7 +16,7 @@ TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 
 TEST touch $M0/testfile
 
-TEST $CLI snapshot create snaps $V0
+TEST $CLI snapshot create snaps $V0 no-timestamp
 TEST $CLI snapshot activate snaps
 TEST $CLI volume set $V0 features.uss enable
 TEST $CLI volume set $V0 snapshot-directory snaps
