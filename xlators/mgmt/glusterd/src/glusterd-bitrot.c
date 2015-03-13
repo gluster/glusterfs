@@ -192,6 +192,27 @@ out:
         return ret;
 }
 
+gf_boolean_t
+glusterd_all_volumes_with_bitrot_stopped ()
+{
+        glusterd_conf_t *conf = THIS->private;
+        glusterd_volinfo_t *volinfo = NULL;
+        gf_boolean_t        stopped = _gf_true;
+
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                if (!glusterd_is_bitrot_enabled (volinfo))
+                        continue;
+                else if (volinfo->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+                else {
+                        stopped = _gf_false;
+                        break;
+                }
+        }
+
+        return stopped;
+}
+
 static int
 glusterd_manage_bitrot (int opcode)
 {
@@ -207,28 +228,13 @@ glusterd_manage_bitrot (int opcode)
 
         switch (opcode) {
         case GF_BITROT_OPTION_TYPE_ENABLE:
-                /* TO DO:
-                 * Start bitd service. once bitd volfile generation patch
-                 * merge or this patch become dependent of bitd volfile
-                 * generation patch below comment will remove.
-                 * http://review.gluster.org/#/c/9710/
-                 */
-                /*ret = priv->bitd_svc.manager (&(priv->bitd_svc),
-                                                NULL, PROC_START);*/
         case GF_BITROT_OPTION_TYPE_DISABLE:
-
-                /* TO DO:
-                 * Stop bitd service. once bitd volfile generation patch
-                 * merge or this patch become dependent of bitd volfile
-                 * generation patch below comment will remove.
-                 * http://review.gluster.org/#/c/9710/
-                 */
-
-                /*if (glusterd_all_volumes_with_bitrot_stopped ())
-                        ret = glusterd_svc_stop (&(priv->bitd_svc),
-                                                 SIGTERM);
-                */
-                ret = 0;
+                ret = priv->bitd_svc.manager (&(priv->bitd_svc),
+                                                NULL, PROC_START_NO_WAIT);
+                if (ret)
+                        break;
+                ret = priv->scrub_svc.manager (&(priv->scrub_svc), NULL,
+                                               PROC_START_NO_WAIT);
                 break;
         default:
                 ret = 0;

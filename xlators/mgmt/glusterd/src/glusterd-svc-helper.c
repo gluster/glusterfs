@@ -18,6 +18,7 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-bitd-svc.h"
+#include "glusterd-scrub-svc.h"
 
 int
 glusterd_svcs_reconfigure (glusterd_volinfo_t *volinfo)
@@ -55,6 +56,10 @@ glusterd_svcs_reconfigure (glusterd_volinfo_t *volinfo)
         ret = glusterd_bitdsvc_reconfigure ();
         if (ret)
                 goto out;
+
+        ret = glusterd_scrubsvc_reconfigure ();
+        if (ret)
+                goto out;
 out:
         return ret;
 }
@@ -87,6 +92,9 @@ glusterd_svcs_stop ()
         ret = glusterd_svc_stop (&(priv->bitd_svc), SIGTERM);
         if (ret)
                 goto out;
+
+        ret = glusterd_svc_stop (&(priv->scrub_svc), SIGTERM);
+
 out:
         return ret;
 }
@@ -128,12 +136,18 @@ glusterd_svcs_manager (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = conf->bitd_svc.manager (&(conf->bitd_svc), volinfo,
-                                        PROC_START_NO_WAIT);
+        ret = conf->bitd_svc.manager (&(conf->bitd_svc), NULL,
+                                      PROC_START_NO_WAIT);
         if (ret == -EINVAL)
                 ret = 0;
         if (ret)
                 goto out;
+
+        ret = conf->scrub_svc.manager (&(conf->scrub_svc), NULL,
+                                       PROC_START_NO_WAIT);
+        if (ret == -EINVAL)
+                ret = 0;
+
 out:
         return ret;
 }
