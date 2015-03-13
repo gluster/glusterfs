@@ -404,7 +404,7 @@
  * @messageid 109033
  * @diagnosis The specified subvolume is running out of disk space. If all
               subvolumes run out of space, new files cannot be created.
- * @recommendedaction  Consider adding more nodes to the cluster if all subvolumes
+ * @recommendedaction  Consider adding more bricks to the cluster if all subvolumes
  *              run out of disk space.
  *
  */
