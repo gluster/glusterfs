@@ -20,15 +20,6 @@
 #include <pthread.h>
 #include <libgen.h>
 
-#include <urcu-bp.h>
-#include <urcu/rculist.h>
-#include <urcu/compiler.h>
-#include <urcu/uatomic.h>
-#include <urcu-call-rcu.h>
-#ifdef URCU_0_7
-#include "rculist-extra.h"
-#endif
-
 #include "uuid.h"
 
 #include "rpc-clnt.h"
@@ -48,6 +39,7 @@
 #include "cli1-xdr.h"
 #include "syncop.h"
 #include "store.h"
+#include "glusterd-rcu.h"
 
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_NAME                   "glusterd"

@@ -20,7 +20,11 @@ glusterd_peerinfo_destroy (struct rcu_head *head)
         glusterd_peer_hostname_t *hostname = NULL;
         glusterd_peer_hostname_t *tmp      = NULL;
 
-        peerinfo = caa_container_of (head, glusterd_peerinfo_t, rcu);
+        /* This works as rcu_head is the first member of gd_rcu_head */
+        peerinfo = caa_container_of (head, glusterd_peerinfo_t, head);
+
+        /* Set THIS to the saved this. Needed by some functions below */
+        THIS = peerinfo->head.this;
 
         CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
@@ -69,7 +73,9 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
         }
 
         cds_list_del_rcu (&peerinfo->uuid_list);
-        call_rcu (&peerinfo->rcu, glusterd_peerinfo_destroy);
+        /* Saving THIS, as it is needed by the callback function */
+        peerinfo->head.this = THIS;
+        call_rcu (&peerinfo->head.head, glusterd_peerinfo_destroy);
 
         if (quorum_action)
                 glusterd_do_quorum_action ();

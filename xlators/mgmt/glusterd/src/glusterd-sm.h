@@ -29,8 +29,7 @@
 #include "rpcsvc.h"
 #include "store.h"
 
-#include <urcu/rculist.h>
-#include <urcu-call-rcu.h>
+#include "glusterd-rcu.h"
 
 typedef enum gd_quorum_contribution_ {
         QUORUM_NONE,
@@ -103,7 +102,7 @@ struct glusterd_peerinfo_ {
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
         /* Members required for proper cleanup using RCU */
-        struct rcu_head                 rcu;
+        gd_rcu_head                     head;
         pthread_mutex_t                 delete_lock;
         gf_boolean_t                    deleting;
 };
