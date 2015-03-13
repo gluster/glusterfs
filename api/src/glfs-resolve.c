@@ -563,7 +563,7 @@ glfs_migrate_fd_locks_safe (struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
 
 	if (!dict_get (lockinfo, GF_XATTR_LOCKINFO_KEY)) {
 		gf_log (fs->volname, GF_LOG_WARNING,
-			"missing lokinfo key (%s) on graph %s (%d)",
+			"missing lockinfo key (%s) on graph %s (%d)",
 			uuid_utoa_r (oldfd->inode->gfid, uuid1),
 			graphid_str (oldsubvol), oldsubvol->graph->id);
 		goto out;

@@ -242,7 +242,7 @@ get_volfp (struct glfs *fs)
 
 	if ((specfp = fopen (cmd_args->volfile, "r")) == NULL) {
 		gf_log ("glfs", GF_LOG_ERROR,
-			"volume file %s: %s",
+			"volume file %s open failed: %s",
 			cmd_args->volfile,
 			strerror (errno));
 		return NULL;
@@ -545,6 +545,12 @@ glfs_poller (void *data)
 
 	return NULL;
 }
+
+/*
+ * please note all the variable initializations done here probably
+ * need to be added in 'glfs_new_from_ctx()' as well, so that,
+ * we do not miss out while adding new members in 'fs'.
+*/
 
 
 struct glfs *
