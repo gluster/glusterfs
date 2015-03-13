@@ -259,7 +259,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 			gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_SUBVOL_INSUFF_SPACE,
 				"disk space on subvolume '%s' is getting "
-				"full (%.2f %%), consider adding more nodes",
+				"full (%.2f %%), consider adding more bricks",
 				subvol->name,
 				(100 - conf->du_stats[i].avail_percent));
 		}
@@ -270,7 +270,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 			gf_msg (this->name, GF_LOG_CRITICAL, 0,
                                 DHT_MSG_SUBVOL_INSUFF_INODES,
 				"inodes on subvolume '%s' are at "
-				"(%.2f %%), consider adding more nodes",
+				"(%.2f %%), consider adding more bricks",
 				subvol->name,
 				(100 - conf->du_stats[i].avail_inodes));
 		}
