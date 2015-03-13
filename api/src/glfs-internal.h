@@ -301,9 +301,9 @@ struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx)
   DESCRIPTION
 
        The glfs_t object allocated by glfs_new_from_ctx() must be released
-       by the caller using this routine. The usage is restricted to NFS
-       MOUNT over UDP i.e.
-       __mnt3udp_get_export_subdir_inode ()
+       by the caller using this routine. The usage can be found
+       at glfs_fini() or NFS, MOUNT over UDP i.e.
+                        __mnt3udp_get_export_subdir_inode ()
                                 => glfs_resolve_at().
 
   PARAMETERS
