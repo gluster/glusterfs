@@ -927,6 +927,8 @@ br_stub_open (call_frame_t *frame, xlator_t *this,
 
         if (!flags)
                 goto wind;
+        if (frame->root->pid == GF_CLIENT_PID_SCRUB)
+                goto wind;
         cookie = (void *) BR_STUB_REQUEST_COOKIE;
 
  wind:

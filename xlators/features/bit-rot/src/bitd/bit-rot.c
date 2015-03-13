@@ -22,6 +22,7 @@
 #include "compat-errno.h"
 
 #include "bit-rot.h"
+#include "bit-rot-scrub.h"
 #include <pthread.h>
 
 static int
@@ -146,6 +147,38 @@ br_prepare_signature (const unsigned char *sign,
         return signature;
 }
 
+gf_boolean_t
+bitd_is_bad_file (xlator_t *this, br_child_t *child, loc_t *loc, fd_t *fd)
+{
+        int32_t       ret      = -1;
+        dict_t       *xattr    = NULL;
+        inode_t      *inode    = NULL;
+        gf_boolean_t  bad_file = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
+
+        inode = (loc) ? loc->inode : fd->inode;
+
+        if (fd)
+                ret = syncop_fgetxattr (child->xl, fd, &xattr,
+                                        "trusted.glusterfs.bad-file", NULL);
+        else if (loc)
+                ret = syncop_getxattr (child->xl, loc, &xattr,
+                                       "trusted.glusterfs.bad-file", NULL);
+
+        if (!ret) {
+                gf_log (this->name, GF_LOG_ERROR, "[GFID: %s] is marked "
+                        "corrupted", uuid_utoa (inode->gfid));
+                bad_file = _gf_true;
+        }
+
+        if (xattr)
+                dict_unref (xattr);
+
+out:
+        return bad_file;
+}
+
 /**
  * Do a lookup on the gfid present within the object.
  */
@@ -222,6 +255,7 @@ br_object_open (xlator_t *this,
 
         ret = syncop_open (object->child->xl, &loc, O_RDONLY, fd);
 	if (ret) {
+                br_log_object (this, "open", inode->gfid, -ret);
 		fd_unref (fd);
 		fd = NULL;
 	} else {
@@ -284,8 +318,8 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
 }
 
 int32_t
-br_object_checksum (unsigned char *md,
-                    br_object_t *object, fd_t *fd, struct iatt *iatt)
+br_calculate_obj_checksum (unsigned char *md,
+                           br_child_t *child, fd_t *fd, struct iatt *iatt)
 {
         int32_t   ret    = -1;
         off_t     offset = 0;
@@ -294,16 +328,16 @@ br_object_checksum (unsigned char *md,
 
         SHA256_CTX       sha256;
 
-        GF_VALIDATE_OR_GOTO ("bit-rot", object, out);
+        GF_VALIDATE_OR_GOTO ("bit-rot", child, out);
         GF_VALIDATE_OR_GOTO ("bit-rot", iatt, out);
         GF_VALIDATE_OR_GOTO ("bit-rot", fd, out);
 
-        this = object->this;
+        this = child->this;
 
         SHA256_Init (&sha256);
 
         while (1) {
-                ret = br_object_read_block_and_sign (this, fd, object->child,
+                ret = br_object_read_block_and_sign (this, fd, child,
                                                      offset, block, &sha256);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "reading block with "
@@ -323,6 +357,13 @@ br_object_checksum (unsigned char *md,
 
  out:
         return ret;
+}
+
+static inline int32_t
+br_object_checksum (unsigned char *md,
+                    br_object_t *object, fd_t *fd, struct iatt *iatt)
+{
+        return br_calculate_obj_checksum (md, object->child, fd,  iatt);
 }
 
 static inline int32_t
@@ -396,7 +437,8 @@ br_object_read_sign (inode_t *linked_inode, fd_t *fd, br_object_t *object,
 
 static inline int br_object_sign_softerror (int32_t op_errno)
 {
-        return ((op_errno == ENOENT) || (op_errno = ESTALE));
+        return ((op_errno == ENOENT) || (op_errno = ESTALE)
+                || (op_errno == ENODATA));
 }
 
 void
@@ -459,8 +501,6 @@ static inline int32_t br_sign_object (br_object_t *object)
          * we have an open file descriptor on the object. from here on,
          * do not be generous to file operation errors.
          */
-
-        /* change this to DEBUG log level later */
         gf_log (this->name, GF_LOG_DEBUG,
                 "Signing object [%s]", uuid_utoa (linked_inode->gfid));
 
@@ -878,6 +918,9 @@ bitd_oneshot_crawl (xlator_t *subvol,
          * if there are any fds present for that inode) and handle properly.
          */
 
+        if (bitd_is_bad_file (this, child, &loc, NULL))
+                goto unref_inode;
+
         ret = syncop_getxattr (child->xl, &loc, &xattr,
                                GLUSTERFS_GET_OBJECT_SIGNATURE, NULL);
         if (ret < 0) {
@@ -993,11 +1036,26 @@ br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
         return -1;
 }
 
+static inline int32_t
+br_enact_scrubber (xlator_t *this, br_child_t *child)
+{
+        int32_t ret = 0;
+
+        ret = gf_thread_create (&child->thread, NULL, br_scrubber, child);
+        if (ret != 0) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "failed to spawn scrubber");
+        }
+
+        return ret;
+}
+
 /**
  * This routine fetches various attributes associated with a child which
  * is basically a subvolume. Attributes include brick path and the stub
  * birth time. This is done by performing a lookup on the root followed
- * by getxattr() on a virtual key.
+ * by getxattr() on a virtual key. Depending on the configuration, the
+ * process either acts as a signer or a scrubber.
  */
 static inline int32_t
 br_brick_connect (xlator_t *this, br_child_t *child)
@@ -1008,11 +1066,14 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         struct iatt     parent   = {0, };
         br_stub_init_t *stub     = NULL;
         dict_t         *xattr    = NULL;
+        br_private_t   *priv     = NULL;
         int             op_errno = 0;
 
         GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
         GF_VALIDATE_OR_GOTO (this->name, child, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        priv = this->private;
 
         loc.inode = inode_ref (child->table->root);
         uuid_copy (loc.gfid, loc.inode->gfid);
@@ -1049,7 +1110,10 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         child->tv.tv_sec = ntohl (stub->timebuf[0]);
         child->tv.tv_usec = ntohl (stub->timebuf[0]);
 
-        ret = br_enact_signer (this, child, stub);
+        if (priv->iamscrubber)
+                ret = br_enact_scrubber (this, child);
+        else
+                ret = br_enact_signer (this, child, stub);
 
  free_dict:
         dict_unref (xattr);
@@ -1208,6 +1272,78 @@ out:
         return 0;
 }
 
+/**
+ * Initialize signer specific structures, spawn worker threads.
+ */
+
+static inline void
+br_fini_signer (xlator_t *this, br_private_t *priv)
+{
+        int i = 0;
+
+        for (; i < BR_WORKERS; i++) {
+                (void) gf_thread_cleanup_xint (priv->obj_queue->workers[i]);
+        }
+
+        pthread_cond_destroy (&priv->object_cond);
+        gf_tw_cleanup_timers (priv->timer_wheel);
+}
+
+static inline int32_t
+br_init_signer (xlator_t *this, br_private_t *priv)
+{
+        int i = 0;
+        int32_t ret = -1;
+
+        /* initialize gfchangelog xlator context */
+        ret = gf_changelog_init (this);
+        if (ret)
+                goto out;
+
+        priv->timer_wheel = gf_tw_init_timers ();
+        if (!priv->timer_wheel) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to initialize the timer wheel");
+                goto out;
+        }
+
+        pthread_cond_init (&priv->object_cond, NULL);
+
+        priv->obj_queue = GF_CALLOC (1, sizeof (*priv->obj_queue),
+                                     gf_br_mt_br_ob_n_wk_t);
+        if (!priv->obj_queue)
+                goto cleanup_timer;
+        INIT_LIST_HEAD (&priv->obj_queue->objects);
+
+        for (i = 0; i < BR_WORKERS; i++) {
+                ret = gf_thread_create (&priv->obj_queue->workers[i], NULL,
+                                        br_process_object, this);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "thread creation failed (%s)", strerror (-ret));
+                        ret = -1;
+                        goto cleanup_threads;
+                }
+        }
+
+        return 0;
+
+ cleanup_threads:
+        for (i--; i >= 0; i--) {
+                (void) gf_thread_cleanup_xint (priv->obj_queue->workers[i]);
+        }
+
+        GF_FREE (priv->obj_queue);
+
+ cleanup_timer:
+        /* that's explicit */
+        pthread_cond_destroy (&priv->object_cond);
+        gf_tw_cleanup_timers (priv->timer_wheel);
+
+ out:
+        return -1;
+}
+
 int32_t
 init (xlator_t *this)
 {
@@ -1228,18 +1364,14 @@ init (xlator_t *this)
                 goto out;
         }
 
-        /* initialize gfchangelog xlator context */
-        ret = gf_changelog_init (this);
-        if (ret)
-                goto out;
-
+        GF_OPTION_INIT ("scrubber", priv->iamscrubber, bool, out);
         GF_OPTION_INIT ("expiry-time", priv->expiry_time, int32, out);
 
         priv->child_count = xlator_subvolume_count (this);
         priv->children = GF_CALLOC (priv->child_count, sizeof (*priv->children),
                                     gf_br_mt_br_child_t);
         if (!priv->children)
-                goto out;
+                goto free_priv;
 
         trav = this->children;
         while (trav) {
@@ -1252,7 +1384,7 @@ init (xlator_t *this)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to allocate mem-pool for timer");
                         errno = ENOMEM;
-                        goto out;
+                        goto free_children;
                 }
 
                 i++;
@@ -1268,55 +1400,41 @@ init (xlator_t *this)
 
 	this->private = priv;
 
-        ret = gf_thread_create (&priv->thread, NULL, br_handle_events,
-                                this);
+        if (!priv->iamscrubber) {
+                ret = br_init_signer (this, priv);
+                if (ret)
+                        goto cleanup_mutex;
+        }
+
+        ret = gf_thread_create (&priv->thread, NULL, br_handle_events, this);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "thread creation failed (%s)", strerror (errno));
-                goto out;
+                        "thread creation failed (%s)", strerror (-ret));
+                ret = -1;
         }
 
-        priv->timer_wheel = gf_tw_init_timers ();
-        if (!priv->timer_wheel) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to initialize the "
-                        "timer wheel");
-                goto out;
+        if (!ret) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "bit-rot xlator loaded in \"%s\" mode",
+                        (priv->iamscrubber) ? "SCRUBBER" : "SIGNER");
+                return 0;
         }
 
-        pthread_cond_init (&priv->object_cond, NULL);
-        priv->obj_queue = GF_CALLOC (1, sizeof (*priv->obj_queue),
-                                     gf_br_mt_br_ob_n_wk_t);
-        if (!priv->obj_queue) {
-                gf_log (this->name, GF_LOG_ERROR, "memory allocation failed");
-                goto out;
+ cleanup_mutex:
+        (void) pthread_cond_destroy (&priv->cond);
+        (void) pthread_mutex_destroy (&priv->lock);
+ free_children:
+        for (i = 0; i < priv->child_count; i++) {
+                if (priv->children[i].timer_pool)
+                        mem_pool_destroy (priv->children[i].timer_pool);
         }
 
-        INIT_LIST_HEAD (&priv->obj_queue->objects);
-
-        for (i = 0; i < BR_WORKERS; i++) {
-                gf_thread_create (&priv->obj_queue->workers[i], NULL,
-                                  br_process_object, this);
-                if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "thread creation failed (%s)",
-                                strerror (errno));
-                        goto out;
-                }
-        }
-
-        ret = 0;
-
-out:
-        if (ret) {
-                if (priv->children)
-                        GF_FREE (priv->children);
-                if (priv->timer_wheel)
-                        gf_tw_cleanup_timers (priv->timer_wheel);
-                GF_FREE (priv);
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG, "bit-rot xlator loaded");
-	return ret;
+        GF_FREE (priv->children);
+ free_priv:
+        GF_FREE (priv);
+ out:
+        this->private = NULL;
+        return -1;
 }
 
 void
@@ -1327,9 +1445,12 @@ fini (xlator_t *this)
         if (!priv)
                 return;
 
+        if (!priv->iamscrubber)
+                br_fini_signer (this, priv);
         br_free_children (this);
         if (priv->timer_wheel)
                 gf_tw_cleanup_timers (priv->timer_wheel);
+
         this->private = NULL;
 	GF_FREE (priv);
 
@@ -1346,6 +1467,11 @@ struct volume_options options[] = {
           .default_value = "120",
           .description = "default time duration for which an object waits "
                          "before it is signed",
+        },
+        { .key = {"scrubber"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "option to run as a scrubber",
         },
 	{ .key  = {NULL} },
 };
