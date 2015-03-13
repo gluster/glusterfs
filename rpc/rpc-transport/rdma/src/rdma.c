@@ -367,11 +367,12 @@ gf_rdma_deregister_arena (struct list_head **mr_list,
                           struct iobuf_arena *iobuf_arena)
 {
         gf_rdma_arena_mr *tmp     = NULL;
+        gf_rdma_arena_mr *dummy   = NULL;
         int               count   = 0, i = 0;
 
         count = iobuf_arena->iobuf_pool->rdma_device_count;
         for (i = 0; i < count; i++) {
-                list_for_each_entry(tmp, mr_list[i], list) {
+                list_for_each_entry_safe (tmp, dummy, mr_list[i], list) {
                         if (tmp->iobuf_arena == iobuf_arena) {
                                 if (ibv_dereg_mr(tmp->mr)) {
                                         gf_log("rdma", GF_LOG_WARNING,
@@ -437,6 +438,7 @@ gf_rdma_register_iobuf_pool (rpc_transport_t *this)
 {
         struct iobuf_pool   *iobuf_pool = NULL;
         struct iobuf_arena  *tmp        = NULL;
+        struct iobuf_arena  *dummy      = NULL;
         gf_rdma_private_t   *priv       = NULL;
         gf_rdma_device_t    *device     = NULL;
         struct ibv_mr       *mr         = NULL;
@@ -448,7 +450,8 @@ gf_rdma_register_iobuf_pool (rpc_transport_t *this)
 
         if (!list_empty(&iobuf_pool->all_arenas)) {
 
-                list_for_each_entry (tmp, &iobuf_pool->all_arenas, all_list) {
+                list_for_each_entry_safe (tmp, dummy, &iobuf_pool->all_arenas,
+                                          all_list) {
                         new = GF_CALLOC(1, sizeof(gf_rdma_arena_mr),
                                         gf_common_mt_rdma_arena_mr);
                         if (new == NULL) {
@@ -483,7 +486,8 @@ gf_rdma_register_iobuf_pool (rpc_transport_t *this)
 static struct ibv_mr*
 gf_rdma_get_pre_registred_mr(rpc_transport_t *this, void *ptr, int size)
 {
-        gf_rdma_arena_mr  *tmp        = NULL;
+        gf_rdma_arena_mr   *tmp        = NULL;
+        gf_rdma_arena_mr   *dummy      = NULL;
         gf_rdma_private_t  *priv       = NULL;
         gf_rdma_device_t   *device     = NULL;
 
@@ -491,7 +495,7 @@ gf_rdma_get_pre_registred_mr(rpc_transport_t *this, void *ptr, int size)
         device = priv->device;
 
         if (!list_empty(&device->all_mr)) {
-                list_for_each_entry (tmp, &device->all_mr, list) {
+                list_for_each_entry_safe (tmp, dummy, &device->all_mr, list) {
                         if (tmp->iobuf_arena->mem_base <= ptr &&
                             ptr < tmp->iobuf_arena->mem_base +
                             tmp->iobuf_arena->arena_size)
@@ -1667,6 +1671,7 @@ __gf_rdma_deregister_mr (gf_rdma_device_t *device,
                          struct ibv_mr **mr, int count)
 {
         gf_rdma_arena_mr    *tmp   = NULL;
+        gf_rdma_arena_mr    *dummy = NULL;
         int                  i     = 0;
         int                  found = 0;
 
@@ -1677,7 +1682,7 @@ __gf_rdma_deregister_mr (gf_rdma_device_t *device,
         for (i = 0; i < count; i++) {
                  found = 0;
                  if (!list_empty(&device->all_mr)) {
-                 list_for_each_entry(tmp, &device->all_mr, list) {
+                 list_for_each_entry_safe (tmp, dummy, &device->all_mr, list) {
                         if (tmp->mr == mr[i]) {
                                 found = 1;
                                 break;
