@@ -16,7 +16,7 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-proc-mgmt.c glusterd-svc-mgmt.c glusterd-shd-svc.c \
 	glusterd-nfs-svc.c glusterd-quotad-svc.c glusterd-svc-helper.c \
 	glusterd-conn-helper.c glusterd-snapd-svc.c glusterd-snapd-svc-helper.c \
-	glusterd-bitd-svc.c
+	glusterd-bitd-svc.c glusterd-scrub-svc.c
 
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
@@ -37,7 +37,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-svc-mgmt.h glusterd-shd-svc.h glusterd-nfs-svc.h \
 	glusterd-quotad-svc.h glusterd-svc-helper.h glusterd-snapd-svc.h \
 	glusterd-snapd-svc-helper.h glusterd-rcu.h glusterd-bitd-svc.h \
-	$(CONTRIBDIR)/userspace-rcu/rculist-extra.h
+	glusterd-scrub-svc.h $(CONTRIBDIR)/userspace-rcu/rculist-extra.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \

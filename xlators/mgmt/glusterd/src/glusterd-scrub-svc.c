@@ -13,19 +13,21 @@
 #include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
-#include "glusterd-bitd-svc.h"
+#include "glusterd-scrub-svc.h"
+
+char *scrub_svc_name = "scrub";
 
 int
-glusterd_bitdsvc_init (glusterd_svc_t *svc)
+glusterd_scrubsvc_init (glusterd_svc_t *svc)
 {
-        return glusterd_svc_init (svc, bitd_svc_name,
-                                  glusterd_bitdsvc_manager,
-                                  glusterd_bitdsvc_start,
-                                  glusterd_bitdsvc_stop);
+        return glusterd_svc_init (svc, scrub_svc_name,
+                                  glusterd_scrubsvc_manager,
+                                  glusterd_scrubsvc_start,
+                                  glusterd_scrubsvc_stop);
 }
 
 static int
-glusterd_bitdsvc_create_volfile ()
+glusterd_scrubsvc_create_volfile ()
 {
         char              filepath[PATH_MAX] = {0,};
         int               ret                = -1;
@@ -49,10 +51,10 @@ glusterd_bitdsvc_create_volfile ()
         if (ret)
                 goto free_dict;
 
-        glusterd_svc_build_volfile_path (bitd_svc_name, conf->workdir,
+        glusterd_svc_build_volfile_path (scrub_svc_name, conf->workdir,
                                          filepath, sizeof (filepath));
 
-        ret = glusterd_create_global_volfile (build_bitd_graph,
+        ret = glusterd_create_global_volfile (build_scrub_graph,
                                               filepath, mod_dict);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to create volfile");
@@ -68,14 +70,14 @@ out:
 }
 
 int
-glusterd_bitdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
+glusterd_scrubsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int          ret    = -EINVAL;
 
         if (glusterd_all_volumes_with_bitrot_stopped ()) {
                 ret = svc->stop (svc, SIGTERM);
         } else {
-                ret = glusterd_bitdsvc_create_volfile ();
+                ret = glusterd_scrubsvc_create_volfile ();
                 if (ret)
                         goto out;
 
@@ -99,19 +101,19 @@ out:
 }
 
 int
-glusterd_bitdsvc_start (glusterd_svc_t *svc, int flags)
+glusterd_scrubsvc_start (glusterd_svc_t *svc, int flags)
 {
         return glusterd_svc_start (svc, flags, NULL);
 }
 
 int
-glusterd_bitdsvc_stop (glusterd_svc_t *svc, int sig)
+glusterd_scrubsvc_stop (glusterd_svc_t *svc, int sig)
 {
         return glusterd_svc_stop (svc, sig);
 }
 
 int
-glusterd_bitdsvc_reconfigure ()
+glusterd_scrubsvc_reconfigure ()
 {
-        return glusterd_svc_reconfigure (glusterd_bitdsvc_create_volfile);
+        return glusterd_svc_reconfigure (glusterd_scrubsvc_create_volfile);
 }
