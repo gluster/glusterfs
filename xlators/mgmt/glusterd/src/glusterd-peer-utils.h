@@ -17,9 +17,6 @@
 int32_t
 glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo);
 
-int32_t
-glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo);
-
 glusterd_peerinfo_t *
 glusterd_peerinfo_find_by_hostname (const char *hoststr);
 

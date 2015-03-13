@@ -12,40 +12,16 @@
 #include "glusterd-store.h"
 #include "common-utils.h"
 
-int32_t
-glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
+void
+glusterd_peerinfo_destroy (struct rcu_head *head)
 {
-        GF_ASSERT (peerinfo);
-        glusterd_peerctx_t      *peerctx = NULL;
-        gf_boolean_t            quorum_action = _gf_false;
-        glusterd_conf_t         *priv = THIS->private;
-
-        if (peerinfo->quorum_contrib != QUORUM_NONE)
-                quorum_action = _gf_true;
-        if (peerinfo->rpc) {
-                peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
-                peerinfo->rpc = NULL;
-        }
-        glusterd_peerinfo_destroy (peerinfo);
-
-        if (quorum_action)
-                glusterd_do_quorum_action ();
-        return 0;
-}
-
-int32_t
-glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
-{
-        int32_t                         ret = -1;
+        int32_t                   ret      = -1;
+        glusterd_peerinfo_t      *peerinfo = NULL;
         glusterd_peer_hostname_t *hostname = NULL;
-        glusterd_peer_hostname_t *tmp = NULL;
+        glusterd_peer_hostname_t *tmp      = NULL;
 
-        if (!peerinfo)
-                goto out;
+        peerinfo = caa_container_of (head, glusterd_peerinfo_t, rcu);
 
-        cds_list_del_rcu (&peerinfo->uuid_list);
-
-        synchronize_rcu ();
         CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
         ret = glusterd_store_delete_peerinfo (peerinfo);
@@ -62,13 +38,42 @@ glusterd_peerinfo_destroy (glusterd_peerinfo_t *peerinfo)
         }
 
         glusterd_sm_tr_log_delete (&peerinfo->sm_log);
+        pthread_mutex_destroy (&peerinfo->delete_lock);
         GF_FREE (peerinfo);
+
         peerinfo = NULL;
 
-        ret = 0;
+        return;
+}
 
-out:
-        return ret;
+int32_t
+glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
+{
+        GF_ASSERT (peerinfo);
+        glusterd_peerctx_t      *peerctx = NULL;
+        gf_boolean_t            quorum_action = _gf_false;
+        glusterd_conf_t         *priv = THIS->private;
+
+        if (pthread_mutex_trylock (&peerinfo->delete_lock)) {
+                /* Someone else is already deleting the peer, so give up */
+                return 0;
+        }
+
+        uatomic_set (&peerinfo->deleting, _gf_true);
+
+        if (peerinfo->quorum_contrib != QUORUM_NONE)
+                quorum_action = _gf_true;
+        if (peerinfo->rpc) {
+                peerinfo->rpc = glusterd_rpc_clnt_unref (priv, peerinfo->rpc);
+                peerinfo->rpc = NULL;
+        }
+
+        cds_list_del_rcu (&peerinfo->uuid_list);
+        call_rcu (&peerinfo->rcu, glusterd_peerinfo_destroy);
+
+        if (quorum_action)
+                glusterd_do_quorum_action ();
+        return 0;
 }
 
 /* glusterd_peerinfo_find_by_hostname searches for a peer which matches the
@@ -284,6 +289,8 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         if (new_peer->state.state == GD_FRIEND_STATE_BEFRIENDED)
                 new_peer->quorum_contrib = QUORUM_WAITING;
         new_peer->port = port;
+
+        pthread_mutex_init (&new_peer->delete_lock, NULL);
 out:
         if (ret && new_peer) {
                 glusterd_peerinfo_cleanup (new_peer);

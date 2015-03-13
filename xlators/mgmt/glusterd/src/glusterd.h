@@ -22,6 +22,9 @@
 
 #include <urcu-bp.h>
 #include <urcu/rculist.h>
+#include <urcu/compiler.h>
+#include <urcu/uatomic.h>
+#include <urcu-call-rcu.h>
 #ifdef URCU_0_7
 #include "rculist-extra.h"
 #endif

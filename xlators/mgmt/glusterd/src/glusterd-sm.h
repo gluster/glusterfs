@@ -30,6 +30,7 @@
 #include "store.h"
 
 #include <urcu/rculist.h>
+#include <urcu-call-rcu.h>
 
 typedef enum gd_quorum_contribution_ {
         QUORUM_NONE,
@@ -101,6 +102,10 @@ struct glusterd_peerinfo_ {
         gd_quorum_contrib_t             quorum_contrib;
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
+        /* Members required for proper cleanup using RCU */
+        struct rcu_head                 rcu;
+        pthread_mutex_t                 delete_lock;
+        gf_boolean_t                    deleting;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
