@@ -67,6 +67,12 @@ Block Device
 S: Orphan
 F: xlators/storage/bd/
 
+BitRot
+M: Venky Shankar <vshankar@redhat.com>
+M: Raghavendra Bhat (a.k.a. "Johnny") <rabhat@redhat.com>
+S: Maintained
+F: xlators/features/bit-rot/
+
 Changelog
 M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
@@ -126,7 +132,6 @@ M: Krishnan Parthasarathi <kparthas@redhat.com>
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/features/quota/
-
 
 
 Other bits of code:
