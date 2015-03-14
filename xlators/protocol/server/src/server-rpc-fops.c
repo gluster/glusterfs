@@ -1580,6 +1580,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   -- don't do this without understanding
                 */
 
+                inode_ctx_merge (fd, fd->inode, link_inode);
                 inode_unref (fd->inode);
                 fd->inode = inode_ref (link_inode);
         }

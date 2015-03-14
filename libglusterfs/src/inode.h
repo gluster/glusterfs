@@ -34,7 +34,7 @@ typedef struct _dentry dentry_t;
 #include "xlator.h"
 #include "iatt.h"
 #include "uuid.h"
-
+#include "fd.h"
 
 struct _inode_table {
         pthread_mutex_t    lock;
@@ -265,5 +265,8 @@ __inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
 
 void
 inode_table_set_lru_limit (inode_table_t *table, uint32_t lru_limit);
+
+void
+inode_ctx_merge (fd_t *fd, inode_t *inode, inode_t *linked_inode);
 
 #endif /* _INODE_H */
