@@ -91,11 +91,12 @@ _exports_file_init ()
                 goto free_and_out;
         }
 
-
-
         goto out;
 
 free_and_out:
+        if (file->exports_dict)
+                dict_unref (file->exports_dict);
+
         GF_FREE (file);
         file = NULL;
 out:
@@ -141,10 +142,21 @@ out:
 void
 exp_file_deinit (struct exports_file *expfile)
 {
-        if (!expfile || !expfile->exports_dict)
+        if (!expfile)
                 goto out;
 
-        dict_foreach (expfile->exports_dict, _exp_file_dict_destroy, NULL);
+        if (expfile->exports_dict) {
+                dict_foreach (expfile->exports_dict, _exp_file_dict_destroy,
+                              NULL);
+                dict_unref (expfile->exports_dict);
+        }
+
+        if (expfile->exports_map) {
+                dict_foreach (expfile->exports_map, _exp_file_dict_destroy,
+                              NULL);
+                dict_unref (expfile->exports_map);
+        }
+
         GF_FREE (expfile->filename);
         GF_FREE (expfile);
 out:
