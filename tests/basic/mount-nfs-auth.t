@@ -32,35 +32,35 @@ function build_dirs () {
 }
 
 function export_allow_this_host () {
-        printf "$EXPORT_ALLOW\n" > /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_ALLOW\n" > ${NFSDIR}/exports
 }
 
 function export_allow_this_host_with_slash () {
-        printf "$EXPORT_ALLOW_SLASH\n" > /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_ALLOW_SLASH\n" > ${NFSDIR}/exports
 }
 
 function export_deny_this_host () {
-        printf "$EXPORT_DENY\n" > /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_DENY\n" > ${NFSDIR}/exports
 }
 
 function export_allow_this_host_l1 () {
-        printf "$EXPORT_ALLOW_L1\n" >> /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_ALLOW_L1\n" >> ${NFSDIR}/exports
 }
 
 function export_allow_wildcard () {
-        printf "$EXPORT_WILDCARD\n" >> /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_WILDCARD\n" >> ${NFSDIR}/exports
 }
 
 function export_allow_this_host_ro () {
-        printf "$EXPORT_ALLOW_RO\n" > /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_ALLOW_RO\n" > ${NFSDIR}/exports
 }
 
 function netgroup_allow_this_host () {
-        printf "$NETGROUP_ALLOW\n" > /var/lib/glusterd/nfs/netgroups
+        printf "$NETGROUP_ALLOW\n" > ${NFSDIR}/netgroups
 }
 
 function netgroup_deny_this_host () {
-        printf "$NETGROUP_DENY\n" > /var/lib/glusterd/nfs/netgroups
+        printf "$NETGROUP_DENY\n" > ${NFSDIR}/netgroups
 }
 
 function create_vol () {
@@ -116,6 +116,11 @@ TEST $CLI vol set $V0 cluster.self-heal-daemon off
 TEST $CLI vol set $V0 nfs.disable off
 TEST $CLI vol set $V0 cluster.choose-local off
 TEST $CLI vol start $V0
+
+# Get NFS state directory
+NFSDIR=$( $CLI volume get patchy nfs.mount-rmtab | \
+          awk '/^nfs.mount-rmtab/{print $2}' | \
+          xargs dirname )
 
 ## Wait for volume to register with rpc.mountd
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
