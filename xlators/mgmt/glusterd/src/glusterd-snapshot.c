@@ -4707,7 +4707,8 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         int32_t                 brick_count                     = 0;
         xlator_t               *this                            = NULL;
         int64_t                 brick_order                     = 0;
-        char *clonename         = NULL;
+        char                    *clonename                      = NULL;
+        gf_boolean_t            conf_present                    = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4834,7 +4835,7 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                 goto out;
         }
 
-        ret = glusterd_copy_quota_files (origin_vol, snap_vol);
+        ret = glusterd_copy_quota_files (origin_vol, snap_vol, &conf_present);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to copy quota "
                         "config and cksum for volume %s", origin_vol->volname);
@@ -8781,6 +8782,7 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
         glusterd_conf_t         *conf           = NULL;
         glusterd_volinfo_t      *temp_volinfo   = NULL;
         glusterd_volinfo_t      *voliter        = NULL;
+        gf_boolean_t             conf_present   = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -8870,12 +8872,31 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         snap_vol->snapshot->snapname);
         }
 
-        ret = glusterd_copy_quota_files (snap_vol, orig_vol);
+        ret = glusterd_copy_quota_files (snap_vol, orig_vol, &conf_present);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to restore "
                         "quota files for snap %s",
                         snap_vol->snapshot->snapname);
                 goto out;
+        }
+
+        if (conf_present) {
+                /* TO calculate checksum of quota conf we need to send
+                 * second argument as _gf_true
+                 */
+                ret = glusterd_compute_cksum (new_volinfo, _gf_true);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to compute "
+                                "checksum for quota conf file");
+                        goto out;
+                }
+
+                ret = glusterd_store_save_quota_version_and_cksum (new_volinfo);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "store quota version and cksum");
+                        goto out;
+                }
         }
 
         /* New volinfo always shows the status as created. Therefore

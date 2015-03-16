@@ -3054,7 +3054,8 @@ out:
 
 int32_t
 glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
-                              glusterd_volinfo_t *dest_vol) {
+                           glusterd_volinfo_t *dest_vol,
+                           gf_boolean_t *conf_present) {
 
         int32_t         ret                     = -1;
         char            src_dir[PATH_MAX]       = "";
@@ -3104,33 +3105,7 @@ glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
                 goto out;
         }
 
-        ret = snprintf (src_path, sizeof (src_path), "%s/quota.cksum",
-                        src_dir);
-        if (ret < 0)
-                goto out;
-
-        /* If quota.conf is present and quota.cksum is not present, then
-         * that scenario is considered as invalid, hence error out.
-         */
-        ret = lstat (src_path, &stbuf);
-        if (ret) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "%s not found", src_path);
-                goto out;
-        }
-
-        ret = snprintf (dest_path, sizeof (dest_path), "%s/quota.cksum",
-                        dest_dir);
-        if (ret < 0)
-                goto out;
-
-        ret = glusterd_copy_file (src_path, dest_path);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to copy %s in %s",
-                        src_path, dest_path);
-                goto out;
-        }
-
+        *conf_present = _gf_true;
 out:
         return ret;
 
