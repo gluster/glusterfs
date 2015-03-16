@@ -141,6 +141,7 @@ gf_timer_proc (void *ctx)
         gf_timer_registry_t *reg = NULL;
         const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
         gf_timer_t *event = NULL;
+        xlator_t   *old_THIS = NULL;
 
         if (ctx == NULL)
         {
@@ -174,11 +175,16 @@ gf_timer_proc (void *ctx)
                                 }
                         }
                         pthread_mutex_unlock (&reg->lock);
-                        if (event->xl)
-                                THIS = event->xl;
-                        if (need_cbk)
-                                event->callbk  (event->data);
-
+                        if (need_cbk) {
+                                if (event->xl) {
+                                        old_THIS = THIS;
+                                        THIS = event->xl;
+                                }
+                                event->callbk (event->data);
+                                if (event->xl) {
+                                        THIS = old_THIS;
+                                }
+                        }
                         else
                                 break;
                 }

@@ -664,7 +664,9 @@ priv_glfs_free_from_ctx (struct glfs *fs)
 
         (void) pthread_mutex_destroy (&fs->mutex);
 
-        FREE (fs->volname);
+        if (fs->volname)
+                FREE (fs->volname);
+
         FREE (fs);
 }
 
@@ -934,12 +936,16 @@ pub_glfs_fini (struct glfs *fs)
         }
 
         ctx = fs->ctx;
+        if (!ctx) {
+                goto free_fs;
+        }
+
+        __glfs_entry_fs (fs);
+
         if (ctx->mgmt) {
                 rpc_clnt_disable (ctx->mgmt);
                 ctx->mgmt = NULL;
         }
-
-        __glfs_entry_fs (fs);
 
         call_pool = fs->ctx->pool;
 
@@ -1069,6 +1075,7 @@ pub_glfs_fini (struct glfs *fs)
         if (glusterfs_ctx_destroy (ctx) != 0)
                 ret = -1;
 
+free_fs:
         glfs_free_from_ctx (fs);
 
 fail:
