@@ -502,6 +502,9 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         if (!xl)
                 return -1;
 
+        if (!xl->ctx)
+                return -1;
+
         if (!xl->ctx->mem_acct_enable)
                 return 0;
 
