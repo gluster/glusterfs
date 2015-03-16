@@ -96,7 +96,8 @@ glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
 
 int32_t
 glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
-                           glusterd_volinfo_t *dest_vol);
+                           glusterd_volinfo_t *dest_vol,
+                           gf_boolean_t *conf_present);
 
 int
 glusterd_snap_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
