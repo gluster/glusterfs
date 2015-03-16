@@ -170,10 +170,7 @@ class NormalMixin(object):
             raise GsyncdError("timestamp corruption for " + path)
 
     def need_sync(self, e, xte, xtrd):
-        if self.xsync_upper_limit:
-            return xte > xtrd and xte <= self.xsync_upper_limit
-        else:
-            return xte > xtrd
+        return xte > xtrd
 
     def set_slave_xtime(self, path, mark):
         self.slave.server.set_stime(path, self.uuid, mark)
@@ -491,8 +488,7 @@ class GMasterCommon(object):
     def register(self):
         self.register()
 
-    def crawlwrap(self, oneshot=False, no_stime_update=False,
-                  register_time=None):
+    def crawlwrap(self, oneshot=False, register_time=None):
         if oneshot:
             # it's important to do this during the oneshot crawl as
             # for a passive gsyncd (ie. in a replicate scenario)
@@ -503,11 +499,11 @@ class GMasterCommon(object):
         # then it sets register_time which is the time when geo-rep
         # worker registerd to changelog consumption. Since nsec is
         # not considered in register time, their are chances of skipping
-        # changes detection in xsync crawl. Add 1 sec to upper_limit.
-        # This limit will be reset when crawlwrap is called again.
-        self.xsync_upper_limit = None
+        # changes detection in xsync crawl. This limit will be reset when
+        # crawlwrap is called again.
+        self.live_changelog_start_time = None
         if register_time:
-            self.xsync_upper_limit = (register_time + 1, 0)
+            self.live_changelog_start_time = (register_time, 0)
 
         # no need to maintain volinfo state machine.
         # in a cascading setup, each geo-replication session is
@@ -583,7 +579,7 @@ class GMasterCommon(object):
                 time.sleep(5)
                 continue
             self.update_worker_health("Active")
-            self.crawl(no_stime_update=no_stime_update)
+            self.crawl()
             if oneshot:
                 return
             time.sleep(self.sleep_interval)
@@ -1278,7 +1274,7 @@ class GMasterChangelogMixin(GMasterCommon):
             except:
                 raise
 
-    def crawl(self, no_stime_update=False):
+    def crawl(self):
         self.update_worker_crawl_status("Changelog Crawl")
         changes = []
         # get stime (from the brick) and purge changelogs
@@ -1323,7 +1319,7 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
         self.processed_changelogs_dir = os.path.join(self.setup_working_dir(),
                                                      ".history/.processed")
 
-    def crawl(self, no_stime_update=False):
+    def crawl(self):
         self.history_turns += 1
         self.update_worker_crawl_status("History Crawl")
         purge_time = self.get_purge_time()
@@ -1425,7 +1421,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             else:
                 raise
 
-    def crawl(self, no_stime_update=False):
+    def crawl(self):
         """
         event dispatcher thread
 
@@ -1451,18 +1447,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                     self.process([item[1]], 0)
                     self.archive_and_purge_changelogs([item[1]])
                 elif item[0] == 'stime':
-                    if not no_stime_update:
-                        # xsync is started after running history but if
-                        # history actual end time is less than register time
-                        # then if we update stime, live changelog processing
-                        # will skip the changelogs for which TS is less than
-                        # stime. During this deletes and renames are not
-                        # propogated. By not setting stime live changelog will
-                        # start processing from the register time. Since we
-                        # have xsync_upper_limit their will not be much
-                        # overlap/redo of changelogs.
-                        logging.debug('setting slave time: %s' % repr(item[1]))
-                        self.upd_stime(item[1][1], item[1][0])
+                    logging.debug('setting slave time: %s' % repr(item[1]))
+                    self.upd_stime(item[1][1], item[1][0])
                 else:
                     logging.warn('unknown tuple in comlist (%s)' % repr(item))
             except IndexError:
@@ -1603,8 +1589,15 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                                               str(st.st_mtime)])
                 self.Xcrawl(e, xtr_root)
                 stime_to_update = xte
-                if self.xsync_upper_limit:
-                    stime_to_update = min(self.xsync_upper_limit, xte)
+                # Live Changelog Start time indicates that from that time
+                # onwards Live changelogs are available. If we update stime
+                # greater than live_changelog_start time then Geo-rep will
+                # skip those changelogs as already processed. But Xsync
+                # actually failed to sync the deletes and Renames. Update
+                # stime as min(Live_changelogs_time, Actual_stime) When it
+                # switches to Changelog mode, it syncs Deletes and Renames.
+                if self.live_changelog_start_time:
+                    stime_to_update = min(self.live_changelog_start_time, xte)
                 self.stimes.append((e, stime_to_update))
             elif stat.S_ISLNK(mo):
                 self.write_entry_change(
@@ -1630,8 +1623,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.write_entry_change("D", [gfid])
         if path == '.':
             stime_to_update = xtl
-            if self.xsync_upper_limit:
-                stime_to_update = min(self.xsync_upper_limit, xtl)
+            if self.live_changelog_start_time:
+                stime_to_update = min(self.live_changelog_start_time, xtl)
             self.stimes.append((path, stime_to_update))
             self.sync_done(self.stimes, True)
 
