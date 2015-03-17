@@ -1339,10 +1339,9 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                 register_time = int(time.time())
                 g2.register(register_time, changelog_agent)
                 g3.register(register_time, changelog_agent)
-            except ChangelogException:
-                changelog_register_failed = True
-                register_time = None
-                logging.info("Changelog register failed, fallback to xsync")
+            except ChangelogException as e:
+                logging.error("Changelog register failed, %s" % e)
+                sys.exit(1)
 
             g1.register()
             logging.info("Register time: %s" % register_time)
@@ -1351,31 +1350,23 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             # Note: if config.change_detector is xsync then
             # it will not use changelog history api
             try:
-                if not changelog_register_failed:
-                    g3.crawlwrap(oneshot=True)
-                else:
-                    g1.crawlwrap(oneshot=True)
-            except (ChangelogException, PartialHistoryAvailable,
-                    NoPurgeTimeAvailable) as e:
-                if isinstance(e, ChangelogException):
-                    logging.info('Changelog history crawl failed, fallback '
-                                 'to xsync: %s - %s' % (e.errno, e.strerror))
-                elif isinstance(e, PartialHistoryAvailable):
-                    logging.info('Partial history available, using xsync crawl'
-                                 ' after consuming history '
-                                 'till %s' % str(e))
+                g3.crawlwrap(oneshot=True)
+            except PartialHistoryAvailable as e:
+                logging.info('Partial history available, using xsync crawl'
+                             ' after consuming history till %s' % str(e))
                 g1.crawlwrap(oneshot=True, register_time=register_time)
-
-            # crawl loop: Try changelog crawl, if failed
-            # switch to FS crawl
-            try:
-                if not changelog_register_failed:
-                    g2.crawlwrap()
-                else:
-                    g1.crawlwrap()
+            except NoPurgeTimeAvailable:
+                logging.info('No stime available, using xsync crawl')
+                g1.crawlwrap(oneshot=True, register_time=register_time)
             except ChangelogException as e:
-                logging.info('Changelog crawl failed, fallback to xsync')
-                g1.crawlwrap()
+                logging.error("Changelog History Crawl failed, %s" % e)
+                sys.exit(1)
+
+            try:
+                g2.crawlwrap()
+            except ChangelogException as e:
+                logging.error("Changelog crawl failed, %s" % e)
+                sys.exit(1)
         else:
             sup(self, *args)
 
