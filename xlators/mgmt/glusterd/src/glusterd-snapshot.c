@@ -81,6 +81,7 @@ typedef struct snap_create_args_ snap_create_args_t;
    then the snap device will be /dev/<group-name>/<snapname>.
    This function takes care of building the path for the snap device.
 */
+
 char *
 glusterd_build_snap_device_path (char *device, char *snapname,
                                  int32_t brickcount)
@@ -2953,28 +2954,6 @@ glusterd_snap_volume_remove (dict_t *rsp_dict,
 out:
         gf_msg_trace (this->name, 0, "returning %d", ret);
         return ret;
-}
-
-int32_t
-glusterd_snapobject_delete (glusterd_snap_t *snap)
-{
-        if (snap == NULL) {
-                gf_msg(THIS->name, GF_LOG_WARNING, EINVAL,
-                       GD_MSG_INVALID_ENTRY, "snap is NULL");
-                return -1;
-        }
-
-        cds_list_del_init (&snap->snap_list);
-        cds_list_del_init (&snap->volumes);
-        if (LOCK_DESTROY(&snap->lock))
-                gf_msg (THIS->name, GF_LOG_WARNING, 0,
-                        GD_MSG_LOCK_DESTROY_FAILED, "Failed destroying lock"
-                        "of snap %s", snap->snapname);
-
-        GF_FREE (snap->description);
-        GF_FREE (snap);
-
-        return 0;
 }
 
 int32_t
