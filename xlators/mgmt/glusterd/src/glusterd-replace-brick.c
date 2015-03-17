@@ -20,6 +20,7 @@
 #include "glusterd-svc-helper.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 #include "run.h"
 #include "syscall.h"
 
@@ -53,6 +54,9 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
                 //failed to decode msg;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REQ_DECODE_FAIL, "Failed to decode "
+                        "request received from cli");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -67,7 +71,8 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         snprintf (msg, sizeof (msg), "Unable to decode the "
@@ -79,13 +84,14 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Could not get volume name");
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "operation", &op);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "dict_get on operation failed");
                 snprintf (msg, sizeof (msg), "Could not get operation");
                 goto out;
@@ -95,21 +101,23 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
 
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to get src brick");
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "%s", msg);
                 goto out;
         }
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
 
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to get dest brick");
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "%s", msg);
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "dst brick=%s", dst_brick);
+        gf_msg_debug (this->name, 0, "dst brick=%s", dst_brick);
         gf_log (this->name, GF_LOG_INFO, "Received replace brick commit-force "
                 "request operation");
 
@@ -193,31 +201,34 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get src brick");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get src brick");
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "src brick=%s", src_brick);
+        gf_msg_debug (this->name, 0, "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get dest brick");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get dest brick");
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "dst brick=%s", dst_brick);
+        gf_msg_debug (this->name, 0, "dst brick=%s", dst_brick);
 
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
         ret = dict_get_str (dict, "operation", &replace_op);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "dict get on replace-brick operation failed");
                 goto out;
         }
@@ -250,7 +261,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 !glusterd_is_valid_volfpath (volname, dst_brick)) {
                 snprintf (msg, sizeof (msg), "brick path %s is too "
                           "long.", dst_brick);
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRKPATH_TOO_LONG, "%s", msg);
                 *op_errstr = gf_strdup (msg);
 
                 ret = -1;
@@ -268,7 +280,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         if (glusterd_is_defrag_on(volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
                           "progress. Please retry after completion", volname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OIP_RETRY_LATER, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -294,7 +307,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 
         if (ctx) {
                 if (!glusterd_is_fuse_available ()) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to open /dev/"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RB_CMD_FAIL, "Unable to open /dev/"
                                 "fuse (%s), replace-brick command failed",
                                 strerror (errno));
                         snprintf (msg, sizeof(msg), "Fuse unavailable\n "
@@ -306,13 +320,13 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         }
 
         if (gf_is_local_addr (src_brickinfo->hostname)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "I AM THE SOURCE HOST");
                 if (src_brickinfo->port && rsp_dict) {
                         ret = dict_set_int32 (rsp_dict, "src-brick-port",
                                               src_brickinfo->port);
                         if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
+                                gf_msg_debug ("", 0,
                                         "Could not set src-brick-port=%d",
                                         src_brickinfo->port);
                         }
@@ -326,14 +340,16 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         dup_dstbrick = gf_strdup (dst_brick);
         if (!dup_dstbrick) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Memory allocation failed");
                 goto out;
         }
         host = strtok_r (dup_dstbrick, ":", &savetok);
         path = strtok_r (NULL, ":", &savetok);
 
         if (!host || !path) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BAD_FORMAT,
                         "dst brick %s is not of form <HOSTNAME>:<export-dir>",
                         dst_brick);
                 ret = -1;
@@ -365,7 +381,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 *op_errstr = gf_strdup ("Incorrect source or "
                                         "destination brick");
                 if (*op_errstr)
-                        gf_log (this->name, GF_LOG_ERROR, "%s", *op_errstr);
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_BRICK_NOT_FOUND, "%s", *op_errstr);
                 goto out;
        }
 
@@ -413,7 +430,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                                     dst_brickinfo->hostname,
                                                     dst_brickinfo->mount_dir);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
                                 "Failed to get brick mount_dir");
                         goto out;
                 }
@@ -421,14 +439,16 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 ret = dict_set_dynstr_with_alloc (rsp_dict, "brick1.mount_dir",
                                                   dst_brickinfo->mount_dir);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to set brick1.mount_dir");
                         goto out;
                 }
 
                 ret = dict_set_int32 (rsp_dict, "brick_count", 1);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to set local_brick_count");
                         goto out;
                 }
@@ -438,7 +458,7 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
 
 out:
         GF_FREE (dup_dstbrick);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -542,7 +562,6 @@ rb_update_dstbrick_port (glusterd_brickinfo_t *dst_brickinfo, dict_t *rsp_dict,
         if (!dict_ret)
                 dst_brickinfo->port = dst_port;
 
-
         if (gf_is_local_addr (dst_brickinfo->hostname)) {
                 gf_log ("", GF_LOG_INFO,
                         "adding dst-brick port no");
@@ -616,7 +635,8 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         if (conf->op_version >= GD_OP_VERSION_3_6_0) {
                 ret = dict_get_str (dict, "brick1.mount_dir", &brick_mount_dir);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
                                 "brick1.mount_dir not present");
                         goto out;
                 }
@@ -673,43 +693,47 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get src brick");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get src brick");
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "src brick=%s", src_brick);
+        gf_msg_debug (this->name, 0, "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get dst brick");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get dst brick");
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "dst brick=%s", dst_brick);
+        gf_msg_debug (this->name, 0, "dst brick=%s", dst_brick);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
         ret = dict_get_str (dict, "operation", &replace_op);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "dict_get on operation failed");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to allocate memory");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Unable to allocate memory");
                 goto out;
         }
 
         ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
                                                       &src_brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Unable to get src-brickinfo");
                 goto out;
         }
@@ -717,14 +741,15 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
         ret = glusterd_get_rb_dst_brickinfo (volinfo, &dst_brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RB_BRICKINFO_GET_FAIL, "Unable to get "
                          "replace brick destination brickinfo");
                 goto out;
         }
 
         ret = glusterd_resolve_brick (dst_brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Unable to resolve dst-brickinfo");
                 goto out;
         }
@@ -738,7 +763,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         if (is_origin_glusterd (dict)) {
                 ctx = glusterd_op_get_ctx();
                 if (!ctx) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_GET_FAIL, "Failed to "
                                 "get op_ctx");
                         ret = -1;
                         goto out;
@@ -758,7 +784,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 gf_log (this->name, GF_LOG_DEBUG, "I AM THE DESTINATION HOST");
                 ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_CRITICAL,
+                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                GD_MSG_BRK_CLEANUP_FAIL,
                                 "Unable to cleanup dst brick");
                         goto out;
                 }
@@ -773,7 +800,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         ret = glusterd_op_perform_replace_brick (volinfo, src_brick,
                                                  dst_brick, dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unable to add dst-brick: "
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_BRICK_ADD_FAIL, "Unable to add dst-brick: "
                         "%s to volume: %s", dst_brick, volinfo->volname);
 		(void) glusterd_svcs_manager (volinfo);
                 goto out;
@@ -783,7 +811,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 
         ret = glusterd_svcs_manager (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_NFS_VOL_FILE_GEN_FAIL,
                         "Failed to generate nfs volume file");
         }
 
@@ -797,7 +826,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 		ret = glusterd_store_volinfo (volinfo,
                                               GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Couldn't store"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_RBOP_STATE_STORE_FAIL, "Couldn't store"
                         " replace brick operation's state");
 
 out:
@@ -833,73 +863,74 @@ glusterd_do_replace_brick (void *data)
 	if (priv->timer) {
 		gf_timer_call_cancel (THIS->ctx, priv->timer);
 		priv->timer = NULL;
-                gf_log ("", GF_LOG_DEBUG,
+                gf_msg_debug ("", 0,
                         "Cancelling timer thread");
 	}
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Replace brick operation detected");
 
         ret = dict_get_bin (dict, "transaction_id", (void **)&txn_id);
-        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+        gf_msg_debug (this->name, 0, "transaction ID = %s",
                 uuid_utoa (*txn_id));
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get src brick");
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get dst brick");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get dst brick");
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "dst brick=%s", dst_brick);
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to find volinfo");
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOLINFO_GET_FAIL, "Unable to find volinfo");
                 goto out;
         }
 
         ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
                                                       &src_brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Unable to get "
-                        "src-brickinfo");
+                gf_msg_debug (this->name, 0, "Unable to get src-brickinfo");
                 goto out;
         }
 
         ret = glusterd_get_rb_dst_brickinfo (volinfo, &dst_brickinfo);
         if (!dst_brickinfo) {
-                gf_log (this->name, GF_LOG_DEBUG, "Unable to get "
-                        "dst-brickinfo");
+                gf_msg_debug (this->name, 0, "Unable to get dst-brickinfo");
                 goto out;
         }
 
         ret = glusterd_resolve_brick (dst_brickinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Unable to resolve "
-                        "dst-brickinfo");
+                gf_msg_debug (this->name, 0, "Unable to resolve dst-brickinfo");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "src-brick-port", &src_port);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get "
-                        "src-brick port");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get src-brick port");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "dst-brick-port", &dst_port);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get dst-brick port");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get dst-brick port");
         }
 
         dst_brickinfo->port = dst_port;
