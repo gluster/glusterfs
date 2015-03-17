@@ -422,10 +422,13 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                   dict_t *xdata)
 {
+        afr_private_t   *priv           = NULL;
         afr_local_t     *local          = NULL;
         gf_dirent_t     *entry          = NULL;
         int              par_read_child = (long) cookie;
         int32_t          read_child     = -1;
+
+        priv = this->private;
 
         if (op_ret == -1)
                 goto out;
@@ -433,6 +436,9 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         afr_readdir_filter_trash_dir (entries, local->fd);
+
+        if (!priv->consistent_metadata)
+                goto out;
 
         list_for_each_entry (entry, &entries->list, list) {
                 if (entry->inode) {

@@ -180,6 +180,7 @@ typedef struct _afr_private {
         uint64_t               sh_readdir_size;
         gf_boolean_t           ensure_durability;
         char                   *sh_domain;
+        gf_boolean_t           consistent_metadata;
 } afr_private_t;
 
 typedef enum {

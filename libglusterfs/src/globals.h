@@ -34,9 +34,11 @@
  */
 #define GD_OP_VERSION_MIN  1 /* MIN is the fresh start op-version, mostly
                                 should not change */
-#define GD_OP_VERSION_MAX  30501 /* MAX VERSION is the maximum count in VME
+#define GD_OP_VERSION_MAX  30504 /* MAX VERSION is the maximum count in VME
                                     table, should keep changing with
                                     introduction of newer versions */
+
+#define GD_OP_VERSION_3_5_4 30504
 
 #include "xlator.h"
 
