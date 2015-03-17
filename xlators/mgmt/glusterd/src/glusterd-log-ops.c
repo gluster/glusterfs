@@ -15,6 +15,7 @@
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
+#include "glusterd-messages.h"
 
 #include <signal.h>
 
@@ -48,7 +49,8 @@ __glusterd_handle_log_rotate (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         snprintf (msg, sizeof (msg), "Unable to decode the "
@@ -60,7 +62,8 @@ __glusterd_handle_log_rotate (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to get volume name");
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "%s", msg);
                 goto out;
         }
 
@@ -105,7 +108,8 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -114,7 +118,8 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
         if (!exists) {
                 snprintf (msg, sizeof (msg), "Volume %s does not exist",
                           volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -123,7 +128,8 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
         if (_gf_false == glusterd_is_volume_started (volinfo)) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started before"
                           " log rotate.", volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_STARTED, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -141,12 +147,13 @@ glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
         if (ret) {
                 snprintf (msg, sizeof (msg), "Incorrect brick %s "
                           "for volume %s", brick, volname);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 goto out;
         }
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -177,13 +184,15 @@ glusterd_op_log_rotate (dict_t *dict)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "volname not found");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volname not found");
                 goto out;
         }
 
         ret = dict_get_uint64 (dict, "rotate-key", &key);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "rotate key not found");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "rotate key not found");
                 goto out;
         }
 
@@ -195,7 +204,8 @@ glusterd_op_log_rotate (dict_t *dict)
 
         ret = glusterd_brickinfo_new_from_brick (brick, &tmpbrkinfo);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_NOT_FOUND,
                         "cannot get brickinfo from brick");
                 goto out;
         }
@@ -220,7 +230,8 @@ cont:
                 GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
                 file = fopen (pidfile, "r+");
                 if (!file) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED, "Unable to open pidfile: %s",
                                 pidfile);
                         ret = -1;
                         goto out;
@@ -228,7 +239,8 @@ cont:
 
                 ret = fscanf (file, "%d", &pid);
                 if (ret <= 0) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED, "Unable to read pidfile: %s",
                                 pidfile);
                         ret = -1;
                         goto out;
@@ -241,11 +253,13 @@ cont:
 
                 ret = rename (brickinfo->logfile, logfile);
                 if (ret)
-                        gf_log ("", GF_LOG_WARNING, "rename failed");
+                        gf_msg ("glusterd", GF_LOG_WARNING, errno,
+                                GD_MSG_FILE_OP_FAILED, "rename failed");
 
                 ret = kill (pid, SIGHUP);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to SIGHUP to %d", pid);
+                        gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                                GD_MSG_PID_KILL_FAIL, "Unable to SIGHUP to %d", pid);
                         goto out;
                 }
                 ret = 0;
