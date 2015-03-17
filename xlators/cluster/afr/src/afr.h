@@ -125,6 +125,7 @@ typedef struct _afr_private {
 	/* pump dependencies */
 	void                   *pump_private;
 	gf_boolean_t           use_afr_in_pump;
+        gf_boolean_t           consistent_metadata;
 } afr_private_t;
 
 
