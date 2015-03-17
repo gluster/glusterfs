@@ -128,10 +128,11 @@
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define GLUSTERFS_PARENT_ENTRYLK "glusterfs.parent-entrylk"
 #define GLUSTERFS_INODELK_DOM_COUNT "glusterfs.inodelk-dom-count"
-#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 #define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
 #define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
+
+#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"

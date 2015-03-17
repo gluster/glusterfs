@@ -20,6 +20,8 @@ enum gf_marker_mem_types_ {
         gf_marker_mt_quota_inode_ctx_t,
         gf_marker_mt_marker_inode_ctx_t,
         gf_marker_mt_inode_contribution_t,
+        gf_marker_mt_quota_meta_t,
+        gf_marker_mt_quota_synctask_t,
         gf_marker_mt_end
 };
 #endif

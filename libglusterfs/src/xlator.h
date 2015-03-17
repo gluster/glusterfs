@@ -960,6 +960,7 @@ int loc_path (loc_t *loc, const char *bname);
 void loc_gfid (loc_t *loc, uuid_t gfid);
 char* loc_gfid_utoa (loc_t *loc);
 gf_boolean_t loc_is_root (loc_t *loc);
+int32_t loc_build_child (loc_t *child, loc_t *parent, char *name);
 int xlator_mem_acct_init (xlator_t *xl, int num_types);
 int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int glusterd_check_log_level (const char *value);
