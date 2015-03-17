@@ -860,7 +860,49 @@ loc_is_root (loc_t *loc)
         } else if (loc && loc->inode && __is_root_gfid (loc->inode->gfid)) {
                 return _gf_true;
         }
+
         return _gf_false;
+}
+
+int32_t
+loc_build_child (loc_t *child, loc_t *parent, char *name)
+{
+        int32_t  ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("xlator", child, out);
+        GF_VALIDATE_OR_GOTO ("xlator", parent, out);
+        GF_VALIDATE_OR_GOTO ("xlator", name, out);
+
+        loc_gfid (parent, child->pargfid);
+
+        if (strcmp (parent->path, "/") == 0)
+                ret = gf_asprintf ((char **)&child->path, "/%s", name);
+        else
+                ret = gf_asprintf ((char **)&child->path, "%s/%s", parent->path,
+                                   name);
+
+        if (ret < 0 || !child->path) {
+                ret = -1;
+                goto out;
+        }
+
+        child->name = strrchr (child->path, '/') + 1;
+
+        child->parent = inode_ref (parent->inode);
+        child->inode = inode_new (parent->inode->table);
+
+        if (!child->inode) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if ((ret < 0) && child)
+                loc_wipe (child);
+
+        return ret;
 }
 
 int

@@ -2413,22 +2413,28 @@ static int
 print_quota_list_output (cli_local_t *local, char *mountdir,
                          char *default_sl, char *path)
 {
-        int64_t used_space       = 0;
-        int64_t avail            = 0;
-        char    *used_str         = NULL;
-        char    *avail_str        = NULL;
-        int     ret               = -1;
-        char    *sl_final         = NULL;
-        char    *hl_str           = NULL;
-        double  sl_num           = 0;
-        gf_boolean_t sl          = _gf_false;
-        gf_boolean_t hl          = _gf_false;
-        char percent_str[20]     = {0};
+        int64_t         avail            = 0;
+        char           *used_str         = NULL;
+        char           *avail_str        = NULL;
+        int             ret              = -1;
+        char           *sl_final         = NULL;
+        char           *hl_str           = NULL;
+        double          sl_num           = 0;
+        gf_boolean_t    sl               = _gf_false;
+        gf_boolean_t    hl               = _gf_false;
+        char            percent_str[20]  = {0};
+        ssize_t         xattr_size       = 0;
 
         struct quota_limit {
                 int64_t hl;
                 int64_t sl;
         } __attribute__ ((__packed__)) existing_limits;
+
+        struct quota_meta {
+                int64_t size;
+                int64_t file_count;
+                int64_t dir_count;
+        } __attribute__ ((__packed__)) used_space;
 
         ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.limit-set",
                              (void *)&existing_limits,
@@ -2490,10 +2496,26 @@ print_quota_list_output (cli_local_t *local, char *mountdir,
                 sl_final = percent_str;
         }
 
-        ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
-                             &used_space, sizeof (used_space));
+        used_space.size = used_space.file_count = used_space.dir_count = 0;
+        xattr_size = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
+                                    NULL, 0);
+        if (xattr_size > sizeof (int64_t)) {
+                ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
+                                     &used_space, sizeof (used_space));
+        } else if (xattr_size > 0) {
+                /* This is for compatibility.
+                 * Older version had only file usage
+                 */
+                ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
+                             &(used_space.size), sizeof (used_space.size));
+        } else {
+                ret = -1;
+        }
 
         if (ret < 0) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get quota size "
+                        "on path %s: %s", mountdir, strerror (errno));
+
                 if (global_state->mode & GLUSTER_MODE_XML) {
                         ret = cli_quota_xml_output (local, path, hl_str,
                                                     sl_final, "N/A",
@@ -2510,14 +2532,16 @@ print_quota_list_output (cli_local_t *local, char *mountdir,
                                  "N/A", "N/A", "N/A", "N/A");
                 }
         } else {
-                used_space = ntoh64 (used_space);
+                used_space.size = ntoh64 (used_space.size);
+                used_space.file_count = ntoh64 (used_space.file_count);
+                used_space.dir_count = ntoh64 (used_space.dir_count);
 
-                used_str = gf_uint64_2human_readable (used_space);
+                used_str = gf_uint64_2human_readable (used_space.size);
 
-                if (existing_limits.hl > used_space) {
-                        avail = existing_limits.hl - used_space;
+                if (existing_limits.hl > used_space.size) {
+                        avail = existing_limits.hl - used_space.size;
                         hl = _gf_false;
-                        if (used_space > sl_num)
+                        if (used_space.size > sl_num)
                                 sl = _gf_true;
                         else
                                 sl = _gf_false;
@@ -2544,8 +2568,9 @@ print_quota_list_output (cli_local_t *local, char *mountdir,
                 if (used_str == NULL) {
                         cli_out ("%-40s %7s %9s %11"PRIu64
                                  "%9"PRIu64" %15s %18s", path, hl_str,
-                                  sl_final, used_space, avail, sl? "Yes" : "No",
-                                  hl? "Yes" : "No");
+                                  sl_final, used_space.size, avail,
+                                  sl ? "Yes" : "No",
+                                  hl ? "Yes" : "No");
                 } else {
                         cli_out ("%-40s %7s %9s %11s %7s %15s %20s", path, hl_str,
                                  sl_final, used_str, avail_str, sl? "Yes" : "No",

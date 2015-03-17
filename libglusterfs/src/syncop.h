@@ -439,4 +439,8 @@ syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
 int
 syncop_ipc (xlator_t *subvol, int op, dict_t *xdata_in, dict_t **xdata_out);
 
+int
+syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
+                dict_t *dict, dict_t *xdata);
+
 #endif /* _SYNCOP_H */

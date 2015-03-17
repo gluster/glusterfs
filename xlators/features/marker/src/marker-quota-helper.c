@@ -37,23 +37,27 @@ mq_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
         if (parent)
                 loc->parent = inode_ref (parent);
 
+        if (!uuid_is_null (inode->gfid))
+                uuid_copy (loc->gfid, inode->gfid);
+
         loc->path = gf_strdup (path);
         if (!loc->path) {
                 gf_log ("loc fill", GF_LOG_ERROR, "strdup failed");
-                goto loc_wipe;
+                goto out;
         }
 
         loc->name = strrchr (loc->path, '/');
         if (loc->name)
                 loc->name++;
         else
-                goto loc_wipe;
+                goto out;
 
         ret = 0;
-loc_wipe:
+
+out:
         if (ret < 0)
                 loc_wipe (loc);
-out:
+
         return ret;
 }
 
@@ -222,37 +226,39 @@ mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
 
 
 int32_t
-mq_dict_set_contribution (xlator_t *this, dict_t *dict,
-                          loc_t *loc)
+mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
+                          uuid_t gfid, char *contri_key)
 {
-        int32_t ret              = -1;
-        char    contri_key [512] = {0, };
+        int32_t ret                  = -1;
+        char    key[CONTRI_KEY_MAX]  = {0, };
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
 
-        if (loc->parent) {
-                GET_CONTRI_KEY (contri_key, loc->parent->gfid, ret);
-                if (ret < 0) {
-                        ret = -1;
-                        goto out;
-                }
+        if (gfid && !uuid_is_null(gfid)) {
+                GET_CONTRI_KEY (key, gfid, ret);
+        } else if (loc->parent) {
+                GET_CONTRI_KEY (key, loc->parent->gfid, ret);
         } else {
                 /* nameless lookup, fetch contributions to all parents */
-                GET_CONTRI_KEY (contri_key, NULL, ret);
+                GET_CONTRI_KEY (key, NULL, ret);
         }
 
-        ret = dict_set_int64 (dict, contri_key, 0);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "unable to set dict value on %s.",
-                        loc->path);
+        if (ret < 0)
                 goto out;
-        }
 
-        ret = 0;
+        ret = dict_set_int64 (dict, key, 0);
+        if (ret < 0)
+                goto out;
+
+        if (contri_key)
+                strncpy (contri_key, key, CONTRI_KEY_MAX);
+
 out:
+        if (ret < 0)
+                gf_log_callingfn (this->name, GF_LOG_ERROR, "dict set failed");
+
         return ret;
 }
 

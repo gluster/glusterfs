@@ -607,7 +607,7 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_set_inode_xattr (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -681,7 +681,7 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_set_inode_xattr (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -827,7 +827,7 @@ marker_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if (priv->feature_enabled & GF_QUOTA)
-                mq_reduce_parent_size (this, &local->loc, -1);
+                mq_reduce_parent_size_txn (this, &local->loc, -1);
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -896,7 +896,7 @@ marker_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_QUOTA) {
                 if (!local->skip_txn)
-                        mq_reduce_parent_size (this, &local->loc, -1);
+                        mq_reduce_parent_size_txn (this, &local->loc, -1);
         }
 
         if (priv->feature_enabled & GF_XTIME)
@@ -977,7 +977,7 @@ marker_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_QUOTA) {
                 if (!local->skip_txn)
-                        mq_set_inode_xattr (this, &local->loc);
+                        mq_create_xattrs_txn (this, &local->loc);
         }
 
 
@@ -1065,10 +1065,11 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                         frame->root->unique);
         }
 
-        mq_reduce_parent_size (this, &oplocal->loc, oplocal->contribution);
+        mq_reduce_parent_size_txn (this, &oplocal->loc, oplocal->contribution);
 
         if (local->loc.inode != NULL) {
-                mq_reduce_parent_size (this, &local->loc, local->contribution);
+                mq_reduce_parent_size_txn (this, &local->loc,
+                                           local->contribution);
         }
 
         newloc.inode = inode_ref (oplocal->loc.inode);
@@ -1078,7 +1079,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 newloc.name++;
         newloc.parent = inode_ref (local->loc.parent);
 
-        mq_set_inode_xattr (this, &newloc);
+        mq_create_xattrs_txn (this, &newloc);
 
         loc_wipe (&newloc);
 
@@ -1181,13 +1182,13 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *prenewparent, struct iatt *postnewparent,
                    dict_t *xdata)
 {
-        marker_conf_t  *priv                 = NULL;
-        marker_local_t *local                = NULL;
-        marker_local_t *oplocal              = NULL;
-        call_stub_t    *stub                 = NULL;
-        int32_t         ret                  = 0;
-        char            contri_key [512]     = {0, };
-        loc_t           newloc               = {0, };
+        marker_conf_t  *priv                            = NULL;
+        marker_local_t *local                           = NULL;
+        marker_local_t *oplocal                         = NULL;
+        call_stub_t    *stub                            = NULL;
+        int32_t         ret                             = 0;
+        char            contri_key[CONTRI_KEY_MAX]      = {0, };
+        loc_t           newloc                          = {0, };
 
         local = (marker_local_t *) frame->local;
 
@@ -1284,10 +1285,11 @@ int32_t
 marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
-        marker_local_t       *local           = NULL, *oplocal = NULL;
-        char                  contri_key[512] = {0, };
-        int32_t               ret             = 0;
-        int64_t              *contribution    = 0;
+        marker_local_t       *local                      = NULL;
+        marker_local_t       *oplocal                    = NULL;
+        char                  contri_key[CONTRI_KEY_MAX] = {0, };
+        int32_t               ret                        = 0;
+        int64_t              *contribution               = 0;
 
         local = frame->local;
         oplocal = local->oplocal;
@@ -1336,10 +1338,11 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
                                  int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
-        marker_local_t *local           = NULL, *oplocal = NULL;
-        char            contri_key[512] = {0, };
-        int32_t         ret             = 0;
-        int64_t        *contribution    = 0;
+        marker_local_t *local                      = NULL;
+        marker_local_t *oplocal                    = NULL;
+        char            contri_key[CONTRI_KEY_MAX] = {0, };
+        int32_t         ret                        = 0;
+        int64_t        *contribution               = 0;
 
         local = frame->local;
         oplocal = local->oplocal;
@@ -1403,9 +1406,10 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
                                  int32_t op_errno, dict_t *xdata)
 {
-        marker_local_t *local           = NULL, *oplocal = NULL;
-        char            contri_key[512] = {0, };
-        int32_t         ret             = 0;
+        marker_local_t *local                      = NULL;
+        marker_local_t *oplocal                    = NULL;
+        char            contri_key[CONTRI_KEY_MAX] = {0, };
+        int32_t         ret                        = 0;
 
         local = frame->local;
         oplocal = local->oplocal;
@@ -1764,8 +1768,9 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->feature_enabled & GF_QUOTA)
-                mq_set_inode_xattr (this, &local->loc);
+        if (priv->feature_enabled & GF_QUOTA) {
+                mq_create_xattrs_txn (this, &local->loc);
+        }
 
         if (priv->feature_enabled & GF_XTIME)
                 marker_xtime_update_marks (this, local);
@@ -1838,7 +1843,7 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         priv = this->private;
 
         if ((priv->feature_enabled & GF_QUOTA) && (S_ISREG (local->mode))) {
-                mq_set_inode_xattr (this, &local->loc);
+                mq_create_xattrs_txn (this, &local->loc);
         }
 
         if (priv->feature_enabled & GF_XTIME)
@@ -2706,7 +2711,7 @@ marker_lookup (call_frame_t *frame, xlator_t *this,
                 goto err;
 
         if ((priv->feature_enabled & GF_QUOTA) && xattr_req)
-                mq_req_xattr (this, loc, xattr_req);
+                mq_req_xattr (this, loc, xattr_req, NULL);
 wind:
         STACK_WIND (frame, marker_lookup_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
@@ -2854,7 +2859,7 @@ marker_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
                         loc.parent = local->loc.inode = inode_ref (fd->inode);
 
-                        mq_req_xattr (this, &loc, dict);
+                        mq_req_xattr (this, &loc, dict, NULL);
                 }
 
                 STACK_WIND (frame, marker_readdirp_cbk,

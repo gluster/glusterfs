@@ -21,7 +21,7 @@
 #define QUOTA_XATTR_PREFIX "trusted.glusterfs"
 #define QUOTA_DIRTY_KEY "trusted.glusterfs.quota.dirty"
 
-#define CONTRIBUTION "contri"
+#define CONTRIBUTION  "contri"
 #define CONTRI_KEY_MAX 512
 #define READDIR_BUF 4096
 
@@ -59,21 +59,21 @@
                 ret = 0;                                \
         } while (0);
 
-#define GET_CONTRI_KEY(var, _gfid, _ret)              \
-        do {                                          \
-                if (_gfid != NULL) {                  \
-                        char _gfid_unparsed[40];      \
-                        uuid_unparse (_gfid, _gfid_unparsed);           \
-                        _ret = snprintf (var, CONTRI_KEY_MAX,           \
-                                         QUOTA_XATTR_PREFIX             \
+#define GET_CONTRI_KEY(var, _gfid, _ret)                                  \
+        do {                                                              \
+                if (_gfid != NULL) {                                      \
+                        char _gfid_unparsed[40];                          \
+                        uuid_unparse (_gfid, _gfid_unparsed);             \
+                        _ret = snprintf (var, CONTRI_KEY_MAX,             \
+                                         QUOTA_XATTR_PREFIX               \
                                          ".%s.%s." CONTRIBUTION, "quota", \
-                                         _gfid_unparsed);               \
-                } else {                                                \
-                        _ret = snprintf (var, CONTRI_KEY_MAX,           \
-                                         QUOTA_XATTR_PREFIX             \
-                                         ".%s.." CONTRIBUTION, "quota"); \
-                }                                                       \
-        } while (0);
+                                         _gfid_unparsed);                 \
+                } else {                                                  \
+                        _ret = snprintf (var, CONTRI_KEY_MAX,             \
+                                         QUOTA_XATTR_PREFIX               \
+                                         ".%s.." CONTRIBUTION, "quota");  \
+                }                                                         \
+        } while (0)
 
 #define QUOTA_SAFE_INCREMENT(lock, var)         \
         do {                                    \
@@ -84,6 +84,8 @@
 
 struct quota_inode_ctx {
         int64_t                size;
+        int64_t                file_count;
+        int64_t                dir_count;
         int8_t                 dirty;
         gf_boolean_t           updation_status;
         gf_lock_t              lock;
@@ -91,9 +93,28 @@ struct quota_inode_ctx {
 };
 typedef struct quota_inode_ctx quota_inode_ctx_t;
 
+struct quota_meta {
+        int64_t    size;
+        int64_t    file_count;
+        int64_t    dir_count;
+};
+typedef struct quota_meta quota_meta_t;
+
+struct quota_synctask {
+        xlator_t      *this;
+        loc_t          loc;
+        dict_t        *dict;
+        struct iatt    buf;
+        int64_t        contri;
+        gf_boolean_t   is_static;
+};
+typedef struct quota_synctask quota_synctask_t;
+
 struct inode_contribution {
         struct list_head contri_list;
         int64_t          contribution;
+        int64_t          file_count;
+        int64_t          dir_count;
         uuid_t           gfid;
   gf_lock_t lock;
 };
@@ -103,7 +124,7 @@ int32_t
 mq_get_lock_on_parent (call_frame_t *, xlator_t *);
 
 int32_t
-mq_req_xattr (xlator_t *, loc_t *, dict_t *);
+mq_req_xattr (xlator_t *, loc_t *, dict_t *, char *);
 
 int32_t
 init_quota_priv (xlator_t *);
@@ -117,12 +138,21 @@ mq_set_inode_xattr (xlator_t *, loc_t *);
 int
 mq_initiate_quota_txn (xlator_t *, loc_t *);
 
+int
+mq_initiate_quota_blocking_txn (xlator_t *, loc_t *);
+
+int
+mq_create_xattrs_txn (xlator_t *this, loc_t *loc);
+
 int32_t
 mq_dirty_inode_readdir (call_frame_t *, void *, xlator_t *,
                         int32_t, int32_t, fd_t *, dict_t *);
 
 int32_t
 mq_reduce_parent_size (xlator_t *, loc_t *, int64_t);
+
+int32_t
+mq_reduce_parent_size_txn (xlator_t *, loc_t *, int64_t);
 
 int32_t
 mq_rename_update_newpath (xlator_t *, loc_t *);
