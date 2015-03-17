@@ -36,6 +36,95 @@
  *      This function restores the atime and mtime of marker.tstamp
  *      if present from snapped marker.tstamp file.
  */
+
+int32_t
+glusterd_snapobject_delete (glusterd_snap_t *snap)
+{
+        if (snap == NULL) {
+                gf_msg(THIS->name, GF_LOG_WARNING, 0,
+                       GD_MSG_PARAM_NULL, "snap is NULL");
+                return -1;
+        }
+
+        cds_list_del_init (&snap->snap_list);
+        cds_list_del_init (&snap->volumes);
+        if (LOCK_DESTROY(&snap->lock))
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        GD_MSG_LOCK_DESTROY_FAILED,
+                        "Failed destroying lock"
+                        "of snap %s", snap->snapname);
+
+        GF_FREE (snap->description);
+        GF_FREE (snap);
+
+        return 0;
+}
+
+
+/*
+ * This function is to be called only from glusterd_peer_detach_cleanup()
+ * as this continues to delete snaps inspite of faiure while deleting
+ * one, as we don't want to fail peer_detach in such a case.
+ */
+int
+glusterd_cleanup_snaps_for_volume (glusterd_volinfo_t *volinfo)
+{
+        int32_t                  op_ret         = 0;
+        int32_t                  ret            = 0;
+        xlator_t                *this           = NULL;
+        glusterd_volinfo_t      *snap_vol       = NULL;
+        glusterd_volinfo_t      *dummy_snap_vol = NULL;
+        glusterd_snap_t         *snap           = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        cds_list_for_each_entry_safe (snap_vol, dummy_snap_vol,
+                                      &volinfo->snap_volumes,
+                                      snapvol_list) {
+                ret = glusterd_store_delete_volume (snap_vol);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                               GD_MSG_VOL_DELETE_FAIL, "Failed to remove "
+                               "volume %s from store", snap_vol->volname);
+                        op_ret = ret;
+                        continue;
+                }
+
+                ret = glusterd_volinfo_delete (snap_vol);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                               GD_MSG_VOL_DELETE_FAIL, "Failed to remove "
+                              "volinfo %s ", snap_vol->volname);
+                        op_ret = ret;
+                        continue;
+                }
+
+                snap = snap_vol->snapshot;
+                ret = glusterd_store_delete_snap (snap);
+                if (ret) {
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                               GD_MSG_VOL_DELETE_FAIL, "Failed to remove "
+                               "snap %s from store", snap->snapname);
+                        op_ret = ret;
+                        continue;
+                }
+
+                ret = glusterd_snapobject_delete (snap);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_VOL_DELETE_FAIL, "Failed to delete "
+                                "snap object %s", snap->snapname);
+                        op_ret = ret;
+                        continue;
+                }
+        }
+
+        return op_ret;
+}
+
+
+
 int
 glusterd_snap_geo_rep_restore (glusterd_volinfo_t *snap_volinfo,
                                glusterd_volinfo_t *new_volinfo)

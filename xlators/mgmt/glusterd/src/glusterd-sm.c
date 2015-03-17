@@ -631,6 +631,15 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
                         gf_msg (THIS->name, GF_LOG_INFO, 0,
                                 GD_MSG_STALE_VOL_DELETE_INFO,
                                 "Deleting stale volume %s", volinfo->volname);
+
+                        ret = glusterd_cleanup_snaps_for_volume (volinfo);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOL_DELETE_FAIL,
+                                        "Error deleting snapshots for volume %s",
+                                        volinfo->volname);
+                        }
+
                         ret = glusterd_delete_volume (volinfo);
                         if (ret) {
                                 gf_msg (THIS->name, GF_LOG_ERROR, 0,

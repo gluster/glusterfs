@@ -38,6 +38,11 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                                glusterd_volinfo_t *new_volinfo,
                                glusterd_volinfo_t *snap_volinfo,
                                int32_t volcount);
+int32_t
+glusterd_snapobject_delete (glusterd_snap_t *snap);
+
+int32_t
+glusterd_cleanup_snaps_for_volume (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_missed_snapinfo_new (glusterd_missed_snap_info **missed_snapinfo);
