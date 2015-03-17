@@ -21,7 +21,7 @@ glusterd_peerinfo_destroy (struct rcu_head *head)
         glusterd_peer_hostname_t *tmp      = NULL;
 
         /* This works as rcu_head is the first member of gd_rcu_head */
-        peerinfo = caa_container_of (head, glusterd_peerinfo_t, head);
+        peerinfo = caa_container_of (head, glusterd_peerinfo_t, rcu_head);
 
         /* Set THIS to the saved this. Needed by some functions below */
         THIS = peerinfo->head.this;
@@ -62,8 +62,6 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
                 /* Someone else is already deleting the peer, so give up */
                 return 0;
         }
-
-        uatomic_set (&peerinfo->deleting, _gf_true);
 
         if (peerinfo->quorum_contrib != QUORUM_NONE)
                 quorum_action = _gf_true;

@@ -102,9 +102,8 @@ struct glusterd_peerinfo_ {
         gf_boolean_t                    locked;
         gf_boolean_t                    detaching;
         /* Members required for proper cleanup using RCU */
-        gd_rcu_head                     head;
+        gd_rcu_head                     rcu_head;
         pthread_mutex_t                 delete_lock;
-        gf_boolean_t                    deleting;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
