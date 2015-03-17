@@ -218,7 +218,8 @@ append_time_stamp (char *name)
 void
 trash_local_wipe (trash_local_t *local)
 {
-        GF_VALIDATE_OR_GOTO ("trash", local, out);
+        if (!local)
+                goto out;
 
         loc_wipe (&local->loc);
         loc_wipe (&local->newloc);
