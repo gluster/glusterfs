@@ -17,7 +17,7 @@ TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 #Test that readdir returns entries even when no gfids are present
-EXPECT 4 echo $(ls -l $M0 | grep -vi total | wc -l)
+EXPECT 4 echo $(ls $M0 | grep -v '^\.' | wc -l)
 sleep 2;
 #stat the files and check that the files have same gfids on the bricks now
 TEST stat $M0/1
