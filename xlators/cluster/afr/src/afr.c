@@ -200,6 +200,9 @@ reconfigure (xlator_t *this, dict_t *options)
 	GF_OPTION_RECONF ("iam-self-heal-daemon", priv->shd.iamshd, options,
 			  bool, out);
 
+        GF_OPTION_RECONF ("consistent-metadata", priv->consistent_metadata,
+                          options, bool, out);
+
         priv->did_discovery = _gf_false;
 
         ret = 0;
@@ -346,6 +349,9 @@ init (xlator_t *this)
 	GF_OPTION_INIT ("self-heal-daemon", priv->shd.enabled, bool, out);
 
 	GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
+
+        GF_OPTION_INIT ("consistent-metadata", priv->consistent_metadata, bool,
+                        out);
 
         priv->wait_count = 1;
 
@@ -749,5 +755,15 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "off",
 	},
+        { .key = {"consistent-metadata"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "If this option is enabled, readdirp will force "
+                         "lookups on those entries read whose read child is "
+                         "not the same as that of the parent. This will "
+                         "guarantee that all read operations on a file serve "
+                         "attributes from the same subvol as long as it holds "
+                         " a good copy of the file/dir.",
+        },
         { .key  = {NULL} },
 };

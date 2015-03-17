@@ -149,6 +149,10 @@ afr_validate_read_subvol (inode_t *inode, xlator_t *this, int par_read_subvol)
          * either afr_data_subvol_get() or afr_metadata_subvol_get() would
          * yield the same result. Hence, choosing afr_data_subvol_get() below.
          */
+
+        if (!priv->consistent_metadata)
+                return 0;
+
         entry_read_subvol = afr_data_subvol_get (inode, this, 0, 0);
         if (entry_read_subvol != par_read_subvol)
                 return -1;
