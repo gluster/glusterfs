@@ -213,6 +213,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("quorum-reads", priv->quorum_reads, options,
                           bool, out);
+        GF_OPTION_RECONF ("consistent-metadata", priv->consistent_metadata,
+                          options, bool, out);
 
         priv->did_discovery = _gf_false;
 
@@ -363,6 +365,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
 
         GF_OPTION_INIT ("quorum-reads", priv->quorum_reads, bool, out);
+        GF_OPTION_INIT ("consistent-metadata", priv->consistent_metadata, bool,
+                        out);
 
         priv->wait_count = 1;
 
@@ -779,6 +783,16 @@ struct volume_options options[] = {
           .default_value = "600",
           .description = "time interval for checking the need to self-heal "
                          "in self-heal-daemon"
+        },
+        { .key = {"consistent-metadata"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "If this option is enabled, readdirp will force "
+                         "lookups on those entries read whose read child is "
+                         "not the same as that of the parent. This will "
+                         "guarantee that all read operations on a file serve "
+                         "attributes from the same subvol as long as it holds "
+                         " a good copy of the file/dir.",
         },
         { .key  = {NULL} },
 };
