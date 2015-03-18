@@ -170,7 +170,9 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
                  */
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set peerinfo");
                         goto unlock;
                 }
 
@@ -182,7 +184,7 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
 unlock:
         rcu_read_unlock ();
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
 
 out:
         if (friends)
@@ -197,7 +199,7 @@ glusterd_ac_none (glusterd_friend_sm_event_t *event, void *ctx)
 {
         int ret = 0;
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -207,7 +209,8 @@ glusterd_ac_error (glusterd_friend_sm_event_t *event, void *ctx)
 {
         int ret = 0;
 
-        gf_log ("", GF_LOG_ERROR, "Received event %d ", event->event);
+        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                GD_MSG_AC_ERROR, "Received event %d ", event->event);
 
         return ret;
 }
@@ -227,7 +230,8 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
 
         peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
         if (!peerinfo) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 ret = -1;
                 goto out;
@@ -237,7 +241,9 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
                 (GD_FRIEND_EVENT_PROBE, &new_event);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get new new_event");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_EVENT_NEW_GET_FAIL,
+                        "Unable to get new new_event");
                 ret = -1;
                 goto out;
         }
@@ -260,8 +266,10 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
         ret = glusterd_friend_sm_inject_event (new_event);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject new_event %d, "
-                                "ret = %d", new_event->event, ret);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_EVENT_INJECT_FAIL,
+                        "Unable to inject new_event %d, "
+                        "ret = %d", new_event->event, ret);
         }
 
 out:
@@ -275,7 +283,7 @@ out:
                         GF_FREE (new_ev_ctx->hostname);
                 GF_FREE (new_ev_ctx);
         }
-        gf_log ("", GF_LOG_DEBUG, "returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "returning with %d", ret);
         return ret;
 }
 
@@ -300,7 +308,9 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
 
         peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
         if (!peerinfo) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND,
+                        "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 goto out;
         }
@@ -320,7 +330,7 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
 out:
         rcu_read_unlock ();
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -382,7 +392,9 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
                  */
                 ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set peerinfo");
                         goto out;
                 }
 
@@ -397,7 +409,7 @@ out:
 
         if (dict)
                 dict_unref (dict);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -427,7 +439,8 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
 
         peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
         if (!peerinfo) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 goto out;
         }
@@ -443,8 +456,9 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
                         gf_uuid_copy (new_event->peerid, peerinfo->uuid);
                         ret = glusterd_friend_sm_inject_event (new_event);
                 } else {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                 "Unable to get event");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_EVENT_NEW_GET_FAIL,
+                                "Unable to get event");
                 }
 
                 if (ctx) {
@@ -473,7 +487,7 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
 out:
         rcu_read_unlock ();
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -516,7 +530,8 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 
         cur_peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
         if (!cur_peerinfo) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 ret = -1;
                 goto out;
@@ -559,7 +574,9 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set peerinfo");
                         goto out;
                 }
 
@@ -569,7 +586,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 }
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
 
 out:
         rcu_read_unlock ();
@@ -606,7 +623,8 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
                                 "Deleting stale volume %s", volinfo->volname);
                         ret = glusterd_delete_volume (volinfo);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_STALE_VOL_REMOVE_FAIL,
                                         "Error deleting stale volume");
                                 goto out;
                         }
@@ -614,7 +632,7 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
         }
         ret = 0;
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -662,7 +680,8 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
 
         ret = glusterd_peer_detach_cleanup (priv);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING,
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        GD_MSG_PEER_DETACH_CLEANUP_FAIL,
                         "Peer detach cleanup was not successful");
                 ret = 0;
         }
@@ -671,7 +690,7 @@ out:
                 GF_FREE (new_event->peername);
         GF_FREE (new_event);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -687,7 +706,9 @@ glusterd_ac_friend_remove (glusterd_friend_sm_event_t *event, void *ctx)
 
         peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
         if (!peerinfo) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND,
+                        "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 rcu_read_unlock ();
                 goto out;
@@ -704,7 +725,9 @@ glusterd_ac_friend_remove (glusterd_friend_sm_event_t *event, void *ctx)
 
         ret = glusterd_peerinfo_cleanup (peerinfo);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Cleanup returned: %d", ret);
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_DETACH_CLEANUP_FAIL,
+                        "Cleanup returned: %d", ret);
         }
 out:
         return 0;
@@ -747,7 +770,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
         if (!peerinfo) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         event->peername, uuid_utoa (event->peerid));
                 ret = -1;
                 rcu_read_unlock ();
@@ -792,7 +816,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
             (conf->op_version >= GD_OP_VERSION_3_6_0)) {
                 ret = glusterd_import_friend_missed_snap_list (ev_ctx->vols);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MISSED_SNAP_LIST_STORE_FAIL,
                                 "Failed to import peer's "
                                 "missed_snaps_list.");
                         event_type = GD_FRIEND_EVENT_LOCAL_RJT;
@@ -810,7 +835,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
                                                          event->peername,
                                                          event->peerid);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_COMPARE_CONFLICT,
                                 "Conflict in comparing peer's snapshots");
                         event_type = GD_FRIEND_EVENT_LOCAL_RJT;
                         op_errno = GF_PROBE_SNAP_CONFLICT;
@@ -821,7 +847,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         ret = glusterd_friend_sm_new_event (event_type, &new_event);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Out of Memory");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Out of Memory");
         }
 
         new_event->peername = gf_strdup (event->peername);
@@ -861,7 +888,7 @@ out:
                 GF_FREE (new_event->peername);
         GF_FREE (new_event);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -1112,7 +1139,7 @@ int
 glusterd_friend_sm_inject_event (glusterd_friend_sm_event_t *event)
 {
         GF_ASSERT (event);
-        gf_log ("glusterd", GF_LOG_DEBUG, "Enqueue event: '%s'",
+        gf_msg_debug ("glusterd", 0, "Enqueue event: '%s'",
                 glusterd_friend_sm_event_name_get (event->event));
         cds_list_add_tail (&event->list, &gd_friend_sm_queue);
 
@@ -1195,7 +1222,8 @@ glusterd_friend_sm ()
                         peerinfo = glusterd_peerinfo_find (event->peerid,
                                                            event->peername);
                         if (!peerinfo) {
-                                gf_log ("glusterd", GF_LOG_CRITICAL, "Received"
+                                gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
+                                        GD_MSG_PEER_NOT_FOUND, "Received"
                                         " event %s with empty peer info",
                                 glusterd_friend_sm_event_name_get (event_type));
 
@@ -1203,7 +1231,7 @@ glusterd_friend_sm ()
                                 rcu_read_unlock ();
                                 continue;
                         }
-                        gf_log ("", GF_LOG_DEBUG, "Dequeued event of type: '%s'",
+                        gf_msg_debug ("glusterd", 0, "Dequeued event of type: '%s'",
                                 glusterd_friend_sm_event_name_get (event_type));
 
 
@@ -1232,7 +1260,9 @@ glusterd_friend_sm ()
                         }
 
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "handler returned: "
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_HANDLER_RETURNED,
+                                        "handler returned: "
                                                 "%d", ret);
                                 glusterd_destroy_friend_event_context (event);
                                 GF_FREE (event);
@@ -1251,7 +1281,9 @@ glusterd_friend_sm ()
                                  event_type);
 
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "Unable to transition"
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_EVENT_STATE_TRANSITION_FAIL,
+                                        "Unable to transition"
                                         " state from '%s' to '%s' for event '%s'",
                         glusterd_friend_sm_state_name_get(old_state),
                         glusterd_friend_sm_state_name_get(state[event_type].next_state),
@@ -1275,7 +1307,8 @@ glusterd_friend_sm ()
                                  * something has gone terribly wrong.
                                  */
                                 ret = -1;
-                                gf_log ("glusterd", GF_LOG_ERROR,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_PEER_NOT_FOUND,
                                         "Cannot find peer %s(%s)",
                                         event->peername, uuid_utoa (event->peerid));
                                 goto out;

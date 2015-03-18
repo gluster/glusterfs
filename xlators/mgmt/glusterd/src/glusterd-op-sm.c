@@ -204,12 +204,13 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
         ret = dict_set_bin (dict, "transaction_id",
                             *txn_id, sizeof (**txn_id));
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                        "Failed to set transaction id.");
                 goto out;
         }
 
-        gf_log ("", GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Transaction_id = %s", uuid_utoa (**txn_id));
 out:
         if (ret && *txn_id) {
@@ -253,13 +254,13 @@ glusterd_get_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
 
         (*opinfo) = opinfo_obj->opinfo;
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Successfully got opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -307,7 +308,7 @@ glusterd_set_txn_opinfo (uuid_t *txn_id, glusterd_op_info_t  *opinfo)
 
         opinfo_obj->opinfo = (*opinfo);
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Successfully set opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
         ret = 0;
@@ -316,7 +317,7 @@ out:
                 if (opinfo_obj)
                         GF_FREE (opinfo_obj);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -334,14 +335,18 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
         GF_ASSERT (priv);
 
         if (!txn_id) {
-                gf_log ("", GF_LOG_ERROR, "Empty transaction id received.");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_ID_GET_FAIL,
+                        "Empty transaction id received.");
                 ret = -1;
                 goto out;
         }
 
         ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Transaction opinfo not found");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_OPINFO_GET_FAIL,
+                        "Transaction opinfo not found");
                 goto out;
         }
 
@@ -350,13 +355,13 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
 
         dict_del(priv->glusterd_txn_opinfo, uuid_utoa (*txn_id));
 
-        gf_log ("", GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Successfully cleared opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
 
         ret = 0;
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -437,7 +442,7 @@ glusterd_op_sm_inject_all_acc (uuid_t *txn_id)
 {
         int32_t                 ret = -1;
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACC, txn_id, NULL);
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -626,7 +631,7 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
 out:
         if (ret && brick_req)
                 GF_FREE (brick_req);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -680,7 +685,7 @@ glusterd_node_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
 out:
         if (ret && brick_req)
                 GF_FREE (brick_req);
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -830,7 +835,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         ret = dict_get_uint32 (dict, "new-op-version",
                                                &new_op_version);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "Failed to get new_op_version");
                                 goto out;
                         }
@@ -841,7 +847,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 snprintf (errstr, sizeof (errstr),
                                           "Required op_version (%d) is not "
                                           "supported", new_op_version);
-                                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_UNSUPPORTED_VERSION, "%s",
+                                        errstr);
                                 goto out;
                         }
                 }
@@ -849,7 +857,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_int32 (dict, "count", &dict_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Count(dict),not set in Volume-Set");
                 goto out;
         }
@@ -867,14 +876,16 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
 #else
                         ret  = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_MODULE_NOT_INSTALLED,
                                 "libxml not present in the system");
                         *op_errstr = gf_strdup ("Error: xml libraries not "
                                                 "present to produce xml-output");
                         goto out;
 #endif
                 }
-                gf_log (this->name, GF_LOG_ERROR, "No options received ");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NO_OPTIONS_GIVEN, "No options received ");
                 *op_errstr = gf_strdup ("Options not specified");
                 ret = -1;
                 goto out;
@@ -882,7 +893,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
                 goto out;
         }
 
@@ -891,14 +904,16 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (!exists) {
                         snprintf (errstr, sizeof (errstr),
                                   FMTSTR_CHECK_VOL_EXISTS, volname);
-                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_FOUND, "%s", errstr);
                         ret = -1;
                         goto out;
                 }
 
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_FOUND,
                                 FMTSTR_CHECK_VOL_EXISTS, volname);
                         goto out;
                 }
@@ -922,21 +937,22 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 sprintf (str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "invalid key,value pair in 'volume set'");
                         ret = -1;
                         goto out;
                 }
 
                 if (strcmp (key, "config.memory-accounting") == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "enabling memory accounting for volume %s",
                                 volname);
                         ret = 0;
                 }
 
                 if (strcmp (key, "config.transport") == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "changing transport-type for volume %s",
                                 volname);
                         ret = 0;
@@ -974,7 +990,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (!exists) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_INVALID_ENTRY,
                                 "Option with name: %s does not exist", key);
                         ret = snprintf (errstr, sizeof (errstr),
                                        "option : %s does not exist",
@@ -1018,7 +1035,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 snprintf (errstr, sizeof (errstr), "invalid "
                                           "number format \"%s\" in option "
                                           "\"%s\"", value, key);
-                                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_INVALID_ENTRY, "%s", errstr);
                                 goto out;
                         }
 
@@ -1028,7 +1046,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 snprintf (errstr, sizeof (errstr),
                                           "Required op_version (%d) is not "
                                           "supported", local_key_op_version);
-                                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VERSION_UNSUPPORTED,
+                                        "%s", errstr);
                                 goto out;
                         }
                         if (local_key_op_version > local_new_op_version)
@@ -1050,14 +1070,16 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 if (origin_glusterd) {
                         ret = dict_set_uint32 (dict, str, local_key_op_version);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED,
                                         "Failed to set key-op-version in dict");
                                 goto out;
                         }
                 } else if (check_op_version) {
                         ret = dict_get_uint32 (dict, str, &key_op_version);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "Failed to get key-op-version from"
                                         " dict");
                                 goto out;
@@ -1067,7 +1089,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 snprintf (errstr, sizeof (errstr),
                                           "option: %s op-version mismatch",
                                           key);
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_OP_VERSION_MISMATCH,
                                         "%s, required op-version = %"PRIu32", "
                                         "available op-version = %"PRIu32,
                                         errstr, key_op_version,
@@ -1102,7 +1125,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         if (strchr (value, '/')) {
                                 snprintf (errstr, sizeof (errstr),
                                           "Path is not allowed as option");
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOL_SET_FAIL,
                                         "Unable to set the options in 'volume "
                                         "set': %s", errstr);
                                 ret = -1;
@@ -1125,17 +1149,24 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                         /* Checks whether a directory with
                                            given option exists or not */
                                         if (!stat(trash_path, &stbuf)) {
-                                                snprintf (errstr, sizeof (errstr),
-                                                          "Path %s exists", value);
-                                                gf_log (this->name, GF_LOG_ERROR,
-                                                        "Unable to set the options in "
-                                                        "'volume set': %s", errstr);
+                                                snprintf (errstr,
+                                                          sizeof (errstr),
+                                                          "Path %s exists",
+                                                          value);
+                                                gf_msg (this->name,
+                                                        GF_LOG_ERROR,
+                                                        0, GD_MSG_VOL_SET_FAIL,
+                                                        "Unable to set the "
+                                                        "options in "
+                                                        "'volume set': %s",
+                                                        errstr);
                                                 ret = -1;
                                                 goto out;
                                         } else {
-                                                gf_log (this->name, GF_LOG_DEBUG,
-                                                        "Directory with given name "
-                                                        "does not exists, continuing");
+                                                gf_msg_debug (this->name, 0,
+                                                        "Directory with given "
+                                                        "name does not exists,"
+                                                        " continuing");
                                         }
 
                                         if (volinfo->status == GLUSTERD_STATUS_STARTED
@@ -1144,9 +1175,13 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                                    whether bricks are online */
                                                 snprintf (errstr, sizeof (errstr),
                                                           "One or more bricks are down");
-                                                gf_log (this->name, GF_LOG_ERROR,
-                                                        "Unable to set the options in "
-                                                        "'volume set': %s", errstr);
+                                                gf_msg (this->name,
+                                                        GF_LOG_ERROR, 0,
+                                                        GD_MSG_VOL_SET_FAIL,
+                                                        "Unable to set the "
+                                                        "options in "
+                                                        "'volume set': %s",
+                                                        errstr);
                                                 ret = -1;
                                                 goto out;
                                         }
@@ -1161,7 +1196,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         snprintf (errstr, sizeof (errstr),
                                         "Trash translator is not enabled. Use "
                                         "volume set %s trash on", volname);
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_SET_FAIL,
                                 "Unable to set the options in 'volume "
                                 "set': %s", errstr);
                         ret = -1;
@@ -1170,7 +1206,8 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 ret = dict_set_str (val_dict, key, value);
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Unable to set the options in 'volume set'");
                         ret = -1;
                         goto out;
@@ -1192,7 +1229,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 }
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Could not create "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLFILE_CREATE_FAIL,
+                                "Could not create "
                                 "temp volfile, some option failed: %s",
                                 *op_errstr);
                         goto out;
@@ -1217,7 +1256,8 @@ cont:
                 ret = dict_set_uint32 (dict, "new-op-version",
                                        local_new_op_version);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to set new-op-version in dict");
                         goto out;
                 }
@@ -1230,7 +1270,8 @@ cont:
                 ret = dict_set_uint32 (dict, "check-op-version",
                                        _gf_true);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to set check-op-version in dict");
                         goto out;
                 }
@@ -1252,11 +1293,11 @@ out:
         if (ret) {
                 if (!(*op_errstr)) {
                         *op_errstr = gf_strdup ("Error, Validation Failed");
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Error, Cannot Validate option :%s",
                                 *op_errstr);
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Error, Cannot Validate option");
                 }
         }
@@ -1281,7 +1322,8 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -1307,7 +1349,8 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get option key");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get option key");
                 goto out;
         }
         if (strcmp(key, "all")) {
@@ -1341,7 +1384,7 @@ out:
                 *op_errstr = gf_strdup (msg);
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -1407,7 +1450,7 @@ glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -1462,7 +1505,8 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -1571,7 +1615,7 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         *op_errstr = gf_strdup ("Validation Failed for Status");
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning: %d", ret);
+        gf_msg_debug (this->name, 0, "Returning: %d", ret);
         return ret;
 }
 
@@ -1656,7 +1700,8 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
                 if (_gf_false == glusterd_is_volume_started (volinfo)) {
                         snprintf (msg, sizeof (msg), "Volume %s is not started.",
                                   volinfo->volname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_STARTED, "%s", msg);
                         ret = -1;
                         goto out;
                 }
@@ -1667,7 +1712,7 @@ out:
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
         }
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1693,7 +1738,7 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
                 }
         }
 
-        gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
+        gf_msg_debug ("glusterd", 0, "deleting dict with key=%s,value=%s",
                 key, value->data);
         dict_del (this, key);
         /**Delete scrubber (pause/resume) option from the dictionary if bitrot
@@ -1750,7 +1795,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         } else {
                 value = dict_get (volinfo->dict, key);
                 if (!value) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "no value set for option %s", key);
                         goto out;
                 }
@@ -1769,7 +1814,9 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to create volfile for"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
+                        "Unable to create volfile for"
                         " 'volume reset'");
                 ret = -1;
                 goto out;
@@ -1789,7 +1836,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
 
 out:
         GF_FREE (key_fixed);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1811,7 +1858,8 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         conf = this->private;
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get key");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get key");
                 goto out;
         }
 
@@ -1822,7 +1870,8 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         if (strcmp (key, "all")) {
                 ret = glusterd_check_option_exists (key, &key_fixed);
                 if (ret <= 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Option %s does not "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_INVALID_ENTRY, "Option %s does not "
                                 "exist", key);
                         ret = -1;
                         goto out;
@@ -1888,7 +1937,7 @@ out:
         if (dup_opt)
                 dict_unref (dup_opt);
 
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (this->name, 0, "returning %d", ret);
         if (quorum_action)
                 glusterd_do_quorum_action ();
         GF_FREE (next_version);
@@ -1910,7 +1959,8 @@ glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
         this = THIS;
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name" );
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -1925,20 +1975,23 @@ glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get option key");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get option key");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, FMTSTR_CHECK_VOL_EXISTS,
                         volname);
                 goto out;
         }
 
         if (strcmp (key, "all") &&
             glusterd_check_option_exists (key, &key_fixed) != 1) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY,
                         "volinfo dict inconsistency: option %s not found",
                         key);
                 ret = -1;
@@ -1979,7 +2032,7 @@ out:
         if (quorum_action)
                 glusterd_do_quorum_action ();
 
-        gf_log (this->name, GF_LOG_DEBUG, "'volume reset' returning %d", ret);
+        gf_msg_debug (this->name, 0, "'volume reset' returning %d", ret);
         return ret;
 }
 
@@ -2009,7 +2062,8 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_brick_start (volinfo, brickinfo, _gf_false);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_DISCONNECTED,
                                 "Failed to start %s:%s for %s",
                                 brickinfo->hostname, brickinfo->path,
                                 volinfo->volname);
@@ -2044,14 +2098,16 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
 
         ret = dict_get_str (dict, "value1", &value);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "invalid key,value pair in 'volume set'");
                 goto out;
         }
 
         ret = glusterd_check_option_exists (key, &key_fixed);
         if (ret <= 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Invalid key %s", key);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UNKNOWN_KEY, "Invalid key %s", key);
                 ret = -1;
                 goto out;
         }
@@ -2080,7 +2136,8 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                         conf->op_version = op_version;
                         ret = glusterd_store_global_info (this);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_OP_VERS_STORE_FAIL,
                                         "Failed to store op-version.");
                         }
                 }
@@ -2136,7 +2193,7 @@ out:
         if (dup_opt)
                 dict_unref (dup_opt);
 
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (this->name, 0, "returning %d", ret);
         if (quorum_action)
                 glusterd_do_quorum_action ();
         GF_FREE (next_version);
@@ -2250,14 +2307,17 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
         ret = dict_get_int32 (dict, "count", &dict_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Count(dict),not set in Volume-Set");
                 goto out;
         }
 
         if (dict_count == 0) {
                 ret = glusterd_volset_help (NULL, &op_errstr);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOL_SET_FAIL, "%s",
                                        (op_errstr)? op_errstr:
                                        "Volume set help internal error");
                 }
@@ -2268,7 +2328,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
@@ -2280,7 +2341,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, FMTSTR_CHECK_VOL_EXISTS,
                         volname);
                 goto out;
         }
@@ -2292,7 +2354,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
         if (check_op_version) {
                 ret = dict_get_uint32 (dict, "new-op-version", &new_op_version);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Unable to get new op-version from dict");
                         goto out;
                 }
@@ -2308,7 +2371,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                 sprintf (str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "invalid key,value pair in 'volume set'");
                         ret = -1;
                         goto out;
@@ -2360,7 +2424,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                         value = gf_strdup (value);
 
                 if (!value) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_SET_FAIL,
                                 "Unable to set the options in 'volume set'");
                         ret = -1;
                         goto out;
@@ -2394,7 +2459,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
         }
 
         if (count == 1) {
-                gf_log (this->name, GF_LOG_ERROR, "No options received ");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NO_OPTIONS_GIVEN, "No options received ");
                 ret = -1;
                 goto out;
         }
@@ -2406,7 +2472,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                 priv->op_version = new_op_version;
                 ret = glusterd_store_global_info (this);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OP_VERS_STORE_FAIL,
                                 "Failed to store op-version");
                         goto out;
                 }
@@ -2422,7 +2489,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                 }
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLFILE_CREATE_FAIL,
                                 "Unable to create volfile for"
                                 " 'volume set'");
                         ret = -1;
@@ -2436,7 +2504,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                         ret = glusterd_svcs_reconfigure (volinfo);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SVC_RESTART_FAIL,
                                          "Unable to restart services");
                                 goto out;
                         }
@@ -2457,7 +2526,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
                         ret = glusterd_create_volfiles_and_notify_services (volinfo);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOLFILE_CREATE_FAIL,
                                         "Unable to create volfile for"
                                         " 'volume set'");
                                 ret = -1;
@@ -2472,7 +2542,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                                 ret = glusterd_svcs_reconfigure (volinfo);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_WARNING,
+                                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                                GD_MSG_NFS_SERVER_START_FAIL,
                                                 "Unable to restart NFS-Server");
                                         goto out;
                                 }
@@ -2482,7 +2553,7 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
  out:
         GF_FREE (key_fixed);
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (this->name, 0, "returning %d", ret);
         if (quorum_action)
                 glusterd_do_quorum_action ();
         return ret;
@@ -2526,7 +2597,8 @@ glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
         if (!ret) {
                 ret = glusterd_volinfo_find (volname, &volinfo);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_NOT_FOUND, "Volume with name: %s "
                                 "not exists", volname);
                         goto out;
                 }
@@ -2555,7 +2627,7 @@ glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
         ret = dict_set_int32 (rsp_dict, "count", vol_count);
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -2574,7 +2646,8 @@ glusterd_add_profile_volume_options (glusterd_volinfo_t *volinfo)
 
         ret = dict_set_str (volinfo->dict, latency_key, "on");
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "failed to set the volume %s "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "failed to set the volume %s "
                         "option %s value %s",
                         volinfo->volname, latency_key, "on");
                 goto out;
@@ -2582,13 +2655,14 @@ glusterd_add_profile_volume_options (glusterd_volinfo_t *volinfo)
 
         ret = dict_set_str (volinfo->dict, fd_stats_key, "on");
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "failed to set the volume %s "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "failed to set the volume %s "
                         "option %s value %s",
                         volinfo->volname, fd_stats_key, "on");
                 goto out;
         }
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -2618,7 +2692,8 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume name get failed");
                 goto out;
         }
 
@@ -2627,13 +2702,15 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 snprintf (msg, sizeof (msg), "Volume %s does not exists",
                           volname);
 
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "op", &stats_op);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume profile op get failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume profile op get failed");
                 goto out;
         }
 
@@ -2655,7 +2732,8 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 break;
         default:
                 GF_ASSERT (0);
-                gf_log ("glusterd", GF_LOG_ERROR, "Invalid profile op: %d",
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "Invalid profile op: %d",
                         stats_op);
                 ret = -1;
                 goto out;
@@ -2664,8 +2742,10 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
-                                          " 'volume set'");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLFILE_CREATE_FAIL,
+                        "Unable to create volfile for"
+                        " 'volume set'");
                 ret = -1;
                 goto out;
         }
@@ -2681,7 +2761,7 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -2707,7 +2787,8 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
         ret = dict_get_int32 (volinfo->rebal.dict, "count", &count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to get brick count");
                 goto out;
         }
@@ -2715,7 +2796,8 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
         snprintf (dict_key, sizeof (dict_key), "%s.count", prefix);
         ret = dict_set_int32 (dict, dict_key, count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set brick count in dict");
                 goto out;
         }
@@ -2726,7 +2808,8 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
                 ret = dict_get_str (volinfo->rebal.dict, brick_key, &brick);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Unable to get %s", brick_key);
                         goto out;
                 }
@@ -2736,7 +2819,8 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
                           brick_key);
                 ret = dict_set_str (dict, dict_key, brick);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to add brick to dict");
                         goto out;
                 }
@@ -2771,7 +2855,8 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
                 snprintf (key, sizeof (key), "task%d", index);
                 ret = _add_remove_bricks_to_dict (dict, volinfo, key);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_ADD_REMOVE_BRICK_FAIL,
                                 "Failed to add remove bricks to dict");
                         goto out;
                 }
@@ -2782,7 +2867,8 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
 
         default:
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "%s operation doesn't have a"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NO_TASK_ID, "%s operation doesn't have a"
                         " task_id", gd_op_list[op]);
                 goto out;
         }
@@ -2790,7 +2876,8 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         snprintf (key, sizeof (key), "task%d.type", index);
         ret = dict_set_str (dict, key, (char *)gd_op_list[op]);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting task type in dict");
                 goto out;
         }
@@ -2802,7 +2889,8 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
                 goto out;
         ret = dict_set_dynstr (dict, key, uuid_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting task id in dict");
                 goto out;
         }
@@ -2812,7 +2900,8 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         snprintf (key, sizeof (key), "task%d.status", index);
         ret = dict_set_int32 (dict, key, status);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting task status in dict");
                 goto out;
         }
@@ -2837,7 +2926,8 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
                 ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
                                          tasks);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to add task details to dict");
                         goto out;
                 }
@@ -2846,7 +2936,8 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
 
         ret = dict_set_int32 (rsp_dict, "tasks", tasks);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting tasks count in dict");
                 goto out;
         }
@@ -2897,7 +2988,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 if ((cmd & GF_CLI_STATUS_ALL)) {
                         ret = glusterd_get_all_volnames (rsp_dict);
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOLNAMES_GET_FAIL,
                                         "failed to get all volume "
                                         "names for status");
                 }
@@ -2916,7 +3008,8 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Volume with name: %s "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "Volume with name: %s "
                         "does not exist", volname);
                 goto out;
         }
@@ -3108,19 +3201,22 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
 
         ret = dict_set_int32 (rsp_dict, "brick-index-max", brick_index);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting brick-index-max to dict");
                 goto out;
         }
         ret = dict_set_int32 (rsp_dict, "other-count", other_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting other-count to dict");
                 goto out;
         }
         ret = dict_set_int32 (rsp_dict, "count", node_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting node count to dict");
                 goto out;
         }
@@ -3138,7 +3234,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         ret = 0;
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -3148,7 +3244,7 @@ glusterd_op_ac_none (glusterd_op_sm_event_t *event, void *ctx)
 {
         int ret = 0;
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -3204,7 +3300,8 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                 ret = proc->fn (NULL, this, peerinfo);
                                 if (ret) {
                                         rcu_read_unlock ();
-                                        gf_log (this->name, GF_LOG_WARNING,
+                                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                                GD_MSG_LOCK_REQ_SEND_FAIL,
                                                 "Failed to send lock request "
                                                 "for operation 'Volume %s' to "
                                                 "peer %s",
@@ -3227,7 +3324,8 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                                            peerinfo);
                                 if (ret) {
                                         rcu_read_unlock ();
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED,
                                                 "failed to set peerinfo");
                                         dict_unref (dict);
                                         goto out;
@@ -3236,7 +3334,8 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                 ret = proc->fn (NULL, this, dict);
                                 if (ret) {
                                         rcu_read_unlock ();
-                                        gf_log (this->name, GF_LOG_WARNING,
+                                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                               GD_MSG_MGMTV3_LOCK_REQ_SEND_FAIL,
                                                 "Failed to send mgmt_v3 lock "
                                                 "request for operation "
                                                 "'Volume %s' to peer %s",
@@ -3261,7 +3360,7 @@ out:
         if (ret)
                 ret = glusterd_op_sm_locking_failed (&event->txn_id);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -3364,7 +3463,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -3380,7 +3479,7 @@ glusterd_op_ac_ack_drain (glusterd_op_sm_event_t *event, void *ctx)
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACK,
                                                    &event->txn_id, NULL);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -3420,13 +3519,15 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
         } else {
                 ret = dict_get_str (lock_ctx->dict, "volname", &volname);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Unable to acquire volname");
                 else {
                         ret = glusterd_mgmt_v3_lock (volname, lock_ctx->uuid,
                                                      &op_errno, "vol");
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MGMTV3_LOCK_GET_FAIL,
                                         "Unable to acquire lock for %s",
                                         volname);
                         goto out;
@@ -3448,7 +3549,7 @@ out:
                 dict_unref (lock_ctx->dict);
         }
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Lock Returned %d", ret);
+        gf_msg_debug (THIS->name, 0, "Lock Returned %d", ret);
         return ret;
 }
 
@@ -3480,13 +3581,15 @@ glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
         } else {
                 ret = dict_get_str (lock_ctx->dict, "volname", &volname);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Unable to acquire volname");
                 else {
                         ret = glusterd_mgmt_v3_unlock (volname, lock_ctx->uuid,
                                                        "vol");
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MGMTV3_UNLOCK_FAIL,
                                         "Unable to release lock for %s",
                                         volname);
                         goto out;
@@ -3509,7 +3612,7 @@ out:
                 dict_unref (lock_ctx->dict);
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Unlock Returned %d", ret);
+        gf_msg_debug (this->name, 0, "Unlock Returned %d", ret);
 
         if (priv->pending_quorum_action)
                 glusterd_do_quorum_action ();
@@ -3529,7 +3632,7 @@ glusterd_op_ac_local_unlock (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_unlock (*originator);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Unlock Returned %d", ret);
+        gf_msg_debug (THIS->name, 0, "Unlock Returned %d", ret);
 
         return ret;
 }
@@ -3550,7 +3653,7 @@ glusterd_op_ac_rcvd_lock_acc (glusterd_op_sm_event_t *event, void *ctx)
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACC,
                                            &event->txn_id, NULL);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
 out:
         return ret;
@@ -3652,7 +3755,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 op  = glusterd_op_get_op ();
                 ctx = (void*)glusterd_op_get_ctx ();
                 if (!ctx) {
-                        gf_log (this->name, GF_LOG_ERROR, "Null Context for "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_NO_OPTIONS_GIVEN, "Null Context for "
                                 "op %d", op);
                         ret = -1;
                         goto out;
@@ -3662,7 +3766,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
 #define GD_SYNC_OPCODE_KEY "sync-mgmt-operation"
                 ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, (int32_t*)&op);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get volume"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "Failed to get volume"
                                 " operation");
                         goto out;
                 }
@@ -3678,7 +3783,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                 ret = dict_set_int32 (dict, "port",
                                                       glusterfs_port);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_SET_FAILED,
                                                 "Failed to set port in "
                                                 "dictionary");
                                         goto out;
@@ -3708,7 +3814,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                         {
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_CRITICAL,
+                                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                                GD_MSG_DICT_GET_FAILED,
                                                 "volname is not present in "
                                                 "operation ctx");
                                         goto out;
@@ -3731,7 +3838,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                 dict_t *dict = ctx;
                                 ret = dict_get_str (dict, "volname", &volname);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_CRITICAL,
+                                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                                GD_MSG_DICT_GET_FAILED,
                                                 "volname is not present in "
                                                 "operation ctx");
                                         goto out;
@@ -3756,7 +3864,8 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                                 ret = dict_get_uint32 (dict, "cmd",
                                                        &status_cmd);
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_DICT_GET_FAILED,
                                                 "Status command not present "
                                                 "in op ctx");
                                         goto out;
@@ -3869,14 +3978,18 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         rsp_dict = dict_new();
         if (!rsp_dict) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to create rsp_dict");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_DICT_CREATE_FAIL,
+                        "Failed to create rsp_dict");
                 ret = -1;
                 goto out;
         }
 
         ret = glusterd_op_build_payload (&dict, &op_errstr, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_PAYLOAD_BUILD_FAIL,
+                        LOGSTR_BUILD_PAYLOAD,
                         gd_op_list[op]);
                 if (op_errstr == NULL)
                         gf_asprintf (&op_errstr, OPERRSTR_BUILD_PAYLOAD);
@@ -3895,7 +4008,8 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_stage_validate (op, dict, &op_errstr, rsp_dict);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_STAGE_FAIL,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VALIDATE_FAILED, LOGSTR_STAGE_FAIL,
                         gd_op_list[op], "localhost",
                         (op_errstr) ? ":" : " ", (op_errstr) ? op_errstr : " ");
                 if (op_errstr == NULL)
@@ -3928,14 +4042,16 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                         ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
                         if (ret) {
                                 rcu_read_unlock ();
-                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED, "failed to "
                                         "set peerinfo");
                                 goto out;
                         }
 
                         ret = proc->fn (NULL, this, dict);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_WARNING, "Failed to "
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_STAGE_REQ_SEND_FAIL, "Failed to "
                                         "send stage request for operation "
                                         "'Volume %s' to peer %s",
                                         gd_op_list[op], peerinfo->hostname);
@@ -3959,14 +4075,14 @@ out:
                 opinfo.op_ret = ret;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Sent stage op request for "
+        gf_msg_debug (this->name, 0, "Sent stage op request for "
                 "'Volume %s' to %d peers", gd_op_list[op],
                 opinfo.pending_count);
 
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
 
@@ -4000,7 +4116,7 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
                 if (ret)
                         continue;
 
-                gf_log (this->name, GF_LOG_DEBUG, "Got uuid %s",
+                gf_msg_debug (this->name, 0, "Got uuid %s",
                         uuid_str);
 
                 ret = gf_uuid_parse (uuid_str, uuid);
@@ -4012,11 +4128,12 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
 
                 hostname = glusterd_uuid_to_hostname (uuid);
                 if (hostname) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%s -> %s",
+                        gf_msg_debug (this->name, 0, "%s -> %s",
                                 uuid_str, hostname);
                         ret = dict_set_dynstr (dict, key, hostname);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED,
                                         "Error setting hostname %s to dict",
                                         hostname);
                                 GF_FREE (hostname);
@@ -4026,7 +4143,7 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -4060,7 +4177,8 @@ reassign_defrag_status (dict_t *dict, char *key, gf_defrag_status_t *status)
 
         ret = dict_set_int32(dict, key, *status);
         if (ret)
-                gf_log (THIS->name, GF_LOG_WARNING,
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to reset defrag %s in dict", key);
 
         return ret;
@@ -4082,13 +4200,15 @@ glusterd_op_check_peer_defrag_status (dict_t *dict, int count)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "Unable to get volume name");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, FMTSTR_CHECK_VOL_EXISTS,
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        GD_MSG_VOL_NOT_FOUND, FMTSTR_CHECK_VOL_EXISTS,
                         volname);
                 goto out;
         }
@@ -4105,7 +4225,8 @@ glusterd_op_check_peer_defrag_status (dict_t *dict, int count)
                 snprintf (key, 256, "status-%d", i);
                 ret = dict_get_int32 (dict, key, (int32_t *)&status);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_WARNING,
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "failed to get defrag %s", key);
                         goto out;
                 }
@@ -4218,7 +4339,8 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                 op_ctx = glusterd_op_get_ctx();
 
         if (!op_ctx) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_OPCTX_NULL,
                         "Operation context is not present.");
                 goto out;
         }
@@ -4227,13 +4349,13 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
         case GD_OP_STATUS_VOLUME:
                 ret = dict_get_uint32 (op_ctx, "cmd", &cmd);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Failed to get status cmd");
                         goto out;
                 }
 
                 if (!glusterd_is_volume_status_modify_op_ctx (cmd)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "op_ctx modification not required for status "
                                 "operation being performed");
                         goto out;
@@ -4242,14 +4364,14 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                 ret = dict_get_int32 (op_ctx, "brick-index-max",
                                       &brick_index_max);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Failed to get brick-index-max");
                         goto out;
                 }
 
                 ret = dict_get_int32 (op_ctx, "other-count", &other_count);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Failed to get other-count");
                         goto out;
                 }
@@ -4291,7 +4413,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                                   "brick%d.peerid", i);
                                         uuid = gf_strdup (uuid_str);
                                         if (!uuid) {
-                                                gf_log (this->name, GF_LOG_DEBUG,
+                                                gf_msg_debug (this->name, 0,
                                                         "unable to create dup of"
                                                         " uuid_str");
                                                 continue;
@@ -4309,7 +4431,8 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                                                 "brick%d.path",
                                                                 0, count);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_CONVERSION_FAILED,
                                 "Failed uuid to hostname conversion");
 
                 break;
@@ -4321,7 +4444,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
 
                 ret = dict_get_int32 (op_ctx, "count", &count);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Failed to get brick count");
                         goto out;
                 }
@@ -4330,7 +4453,8 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                                                 "%d-brick",
                                                                 1, (count + 1));
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_CONVERSION_FAILED,
                                 "Failed uuid to hostname conversion");
 
                 break;
@@ -4341,7 +4465,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
         case GD_OP_DEFRAG_BRICK_VOLUME:
                 ret = dict_get_int32 (op_ctx, "count", &count);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Failed to get count");
                         goto out;
                 }
@@ -4364,7 +4488,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                                   "node-name-%d", i);
                                         uuid = gf_strdup (uuid_str);
                                         if (!uuid) {
-                                                gf_log (this->name, GF_LOG_DEBUG,
+                                                gf_msg_debug (this->name, 0,
                                                         "unable to create dup of"
                                                         " uuid_str");
                                                 continue;
@@ -4382,18 +4506,20 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                                                 "node-name-%d",
                                                                 1, (count + 1));
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_CONVERSION_FAILED,
                                 "Failed uuid to hostname conversion");
 
                 ret = glusterd_op_check_peer_defrag_status (op_ctx, count);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DEFRAG_STATUS_UPDATE_FAIL,
                                 "Failed to reset defrag status for fix-layout");
                 break;
 
         default:
                 ret = 0;
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "op_ctx modification not required");
                 break;
 
@@ -4401,7 +4527,8 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
 
 out:
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_OPCTX_UPDATE_FAIL,
                         "op_ctx modification failed");
         return;
 }
@@ -4481,7 +4608,9 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_build_payload (&dict, &op_errstr, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_OP_PAYLOAD_BUILD_FAIL,
+                        LOGSTR_BUILD_PAYLOAD,
                         gd_op_list[op]);
                 if (op_errstr == NULL)
                         gf_asprintf (&op_errstr, OPERRSTR_BUILD_PAYLOAD);
@@ -4491,7 +4620,8 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_commit_perform (op, dict, &op_errstr, NULL); //rsp_dict invalid for source
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, LOGSTR_COMMIT_FAIL,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL, LOGSTR_COMMIT_FAIL,
                         gd_op_list[op], "localhost", (op_errstr) ? ":" : " ",
                         (op_errstr) ? op_errstr : " ");
                 if (op_errstr == NULL)
@@ -4521,13 +4651,16 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                         ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
                         if (ret) {
                                 rcu_read_unlock ();
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED,
                                         "failed to set peerinfo");
                                 goto out;
                         }
                         ret = proc->fn (NULL, this, dict);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_WARNING, "Failed to "
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_COMMIT_REQ_SEND_FAIL,
+                                        "Failed to "
                                         "send commit request for operation "
                                         "'Volume %s' to peer %s",
                                         gd_op_list[op], peerinfo->hostname);
@@ -4539,7 +4672,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
-        gf_log (this->name, GF_LOG_DEBUG, "Sent commit op req for 'Volume %s' "
+        gf_msg_debug (this->name, 0, "Sent commit op req for 'Volume %s' "
                 "to %d peers", gd_op_list[op], opinfo.pending_count);
 out:
         if (dict)
@@ -4561,7 +4694,7 @@ out:
         }
 
 err:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
 
@@ -4584,7 +4717,7 @@ glusterd_op_ac_rcvd_stage_op_acc (glusterd_op_sm_event_t *event, void *ctx)
                                            &event->txn_id, NULL);
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -4606,7 +4739,7 @@ glusterd_op_ac_stage_op_failed (glusterd_op_sm_event_t *event, void *ctx)
                                            &event->txn_id, NULL);
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -4628,7 +4761,7 @@ glusterd_op_ac_commit_op_failed (glusterd_op_sm_event_t *event, void *ctx)
                                            &event->txn_id, NULL);
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -4650,7 +4783,8 @@ glusterd_op_ac_brick_op_failed (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_remove_pending_entry (&opinfo.pending_bricks, ev_ctx->pending_node->node);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "unknown response received ");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UNKNOWN_RESPONSE, "unknown response received ");
                 ret = -1;
                 free_errstr = _gf_true;
                 goto out;
@@ -4677,7 +4811,7 @@ out:
         if (free_errstr && ev_ctx->op_errstr)
                 GF_FREE (ev_ctx->op_errstr);
         GF_FREE (ctx);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -4704,7 +4838,8 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (op == GD_OP_REPLACE_BRICK) {
                 ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Couldn't start "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RBOP_START_FAIL, "Couldn't start "
                                 "replace-brick operation.");
                         goto out;
                 }
@@ -4748,7 +4883,7 @@ glusterd_op_ac_rcvd_unlock_acc (glusterd_op_sm_event_t *event, void *ctx)
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACC,
                                            &event->txn_id, NULL);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
 out:
         return ret;
@@ -4818,14 +4953,16 @@ glusterd_op_txn_complete (uuid_t *txn_id)
                 ret = glusterd_unlock (MY_UUID);
                 /* unlock cant/shouldnt fail here!! */
                 if (ret)
-                        gf_log (this->name, GF_LOG_CRITICAL,
+                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                GD_MSG_GLUSTERD_UNLOCK_FAIL,
                                 "Unable to clear local lock, ret: %d", ret);
                 else
-                        gf_log (this->name, GF_LOG_DEBUG, "Cleared local lock");
+                        gf_msg_debug (this->name, 0, "Cleared local lock");
         } else {
                 ret = dict_get_str (ctx, "volname", &volname);
                 if (ret)
-                        gf_log ("", GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "No Volume name present. "
                                 "Locks have not been held.");
 
@@ -4833,7 +4970,8 @@ glusterd_op_txn_complete (uuid_t *txn_id)
                         ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
                                                        "vol");
                         if (ret)
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MGMTV3_UNLOCK_FAIL,
                                         "Unable to release lock for %s",
                                         volname);
                 }
@@ -4843,7 +4981,9 @@ glusterd_op_txn_complete (uuid_t *txn_id)
                                              op_errno, req, ctx, op_errstr);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Responding to cli failed, "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_NO_CLI_RESP,
+                        "Responding to cli failed, "
                         "ret: %d", ret);
                 //Ignore this error, else state machine blocks
                 ret = 0;
@@ -4859,10 +4999,11 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         /* Clearing the transaction opinfo */
         ret = glusterd_clear_txn_opinfo (txn_id);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_OPINFO_CLEAR_FAIL,
                         "Unable to clear transaction's opinfo");
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -4875,7 +5016,7 @@ glusterd_op_ac_unlocked_all (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_txn_complete (&event->txn_id);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -4902,7 +5043,8 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_DICT_CREATE_FAIL,
                         "Failed to get new dictionary");
                 return -1;
         }
@@ -4911,7 +5053,8 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                                              rsp_dict);
 
         if (status) {
-                gf_log (this->name, GF_LOG_ERROR, "Stage failed on operation"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VALIDATE_FAILED, "Stage failed on operation"
                         " 'Volume %s', Status : %d", gd_op_list[req_ctx->op],
                         status);
         }
@@ -4928,7 +5071,8 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         ret = dict_set_bin (rsp_dict, "transaction_id",
                             txn_id, sizeof(*txn_id));
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                        "Failed to set transaction id.");
                 goto out;
         }
@@ -4940,7 +5084,7 @@ out:
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
@@ -5024,7 +5168,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
         if (status)
-                gf_log (this->name, GF_LOG_ERROR, "Commit of operation "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_COMMIT_OP_FAIL, "Commit of operation "
                         "'Volume %s' failed: %d", gd_op_list[req_ctx->op],
                         status);
 
@@ -5040,7 +5185,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         ret = dict_set_bin (rsp_dict, "transaction_id",
                             txn_id, sizeof(*txn_id));
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                        "Failed to set transaction id.");
                 goto out;
         }
@@ -5055,7 +5201,7 @@ out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -5082,7 +5228,7 @@ glusterd_op_ac_send_commit_failed (glusterd_op_sm_event_t *event, void *ctx)
                 opinfo.op_errstr = NULL;
         }
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -5225,11 +5371,12 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 default:
-                        gf_log (this->name, GF_LOG_ERROR, "Unknown op %s",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_INVALID_ENTRY, "Unknown op %s",
                                 gd_op_list[op]);
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "OP = %d. Returning %d", op, ret);
+        gf_msg_debug (this->name, 0, "OP = %d. Returning %d", op, ret);
         return ret;
 }
 
@@ -5347,7 +5494,8 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 default:
-                        gf_log (this->name, GF_LOG_ERROR, "Unknown op %s",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_INVALID_ENTRY, "Unknown op %s",
                                 gd_op_list[op]);
                         break;
         }
@@ -5355,7 +5503,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
         if (ret == 0)
             glusterd_op_commit_hook (op, dict, GD_COMMIT_HOOK_POST);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -5377,7 +5525,8 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, FMTSTR_CHECK_VOL_EXISTS,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, FMTSTR_CHECK_VOL_EXISTS,
                         volname);
                 gf_asprintf (op_errstr, FMTSTR_CHECK_VOL_EXISTS, volname);
                 goto out;
@@ -5424,26 +5573,29 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "Unable to allocate memory");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get count");
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "command", &command);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get command");
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get command");
                 goto out;
         }
 
@@ -5452,7 +5604,8 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
 
         ret = dict_get_int32 (dict, "force", &force);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_INFO, "force flag is not set");
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED, "force flag is not set");
                 ret = 0;
                 goto out;
         }
@@ -5462,7 +5615,8 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
 
                 ret = dict_get_str (dict, key, &brick);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to get brick");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "Unable to get brick");
                         goto out;
                 }
 
@@ -5518,7 +5672,8 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume name get failed");
                 goto out;
         }
 
@@ -5528,13 +5683,15 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                           volname);
 
                 *op_errstr = gf_strdup (msg);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "op", &stats_op);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume profile op get failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume profile op get failed");
                 goto out;
         }
 
@@ -5548,7 +5705,9 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                 if (ret) {
                         if (!priv->nfs_svc.online) {
                                 ret = -1;
-                                gf_log (this->name, GF_LOG_ERROR, "NFS server"
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_NFS_SERVER_NOT_RUNNING,
+                                        "NFS server"
                                         " is not running");
                                 goto out;
                         }
@@ -5591,7 +5750,9 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                 if (ret) {
                         if (!priv->nfs_svc.online) {
                                 ret = -1;
-                                gf_log (this->name, GF_LOG_ERROR, "NFS server"
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_NFS_SERVER_NOT_RUNNING,
+                                        "NFS server"
                                         " is not running");
                                 goto out;
                         }
@@ -5656,7 +5817,8 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
 
         default:
                 GF_ASSERT (0);
-                gf_log ("glusterd", GF_LOG_ERROR, "Invalid profile op: %d",
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "Invalid profile op: %d",
                         stats_op);
                 ret = -1;
                 goto out;
@@ -5665,7 +5827,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
 
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -5888,7 +6050,8 @@ glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get"
                         " volname");
                 goto out;
         }
@@ -5918,7 +6081,7 @@ glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
         ret = 0;
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning ret %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning ret %d", ret);
         return ret;
 }
 
@@ -5942,7 +6105,9 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                 cmd_replica_index = get_replica_index_for_per_replica_cmd
                                     (volinfo, req_dict);
                 if (cmd_replica_index == -1) {
-                        gf_log (THIS->name, GF_LOG_ERROR, "Could not find the "
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_REPLICA_INDEX_GET_FAIL,
+                                "Could not find the "
                                 "replica index for per replica type command");
                         ret = -1;
                         goto out;
@@ -5970,14 +6135,16 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                           uuid_utoa(MY_UUID));
                 ret = dict_set_dynstr (dict, key, gf_strdup(value));
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED, "Unable to"
                                 "set the dictionary for shd status msg");
                         goto out;
                 }
                 snprintf (key, sizeof (key), "%d-shd-status",index);
                 ret = dict_set_str (dict, key, "off");
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED, "Unable to"
                                 " set dictionary for shd status msg");
                         goto out;
                 }
@@ -6012,7 +6179,8 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume name get failed");
                 goto out;
         }
 
@@ -6022,13 +6190,15 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
                           volname);
 
                 *op_errstr = gf_strdup (msg);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
                 goto out;
         }
 
         ret = dict_get_int32 (dict, "heal-op", (int32_t*)&heal_op);
         if (ret || (heal_op == GF_SHD_OP_INVALID)) {
-                gf_log ("glusterd", GF_LOG_ERROR, "heal op invalid");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "heal op invalid");
                 goto out;
         }
 
@@ -6037,7 +6207,8 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         case GF_SHD_OP_STATISTICS_HEAL_COUNT:
         if (!priv->shd_svc.online) {
                 if (!rsp_dict) {
-                        gf_log (this->name, GF_LOG_ERROR, "Received "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_NULL, "Received "
                                 "empty ctx.");
                         goto out;
                 }
@@ -6047,7 +6218,8 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
                                                         ALL_HEAL_XL,
                                                         dict);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SHD_STATUS_SET_FAIL, "Unable to "
                                 "fill the shd status for the local "
                                 "bricks");
                 goto out;
@@ -6057,7 +6229,8 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
         if (!priv->shd_svc.online) {
                 if (!rsp_dict) {
-                        gf_log (this->name, GF_LOG_ERROR, "Received "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_NULL, "Received "
                                 "empty ctx.");
                         goto out;
                 }
@@ -6066,7 +6239,8 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
                                                         PER_HEAL_XL,
                                                         dict);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SHD_STATUS_SET_FAIL, "Unable to "
                                 "fill the shd status for the local"
                                 " bricks.");
                 goto out;
@@ -6100,7 +6274,8 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         if (!hxlator_count)
                 goto out;
         if (hxlator_count == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "Could not determine the"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_XLATOR_COUNT_GET_FAIL, "Could not determine the"
                         "translator count");
                 ret = -1;
                 goto out;
@@ -6123,7 +6298,7 @@ glusterd_bricks_select_heal_volume (dict_t *dict, char **op_errstr,
         }
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning ret %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning ret %d", ret);
         return ret;
 
 }
@@ -6144,7 +6319,8 @@ glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "volume name get failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "volume name get failed");
                 goto out;
         }
 
@@ -6154,7 +6330,8 @@ glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
                           volname);
 
                 *op_errstr = gf_strdup (msg);
-                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
                 goto out;
         }
         pending_node = GF_CALLOC (1, sizeof (*pending_node),
@@ -6198,7 +6375,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
 
         ret = dict_get_int32 (dict, "cmd", &cmd);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get status type");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get status type");
                 goto out;
         }
 
@@ -6223,7 +6401,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         }
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get volname");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volname");
                 goto out;
         }
         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -6234,7 +6413,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         if ( (cmd & GF_CLI_STATUS_BRICK) != 0) {
                 ret = dict_get_str (dict, "brick", &brickname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Unable to get brick");
                         goto out;
                 }
@@ -6263,7 +6443,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         } else if ((cmd & GF_CLI_STATUS_NFS) != 0) {
                 if (!priv->nfs_svc.online) {
                         ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_NFS_SERVER_NOT_RUNNING,
                                 "NFS server is not running");
                         goto out;
                 }
@@ -6282,7 +6463,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
                 if (!priv->shd_svc.online) {
                         ret = -1;
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SELF_HEALD_DISABLED,
                                 "Self-heal daemon is not running");
                         goto out;
                 }
@@ -6300,7 +6482,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_QUOTAD) != 0) {
                 if (!priv->quotad_svc.online) {
-                        gf_log (this->name, GF_LOG_ERROR, "Quotad is not "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTAD_NOT_RUNNING, "Quotad is not "
                                 "running");
                         ret = -1;
                         goto out;
@@ -6357,7 +6540,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 ret = 0;
         } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
                 if (!volinfo->snapd.svc.online) {
-                        gf_log (this->name, GF_LOG_ERROR, "snapd is not "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAPD_NOT_RUNNING, "snapd is not "
                                 "running");
                         ret = -1;
                         goto out;
@@ -6365,7 +6549,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                           gf_gld_mt_pending_node_t);
                 if (!pending_node) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to allocate "
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "failed to allocate "
                                 "memory for pending node");
                         ret = -1;
                         goto out;
@@ -6389,7 +6574,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                                                   gf_gld_mt_pending_node_t);
                         if (!pending_node) {
                                 ret = -1;
-                                gf_log (THIS->name ,GF_LOG_ERROR,
+                                gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
+                                        GD_MSG_NO_MEMORY,
                                         "Unable to allocate memory");
                                 goto out;
                         }
@@ -6421,13 +6607,15 @@ glusterd_bricks_select_barrier (dict_t *dict, struct cds_list_head *selected)
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get volname");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get volname");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to find volume %s",
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_FOUND, "Failed to find volume %s",
                         volname);
                 goto out;
         }
@@ -6450,7 +6638,7 @@ glusterd_bricks_select_barrier (dict_t *dict, struct cds_list_head *selected)
         }
 
 out:
-        gf_log(THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -6479,7 +6667,9 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                 ret = glusterd_op_build_payload (&req_ctx->dict, &op_errstr,
                                                  NULL);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, LOGSTR_BUILD_PAYLOAD,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_OP_PAYLOAD_BUILD_FAIL,
+                                LOGSTR_BUILD_PAYLOAD,
                                 gd_op_list[op]);
                         if (op_errstr == NULL)
                                 gf_asprintf (&op_errstr,
@@ -6503,7 +6693,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -6539,7 +6729,8 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         ret = glusterd_remove_pending_entry (&opinfo.pending_bricks,
                                              pending_entry);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "unknown response received ");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UNKNOWN_RESPONSE, "unknown response received ");
                 ret = -1;
                 goto out;
         }
@@ -6560,7 +6751,7 @@ out:
         if (ev_ctx->rsp_dict)
                 dict_unref (ev_ctx->rsp_dict);
         GF_FREE (ev_ctx);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -6617,7 +6808,7 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 break;
          }
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -6952,7 +7143,7 @@ glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
         if (txn_id)
                 gf_uuid_copy (event->txn_id, *txn_id);
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Enqueue event: '%s'",
+        gf_msg_debug (THIS->name, 0, "Enqueue event: '%s'",
                 glusterd_op_sm_event_name_get (event->event));
         cds_list_add_tail (&event->list, &gd_op_sm_queue);
 
@@ -7020,7 +7211,8 @@ glusterd_op_sm ()
         ret = synclock_trylock (&gd_op_sm_lock);
         if (ret) {
                 lock_err = errno;
-                gf_log (this->name, GF_LOG_ERROR, "lock failed due to %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_LOCK_FAIL, "lock failed due to %s",
                         strerror (lock_err));
                 goto lock_failed;
         }
@@ -7032,17 +7224,18 @@ glusterd_op_sm ()
 
                         cds_list_del_init (&event->list);
                         event_type = event->event;
-                        gf_log (this->name, GF_LOG_DEBUG, "Dequeued event of "
+                        gf_msg_debug (this->name, 0, "Dequeued event of "
                                 "type: '%s'",
                                 glusterd_op_sm_event_name_get(event_type));
 
-                        gf_log (this->name, GF_LOG_DEBUG, "transaction ID = %s",
+                        gf_msg_debug (this->name, 0, "transaction ID = %s",
                                 uuid_utoa (event->txn_id));
 
                         ret = glusterd_get_txn_opinfo (&event->txn_id,
                                                        &txn_op_info);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_TRANS_OPINFO_GET_FAIL,
                                         "Unable to get transaction's opinfo");
                                 glusterd_destroy_op_event_ctx (event);
                                 GF_FREE (event);
@@ -7060,7 +7253,8 @@ glusterd_op_sm ()
                         ret = handler (event, event->ctx);
 
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_HANDLER_RETURNED,
                                         "handler returned: %d", ret);
                                 glusterd_destroy_op_event_ctx (event);
                                 GF_FREE (event);
@@ -7071,7 +7265,8 @@ glusterd_op_sm ()
                                                                 event_type);
 
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_EVENT_STATE_TRANSITION_FAIL,
                                         "Unable to transition"
                                         "state from '%s' to '%s'",
                          glusterd_op_sm_state_name_get(opinfo.state.state),
@@ -7086,14 +7281,16 @@ glusterd_op_sm ()
                                 /* Clearing the transaction opinfo */
                                 ret = glusterd_clear_txn_opinfo(&event->txn_id);
                                 if (ret)
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_TRANS_OPINFO_CLEAR_FAIL,
                                                 "Unable to clear "
                                                 "transaction's opinfo");
                         } else {
                                 ret = glusterd_set_txn_opinfo (&event->txn_id,
                                                                &opinfo);
                                 if (ret)
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_TRANS_OPINFO_SET_FAIL,
                                                 "Unable to set "
                                                 "transaction's opinfo");
                         }
