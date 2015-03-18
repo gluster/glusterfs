@@ -3448,14 +3448,12 @@ mq_inspect_directory_xattr_task (void *opaque)
         xlator_t             *this                         = NULL;
         loc_t                *loc                          = NULL;
         dict_t               *dict                         = NULL;
-        struct iatt           buf                          = {0,};
 
         GF_ASSERT (opaque);
 
         args = (quota_synctask_t *) opaque;
         loc = &args->loc;
         dict = args->dict;
-        buf = args->buf;
         this = args->this;
         THIS = this;
 
