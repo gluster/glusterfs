@@ -93,13 +93,6 @@ struct quota_inode_ctx {
 };
 typedef struct quota_inode_ctx quota_inode_ctx_t;
 
-struct quota_meta {
-        int64_t    size;
-        int64_t    file_count;
-        int64_t    dir_count;
-};
-typedef struct quota_meta quota_meta_t;
-
 struct quota_synctask {
         xlator_t      *this;
         loc_t          loc;

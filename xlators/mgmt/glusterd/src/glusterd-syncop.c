@@ -1350,7 +1350,8 @@ gd_commit_op_phase (struct cds_list_head *peers, glusterd_op_t op,
                 }
         }
 
-        if (((op == GD_OP_QUOTA) && (type == GF_QUOTA_OPTION_TYPE_LIST)) ||
+        if (((op == GD_OP_QUOTA) && ((type == GF_QUOTA_OPTION_TYPE_LIST) ||
+             (type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS))) ||
             ((op != GD_OP_SYNC_VOLUME) && (op != GD_OP_QUOTA))) {
 
                 ret =  glusterd_syncop_aggr_rsp_dict (op, op_ctx,

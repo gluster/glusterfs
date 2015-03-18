@@ -30,6 +30,7 @@
 static char   *quota_external_xattrs[] = {
         QUOTA_SIZE_KEY,
         QUOTA_LIMIT_KEY,
+        QUOTA_LIMIT_OBJECTS_KEY,
         NULL,
 };
 

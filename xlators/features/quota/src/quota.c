@@ -13,6 +13,7 @@
 #include "common-utils.h"
 #include "defaults.h"
 #include "statedump.h"
+#include "quota-common-utils.h"
 
 struct volume_options options[];
 
@@ -535,8 +536,10 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local      = NULL;
         int32_t            ret        = 0;
         quota_inode_ctx_t *ctx        = NULL;
-        int64_t           *size       = 0;
+        int64_t           *object_size = 0;
         uint64_t           value      = 0;
+        data_t            *data       = NULL;
+        quota_meta_t       size       = {0,};
 
         local = frame->local;
 
@@ -562,12 +565,11 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
 
-        ret = dict_get_bin (xdata, QUOTA_SIZE_KEY, (void **) &size);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "size key not present in dict");
+        ret = quota_dict_get_meta (xdata, QUOTA_SIZE_KEY, &size);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "dict get failed "
+                        "on quota size");
                 op_errno = EINVAL;
-                goto unwind;
         }
 
         local->just_validated = 1; /* so that we don't go into infinite
@@ -576,7 +578,9 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     */
         LOCK (&ctx->lock);
         {
-                ctx->size = ntoh64 (*size);
+                ctx->size = size.size;
+                ctx->file_count = size.file_count;
+                ctx->dir_count = size.dir_count;
                 gettimeofday (&ctx->tv, NULL);
         }
         UNLOCK (&ctx->lock);
@@ -995,6 +999,163 @@ out:
 }
 
 int32_t
+quota_check_object_limit (call_frame_t *frame, quota_inode_ctx_t *ctx,
+                          quota_priv_t *priv, inode_t *_inode, xlator_t *this,
+                          int32_t *op_errno, int just_validated,
+                          quota_local_t *local, gf_boolean_t *skip_check)
+{
+        int32_t         ret                     = -1;
+        uint32_t        timeout                 =  0;
+        char            need_validate           =  0;
+        gf_boolean_t    hard_limit_exceeded     =  0;
+        int64_t         object_aggr_count       =  0;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (priv);
+        GF_ASSERT (_inode);
+        GF_ASSERT (this);
+        GF_ASSERT (local);
+
+        if (ctx != NULL && (ctx->object_hard_lim > 0 ||
+                            ctx->object_soft_lim)) {
+                LOCK (&ctx->lock);
+                {
+                        timeout = priv->soft_timeout;
+
+                        object_aggr_count = ctx->file_count +
+                                            ctx->dir_count + 1;
+                        if (((ctx->object_soft_lim >= 0)
+                             && (object_aggr_count) >
+                             ctx->object_soft_lim)) {
+                                timeout = priv->hard_timeout;
+                        }
+
+                        if (!just_validated
+                            && quota_timeout (&ctx->tv, timeout)) {
+                                need_validate = 1;
+                        } else if ((object_aggr_count) >
+                                  ctx->object_hard_lim) {
+                                hard_limit_exceeded = 1;
+                        }
+                }
+                UNLOCK (&ctx->lock);
+
+                if (need_validate && *skip_check != _gf_true) {
+                        *skip_check = _gf_true;
+                        ret = quota_validate (frame, _inode, this,
+                                              quota_validate_cbk);
+                        if (ret < 0) {
+                                *op_errno = -ret;
+                                *skip_check = _gf_false;
+                        }
+                        goto out;
+                }
+
+                if (hard_limit_exceeded) {
+                        local->op_ret = -1;
+                        local->op_errno = EDQUOT;
+                        *op_errno = EDQUOT;
+                }
+
+                /*We log usage only if quota limit is configured on
+                   that inode
+                */
+                quota_log_usage (this, ctx, _inode, 0);
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+
+int32_t
+quota_check_size_limit (call_frame_t *frame, quota_inode_ctx_t *ctx,
+                          quota_priv_t *priv, inode_t *_inode, xlator_t *this,
+                          int32_t *op_errno, int just_validated, int64_t delta,
+                          quota_local_t *local, gf_boolean_t *skip_check)
+{
+        int32_t         ret                     = -1;
+        uint32_t        timeout                 =  0;
+        char            need_validate           =  0;
+        gf_boolean_t    hard_limit_exceeded     =  0;
+        int64_t         space_available         =  0;
+        int64_t         wouldbe_size            =  0;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (priv);
+        GF_ASSERT (_inode);
+        GF_ASSERT (this);
+        GF_ASSERT (local);
+
+        if (ctx != NULL && (ctx->hard_lim > 0 || ctx->soft_lim > 0)) {
+                wouldbe_size = ctx->size + delta;
+
+                LOCK (&ctx->lock);
+                {
+                        timeout = priv->soft_timeout;
+
+                        if ((ctx->soft_lim >= 0)
+                            && (wouldbe_size > ctx->soft_lim)) {
+                                timeout = priv->hard_timeout;
+                        }
+
+                        if (!just_validated
+                            && quota_timeout (&ctx->tv, timeout)) {
+                                need_validate = 1;
+                        } else if (wouldbe_size >= ctx->hard_lim) {
+                                hard_limit_exceeded = 1;
+                        }
+                }
+                UNLOCK (&ctx->lock);
+
+                if (need_validate && *skip_check != _gf_true) {
+                        *skip_check = _gf_true;
+                        ret = quota_validate (frame, _inode, this,
+                                              quota_validate_cbk);
+                        if (ret < 0) {
+                                *op_errno = -ret;
+                                *skip_check = _gf_false;
+                        }
+                        goto out;
+                }
+
+                if (hard_limit_exceeded) {
+                        local->op_ret = -1;
+                        local->op_errno = EDQUOT;
+
+                        space_available = ctx->hard_lim - ctx->size;
+
+                        if (space_available < 0)
+                                space_available = 0;
+
+                        if ((local->space_available < 0)
+                            || (local->space_available
+                                > space_available)){
+                                local->space_available
+                                        = space_available;
+
+                        }
+
+                        if (space_available == 0) {
+                                *op_errno = EDQUOT;
+                                goto out;
+                        }
+                }
+
+                /* We log usage only if quota limit is configured on
+                   that inode. */
+                quota_log_usage (this, ctx, _inode, delta);
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int32_t
 quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                    char *name, uuid_t par)
 {
@@ -1004,13 +1165,12 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         quota_priv_t      *priv                = NULL;
         quota_local_t     *local               = NULL;
         char               need_validate       = 0;
-        gf_boolean_t       hard_limit_exceeded = 0;
-        int64_t            delta               = 0, wouldbe_size = 0;
-        int64_t            space_available     = 0;
-        uint64_t           value               = 0;
         char               just_validated      = 0;
+        gf_boolean_t       hard_limit_exceeded = 0;
+        int64_t            delta               = 0;
+        uint64_t           value               = 0;
         uuid_t             trav_uuid           = {0,};
-        uint32_t           timeout             = 0;
+        gf_boolean_t       skip_check          = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("quota", this, err);
         GF_VALIDATE_OR_GOTO (this->name, frame, err);
@@ -1063,64 +1223,28 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         break;
                 }
 
-                if (ctx != NULL && (ctx->hard_lim > 0 || ctx->soft_lim > 0)) {
-                        wouldbe_size = ctx->size + delta;
+                ret = quota_check_object_limit (frame, ctx, priv, _inode, this,
+                                                &op_errno, just_validated,
+                                                local, &skip_check);
+                if (skip_check == _gf_true)
+                        goto done;
 
-                        LOCK (&ctx->lock);
-                        {
-                                timeout = priv->soft_timeout;
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to check "
+                                "quota object limit");
+                        goto err;
+                }
 
-                                if ((ctx->soft_lim >= 0)
-                                    && (wouldbe_size > ctx->soft_lim)) {
-                                        timeout = priv->hard_timeout;
-                                }
+                ret = quota_check_size_limit (frame, ctx, priv, _inode, this,
+                                              &op_errno, just_validated, delta,
+                                              local, &skip_check);
+                if (skip_check == _gf_true)
+                        goto done;
 
-                                if (!just_validated
-                                    && quota_timeout (&ctx->tv, timeout)) {
-                                        need_validate = 1;
-                                } else if (wouldbe_size >= ctx->hard_lim) {
-                                        hard_limit_exceeded = 1;
-                                }
-                        }
-                        UNLOCK (&ctx->lock);
-
-                        if (need_validate) {
-                                ret = quota_validate (frame, _inode, this,
-                                                      quota_validate_cbk);
-                                if (ret < 0) {
-                                        op_errno = -ret;
-                                        goto err;
-                                }
-
-                                break;
-                        }
-
-                        if (hard_limit_exceeded) {
-                                local->op_ret = -1;
-                                local->op_errno = EDQUOT;
-
-                                space_available = ctx->hard_lim - ctx->size;
-
-                                if (space_available < 0)
-                                        space_available = 0;
-
-                                if ((local->space_available < 0)
-                                    || (local->space_available
-                                        > space_available)){
-                                        local->space_available
-                                                = space_available;
-
-                                }
-
-                                if (space_available == 0) {
-                                        op_errno = EDQUOT;
-                                        goto err;
-                                }
-                        }
-
-                        /* We log usage only if quota limit is configured on
-                           that inode. */
-                        quota_log_usage (this, ctx, _inode, delta);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to check "
+                                "quota size limit");
+                        goto err;
                 }
 
                 if (__is_root_gfid (_inode->gfid)) {
@@ -1160,12 +1284,12 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 ctx = (quota_inode_ctx_t *)(unsigned long)value;
         } while (1);
 
+
+done:
         if (_inode != NULL) {
                 inode_unref (_inode);
                 _inode = NULL;
         }
-
-done:
         return 0;
 
 err:
@@ -1177,12 +1301,15 @@ err:
 
 static inline int
 quota_get_limits (xlator_t *this, dict_t *dict, int64_t *hard_lim,
-                  int64_t *soft_lim)
+                  int64_t *soft_lim, int64_t *object_hard_limit,
+                  int64_t *object_soft_limit)
 {
-        quota_limit_t *limit            = NULL;
-        quota_priv_t  *priv             = NULL;
-        int64_t        soft_lim_percent = 0, *ptr = NULL;
-        int            ret              = 0;
+        quota_limits_t *limit             = NULL;
+        quota_limits_t *object_limit      = NULL;
+        quota_priv_t   *priv              = NULL;
+        int64_t         soft_lim_percent  = 0;
+        int64_t        *ptr               = NULL;
+        int             ret               = 0;
 
         if ((this == NULL) || (dict == NULL) || (hard_lim == NULL)
             || (soft_lim == NULL))
@@ -1191,11 +1318,11 @@ quota_get_limits (xlator_t *this, dict_t *dict, int64_t *hard_lim,
         priv = this->private;
 
         ret = dict_get_bin (dict, QUOTA_LIMIT_KEY, (void **) &ptr);
-        limit = (quota_limit_t *)ptr;
+        limit = (quota_limits_t *)ptr;
 
         if (limit) {
-                *hard_lim = ntoh64 (limit->hard_lim);
-                soft_lim_percent = ntoh64 (limit->soft_lim_percent);
+                *hard_lim = ntoh64 (limit->hl);
+                soft_lim_percent = ntoh64 (limit->sl);
         }
 
         if (soft_lim_percent < 0) {
@@ -1206,6 +1333,25 @@ quota_get_limits (xlator_t *this, dict_t *dict, int64_t *hard_lim,
                 *soft_lim = (soft_lim_percent * (*hard_lim))/100;
         }
 
+        ret = dict_get_bin (dict, QUOTA_LIMIT_OBJECTS_KEY, (void **) &ptr);
+        if (ret)
+                return 0;
+        object_limit = (quota_limits_t *)ptr;
+
+        if (object_limit) {
+                *object_hard_limit = ntoh64 (object_limit->hl);
+                 soft_lim_percent = ntoh64 (object_limit->sl);
+        }
+
+        if (soft_lim_percent < 0) {
+                soft_lim_percent = priv->default_soft_lim;
+        }
+
+        if ((*object_hard_limit > 0) && (soft_lim_percent > 0)) {
+                *object_soft_limit = (soft_lim_percent *
+                                     (*object_hard_limit))/100;
+        }
+
 out:
         return 0;
 }
@@ -1214,14 +1360,18 @@ int
 quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
                      loc_t *loc, struct iatt *buf, int32_t *op_errno)
 {
-        int32_t            ret      = -1;
-        char               found    = 0;
-        quota_inode_ctx_t *ctx      = NULL;
-        quota_dentry_t    *dentry   = NULL;
-        uint64_t           value    = 0;
-        int64_t            hard_lim = -1, soft_lim = -1;
+        int32_t            ret                  = -1;
+        char               found                = 0;
+        quota_inode_ctx_t *ctx                  = NULL;
+        quota_dentry_t    *dentry               = NULL;
+        uint64_t           value                = 0;
+        int64_t            hard_lim             = 0;
+        int64_t            soft_lim             = 0;
+        int64_t            object_hard_limit    = 0;
+        int64_t            object_soft_limit    = 0;
 
-        quota_get_limits (this, dict, &hard_lim, &soft_lim);
+        quota_get_limits (this, dict, &hard_lim, &soft_lim, &object_hard_limit,
+                          &object_soft_limit);
 
         inode_ctx_get (inode, this, &value);
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
@@ -1246,6 +1396,8 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
         {
                 ctx->hard_lim = hard_lim;
                 ctx->soft_lim = soft_lim;
+                ctx->object_hard_lim = object_hard_limit;
+                ctx->object_soft_lim = object_soft_limit;
 
                 ctx->buf = *buf;
 
@@ -1357,6 +1509,13 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "dict set of key for hard-limit failed");
+                goto err;
+        }
+
+        ret = dict_set_int8 (xattr_req, QUOTA_LIMIT_OBJECTS_KEY, 1);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dict set of key for quota object limit failed");
                 goto err;
         }
 
@@ -3671,20 +3830,26 @@ quota_setxattr_cbk (call_frame_t *frame, void *cookie,
         quota_inode_ctx_t *ctx   = NULL;
         int                ret   = 0;
 
+        if (op_ret < 0) {
+                goto out;
+        }
+
         local = frame->local;
         if (!local)
                 goto out;
 
         ret = quota_inode_ctx_get (local->loc.inode, this, &ctx, 1);
         if ((ret < 0) || (ctx == NULL)) {
-                op_errno = ENOMEM;
+                op_errno = -1;
                 goto out;
         }
 
         LOCK (&ctx->lock);
         {
-                ctx->hard_lim = local->limit.hard_lim;
-                ctx->soft_lim = local->limit.soft_lim_percent;
+                ctx->hard_lim = local->limit.hl;
+                ctx->soft_lim = local->limit.sl;
+                ctx->object_hard_lim = local->object_limit.hl;
+                ctx->object_soft_lim = local->object_limit.sl;
         }
         UNLOCK (&ctx->lock);
 
@@ -3697,11 +3862,14 @@ int
 quota_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
 {
-        quota_priv_t  *priv     = NULL;
-        int            op_errno = EINVAL;
-        int            op_ret   = -1;
-        int64_t        hard_lim = -1, soft_lim = -1;
-        quota_local_t *local    = NULL;
+        quota_priv_t    *priv                   = NULL;
+        int             op_errno                = EINVAL;
+        int             op_ret                  = -1;
+        int64_t         hard_lim                = -1;
+        int64_t         soft_lim                = -1;
+        int64_t         object_hard_limit       = -1;
+        int64_t         object_soft_limit       = -1;
+        quota_local_t   *local                  = NULL;
 
         priv = this->private;
 
@@ -3718,20 +3886,27 @@ quota_setxattr (call_frame_t *frame, xlator_t *this,
                                            err);
         }
 
-        quota_get_limits (this, dict, &hard_lim, &soft_lim);
+        quota_get_limits (this, dict, &hard_lim, &soft_lim, &object_hard_limit,
+                          &object_soft_limit);
 
-        if (hard_lim > 0) {
+        if (hard_lim > 0 || object_hard_limit > 0) {
                 local = quota_local_new ();
                 if (local == NULL) {
                         op_errno = ENOMEM;
                         goto err;
                 }
-
                 frame->local = local;
                 loc_copy (&local->loc, loc);
+        }
 
-                local->limit.hard_lim = hard_lim;
-                local->limit.soft_lim_percent = soft_lim;
+        if (hard_lim > 0) {
+                local->limit.hl = hard_lim;
+                local->limit.sl = soft_lim;
+        }
+
+        if (object_hard_limit > 0) {
+                local->object_limit.hl = object_hard_limit;
+                local->object_limit.sl = object_soft_limit;
         }
 
         STACK_WIND (frame, quota_setxattr_cbk,
@@ -3756,6 +3931,9 @@ quota_fsetxattr_cbk (call_frame_t *frame, void *cookie,
         quota_inode_ctx_t *ctx   = NULL;
         quota_local_t     *local = NULL;
 
+        if (op_ret < 0)
+                goto out;
+
         local = frame->local;
         if (!local)
                 goto out;
@@ -3768,8 +3946,10 @@ quota_fsetxattr_cbk (call_frame_t *frame, void *cookie,
 
         LOCK (&ctx->lock);
         {
-                ctx->hard_lim = local->limit.hard_lim;
-                ctx->soft_lim = local->limit.soft_lim_percent;
+                ctx->hard_lim = local->limit.hl;
+                ctx->soft_lim = local->limit.sl;
+                ctx->object_hard_lim = local->object_limit.hl;
+                ctx->object_soft_lim = local->object_limit.sl;
         }
         UNLOCK (&ctx->lock);
 
@@ -3782,11 +3962,14 @@ int
 quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  dict_t *dict, int flags, dict_t *xdata)
 {
-        quota_priv_t  *priv     = NULL;
-        int32_t        op_ret   = -1;
-        int32_t        op_errno = EINVAL;
-        quota_local_t *local    = NULL;
-        int64_t        hard_lim = -1, soft_lim = -1;
+        quota_priv_t    *priv                   = NULL;
+        int32_t         op_ret                  = -1;
+        int32_t         op_errno                = EINVAL;
+        quota_local_t   *local                  = NULL;
+        int64_t         hard_lim                = -1;
+        int64_t         soft_lim                = -1;
+        int64_t         object_hard_limit       = -1;
+        int64_t         object_soft_limit       = -1;
 
         priv = this->private;
 
@@ -3803,9 +3986,10 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                             op_errno, err);
         }
 
-        quota_get_limits (this, dict, &hard_lim, &soft_lim);
+        quota_get_limits (this, dict, &hard_lim, &soft_lim, &object_hard_limit,
+                          &object_soft_limit);
 
-        if (hard_lim > 0) {
+        if (hard_lim > 0 || object_hard_limit > 0) {
                 local = quota_local_new ();
                 if (local == NULL) {
                         op_errno = ENOMEM;
@@ -3813,9 +3997,16 @@ quota_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 }
                 frame->local = local;
                 local->loc.inode = inode_ref (fd->inode);
+        }
 
-                local->limit.hard_lim = hard_lim;
-                local->limit.soft_lim_percent = soft_lim;
+        if (hard_lim > 0) {
+                local->limit.hl = hard_lim;
+                local->limit.sl = soft_lim;
+        }
+
+        if (object_hard_limit > 0) {
+                local->object_limit.hl = object_hard_limit;
+                local->object_limit.sl = object_soft_limit;
         }
 
         STACK_WIND (frame, quota_fsetxattr_cbk,
@@ -4040,8 +4231,9 @@ quota_statfs_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local      = NULL;
         int32_t            ret        = 0;
         quota_inode_ctx_t *ctx        = NULL;
-        int64_t           *size       = 0;
         uint64_t           value      = 0;
+        data_t            *data       = NULL;
+        quota_meta_t       size       = {0,};
 
         local = frame->local;
 
@@ -4066,17 +4258,18 @@ quota_statfs_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto resume;
         }
 
-        ret = dict_get_bin (xdata, QUOTA_SIZE_KEY, (void **) &size);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "size key not present in dict");
+        ret = quota_dict_get_meta (xdata, QUOTA_SIZE_KEY, &size);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "dict get failed "
+                        "on quota size");
                 op_errno = EINVAL;
-                goto resume;
         }
 
         LOCK (&ctx->lock);
         {
-                ctx->size = ntoh64 (*size);
+                ctx->size = size.size;
+                ctx->file_count = size.file_count;
+                ctx->dir_count = size.dir_count;
                 gettimeofday (&ctx->tv, NULL);
         }
         UNLOCK (&ctx->lock);
@@ -4352,6 +4545,15 @@ quota_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         if (dict) {
                 ret = dict_set_int8 (dict, QUOTA_LIMIT_KEY, 1);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "dict set of key for hard-limit failed");
+                        goto err;
+                }
+        }
+
+        if (dict) {
+                ret = dict_set_int8 (dict, QUOTA_LIMIT_OBJECTS_KEY, 1);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "dict set of key for hard-limit failed");

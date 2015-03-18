@@ -126,15 +126,28 @@ int
 quotad_aggregator_getlimit_cbk (xlator_t *this, call_frame_t *frame,
                                 void *lookup_rsp)
 {
-        gfs3_lookup_rsp            *rsp   = lookup_rsp;
+        gfs3_lookup_rsp            *rsp    = lookup_rsp;
         gf_cli_rsp                 cli_rsp = {0,};
-        dict_t                     *xdata = NULL;
-        int                         ret = -1;
+        dict_t                     *xdata  = NULL;
+        quotad_aggregator_state_t  *state  = NULL;
+        int                         ret    = -1;
+        int                         type   = 0;
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->this, xdata,
                                       (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), rsp->op_ret,
                                       rsp->op_errno, out);
+
+        if (xdata) {
+                state = frame->root->state;
+                ret = dict_get_int32 (state->xdata, "type", &type);
+                if (ret < 0)
+                        goto out;
+
+                ret = dict_set_int32 (xdata, "type", type);
+                if (ret < 0)
+                        goto out;
+        }
 
         ret = 0;
 out:
@@ -215,9 +228,17 @@ quotad_aggregator_getlimit (rpcsvc_request_t *req)
         }
         state = frame->root->state;
         state->xdata = dict;
+
         ret = dict_set_int32 (state->xdata, QUOTA_LIMIT_KEY, 42);
         if (ret)
                 goto err;
+
+        ret = dict_set_int32 (state->xdata, QUOTA_LIMIT_OBJECTS_KEY, 42);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                        "QUOTA_LIMIT_OBJECTS_KEY");
+                goto err;
+        }
 
         ret = dict_set_int32 (state->xdata, QUOTA_SIZE_KEY, 42);
         if (ret)

@@ -29,7 +29,8 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	syncop-utils.c \
 	$(CONTRIBDIR)/libgen/basename_r.c $(CONTRIBDIR)/libgen/dirname_r.c \
 	$(CONTRIBDIR)/stdlib/gf_mkostemp.c strfd.c parse-utils.c \
-	$(CONTRIBDIR)/mount/mntent.c $(CONTRIBDIR)/libexecinfo/execinfo.c
+	$(CONTRIBDIR)/mount/mntent.c $(CONTRIBDIR)/libexecinfo/execinfo.c\
+	quota-common-utils.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
@@ -48,7 +49,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
-	unittest/unittest.h
+	unittest/unittest.h quota-common-utils.h
 
 EXTRA_DIST = graph.l graph.y
 

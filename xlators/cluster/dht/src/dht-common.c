@@ -23,6 +23,7 @@
 #include "defaults.h"
 #include "byte-order.h"
 #include "glusterfs-acl.h"
+#include "quota-common-utils.h"
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -31,47 +32,90 @@
 int dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret);
 
 int
+dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
+{
+        int              ret            = -1;
+        quota_meta_t    *meta_dst       = NULL;
+        quota_meta_t    *meta_src       = NULL;
+        int64_t         *size           = NULL;
+        int64_t          dst_dir_count  = 0;
+        int64_t          src_dir_count  = 0;
+
+        if (value == NULL) {
+                gf_log ("dht", GF_LOG_WARNING, "data value is NULL");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_bin (dst, key, (void **)&meta_dst);
+        if (ret < 0) {
+                meta_dst = GF_CALLOC (1, sizeof (quota_meta_t),
+                                      gf_common_quota_meta_t);
+                if (meta_dst == NULL) {
+                        gf_msg ("dht", GF_LOG_WARNING, 0, DHT_MSG_NO_MEMORY,
+                                "Memory allocation failed");
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_bin (dst, key, meta_dst,
+                                    sizeof (quota_meta_t));
+                if (ret < 0) {
+                        gf_log ("dht", GF_LOG_WARNING,
+                                "dht aggregate dict set failed");
+                        GF_FREE (meta_dst);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (value->len > sizeof (int64_t)) {
+                meta_src = data_to_bin (value);
+
+                meta_dst->size = hton64 (ntoh64 (meta_dst->size) +
+                                         ntoh64 (meta_src->size));
+                meta_dst->file_count = hton64 (ntoh64 (meta_dst->file_count) +
+                                               ntoh64 (meta_src->file_count));
+
+                if (value->len > (2 * sizeof (int64_t))) {
+                        dst_dir_count = ntoh64 (meta_dst->dir_count);
+                        src_dir_count = ntoh64 (meta_src->dir_count);
+
+                        if (src_dir_count > dst_dir_count)
+                                meta_dst->dir_count = meta_src->dir_count;
+                } else {
+                        meta_dst->dir_count = 0;
+                }
+        } else {
+                size = data_to_bin (value);
+                meta_dst->size = hton64 (ntoh64 (meta_dst->size) +
+                                         ntoh64 (*size));
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
-        dict_t  *dst  = NULL;
-        int64_t *ptr  = 0, *size = NULL;
-        int32_t  ret  = -1;
-        data_t  *dict_data = NULL;
+        dict_t          *dst            = NULL;
+        int32_t          ret            = -1;
+        data_t          *dict_data      = NULL;
 
         dst = data;
 
-        if (strcmp (key, GF_XATTR_QUOTA_SIZE_KEY) == 0) {
-                ret = dict_get_bin (dst, key, (void **)&size);
-                if (ret < 0) {
-                        size = GF_CALLOC (1, sizeof (int64_t),
-                                          gf_common_mt_char);
-                        if (size == NULL) {
-                                gf_msg ("dht", GF_LOG_WARNING, 0,
-                                        DHT_MSG_NO_MEMORY,
-                                        "Memory allocation failed");
-                                return -1;
-                        }
-                        ret = dict_set_bin (dst, key, size, sizeof (int64_t));
-                        if (ret < 0) {
-                                gf_log ("dht", GF_LOG_WARNING,
-                                        "dht aggregate dict set failed");
-                                GF_FREE (size);
-                                return -1;
-                        }
+        if (strcmp (key, QUOTA_SIZE_KEY) == 0) {
+                ret = dht_aggregate_quota_xattr (dst, key, value);
+                if (ret) {
+                        gf_log ("dht", GF_LOG_WARNING, "Failed to "
+                                "aggregate qutoa xattr");
+                        goto out;
                 }
-
-                ptr = data_to_bin (value);
-                if (ptr == NULL) {
-                        gf_log ("dht", GF_LOG_WARNING, "data to bin failed");
-                        return -1;
-                }
-
-                *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
-
         } else if (fnmatch (GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0) {
                 ret = gf_get_min_stime (THIS, dst, key, value);
                 if (ret < 0)
-                        return ret;
+                        goto out;
         } else {
                 /* compare user xattrs only */
                 if (!strncmp (key, "user.", strlen ("user."))) {
@@ -85,14 +129,17 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                         }
                 }
                 ret = dict_set (dst, key, value);
-                if (ret)
+                if (ret) {
                         gf_msg ("dht", GF_LOG_WARNING, 0,
                                 DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set dictionary value: key = %s",
                                 key);
+                }
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -254,7 +301,6 @@ selfheal:
         return ret;
 
 }
-
 
 int
 dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2896,7 +2942,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && !strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key)) {
+        if (key && (!strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key) ||
+                    !strcmp (GF_XATTR_QUOTA_LIMIT_LIST_OBJECT, key))) {
                 /* quota hardlimit and aggregated size of a directory is stored
                  * in inode contexts of each brick. Hence its good enough that
                  * we send getxattr for this key to any brick.
