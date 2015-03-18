@@ -1234,6 +1234,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                         if path == '.':
                             try:
                                 e.remove('.glusterfs')
+                                e.remove('.trashcan')
                             except ValueError:
                                 pass
                         return e
