@@ -1452,6 +1452,12 @@ rpcsvc_program_register_rpcbind6 (rpcsvc_program_t *newprog, uint32_t port)
                 goto out;
         }
 
+        /* Force the unregistration of the program first.
+         * This call may fail if nothing has been registered,
+         * which is fine.
+         */
+        rpcsvc_program_unregister_rpcbind6 (newprog);
+
         success = rpcb_set (newprog->prognum, newprog->progver, nc, nb);
         if (!success) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not register the IPv6"
