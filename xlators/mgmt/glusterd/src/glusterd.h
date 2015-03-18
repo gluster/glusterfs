@@ -293,11 +293,26 @@ typedef enum gd_quorum_status_ {
         DOESNT_MEET_QUORUM, //Follows quorum and does not meet.
 } gd_quorum_status_t;
 
+typedef struct tier_info_ {
+        int                       cold_type;
+        int                       cold_brick_count;
+        int                       cold_replica_count;
+        int                       cold_disperse_count;
+        int                       cold_dist_leaf_count;
+        int                       hot_type;
+        int                       hot_brick_count;
+        int                       hot_replica_count;
+        int                       hot_disperse_count;
+        /*Commented for now Dan's DHT Tier patch will have it*/
+        /*tier_group_t             *root;*/
+} gd_tier_info_t;
+
 struct glusterd_volinfo_ {
         gf_lock_t                 lock;
         gf_boolean_t              is_snap_volume;
         glusterd_snap_t          *snapshot;
         uuid_t                    restored_from_snap;
+        gd_tier_info_t            tier_info;
         char                      parent_volname[GD_VOLUME_NAME_MAX];
                                          /* In case of a snap volume
                                             i.e (is_snap_volume == TRUE) this
@@ -983,6 +998,7 @@ int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr,
                                    dict_t *rsp_dict);
 
+
 int glusterd_op_stage_barrier (dict_t *dict, char **op_errstr);
 int glusterd_op_barrier (dict_t *dict, char **op_errstr);
 
@@ -999,6 +1015,7 @@ int glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
 
 int glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
                            gf_boolean_t wait);
+
 int glusterd_stop_volume (glusterd_volinfo_t *volinfo);
 
 /* Synctask part */

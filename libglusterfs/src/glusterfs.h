@@ -206,6 +206,10 @@
 #define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 
+/*CTR requires inode dentry link count from posix*/
+#define CTR_RESPONSE_LINK_COUNT_XDATA "ctr_response_link_count"
+#define CTR_REQUEST_LINK_COUNT_XDATA  "ctr_request_link_count"
+
 #define GF_LOG_LRU_BUFSIZE_DEFAULT 5
 #define GF_LOG_LRU_BUFSIZE_MIN 0
 #define GF_LOG_LRU_BUFSIZE_MAX 20
@@ -451,11 +455,11 @@ struct _glusterfs_graph {
         struct timeval            dob;
         void                     *first;
         void                     *top;   /* selected by -n */
+        uint32_t                  leaf_count;
         int                       xl_count;
         int                       id;    /* Used in logging */
         int                       used;  /* Should be set when fuse gets
                                             first CHILD_UP */
-        uint32_t                  leaf_count;
         uint32_t                  volfile_checksum;
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
