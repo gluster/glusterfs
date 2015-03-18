@@ -1832,17 +1832,6 @@ struct volume_options options[] = {
           .description = "This option is used to start or stop the NFS server "
                          "for individual volumes."
         },
-        { .key  = {"nfs-ganesha.*.host"},
-          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
-          .default_value = "none",
-          .description = "Set nfs-ganesha host IP"
-        },
-        { .key  = {"nfs-ganesha.*.enable"},
-          .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
-          .description = "This option, if set to 'on', enables exports via nfs-ganesha "
-        },
-
         { .key  = {"nfs.nlm"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
