@@ -25,7 +25,7 @@ glusterd_peerinfo_destroy (struct rcu_head *head)
                                       rcu_head);
 
         /* Set THIS to the saved this. Needed by some functions below */
-        THIS = peerinfo->head.this;
+        THIS = peerinfo->rcu_head.this;
 
         CDS_INIT_LIST_HEAD (&peerinfo->uuid_list);
 
@@ -73,8 +73,8 @@ glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo)
 
         cds_list_del_rcu (&peerinfo->uuid_list);
         /* Saving THIS, as it is needed by the callback function */
-        peerinfo->head.this = THIS;
-        call_rcu (&peerinfo->head.head, glusterd_peerinfo_destroy);
+        peerinfo->rcu_head.this = THIS;
+        call_rcu (&peerinfo->rcu_head.head, glusterd_peerinfo_destroy);
 
         if (quorum_action)
                 glusterd_do_quorum_action ();
