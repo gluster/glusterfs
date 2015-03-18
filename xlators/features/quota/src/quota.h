@@ -25,7 +25,6 @@
 #include "logging.h"
 #include "dict.h"
 #include "stack.h"
-#include "common-utils.h"
 #include "event.h"
 #include "globals.h"
 #include "rpcsvc.h"
@@ -36,6 +35,7 @@
 #include "xdr-generic.h"
 #include "compat-errno.h"
 #include "protocol-common.h"
+#include "quota-common-utils.h"
 
 #define DIRTY                   "dirty"
 #define SIZE                    "size"
@@ -169,6 +169,10 @@ struct quota_inode_ctx {
         int64_t          size;
         int64_t          hard_lim;
         int64_t          soft_lim;
+        int64_t          file_count;
+        int64_t          dir_count;
+        int64_t          object_hard_lim;
+        int64_t          object_soft_lim;
         struct iatt      buf;
         struct list_head parents;
         struct timeval   tv;
@@ -177,12 +181,6 @@ struct quota_inode_ctx {
         gf_lock_t        lock;
 };
 typedef struct quota_inode_ctx quota_inode_ctx_t;
-
-struct quota_limit {
-        int64_t hard_lim;
-        int64_t soft_lim_percent;
-} __attribute__ ((packed));
-typedef struct quota_limit quota_limit_t;
 
 typedef void
 (*quota_ancestry_built_t) (struct list_head *parents, inode_t *inode,
@@ -210,7 +208,8 @@ struct quota_local {
         uuid_t                  common_ancestor; /* Used by quota_rename */
         call_stub_t            *stub;
         struct iobref          *iobref;
-        quota_limit_t           limit;
+        quota_limits_t          limit;
+        quota_limits_t          object_limit;
         int64_t                 space_available;
         quota_ancestry_built_t  ancestry_cbk;
         void                   *ancestry_data;
@@ -261,4 +260,15 @@ int
 quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
                      loc_t *loc, struct iatt *buf, int32_t *op_errno);
 
+int32_t
+quota_check_size_limit (call_frame_t *frame, quota_inode_ctx_t *ctx,
+                          quota_priv_t *priv, inode_t *_inode, xlator_t *this,
+                          int32_t *op_errno, int just_validated, int64_t delta,
+                          quota_local_t *local, gf_boolean_t *skip_check);
+
+int32_t
+quota_check_object_limit (call_frame_t *frame, quota_inode_ctx_t *ctx,
+                          quota_priv_t *priv, inode_t *_inode, xlator_t *this,
+                          int32_t *op_errno, int just_validated,
+                          quota_local_t *local, gf_boolean_t *skip_check);
 #endif

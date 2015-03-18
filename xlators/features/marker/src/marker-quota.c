@@ -21,6 +21,7 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include "syncop.h"
+#include "quota-common-utils.h"
 
 int
 mq_loc_copy (loc_t *dst, loc_t *src)
@@ -2035,79 +2036,6 @@ err:
         return -1;
 }
 
-int32_t
-mq_dict_set_meta (dict_t *dict, char *key, const quota_meta_t *meta,
-                  ia_type_t ia_type)
-{
-        int32_t         ret      = -1;
-        quota_meta_t   *value    = NULL;
-
-        QUOTA_ALLOC_OR_GOTO (value, quota_meta_t, ret, out);
-
-        value->size = hton64 (meta->size);
-        value->file_count = hton64 (meta->file_count);
-        value->dir_count = hton64 (meta->dir_count);
-
-        if (ia_type == IA_IFDIR) {
-                ret = dict_set_bin (dict, key, value, sizeof (*value));
-        } else {
-                /* For a file we don't need to store dir_count in the
-                 * quota size xattr, so we set the len of the data in the dict
-                 * as 128bits, so when the posix xattrop reads the dict, it only
-                 * performs operations on size and file_count
-                 */
-                ret = dict_set_bin (dict, key, value,
-                                    sizeof (*value) - sizeof (int64_t));
-        }
-
-        if (ret < 0) {
-                gf_log_callingfn ("marker", GF_LOG_ERROR, "dict set failed");
-                GF_FREE (value);
-        }
-
-out:
-        return ret;
-}
-
-int32_t
-mq_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
-{
-        int32_t        ret      = -1;
-        data_t        *data     = NULL;
-        quota_meta_t  *value    = NULL;
-
-        if (!dict || !key || !meta)
-                goto out;
-
-        data = dict_get (dict, key);
-        if (!data || !data->data)
-                goto out;
-
-        if (data->len > sizeof (int64_t)) {
-                value = (quota_meta_t *) data->data;
-                meta->size = ntoh64 (value->size);
-                meta->file_count = ntoh64 (value->file_count);
-                if (data->len > (sizeof (int64_t)) * 2)
-                        meta->dir_count  = ntoh64 (value->dir_count);
-                else
-                        meta->dir_count = 0;
-        } else {
-                /* This can happen during software upgrade.
-                 * Older version of glusterfs will not have inode count.
-                 * Return failure, this will be healed as part of lookup
-                 */
-                gf_log_callingfn ("marker", GF_LOG_DEBUG, "Object quota xattrs "
-                                  "missing: len = %d", data->len);
-                ret = -1;
-                goto out;
-        }
-
-        ret = 0;
-out:
-
-        return ret;
-}
-
 void
 mq_compute_delta (quota_meta_t *delta, const quota_meta_t *op1,
                   const quota_meta_t *op2)
@@ -2187,7 +2115,7 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
 
         *result = _gf_true;
         if (loc->inode->ia_type == IA_IFDIR) {
-                ret = mq_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY, &meta);
+                ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY, &meta);
                 if (ret < 0 || meta.dir_count == 0) {
                         ret = 0;
                         *result = _gf_false;
@@ -2248,7 +2176,8 @@ mq_create_xattrs (xlator_t *this, loc_t *loc, gf_boolean_t objects)
                         /* Initial object count of a directory is 1 */
                         size.dir_count = 1;
                 }
-                ret = mq_dict_set_meta (dict, QUOTA_SIZE_KEY, &size, IA_IFDIR);
+                ret = quota_dict_set_meta (dict, QUOTA_SIZE_KEY, &size,
+                                           IA_IFDIR);
                 if (ret < 0)
                         goto out;
         }
@@ -2261,8 +2190,8 @@ mq_create_xattrs (xlator_t *this, loc_t *loc, gf_boolean_t objects)
                 }
 
                 GET_CONTRI_KEY (key, contribution->gfid, ret);
-                ret = mq_dict_set_meta (dict, key, &contri,
-                                        loc->inode->ia_type);
+                ret = quota_dict_set_meta (dict, key, &contri,
+                                           loc->inode->ia_type);
                 if (ret < 0)
                         goto out;
         }
@@ -2458,8 +2387,8 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
 
         if (size) {
                 if (loc->inode->ia_type == IA_IFDIR) {
-                        ret = mq_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY,
-                                                &meta);
+                        ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY,
+                                                   &meta);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "dict_get failed.");
@@ -2477,7 +2406,7 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
         }
 
         if (contri && !loc_is_root(loc)) {
-                ret = mq_dict_get_meta (rsp_dict, contri_key, &meta);
+                ret = quota_dict_get_meta (rsp_dict, contri_key, &meta);
                 if (ret < 0) {
                         contri->size = 0;
                         contri->file_count = 0;
@@ -2679,7 +2608,8 @@ mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
                 goto out;
         }
 
-        ret = mq_dict_set_meta (dict, contri_key, delta, loc->inode->ia_type);
+        ret = quota_dict_set_meta (dict, contri_key, delta,
+                                   loc->inode->ia_type);
         if (ret < 0)
                 goto out;
 
@@ -2737,8 +2667,8 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
                 goto out;
         }
 
-        ret = mq_dict_set_meta (dict, QUOTA_SIZE_KEY, delta,
-                                loc->inode->ia_type);
+        ret = quota_dict_set_meta (dict, QUOTA_SIZE_KEY, delta,
+                                   loc->inode->ia_type);
         if (ret < 0)
                 goto out;
 
@@ -3484,7 +3414,7 @@ mq_inspect_directory_xattr_task (void *opaque)
         if (ret < 0)
                 goto out;
 
-        ret = mq_dict_get_meta (dict, QUOTA_SIZE_KEY, &size);
+        ret = quota_dict_get_meta (dict, QUOTA_SIZE_KEY, &size);
         if (ret < 0)
                 goto out;
 
@@ -3493,7 +3423,7 @@ mq_inspect_directory_xattr_task (void *opaque)
                 if (ret < 0)
                         goto err;
 
-                ret = mq_dict_get_meta (dict, contri_key, &contri);
+                ret = quota_dict_get_meta (dict, contri_key, &contri);
                 if (ret < 0)
                         goto out;
 
@@ -3609,7 +3539,7 @@ mq_inspect_file_xattr_task (void *opaque)
                 if (ret < 0)
                         continue;
 
-                ret = mq_dict_get_meta (dict, contri_key, &contri);
+                ret = quota_dict_get_meta (dict, contri_key, &contri);
                 if (ret < 0) {
                         ret = mq_create_xattrs_blocking_txn (this, loc);
                 } else {

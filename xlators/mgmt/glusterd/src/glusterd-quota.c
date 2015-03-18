@@ -26,6 +26,7 @@
 #include "syscall.h"
 #include "byte-order.h"
 #include "compat-errno.h"
+#include "quota-common-utils.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -42,7 +43,7 @@
 /* Any negative pid to make it special client */
 #define QUOTA_CRAWL_PID "-100"
 
-const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT+1] = {
+const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
         [GF_QUOTA_OPTION_TYPE_NONE]               = "none",
         [GF_QUOTA_OPTION_TYPE_ENABLE]             = "enable",
         [GF_QUOTA_OPTION_TYPE_DISABLE]            = "disable",
@@ -54,6 +55,10 @@ const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT+1] = {
         [GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT]       = "soft-timeout",
         [GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT]       = "hard-timeout",
         [GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT] = "default-soft-limit",
+        [GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS]      = "limit-objects",
+        [GF_QUOTA_OPTION_TYPE_LIST_OBJECTS]       = "list-objects",
+        [GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS]     = "remove-objetcs",
+        [GF_QUOTA_OPTION_TYPE_MAX]                = NULL
 };
 
 int
@@ -438,24 +443,17 @@ out:
         return ret;
 }
 
-
 static int
 glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
-                          char *soft_limit, char **op_errstr)
+                          char *soft_limit, char *key, char **op_errstr)
 {
         int               ret                = -1;
         xlator_t         *this               = NULL;
         char              abspath[PATH_MAX]  = {0,};
         glusterd_conf_t  *priv               = NULL;
-        double           soft_lim            = 0;
-
-        typedef struct quota_limits {
-                int64_t hl;
-                int64_t sl;
-        } __attribute__ ((__packed__)) quota_limits_t;
-
-	quota_limits_t existing_limit = {0,};
-	quota_limits_t new_limit = {0,};
+	quota_limits_t    existing_limit     = {0,};
+	quota_limits_t    new_limit          = {0,};
+        double            soft_limit_double  = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -471,9 +469,7 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
         }
 
         if (!soft_limit) {
-                ret = sys_lgetxattr (abspath,
-                                     "trusted.glusterfs.quota.limit-set",
-                                     (void *)&existing_limit,
+                ret = sys_lgetxattr (abspath, key, (void *)&existing_limit,
                                      sizeof (existing_limit));
                 if (ret < 0) {
                         switch (errno) {
@@ -484,10 +480,9 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
                                 existing_limit.sl = -1;
                             break;
                         default:
-                                gf_asprintf (op_errstr, "Failed to get the xattr "
-                                             "'trusted.glusterfs.quota.limit-set' from "
-                                             "%s. Reason : %s", abspath,
-                                             strerror (errno));
+                                gf_asprintf (op_errstr, "Failed to get the "
+                                             "xattr %s from %s. Reason : %s",
+                                             key, abspath, strerror (errno));
                                 goto out;
                         }
                 } else {
@@ -497,10 +492,10 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
                 new_limit.sl = existing_limit.sl;
 
         } else {
-                ret = gf_string2percent (soft_limit, &soft_lim);
+                ret = gf_string2percent (soft_limit, &soft_limit_double);
                 if (ret)
                         goto out;
-                new_limit.sl = soft_lim;
+                new_limit.sl = soft_limit_double;
         }
 
         new_limit.sl = hton64 (new_limit.sl);
@@ -511,12 +506,11 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
 
         new_limit.hl = hton64 (new_limit.hl);
 
-        ret = sys_lsetxattr (abspath, "trusted.glusterfs.quota.limit-set",
-                             (char *)(void *)&new_limit, sizeof (new_limit), 0);
+        ret = sys_lsetxattr (abspath, key, (char *)(void *)&new_limit,
+                             sizeof (new_limit), 0);
         if (ret == -1) {
-                gf_asprintf (op_errstr, "setxattr of "
-                             "'trusted.glusterfs.quota.limit-set' failed on %s."
-                             " Reason : %s", abspath, strerror (errno));
+                gf_asprintf (op_errstr, "setxattr of %s failed on %s."
+                             " Reason : %s", key, abspath, strerror (errno));
                 goto out;
         }
         ret = 0;
@@ -728,44 +722,46 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         }
 
         switch (opcode) {
-                case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
-                        if (!found) {
-                                ret = write (fd, gfid, 16);
-                                if (ret == -1) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "write into quota.conf failed. "
-                                                "Reason : %s",
-                                                strerror (errno));
-                                        goto out;
-                                }
-                                modified = _gf_true;
+        case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+        case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+                if (!found) {
+                        ret = write (fd, gfid, 16);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "write into quota.conf failed. "
+                                        "Reason : %s",
+                                        strerror (errno));
+                                goto out;
                         }
-                        break;
+                        modified = _gf_true;
+                }
+                break;
 
-                case GF_QUOTA_OPTION_TYPE_REMOVE:
-                        if (is_file_empty) {
-                                gf_asprintf (op_errstr, "Cannot remove limit on"
-                                             " %s. The quota configuration file"
-                                             " for volume %s is empty.", path,
-                                             volinfo->volname);
+        case GF_QUOTA_OPTION_TYPE_REMOVE:
+        case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+                if (is_file_empty) {
+                        gf_asprintf (op_errstr, "Cannot remove limit on"
+                                     " %s. The quota configuration file"
+                                     " for volume %s is empty.", path,
+                                     volinfo->volname);
+                        ret = -1;
+                        goto out;
+                } else {
+                        if (!found) {
+                                gf_asprintf (op_errstr, "Error. gfid %s"
+                                             " for path %s not found in"
+                                             " store", gfid_str, path);
                                 ret = -1;
                                 goto out;
                         } else {
-                                if (!found) {
-                                        gf_asprintf (op_errstr, "Error. gfid %s"
-                                                     " for path %s not found in"
-                                                     " store", gfid_str, path);
-                                        ret = -1;
-                                        goto out;
-                                } else {
-                                        modified = _gf_true;
-                                }
+                                modified = _gf_true;
                         }
-                        break;
+                }
+                break;
 
-                default:
-                        ret = 0;
-                        break;
+        default:
+                ret = 0;
+                break;
         }
 
         if (modified)
@@ -850,9 +846,17 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict,
         }
 
         if (is_origin_glusterd (dict)) {
-                ret = glusterd_set_quota_limit (volinfo->volname, path,
-                                                hard_limit, soft_limit,
-                                                op_errstr);
+                if (opcode == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
+                        ret = glusterd_set_quota_limit (volinfo->volname, path,
+                                                        hard_limit, soft_limit,
+                                                        QUOTA_LIMIT_KEY,
+                                                        op_errstr);
+                } else {
+                        ret = glusterd_set_quota_limit (volinfo->volname, path,
+                                                        hard_limit, soft_limit,
+                                                        QUOTA_LIMIT_OBJECTS_KEY,
+                                                        op_errstr);
+                }
                 if (ret)
                         goto out;
         }
@@ -879,7 +883,8 @@ out:
 }
 
 static int
-glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr)
+glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr,
+                             int type)
 {
         int               ret                = -1;
         xlator_t         *this               = NULL;
@@ -899,11 +904,24 @@ glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr)
                 goto out;
         }
 
-        ret = sys_lremovexattr (abspath, "trusted.glusterfs.quota.limit-set");
-        if (ret) {
-                gf_asprintf (op_errstr, "removexattr failed on %s. Reason : %s",
-                             abspath, strerror (errno));
-                goto out;
+        if (type == GF_QUOTA_OPTION_TYPE_REMOVE) {
+                ret = sys_lremovexattr (abspath,
+                                        "trusted.glusterfs.quota.limit-set");
+                if (ret) {
+                        gf_asprintf (op_errstr, "removexattr failed on %s. "
+                                     "Reason : %s", abspath, strerror (errno));
+                        goto out;
+                }
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
+                ret = sys_lremovexattr (abspath,
+                                "trusted.glusterfs.quota.limit-objects");
+                if (ret) {
+                        gf_asprintf (op_errstr, "removexattr failed on %s. "
+                                     "Reason : %s", abspath, strerror (errno));
+                        goto out;
+                }
         }
         ret = 0;
 
@@ -913,7 +931,7 @@ out:
 
 int32_t
 glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict,
-                              int opcode, char **op_errstr)
+                              int opcode, char **op_errstr, int type)
 {
         int32_t         ret                   = -1;
         char            *path                 = NULL;
@@ -946,7 +964,7 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         if (is_origin_glusterd (dict)) {
                 ret = glusterd_remove_quota_limit (volinfo->volname, path,
-                                                   op_errstr);
+                                                   op_errstr, type);
                 if (ret)
                         goto out;
         }
@@ -1100,16 +1118,19 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         break;
 
                 case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+                case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
                         ret = glusterd_quota_limit_usage (volinfo, dict, type,
                                                           op_errstr);
                         goto out;
 
                 case GF_QUOTA_OPTION_TYPE_REMOVE:
+                case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
                         ret = glusterd_quota_remove_limits (volinfo, dict, type,
-                                                            op_errstr);
+                                                            op_errstr, type);
                         goto out;
 
                 case GF_QUOTA_OPTION_TYPE_LIST:
+                case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                         ret = glusterd_check_if_quota_trans_enabled (volinfo);
                         if (ret == -1) {
                                 *op_errstr = gf_strdup ("Cannot list limits, "
@@ -1349,6 +1370,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_volinfo_t *volinfo        = NULL;
         char               *hard_limit_str = NULL;
         uint64_t           hard_limit      = 0;
+        gf_boolean_t       get_gfid        = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1420,6 +1442,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         switch (type) {
         case GF_QUOTA_OPTION_TYPE_ENABLE:
         case GF_QUOTA_OPTION_TYPE_LIST:
+        case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                 /* Fuse mount req. only for enable & list-usage options*/
                 if (is_origin_glusterd (dict) &&
                     !glusterd_is_fuse_available ()) {
@@ -1452,15 +1475,15 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 "greater than INT64_MAX", hard_limit_str);
                         goto out;
                 }
-                /*The break statement is missing here to allow intentional fall
-                 * through of code execution to the next switch case
-                 */
+                get_gfid = _gf_true;
+                break;
+        case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+                get_gfid = _gf_true;
+                break;
 
         case GF_QUOTA_OPTION_TYPE_REMOVE:
-                ret = glusterd_get_gfid_from_brick (dict, volinfo, rsp_dict,
-                                                    op_errstr);
-                if (ret)
-                        goto out;
+        case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+                get_gfid = _gf_true;
                 break;
 
         case GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT:
@@ -1474,6 +1497,13 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         default:
                 break;
+        }
+
+        if (get_gfid == _gf_true) {
+                ret = glusterd_get_gfid_from_brick (dict, volinfo, rsp_dict,
+                                                    op_errstr);
+                if (ret)
+                        goto out;
         }
 
         ret = 0;

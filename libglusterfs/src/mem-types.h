@@ -129,6 +129,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_wr                   = 113,
         gf_common_mt_rdma_arena_mr        = 114,
         gf_common_mt_parser_t             = 115,
+        gf_common_quota_meta_t            = 116,
         /*related to gfdb library*/
         gfdb_mt_time_t,
         gf_mt_sql_cbk_args_t,

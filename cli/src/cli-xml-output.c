@@ -5828,3 +5828,70 @@ out:
         return 0;
 #endif /* HAVE_LIB_XML */
 }
+
+int
+cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
+                             quota_limits_t *limits, quota_meta_t *used_space,
+                             int64_t avail, char *sl, char *hl)
+{
+#if (HAVE_LIB_XML)
+        int     ret             = -1;
+
+        ret = xmlTextWriterStartElement (local->writer, (xmlChar *)"limit");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"path",
+                                              "%s", path);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"hard_limit",
+                                               "%"PRIu64, limits->hl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"soft_limit",
+                                               "%s", sl_str);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"file_count",
+                                               "%"PRIu64,
+                                               used_space->file_count);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"dir_count", "%"PRIu64,
+                                               used_space->dir_count);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"available", "%"PRIu64,
+                                               avail);
+
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                              (xmlChar *)"sl_exceeded",
+                                               "%s", sl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = xmlTextWriterWriteFormatElement (local->writer,
+                                               (xmlChar *)"hl_exceeded",
+                                               "%s", hl);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        ret = xmlTextWriterEndElement (local->writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+out:
+        return ret;
+#else
+        return 0;
+#endif /* HAVE_LIB_XML */
+}

@@ -369,6 +369,55 @@ out:
 }
 
 int32_t
+cli_validate_volname (const char *volname)
+{
+        int32_t            ret                       = -1;
+        int32_t            i                         = -1;
+        static const char * const invalid_volnames[] = {
+                                      "volume", "type", "subvolumes", "option",
+                                      "end-volume", "all", "volume_not_in_ring",
+                                      "description", "force",
+                                      "snap-max-hard-limit",
+                                      "snap-max-soft-limit", "auto-delete",
+                                      "activate-on-create", NULL};
+
+        if (volname[0] == '-')
+                goto out;
+
+        for (i = 0; invalid_volnames[i]; i++) {
+                if (!strcmp (volname, invalid_volnames[i])) {
+                        cli_err ("\"%s\" cannot be the name of a volume.",
+                                 volname);
+                        goto out;
+                }
+        }
+
+        if (strchr (volname, '/'))
+                goto out;
+
+        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                cli_err("Volume name exceeds %d characters.",
+                        GD_VOLUME_NAME_MAX);
+                goto out;
+        }
+
+        for (i = 0; i < strlen (volname); i++) {
+                if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                   (volname[i] != '-')) {
+                        cli_err ("Volume name should not contain \"%c\""
+                                 " character.\nVolume names can only"
+                                 "contain alphanumeric, '-' and '_' "
+                                 "characters.", volname[i]);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
 cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                              int wordcount, dict_t **options)
 {
@@ -379,7 +428,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         int     count = 1;
         int     sub_count = 1;
         int     brick_index = 0;
-        int     i = 0;
         char    *trans_type = NULL;
         int32_t index = 0;
         char    *bricks = NULL;
@@ -387,12 +435,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         char    *opwords[] = { "replica", "stripe", "transport", "disperse",
                                "redundancy", "disperse-data", NULL };
 
-        char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
-                                       "end-volume", "all", "volume_not_in_ring",
-                                       "description", "force",
-                                       "snap-max-hard-limit",
-                                       "snap-max-soft-limit", "auto-delete",
-                                       "activate-on-create", NULL};
         char    *w = NULL;
         char    *ptr = NULL;
         int      op_count = 0;
@@ -420,37 +462,8 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         GF_ASSERT (volname);
 
         /* Validate the volume name here itself */
-        {
-                if (volname[0] == '-')
-                        goto out;
-
-                for (i = 0; invalid_volnames[i]; i++) {
-                        if (!strcmp (volname, invalid_volnames[i])) {
-                                cli_err ("\"%s\" cannot be the name of a volume.",
-                                         volname);
-                                goto out;
-                        }
-                }
-
-                if (strchr (volname, '/'))
-                        goto out;
-
-                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
-                        cli_err("Volume name exceeds %d characters.",
-                                GD_VOLUME_NAME_MAX);
-                        goto out;
-                }
-
-                for (i = 0; i < strlen (volname); i++)
-                        if (!isalnum (volname[i]) && (volname[i] != '_') &&
-                           (volname[i] != '-')) {
-                                cli_err ("Volume name should not contain \"%c\""
-                                         " character.\nVolume names can only"
-                                         "contain alphanumeric, '-' and '_' "
-                                         "characters.",volname[i]);
-                                goto out;
-                        }
-        }
+        if (cli_validate_volname (volname) < 0)
+                goto out;
 
         if (wordcount < 4) {
                 ret = -1;
@@ -853,24 +866,29 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         dict_t          *dict    = NULL;
         char            *volname = NULL;
         int              ret     = -1;
-        int              i       = 0;
+        int              i       = -1;
         char             key[20] = {0, };
         uint64_t         value   = 0;
         gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
         char           *opwords[] = { "enable", "disable", "limit-usage",
                                       "remove", "list", "alert-time",
                                       "soft-timeout", "hard-timeout",
-                                      "default-soft-limit", NULL};
+                                      "default-soft-limit", "limit-objects",
+                                      "list-objects", "remove-objects", NULL};
         char            *w       = NULL;
         uint32_t         time    = 0;
         double           percent = 0;
+        char            *end_ptr = NULL;
+        int64_t          limit   = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
 
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                gf_log ("cli", GF_LOG_ERROR, "dict_new failed");
                 goto out;
+        }
 
         if (wordcount < 4)
                 goto out;
@@ -882,34 +900,8 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         /* Validate the volume name here itself */
-        {
-                if (volname[0] == '-')
-                        goto out;
-
-                if (!strcmp (volname, "all")) {
-                        cli_err ("\"all\" cannot be the name of a volume.");
-                        goto out;
-                }
-
-                if (strchr (volname, '/'))
-                        goto out;
-
-                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
-                        cli_err("Volname can not exceed %d characters.",
-                                GD_VOLUME_NAME_MAX);
-                        goto out;
-                }
-
-                for (i = 0; i < strlen (volname); i++)
-                       if (!isalnum (volname[i]) && (volname[i] != '_') &&
-                          (volname[i] != '-')) {
-                                cli_err ("Volume name should not contain \"%c\""
-                                         " character.\nVolume names can only"
-                                         "contain alphanumeric, '-' and '_' "
-                                         "characters.",volname[i]);
-                                goto out;
-                       }
-        }
+        if (cli_validate_volname (volname) < 0)
+                goto out;
 
         ret = dict_set_str (dict, "volname", volname);
         if (ret < 0)
@@ -945,13 +937,18 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         if (strcmp (w, "limit-usage") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
+        } else if (strcmp (w, "limit-objects") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS;
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
+            type == GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) {
 
                 if (wordcount < 6 || wordcount > 7) {
                         ret = -1;
                         goto out;
                 }
-
-                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
 
                 if (words[4][0] != '/') {
                         cli_err ("Please enter absolute path");
@@ -968,13 +965,26 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 }
 
-                ret = gf_string2bytesize_uint64 (words[5], &value);
-                if (ret != 0) {
-                        if (errno == ERANGE)
-                                cli_err ("Value too large: %s", words[5]);
-                        else
-                                cli_err ("Please enter a correct value");
-                        goto out;
+                if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
+                        ret = gf_string2bytesize_uint64 (words[5], &value);
+                        if (ret != 0) {
+                                if (errno == ERANGE)
+                                        cli_err ("Value too large: %s",
+                                                 words[5]);
+                                else
+                                        cli_err ("Please enter a correct "
+                                                 "value");
+                                goto out;
+                        }
+                } else {
+                        errno = 0;
+                        limit = strtol (words[5], &end_ptr, 10);
+                        if (errno == ERANGE || errno == EINVAL || limit <= 0) {
+                                ret = -1;
+                                cli_err ("Please enter an interger value in "
+                                         "the range 1 - %"PRId64, INT64_MAX);
+                                goto out;
+                        }
                 }
 
                 ret  = dict_set_str (dict, "hard-limit", (char *) words[5]);
@@ -997,6 +1007,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
                 goto set_type;
         }
+
         if (strcmp (w, "remove") == 0) {
                 if (wordcount != 5) {
                         ret = -1;
@@ -1004,6 +1015,26 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 }
 
                 type = GF_QUOTA_OPTION_TYPE_REMOVE;
+
+                if (words[4][0] != '/') {
+                        cli_err ("Please enter absolute path");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "path", (char *) words[4]);
+                if (ret < 0)
+                        goto out;
+                goto set_type;
+        }
+
+        if (strcmp (w, "remove-objects") == 0) {
+                if (wordcount != 5) {
+                        ret = -1;
+                        goto out;
+                }
+
+                type = GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS;
 
                 if (words[4][0] != '/') {
                         cli_err ("Please enter absolute path");
@@ -1041,6 +1072,35 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto set_type;
         }
 
+        if (strcmp (w, "list-objects") == 0) {
+                if (wordcount < 4) {
+                        ret = -1;
+                        goto out;
+                }
+
+                type = GF_QUOTA_OPTION_TYPE_LIST_OBJECTS;
+
+                i = 4;
+                while (i < wordcount) {
+                        snprintf (key, 20, "path%d", i-4);
+
+                        ret = dict_set_str (dict, key, (char *) words[i++]);
+                        if (ret < 0) {
+                                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
+                                        "quota patch in request dictionary");
+                                goto out;
+                        }
+                }
+
+                ret = dict_set_int32 (dict, "count", i - 4);
+                if (ret < 0) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set quota "
+                                "limit count in request dictionary");
+                        goto out;
+                }
+
+                goto set_type;
+        }
 
         if (strcmp (w, "alert-time") == 0) {
                 if (wordcount != 5) {
@@ -1061,6 +1121,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 goto set_type;
         }
+
         if (strcmp (w, "soft-timeout") == 0) {
                 if (wordcount != 5) {
                         ret = -1;
@@ -1080,6 +1141,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 goto set_type;
         }
+
         if (strcmp (w, "hard-timeout") == 0) {
                 if(wordcount != 5) {
                         ret = -1;

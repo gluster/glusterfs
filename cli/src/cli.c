@@ -744,3 +744,35 @@ cli_print_line (int len)
 
         printf ("\n");
 }
+
+void
+print_quota_list_header (int type)
+{
+        if (type == GF_QUOTA_OPTION_TYPE_LIST) {
+                cli_out ("                  Path                   Hard-limit "
+                         "Soft-limit   Used  Available  Soft-limit exceeded?"
+                         " Hard-limit exceeded?");
+                cli_out ("-----------------------------------------------------"
+                         "-----------------------------------------------------"
+                         "-----------------");
+        } else {
+                cli_out ("                  Path                   Hard-limit  "
+                         "Soft-limit     Files       Dirs     Available  "
+                         "Soft-limit exceeded? Hard-limit exceeded?");
+                cli_out ("-----------------------------------------------------"
+                         "-----------------------------------------------------"
+                         "-----------------------------------");
+        }
+}
+
+void
+print_quota_list_empty (char *path, int type)
+{
+        if (type == GF_QUOTA_OPTION_TYPE_LIST)
+                cli_out ("%-40s %7s %9s %10s %7s %15s %20s", path,
+                         "N/A", "N/A", "N/A", "N/A", "N/A", "N/A");
+        else
+                cli_out ("%-40s %9s %9s %12s %10s %10s %15s %20s", path,
+                         "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A");
+}
+

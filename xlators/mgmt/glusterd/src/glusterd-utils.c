@@ -8344,7 +8344,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
         }
 
         if ((type != GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) &&
-            (type != GF_QUOTA_OPTION_TYPE_REMOVE)) {
+            (type != GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) &&
+            (type != GF_QUOTA_OPTION_TYPE_REMOVE) &&
+            (type != GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS)) {
                 dict_copy (rsp_dict, dict);
                 ret = 0;
                 goto out;
@@ -9183,7 +9185,9 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
         }
 
         if ((op_code != GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) &&
-            (op_code != GF_QUOTA_OPTION_TYPE_REMOVE)) {
+            (op_code != GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) &&
+            (op_code != GF_QUOTA_OPTION_TYPE_REMOVE) &&
+            (op_code != GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS)) {
                 ret = 0;
                 goto out;
         }

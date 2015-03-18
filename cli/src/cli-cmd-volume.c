@@ -900,38 +900,28 @@ cli_stage_quota_op (char *volname, int op_code)
         int ret = -1;
 
         switch (op_code) {
-                case GF_QUOTA_OPTION_TYPE_ENABLE:
-                case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
-                case GF_QUOTA_OPTION_TYPE_REMOVE:
-                case GF_QUOTA_OPTION_TYPE_LIST:
-                        ret = gf_cli_create_auxiliary_mount (volname);
-                        if (ret) {
-                                cli_err ("quota: Could not start quota "
-                                         "auxiliary mount");
-                                goto out;
-                        }
-                        ret = 0;
-                        break;
+        case GF_QUOTA_OPTION_TYPE_ENABLE:
+        case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+        case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+        case GF_QUOTA_OPTION_TYPE_REMOVE:
+        case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+        case GF_QUOTA_OPTION_TYPE_LIST:
+                ret = gf_cli_create_auxiliary_mount (volname);
+                if (ret) {
+                        cli_err ("quota: Could not start quota "
+                                 "auxiliary mount");
+                        goto out;
+                }
+                ret = 0;
+                break;
 
-                default:
-                        ret = 0;
-                        break;
+        default:
+                ret = 0;
+                break;
         }
 
 out:
         return ret;
-}
-
-static void
-print_quota_list_header (void)
-{
-        //Header
-        cli_out ("                  Path                   Hard-limit "
-                 "Soft-limit   Used  Available  Soft-limit exceeded?"
-                 " Hard-limit exceeded?");
-        cli_out ("-----------------------------------------------------"
-                 "-----------------------------------------------------"
-                 "-----------------");
 }
 
 int
@@ -1082,6 +1072,7 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         char                     quota_conf_file[PATH_MAX] = {0};
         gf_boolean_t             xml_err_flag   = _gf_false;
         char                     err_str[NAME_MAX] = {0,};
+        int32_t                  type       = 0;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -1092,6 +1083,18 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         ret = dict_get_str (options, "volname", &volname);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to get volume name");
+                goto out;
+        }
+
+        ret = dict_get_int32 (options, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get quota option type");
+                goto out;
+        }
+
+        ret = dict_set_int32 (xdata, "type", type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to set type in xdata");
                 goto out;
         }
 
@@ -1164,7 +1167,7 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         proc = &cli_quotad_clnt.proctable[GF_AGGREGATOR_GETLIMIT];
 
         if (!(global_state->mode & GLUSTER_MODE_XML)) {
-                print_quota_list_header ();
+                print_quota_list_header (type);
         } else {
                 ret = cli_xml_output_vol_quota_limit_list_begin
                         (local, 0, 0, NULL);
@@ -1336,6 +1339,7 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
                 break;
         case GF_QUOTA_OPTION_TYPE_LIST:
+        case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                 if (wordcount != 4)
                         break;
                 ret = cli_cmd_quota_handle_list_all (words, options);
@@ -2437,8 +2441,11 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
 
-        { "volume quota <VOLNAME> {enable|disable|list [<path> ...]|remove <path>| default-soft-limit <percent>} |\n"
+        { "volume quota <VOLNAME> {enable|disable|list [<path> ...]| "
+          "list-objects [<path> ...] | remove <path>| remove-objects <path> | "
+          "default-soft-limit <percent>} |\n"
           "volume quota <VOLNAME> {limit-usage <path> <size> [<percent>]} |\n"
+          "volume quota <VOLNAME> {limit-objects <path> <number> [<percent>]} |\n"
           "volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
           cli_cmd_quota_cbk,
           "quota translator specific operations"},
