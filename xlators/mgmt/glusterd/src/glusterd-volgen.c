@@ -1560,6 +1560,73 @@ out:
 }
 
 static int
+brick_graph_add_changetimerecorder (volgen_graph_t *graph,
+                                    glusterd_volinfo_t *volinfo,
+                                    dict_t *set_dict,
+                                    glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+        glusterd_brickinfo_t *brickiter     = NULL;
+        glusterd_brickinfo_t *tmp           = NULL;
+        char                 *brickname     = NULL;
+        char                 *path          = NULL;
+        char                 *volname       = NULL;
+        int                   bricknum      = 0;
+        char     index_basepath[PATH_MAX]   = {0};
+
+        if (!graph || !volinfo || !set_dict || !brickinfo)
+                goto out;
+
+        path      = brickinfo->path;
+
+        xl = volgen_graph_add (graph, "features/changetimerecorder",
+                               volinfo->volname);
+
+
+        ret = xlator_set_option (xl, "db-type", "sqlite3");
+        if (ret)
+                goto out;
+
+        bricknum = 0;
+        list_for_each_entry_safe (brickiter, tmp, &volinfo->bricks,
+                                  brick_list) {
+                if (brickiter == brickinfo)
+                        break;
+                bricknum++;
+        }
+        if (bricknum < volinfo->tier_info.hot_brick_count) {
+                ret = xlator_set_option (xl, "hot-brick", "on");
+        } else {
+                ret = xlator_set_option (xl, "hot-brick", "off");
+        }
+
+        brickname = strrchr(path, '/') + 1;
+        snprintf (index_basepath, sizeof (index_basepath), "%s.db",
+                  brickname);
+        ret = xlator_set_option (xl, "db-name", index_basepath);
+        if (ret)
+                goto out;
+
+        snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
+                  path, ".glusterfs/");
+        ret = xlator_set_option (xl, "db-path", index_basepath);
+        if (ret)
+                goto out;
+
+        ret = xlator_set_option (xl, "record-exit", "off");
+        if (ret)
+                goto out;
+
+        ret = xlator_set_option (xl, "record-entry", "on");
+        if (ret)
+                goto out;
+
+out:
+        return ret;
+}
+
+static int
 brick_graph_add_acl (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2071,6 +2138,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_locks, "locks"},
         {brick_graph_add_acl, "acl"},
         {brick_graph_add_changelog, "changelog"},
+        {brick_graph_add_changetimerecorder, "changetimerecorder"},
         {brick_graph_add_bd, "bd"},
         {brick_graph_add_trash, "trash"},
         {brick_graph_add_posix, "posix"},
@@ -3554,8 +3622,7 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-
-      if ((strcmp (vme->voltype, "nfs/server") == 0) &&
+        if ((strcmp (vme->voltype, "nfs/server") == 0) &&
              (vme->option && vme->option[0]!='!') ) {
                ret = xlator_set_option (xl, vme->option, vme->value);
                 if (ret)

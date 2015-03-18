@@ -523,8 +523,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-
-        /* Stripe xlator options */
         { .key         = "cluster.stripe-block-size",
           .voltype     = "cluster/stripe",
           .option      = "block-size",
@@ -1692,6 +1690,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/trash",
           .op_version  = GD_OP_VERSION_3_7_0,
         },
+        { .key         = "features.ctr-enabled",
+          .voltype     = "features/changetimerecorder",
+          .value       = "off",
+          .option      = "ctr-enabled",
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+        { .key         = "features.record-counters",
+          .voltype     = "features/changetimerecorder",
+          .value       = "off",
+          .option      = "record-counters",
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
         { .key         = "locks.trace",
           .voltype     = "features/locks",
           .type        = NO_DOC,
@@ -1727,7 +1737,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = GD_OP_VERSION_3_7_0,
         },
-
         { .key         = NULL
         }
 };

@@ -119,6 +119,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
                 xlators/features/changelog/lib/src/Makefile
+                xlators/features/changetimerecorder/Makefile
+                xlators/features/changetimerecorder/src/Makefile
                 xlators/features/glupy/Makefile
                 xlators/features/glupy/examples/Makefile
                 xlators/features/glupy/src/Makefile
@@ -230,9 +232,9 @@ AC_CONFIG_FILES([Makefile
                 heal/Makefile
                 heal/src/Makefile
                 glusterfs.spec
-                tools/glusterfind/src/tool.conf
-                tools/glusterfind/glusterfind
-                tools/glusterfind/Makefile
+		tools/glusterfind/src/tool.conf
+	        tools/glusterfind/glusterfind
+	        tools/glusterfind/Makefile
                 tools/glusterfind/src/Makefile])
 
 AC_CANONICAL_HOST

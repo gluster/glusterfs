@@ -1485,8 +1485,10 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         int32_t                unlink_if_linkto   = 0;
         int32_t                check_open_fd      = 0;
         int32_t                skip_unlink        = 0;
+        int32_t                ctr_link_req       = 0;
         ssize_t                xattr_size         = -1;
         int32_t                is_dht_linkto_file = 0;
+        dict_t                 *unwind_dict        = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1618,13 +1620,53 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        /*
+         *
+         * Check if there is a CTR_REQUEST_LINK_COUNT_XDATA from CTR Xlator
+         *
+         * */
+        op_ret = dict_get_int32 (xdata, CTR_REQUEST_LINK_COUNT_XDATA,
+                                 &ctr_link_req);
+        if (op_ret) {
+                /*Since no request no response*/
+                op_ret = 0;
+                goto out;
+        }
+
+        /* Sending back inode link count to ctr_unlink(changetimerecoder xlator)
+         * via "CTR_RESPONSE_LINK_COUNT_XDATA" key using unwind_dict.
+         * CTR Xlator will clear all the records if the link count has become 1
+         * i.e this was the last hard link.
+         * */
+        unwind_dict = dict_new ();
+        /* Even if unwind_dict fails to alloc memory we will not mark the FOP
+         * unsuccessful
+         * because this dict is only used by CTR Xlator to clear
+         * all records if link count == 0*/
+        if (!unwind_dict) {
+                op_ret = 0;
+                 gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to creating unwind_dict");
+                goto out;
+        }
+        /* Even if unwind_dict fails to set CTR_RESPONSE_LINK_COUNT_XDATA we will
+         * not mark the FOP unsuccessful
+         * because this dict is only used by CTR Xlator to clear
+         * all records if link count == 0*/
+        op_ret = dict_set_uint32 (unwind_dict, CTR_RESPONSE_LINK_COUNT_XDATA,
+                                stbuf.ia_nlink);
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to set CTR_RESPONSE_LINK_COUNT_XDATA");
+        }
+
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
-                             &preparent, &postparent, NULL);
+                             &preparent, &postparent, unwind_dict);
 
         if (fd != -1) {
                 close (fd);
