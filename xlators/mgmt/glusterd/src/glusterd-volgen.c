@@ -3318,6 +3318,25 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
+        ret = dict_get_str_boolean (set_dict, "ganesha.enable", _gf_false);
+
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "setting ganesha.enable"
+                        "option failed.");
+                goto out;
+        }
+
+        if (ret) {
+                xl = volgen_graph_add (graph, "features/ganesha", volname);
+
+                if (!xl) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to add"
+                               "add features/ganesha to graph");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         /* add debug translators depending on the options */
         ret = check_and_add_debug_xl (graph, set_dict, volname,
                                       "client");
@@ -3535,35 +3554,8 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-          if (! strcmp (vme->option, "!nfs-ganesha.enable")) {
-                ret = gf_asprintf (&aa, "nfs-ganesha.%s.enable",
-                                        volinfo->volname);
 
-                if (ret != -1) {
-                        ret = xlator_set_option (xl, aa, vme->value);
-                        GF_FREE (aa);
-                }
-
-                if (ret)
-                        return -1;
-        }
-
-         if (! strcmp (vme->option, "!nfs-ganesha.host")) {
-                ret = gf_asprintf (&aa, "nfs-ganesha.%s.host",
-                                        volinfo->volname);
-
-                if (ret != -1) {
-                        ret = xlator_set_option (xl, aa, vme->value);
-                        GF_FREE (aa);
-                }
-
-                if (ret)
-                        return -1;
-        }
-
-
-
-        if ( (strcmp (vme->voltype, "nfs/server") == 0) &&
+      if ((strcmp (vme->voltype, "nfs/server") == 0) &&
              (vme->option && vme->option[0]!='!') ) {
                ret = xlator_set_option (xl, vme->option, vme->value);
                 if (ret)

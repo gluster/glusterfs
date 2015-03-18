@@ -52,7 +52,7 @@
 #define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
                                         "S56glusterd-geo-rep-create-post.sh"
 
-
+#define GANESHA_HA_CONF  CONFDIR "/ganesha-ha.conf"
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
