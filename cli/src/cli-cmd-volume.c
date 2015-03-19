@@ -2544,7 +2544,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_info_cbk,
           "list information of all volumes"},
 
-        { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] "
+        { "volume create <NEW-VOLNAME> [stripe <COUNT>] "
+          "[replica <COUNT> [arbiter <COUNT>]] "
           "[disperse [<COUNT>]] [disperse-data <COUNT>] [redundancy <COUNT>] "
           "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK>"
 #ifdef HAVE_BD_XLATOR

@@ -437,12 +437,13 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         char    *bricks = NULL;
         int32_t brick_count = 0;
         char    *opwords[] = { "replica", "stripe", "transport", "disperse",
-                               "redundancy", "disperse-data", NULL };
+                               "redundancy", "disperse-data", "arbiter", NULL };
 
         char    *w = NULL;
         char    *ptr = NULL;
         int      op_count = 0;
         int32_t  replica_count = 1;
+        int32_t  arbiter_count = 0;
         int32_t  stripe_count = 1;
         int32_t  disperse_count = -1;
         int32_t  redundancy_count = -1;
@@ -521,6 +522,25 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 goto out;
 
                         index += 2;
+                        if (!strcmp (words[index], "arbiter")) {
+                                ret = gf_string2int (words[index+1],
+                                                     &arbiter_count);
+                                if (ret == -1 || arbiter_count != 1 ||
+                                    replica_count != 3) {
+                                        cli_err ("For arbiter configuration, "
+                                                 "replica count must be 3 and "
+                                                 "arbiter count must be 1. "
+                                                 "The 3rd brick of the replica "
+                                                 "will be the arbiter.");
+                                        ret = -1;
+                                        goto out;
+                                }
+                                ret = dict_set_int32 (dict, "arbiter-count",
+                                                      arbiter_count);
+                                if (ret)
+                                        goto out;
+                                index += 2;
+                        }
 
                 } else if ((strcmp (w, "stripe")) == 0) {
                         switch (type) {
