@@ -34,6 +34,9 @@ class Changelog(object):
     def version(self):
         return CHANGELOG_AGENT_SERVER_VERSION
 
+    def init(self):
+        return Changes.cl_init()
+
     def register(self, cl_brick, cl_dir, cl_log, cl_level, retries=0):
         return Changes.cl_register(cl_brick, cl_dir, cl_log, cl_level, retries)
 
