@@ -1496,6 +1496,25 @@ out:
 }
 
 static int
+brick_graph_add_arbiter (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t *xl = NULL;
+        int ret = -1;
+
+        if (volinfo->arbiter_count != 1)
+                return 0;
+        /*TODO: Parse brickinfo and add the arbiter xlator only if brick is the
+         * last brick (i.e. 3rd brick) of the replcia pair.*/
+        xl = volgen_graph_add (graph, "features/arbiter", volinfo->volname);
+        if (!xl)
+                goto out;
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
 brick_graph_add_bd (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                      dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2140,6 +2159,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_changetimerecorder, "changetimerecorder"},
         {brick_graph_add_bd, "bd"},
         {brick_graph_add_trash, "trash"},
+        {brick_graph_add_arbiter, "arbiter"},
         {brick_graph_add_posix, "posix"},
 };
 
