@@ -1310,6 +1310,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                     # register with the changelog library
                     # 9 == log level (DEBUG)
                     # 5 == connection retries
+                    changelog_agent.init()
                     changelog_agent.register(gconf.local_path,
                                              workdir, gconf.changelog_log_file,
                                              g2.CHANGELOG_LOG_LEVEL,
