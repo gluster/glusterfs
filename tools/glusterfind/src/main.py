@@ -14,7 +14,7 @@ import time
 from multiprocessing import Process
 import os
 import xml.etree.cElementTree as etree
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from argparse import ArgumentParser, RawDescriptionHelpFormatter, Action
 import logging
 import shutil
 
@@ -29,6 +29,14 @@ GlusterFS Incremental API
 ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
 
 logger = logging.getLogger()
+
+
+class StoreAbsPath(Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super(StoreAbsPath, self).__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, os.path.abspath(values))
 
 
 def node_run(volume, host, path, start, outfile, args, fallback=False):
@@ -237,7 +245,7 @@ def _get_args():
     parser_pre = subparsers.add_parser('pre')
     parser_pre.add_argument("session", help="Session Name")
     parser_pre.add_argument("volume", help="Volume Name")
-    parser_pre.add_argument("outfile", help="Output File")
+    parser_pre.add_argument("outfile", help="Output File", action=StoreAbsPath)
     parser_pre.add_argument("--debug", help="Debug", action="store_true")
     parser_pre.add_argument("--full", help="Full find", action="store_true")
     parser_pre.add_argument("--change-detector", dest="change_detector",
