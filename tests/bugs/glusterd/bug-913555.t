@@ -16,10 +16,6 @@ function check_peers {
 	$CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l
 }
 
-function glusterfsd_count {
-    pidof glusterfsd | wc -w;
-}
-
 cleanup;
 
 TEST launch_cluster 3; # start 3-node virtual cluster
@@ -37,18 +33,18 @@ TEST glusterfs --volfile-server=$H1 --volfile-id=$V0 $M0
 TEST kill_node 3;
 EXPECT_WITHIN $PROBE_TIMEOUT 1 check_peers;
 EXPECT 0 check_fs $M0;
-EXPECT 2 glusterfsd_count;
+EXPECT 2 online_brick_count;
 
 # Kill another pseudo-node, make sure the last one dies and volume goes down.
 TEST kill_node 2;
 EXPECT_WITHIN $PROBE_TIMEOUT 0 check_peers
 EXPECT 1 check_fs $M0;
-EXPECT 0 glusterfsd_count; # the two glusterfsds of the other two glusterds
-                           # must be dead
+EXPECT 0 online_brick_count; # the two glusterfsds of the other two glusterds
+                             # must be dead
 
 TEST $glusterd_2;
 TEST $glusterd_3;
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 glusterfsd_count; # restore quorum, all ok
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 online_brick_count; # restore quorum, all ok
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 check_fs $M0;
 
 cleanup
