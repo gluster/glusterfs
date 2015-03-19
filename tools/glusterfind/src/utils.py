@@ -21,7 +21,7 @@ ROOT_GFID = "00000000-0000-0000-0000-000000000001"
 
 def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
          ignore_dirs=[], subdirs_crawl=True):
-    if os.path.basename(path) in ignore_dirs:
+    if path in ignore_dirs:
         return
 
     if filter_func(path):
