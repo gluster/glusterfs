@@ -1,4 +1,4 @@
-snap_schedulerdir = $(DESTDIR)$(sbindir)/
+snap_schedulerdir = $(sbindir)/
 
 snap_scheduler_SCRIPTS = gcron.py snap_scheduler.py
 

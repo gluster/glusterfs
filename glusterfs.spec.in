@@ -1042,6 +1042,11 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %{_sharedstatedir}/glusterd
+
+#snap_scheduler
+%{_sbindir}/snap_scheduler.py
+%{_sbindir}/gcron.py
+
 #hookscripts
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1
@@ -1054,9 +1059,6 @@ fi
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop
 %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
-#snap_scheduler
-install -p -m 0744 extras/snap_scheduler/snap_scheduler.py %{_sbindir}/
-install -p -m 0744 extras/snap_scheduler/gcron.py %{_sbindir}/
 
 %ghost %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
 %ghost %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
