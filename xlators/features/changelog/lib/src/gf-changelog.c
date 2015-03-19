@@ -50,7 +50,7 @@ gf_private_t *gf_changelog_alloc_priv ()
         int ret = 0;
         gf_private_t *priv = NULL;
 
-        priv = calloc (1, sizeof (gf_private_t));
+        priv = GF_CALLOC (1, sizeof (*priv), gf_changelog_mt_priv_t);
         if (!priv)
                 goto error_return;
         INIT_LIST_HEAD (&priv->connections);
@@ -63,7 +63,7 @@ gf_private_t *gf_changelog_alloc_priv ()
         return priv;
 
  free_priv:
-        free (priv);
+        GF_FREE (priv);
  error_return:
         return NULL;
 }
@@ -80,9 +80,8 @@ gf_changelog_ctx_defaults_init (glusterfs_ctx_t *ctx)
         int            ret         = -1;
 
         ret = xlator_mem_acct_init (THIS, gf_changelog_mt_end);
-        if (ret != 0) {
-                return ret;
-        }
+        if (ret != 0)
+                return -1;
 
         ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid)
@@ -149,7 +148,7 @@ gf_changelog_ctx_defaults_init (glusterfs_ctx_t *ctx)
 }
 
 /* TODO: cleanup ctx defaults */
-static void
+void
 gf_changelog_cleanup_this (xlator_t *this)
 {
         glusterfs_ctx_t *ctx = NULL;
@@ -161,15 +160,12 @@ gf_changelog_cleanup_this (xlator_t *this)
         syncenv_destroy (ctx->env);
         free (ctx);
 
-        if (this->private)
-                free (this->private);
-
         this->private = NULL;
         this->ctx = NULL;
 }
 
 static int
-gf_changelog_init_this ()
+gf_changelog_init_context ()
 {
         glusterfs_ctx_t *ctx = NULL;
 
@@ -199,50 +195,7 @@ gf_changelog_init_this ()
 static int
 gf_changelog_init_master ()
 {
-        int              ret  = 0;
-        gf_private_t    *priv = NULL;
-        glusterfs_ctx_t *ctx  = NULL;
-
-        ret = gf_changelog_init_this ();
-        if (ret != 0)
-                goto error_return;
-        master = THIS;
-
-        priv = gf_changelog_alloc_priv ();
-        if (!priv)
-                goto cleanup_master;
-        master->private = priv;
-
-        /* poller thread */
-        ret = pthread_create (&priv->poller,
-                              NULL, changelog_rpc_poller, master);
-        if (ret != 0) {
-                gf_log (master->name, GF_LOG_ERROR,
-                        "failed to spawn poller thread");
-                goto cleanup_master;
-        }
-
-        return 0;
-
- cleanup_master:
-        master->private = NULL;
-        gf_changelog_cleanup_this (master);
- error_return:
-        return -1;
-}
-
-/* ctor/dtor */
-
-void
-__attribute__ ((constructor)) gf_changelog_ctor (void)
-{
-        (void) gf_changelog_init_master ();
-}
-
-void
-__attribute__ ((destructor)) gf_changelog_dtor (void)
-{
-        gf_changelog_cleanup_this (master);
+        return gf_changelog_init_context ();
 }
 
 /* TODO: cleanup clnt/svc on failure */
@@ -448,6 +401,88 @@ gf_changelog_setup_logging (xlator_t *this, char *logfile, int loglevel)
         gf_log_set_loglevel ((loglevel == -1) ? GF_LOG_INFO :
                              loglevel);
         return 0;
+}
+
+static int
+gf_changelog_set_master (xlator_t *master, void *xl)
+{
+        int32_t ret = 0;
+        xlator_t *this = NULL;
+        xlator_t *old_this = NULL;
+        gf_private_t *priv = NULL;
+
+        this = xl;
+        if (!this || !this->ctx) {
+                ret = gf_changelog_init_master ();
+                if (ret)
+                        return -1;
+                this = THIS;
+        }
+
+        master->ctx = this->ctx;
+
+        INIT_LIST_HEAD (&master->volume_options);
+        SAVE_THIS (THIS);
+
+        ret = xlator_mem_acct_init (THIS, gf_changelog_mt_end);
+        if (ret != 0)
+                goto restore_this;
+
+        priv = gf_changelog_alloc_priv ();
+        if (!priv) {
+                ret = -1;
+                goto restore_this;
+        }
+
+        if (!xl) {
+                /* poller thread */
+                ret = pthread_create (&priv->poller,
+                                      NULL, changelog_rpc_poller, THIS);
+                if (ret != 0) {
+                        GF_FREE (priv);
+                        gf_log (master->name, GF_LOG_ERROR,
+                                "failed to spawn poller thread");
+                        goto restore_this;
+                }
+        }
+
+        master->private = priv;
+
+ restore_this:
+        RESTORE_THIS ();
+
+        return ret;
+}
+
+int
+gf_changelog_init (void *xl)
+{
+        int ret = 0;
+
+        if (master)
+                return 0;
+
+        master = calloc (1, sizeof (*master));
+        if (!master)
+                goto error_return;
+
+        master->name = strdup ("gfchangelog");
+        if (!master->name)
+                goto dealloc_master;
+
+        ret = gf_changelog_set_master (master, xl);
+        if (ret)
+                goto dealloc_name;
+
+        return 0;
+
+ dealloc_name:
+        free (master->name);
+ dealloc_master:
+        free (master);
+        master = NULL;
+ error_return:
+        return -1;
 }
 
 int

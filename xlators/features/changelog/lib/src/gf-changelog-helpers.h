@@ -179,7 +179,8 @@ typedef struct gf_private {
 
 #define RESTORE_THIS()                          \
         do {                                    \
-                THIS = old_this;                \
+                if (old_this)                   \
+                        THIS = old_this;        \
         } while (0)
 
 /** APIs and the rest */
