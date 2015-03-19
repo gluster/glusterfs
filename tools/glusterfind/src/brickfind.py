@@ -55,13 +55,17 @@ def brickfind_crawl(brick, args):
             path = path[brick_path_len+1:]
             output_write(fout, path, args.output_prefix)
 
+        ignore_dirs = [os.path.join(brick, dirname)
+                       for dirname in
+                       conf.get_opt("brick_ignore_dirs").split(",")]
+
         if args.full:
             find(brick, callback_func=output_callback,
-                 ignore_dirs=[".glusterfs"])
+                 ignore_dirs=ignore_dirs)
         else:
             find(brick, callback_func=output_callback,
                  filter_func=mtime_filter,
-                 ignore_dirs=[".glusterfs"])
+                 ignore_dirs=ignore_dirs)
 
         fout.flush()
         os.fsync(fout.fileno())

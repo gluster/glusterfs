@@ -5,6 +5,7 @@ working_dir=@GLUSTERFSD_MISCDIR@/glusterfind/
 log_dir=/var/log/glusterfs/glusterfind/
 nodecleanup=@GLUSTERFS_LIBEXECDIR@/glusterfind/nodecleanup.py
 changelog_rollover_time=15
+brick_ignore_dirs=.glusterfs,.trashcan
 
 [change_detectors]
 changelog=@GLUSTERFS_LIBEXECDIR@/glusterfind/changelog.py

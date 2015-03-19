@@ -85,10 +85,13 @@ def gfid_to_path_using_batchfind(brick, gfids_file, output_file):
             path = path[brick_path_len+1:]
             output_write(fout, path, args.output_prefix)
 
+        ignore_dirs = [os.path.join(brick, dirname)
+                       for dirname in
+                       conf.get_opt("brick_ignore_dirs").split(",")]
         # Length of brick path, to remove from output path
         find(brick, callback_func=output_callback,
              filter_func=inode_filter,
-             ignore_dirs=[".glusterfs"])
+             ignore_dirs=ignore_dirs)
 
         fout.flush()
         os.fsync(fout.fileno())
@@ -166,12 +169,16 @@ def gfid_to_path_using_pgfid(brick, gfids_file, output_file, outfile_failures):
             path = path[brick_path_len+1:]
             output_write(fout, path, args.output_prefix)
 
+        ignore_dirs = [os.path.join(brick, dirname)
+                       for dirname in
+                       conf.get_opt("brick_ignore_dirs").split(",")]
+
         for pgfid in pgfids:
             path = symlink_gfid_to_path(brick, pgfid)
             find(os.path.join(brick, path),
                  callback_func=output_callback,
                  filter_func=inode_filter,
-                 ignore_dirs=[".glusterfs"],
+                 ignore_dirs=ignore_dirs,
                  subdirs_crawl=False)
 
         fout.flush()
