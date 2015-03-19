@@ -7,5 +7,6 @@ includedir=@includedir@
 Name: libgfdb
 Description: GlusterFS Database Library
 Version: @LIBGFDB_VERSION@
-Libs: -L${libdir} -lgfchangedb -lglusterfs -lsqlite3
+Libs: -L${libdir} -lgfchangedb -lglusterfs
 Cflags: -I${includedir}/glusterfs/gfdb
+Requires: sqlite3

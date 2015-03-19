@@ -1,11 +1,11 @@
 libgfdb_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
-  -DDATADIR=\"$(localstatedir)\"
+  $(SQLITE_CFLAGS) -DDATADIR=\"$(localstatedir)\"
 
 libgfdb_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 -fpic \
   -I$(top_srcdir)/libglusterfs/src \
   -DDATADIR=\"$(localstatedir)\"
 
-libgfdb_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la -lsqlite3
+libgfdb_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(SQLITE_LIBS)
 
 libgfdb_la_LDFLAGS = $(GF_LDFLAGS) -version-info $(LIBGLUSTERFS_LT_VERSION)
 
