@@ -70,6 +70,10 @@ main (int argc, char **argv)
         brick++;
         fill_brick_spec (brick, "/export/z2/zwoop");
 
+        ret = gf_changelog_init (NULL);
+        if (ret)
+                goto error_return;
+
         ret = gf_changelog_register_generic ((struct gf_brick_spec *)bricks, 2,
                                              1, "/tmp/multi-changes.log", 9,
                                              NULL);

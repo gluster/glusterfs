@@ -97,6 +97,9 @@ gf_changelog_done (char *file);
 
 /* newer flexible API */
 int
+gf_changelog_init (void *xl);
+
+int
 gf_changelog_register_generic (struct gf_brick_spec *bricks, int count,
                                int ordered, char *logfile, int lvl, void *xl);
 
