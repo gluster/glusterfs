@@ -54,6 +54,16 @@ static struct mdc_key {
 		.check = 1,
 	},
 	{
+		.name = GF_POSIX_ACL_ACCESS,
+		.load = 0,
+		.check = 1,
+	},
+	{
+		.name = GF_POSIX_ACL_DEFAULT,
+		.load = 0,
+		.check = 1,
+	},
+	{
 		.name = GF_SELINUX_XATTR_KEY,
 		.load = 0,
 		.check = 1,
@@ -2213,6 +2223,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
 
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
 
@@ -2248,6 +2259,7 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
 out:
