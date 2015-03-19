@@ -16,7 +16,7 @@ function brick_count()
 
 function online_brick_count ()
 {
-    pidof glusterfsd | wc -w
+    pgrep glusterfsd | wc -l
 }
 
 function volume_option()
