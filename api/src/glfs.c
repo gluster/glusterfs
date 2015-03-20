@@ -556,56 +556,105 @@ glfs_poller (void *data)
 struct glfs *
 pub_glfs_new (const char *volname)
 {
-	struct glfs     *fs = NULL;
-	int              ret = -1;
-	glusterfs_ctx_t *ctx = NULL;
+	struct glfs     *fs             = NULL;
+	int              ret            = -1;
+	glusterfs_ctx_t *ctx            = NULL;
+        gf_boolean_t     cleanup_fini   = _gf_false;
 
         if (!volname) {
                 errno = EINVAL;
                 return NULL;
         }
 
-	ctx = glusterfs_ctx_new ();
-	if (!ctx) {
-		return NULL;
-	}
+        fs = CALLOC (1, sizeof (*fs));
+        if (!fs)
+                return NULL;
 
-	/* first globals init, for gf_mem_acct_enable_set () */
-	ret = glusterfs_globals_init (ctx);
-	if (ret)
-		return NULL;
+        ret = pthread_mutex_init (&fs->mutex, NULL);
+        if (ret != 0)
+                goto freefs;
+
+        ret = pthread_cond_init (&fs->cond, NULL);
+        if (ret != 0)
+                goto mutex_destroy;
+
+        ret = pthread_cond_init (&fs->child_down_cond, NULL);
+        if (ret != 0)
+                goto cond_destroy;
+
+        ret = pthread_mutex_init (&fs->upcall_list_mutex, NULL);
+        if (ret != 0)
+                goto cond_child_destroy;
+
+        cleanup_fini = _gf_true;
+
+        ctx = glusterfs_ctx_new ();
+        if (!ctx)
+                goto freefs;
+
+        /* first globals init, for gf_mem_acct_enable_set () */
+
+        ret = glusterfs_globals_init (ctx);
+        if (ret)
+                goto freefs;
 
         if (!THIS->ctx)
                 THIS->ctx = ctx;
 
-	/* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
-	ret = glusterfs_ctx_defaults_init (ctx);
-	if (ret)
-		return NULL;
+        /* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
 
-	fs = CALLOC (1, sizeof (*fs));
-	if (!fs)
-		return NULL;
-	fs->ctx = ctx;
+        ret = glusterfs_ctx_defaults_init (ctx);
+        if (ret)
+                goto freefs;
 
-	glfs_set_logging (fs, "/dev/null", 0);
+        fs->ctx = ctx;
 
-	fs->ctx->cmd_args.volfile_id = gf_strdup (volname);
+        ret = glfs_set_logging (fs, "/dev/null", 0);
+        if (ret)
+                goto freefs;
 
-	fs->volname = strdup (volname);
+        fs->ctx->cmd_args.volfile_id = gf_strdup (volname);
+        if (!(fs->ctx->cmd_args.volfile_id))
+                goto freefs;
 
-	pthread_mutex_init (&fs->mutex, NULL);
-	pthread_cond_init (&fs->cond, NULL);
-        pthread_cond_init (&fs->child_down_cond, NULL);
+        fs->volname = strdup (volname);
+        if (!fs->volname)
+                goto freefs;
 
-	INIT_LIST_HEAD (&fs->openfds);
-
+        INIT_LIST_HEAD (&fs->openfds);
         INIT_LIST_HEAD (&fs->upcall_list);
-        pthread_mutex_init (&fs->upcall_list_mutex, NULL);
 
         fs->pin_refcnt = 0;
 
-	return fs;
+        return fs;
+
+cond_child_destroy:
+        pthread_cond_destroy (&fs->child_down_cond);
+
+cond_destroy:
+        pthread_cond_destroy (&fs->cond);
+
+mutex_destroy:
+        pthread_mutex_destroy (&fs->mutex);
+
+freefs:
+
+        /*
+         * When pthread_*init() fails there is no way for other cleanup
+         * funtions (glfs_fini/glfs_free_from_ctx) to know which of them succeded
+         * and which did not(unless there is a flag). Hence pthread cleanup is done
+         * in this funtion.Anything that fails after pthread_*_init() succeeds, should
+         * directly call glfs_fini() to cleanup the resources.
+         */
+
+        if (!cleanup_fini)
+                FREE(fs);
+        else
+                glfs_fini (fs);
+        fs = NULL;
+
+        return fs;
+
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_new, 3.4.0);
