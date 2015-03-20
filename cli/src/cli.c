@@ -706,6 +706,9 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
+        gf_log ("cli", GF_LOG_INFO, "Started running %s with version %s",
+                argv[0], PACKAGE_VERSION);
+
         global_rpc = cli_rpc_init (&state);
         if (!global_rpc)
                 goto out;
