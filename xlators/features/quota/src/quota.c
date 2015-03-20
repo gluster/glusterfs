@@ -751,23 +751,41 @@ cleanup:
         return 0;
 }
 
-int32_t
-quota_build_ancestry_open_cbk (call_frame_t *frame, void *cookie,
-                               xlator_t *this, int32_t op_ret, int32_t op_errno,
-                               fd_t *fd, dict_t *xdata)
+int
+quota_build_ancestry (inode_t *inode, quota_ancestry_built_t ancestry_cbk,
+                      void *data)
 {
-        dict_t        *xdata_req = NULL;
+        fd_t          *fd        = NULL;
         quota_local_t *local     = NULL;
+        call_frame_t  *new_frame = NULL;
+        int            op_errno  = ENOMEM;
+        int            op_ret    = -1;
+        xlator_t      *this      = NULL;
+        dict_t        *xdata_req = NULL;
 
-        if (op_ret < 0) {
-                goto err;
-        }
+        this = THIS;
 
         xdata_req = dict_new ();
-        if (xdata_req == NULL) {
-                op_ret = -ENOMEM;
+        if (xdata_req == NULL)
                 goto err;
-        }
+
+        fd = fd_anonymous (inode);
+        if (fd == NULL)
+                goto err;
+
+        new_frame = create_frame (this, this->ctx->pool);
+        if (new_frame == NULL)
+                goto err;
+
+        local = quota_local_new ();
+        if (local == NULL)
+                goto err;
+
+        new_frame->root->uid = new_frame->root->gid = 0;
+        new_frame->local = local;
+        local->ancestry_cbk = ancestry_cbk;
+        local->ancestry_data = data;
+        local->loc.inode = inode_ref (inode);
 
         op_ret = dict_set_int8 (xdata_req, QUOTA_LIMIT_KEY, 1);
         if (op_ret < 0) {
@@ -781,100 +799,37 @@ quota_build_ancestry_open_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        /* This would ask posix layer to construct dentry chain till root */
-        STACK_WIND (frame, quota_build_ancestry_cbk, FIRST_CHILD(this),
+        /* This would ask posix layer to construct dentry chain till root
+         * We don't need to do a opendir, we can use the anonymous fd
+         * here for  the readidrp.
+         * avoiding opendir also reduces the window size where another FOP
+         * can be executed before completion of build ancestry
+         */
+        STACK_WIND (new_frame, quota_build_ancestry_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdirp, fd, 0, 0, xdata_req);
 
         op_ret = 0;
 
 err:
-        fd_unref (fd);
+        if (fd)
+                fd_unref (fd);
 
         if (xdata_req)
                 dict_unref (xdata_req);
 
         if (op_ret < 0) {
-                local = frame->local;
-                frame->local = NULL;
+                ancestry_cbk (NULL, NULL, -1, op_errno, data);
 
-                local->ancestry_cbk (NULL, NULL, -1, op_errno,
-                                     local->ancestry_data);
-                quota_local_cleanup (this, local);
-                STACK_DESTROY (frame->root);
+                if (new_frame) {
+                        local = new_frame->local;
+                        new_frame->local = NULL;
+                        STACK_DESTROY (new_frame->root);
+                }
+
+                if (local)
+                        quota_local_cleanup (this, local);
         }
 
-        return 0;
-}
-
-int
-quota_build_ancestry (inode_t *inode, quota_ancestry_built_t ancestry_cbk,
-                      void *data)
-{
-        loc_t          loc       = {0, };
-        fd_t          *fd        = NULL;
-        quota_local_t *local     = NULL;
-        call_frame_t  *new_frame = NULL;
-        int            op_errno  = EINVAL;
-        xlator_t      *this      = NULL;
-
-        this = THIS;
-
-        loc.inode = inode_ref (inode);
-        uuid_copy (loc.gfid, inode->gfid);
-
-        fd = fd_create (inode, 0);
-
-        new_frame = create_frame (this, this->ctx->pool);
-        if (new_frame == NULL) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-
-        new_frame->root->uid = new_frame->root->gid = 0;
-
-        local = quota_local_new ();
-        if (local == NULL) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-
-        new_frame->local = local;
-        local->ancestry_cbk = ancestry_cbk;
-        local->ancestry_data = data;
-        local->loc.inode = inode_ref (inode);
-
-        if (IA_ISDIR (inode->ia_type)) {
-                STACK_WIND (new_frame, quota_build_ancestry_open_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->opendir, &loc, fd,
-                            NULL);
-        } else {
-                STACK_WIND (new_frame, quota_build_ancestry_open_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, 0, fd,
-                            NULL);
-        }
-
-        loc_wipe (&loc);
-        return 0;
-
-err:
-        ancestry_cbk (NULL, NULL, -1, op_errno, data);
-
-        fd_unref (fd);
-
-        local = new_frame->local;
-        new_frame->local = NULL;
-
-        if (local != NULL) {
-                quota_local_cleanup (this, local);
-        }
-
-        if (new_frame != NULL) {
-                STACK_DESTROY (new_frame->root);
-        }
-
-        loc_wipe (&loc);
         return 0;
 }
 
