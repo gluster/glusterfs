@@ -111,11 +111,13 @@ void* __gf_default_realloc (void *oldptr, size_t size)
 #define CALLOC(cnt,size)   __gf_default_calloc(cnt,size)
 #define REALLOC(ptr,size)  __gf_default_realloc(ptr,size)
 
-#define FREE(ptr)                               \
-        if (ptr != NULL) {                      \
-                free ((void *)ptr);             \
-                ptr = (void *)0xeeeeeeee;       \
-        }
+#define FREE(ptr)                                       \
+        do {                                            \
+                if (ptr != NULL) {                      \
+                        free ((void *)ptr);             \
+                        ptr = (void *)0xeeeeeeee;       \
+                }                                       \
+        } while (0)
 
 #define GF_CALLOC(nmemb, size, type) __gf_calloc (nmemb, size, type, #type)
 
