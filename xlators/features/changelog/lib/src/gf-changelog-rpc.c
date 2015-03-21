@@ -19,17 +19,11 @@ int
 gf_changelog_rpc_notify (struct rpc_clnt *rpc,
                          void *mydata, rpc_clnt_event_t event, void *data)
 {
-        xlator_t *this = NULL;
-
-        this = mydata;
-
         switch (event) {
         case RPC_CLNT_CONNECT:
                 rpc_clnt_set_connected (&rpc->conn);
                 break;
         case RPC_CLNT_DISCONNECT:
-                rpc_clnt_unset_connected (&rpc->conn);
-                break;
         case RPC_CLNT_MSG:
         case RPC_CLNT_DESTROY:
                 break;

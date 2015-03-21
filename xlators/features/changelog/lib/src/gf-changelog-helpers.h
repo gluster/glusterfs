@@ -47,6 +47,7 @@ typedef struct read_line {
 } read_line_t;
 
 struct gf_changelog;
+struct gf_event;
 
 /**
  * Event list for ordered event notification
@@ -64,7 +65,7 @@ struct gf_event_list {
 
         struct gf_changelog *entry;         /* backpointer to it's brick
                                                encapsulator (entry) */
-        struct list_head events;            /* list of events (ordered) */
+        struct list_head events;            /* list of events */
 };
 
 /**
@@ -84,7 +85,7 @@ struct gf_event {
 
 /**
  * assign the base address of the IO vector to the correct memory
- * area and set it's addressable length.
+o * area and set it's addressable length.
  */
 #define GF_EVENT_ASSIGN_IOVEC(vec, event, len, pos)                     \
         do {                                                            \
@@ -95,11 +96,20 @@ struct gf_event {
                 pos += len;                                             \
         } while (0)
 
+typedef enum gf_changelog_conn_state {
+        GF_CHANGELOG_CONN_STATE_PENDING = 0,
+        GF_CHANGELOG_CONN_STATE_ACCEPTED,
+        GF_CHANGELOG_CONN_STATE_DISCONNECTED,
+} gf_changelog_conn_state_t;
+
 /**
  * An instance of this structure is allocated for each brick for which
  * notifications are streamed.
  */
 typedef struct gf_changelog {
+        gf_lock_t statelock;
+        gf_changelog_conn_state_t connstate;
+
         xlator_t *this;
 
         struct list_head list;              /* list of instances */
@@ -125,6 +135,9 @@ typedef struct gf_changelog {
 
         gf_boolean_t ordered;
 
+        void (*queueevent) (struct gf_event_list *, struct gf_event *);
+        void (*pickevent) (struct gf_event_list *, struct gf_event **);
+
         struct gf_event_list event;
 } gf_changelog_t;
 
@@ -140,13 +153,17 @@ gf_changelog_filter_check (gf_changelog_t *entry, changelog_event_t *event)
 
 /** private structure */
 typedef struct gf_private {
-        gf_lock_t lock;                  /* protects ->connections */
+        pthread_mutex_t lock;            /* protects ->connections, cleanups */
+        pthread_cond_t  cond;
 
         void *api;                       /* pointer for API access */
 
         pthread_t poller;                /* event poller thread */
+        pthread_t connectionjanitor;     /* connection cleaner */
 
         struct list_head connections;    /* list of connections */
+        struct list_head cleanups;       /* list of connection to be
+                                            cleaned up */
 } gf_private_t;
 
 #define GF_CHANGELOG_GET_API_PTR(this) (((gf_private_t *) this->private)->api)
@@ -217,5 +234,26 @@ int
 gf_thread_cleanup (xlator_t *this, pthread_t thread);
 void *
 gf_changelog_callback_invoker (void *arg);
+
+int
+gf_cleanup_event (xlator_t *, struct gf_event_list *);
+
+/* (un)ordered event queueing */
+void
+queue_ordered_event (struct gf_event_list *, struct gf_event *);
+
+void
+queue_unordered_event (struct gf_event_list *, struct gf_event *);
+
+/* (un)ordered event picking */
+void
+pick_event_ordered (struct gf_event_list *, struct gf_event **);
+
+void
+pick_event_unordered (struct gf_event_list *, struct gf_event **);
+
+/* connection janitor thread */
+void *
+gf_changelog_connection_janitor (void *);
 
 #endif
