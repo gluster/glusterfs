@@ -36,7 +36,6 @@
 
 #include "gfdb_data_store.h"
 #include <ctype.h>
-#include <sys/xattr.h>
 #include <sys/stat.h>
 
 #define DEMOTION_QFILE "/var/run/gluster/demotequeryfile"
