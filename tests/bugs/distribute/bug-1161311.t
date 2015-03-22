@@ -12,8 +12,8 @@
 ## Create links when file is under P2 of migration specifically
 ## Test with quota, to error out during hard link creation (if possible)
 
-. $(dirname $0)/../include.rc
-. $(dirname $0)/../volume.rc
+. $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 checksticky () {
 	i=0;
