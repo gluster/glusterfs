@@ -1,7 +1,7 @@
 #!/bin/bash
 
-. $(dirname $0)/../include.rc
-. $(dirname $0)/../volume.rc
+. $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup
 
