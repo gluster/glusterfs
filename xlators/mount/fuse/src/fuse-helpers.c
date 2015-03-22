@@ -17,7 +17,7 @@
 #include <sys/types.h>
 #include <libutil.h>
 #include <sys/user.h>
-#else
+#elif defined(CTL_KERN)
 #include <sys/sysctl.h>
 #endif
 
