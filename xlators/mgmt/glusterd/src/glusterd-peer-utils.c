@@ -11,6 +11,7 @@
 #include "glusterd-peer-utils.h"
 #include "glusterd-store.h"
 #include "glusterd-server-quorum.h"
+#include "glusterd-messages.h"
 #include "common-utils.h"
 
 void
@@ -32,7 +33,9 @@ glusterd_peerinfo_destroy (struct rcu_head *head)
 
         ret = glusterd_store_delete_peerinfo (peerinfo);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Deleting peer info failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_PEERINFO_DELETE_FAIL,
+                        "Deleting peer info failed");
         }
 
         GF_FREE (peerinfo->hostname);
@@ -111,7 +114,8 @@ glusterd_peerinfo_find_by_hostname (const char *hoststr)
 
         ret = getaddrinfo (hoststr, NULL, NULL, &addr);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ret,
+                        GD_MSG_GETADDRINFO_FAIL,
                         "error in getaddrinfo: %s\n",
                         gai_strerror(ret));
                 goto out;
@@ -126,7 +130,7 @@ glusterd_peerinfo_find_by_hostname (const char *hoststr)
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Unable to find friend: %s", hoststr);
+        gf_msg_debug (this->name, 0, "Unable to find friend: %s", hoststr);
         if (addr)
                 freeaddrinfo (addr);
         return NULL;
@@ -161,7 +165,7 @@ glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
                 }
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (this->name, 0, "returning %d", ret);
         return ret;
 }
 
@@ -191,7 +195,7 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
         cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
                 if (!gf_uuid_compare (entry->uuid, uuid)) {
 
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                  "Friend found... state: %s",
                         glusterd_friend_sm_state_name_get (entry->state.state));
                         found = entry; /* Probably should be rcu_dereferenced */
@@ -201,7 +205,7 @@ glusterd_peerinfo_find_by_uuid (uuid_t uuid)
         rcu_read_unlock ();
 
         if (!found)
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Friend with uuid: %s, not found", uuid_utoa (uuid));
         return found;
 }
@@ -226,7 +230,7 @@ glusterd_peerinfo_find (uuid_t uuid, const char *hostname)
                 if (peerinfo) {
                         return peerinfo;
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                  "Unable to find peer by uuid: %s",
                                  uuid_utoa (uuid));
                 }
@@ -239,7 +243,7 @@ glusterd_peerinfo_find (uuid_t uuid, const char *hostname)
                 if (peerinfo) {
                         return peerinfo;
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "Unable to find hostname: %s", hostname);
                 }
         }
@@ -342,7 +346,7 @@ glusterd_chk_peers_connected_befriended (uuid_t skip_uuid)
         }
         rcu_read_unlock ();
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %s",
+        gf_msg_debug (THIS->name, 0, "Returning %s",
                 (ret?"TRUE":"FALSE"));
         return ret;
 }
@@ -413,7 +417,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
                            (peerinfo->state.state !=
                              GD_FRIEND_STATE_BEFRIENDED)) {
                                 *down_peerstr = gf_strdup (peerinfo->hostname);
-                                gf_log ("", GF_LOG_DEBUG, "Peer %s is down. ",
+                                gf_msg_debug (THIS->name, 0, "Peer %s is down. ",
                                         peerinfo->hostname);
                                 rcu_read_unlock ();
                                 goto out;
@@ -424,7 +428,7 @@ glusterd_are_vol_all_peers_up (glusterd_volinfo_t *volinfo,
 
         ret = _gf_true;
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -451,7 +455,7 @@ glusterd_peer_hostname_new (const char *hostname,
         ret = 0;
 
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -548,7 +552,8 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         snprintf (key, sizeof (key), "%s.uuid", prefix);
         ret = dict_set_dynstr_with_alloc (dict, key, uuid_utoa (friend->uuid));
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set key %s in dict", key);
                 goto out;
         }
@@ -562,13 +567,16 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
                                   hostname_list);
         if (!address) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not retrieve first "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEER_ADDRESS_GET_FAIL,
+                        "Could not retrieve first "
                         "address for peer");
                 goto out;
         }
         ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set key %s in dict", key);
                 goto out;
         }
@@ -587,8 +595,9 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
                 ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                        "Failed to set key %s in dict", key);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set key %s in dict", key);
                         goto out;
                 }
                 count++;
@@ -597,11 +606,12 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         snprintf (key, sizeof (key), "%s.address-count", prefix);
         ret = dict_set_int32 (dict, key, count);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set key %s in dict", key);
 
 out:
-        gf_log (this ? this->name : "glusterd", GF_LOG_DEBUG, "Returning %d",
+        gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d",
                 ret);
         return ret;
 }
@@ -631,7 +641,7 @@ gd_peerinfo_find_from_hostname (const char *hoststr)
                 cds_list_for_each_entry_rcu (tmphost, &peer->hostnames,
                                              hostname_list) {
                         if (!strncasecmp (tmphost->hostname, hoststr, 1024)) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_msg_debug (this->name, 0,
                                         "Friend %s found.. state: %d",
                                         tmphost->hostname, peer->state.state);
                                 found = peer; /* Probably needs to be
@@ -688,7 +698,7 @@ gd_peerinfo_find_from_addrinfo (const struct addrinfo *addr)
                                 /* Don't fail if getaddrinfo fails, continue
                                  * onto the next address
                                  */
-                                gf_log (this->name, GF_LOG_TRACE,
+                                gf_msg_trace (this->name, 0,
                                         "getaddrinfo for %s failed (%s)",
                                         address->hostname, gai_strerror (ret));
                                 ret = 0;
@@ -744,13 +754,15 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         snprintf (key, sizeof (key), "%s.hostname", prefix);
         ret = dict_get_str (dict, key, &hostname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Key %s not present in "
                         "dictionary", key);
                 goto out;
         }
         ret = gd_add_address_to_peer (peerinfo, hostname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                         "Could not add address to peer");
                 goto out;
         }
@@ -768,7 +780,8 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         snprintf (key, sizeof (key), "%s.address-count", prefix);
         ret = dict_get_int32 (dict, key, &count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Key %s not present in "
                         "dictionary", key);
                 goto out;
         }
@@ -778,13 +791,15 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
                 snprintf (key, sizeof (key), "%s.hostname%d",prefix, i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Key %s not present "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED, "Key %s not present "
                                 "in dictionary", key);
                         goto out;
                 }
                 ret = gd_add_address_to_peer (peerinfo, hostname);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                                 "Could not add address to peer");
                         goto out;
                 }
@@ -793,7 +808,7 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -825,7 +840,9 @@ gd_peerinfo_from_dict (dict_t *dict, const char *prefix)
                                           0);
         if (new_peer == NULL) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Could not create peerinfo "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PEERINFO_CREATE_FAIL,
+                        "Could not create peerinfo "
                         "object");
                 goto out;
         }
@@ -833,7 +850,8 @@ gd_peerinfo_from_dict (dict_t *dict, const char *prefix)
         snprintf (key, sizeof (key), "%s.uuid", prefix);
         ret = dict_get_str (dict, key, &uuid_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Key %s not present in "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Key %s not present in "
                         "dictionary", key);
                 goto out;
         }
