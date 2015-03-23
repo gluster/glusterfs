@@ -40,7 +40,7 @@
  */
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
-#define GLFS_NUM_MESSAGES       447
+#define GLFS_NUM_MESSAGES       458
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -3620,6 +3620,94 @@
  *
  */
 #define GD_MSG_VOL_TYPE_CHANGING_INFO               (GLUSTERD_COMP_BASE + 447)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRKPATH_MNTPNT_MISMATCH               (GLUSTERD_COMP_BASE + 448)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_TASKS_COUNT_MISMATCH                  (GLUSTERD_COMP_BASE + 449)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_WRONG_OPTS_SETTING                    (GLUSTERD_COMP_BASE + 450)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_PATH_ALREADY_PART_OF_VOL               (GLUSTERD_COMP_BASE + 451)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRICK_VALIDATE_FAIL                    (GLUSTERD_COMP_BASE + 452)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_READIN_FILE_FAILED                     (GLUSTERD_COMP_BASE + 453)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_IMPORT_PRDICT_DICT                     (GLUSTERD_COMP_BASE + 454)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_VOL_OPTS_IMPORT_FAIL                   (GLUSTERD_COMP_BASE + 455)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRICK_IMPORT_FAIL                      (GLUSTERD_COMP_BASE + 456)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_VOLINFO_IMPORT_FAIL                    (GLUSTERD_COMP_BASE + 457)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRICK_ID_GEN_FAILED                    (GLUSTERD_COMP_BASE + 458)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
