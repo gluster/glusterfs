@@ -158,7 +158,8 @@ glusterd_lock (uuid_t   uuid)
         glusterd_get_lock_owner (&owner);
 
         if (!gf_uuid_is_null (owner)) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get lock"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLUSTERD_LOCK_FAIL, "Unable to get lock"
                         " for uuid: %s, lock held by: %s",
                         uuid_utoa_r (uuid, new_owner_str),
                         uuid_utoa_r (owner, owner_str));
@@ -168,7 +169,7 @@ glusterd_lock (uuid_t   uuid)
         ret = glusterd_set_lock_owner (uuid);
 
         if (!ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Cluster lock held by"
+                gf_msg_debug (this->name, 0, "Cluster lock held by"
                          " %s", uuid_utoa (uuid));
         }
 
@@ -194,23 +195,26 @@ glusterd_unlock (uuid_t uuid)
         glusterd_get_lock_owner (&owner);
 
         if (gf_uuid_is_null (owner)) {
-                gf_log (this->name, GF_LOG_ERROR, "Cluster lock not held!");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLUSTERD_LOCK_FAIL, "Cluster lock not held!");
                 goto out;
         }
 
         ret = gf_uuid_compare (uuid, owner);
 
         if (ret) {
-               gf_log (this->name, GF_LOG_ERROR, "Cluster lock held by %s ,"
-                       "unlock req from %s!", uuid_utoa_r (owner ,owner_str)
-                        , uuid_utoa_r (uuid, new_owner_str));
-               goto out;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLUSTERD_LOCK_FAIL, "Cluster lock held by %s ,"
+                        "unlock req from %s!", uuid_utoa_r (owner, owner_str),
+                        uuid_utoa_r (uuid, new_owner_str));
+                goto out;
         }
 
         ret = glusterd_unset_lock_owner (uuid);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to clear cluster "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLUSTERD_UNLOCK_FAIL, "Unable to clear cluster "
                         "lock");
                 goto out;
         }
@@ -340,7 +344,9 @@ glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
         rsp_size = xdr_sizeof (xdrproc, arg);
         iob = iobuf_get2 (req->svc->ctx->iobuf_pool, rsp_size);
         if (!iob) {
-                gf_log ("", GF_LOG_ERROR, "Failed to get iobuf");
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY,
+                        "Failed to get iobuf");
                 goto ret;
         }
 
@@ -353,7 +359,8 @@ glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
          */
         retlen = xdr_serialize_generic (*outmsg, arg, xdrproc);
         if (retlen == -1) {
-                gf_log ("", GF_LOG_ERROR, "Failed to encode message");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_ENCODE_FAIL, "Failed to encode message");
                 goto ret;
         }
 
@@ -385,7 +392,8 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
         if (!iobref) {
                 iobref = iobref_new ();
                 if (!iobref) {
-                        gf_log ("", GF_LOG_ERROR, "out of memory");
+                        gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "out of memory");
                         goto out;
                 }
 
@@ -394,7 +402,8 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
 
         iob = glusterd_serialize_reply (req, arg, &rsp, xdrproc);
         if (!iob) {
-                gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_SERIALIZE_MSG_FAIL, "Failed to serialize reply");
         } else {
                 iobref_add (iobref, iob);
         }
@@ -407,7 +416,8 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
          * ref'ed the iob on receiving into the txlist.
          */
         if (ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "Reply submission failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_REPLY_SUBMIT_FAIL, "Reply submission failed");
                 goto out;
         }
 
@@ -516,7 +526,7 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         ret = 0;
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -545,7 +555,8 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
 
         ret = glusterd_volinfo_new (&new_volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "not able to create the "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_SET_FAIL, "not able to create the "
                         "duplicate volinfo for the volume %s",
                         volinfo->volname);
                 goto out;
@@ -613,7 +624,8 @@ glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
         strcpy (dup_brickinfo->mnt_opts, brickinfo->mnt_opts);
         ret = gf_canonicalize_path (dup_brickinfo->path);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to canonicalize "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CANONICALIZE_FAIL, "Failed to canonicalize "
                         "brick path");
                 goto out;
         }
@@ -739,7 +751,7 @@ glusterd_volume_brickinfos_delete (glusterd_volinfo_t *volinfo)
         }
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -783,7 +795,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
         ret = 0;
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -808,7 +820,7 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo)
         ret = 0;
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -825,7 +837,8 @@ glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo)
                 token = strrchr (brickinfo->brick_id, '-');
                 ret = gf_string2int32 (++token, &brickid);
                 if (ret < 0) {
-                        gf_log (THIS->name, GF_LOG_ERROR,
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_ID_GEN_FAILED,
                                 "Unable to generate brick ID");
                         return ret;
                 }
@@ -848,7 +861,7 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
         GF_ASSERT (brickinfo);
 
         ret = glusterd_hostname_to_uuid (brickinfo->hostname, brickinfo->uuid);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -869,7 +882,8 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir)
 
         ret = glusterd_hostname_to_uuid (hostname, brick_uuid);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_HOSTNAME_TO_UUID_FAIL,
                         "Failed to convert hostname %s to uuid",
                         hostname);
                 goto out;
@@ -878,14 +892,16 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir)
         if (!gf_uuid_compare (brick_uuid, MY_UUID)) {
                 ret = glusterd_get_brick_root (brickpath, &mnt_pt);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_BRICKPATH_ROOT_GET_FAIL,
                                 "Could not get the root of the brick path %s",
                                 brickpath);
                         goto out;
                 }
 
                 if (strncmp (brickpath, mnt_pt, strlen(mnt_pt))) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_BRKPATH_MNTPNT_MISMATCH,
                                 "brick: %s brick mount: %s",
                                 brickpath, mnt_pt);
                         ret = -1;
@@ -899,7 +915,7 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir)
         }
 
 out:
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -961,7 +977,7 @@ out:
         if (tmp_host)
                 GF_FREE (tmp_path);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1244,7 +1260,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         continue;
 
                 if (strcmp (brickiter->path, path) == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG, LOGSTR_FOUND_BRICK,
+                        gf_msg_debug (this->name, 0, LOGSTR_FOUND_BRICK,
                                 brickiter->hostname, brickiter->path,
                                 volinfo->volname);
                         ret = 0;
@@ -1255,7 +1271,7 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1279,7 +1295,7 @@ glusterd_volume_brickinfo_get_by_brick (char *brick,
                                              brickinfo);
         (void) glusterd_brickinfo_delete (tmp_brickinfo);
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1319,7 +1335,7 @@ glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volin
                         continue;
                 *volinfo = voliter;
                 ret = 0;
-                gf_log (this->name, GF_LOG_DEBUG, "Volume %s found",
+                gf_msg_debug (this->name, 0, "Volume %s found",
                         voliter->volname);
                 break;
         }
@@ -1343,7 +1359,7 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 
         cds_list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
                 if (!strcmp (tmp_volinfo->volname, volname)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Volume %s found",
+                        gf_msg_debug (this->name, 0, "Volume %s found",
                                 volname);
                         ret = 0;
                         *volinfo = tmp_volinfo;
@@ -1351,7 +1367,7 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
                 }
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1370,14 +1386,14 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 gf_log (this->name, GF_LOG_INFO, "%s already stopped", service);
                 goto out;
         }
-        gf_log (this->name, GF_LOG_DEBUG, "Stopping gluster %s running in pid: "
+        gf_msg_debug (this->name, 0, "Stopping gluster %s running in pid: "
                 "%d", service, pid);
 
         ret = kill (pid, sig);
         if (ret) {
                 switch (errno) {
                 case ESRCH:
-                        gf_log (this->name, GF_LOG_DEBUG, "%s is already stopped",
+                        gf_msg_debug (this->name, 0, "%s is already stopped",
                                 service);
                         ret = 0;
                         goto out;
@@ -1490,7 +1506,7 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
         }
 out:
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -1509,7 +1525,8 @@ _mk_rundir_p (glusterd_volinfo_t *volinfo)
         snprintf (rundir, sizeof (rundir)-1, "%s/run", voldir);
         ret =  mkdir_p (rundir, 0777, _gf_true);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Failed to create rundir");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_CREATE_DIR_FAILED, "Failed to create rundir");
         return ret;
 }
 
@@ -1676,7 +1693,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 connect:
         ret = glusterd_brick_connect (volinfo, brickinfo, socketpath);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_DISCONNECTED,
                         "Failed to connect to brick %s:%s on %s",
                         brickinfo->hostname, brickinfo->path, socketpath);
                 goto out;
@@ -1827,7 +1845,8 @@ glusterd_readin_file (const char *filepath, int *line_count)
 
  out:
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", strerror (errno));
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_READIN_FILE_FAILED, "%s", strerror (errno));
         if (fp)
                 fclose (fp);
 
@@ -1899,7 +1918,8 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
         fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0600);
 
         if (-1 == fd) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to open %s,"
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to open %s,"
                         " errno: %d", cksum_path, errno);
                 ret = -1;
                 goto out;
@@ -1911,7 +1931,8 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
 
                 sort_fd = mkstemp (sort_filepath);
                 if (sort_fd < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Could not generate "
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED, "Could not generate "
                                 "temp file, reason: %s for volume: %s",
                                 strerror (errno), volinfo->volname);
                         goto out;
@@ -1923,7 +1944,8 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
 
                 ret = glusterd_sort_and_redirect (filepath, sort_fd);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "sorting info file "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FILE_OP_FAILED, "sorting info file "
                                 "failed");
                         goto out;
                 }
@@ -1937,7 +1959,8 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
 
         ret = get_checksum_for_path (cksum_path_final, &cksum);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "unable to get "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CKSUM_GET_FAIL, "unable to get "
                         "checksum for path: %s", cksum_path_final);
                 goto out;
         }
@@ -1961,7 +1984,7 @@ out:
                close (fd);
         if (unlink_sortfile)
                unlink (sort_filepath);
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;
 }
@@ -1999,7 +2022,8 @@ int glusterd_compute_cksum (glusterd_volinfo_t *volinfo,
         ret = glusterd_volume_compute_cksum (volinfo, cksum_path, filepath,
                                              is_quota_conf, &cs);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to compute checksum "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CKSUM_COMPUTE_FAIL, "Failed to compute checksum "
                         "for volume %s", volinfo->volname);
                 goto out;
         }
@@ -2026,13 +2050,16 @@ _add_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
                   ctx->key_name, ctx->opt_count);
         ret = dict_set_str (ctx->dict, optkey, key);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "option add for %s%d %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "option add for %s%d %s",
                         ctx->key_name, ctx->opt_count, key);
         snprintf (optkey, sizeof (optkey), "%s.%s%d", ctx->prefix,
                   ctx->val_name, ctx->opt_count);
         ret = dict_set_str (ctx->dict, optkey, value->data);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "option add for %s%d %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "option add for %s%d %s",
                         ctx->val_name, ctx->opt_count, value->data);
         ctx->opt_count++;
 
@@ -2406,7 +2433,7 @@ out:
         GF_FREE (rebalance_id_str);
         GF_FREE (rb_id_str);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -2450,7 +2477,8 @@ glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t* load,
                 if (ret == 0) {
                         break;
                 } else if (ret < 0) {
-                        gf_log (this->name, GF_LOG_CRITICAL, "Quota "
+                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                                GD_MSG_QUOTA_CONF_CORRUPT, "Quota "
                                 "configuration store may be corrupt.");
                         goto out;
                 }
@@ -2547,7 +2575,7 @@ out:
         if (ret)
                 dict_unref (dict);
 
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -2627,7 +2655,7 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         snprintf (key, sizeof (key), "volume%d.quota-version", count);
         ret = dict_get_uint32 (peer_data, key, &quota_version);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota-version key absent for"
+                gf_msg_debug (this->name, 0, "quota-version key absent for"
                         " volume %s in peer %s's response", volinfo->volname,
                         hostname);
                 ret = 0;
@@ -2656,7 +2684,7 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         snprintf (key, sizeof (key), "volume%d.quota-cksum", count);
         ret = dict_get_uint32 (peer_data, key, &quota_cksum);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota checksum absent for "
+                gf_msg_debug (this->name, 0, "quota checksum absent for "
                         "volume %s in peer %s's response", volinfo->volname,
                         hostname);
                 ret = 0;
@@ -2676,7 +2704,7 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with ret: %d, status: %d",
+        gf_msg_debug (this->name, 0, "Returning with ret: %d, status: %d",
                 ret, *status);
         return ret;
 }
@@ -2729,8 +2757,9 @@ import_prdict_dict (dict_t *peer_data, dict_t  *dst_dict, char *key_prefix,
 
 out:
         if (msg[0])
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_IMPORT_PRDICT_DICT, "%s", msg);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 
 }
@@ -2807,8 +2836,9 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
 
 out:
         if (msg[0])
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_OPTS_IMPORT_FAIL, "%s", msg);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -2894,8 +2924,9 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         *brickinfo = new_brickinfo;
 out:
         if (msg[0])
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_IMPORT_FAIL, "%s", msg);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -2935,7 +2966,7 @@ glusterd_import_bricks (dict_t *peer_data, int32_t vol_count,
         }
         ret = 0;
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -2982,14 +3013,14 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
         key[sizeof(key)-1] = '\0';
         ret = dict_get_uint32 (peer_data, key, &new_volinfo->quota_conf_cksum);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to get quota cksum");
+                gf_msg_debug (this->name, 0, "Failed to get quota cksum");
 
         snprintf (key, sizeof (key)-1, "%s%d.quota-version", prefix, vol_idx);
         key[sizeof(key)-1] = '\0';
         ret = dict_get_uint32 (peer_data, key,
                                &new_volinfo->quota_conf_version);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to get quota "
+                gf_msg_debug (this->name, 0, "Failed to get quota "
                                                   "version");
 
         snprintf (key, sizeof (key)-1, "%s%d.gfid-count", prefix, vol_idx);
@@ -3021,7 +3052,8 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
                 ret = glusterd_quota_conf_write_gfid (fd, gfid,
                                                       (char)gfid_type);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_CRITICAL, "Unable to write "
+                        gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                                GD_MSG_QUOTA_CONF_WRITE_FAIL, "Unable to write "
                                 "gfid %s into quota.conf for %s", gfid_str,
                                 new_volinfo->volname);
                         ret = -1;
@@ -3037,14 +3069,16 @@ out:
         if (!ret) {
                 ret = glusterd_compute_cksum (new_volinfo, _gf_true);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_CKSUM_COMPUTE_FAIL,
                                 "Failed to compute checksum");
                         goto clear_quota_conf;
                 }
 
                 ret = glusterd_store_save_quota_version_and_cksum (new_volinfo);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_QUOTA_CKSUM_VER_STORE_FAIL,
                                 "Failed to save quota version and checksum");
         }
 
@@ -3092,7 +3126,7 @@ gd_import_friend_volume_rebal_dict (dict_t *dict, int count,
 out:
         if (ret && volinfo->rebal.dict)
                 dict_unref (volinfo->rebal.dict);
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -3195,7 +3229,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         snprintf (key, sizeof (key), "%s%d.stripe_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->stripe_count);
         if (ret)
-                gf_log (THIS->name, GF_LOG_INFO,
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "peer is possibly old version");
 
         /* not having a 'replica_count' key is not a error
@@ -3204,7 +3239,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         snprintf (key, sizeof (key), "%s%d.replica_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->replica_count);
         if (ret)
-                gf_log (THIS->name, GF_LOG_INFO,
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "peer is possibly old version");
 
         /* not having a 'disperse_count' key is not a error
@@ -3213,7 +3249,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         snprintf (key, sizeof (key), "%s%d.disperse_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->disperse_count);
         if (ret)
-                gf_log (THIS->name, GF_LOG_INFO,
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "peer is possibly old version");
 
         /* not having a 'redundancy_count' key is not a error
@@ -3222,7 +3259,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         snprintf (key, sizeof (key), "%s%d.redundancy_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->redundancy_count);
         if (ret)
-                gf_log (THIS->name, GF_LOG_INFO,
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "peer is possibly old version");
 
         /* not having a 'dist_count' key is not a error
@@ -3231,7 +3269,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         snprintf (key, sizeof (key), "%s%d.dist_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->dist_leaf_count);
         if (ret)
-                gf_log (THIS->name, GF_LOG_INFO,
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "peer is possibly old version");
 
         /* not having a 'hot_brick_count' key is not a error
@@ -3418,7 +3457,9 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         ret = gd_import_volume_snap_details (peer_data, new_volinfo, key,
                                              volname);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Failed to import snapshot "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_DETAILS_IMPORT_FAIL,
+                        "Failed to import snapshot "
                         "details for volume %s", volname);
                 goto out;
         }
@@ -3453,7 +3494,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         } else if (((op_version == 0) && (client_op_version != 0)) ||
                    ((op_version != 0) && (client_op_version == 0))) {
                 ret = -1;
-                gf_log ("glusterd", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Only one volume op-version found");
                 goto out;
         } else {
@@ -3473,8 +3515,9 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         *volinfo = new_volinfo;
 out:
         if (msg[0])
-                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_IMPORT_FAIL, "%s", msg);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -3489,7 +3532,9 @@ glusterd_volume_disconnect_all_bricks (glusterd_volinfo_t *volinfo)
                 if (glusterd_is_brick_started (brickinfo)) {
                         ret = glusterd_brick_disconnect (brickinfo);
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSD_BRICK_DISCONNECT_FAIL,
+                                        "Failed to "
                                         "disconnect %s:%s", brickinfo->hostname,
                                         brickinfo->path);
                                 break;
@@ -3579,7 +3624,7 @@ glusterd_volinfo_stop_stale_bricks (glusterd_volinfo_t *new_volinfo,
         }
         ret = 0;
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -3613,7 +3658,8 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
                            valid_volinfo->restored_from_snap))) {
                 ret = glusterd_lvm_snapshot_remove (NULL, stale_volinfo);
                 if (ret) {
-                        gf_log(this->name, GF_LOG_WARNING,
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_SNAP_REMOVE_FAIL,
                                "Failed to remove lvm snapshot for "
                                "restored volume %s", stale_volinfo->volname);
                 }
@@ -3733,14 +3779,15 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                 goto out;
 
         if (!new_volinfo) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "Not importing snap volume");
                 goto out;
         }
 
         ret = glusterd_snapdsvc_init (new_volinfo);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to initialize "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize "
                         "snapdsvc for volume %s", new_volinfo->volname);
                 goto out;
         }
@@ -3752,7 +3799,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                  */
                 ret = glusterd_snapdsvc_init (old_volinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to initialize"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize"
                                 " snapdsvc for old volume %s",
                                 old_volinfo->volname);
                         goto out;
@@ -3784,7 +3832,7 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                                  glusterd_compare_volume_name);
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d", ret);
+        gf_msg_debug ("", 0, "Returning with ret: %d", ret);
         return ret;
 }
 
@@ -3809,7 +3857,7 @@ glusterd_import_friend_volumes (dict_t *peer_data)
         }
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -3877,7 +3925,8 @@ glusterd_import_global_opts (dict_t *friend_data)
         ret = import_prdict_dict (friend_data, import_options, "key", "val",
                                   count, "global");
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to import"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLOBAL_OPT_IMPORT_FAIL, "Failed to import"
                         " global options");
                 goto out;
         }
@@ -3923,7 +3972,8 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
 
         ret = glusterd_import_global_opts (peer_data);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Importing global "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GLOBAL_OPT_IMPORT_FAIL, "Importing global "
                         "options failed");
                 goto out;
         }
@@ -3957,7 +4007,7 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_msg_debug (this->name, 0,
                 "Returning with ret: %d, status: %d", ret, *status);
         return ret;
 }
@@ -4057,7 +4107,8 @@ glusterd_unlink_file (char *sockfpath)
                 if (ENOENT == errno)
                         ret = 0;
                 else
-                        gf_log (THIS->name, GF_LOG_ERROR, "Failed to remove %s"
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED, "Failed to remove %s"
                                 " error: %s", sockfpath, strerror (errno));
         }
 
@@ -4070,32 +4121,44 @@ glusterd_nfs_pmap_deregister ()
         if (pmap_unset (MOUNT_PROGRAM, MOUNTV3_VERSION))
                 gf_log ("", GF_LOG_INFO, "De-registered MOUNTV3 successfully");
         else
-                gf_log ("", GF_LOG_ERROR, "De-register MOUNTV3 is unsuccessful");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_PMAP_UNSET_FAIL,
+                        "De-register MOUNTV3 is unsuccessful");
 
         if (pmap_unset (MOUNT_PROGRAM, MOUNTV1_VERSION))
                 gf_log ("", GF_LOG_INFO, "De-registered MOUNTV1 successfully");
         else
-                gf_log ("", GF_LOG_ERROR, "De-register MOUNTV1 is unsuccessful");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_PMAP_UNSET_FAIL,
+                        "De-register MOUNTV1 is unsuccessful");
 
         if (pmap_unset (NFS_PROGRAM, NFSV3_VERSION))
                 gf_log ("", GF_LOG_INFO, "De-registered NFSV3 successfully");
         else
-                gf_log ("", GF_LOG_ERROR, "De-register NFSV3 is unsuccessful");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_PMAP_UNSET_FAIL,
+                        "De-register NFSV3 is unsuccessful");
 
         if (pmap_unset (NLM_PROGRAM, NLMV4_VERSION))
                 gf_log ("", GF_LOG_INFO, "De-registered NLM v4 successfully");
         else
-                gf_log ("", GF_LOG_ERROR, "De-registration of NLM v4 failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_PMAP_UNSET_FAIL,
+                        "De-registration of NLM v4 failed");
 
         if (pmap_unset (NLM_PROGRAM, NLMV1_VERSION))
                 gf_log ("", GF_LOG_INFO, "De-registered NLM v1 successfully");
         else
-                gf_log ("", GF_LOG_ERROR, "De-registration of NLM v1 failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_PMAP_UNSET_FAIL,
+                        "De-registration of NLM v1 failed");
 
         if (pmap_unset (ACL_PROGRAM, ACLV3_VERSION))
                 gf_log ("", GF_LOG_INFO, "De-registered ACL v3 successfully");
         else
-                gf_log ("", GF_LOG_ERROR, "De-registration of ACL v3 failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_PMAP_UNSET_FAIL,
+                        "De-registration of ACL v3 failed");
 }
 
 int
@@ -4197,7 +4260,7 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
 
 
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -4316,7 +4379,7 @@ glusterd_volume_count_get (void)
         }
 
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -4366,7 +4429,9 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         if (gf_uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RESOLVE_BRICK_FAIL,
+                                FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
                         goto out;
                 }
@@ -4378,13 +4443,15 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         }
         ret = glusterd_volume_start_glusterfs (volinfo, brickinfo, wait);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to start brick %s:%s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_DISCONNECTED,
+                        "Unable to start brick %s:%s",
                         brickinfo->hostname, brickinfo->path);
                 goto out;
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
+        gf_msg_debug (this->name, 0, "returning %d ", ret);
         return ret;
 }
 
@@ -4408,7 +4475,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         start_svcs = _gf_true;
                         glusterd_svcs_manager (volinfo);
                 }
-                gf_log (this->name, GF_LOG_DEBUG, "starting the volume %s",
+                gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
@@ -4425,7 +4492,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                 glusterd_svcs_manager (volinfo);
                         }
                         start_svcs = _gf_true;
-                        gf_log (this->name, GF_LOG_DEBUG, "starting the snap "
+                        gf_msg_debug (this->name, 0, "starting the snap "
                                 "volume %s", volinfo->volname);
                         cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                                  brick_list) {
@@ -4485,7 +4552,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = glusterd_get_slave_info (slave, &slave_url, &slave_host,
                                        &slave_vol, &op_errstr);
         if (ret) {
-                gf_log (this1->name, GF_LOG_ERROR,
+                gf_msg (this1->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SLAVEINFO_FETCH_ERROR,
                         "Unable to fetch slave details.");
                 ret = -1;
                 goto out;
@@ -4503,10 +4571,13 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                                            &is_template_in_use);
         if (ret) {
                 if (!strstr(slave, "::"))
-                        gf_log (this1->name, GF_LOG_INFO,
+                        gf_msg (this1->name, GF_LOG_INFO, 0,
+                                GD_MSG_SLAVE_URL_INVALID,
                                 "%s is not a valid slave url.", slave);
                 else
-                        gf_log (this1->name, GF_LOG_INFO, "Unable to get"
+                        gf_msg (this1->name, GF_LOG_INFO, 0,
+                                GD_MSG_GET_STATEFILE_NAME_FAILED,
+                                "Unable to get"
                                 " statefile's name");
                 goto out;
         }
@@ -4514,7 +4585,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         /* If state-file entry is missing from the config file,
          * do not start gsyncd on restart */
         if (is_template_in_use) {
-                gf_log (this1->name, GF_LOG_INFO,
+                gf_msg (this1->name, GF_LOG_INFO, 0,
+                        GD_MSG_NO_STATEFILE_ENTRY,
                         "state-file entry is missing in config file."
                         "Not Restarting");
                 goto out;
@@ -4525,14 +4597,16 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         ret = gsync_status (volinfo->volname, slave, confpath,
                             &ret_status, &is_template_in_use);
         if (ret == -1) {
-                gf_log (this1->name, GF_LOG_INFO,
+                gf_msg (this1->name, GF_LOG_INFO, 0,
+                        GD_MSG_GSYNC_VALIDATION_FAIL,
                         GEOREP" start option validation failed ");
                 ret = 0;
                 goto out;
         }
 
         if (is_template_in_use == _gf_true) {
-                gf_log (this1->name, GF_LOG_INFO,
+                gf_msg (this1->name, GF_LOG_INFO, 0,
+                        GD_MSG_PIDFILE_NOT_FOUND,
                         "pid-file entry is missing in config file."
                         "Not Restarting");
                 ret = 0;
@@ -4541,7 +4615,9 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 
         ret = glusterd_gsync_read_frm_status (statefile, buf, sizeof (buf));
         if (ret < 0) {
-                gf_log (this1->name, GF_LOG_ERROR, "Unable to read the status");
+                gf_msg (this1->name, GF_LOG_ERROR, 0,
+                        GD_MSG_STAT_FILE_READ_FAILED,
+                        "Unable to read the status");
                 goto out;
         }
 
@@ -4580,7 +4656,9 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                ret = dict_set_dynstr_with_alloc (volinfo->gsync_active_slaves,
                                                  key1, "running");
                if (ret) {
-                       gf_log (this1->name, GF_LOG_ERROR, "Unable to set key:%s"
+                       gf_msg (this1->name, GF_LOG_ERROR, 0,
+                               GD_MSG_DICT_SET_FAILED,
+                               "Unable to set key:%s"
                                " value:running in the dict", key1);
                        goto out;
                }
@@ -4599,7 +4677,8 @@ out:
                                                      slave_host, slave_vol,
                                                      "Config Corrupted");
                if (op_ret) {
-                        gf_log (this1->name, GF_LOG_ERROR,
+                        gf_msg (this1->name, GF_LOG_ERROR, 0,
+                                GD_MSG_STATUSFILE_CREATE_FAILED,
                                 "Unable to create status file"
                                 ". Error : %s", strerror (errno));
                         ret = op_ret;
@@ -4699,10 +4778,10 @@ glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
         GF_ASSERT (brickinfo);
         brickinfo->status = status;
         if (GF_BRICK_STARTED == status) {
-                gf_log ("glusterd", GF_LOG_DEBUG, "Setting brick %s:%s status "
+                gf_msg_debug ("glusterd", 0, "Setting brick %s:%s status "
                         "to started", brickinfo->hostname, brickinfo->path);
         } else {
-                gf_log ("glusterd", GF_LOG_DEBUG, "Setting brick %s:%s status "
+                gf_msg_debug ("glusterd", 0, "Setting brick %s:%s status "
                         "to stopped", brickinfo->hostname, brickinfo->path);
         }
 }
@@ -4758,7 +4837,8 @@ glusterd_get_brick_root (char *path, char **mount_point)
 
                 *ptr = '\0';
                 if (stat (mnt_pt, &buf)) {
-                        gf_log (THIS->name, GF_LOG_ERROR, "error in "
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED, "error in "
                                 "stat: %s", strerror (errno));
                         goto err;
                 }
@@ -4771,7 +4851,8 @@ glusterd_get_brick_root (char *path, char **mount_point)
 
         if (ptr == mnt_pt) {
                 if (stat ("/", &buf)) {
-                        gf_log (THIS->name, GF_LOG_ERROR, "error in "
+                        gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                                GD_MSG_FILE_OP_FAILED, "error in "
                                 "stat: %s", strerror (errno));
                         goto err;
                 }
@@ -4883,7 +4964,9 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                         runner_add_arg (&runner, fs->fs_tool_arg);
                 runner_add_arg (&runner, device);
         } else {
-                gf_log (THIS->name, GF_LOG_ERROR, "could not find %s to get"
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INODE_SIZE_GET_FAIL,
+                        "could not find %s to get"
                         "inode size for %s (%s): %s package missing?",
                         fs->fs_tool_name, device, fs_name, fs->fs_tool_pkg);
                 goto out;
@@ -4891,8 +4974,9 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         ret = runner_start (&runner);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to execute "
-                        "\"%s\": %s", fs->fs_tool_name, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_CMD_EXEC_FAIL, "failed to execute "
+                        "\"%s\"", fs->fs_tool_name);
                 /*
                  * Runner_start might return an error after the child has
                  * been forked, e.g. if the program isn't there.  In that
@@ -4921,7 +5005,8 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         ret = runner_end (&runner);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_CMD_EXEC_FAIL,
                         "%s exited with non-zero exit status",
                         fs->fs_tool_name);
 
@@ -4929,7 +5014,8 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         }
         if (!cur_word) {
                 ret = -1;
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INODE_SIZE_GET_FAIL,
                         "Unable to retrieve inode size using %s",
                         fs->fs_tool_name);
                 goto out;
@@ -4937,7 +5023,7 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         if (dict_set_dynstr_with_alloc (cached_fs, device, cur_word)) {
                 /* not fatal if not entered into the cache */
-                gf_log (THIS->name, GF_LOG_DEBUG,
+                gf_msg_debug (THIS->name, 0,
                         "failed to cache fs inode size for %s", device);
         }
 
@@ -4949,7 +5035,8 @@ cached:
 
 out:
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get inode size");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INODE_SIZE_GET_FAIL, "failed to get inode size");
         return ret;
 }
 
@@ -5057,7 +5144,9 @@ glusterd_get_brick_mount_device (char *brick_path)
 
         ret = glusterd_get_brick_root (brick_path, &mnt_pt);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get mount point "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICKPATH_ROOT_GET_FAIL,
+                        "Failed to get mount point "
                         "for %s brick", brick_path);
                 goto out;
         }
@@ -5065,7 +5154,9 @@ glusterd_get_brick_mount_device (char *brick_path)
         entry = glusterd_get_mnt_entry_info (mnt_pt, buff, sizeof (buff),
                                              &save_entry);
         if (NULL == entry) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get mnt entry "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MNTENTRY_GET_FAIL,
+                        "Failed to get mnt entry "
                         "for %s mount path", mnt_pt);
                 goto out;
         }
@@ -5102,7 +5193,8 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         ret = statvfs (brickinfo->path, &brickstat);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "statfs error: %s ",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "statfs error: %s ",
                         strerror (errno));
                 goto out;
         }
@@ -5157,7 +5249,7 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
         ret = glusterd_add_inode_size_to_dict (dict, count);
  out:
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "Error adding brick"
+                gf_msg_debug (this->name, 0, "Error adding brick"
                         " detail to dict: %s", strerror (errno));
         return ret;
 }
@@ -5246,7 +5338,7 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
 out:
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+                gf_msg_debug (this->name, 0, "Returning %d", ret);
 
         return ret;
 }
@@ -5277,7 +5369,8 @@ glusterd_get_all_volnames (dict_t *dict)
 
  out:
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to get all "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "failed to get all "
                         "volume names for status");
         return ret;
 }
@@ -5307,7 +5400,7 @@ glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
         }
         ret = 0;
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug ("", 0, "returning %d", ret);
         return ret;
 }
 
@@ -5332,7 +5425,8 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         if (gf_uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, FMTSTR_RESOLVE_BRICK,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_RESOLVE_BRICK_FAIL, FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
                         goto out;
                 }
@@ -5345,19 +5439,20 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG, "About to stop glusterfs"
+        gf_msg_debug (this->name, 0, "About to stop glusterfs"
                 " for brick %s:%s", brickinfo->hostname,
                 brickinfo->path);
         ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo, del_brick);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unable to stop"
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_BRICK_STOP_FAIL, "Unable to stop"
                         " brick: %s:%s", brickinfo->hostname,
                         brickinfo->path);
                 goto out;
         }
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
+        gf_msg_debug (this->name, 0, "returning %d ", ret);
         return ret;
 }
 
@@ -5448,8 +5543,9 @@ out:
         if (is_allocated)
                 glusterd_brickinfo_delete (newbrickinfo);
         if (op_errstr[0] != '\0')
-                gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_VALIDATE_FAIL, "%s", op_errstr);
+        gf_msg_debug (this->name, 0, "returning %d ", ret);
         return ret;
 }
 
@@ -5468,13 +5564,17 @@ glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
 
         if (strcmp (rb->src_brick->hostname, src->hostname) ||
             strcmp (rb->src_brick->path, src->path)) {
-                gf_log("", GF_LOG_ERROR, "Replace brick src bricks differ");
+                gf_msg("", GF_LOG_ERROR, 0,
+                       GD_MSG_RB_SRC_BRICKS_MISMATCH,
+                       "Replace brick src bricks differ");
                 return -1;
         }
 
         if (strcmp (rb->dst_brick->hostname, dst->hostname) ||
             strcmp (rb->dst_brick->path, dst->path)) {
-                gf_log ("", GF_LOG_ERROR, "Replace brick dst bricks differ");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_RB_DST_BRICKS_MISMATCH,
+                        "Replace brick dst bricks differ");
                 return -1;
         }
 
@@ -5586,7 +5686,8 @@ out:
         }
 
         if (strlen (msg)) {
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_PATH_ALREADY_PART_OF_VOL, "%s", msg);
                 *op_errstr = gf_strdup (msg);
         }
 
@@ -5690,7 +5791,7 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
                 goto out;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug ("", 0, "returning %d", ret);
         return ret;
 }
 
@@ -5731,7 +5832,7 @@ glusterd_sm_tr_log_add_to_dict (dict_t *dict,
         ret = dict_set_int32 (dict, key, log->count);
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug ("", 0, "returning %d", ret);
         return ret;
 }
 
@@ -5762,7 +5863,7 @@ glusterd_sm_tr_log_init (glusterd_sm_tr_log_t *log,
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug ("", 0, "returning %d", ret);
         return ret;
 }
 
@@ -5809,11 +5910,11 @@ glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
         if (log->count < log->size)
                 log->count++;
         ret = 0;
-        gf_log (this->name, GF_LOG_DEBUG, "Transitioning from '%s' to '%s' "
+        gf_msg_debug (this->name, 0, "Transitioning from '%s' to '%s' "
                 "due to event '%s'", log->state_name_get (old_state),
                 log->state_name_get (new_state), log->event_name_get (event));
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (this->name, 0, "returning %d", ret);
         return ret;
 }
 
@@ -5833,7 +5934,7 @@ glusterd_remove_pending_entry (struct cds_list_head *list, void *elem)
                 }
         }
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "returning %d", ret);
         return ret;
 
 }
@@ -5865,7 +5966,7 @@ glusterd_delete_volume (glusterd_volinfo_t *volinfo)
 
         glusterd_volinfo_remove (volinfo);
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "returning %d", ret);
         return ret;
 }
 
@@ -5923,7 +6024,7 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
         path_tokens = GF_CALLOC (sizeof(char*), volinfo->brick_count,
                                  gf_gld_mt_charptr);
         if (!path_tokens) {
-                gf_log ("", GF_LOG_DEBUG, "Could not allocate memory.");
+                gf_msg_debug ("", 0, "Could not allocate memory.");
                 ret = -1;
                 goto out;
         }
@@ -5940,7 +6041,7 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
                         path[sizeof(path)-1] = '\0';
                  path_tokens[count] = gf_strdup (path);
                  if (!path_tokens[count]) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_msg_debug ("", 0,
                                 "Could not allocate memory.");
                         ret = -1;
                         goto out;
@@ -5952,7 +6053,7 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
         tmp_path_list = GF_CALLOC (sizeof(char), total_len + 1,
                                    gf_gld_mt_char);
         if (!tmp_path_list) {
-                gf_log ("", GF_LOG_DEBUG, "Could not allocate memory.");
+                gf_msg_debug ("", 0, "Could not allocate memory.");
                 ret = -1;
                 goto out;
         }
@@ -5975,12 +6076,12 @@ out:
         path_tokens = NULL;
 
         if (ret == 0) {
-                gf_log ("", GF_LOG_DEBUG, "No Local Bricks Present.");
+                gf_msg_debug ("", 0, "No Local Bricks Present.");
                 GF_FREE (tmp_path_list);
                 tmp_path_list = NULL;
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -6008,7 +6109,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
 
         if (!path_list) {
                 ret = 0;
-                gf_log ("", GF_LOG_DEBUG, "No Bricks in this node."
+                gf_msg_debug ("", 0, "No Bricks in this node."
                         " Not starting gsyncd.");
                 goto out;
         }
@@ -6071,7 +6172,7 @@ out:
                                                 "the " GEOREP " session");
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -6088,21 +6189,24 @@ glusterd_recreate_volfiles (glusterd_conf_t *conf)
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 ret = generate_brick_volfiles (volinfo);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_VOLFILE_CREATE_FAIL, "Failed to "
                                 "regenerate brick volfiles for %s",
                                 volinfo->volname);
                         op_ret = ret;
                 }
                 ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_VOLFILE_CREATE_FAIL, "Failed to "
                                 "regenerate trusted client volfiles for %s",
                                 volinfo->volname);
                         op_ret = ret;
                 }
                 ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Failed to "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_VOLFILE_CREATE_FAIL, "Failed to "
                                 "regenerate client volfiles for %s",
                                 volinfo->volname);
                         op_ret = ret;
@@ -6125,7 +6229,8 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
         if (!ret) {
                 ret = gf_string2boolean (type, &upgrade);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "upgrade option "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_STR_TO_BOOL_FAIL, "upgrade option "
                                 "%s is not a valid boolean type", type);
                         ret = -1;
                         goto out;
@@ -6138,7 +6243,8 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
         if (!ret) {
                 ret = gf_string2boolean (type, &downgrade);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "downgrade option "
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_STR_TO_BOOL_FAIL, "downgrade option "
                                 "%s is not a valid boolean type", type);
                         ret = -1;
                         goto out;
@@ -6146,7 +6252,8 @@ glusterd_handle_upgrade_downgrade (dict_t *options, glusterd_conf_t *conf)
         }
 
         if (upgrade && downgrade) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Both upgrade and downgrade"
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_WRONG_OPTS_SETTING, "Both upgrade and downgrade"
                         " options are set. Only one should be on");
                 ret = -1;
                 goto out;
@@ -6265,7 +6372,8 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
         if (gf_uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_RESOLVE_BRICK_FAIL,
                                 "Cannot resolve brick %s:%s",
                                 brickinfo->hostname, brickinfo->path);
                         goto out;
@@ -6281,7 +6389,8 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
 
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to open pidfile: %s",
                         pidfile_path);
                 ret = -1;
                 goto out;
@@ -6289,7 +6398,9 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
 
         ret = fscanf (pidfile, "%d", &pid);
         if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get pid of brick process");
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "Unable to get pid of brick process");
                 ret = -1;
                 goto out;
         }
@@ -6298,7 +6409,9 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
                   DEFAULT_VAR_RUN_DIRECTORY"/glusterdump.%d.options", pid);
         ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error while parsing the statedump "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                       GD_MSG_BRK_STATEDUMP_FAIL,
+                       "error while parsing the statedump "
                         "options");
                 ret = -1;
                 goto out;
@@ -6354,7 +6467,8 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
 
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to open pidfile: %s",
                         pidfile_path);
                 ret = -1;
                 goto out;
@@ -6362,7 +6476,9 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
 
         ret = fscanf (pidfile, "%d", &pid);
         if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get pid of brick process");
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "Unable to get pid of brick process");
                 ret = -1;
                 goto out;
         }
@@ -6371,7 +6487,9 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
                   DEFAULT_VAR_RUN_DIRECTORY"/glusterdump.%d.options", pid);
         ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error while parsing the statedump "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_BRK_STATEDUMP_FAIL,
+                        "error while parsing the statedump "
                         "options");
                 ret = -1;
                 goto out;
@@ -6429,7 +6547,8 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
 
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to open pidfile: %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to open pidfile: %s",
                         pidfile_path);
                 ret = -1;
                 goto out;
@@ -6437,7 +6556,8 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
 
         ret = fscanf (pidfile, "%d", &pid);
         if (ret <= 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Unable to get pid of quotad "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to get pid of quotad "
                         "process");
                 ret = -1;
                 goto out;
@@ -6447,7 +6567,8 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
                   DEFAULT_VAR_RUN_DIRECTORY"/glusterdump.%d.options", pid);
         ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error while parsing "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRK_STATEDUMP_FAIL, "error while parsing "
                         "statedump options");
                 ret = -1;
                 goto out;
@@ -6497,7 +6618,7 @@ glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
                 else
                         ret = 1;
         }
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -6523,7 +6644,8 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
                                 "Deleting stale volume %s", volinfo->volname);
                         ret = glusterd_delete_volume (volinfo);
                         if (ret) {
-                                gf_log (THIS->name, GF_LOG_ERROR,
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_STALE_VOL_REMOVE_FAIL,
                                         "Error deleting stale volume");
                                 goto out;
                         }
@@ -6531,7 +6653,7 @@ glusterd_friend_remove_cleanup_vols (uuid_t uuid)
         }
         ret = 0;
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -6651,7 +6773,9 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                                               cbk, volinfo->rebal.op);
                 break;
         default:
-                gf_log (this->name, GF_LOG_ERROR, "Unknown defrag status (%d)."
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_REBALANCE_START_FAIL,
+                        "Unknown defrag status (%d)."
                         "Not starting rebalance process for %s.",
                         volinfo->rebal.defrag_status, volinfo->volname);
                 break;
@@ -6725,19 +6849,24 @@ glusterd_validate_volume_id (dict_t *op_dict, glusterd_volinfo_t *volinfo)
 
         ret = dict_get_str (op_dict, "vol-id", &volid_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get volume id for "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get volume id for "
                         "volume %s", volinfo->volname);
                 goto out;
         }
         ret = gf_uuid_parse (volid_str, vol_uid);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to parse volume id "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UUID_PARSE_FAIL,
+                        "Failed to parse volume id "
                         "for volume %s", volinfo->volname);
                 goto out;
         }
 
         if (gf_uuid_compare (vol_uid, volinfo->volume_id)) {
-                gf_log (this->name, GF_LOG_ERROR, "Volume ids of volume %s - %s"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_ID_MISMATCH, "Volume ids of volume %s - %s"
                         " and %s - are different. Possibly a split brain among "
                         "peers.", volinfo->volname, volid_str,
                         uuid_utoa (volinfo->volume_id));
@@ -6769,32 +6898,32 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
 
         ret = dict_get_uint64 (rsp_dict, "files", &files);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get file count");
 
         ret = dict_get_uint64 (rsp_dict, "size", &size);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get size of xfer");
 
         ret = dict_get_uint64 (rsp_dict, "lookups", &lookup);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get lookedup file count");
 
         ret = dict_get_int32 (rsp_dict, "status", (int32_t *)&status);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get status");
 
         ret = dict_get_uint64 (rsp_dict, "failures", &failures);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get failure count");
 
         ret = dict_get_uint64 (rsp_dict, "skipped", &skipped);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get skipped count");
 
         ret = dict_get_uint64 (rsp_dict, "promoted", &promoted);
@@ -6809,7 +6938,7 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
 
         ret = dict_get_double (rsp_dict, "run-time", &run_time);
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_msg_trace (this->name, 0,
                         "failed to get run-time");
 
         if (files)
@@ -6858,7 +6987,9 @@ glusterd_check_topology_identical (const char   *filename1,
         /* fopen() the volfile1 to create the graph */
         fp1 = fopen (filename1, "r");
         if (fp1 == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "fopen() on file: %s failed "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "fopen() on file: %s failed "
                         "(%s)", filename1, strerror (errno));
                 goto out;
         }
@@ -6866,7 +6997,9 @@ glusterd_check_topology_identical (const char   *filename1,
         /* fopen() the volfile2 to create the graph */
         fp2 = fopen (filename2, "r");
         if (fp2 == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "fopen() on file: %s failed "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "fopen() on file: %s failed "
                         "(%s)", filename2, strerror (errno));
                 goto out;
         }
@@ -6894,7 +7027,7 @@ out:
         if (grph2)
                 glusterfs_graph_destroy(grph2);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -6918,7 +7051,9 @@ glusterd_check_files_identical (char *filename1, char *filename2,
         ret = stat (filename1, &buf1);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "stat on file: %s failed "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "stat on file: %s failed "
                         "(%s)", filename1, strerror (errno));
                 goto out;
         }
@@ -6926,7 +7061,9 @@ glusterd_check_files_identical (char *filename1, char *filename2,
         ret = stat (filename2, &buf2);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "stat on file: %s failed "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "stat on file: %s failed "
                         "(%s)", filename2, strerror (errno));
                 goto out;
         }
@@ -6951,7 +7088,7 @@ glusterd_check_files_identical (char *filename1, char *filename2,
                 *identical = _gf_true;
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug (this->name, 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -6979,7 +7116,8 @@ glusterd_volset_help (dict_t *dict, char **op_errstr)
 #if (HAVE_LIB_XML)
                 ret = 0;
 #else
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MODULE_NOT_INSTALLED,
                         "libxml not present in the system");
                 if (op_errstr)
                         *op_errstr = gf_strdup ("Error: xml libraries not "
@@ -6997,7 +7135,7 @@ glusterd_volset_help (dict_t *dict, char **op_errstr)
                 *op_errstr = gf_strdup ("Failed to get volume options help");
  out:
 
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -7022,7 +7160,9 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
 
         ret = dict_get_str (dict, "cmd-str", &cmd);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get command "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get command "
                         "string");
 
         if (cmd) {
@@ -7056,14 +7196,16 @@ glusterd_append_gsync_status (dict_t *dst, dict_t *src)
 
         ret = dict_set_dynstr_with_alloc (dst, "gsync-status", stop_msg);
         if (ret) {
-                gf_log ("glusterd", GF_LOG_WARNING, "Unable to set the stop"
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Unable to set the stop"
                         "message in the ctx dictionary");
                 goto out;
         }
 
         ret = 0;
  out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -7090,7 +7232,7 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
 
         ret = dict_get_int32 (src, "gsync-count", &src_count);
         if (ret || !src_count) {
-                gf_log ("", GF_LOG_DEBUG, "Source brick empty");
+                gf_msg_debug ("", 0, "Source brick empty");
                 ret = 0;
                 goto out;
         }
@@ -7106,7 +7248,8 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
                 dst_sts_val = GF_CALLOC (1, sizeof(gf_gsync_status_t),
                                          gf_common_mt_gsync_status_t);
                 if (!dst_sts_val) {
-                        gf_log ("", GF_LOG_ERROR, "Out Of Memory");
+                        gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "Out Of Memory");
                         goto out;
                 }
 
@@ -7123,7 +7266,7 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
         ret = dict_set_int32 (dst, "gsync-count", dst_count+src_count);
 
  out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -7145,7 +7288,7 @@ glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (rsp_dict, "brick_count", &brick_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "No brick_count present");
+                gf_msg_debug (this->name, 0, "No brick_count present");
                 ret = 0;
                 goto out;
         }
@@ -7156,7 +7299,7 @@ glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_get_str (rsp_dict, key, &brick_mount_dir);
                 if (ret) {
                         /* Coz the info will come from a different node */
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_msg_debug (this->name, 0,
                                 "%s not present", key);
                         continue;
                 }
@@ -7164,7 +7307,8 @@ glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_set_dynstr_with_alloc (aggr, key,
                                                   brick_mount_dir);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
                                 "Failed to set %s", key);
                         goto out;
                 }
@@ -7172,7 +7316,7 @@ glusterd_aggr_brick_mount_dirs (dict_t *aggr, dict_t *rsp_dict)
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_TRACE, "Returning %d ", ret);
+        gf_msg_trace (this->name, 0, "Returning %d ", ret);
         return ret;
 }
 
@@ -7189,7 +7333,8 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
         } else {
                 ctx = glusterd_op_get_ctx ();
                 if (!ctx) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_GET_FAIL,
                                 "Operation Context is not present");
                         GF_ASSERT (0);
                 }
@@ -7209,7 +7354,8 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
                         ret = dict_set_dynstr_with_alloc (ctx, "conf_path",
                                                           conf_path);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR,
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED,
                                         "Unable to store conf path.");
                                 goto out;
                         }
@@ -7224,7 +7370,7 @@ glusterd_gsync_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
 
         ret = 0;
  out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d ", ret);
+        gf_msg_debug ("", 0, "Returning %d ", ret);
         return ret;
 }
 
@@ -7246,7 +7392,8 @@ glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         } else {
                 ctx = glusterd_op_get_ctx ();
                 if (!ctx) {
-                        gf_log ("", GF_LOG_ERROR,
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_OPCTX_GET_FAIL,
                                 "Operation Context is not present");
                         GF_ASSERT (0);
                 }
@@ -7255,19 +7402,21 @@ glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         if (rsp_dict) {
                 ret = dict_get_int32 (rsp_dict, "src-brick-port", &src_port);
                 if (ret == 0) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_msg_debug ("", 0,
                                 "src-brick-port=%d found", src_port);
                 }
 
                 ret = dict_get_int32 (rsp_dict, "dst-brick-port", &dst_port);
                 if (ret == 0) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_msg_debug ("", 0,
                                 "dst-brick-port=%d found", dst_port);
                 }
 
                 ret = glusterd_aggr_brick_mount_dirs (ctx, rsp_dict);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_MOUNDIRS_AGGR_FAIL,
+                                "Failed to "
                                 "aggregate brick mount dirs");
                         goto out;
                 }
@@ -7277,7 +7426,7 @@ glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_set_int32 (ctx, "src-brick-port",
                                       src_port);
                 if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_msg_debug ("", 0,
                                 "Could not set src-brick");
                         goto out;
                 }
@@ -7287,7 +7436,7 @@ glusterd_rb_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_set_int32 (ctx, "dst-brick-port",
                                       dst_port);
                 if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_msg_debug ("", 0,
                                 "Could not set dst-brick");
                         goto out;
                 }
@@ -7411,7 +7560,9 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
 
         ret = dict_set (rsp_ctx->dict, new_key, new_value);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "Unable to set key: %s in dict",
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Unable to set key: %s in dict",
                         key);
 
         return 0;
@@ -7464,7 +7615,8 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
 
         ret = dict_get_int32 (rsp_dict, "tasks", &remote_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to get remote task count");
                 goto out;
         }
@@ -7477,13 +7629,16 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                                 glusterd_volume_status_copy_tasks_to_ctx_dict,
                                 ctx_dict);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to copy tasks"
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED, "Failed to copy tasks"
                                 "to ctx_dict.");
                 goto out;
         }
 
         if (local_count != remote_count) {
-                gf_log (this->name, GF_LOG_ERROR, "Local tasks count (%d) and "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TASKS_COUNT_MISMATCH,
+                        "Local tasks count (%d) and "
                         "remote tasks count (%d) do not match. Not aggregating "
                         "tasks status.", local_count, remote_count);
                 ret = -1;
@@ -7500,7 +7655,8 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                 snprintf (key, sizeof (key), "task%d.type", i);
                 ret = dict_get_str (rsp_dict, key, &task_type);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Failed to get task typpe from rsp dict");
                         goto out;
                 }
@@ -7518,14 +7674,16 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                 snprintf (key, sizeof (key), "task%d.status", i);
                 ret = dict_get_int32 (rsp_dict, key, &remote_status);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Failed to get task status from rsp dict");
                         goto out;
                 }
                 snprintf (key, sizeof (key), "task%d.id", i);
                 ret = dict_get_str (rsp_dict, key, &remote_task_id);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
                                 "Failed to get task id from rsp dict");
                         goto out;
                 }
@@ -7534,7 +7692,8 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                         snprintf (key, sizeof (key), "task%d.id", j);
                         ret = dict_get_str (ctx_dict, key, &local_task_id);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "Failed to get local task-id");
                                 goto out;
                         }
@@ -7543,7 +7702,8 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                                      strlen (remote_task_id))) {
                                 /* Quit if a matching local task is not found */
                                 if (j == (local_count - 1)) {
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_TASKS_COUNT_MISMATCH,
                                                 "Could not find matching local "
                                                 "task for task %s",
                                                 remote_task_id);
@@ -7556,7 +7716,8 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                         snprintf (key, sizeof (key), "task%d.status", j);
                         ret = dict_get_int32 (ctx_dict, key, &local_status);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED,
                                         "Failed to get local task status");
                                 goto out;
                         }
@@ -7585,7 +7746,9 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                                         ret = dict_set_int32 (ctx_dict, key,
                                                               remote_status);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_TASK_STATUS_UPDATE_FAIL,
+                                        "Failed to "
                                         "update task status");
                                 goto out;
                         }
@@ -7671,7 +7834,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (rsp_dict, "other-count", &rsp_other_count);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
                         "Failed to get other count from rsp_dict");
                 goto out;
         }
@@ -7699,7 +7863,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_set_int32 (ctx_dict, "count", node_count + rsp_node_count);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to update node count");
                 goto out;
         }
@@ -7707,7 +7872,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_set_int32 (ctx_dict, "other-count",
                               (other_count + rsp_other_count));
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to update other-count");
                 goto out;
         }
@@ -7795,7 +7961,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (ctx_dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
                 goto out;
         }
 
@@ -7806,7 +7974,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (rsp_dict, "count", &index);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "failed to get index");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "failed to get index");
 
         memset (key, 0, 256);
         snprintf (key, 256, "node-uuid-%d", index);
@@ -7829,9 +7999,11 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 /* Setting the largest index value as the total count. */
                 ret = dict_get_int32 (ctx_dict, "count", &count);
                 if (count < current_index) {
-                    ret = dict_set_int32 (ctx_dict, "count", current_index);
-                    if (ret)
-                            gf_log ("", GF_LOG_ERROR, "Failed to set count");
+                        ret = dict_set_int32 (ctx_dict, "count", current_index);
+                        if (ret)
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                            GD_MSG_DICT_SET_FAILED,
+                                            "Failed to set count");
                 }
 
                 /* Setting the same index for the node, as is in the peerlist.*/
@@ -7839,7 +8011,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "node-uuid-%d", current_index);
                 ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set node-uuid");
                 }
         }
@@ -7851,7 +8023,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "files-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set the file count");
                 }
         }
@@ -7864,7 +8036,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "size-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set the size of migration");
                 }
         }
@@ -7877,7 +8049,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "lookups-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set lookuped file count");
                 }
         }
@@ -7890,7 +8062,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "status-%d", current_index);
                 ret = dict_set_int32 (ctx_dict, key, value32);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set status");
                 }
         }
@@ -7903,7 +8075,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "failures-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set failure count");
                 }
         }
@@ -7916,7 +8088,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "skipped-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set skipped count");
                 }
         }
@@ -7928,7 +8100,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 snprintf (key, 256, "run-time-%d", current_index);
                 ret = dict_set_double (ctx_dict, key, elapsed_time);
                 if (ret) {
-                        gf_log (THIS->name, GF_LOG_DEBUG,
+                        gf_msg_debug (THIS->name, 0,
                                 "failed to set run-time");
                 }
         }
@@ -7976,7 +8148,9 @@ glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
         int            dst_output_count      = 0;
 
         if (!dst || !src) {
-                gf_log ("", GF_LOG_ERROR, "Source or Destination "
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_EMPTY,
+                        "Source or Destination "
                         "dict is empty.");
                 goto out;
         }
@@ -7985,7 +8159,7 @@ glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
 
         ret = dict_get_int32 (src, "output_count", &src_output_count);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "No output from source");
+                gf_msg_debug ("", 0, "No output from source");
                 ret = 0;
                 goto out;
         }
@@ -7996,7 +8170,9 @@ glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
                 output_name[len] = '\0';
                 ret = dict_get_str (src, output_name, &output);
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to fetch %s",
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Unable to fetch %s",
                                 output_name);
                         goto out;
                 }
@@ -8006,7 +8182,9 @@ glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
                 output_name[len] = '\0';
                 ret = dict_set_dynstr (dst, output_name, gf_strdup (output));
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to set %s",
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Unable to set %s",
                                 output_name);
                         goto out;
                 }
@@ -8015,7 +8193,7 @@ glusterd_sys_exec_output_rsp_dict (dict_t *dst, dict_t *src)
         ret = dict_set_int32 (dst, "output_count",
                               dst_output_count+src_output_count);
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -8050,12 +8228,14 @@ glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_bin (aggr, "transaction_id", (void **)&txn_id);
         if (ret)
                 goto out;
-        gf_log (THIS->name, GF_LOG_DEBUG, "transaction ID = %s",
+        gf_msg_debug (THIS->name, 0, "transaction ID = %s",
                 uuid_utoa (*txn_id));
 
         ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get txn_op_info "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_OPINFO_GET_FAIL,
+                        "Failed to get txn_op_info "
                         "for txn_id = %s", uuid_utoa (*txn_id));
                 goto out;
         }
@@ -8111,7 +8291,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get quota opcode");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get quota opcode");
                 goto out;
         }
 
@@ -8126,7 +8308,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
 
         ret = dict_get_int32 (rsp_dict, "count", &rsp_dict_count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get the count of "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get the count of "
                         "gfids from the rsp dict");
                 goto out;
         }
@@ -8137,7 +8321,7 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
                  * called after self-staging on the originator. This must not
                  * be treated as error.
                  */
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to get count of gfids"
+                gf_msg_debug (this->name, 0, "Failed to get count of gfids"
                         " from req dict. This could be because count is not yet"
                         " copied from rsp_dict into op_ctx");
 
@@ -8146,7 +8330,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
 
                 ret = dict_get_str (rsp_dict, key, &uuid_str);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get gfid "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get gfid "
                                 "from rsp dict");
                         goto out;
                 }
@@ -8161,7 +8347,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
 
                 ret = dict_set_dynstr (dict, key, uuid_str_dup);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to set gfid "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set gfid "
                                 "from rsp dict into req dict");
                         GF_FREE (uuid_str_dup);
                         goto out;
@@ -8170,7 +8358,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
 
         ret = dict_set_int32 (dict, "count", rsp_dict_count + count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,  "Failed to set aggregated "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Failed to set aggregated "
                         "count in req dict");
                 goto out;
         }
@@ -8379,13 +8569,17 @@ glusterd_heal_volume_brick_rsp (dict_t *req_dict, dict_t *rsp_dict,
 
         ret = dict_get_str (req_dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
                 goto out;
         }
 
         ret = dict_get_int32 (req_dict, "heal-op", &heal_op);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get heal_op");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get heal_op");
                 goto out;
         }
 
@@ -8446,7 +8640,9 @@ glusterd_status_volume_brick_rsp (dict_t *rsp_dict, dict_t *op_ctx,
         }
         ret = dict_get_int32 (rsp_dict, "index", &index);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't get node index");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Couldn't get node index");
                 goto out;
         }
         dict_del (rsp_dict, "index");
@@ -8478,7 +8674,9 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
 
         ret = dict_get_str (req_dict, "volname", &volname);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
                 goto out;
         }
 
@@ -8502,7 +8700,9 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
 
         ret = dict_set_int32 (op_ctx, "count", i);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set count");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Failed to set count");
 
         snprintf (buf, 1024, "%s", uuid_utoa (MY_UUID));
         node_str = gf_strdup (buf);
@@ -8510,56 +8710,64 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         snprintf (key, 256, "node-uuid-%d",i);
         ret = dict_set_dynstr (op_ctx, key, node_str);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set node-uuid");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "files-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_files);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set file count");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "size-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_data);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set size of xfer");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "lookups-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.lookedup_files);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set lookedup file count");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "status-%d", i);
         ret = dict_set_int32 (op_ctx, key, volinfo->rebal.defrag_status);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set status");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "failures-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.rebalance_failures);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set failure count");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "skipped-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.skipped_files);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set skipped count");
 
         memset (key, 0, 256);
         snprintf (key, 256, "run-time-%d", i);
         ret = dict_set_double (op_ctx, key, volinfo->rebal.rebalance_time);
         if (ret)
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "failed to set run-time");
 
         memset (key, 0 , 256);
@@ -8612,7 +8820,7 @@ glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
                 break;
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -8635,7 +8843,8 @@ glusterd_set_originator_uuid (dict_t *dict)
         ret = dict_set_bin (dict, "originator_uuid",
                             originator_uuid, sizeof (uuid_t));
         if (ret) {
-                gf_log ("", GF_LOG_ERROR,
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Failed to set originator_uuid.");
                 goto out;
         }
@@ -8700,7 +8909,8 @@ glusterd_generate_and_set_task_id (dict_t *dict, char *key)
 
         ret = dict_set_dynstr (dict, key, uuid_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set %s in dict",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set %s in dict",
                         key);
                 goto out;
         }
@@ -8731,7 +8941,8 @@ glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key)
         ret = dict_set_dynstr (dict, key, task_id_str);
         if (ret) {
                 GF_FREE (task_id_str);
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
                         "Error setting uuid in dict with key %s", key);
         }
 
@@ -8832,7 +9043,8 @@ op_version_check (xlator_t *this, int min_op_version, char *msg, int msglen)
                 snprintf (msg, msglen, "One or more nodes do not support "
                           "the required op-version. Cluster op-version must "
                           "atleast be %d.", min_op_version);
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UNSUPPORTED_VERSION, "%s", msg);
                 ret = -1;
       }
       return ret;
@@ -8864,7 +9076,9 @@ glusterd_is_status_tasks_op (glusterd_op_t op, dict_t *dict)
 
         ret = dict_get_uint32 (dict, "cmd", &cmd);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get opcode");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get opcode");
                 goto out;
         }
 
@@ -8979,7 +9193,9 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
 
         ret = dict_get_int32 (op_ctx, "type", &op_code);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get quota opcode");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get quota opcode");
                 goto out;
         }
 
@@ -8993,13 +9209,17 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
 
         ret = dict_get_str (op_ctx, "path", &path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get path");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get path");
                 goto out;
         }
 
         ret = dict_get_int32 (op_ctx, "count", &count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get count");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get count");
                 goto out;
         }
 
@@ -9026,7 +9246,9 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
 
         ret = dict_get_str (op_ctx, key, &uuid1_str);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get key '%s'",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                        "Failed to get key '%s'",
                         key);
                 goto out;
         }
@@ -9038,7 +9260,9 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
 
                 ret = dict_get_str (op_ctx, key, &uuid2_str);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get key "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get key "
                                 "'%s'", key);
                         goto out;
                 }
@@ -9063,12 +9287,16 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
 
                 ret = dict_set_dynstr (req_dict, "gfid", uuid1_str_dup);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to set gfid");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set gfid");
                         GF_FREE (uuid1_str_dup);
                         goto out;
                 }
         } else {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to iterate through %d"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_ITER_FAIL,
+                        "Failed to iterate through %d"
                         " entries in the req dict", count);
                 ret = -1;
                 goto out;
@@ -9123,7 +9351,7 @@ glusterd_remove_auxiliary_mount (char *volname)
         GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volname);
 
         if (!gf_is_service_running (pidfile, NULL)) {
-                gf_log (this->name, GF_LOG_DEBUG, "Aux mount of volume %s "
+                gf_msg_debug (this->name, 0, "Aux mount of volume %s "
                         "absent, hence returning", volname);
                 return 0;
         }
@@ -9131,7 +9359,8 @@ glusterd_remove_auxiliary_mount (char *volname)
         GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
         ret = gf_umount_lazy (this->name, mountdir, 1);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "umount on %s failed, "
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_LAZY_UMOUNT_FAIL, "umount on %s failed, "
                         "reason : %s", mountdir, strerror (errno));
 
                 /* Hide EBADF as it means the mount is already gone */
@@ -9215,7 +9444,8 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
         ret = synctask_new (this->ctx->env, fn, gd_default_synctask_cbk, NULL,
                             opaque);
         if (ret)
-                gf_log (this->name, GF_LOG_CRITICAL, "Failed to spawn bricks"
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SPAWN_SVCS_FAIL, "Failed to spawn bricks"
                         " and other volume related services");
 }
 
@@ -9326,7 +9556,9 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
 
         ret = glusterd_get_brick_root (brick_path, &mnt_pt);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "getting the root "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICKPATH_ROOT_GET_FAIL,
+                        "getting the root "
                         "of the brick (%s) failed ", brick_path);
                 goto out;
         }
@@ -9334,7 +9566,9 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
         entry = glusterd_get_mnt_entry_info (mnt_pt, buff, sizeof (buff),
                                              &save_entry);
         if (!entry) {
-                gf_log (this->name, GF_LOG_ERROR, "getting the mount entry for "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MNTENTRY_GET_FAIL,
+                        "getting the mount entry for "
                         "the brick (%s) failed", brick_path);
                 ret = -1;
                 goto out;
@@ -9366,14 +9600,18 @@ glusterd_get_value_for_vme_entry (struct volopt_map_entry *vme, char **def_val)
         CDS_INIT_LIST_HEAD (&vol_opt_handle.list);
 
         if (_get_xlator_opt_key_from_vme (vme, &key)) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get %s key from "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GET_KEY_FAILED,
+                        "Failed to get %s key from "
                         "volume option entry", vme->key);
                 goto out;
         }
 
         ret = xlator_volopt_dynload (vme->voltype, &dl_handle, &vol_opt_handle);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "xlator_volopt_dynload error "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_XLATOR_VOLOPT_DYNLOAD_ERROR,
+                        "xlator_volopt_dynload error "
                         "(%d)", ret);
                 ret = -2;
                 goto cont;
@@ -9383,7 +9621,9 @@ glusterd_get_value_for_vme_entry (struct volopt_map_entry *vme, char **def_val)
                                        &local_def_val, &descr);
         if (ret) {
                 /*Swallow Error if option not found*/
-                gf_log (this->name, GF_LOG_ERROR, "Failed to get option for %s "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_GET_KEY_FAILED,
+                        "Failed to get option for %s "
                         "key", key);
                 ret = -2;
                 goto cont;
@@ -9408,7 +9648,7 @@ cont:
                 goto out;
 
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -9433,7 +9673,9 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
 
         /* Check whether key is passed for a single option */
         if (!all_opts && !input_key) {
-                gf_log (this->name, GF_LOG_ERROR, "Key is NULL");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_KEY_NULL,
+                        "Key is NULL");
                 goto out;
         }
 
@@ -9460,14 +9702,18 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                 sprintf (dict_key, "key%d", count);
                 ret = dict_set_str(ctx, dict_key, vme->key);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to "
                                 "set %s in dictionary", vme->key);
                         goto out;
                 }
                 sprintf (dict_key, "value%d", count);
                 ret = dict_set_dynstr_with_alloc (ctx, dict_key, def_val);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to "
                                 "set %s for key %s in dictionary", def_val,
                                 vme->key);
                         goto out;
@@ -9482,7 +9728,9 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
 
         ret = dict_set_int32 (ctx, "count", count);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set count "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Failed to set count "
                         "in dictionary");
         }
 
@@ -9492,7 +9740,7 @@ out:
                           "option %s does not exist", orig_key);
                 *op_errstr = gf_strdup (err_str);
         }
-        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -9532,7 +9780,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                         def_val = vme->value;
                 } else {
                         if (_get_xlator_opt_key_from_vme (vme, &key)) {
-                                gf_log ("glusterd", GF_LOG_DEBUG, "Failed to "
+                                gf_msg_debug ("glusterd", 0, "Failed to "
                                         "get %s key from volume option entry",
                                         vme->key);
                                 goto out; /*Some error while geting key*/
@@ -9543,7 +9791,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                                                      &vol_opt_handle);
 
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                gf_msg_debug ("glusterd", 0,
                                         "xlator_volopt_dynload error(%d)", ret);
                                 ret = 0;
                                 goto cont;
@@ -9552,7 +9800,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                         ret = xlator_option_info_list (&vol_opt_handle, key,
                                                        &def_val, &descr);
                         if (ret) { /*Swallow Error i.e if option not found*/
-                                gf_log ("glusterd", GF_LOG_DEBUG,
+                                gf_msg_debug ("glusterd", 0,
                                         "Failed to get option for %s key", key);
                                 ret = 0;
                                 goto cont;
@@ -9567,7 +9815,9 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                                 goto cont;
                         }
 #else
-                        gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_MODULE_NOT_INSTALLED,
+                                "Libxml not present");
 #endif
                 } else {
                         snprintf (tmp_str, sizeof (tmp_str), "Option: %s\nDefault "
@@ -9595,7 +9845,9 @@ cont:
                 goto out;
 #else
         if (xml_out)
-                gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_MODULE_NOT_INSTALLED,
+                        "Libxml not present");
 #endif
 
         if (!xml_out)
@@ -9604,7 +9856,9 @@ cont:
 #if (HAVE_LIB_XML)
                 output = gf_strdup ((char *)buf->content);
 #else
-                gf_log ("glusterd", GF_LOG_ERROR, "Libxml not present");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_MODULE_NOT_INSTALLED,
+                        "Libxml not present");
 #endif
 
         if (NULL == output) {
@@ -9614,7 +9868,7 @@ cont:
 
         ret = dict_set_dynstr (ctx, "help-str", output);
 out:
-        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -9644,7 +9898,9 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
         pthread_mutex_unlock (&priv->xprt_lock);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "One or more clients "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_UNSUPPORTED_VERSION,
+                        "One or more clients "
                         "don't support the required op-version");
                 if (op_errstr)
                         ret = gf_asprintf (op_errstr, "One or more connected "
