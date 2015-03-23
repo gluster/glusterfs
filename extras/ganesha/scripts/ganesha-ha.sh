@@ -649,6 +649,7 @@ main()
         ;;
 
     status | --status)
+	exec pcs status
         ;;
 
     refresh-config | --refresh-config)
