@@ -1765,6 +1765,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "features.shard",
           .voltype    = "features/shard",
           .value      = "off",
+          .option     = "!shard",
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
