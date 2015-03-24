@@ -17,42 +17,6 @@
 #include "ec-method.h"
 #include "ec-fops.h"
 
-int32_t
-ec_combine_dirwrite (ec_fop_data_t *fop, ec_cbk_data_t *dst,
-                     ec_cbk_data_t *src)
-{
-        int     valid = 0;
-        switch (fop->id) {
-        case GF_FOP_SYMLINK:
-        case GF_FOP_LINK:
-        case GF_FOP_CREATE:
-        case GF_FOP_MKNOD:
-        case GF_FOP_MKDIR:
-                valid = 3;
-                break;
-        case GF_FOP_UNLINK:
-        case GF_FOP_RMDIR:
-                valid = 2;
-                break;
-        case GF_FOP_RENAME:
-                valid = 5;
-                break;
-        default:
-                gf_log_callingfn (fop->xl->name, GF_LOG_WARNING, "Invalid fop "
-                                  "%d", fop->id);
-                return 0;
-                break;
-        }
-
-        if (!ec_iatt_combine(dst->iatt, src->iatt, valid)) {
-                gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
-                       "answers of '%s'", gf_fop_list[fop->id]);
-
-                return 0;
-        }
-        return 1;
-}
-
 int
 ec_dir_write_cbk (call_frame_t *frame, xlator_t *this,
                   void *cookie, int op_ret, int op_errno,
@@ -104,7 +68,7 @@ ec_dir_write_cbk (call_frame_t *frame, xlator_t *this,
 
 out:
         if (cbk)
-                ec_combine (cbk, ec_combine_dirwrite);
+                ec_combine (cbk, ec_combine_write);
         if (fop)
                 ec_complete (fop);
         return 0;

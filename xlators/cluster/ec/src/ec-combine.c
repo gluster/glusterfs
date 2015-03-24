@@ -38,6 +38,60 @@ struct _ec_dict_combine
     int32_t         which;
 };
 
+int32_t
+ec_combine_write (ec_fop_data_t *fop, ec_cbk_data_t *dst,
+                  ec_cbk_data_t *src)
+{
+        int     valid = 0;
+
+        if (!fop || !dst || !src)
+                return 0;
+
+        switch (fop->id) {
+        case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_FSETXATTR:
+                return 1;
+
+        case GF_FOP_SYMLINK:
+        case GF_FOP_LINK:
+        case GF_FOP_CREATE:
+        case GF_FOP_MKNOD:
+        case GF_FOP_MKDIR:
+                valid = 3;
+                break;
+        case GF_FOP_UNLINK:
+        case GF_FOP_RMDIR:
+        case GF_FOP_SETATTR:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_WRITE:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_DISCARD:
+        case GF_FOP_ZEROFILL:
+                valid = 2;
+                break;
+        case GF_FOP_RENAME:
+                valid = 5;
+                break;
+        default:
+                gf_log_callingfn (fop->xl->name, GF_LOG_WARNING, "Invalid fop "
+                                  "%d", fop->id);
+                return 0;
+                break;
+        }
+
+        if (!ec_iatt_combine(dst->iatt, src->iatt, valid)) {
+                gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
+                       "answers of '%s'", gf_fop_list[fop->id]);
+
+                return 0;
+        }
+        return 1;
+}
+
 void ec_iatt_time_merge(uint32_t * dst_sec, uint32_t * dst_nsec,
                         uint32_t src_sec, uint32_t src_nsec)
 {

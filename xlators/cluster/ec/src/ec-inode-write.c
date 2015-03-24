@@ -17,52 +17,60 @@
 #include "ec-method.h"
 #include "ec-fops.h"
 
-/* FOP: removexattr */
-
-int32_t ec_removexattr_cbk(call_frame_t * frame, void * cookie,
-                           xlator_t * this, int32_t op_ret, int32_t op_errno,
-                           dict_t * xdata)
+int
+ec_inode_write_cbk (call_frame_t *frame, xlator_t *this, void *cookie,
+                    int op_ret, int op_errno, struct iatt *prestat,
+                    struct iatt *poststat, dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
+        ec_fop_data_t *fop = NULL;
+        ec_cbk_data_t *cbk = NULL;
+        int           i    = 0;
+        int           idx  = 0;
 
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+        VALIDATE_OR_GOTO (this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
-    fop = frame->local;
+        fop = frame->local;
+        idx = (int32_t)(uintptr_t) cookie;
 
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
+        ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
+                 frame, op_ret, op_errno);
 
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_REMOVEXATTR, idx,
-                               op_ret, op_errno);
-    if (cbk != NULL)
-    {
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
+        cbk = ec_cbk_data_allocate (frame, this, fop, fop->id, idx, op_ret,
+                                    op_errno);
+        if (!cbk)
                 goto out;
-            }
-        }
 
-        ec_combine(cbk, NULL);
-    }
+        if (op_ret < 0)
+                goto out;
+
+        if (xdata)
+                cbk->xdata = dict_ref (xdata);
+
+        if (prestat)
+                cbk->iatt[i++] = *prestat;
+
+        if (poststat)
+                cbk->iatt[i++] = *poststat;
 
 out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
+        if (cbk)
+                ec_combine (cbk, ec_combine_write);
 
-    return 0;
+        if (fop)
+                ec_complete (fop);
+        return 0;
+}
+/* FOP: removexattr */
+
+int32_t ec_removexattr_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            dict_t *xdata)
+{
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   NULL, NULL, xdata);
 }
 
 void ec_wind_removexattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -262,50 +270,12 @@ out:
 
 /* FOP: fremovexattr */
 
-int32_t ec_fremovexattr_cbk(call_frame_t * frame, void * cookie,
-                            xlator_t * this, int32_t op_ret, int32_t op_errno,
-                            dict_t * xdata)
+int32_t ec_fremovexattr_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno,
+                             dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_FREMOVEXATTR, idx,
-                               op_ret, op_errno);
-    if (cbk != NULL)
-    {
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, NULL);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   NULL, NULL, xdata);
 }
 
 void ec_wind_fremovexattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -388,76 +358,13 @@ out:
 
 /* FOP: setattr */
 
-int32_t ec_combine_setattr(ec_fop_data_t * fop, ec_cbk_data_t * dst,
-                           ec_cbk_data_t * src)
+int32_t ec_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno,
+                        struct iatt *prestat, struct iatt *poststat,
+                        dict_t *xdata)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 2))
-    {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
-                                             "answers of 'GF_FOP_SETATTR'");
-
-        return 0;
-    }
-
-    return 1;
-}
-
-int32_t ec_setattr_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                       int32_t op_ret, int32_t op_errno,
-                       struct iatt * preop_stbuf, struct iatt * postop_stbuf,
-                       dict_t * xdata)
-{
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_SETATTR, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (preop_stbuf != NULL)
-            {
-                cbk->iatt[0] = *preop_stbuf;
-            }
-            if (postop_stbuf != NULL)
-            {
-                cbk->iatt[1] = *postop_stbuf;
-            }
-        }
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, ec_combine_setattr);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   prestat, poststat, xdata);
 }
 
 void ec_wind_setattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -672,62 +579,13 @@ out:
 
 /* FOP: fsetattr */
 
-int32_t ec_fsetattr_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                        int32_t op_ret, int32_t op_errno,
-                        struct iatt * preop_stbuf, struct iatt * postop_stbuf,
-                        dict_t * xdata)
+int32_t ec_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno,
+                         struct iatt *prestat, struct iatt *poststat,
+                         dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_FSETATTR, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (preop_stbuf != NULL)
-            {
-                cbk->iatt[0] = *preop_stbuf;
-            }
-            if (postop_stbuf != NULL)
-            {
-                cbk->iatt[1] = *postop_stbuf;
-            }
-        }
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, ec_combine_setattr);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   prestat, poststat, xdata);
 }
 
 void ec_wind_fsetattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -808,49 +666,11 @@ out:
 
 /* FOP: setxattr */
 
-int32_t ec_setxattr_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                        int32_t op_ret, int32_t op_errno, dict_t * xdata)
+int32_t ec_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_SETXATTR, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, NULL);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   NULL, NULL, xdata);
 }
 
 void ec_wind_setxattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -1268,75 +1088,12 @@ int32_t ec_truncate_clean(ec_fop_data_t * fop)
     }
 }
 
-int32_t ec_combine_truncate(ec_fop_data_t * fop, ec_cbk_data_t * dst,
-                            ec_cbk_data_t * src)
+int32_t ec_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct iatt *prestat,
+                         struct iatt *poststat, dict_t *xdata)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 2))
-    {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
-                                             "answers of 'GF_FOP_TRUNCATE'");
-
-        return 0;
-    }
-
-    return 1;
-}
-
-int32_t ec_truncate_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                        int32_t op_ret, int32_t op_errno, struct iatt * prebuf,
-                        struct iatt * postbuf, dict_t * xdata)
-{
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_TRUNCATE, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (prebuf != NULL)
-            {
-                cbk->iatt[0] = *prebuf;
-            }
-            if (postbuf != NULL)
-            {
-                cbk->iatt[1] = *postbuf;
-            }
-        }
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, ec_combine_truncate);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   prestat, poststat, xdata);
 }
 
 void ec_wind_truncate(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -1560,62 +1317,13 @@ out:
 
 /* FOP: ftruncate */
 
-int32_t ec_ftruncate_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                         int32_t op_ret, int32_t op_errno,
-                         struct iatt * prebuf, struct iatt * postbuf,
-                         dict_t * xdata)
+int32_t ec_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct iatt *prestat, struct iatt *poststat,
+                          dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_FTRUNCATE, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (prebuf != NULL)
-            {
-                cbk->iatt[0] = *prebuf;
-            }
-            if (postbuf != NULL)
-            {
-                cbk->iatt[1] = *postbuf;
-            }
-        }
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, ec_combine_truncate);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   prestat, poststat, xdata);
 }
 
 void ec_wind_ftruncate(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -1865,82 +1573,20 @@ out:
     ec_fop_set_error(fop, EIO);
 }
 
-int32_t ec_combine_writev(ec_fop_data_t * fop, ec_cbk_data_t * dst,
-                          ec_cbk_data_t * src)
+int32_t ec_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, struct iatt *prestat,
+                       struct iatt *poststat, dict_t *xdata)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 2))
-    {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
-                                             "answers of 'GF_FOP_WRITE'");
-
-        return 0;
-    }
-
-    return 1;
-}
-
-int32_t ec_writev_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                      int32_t op_ret, int32_t op_errno, struct iatt * prebuf,
-                      struct iatt * postbuf, dict_t * xdata)
-{
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    ec_t * ec = this->private;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_WRITE, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (prebuf != NULL)
-            {
-                cbk->iatt[0] = *prebuf;
-            }
-            if (postbuf != NULL)
-            {
-                cbk->iatt[1] = *postbuf;
-            }
+        ec_t    *ec = NULL;
+        if (this && this->private) {
+                ec = this->private;
+                if ((op_ret > 0) && ((op_ret % ec->fragment_size) != 0)) {
+                        op_ret = -1;
+                        op_errno = EIO;
+                }
         }
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        if ((op_ret > 0) && ((op_ret % ec->fragment_size) != 0))
-        {
-            cbk->op_ret = -1;
-            cbk->op_errno = EIO;
-        }
-
-        ec_combine(cbk, ec_combine_writev);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
+        return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   prestat, poststat, xdata);
 }
 
 void ec_wind_writev(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
