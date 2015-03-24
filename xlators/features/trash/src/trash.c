@@ -687,7 +687,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (count == 0)
                         count = 1;
                 i++;
-                if ((i > loop_count) || (count > PATH_MAX))
+                if (i > loop_count)
                         break;
                 tmp_dirname = strchr (tmp_str + count + 1, '/');
         }
@@ -1026,6 +1026,13 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
          * name collisions inside trash
          */
         append_time_stamp (local->newpath);
+        if (strlen (local->newpath) > PATH_MAX) {
+                STACK_WIND (frame, trash_common_unwind_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->unlink, loc, 0,
+                            xdata);
+                goto out;
+        }
 
         LOCK_INIT (&frame->lock);
 
@@ -1397,7 +1404,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (count == 0)
                         count = 1;
                 i++;
-                if ((i > loop_count) || (count > PATH_MAX))
+                if (i > loop_count)
                         break;
                 tmp_dirname = strchr (tmp_str + count + 1, '/');
         }
@@ -1522,6 +1529,13 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* append timestamp to file name so that we can avoid
            name collisions inside trash */
         append_time_stamp (local->newpath);
+        if (strlen (local->newpath) > PATH_MAX) {
+                STACK_WIND (frame,  trash_common_unwind_buf_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->truncate,
+                            &local->loc, local->fop_offset, xdata);
+                goto out;
+        }
 
         strcpy (loc_newname, local->loc.name);
         append_time_stamp (loc_newname);
