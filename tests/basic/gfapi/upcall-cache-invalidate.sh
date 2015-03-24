@@ -22,6 +22,9 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 
 logdir=`gluster --print-logdir`
 
+## Enable Upcall cache-invalidation feature
+TEST $CLI volume set $V0 features.cache-invalidation on;
+
 build_tester $(dirname $0)/upcall-cache-invalidate.c -lgfapi -o $(dirname $0)/upcall-cache-invalidate
 
 TEST ./$(dirname $0)/upcall-cache-invalidate $V0  $logdir/upcall-cache-invalidate.log

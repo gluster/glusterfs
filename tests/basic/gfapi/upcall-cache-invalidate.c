@@ -42,7 +42,7 @@ main (int argc, char *argv[])
         char      *logfile = NULL;
         char      *volname = NULL;
 
-        cbk.handle = NULL;
+        cbk.object = NULL;
 
         if (argc != 3) {
                 fprintf (stderr, "Invalid argument\n");
@@ -147,7 +147,7 @@ main (int argc, char *argv[])
                 if (cnt > 2) {
                         ret = glfs_h_poll_upcall(fs_tmp, &cbk);
                         LOG_ERR ("glfs_h_poll_upcall", ret);
-                        if (cbk.handle) {
+                        if (cbk.object) {
                                 fprintf (stderr, " upcall event type - %d,"
                                                  " flags - %d, expire_time_attr - %d\n" ,
                                          cbk.reason, cbk.flags, cbk.expire_time_attr);

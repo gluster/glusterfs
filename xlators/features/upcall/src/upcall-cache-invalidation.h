@@ -16,13 +16,9 @@
 #include "config.h"
 #endif
 
-/* TODO: Below macros have to be replaced with
- * xlator options - Bug1200271 */
-#define ON_CACHE_INVALIDATION 0 /* disable by default */
-
 /* The time period for which a client will be notified of cache_invalidation
  * events post its last access */
-#define CACHE_INVALIDATION_PERIOD 60
+#define CACHE_INVALIDATION_TIMEOUT "60"
 
 /* Flags sent for cache_invalidation */
 #define UP_NLINK   0x00000001   /* update nlink */
@@ -58,13 +54,19 @@
 #define UP_NLINK_FLAGS          (UP_NLINK | UP_TIMES)
 
 #define CACHE_INVALIDATE(frame, this, client, inode, p_flags) do {      \
- if (ON_CACHE_INVALIDATION) {                                             \
-        (void)upcall_cache_invalidate (frame, this, client, inode, p_flags);  \
- }                                                                      \
+                                                                        \
+        if (!is_cache_invalidation_enabled(this))                       \
+                break;                                                  \
+                                                                        \
+        (void)upcall_cache_invalidate (frame, this, client,             \
+                                       inode, p_flags);                 \
 } while (0)
 
-#define CACHE_INVALIDATE_DIR(frame, this, client, inode_p, p_flags) do {      \
- if (ON_CACHE_INVALIDATION) {                                             \
+#define CACHE_INVALIDATE_DIR(frame, this, client, inode_p, p_flags) do {\
+                                                                        \
+        if (!is_cache_invalidation_enabled(this))                       \
+                break;                                                  \
+                                                                        \
         dentry_t *dentry;                                               \
         dentry_t *dentry_tmp;                                           \
         list_for_each_entry_safe (dentry, dentry_tmp,                   \
@@ -73,7 +75,10 @@
                 (void)upcall_cache_invalidate (frame, this, client,     \
                                                dentry->inode, p_flags); \
         }                                                               \
- }                                                                      \
 } while (0)
+
+/* xlator options */
+gf_boolean_t is_cache_invalidation_enabled(xlator_t *this);
+int32_t get_cache_invalidation_timeout(xlator_t *this);
 
 #endif /* __UPCALL_CACHE_INVALIDATION_H__ */

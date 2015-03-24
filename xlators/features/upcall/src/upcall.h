@@ -26,9 +26,9 @@
 #include "upcall-messages.h"
 #include "upcall-cache-invalidation.h"
 
-#define EXIT_IF_UPCALL_OFF(label) do {                     \
-        if (!(ON_CACHE_INVALIDATION))                      \
-                goto label;                                \
+#define EXIT_IF_UPCALL_OFF(this, label) do {                       \
+        if (!is_upcall_enabled(this))                              \
+                goto label;                                        \
 } while (0)
 
 #define UPCALL_STACK_UNWIND(fop, frame, params ...) do {        \
@@ -38,10 +38,10 @@
                         __xl         = frame->this;             \
                         __local      = frame->local;            \
                         frame->local = NULL;                    \
-                }                                               \
-                STACK_UNWIND_STRICT (fop, frame, params);       \
-                upcall_local_wipe (__xl, __local);              \
-        } while (0)
+        }                                                       \
+        STACK_UNWIND_STRICT (fop, frame, params);               \
+        upcall_local_wipe (__xl, __local);                      \
+} while (0)
 
 #define UPCALL_STACK_DESTROY(frame) do {                   \
                 upcall_local_t *__local = NULL;            \
@@ -51,12 +51,13 @@
                 frame->local         = NULL;               \
                 STACK_DESTROY (frame->root);               \
                 upcall_local_wipe (__xl, __local);         \
-        } while (0)
+} while (0)
 
-struct _upcalls_private_t {
-        int client_id; /* Not sure if reqd */
+struct _upcall_private_t {
+        gf_boolean_t     cache_invalidation_enabled;
+        int32_t          cache_invalidation_timeout;
 };
-typedef struct _upcalls_private_t upcalls_private_t;
+typedef struct _upcall_private_t upcall_private_t;
 
 enum _upcall_event_type_t {
         EVENT_NULL,
@@ -122,13 +123,17 @@ int __upcall_inode_ctx_set (inode_t *inode, xlator_t *this);
 upcall_inode_ctx_t *__upcall_inode_ctx_get (inode_t *inode, xlator_t *this);
 upcall_inode_ctx_t *upcall_inode_ctx_get (inode_t *inode, xlator_t *this);
 int upcall_cleanup_inode_ctx (xlator_t *this, inode_t *inode);
+void upcall_cache_forget (xlator_t *this, inode_t *inode,
+                          upcall_inode_ctx_t *up_inode_ctx);
 
+/* Xlator options */
+gf_boolean_t is_upcall_enabled(xlator_t *this);
+
+/* Cache invalidation specific */
 void upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                               inode_t *inode, uint32_t flags);
 void upcall_client_cache_invalidate (xlator_t *xl, uuid_t gfid,
                                      upcall_client_t *up_client_entry,
                                      uint32_t flags);
-void upcall_cache_forget (xlator_t *this, inode_t *inode,
-                          upcall_inode_ctx_t *up_inode_ctx);
 
 #endif /* __UPCALL_H__ */

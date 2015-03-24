@@ -102,17 +102,16 @@ typedef struct glfs_object glfs_object_t;
  * Applications (currently NFS-Ganesha) can make use of this
  * structure to read upcall notifications sent by server.
  *
- * They are responsible for allocating and passing the references
- * of all the pointers except for "handle".
+ * On success, applications need to check for 'object' to decide
+ * if any upcall event is received.
  *
- * After processing the event, they need to free "handle"
- * TODO: there should be a glfs api to destroy these handles,
- * maybe "glfs_destroy_object" to free the object.
+ * After processing the event, they need to free "object"
+ * using glfs_h_close(..).
  */
 struct callback_arg {
         struct glfs             *fs; /* glfs object */
         int                     reason;  /* Upcall event type */
-        struct glfs_object      *handle; /* Handle which need to be acted upon */
+        struct glfs_object      *object; /* Object which need to be acted upon */
         int                     flags; /* Cache UPDATE/INVALIDATE flags */
         struct stat             buf; /* Latest stat of this entry */
         unsigned int            expire_time_attr; /* the amount of time for which

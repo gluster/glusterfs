@@ -34,6 +34,62 @@
 #include "defaults.h"
 
 /*
+ * Check if any of the upcall options are enabled:
+ *     - cache_invalidation
+ *     - XXX: lease_lk
+ */
+gf_boolean_t
+is_upcall_enabled(xlator_t *this) {
+        upcall_private_t *priv      = NULL;
+        gf_boolean_t     is_enabled = _gf_false;
+
+        if (this->private) {
+                priv = (upcall_private_t *)this->private;
+
+                if (priv->cache_invalidation_enabled) {
+                        is_enabled = _gf_true;
+                }
+        }
+
+        return is_enabled;
+}
+
+/*
+ * Check if any of cache_invalidation is enabled
+ */
+gf_boolean_t
+is_cache_invalidation_enabled(xlator_t *this) {
+        upcall_private_t *priv      = NULL;
+        gf_boolean_t     is_enabled = _gf_false;
+
+        if (this->private) {
+                priv = (upcall_private_t *)this->private;
+
+                if (priv->cache_invalidation_enabled) {
+                        is_enabled = _gf_true;
+                }
+        }
+
+        return is_enabled;
+}
+
+/*
+ * Get the cache_invalidation_timeout
+ */
+int32_t
+get_cache_invalidation_timeout(xlator_t *this) {
+        upcall_private_t *priv      = NULL;
+        int32_t          timeout    = 0;
+
+        if (this->private) {
+                priv = (upcall_private_t *)this->private;
+                timeout = priv->cache_invalidation_timeout;
+        }
+
+        return timeout;
+}
+
+/*
  * Allocate and add a new client entry to the given upcall entry
  */
 upcall_client_t*
@@ -73,7 +129,8 @@ __add_upcall_client (call_frame_t *frame, uuid_t gfid,
         INIT_LIST_HEAD (&up_client_entry->client_list);
         up_client_entry->client_uid = gf_strdup(client->client_uid);
         up_client_entry->access_time = time(NULL);
-        up_client_entry->expire_time_attr = CACHE_INVALIDATION_PERIOD;
+        up_client_entry->expire_time_attr =
+                        get_cache_invalidation_timeout(frame->this);
 
         list_add_tail (&up_client_entry->client_list,
                        &up_inode_ctx->client_list);
@@ -349,7 +406,7 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
 
 /*
  * If the upcall_client_t has recently accessed the file (i.e, within
- * CACHE_INVALIDATION_PERIOD), send a upcall notification.
+ * priv->cache_invalidation_timeout), send a upcall notification.
  */
 void
 upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
@@ -357,9 +414,12 @@ upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
                                 uint32_t flags)
 {
         notify_event_data_t n_event_data;
+        time_t timeout   = 0;
         time_t t_expired = time(NULL) - up_client_entry->access_time;
 
-        if (t_expired < CACHE_INVALIDATION_PERIOD) {
+        timeout = get_cache_invalidation_timeout(this);
+
+        if (t_expired < timeout) {
                 /* Send notify call */
                 uuid_copy(n_event_data.gfid, gfid);
                 n_event_data.client_entry = up_client_entry;
@@ -374,7 +434,7 @@ upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
                         up_client_entry->client_uid);
 
         } else {
-                if (t_expired > (2*CACHE_INVALIDATION_PERIOD)) {
+                if (t_expired > (2*timeout)) {
                         /* Cleanup the entry */
                         __upcall_cleanup_client_entry (up_client_entry);
                 }

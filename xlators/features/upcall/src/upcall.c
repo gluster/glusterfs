@@ -42,7 +42,7 @@ up_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -67,7 +67,7 @@ up_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, fd->inode);
         if (!local) {
@@ -123,7 +123,7 @@ up_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, fd->inode);
         if (!local) {
@@ -157,7 +157,7 @@ up_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -183,7 +183,7 @@ up_readv (call_frame_t *frame, xlator_t *this,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, fd->inode);
         if (!local) {
@@ -215,7 +215,7 @@ up_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -239,7 +239,7 @@ up_lk (call_frame_t *frame, xlator_t *this,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, fd->inode);
         if (!local) {
@@ -269,7 +269,7 @@ up_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -294,7 +294,7 @@ up_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, loc->inode);
         if (!local) {
@@ -325,7 +325,7 @@ up_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -355,7 +355,7 @@ up_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, loc->inode);
         if (!local) {
@@ -389,7 +389,7 @@ up_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -423,7 +423,7 @@ up_rename (call_frame_t *frame, xlator_t *this,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, oldloc->inode);
         if (!local) {
@@ -455,7 +455,7 @@ up_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -484,7 +484,7 @@ up_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, loc->inode);
         if (!local) {
@@ -515,7 +515,7 @@ up_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -541,7 +541,7 @@ up_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, oldloc->inode);
         if (!local) {
@@ -573,7 +573,7 @@ up_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -602,7 +602,7 @@ up_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, loc->inode);
         if (!local) {
@@ -634,7 +634,7 @@ up_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -663,7 +663,7 @@ up_mkdir (call_frame_t *frame, xlator_t *this,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, loc->inode);
         if (!local) {
@@ -696,7 +696,7 @@ up_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint32_t         flags          = 0;
         upcall_local_t   *local         = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         client = frame->root->client;
         local = frame->local;
@@ -725,7 +725,7 @@ up_create (call_frame_t *frame, xlator_t *this,
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
 
-        EXIT_IF_UPCALL_OFF (out);
+        EXIT_IF_UPCALL_OFF (this, out);
 
         local = upcall_local_init (frame, this, loc->inode);
 
@@ -800,10 +800,29 @@ out:
 }
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        upcall_private_t *priv                   = NULL;
+        int              ret                    = -1;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        GF_OPTION_RECONF ("cache-invalidation", priv->cache_invalidation_enabled,
+                          options, bool, out);
+        GF_OPTION_RECONF ("cache-invalidation-timeout", priv->cache_invalidation_timeout,
+                          options, int32, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 init (xlator_t *this)
 {
         int                       ret        = -1;
-        upcalls_private_t        *priv       = NULL;
+        upcall_private_t         *priv       = NULL;
 
         priv = GF_CALLOC (1, sizeof (*priv),
                           gf_upcall_mt_private_t);
@@ -813,6 +832,11 @@ init (xlator_t *this)
                         "Memory allocation failed");
                 goto out;
         }
+
+        GF_OPTION_INIT ("cache-invalidation", priv->cache_invalidation_enabled,
+                        bool, out);
+        GF_OPTION_INIT ("cache-invalidation-timeout",
+                        priv->cache_invalidation_timeout, int32, out);
 
         this->private = priv;
         this->local_pool = mem_pool_new (upcall_local_t, 512);
@@ -829,13 +853,14 @@ out:
 int
 fini (xlator_t *this)
 {
-        upcalls_private_t *priv = NULL;
+        upcall_private_t *priv = NULL;
 
         priv = this->private;
         if (!priv) {
                 return 0;
         }
         this->private = NULL;
+
         GF_FREE (priv);
 
         return 0;
@@ -952,5 +977,18 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
+        { .key  = {"cache-invalidation"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "When \"on\", sends cache-invalidation"
+                         " notifications."
+        },
+        { .key  = {"cache-invalidation-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = CACHE_INVALIDATION_TIMEOUT,
+          .description = "After 'timeout' seconds since the time"
+                         " client accessed any file, cache-invalidation"
+                         " notifications are no longer sent to that client."
+        },
         { .key = {NULL} },
 };

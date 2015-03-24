@@ -1618,15 +1618,14 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
  * This API is used to poll for upcall events stored in the
  * upcall list. Current users of this API is NFS-Ganesha.
  * Incase of any event received, it will be mapped appropriately
- * into 'callback_arg' along with the handle to be passed to
- * NFS-Ganesha.
+ * into 'callback_arg' along with the handle object  to be passed
+ * to NFS-Ganesha.
  *
- * Application is responsible for allocating and passing the
- * references of all the pointers except for "glhandle".
- * After processing the event, it needs to free "glhandle"
+ * On success, applications need to check for 'object' to decide
+ * if any upcall event is received.
  *
- * TODO: there should be a glfs api to destroy these handles,
- * maybe "glfs_destroy_object" to free the object.
+ * After processing the event, they need to free "object"
+ * using glfs_h_close(..).
  *
  * Also similar to I/Os, the application should ideally stop polling
  * before calling glfs_fini(..). Hence making an assumption that
@@ -1635,7 +1634,7 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 int
 pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 {
-        struct glfs_object  *handle   = NULL;
+        struct glfs_object  *object   = NULL;
         uuid_t              gfid;
         upcall_entry        *u_list   = NULL;
         upcall_entry        *tmp      = NULL;
@@ -1660,7 +1659,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                 goto err;
         }
 
-        up_arg->handle = NULL;
+        up_arg->object = NULL;
 
         /* Ideally applications should stop polling before calling
          * 'glfs_fini'. Yet cross check if cleanup has started
@@ -1692,11 +1691,11 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
         pthread_mutex_unlock (&fs->upcall_list_mutex);
 
         if (found) {
-                handle = glfs_h_create_from_handle (fs, gfid,
+                object = glfs_h_create_from_handle (fs, gfid,
                                                     GFAPI_HANDLE_LENGTH,
                                                     &up_arg->buf);
 
-                if (!handle) {
+                if (!object) {
                         errno = ENOMEM;
                         goto out;
                 }
@@ -1718,7 +1717,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                         break;
                 }
 
-                up_arg->handle = handle;
+                up_arg->object = object;
                 up_arg->reason = reason;
                 up_arg->flags = u_list->flags;
                 up_arg->expire_time_attr = u_list->expire_time_attr;
