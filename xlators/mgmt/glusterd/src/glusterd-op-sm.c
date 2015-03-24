@@ -313,6 +313,9 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
 
         dict_del(priv->glusterd_txn_opinfo, uuid_utoa (*txn_id));
 
+        if (txn_op_info.local_xaction_peers)
+                GF_FREE (txn_op_info.local_xaction_peers);
+
         gf_log ("", GF_LOG_DEBUG,
                 "Successfully cleared opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
@@ -2915,8 +2918,8 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry (peerinfo, &priv->xaction_peers,
-                                 op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo,
+                                           opinfo.local_xaction_peers) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -3005,8 +3008,8 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        cds_list_for_each_entry (peerinfo, &priv->xaction_peers,
-                                 op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo,
+                                           opinfo.local_xaction_peers) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt ||
@@ -3558,8 +3561,8 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         if (op == GD_OP_REPLACE_BRICK)
                 glusterd_rb_use_rsp_dict (NULL, rsp_dict);
 
-        cds_list_for_each_entry (peerinfo, &priv->xaction_peers,
-                                 op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo,
+                                           opinfo.local_xaction_peers) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -4208,9 +4211,8 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-
-        cds_list_for_each_entry (peerinfo, &priv->xaction_peers,
-                                 op_peers_list) {
+        list_for_each_local_xaction_peers (peerinfo,
+                                           opinfo.local_xaction_peers) {
                 GF_ASSERT (peerinfo);
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -4525,7 +4527,7 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         glusterd_op_clear_op ();
         glusterd_op_reset_ctx ();
         glusterd_op_clear_errstr ();
-        glusterd_op_clear_xaction_peers ();
+        gd_cleanup_local_xaction_peers_list (opinfo.local_xaction_peers);
 
         /* Based on the op-version, we release the cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_3_6_0) {
