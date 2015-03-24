@@ -37,7 +37,7 @@
                  volinfo->volname, brickid);\
 } while (0)
 
-#define glusterd_quorum_count(peerinfo, inquorum_count, active_count, _exit)\
+#define GLUSTERD_QUORUM_COUNT(peerinfo, inquorum_count, active_count, _exit)\
                 if (peerinfo->quorum_contrib == QUORUM_WAITING)\
                         goto _exit;\
                 if (_is_contributing_to_quorum (peerinfo->quorum_contrib))\

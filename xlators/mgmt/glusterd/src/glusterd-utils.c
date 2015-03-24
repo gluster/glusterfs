@@ -2923,20 +2923,20 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
         if (!peer_list) {
                 cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
                                              uuid_list) {
-                        glusterd_quorum_count(peerinfo, inquorum_count,
+                        GLUSTERD_QUORUM_COUNT(peerinfo, inquorum_count,
                                                 active_count, out);
                 }
         } else {
                 if (_local_xaction_peers) {
                         list_for_each_local_xaction_peers (peerinfo,
                                                            peer_list) {
-                                glusterd_quorum_count(peerinfo, inquorum_count,
+                                GLUSTERD_QUORUM_COUNT(peerinfo, inquorum_count,
                                                       active_count, out);
                         }
                 } else {
                         cds_list_for_each_entry (peerinfo, peer_list,
                                                  op_peers_list) {
-                                glusterd_quorum_count(peerinfo, inquorum_count,
+                                GLUSTERD_QUORUM_COUNT(peerinfo, inquorum_count,
                                                       active_count, out);
                         }
                 }
