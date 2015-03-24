@@ -691,6 +691,7 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
+        int             ret        = 0;
         int             call_count = 0;
         fd_t           *anon_fd    = cookie;
         shard_local_t  *local      = NULL;
@@ -700,15 +701,19 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
+        } else {
+                local->written_size += op_ret;
         }
 
         if (anon_fd)
                 fd_unref (anon_fd);
 
         call_count = shard_call_count_return (frame);
-        if (call_count == 0)
-                SHARD_STACK_UNWIND (writev, frame, local->op_ret,
-                                    local->op_errno, prebuf, postbuf, xdata);
+        if (call_count == 0) {
+                ret = (local->op_ret < 0) ? local->op_ret : local->written_size;
+                SHARD_STACK_UNWIND (writev, frame, ret, local->op_errno, prebuf,
+                                    postbuf, xdata);
+        }
 
         return 0;
 }
@@ -740,8 +745,6 @@ shard_writev_do (call_frame_t *frame, xlator_t *this)
         cur_block = local->first_block;
         local->call_count = call_count = local->num_blocks;
         last_block = local->last_block;
-
-        dict_del (local->xattr_req, "gfid-req");
 
         while (cur_block <= last_block) {
                 if (wind_failed) {
@@ -897,7 +900,7 @@ out:
                 GF_FREE (gfid);
         }
 
-        return NULL;
+        return new;
 }
 
 int
@@ -943,10 +946,10 @@ shard_writev_lookup_shards (call_frame_t *frame, xlator_t *this)
                                           path, sizeof(path));
 
                 bname = strrchr (path, '/') + 1;
-                loc.inode = inode_new (priv->inode_table);
+                loc.inode = inode_new (this->itable);
                 loc.parent = inode_ref (priv->dot_shard_inode);
                 ret = inode_path (loc.parent, bname, (char **) &(loc.path));
-                if (ret) {
+                if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "Inode path failed on"
                                 " %s", bname);
                         local->op_ret = -1;
@@ -1106,11 +1109,11 @@ shard_writev_resume_mknod (call_frame_t *frame, xlator_t *this)
                 }
 
                 bname = strrchr (path, '/') + 1;
-                loc.inode = inode_new (priv->inode_table);
+                loc.inode = inode_new (this->itable);
                 loc.parent = inode_ref (priv->dot_shard_inode);
                 ret = inode_path (loc.parent, bname,
                                        (char **) &(loc.path));
-                if (ret) {
+                if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "Inode path failed on"
                                 " %s", bname);
                         local->op_ret = -1;
@@ -1163,9 +1166,7 @@ shard_writev_create_write_shards (call_frame_t *frame, xlator_t *this)
         fd_t          *fd             = NULL;
         inode_t       *inode          = NULL;
         shard_local_t *local          = NULL;
-        shard_priv_t  *priv           = NULL;
 
-        priv = this->private;
         local = frame->local;
         fd = local->fd;
         shard_idx_iter = local->first_block;
@@ -1182,7 +1183,7 @@ shard_writev_create_write_shards (call_frame_t *frame, xlator_t *this)
                                           path, sizeof(path));
 
                 inode = NULL;
-                inode = inode_resolve (priv->inode_table, path);
+                inode = inode_resolve (this->itable, path);
                 if (inode) {
                         gf_log (this->name, GF_LOG_DEBUG, "Shard %d already "
                                 "present. gfid=%s. Saving inode for future.",
@@ -1195,8 +1196,10 @@ shard_writev_create_write_shards (call_frame_t *frame, xlator_t *this)
                          * write stage.
                          */
                          continue;
+                } else {
+                        local->call_count++;
+                        shard_idx_iter++;
                 }
-                local->call_count++;
         }
 
         if (local->call_count)
@@ -1302,11 +1305,11 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
 
         dot_shard_loc = &local->dot_shard_loc;
 
-        dot_shard_loc->inode = inode_new (priv->inode_table);
-        dot_shard_loc->parent = inode_ref (priv->inode_table->root);
+        dot_shard_loc->inode = inode_new (this->itable);
+        dot_shard_loc->parent = inode_ref (this->itable->root);
         ret = inode_path (dot_shard_loc->parent, GF_SHARD_DIR,
                                           (char **)&dot_shard_loc->path);
-        if (ret) {
+        if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Inode path failed on"
                         " %s", GF_SHARD_DIR);
                 goto err;
@@ -1380,6 +1383,9 @@ shard_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 return 0;
         }
 
+        if (!this->itable)
+                this->itable = fd->inode->table;
+
         local = mem_get0 (this->local_pool);
         if (!local)
                 goto out;
@@ -1409,7 +1415,7 @@ shard_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!local->inode_list)
                 goto out;
 
-        local->dot_shard_loc.inode = inode_find (priv->inode_table,
+        local->dot_shard_loc.inode = inode_find (this->itable,
                                                  priv->dot_shard_gfid);
         if (!local->dot_shard_loc.inode)
                 shard_writev_mkdir_dot_shard (frame, this);
@@ -1614,6 +1620,25 @@ shard_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_shard_mt_end + 1);
+
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                       "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int
 init (xlator_t *this)
 {
@@ -1637,7 +1662,7 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv = GF_CALLOC (1, sizeof (*priv), gf_shard_mt_priv_t);
+        priv = GF_CALLOC (1, sizeof (shard_priv_t), gf_shard_mt_priv_t);
         if (!priv)
                 goto out;
 
@@ -1650,17 +1675,12 @@ init (xlator_t *this)
                         "from mempool");
                 goto out;
         }
-        priv->inode_table = inode_table_new (SHARD_INODE_LRU_LIMIT, this);
-        if (!priv->inode_table)
-                goto out;
-
         uuid_parse (SHARD_ROOT_GFID, priv->dot_shard_gfid);
 
         this->private = priv;
         ret = 0;
 out:
         if  (ret) {
-                inode_table_destroy (priv->inode_table);
                 GF_FREE (priv);
                 mem_pool_destroy (this->local_pool);
         }
@@ -1684,7 +1704,6 @@ fini (xlator_t *this)
                 goto out;
 
         this->private = NULL;
-        inode_table_destroy (priv->inode_table);
         GF_FREE (priv);
 
 out:
@@ -1784,8 +1803,9 @@ struct volume_options options[] = {
            .type = GF_OPTION_TYPE_SIZET,
            .default_value = "4MB",
            .min = SHARD_MIN_BLOCK_SIZE,
-           .description = "Size of the shard unit that would be read from or "
-                          "written to the shard servers.",
+           .max = SHARD_MAX_BLOCK_SIZE,
+           .description = "The size unit used to break a file into multiple "
+                          "chunks",
         },
         { .key = {NULL} },
 };
