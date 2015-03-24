@@ -4859,12 +4859,14 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
         char               *opwords[]             = {"enable", "disable",
                                                      "scrub-throttle",
                                                      "scrub-frequency",
-                                                     "scrub"};
+                                                     "scrub", NULL};
         char               *scrub_throt_values[]  = {"frozen", "lazy", "normal",
-                                                     "aggressive"};
+                                                     "aggressive", NULL};
         char               *scrub_freq_values[]   = {"daily", "weekly",
-                                                     "biweekly", "monthly"};
-        char               *scrub_values[]        = {"pause", "resume"};
+                                                     "biweekly", "monthly",
+                                                      NULL};
+        char               *scrub_values[]        = {"pause", "resume",
+                                                      NULL};
         dict_t             *dict                  = NULL;
         gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
 
