@@ -24,7 +24,6 @@
 #include <sys/time.h>
 
 #include "gfdb_data_store_types.h"
-#include "gfdb_sqlite3.h"
 
 /* GFDB Connection Node:
  * ~~~~~~~~~~~~~~~~~~~~
@@ -52,6 +51,8 @@ typedef struct gfdb_conn_node_t gfdb_conn_node_t;
 gfdb_conn_node_t *
 init_db(dict_t *arg, gfdb_db_type_t db_type);
 
+typedef gfdb_conn_node_t * (*init_db_t) (dict_t *args,
+                                         gfdb_db_type_t gfdb_db_type);
 
 
 
@@ -65,6 +66,7 @@ init_db(dict_t *arg, gfdb_db_type_t db_type);
 int
 fini_db(gfdb_conn_node_t *);
 
+typedef int (*fini_db_t) (gfdb_conn_node_t *_conn_node);
 
 
 
@@ -138,6 +140,11 @@ int find_unchanged_for_time(gfdb_conn_node_t *,
                         gf_query_callback_t query_callback,
                         void *_query_cbk_args, gfdb_time_t *for_time);
 
+typedef int (*find_unchanged_for_time_t) (gfdb_conn_node_t *_conn_node,
+                                          gf_query_callback_t query_callback,
+                                          void *_query_cbk_args,
+                                          gfdb_time_t *for_time);
+
 
 
 
@@ -157,6 +164,10 @@ int find_recently_changed_files(gfdb_conn_node_t *_conn,
                 gf_query_callback_t query_callback, void *_query_cbk_args,
                 gfdb_time_t *from_time);
 
+typedef int (*find_recently_changed_files_t) (gfdb_conn_node_t *_conn_node,
+                                              gf_query_callback_t query_callback,
+                                              void *_query_cbk_args,
+                                              gfdb_time_t *from_time);
 
 
 
@@ -186,6 +197,13 @@ int find_unchanged_for_time_freq(gfdb_conn_node_t *_conn,
                                         int read_freq_thresold,
                                         gf_boolean_t _clear_counters);
 
+typedef int (*find_unchanged_for_time_freq_t) (gfdb_conn_node_t *_conn_node,
+                                               gf_query_callback_t query_callback,
+                                               void *_query_cbk_args,
+                                               gfdb_time_t *for_time,
+                                               int write_freq_thresold,
+                                               int read_freq_thresold,
+                                               gf_boolean_t _clear_counters);
 
 
 
@@ -214,5 +232,27 @@ int find_recently_changed_files_freq(gfdb_conn_node_t *_conn,
                                 int write_freq_thresold,
                                 int read_freq_thresold,
                                 gf_boolean_t _clear_counters);
+
+typedef int (*find_recently_changed_files_freq_t) (gfdb_conn_node_t *_conn_node,
+                                                   gf_query_callback_t query_callback,
+                                                   void *_query_cbk_args,
+                                                   gfdb_time_t *from_time,
+                                                   int write_freq_thresold,
+                                                   int read_freq_thresold,
+                                                   gf_boolean_t _clear_counters);
+
+typedef struct gfdb_methods_s {
+        init_db_t init_db;
+        fini_db_t fini_db;
+        find_unchanged_for_time_t find_unchanged_for_time;
+        find_recently_changed_files_t find_recently_changed_files;
+        find_unchanged_for_time_freq_t find_unchanged_for_time_freq;
+        find_recently_changed_files_freq_t find_recently_changed_files_freq;
+        char *dbpath;
+} gfdb_methods_t;
+
+void get_gfdb_methods (gfdb_methods_t *methods);
+
+typedef void (*get_gfdb_methods_t) (gfdb_methods_t *methods);
 
 #endif

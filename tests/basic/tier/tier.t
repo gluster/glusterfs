@@ -80,6 +80,8 @@ TEST file_on_fast_tier d1/data.txt
 
 TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST $CLI volume set $V0 cluster.tier-promote-frequency 4
+TEST $CLI volume set $V0 cluster.read-freq-threshold 0
+TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume rebalance $V0 tier start
