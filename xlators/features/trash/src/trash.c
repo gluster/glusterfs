@@ -1476,10 +1476,14 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        /* If the file is too big, just unlink it. */
-        if (buf->ia_size > (priv->max_trash_file_size)) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s: file too big, "
-                                "not moving to trash", local->loc.path);
+        /**
+         * If the file is too big or if it is extended truncate,
+         * just don't move it to trash directory.
+         */
+        if (buf->ia_size > (priv->max_trash_file_size) ||
+                                buf->ia_size <= local->fop_offset) {
+                gf_log (this->name, GF_LOG_DEBUG, "%s: not moving to trash , "
+                           "having inappropiate file size", local->loc.path);
 
                 STACK_WIND (frame,  trash_common_unwind_buf_cbk,
                             FIRST_CHILD(this),
