@@ -38,8 +38,10 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
                 libglusterfs/src/Makefile
+                libglusterfs/src/gfdb/Makefile
                 geo-replication/src/peer_gsec_create
-                geo-replication/src/peer_add_secret_pub
+                geo-replication/src/peer_mountbroker
+                extras/peer_add_secret_pub
                 geo-replication/syncdaemon/configinterface.py
                 glusterfsd/Makefile
                 glusterfsd/src/Makefile
@@ -113,10 +115,14 @@ AC_CONFIG_FILES([Makefile
                 xlators/protocol/server/Makefile
                 xlators/protocol/server/src/Makefile
                 xlators/features/Makefile
+                xlators/features/arbiter/Makefile
+                xlators/features/arbiter/src/Makefile
                 xlators/features/changelog/Makefile
                 xlators/features/changelog/src/Makefile
                 xlators/features/changelog/lib/Makefile
                 xlators/features/changelog/lib/src/Makefile
+                xlators/features/changetimerecorder/Makefile
+                xlators/features/changetimerecorder/src/Makefile
                 xlators/features/glupy/Makefile
                 xlators/features/glupy/examples/Makefile
                 xlators/features/glupy/src/Makefile
@@ -138,16 +144,24 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/quiesce/src/Makefile
                 xlators/features/barrier/Makefile
                 xlators/features/barrier/src/Makefile
+                xlators/features/ganesha/Makefile
+                xlators/features/ganesha/src/Makefile
                 xlators/features/index/Makefile
                 xlators/features/index/src/Makefile
                 xlators/features/protect/Makefile
                 xlators/features/protect/src/Makefile
                 xlators/features/gfid-access/Makefile
                 xlators/features/gfid-access/src/Makefile
+                xlators/features/trash/Makefile
+                xlators/features/trash/src/Makefile
                 xlators/features/snapview-server/Makefile
                 xlators/features/snapview-server/src/Makefile
                 xlators/features/snapview-client/Makefile
                 xlators/features/snapview-client/src/Makefile
+                xlators/features/upcall/Makefile
+                xlators/features/upcall/src/Makefile
+                xlators/features/shard/Makefile
+                xlators/features/shard/src/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
@@ -178,6 +192,10 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-Redhat
                 extras/init.d/glusterd-FreeBSD
                 extras/init.d/glusterd-SuSE
+                extras/ganesha/Makefile
+                extras/ganesha/config/Makefile
+                extras/ganesha/scripts/Makefile
+                extras/ganesha/ocf/Makefile
                 extras/systemd/Makefile
                 extras/systemd/glusterd.service
                 extras/run-gluster.tmpfiles
@@ -200,11 +218,13 @@ AC_CONFIG_FILES([Makefile
                 extras/hook-scripts/reset/Makefile
                 extras/hook-scripts/reset/post/Makefile
                 extras/hook-scripts/reset/pre/Makefile
+                extras/snap_scheduler/Makefile
                 contrib/fuse-util/Makefile
                 contrib/umountd/Makefile
                 contrib/uuid/uuid_types.h
                 glusterfs-api.pc
                 libgfchangelog.pc
+                libgfdb.pc
                 api/Makefile
                 api/src/Makefile
                 api/examples/Makefile
@@ -215,7 +235,11 @@ AC_CONFIG_FILES([Makefile
                 tools/gfind_missing_files/Makefile
                 heal/Makefile
                 heal/src/Makefile
-                glusterfs.spec])
+                glusterfs.spec
+		tools/glusterfind/src/tool.conf
+	        tools/glusterfind/glusterfind
+	        tools/glusterfind/Makefile
+                tools/glusterfind/src/Makefile])
 
 AC_CANONICAL_HOST
 
@@ -358,6 +382,17 @@ AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sy
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+dnl Math library
+case $host_os in
+     linux*)
+        MATH_LIB=''
+        ;;
+     *)
+        MATH_LIB='-lm'
+        ;;
+esac
+AC_SUBST(MATH_LIB)
+
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
      *netbsd*)
@@ -480,7 +515,7 @@ AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
 AC_CHECK_HEADERS([openssl/cmac.h], [have_cmac_h=yes], [have_cmac_h=no])
 
 AC_ARG_ENABLE([crypt-xlator],
-	AC_HELP_STRING([--enable-crypt-xlator], [Build crypt encryption xlator]))
+        AC_HELP_STRING([--enable-crypt-xlator], [Build crypt encryption xlator]))
 
 if test "x$enable_crypt_xlator" = "xyes" -a "x$have_cmac_h" = "xno"; then
    AC_MSG_ERROR([Encryption xlator requires OpenSSL with cmac.h])
@@ -523,7 +558,7 @@ AC_ARG_ENABLE([qemu-block],
 if test "x$enable_qemu_block" != "xno"; then
   PKG_CHECK_MODULES([GLIB], [glib-2.0],
                     [HAVE_GLIB_2="yes"],
-  		    [HAVE_GLIB_2="no"])
+                      [HAVE_GLIB_2="no"])
 fi
 
 if test "x$enable_qemu_block" = "xyes" -a "x$HAVE_GLIB_2" = "xno"; then
@@ -535,7 +570,7 @@ BUILD_QEMU_BLOCK=no
 if test "x${enable_qemu_block}" != "xno" -a "x${HAVE_GLIB_2}" = "xyes"; then
   BUILD_QEMU_BLOCK=yes
   AC_DEFINE(HAVE_QEMU_BLOCK, 1, [define if libglib-2.0 library found and QEMU
-                  	     Block translator enabled])
+                               Block translator enabled])
 fi
 
 
@@ -660,6 +695,25 @@ AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
 # end CDC xlator secion
 
+# Data tiering requires sqlite
+AC_ARG_ENABLE([tiering],
+               AC_HELP_STRING([--disable-tiering],
+                             [Disable data classification/tiering]),
+              [BUILD_GFDB="${enableval}"], [BUILD_GFDB="yes"])
+
+if test "x${BUILD_GFDB}" = "xyes"; then
+  PKG_CHECK_MODULES([SQLITE], [sqlite3],
+                    AC_DEFINE(USE_GFDB, 1),
+                    AC_MSG_ERROR([pass --disable-tiering to build without sqlite]))
+else
+  AC_DEFINE(USE_GFDB, 0, [no sqlite, gfdb is disabled])
+fi
+
+AC_SUBST(SQLITE_CFLAGS)
+AC_SUBST(SQLITE_LIBS)
+AM_CONDITIONAL(BUILD_GFDB, test "x${BUILD_GFDB}" = "xyes")
+AM_CONDITIONAL(USE_GFDB, test "x${BUILD_GFDB}" = "xyes")
+
 # check for systemtap/dtrace
 BUILD_SYSTEMTAP=no
 AC_MSG_CHECKING([whether to include systemtap tracing support])
@@ -703,12 +757,12 @@ if test "x$enable_xml_output" != "xno"; then
     if test "x${no_xml}" = "x"; then
         AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
     else
-	if test "x$enable_georeplication" != "xno"; then
+        if test "x$enable_georeplication" != "xno"; then
            AC_MSG_ERROR([libxml2 devel libraries not found])
-	else
-	   AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
+        else
+           AC_MSG_WARN([libxml2 devel libraries not found disabling XML support])
            BUILD_XML_OUTPUT="no"
-	fi
+        fi
 
     fi
 else
@@ -876,6 +930,14 @@ if test "x$ac_cv_header_execinfo_h" = "xno"; then
    fi
 fi
 
+old_prefix=$prefix
+if test "x$prefix" = xNONE; then
+	prefix=$ac_default_prefix
+fi
+GLUSTERFS_LIBEXECDIR="$(eval echo $prefix)/libexec/glusterfs"
+GLUSTERFSD_MISCDIR="$(eval echo $prefix)/var/lib/misc/glusterfsd"
+prefix=$old_prefix
+
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
    test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
@@ -884,6 +946,14 @@ if test "x$prefix" = xNONE; then
 else
    LOCALSTATEDIR=$(eval echo ${localstatedir})
 fi
+
+old_prefix=$prefix
+if test "x$prefix" = xNONE; then
+    prefix=$ac_default_prefix
+fi
+GLUSTERD_VOLFILE="$(eval echo ${sysconfdir})/glusterfs/glusterd.vol"
+prefix=$old_prefix
+
 
 case $host_os in
      linux*)
@@ -1173,6 +1243,9 @@ AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
+AC_SUBST(GLUSTERD_VOLFILE)
+AC_SUBST(GLUSTERFS_LIBEXECDIR)
+AC_SUBST(GLUSTERFSD_MISCDIR)
 
 dnl pkg-config versioning
 dnl
@@ -1188,6 +1261,8 @@ GFAPI_VERSION="4."${PACKAGE_VERSION}
 LIBGFCHANGELOG_VERSION="0.0.1"
 AC_SUBST(GFAPI_VERSION)
 AC_SUBST(LIBGFCHANGELOG_VERSION)
+LIBGFDB_VERSION="0.0.1"
+AC_SUBST(LIBGFDB_VERSION)
 
 dnl libtool versioning
 LIBGFXDR_LT_VERSION="0:1:0"
@@ -1231,4 +1306,5 @@ echo "QEMU Block formats   : $BUILD_QEMU_BLOCK"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "POSIX ACLs           : $USE_POSIX_ACLS"
+echo "Data Classification  : $BUILD_GFDB"
 echo

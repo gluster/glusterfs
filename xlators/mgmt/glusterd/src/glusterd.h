@@ -52,7 +52,7 @@
 #define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
                                         "S56glusterd-geo-rep-create-post.sh"
 
-
+#define GANESHA_HA_CONF  CONFDIR "/ganesha-ha.conf"
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
@@ -110,6 +110,8 @@ typedef enum glusterd_op_ {
         GD_OP_GSYNC_CREATE,
         GD_OP_SNAP,
         GD_OP_BARRIER,
+        GD_OP_GANESHA,
+        GD_OP_BITROT,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -291,11 +293,23 @@ typedef enum gd_quorum_status_ {
         DOESNT_MEET_QUORUM, //Follows quorum and does not meet.
 } gd_quorum_status_t;
 
+typedef struct tier_info_ {
+        int                       cold_type;
+        int                       cold_brick_count;
+        int                       cold_replica_count;
+        int                       cold_disperse_count;
+        int                       cold_dist_leaf_count;
+        int                       hot_type;
+        int                       hot_brick_count;
+        int                       hot_replica_count;
+} gd_tier_info_t;
+
 struct glusterd_volinfo_ {
         gf_lock_t                 lock;
         gf_boolean_t              is_snap_volume;
         glusterd_snap_t          *snapshot;
         uuid_t                    restored_from_snap;
+        gd_tier_info_t            tier_info;
         char                      parent_volname[GD_VOLUME_NAME_MAX];
                                          /* In case of a snap volume
                                             i.e (is_snap_volume == TRUE) this
@@ -326,6 +340,7 @@ struct glusterd_volinfo_ {
         int                       sub_count;  /* backward compatibility */
         int                       stripe_count;
         int                       replica_count;
+        int                       arbiter_count;
         int                       disperse_count;
         int                       redundancy_count;
         int                       subvol_count; /* Number of subvolumes in a
@@ -797,6 +812,12 @@ int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
 
 int
+glusterd_handle_attach_tier (rpcsvc_request_t *req);
+
+int
+glusterd_handle_detach_tier (rpcsvc_request_t *req);
+
+int
 glusterd_handle_replace_brick (rpcsvc_request_t *req);
 
 int
@@ -846,6 +867,9 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req);
 
 int
 glusterd_handle_quota (rpcsvc_request_t *req);
+
+int
+glusterd_handle_bitrot (rpcsvc_request_t *req);
 
 int
 glusterd_handle_fsm_log (rpcsvc_request_t *req);
@@ -934,7 +958,13 @@ int glusterd_op_sys_exec (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr);
 int glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
+int glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
 int glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
+int glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+
 int glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                      dict_t *rsp_dict);
 int glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict);
@@ -950,7 +980,12 @@ int glusterd_op_create_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_start_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stop_volume (dict_t *dict);
 int glusterd_op_delete_volume (dict_t *dict);
-
+int glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
+                               char *key, char *value);
+int glusterd_check_ganesha_cmd (char *key, char *value,
+                                char **errstr, dict_t *dict);
+int glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr);
+int glusterd_op_set_ganesha (dict_t *dict, char **errstr);
 int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_remove_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr,
@@ -966,6 +1001,7 @@ int glusterd_op_statedump_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_clearlocks_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_clearlocks_volume (dict_t *dict, char **op_errstr,
                                    dict_t *rsp_dict);
+
 
 int glusterd_op_stage_barrier (dict_t *dict, char **op_errstr);
 int glusterd_op_barrier (dict_t *dict, char **op_errstr);

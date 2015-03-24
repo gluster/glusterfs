@@ -59,6 +59,7 @@ enum gf_fop_procnum {
 	GFS3_OP_FALLOCATE,
 	GFS3_OP_DISCARD,
         GFS3_OP_ZEROFILL,
+        GFS3_OP_IPC,
         GFS3_OP_MAXVALUE,
 } ;
 
@@ -131,6 +132,9 @@ enum gf_cbk_procnum {
         GF_CBK_INO_FLUSH,
         GF_CBK_EVENT_NOTIFY,
         GF_CBK_GET_SNAPS,
+        /* XXX: Have separate events for each
+         * UPCALL event - BZ 1200268) */
+        GF_CBK_UPCALL,
         GF_CBK_MAXVALUE,
 };
 
@@ -177,6 +181,10 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_SNAP,
         GLUSTER_CLI_BARRIER_VOLUME,
         GLUSTER_CLI_GET_VOL_OPT,
+        GLUSTER_CLI_GANESHA,
+        GLUSTER_CLI_BITROT,
+        GLUSTER_CLI_ATTACH_TIER,
+        GLUSTER_CLI_DETACH_TIER,
         GLUSTER_CLI_MAXVALUE,
 };
 

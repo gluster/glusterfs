@@ -515,15 +515,138 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         /* XXX: --xlator-option additions */
         gf_add_cmdline_options (graph, &ctx->cmd_args);
 
-
         return 0;
 }
 
+static
+xlator_t *glusterfs_root(glusterfs_graph_t *graph)
+{
+        return graph->first;
+}
+
+static
+int glusterfs_is_leaf(xlator_t *xl)
+{
+        int ret = 0;
+
+        if (!xl->children)
+                ret = 1;
+
+        return ret;
+}
+
+static
+uint32_t glusterfs_count_leaves(xlator_t *xl)
+{
+        int n = 0;
+        xlator_list_t *list = NULL;
+
+        if (glusterfs_is_leaf(xl))
+                n = 1;
+        else
+                for (list = xl->children; list; list = list->next)
+                        n += glusterfs_count_leaves(list->xlator);
+
+        return n;
+}
+
+int glusterfs_get_leaf_count(glusterfs_graph_t *graph)
+{
+        return graph->leaf_count;
+}
+
+static
+int _glusterfs_leaf_position(xlator_t *tgt, int *id, xlator_t *xl)
+{
+        xlator_list_t *list = NULL;
+        int found = 0;
+
+        if (xl == tgt)
+                found = 1;
+        else if (glusterfs_is_leaf(xl))
+                *id += 1;
+        else
+                for (list = xl->children; !found && list; list = list->next)
+                        found = _glusterfs_leaf_position(tgt, id, list->xlator);
+
+        return found;
+}
+
+int glusterfs_leaf_position(xlator_t *tgt)
+{
+        xlator_t *root = NULL;
+        int pos = 0;
+
+        root = glusterfs_root(tgt->graph);
+
+        if (!_glusterfs_leaf_position(tgt, &pos, root))
+                pos = -1;
+
+        return pos;
+}
+
+static int
+_glusterfs_reachable_leaves(xlator_t *base, xlator_t *xl, dict_t *leaves)
+{
+        xlator_list_t *list = NULL;
+        int err = 1;
+        int pos = 0;
+        char strpos[6];
+
+        if (glusterfs_is_leaf(xl)) {
+                pos = glusterfs_leaf_position(xl);
+                if (pos < 0)
+                        goto out;
+                sprintf(strpos, "%d", pos);
+
+                err = dict_set_static_ptr(leaves, strpos, base);
+
+        } else {
+                for (err = 0, list = xl->children;
+                     !err && list;
+                     list = list->next)
+                        err = _glusterfs_reachable_leaves(base, list->xlator,
+                                                          leaves);
+        }
+
+out:
+        return err;
+}
+
+/*
+ * This function determines which leaves are children (or grandchildren)
+ * of the given base. The base may have multiple sub volumes. Each sub
+ * volumes in turn may have sub volumes.. until the leaves are reached.
+ * Each leaf is numbered 1,2,3,...etc.
+ *
+ * The base translator calls this function to see which of *its* subvolumes
+ * it would forward an FOP to, to *get to* a particular leaf.
+ * That information is built into the "leaves" dictionary.
+ * key:destination leaf# -> value:base subvolume xlator.
+ */
+
+int
+glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves)
+{
+        xlator_list_t *list = NULL;
+        int err = 0;
+
+        for (list = base->children; !err && list; list = list->next)
+                err = _glusterfs_reachable_leaves(list->xlator,
+                                                  list->xlator, leaves);
+
+        return err;
+}
 
 int
 glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
         int ret = 0;
+        xlator_t *root = NULL;
+
+        root = glusterfs_root(graph);
+
+        graph->leaf_count = glusterfs_count_leaves(root);
 
         /* XXX: all xlator options validation */
         ret = glusterfs_graph_validate_options (graph);

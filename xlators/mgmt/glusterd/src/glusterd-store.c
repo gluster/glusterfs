@@ -812,6 +812,63 @@ out:
                         " for volume %s", volinfo->volname);
         return ret;
 }
+
+int32_t
+glusterd_volume_write_tier_details (int fd, glusterd_volinfo_t *volinfo)
+{
+        int32_t      ret            = -1;
+        char         buf[PATH_MAX]  = "";
+
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                ret = 0;
+                goto out;
+        }
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.cold_brick_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_COLD_COUNT, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d",
+                  volinfo->tier_info.cold_replica_count);
+        ret = gf_store_save_value (fd,
+                                   GLUSTERD_STORE_KEY_COLD_REPLICA_COUNT,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.cold_disperse_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_COLD_DISPERSE_COUNT,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.hot_brick_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_HOT_COUNT,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.hot_replica_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_HOT_REPLICA_COUNT,
+                                   buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.hot_type);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_HOT_TYPE, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.cold_type);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_COLD_TYPE, buf);
+        if (ret)
+                goto out;
+
+ out:
+        return ret;
+}
+
 int32_t
 glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
 {
@@ -916,6 +973,8 @@ glusterd_volume_exclude_options_write (int fd, glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
         }
+
+        ret = glusterd_volume_write_tier_details (fd, volinfo);
 
         ret = glusterd_volume_write_snap_details (fd, volinfo);
 
@@ -2725,6 +2784,27 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                                 strlen (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
                         strncpy (volinfo->parent_volname, value,
                                  sizeof(volinfo->parent_volname) - 1);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_COUNT,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_brick_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_REPLICA_COUNT,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_replica_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_DISPERSE_COUNT,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_disperse_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_COUNT,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_brick_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_REPLICA_COUNT,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_replica_count = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_TYPE,
+                                     strlen (key))) {
+                        volinfo->tier_info.hot_type = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_TYPE,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_type = atoi (value);
                 } else {
 
                         if (is_key_glusterd_hooks_friendly (key)) {
@@ -2807,6 +2887,9 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 GF_ASSERT (volinfo->disperse_count > 0);
                                 GF_ASSERT (volinfo->redundancy_count > 0);
+                        break;
+
+                        case GF_CLUSTER_TYPE_TIER:
                         break;
 
                         default:

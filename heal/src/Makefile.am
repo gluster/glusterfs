@@ -6,7 +6,7 @@ glfsheal_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
 		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 		$(top_builddir)/api/src/libgfapi.la \
-		$(GF_GLUSTERFS_LIBS) $(XML_LIBS)
+		$(GF_GLUSTERFS_LIBS) $(XML_LIBS) $(GFAPI_LIBS)
 
 glfsheal_LDFLAGS = $(GF_LDFLAGS)
 

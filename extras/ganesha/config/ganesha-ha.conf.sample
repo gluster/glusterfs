@@ -1,0 +1,15 @@
+# Name of the HA cluster created.
+HA_NAME="ganesha-ha-360"
+# Shared volume to store NFS state.
+HA_VOL_NAME="ha-state-volname"
+# Mount point of the shared volume.
+HA_VOL_MNT="/mnt-nfs"
+# The server on which shared volume is created.
+HA_VOL_SERVER="server1"
+# The subset of nodes of the Gluster Trusted Pool
+# that forms the ganesha HA cluster. IP/Hostname
+# is specified.
+HA_CLUSTER_NODES="server1,server2,..."
+# Virtual IPs of each of the nodes specified above.
+VIP_server1="10.x.x.x"
+VIP_server2="10.x.x.x"

@@ -31,9 +31,15 @@
 #include "xdr-nfs3.h"
 #include "rpcsvc.h"
 
+/* for TCP_USER_TIMEOUT */
+#if !defined(TCP_USER_TIMEOUT) && defined(GF_LINUX_HOST_OS)
+#include <linux/tcp.h>
+#else
+#include <netinet/tcp.h>
+#endif
+
 #include <fcntl.h>
 #include <errno.h>
-#include <netinet/tcp.h>
 #include <rpc/xdr.h>
 #include <sys/ioctl.h>
 #define GF_LOG_ERRNO(errno) ((errno == ENOTCONN) ? GF_LOG_DEBUG : GF_LOG_ERROR)
@@ -857,10 +863,12 @@ __socket_nodelay (int fd)
 
 
 static int
-__socket_keepalive (int fd, int family, int keepalive_intvl, int keepalive_idle)
+__socket_keepalive (int fd, int family, int keepalive_intvl,
+                    int keepalive_idle, int timeout)
 {
         int     on = 1;
         int     ret = -1;
+        int     timeout_ms = timeout * 1000;
 
         ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof (on));
         if (ret == -1) {
@@ -890,7 +898,7 @@ __socket_keepalive (int fd, int family, int keepalive_intvl, int keepalive_idle)
                 goto done;
 
         ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_idle,
-                          sizeof (keepalive_intvl));
+                          sizeof (keepalive_idle));
         if (ret == -1) {
                 gf_log ("socket", GF_LOG_WARNING,
                         "failed to set keep idle %d on socket %d, %s",
@@ -905,11 +913,23 @@ __socket_keepalive (int fd, int family, int keepalive_intvl, int keepalive_idle)
                         keepalive_intvl, fd, strerror(errno));
                 goto err;
         }
+
+#if defined(TCP_USER_TIMEOUT)
+        ret = setsockopt (fd, IPPROTO_TCP , TCP_USER_TIMEOUT, &timeout_ms,
+                          sizeof (timeout_ms));
+        if (ret == -1) {
+                gf_log ("socket", GF_LOG_WARNING, "failed to set "
+                        "TCP_USER_TIMEOUT %d on socket %d, %s", timeout_ms, fd,
+                        strerror(errno));
+                goto err;
+        }
+#endif
 #endif
 
 done:
-        gf_log (THIS->name, GF_LOG_TRACE, "Keep-alive enabled for socket %d, interval "
-                "%d, idle: %d", fd, keepalive_intvl, keepalive_idle);
+        gf_log (THIS->name, GF_LOG_TRACE, "Keep-alive enabled for socket %d, "
+                "interval %d, idle: %d, timeout: %d", fd, keepalive_intvl,
+                keepalive_idle, timeout);
 
 err:
         return ret;
@@ -2642,7 +2662,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 ret = __socket_keepalive (new_sock,
                                                           new_sockaddr.ss_family,
                                                           priv->keepaliveintvl,
-                                                          priv->keepaliveidle);
+                                                          priv->keepaliveidle,
+                                                          priv->timeout);
                                 if (ret == -1)
                                         gf_log (this->name, GF_LOG_WARNING,
                                                 "Failed to set keep-alive: %s",
@@ -2986,7 +3007,8 @@ socket_connect (rpc_transport_t *this, int port)
                         ret = __socket_keepalive (priv->sock,
                                                   sa_family,
                                                   priv->keepaliveintvl,
-                                                  priv->keepaliveidle);
+                                                  priv->keepaliveidle,
+                                                  priv->timeout);
                         if (ret == -1)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to set keep-alive: %s",
@@ -3577,6 +3599,7 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         char             *optstr        = NULL;
         int               ret           = 0;
         uint64_t          windowsize    = 0;
+        uint32_t          timeout       = 0;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -3604,6 +3627,13 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         }
         else
                 priv->keepalive = 1;
+
+        if (dict_get_uint32 (this->options, "transport.tcp-user-timeout",
+                             &timeout) == 0) {
+                priv->timeout = timeout;
+                gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                        "transport.tcp-user-timeout=%d", timeout);
+        }
 
         optstr = NULL;
         if (dict_get_str (this->options, "tcp-window-size",
@@ -3659,6 +3689,7 @@ socket_init (rpc_transport_t *this)
         uint64_t          windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
         char             *optstr = NULL;
         uint32_t          keepalive = 0;
+        uint32_t          timeout = 0;
         uint32_t          backlog = 0;
 	int               session_id = 0;
         int32_t           cert_depth = 1;
@@ -3770,6 +3801,13 @@ socket_init (rpc_transport_t *this)
                              &keepalive) == 0) {
                 priv->keepaliveidle = keepalive;
         }
+
+        if (dict_get_uint32 (this->options, "transport.tcp-user-timeout",
+                             &timeout) == 0) {
+                priv->timeout = timeout;
+        }
+        gf_log (this->name, GF_LOG_DEBUG, "Configued "
+                "transport.tcp-user-timeout=%d", priv->timeout);
 
         if (dict_get_uint32 (this->options,
                              "transport.socket.listen-backlog",
@@ -4026,6 +4064,9 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_SIZET,
           .min   = GF_MIN_SOCKET_WINDOW_SIZE,
           .max   = GF_MAX_SOCKET_WINDOW_SIZE
+        },
+        { .key   = {"transport.tcp-user-timeout"},
+          .type  = GF_OPTION_TYPE_INT,
         },
         { .key   = {"transport.socket.nodelay"},
           .type  = GF_OPTION_TYPE_BOOL

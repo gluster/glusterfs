@@ -25,7 +25,8 @@ enum glfs_mem_types_ {
         glfs_mt_server_cmdline_t,
 	glfs_mt_glfs_object_t,
 	glfs_mt_readdirbuf_t,
+        glfs_mt_upcall_entry_t,
+	glfs_mt_acl_t,
 	glfs_mt_end
-
 };
 #endif

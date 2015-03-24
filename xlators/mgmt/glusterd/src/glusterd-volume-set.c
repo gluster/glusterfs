@@ -517,8 +517,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-
-        /* Stripe xlator options */
+        { .key        = "cluster.consistent-metadata",
+          .voltype    = "cluster/replicate",
+          .type       = DOC,
+          .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = "cluster.stripe-block-size",
           .voltype     = "cluster/stripe",
           .option      = "block-size",
@@ -842,6 +846,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Server xlator options */
+        { .key         = "network.ping-timeout",
+          .voltype     = "protocol/server",
+          .option      = "transport.tcp-user-timeout",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
         { .key         = "network.tcp-window-size",
           .voltype     = "protocol/server",
           .op_version  = 1
@@ -1254,6 +1263,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = 1
         },
 
+        { .key         = VKEY_FEATURES_BITROT,
+          .voltype     = "features/bitrot",
+          .option      = "bitrot",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+
         /* Debug xlators options */
         { .key        = "debug.trace",
           .voltype    = "debug/trace",
@@ -1433,16 +1451,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!nfs-disable",
           .op_version  = 1
         },
-        { .key         = "nfs-ganesha.enable",
-          .voltype     = "nfs/server",
-          .option      = "!nfs-ganesha.enable",
-          .op_version  = GD_OP_VERSION_3_6_0,
-        },
-        { .key         = "nfs-ganesha.host",
-          .voltype     = "nfs/server",
-          .option      = "!nfs-ganesha.host",
-          .op_version  = GD_OP_VERSION_3_6_0,
-        },
         { .key         = "nfs.nlm",
           .voltype     = "nfs/server",
           .option      = "nfs.nlm",
@@ -1514,6 +1522,26 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "nfs3.readdir-size",
           .type        = GLOBAL_DOC,
           .op_version  = 3
+        },
+
+        /* Cli options for Export authentication on nfs mount */
+        { .key         = "nfs.exports-auth-enable",
+          .voltype     = "nfs/server",
+          .option      = "nfs.exports-auth-enable",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+        { .key         = "nfs.auth-refresh-interval-sec",
+          .voltype     = "nfs/server",
+          .option      = "nfs.auth-refresh-interval-sec",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+        { .key         = "nfs.auth-cache-ttl-sec",
+          .voltype     = "nfs/server",
+          .option      = "nfs.auth-cache-ttl-sec",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0
         },
 
         /* Other options which don't fit any place above */
@@ -1641,6 +1669,65 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "mgmt/glusterd",
           .op_version  = GD_OP_VERSION_3_6_0,
         },
+        /*Trash translator options */
+        { .key         = "features.trash",
+          .voltype     = "features/trash",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "features.trash-dir",
+          .voltype     = "features/trash",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "features.trash-eliminate-path",
+          .voltype     = "features/trash",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "features.trash-max-filesize",
+          .voltype     = "features/trash",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "features.trash-internal-op",
+          .voltype     = "features/trash",
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+
+        /* tier translator - global tunables */
+        { .key         = "cluster.write-freq-thresold",
+          .voltype     = "cluster/tier",
+          .option      = "write-freq-thresold",
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .flags       = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "cluster.read-freq-thresold",
+          .voltype     = "cluster/tier",
+          .option      = "read-freq-thresold",
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .flags       = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "cluster.tier-promote-frequency",
+          .voltype     = "cluster/tier",
+          .option      = "tier-promote-frequency",
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .flags       = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "cluster.tier-demote-frequency",
+          .voltype     = "cluster/tier",
+          .option      = "tier-demote-frequency",
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .flags       = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "features.ctr-enabled",
+          .voltype     = "features/changetimerecorder",
+          .value       = "off",
+          .option      = "ctr-enabled",
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
+        { .key         = "features.record-counters",
+          .voltype     = "features/changetimerecorder",
+          .value       = "off",
+          .option      = "record-counters",
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
         { .key         = "locks.trace",
           .voltype     = "features/locks",
           .type        = NO_DOC,
@@ -1662,6 +1749,28 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype    = "protocol/client",
           .option     = "client-bind-insecure",
           .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "features.ganesha",
+          .voltype     = "features/ganesha",
+          .option      = "!ganesha",
+          .type         = GLOBAL_NO_DOC,
+          .op_version   = GD_OP_VERSION_3_7_0,
+        },
+        { .key         = "ganesha.enable",
+          .voltype     = "features/ganesha",
+          .type        = NO_DOC,
+          .op_version  = GD_OP_VERSION_3_7_0,
+        },
+        { .key        = "features.shard",
+          .voltype    = "features/shard",
+          .value      = "off",
+          .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "features.shard-block-size",
+          .voltype    = "features/shard",
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },

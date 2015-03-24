@@ -62,20 +62,6 @@ dht_frame_return (call_frame_t *frame)
         return this_call_cnt;
 }
 
-
-static uint64_t
-dht_bits_for (uint64_t num)
-{
-	uint64_t bits = 0, ctrl = 1;
-
-	while (ctrl < num) {
-		ctrl *= 2;
-		bits ++;
-	}
-
-	return bits;
-}
-
 /*
  * A slightly "updated" version of the algorithm described in the commit log
  * is used here.
@@ -87,66 +73,6 @@ dht_bits_for (uint64_t num)
  * - The number of bits used by the d_off presented by the transformation
  *   upwards which is described as 64, are both made "configurable."
  */
-
-
-#define BACKEND_D_OFF_BITS 63
-#define PRESENT_D_OFF_BITS 63
-
-#define ONE 1ULL
-#define MASK (~0ULL)
-#define PRESENT_MASK (MASK >> (64 - PRESENT_D_OFF_BITS))
-#define BACKEND_MASK (MASK >> (64 - BACKEND_D_OFF_BITS))
-
-#define TOP_BIT (ONE << (PRESENT_D_OFF_BITS - 1))
-#define SHIFT_BITS (max (0, (BACKEND_D_OFF_BITS - PRESENT_D_OFF_BITS + 1)))
-
-int
-dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y_p)
-{
-        dht_conf_t *conf = NULL;
-        int         cnt = 0;
-        int         max = 0;
-        uint64_t    y = 0;
-        uint64_t    hi_mask = 0;
-        uint64_t    off_mask = 0;
-        int         max_bits = 0;
-
-        if (x == ((uint64_t) -1)) {
-                y = (uint64_t) -1;
-                goto out;
-        }
-
-        conf = this->private;
-        if (!conf)
-                goto out;
-
-        max = conf->subvolume_cnt;
-        cnt = dht_subvol_cnt (this, subvol);
-
-	if (max == 1) {
-		y = x;
-		goto out;
-	}
-
-        max_bits = dht_bits_for (max);
-
-        hi_mask = ~(PRESENT_MASK >> (max_bits + 1));
-
-        if (x & hi_mask) {
-                /* HUGE d_off */
-                off_mask = MASK << max_bits;
-                y = TOP_BIT | ((x >> SHIFT_BITS) & off_mask) | cnt;
-        } else {
-                /* small d_off */
-                y = ((x * max) + cnt);
-        }
-
-out:
-        if (y_p)
-                *y_p = y;
-
-        return 0;
-}
 
 int
 dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
@@ -205,54 +131,43 @@ out:
         return ret;
 }
 
-int
-dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p,
-                  uint64_t *x_p)
+static xlator_t *
+dht_get_subvol_from_id(xlator_t *this, int client_id)
 {
+        xlator_t *xl = NULL;
         dht_conf_t *conf = NULL;
-        int         cnt = 0;
-        int         max = 0;
-        uint64_t    x = 0;
+        char sid[6] = { 0 };
+
+        conf = this->private;
+
+        sprintf(sid, "%d", client_id);
+        if (dict_get_ptr(conf->leaf_to_subvol, sid, (void **) &xl))
+                xl = NULL;
+
+        return xl;
+}
+
+int
+dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p)
+{
+        int         client_id = 0;
         xlator_t   *subvol = 0;
-        int         max_bits = 0;
-        uint64_t    off_mask = 0;
-        uint64_t    host_mask = 0;
+        dht_conf_t *conf = NULL;
 
         if (!this->private)
                 return -1;
 
         conf = this->private;
-        max = conf->subvolume_cnt;
 
-	if (max == 1) {
-		x = y;
-		cnt = 0;
-		goto out;
-	}
+        client_id = gf_deitransform(this, y);
 
-        if (y & TOP_BIT) {
-                /* HUGE d_off */
-                max_bits = dht_bits_for (max);
-                off_mask = (MASK << max_bits);
-                host_mask = ~(off_mask);
+        subvol = dht_get_subvol_from_id(this, client_id);
 
-                x = ((y & ~TOP_BIT) & off_mask) << SHIFT_BITS;
-
-                cnt = y & host_mask;
-	} else {
-                /* small d_off */
-                cnt = y % max;
-                x = y / max;
-        }
-
-out:
-        subvol = conf->subvolumes[cnt];
+        if (!subvol)
+                subvol = conf->subvolumes[0];
 
         if (subvol_p)
                 *subvol_p = subvol;
-
-        if (x_p)
-                *x_p = x;
 
         return 0;
 }
@@ -587,9 +502,17 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
 {
         dht_layout_t *layout = NULL;
         xlator_t     *subvol = NULL;
+        dht_conf_t *conf = NULL;
+        dht_methods_t *methods = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, out);
 
         if (__is_root_gfid (loc->gfid)) {
                 subvol = dht_first_up_subvol (this);
@@ -608,7 +531,7 @@ dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        subvol = dht_layout_search (this, layout, loc->name);
+        subvol = methods->layout_search (this, layout, loc->name);
 
         if (!subvol) {
                 gf_msg_debug (this->name, 0,
@@ -829,6 +752,8 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         }
         conf->subvolume_cnt = cnt;
 
+        dht_set_subvol_range(this);
+
         cnt = 0;
         for (subvols = this->children; subvols; subvols = subvols->next)
                 conf->subvolumes[cnt++] = subvols->xlator;
@@ -927,6 +852,18 @@ dht_migration_complete_check_task (void *data)
                 ret = syncop_getxattr (src_node, &local->loc, &dict,
                                        conf->link_xattr_name, NULL);
                 SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+        }
+
+        /*
+         * temporary check related to tier promoting/demoting the file;
+         * the lower level DHT detects the migration (due to sticky
+         * bits) when it is the responsibility of the tier translator
+         * to complete the rebalance transaction. It will be corrected
+         * when rebalance and tier migration are fixed to work together.
+         */
+        if (strcmp(this->parents->xlator->type, "cluster/tier") == 0) {
+                ret = 0;
+                goto out;
         }
 
         if (!ret)

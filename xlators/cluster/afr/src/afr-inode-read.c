@@ -35,6 +35,7 @@
 #include "common-utils.h"
 #include "compat-errno.h"
 #include "compat.h"
+#include "quota-common-utils.h"
 
 #include "afr-transaction.h"
 
@@ -50,15 +51,16 @@
 int
 afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
 {
-        unsigned char *readable = NULL;
-        afr_local_t *local = NULL;
-        afr_private_t *priv = NULL;
+        unsigned char *readable   = NULL;
+        afr_local_t *local        = NULL;
+        afr_private_t *priv       = NULL;
         struct afr_reply *replies = NULL;
-        int i = 0;
-        uint64_t size = 0;
-        uint64_t max_size = 0;
-        int readable_cnt = 0;
-        int read_subvol = -1;
+        int i                     = 0;
+        int ret                   = 0;
+        quota_meta_t size         = {0, };
+        quota_meta_t max_size     = {0, };
+        int readable_cnt          = 0;
+        int read_subvol           = -1;
 
         local = frame->local;
         priv = this->private;
@@ -77,21 +79,28 @@ afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
                         continue;
                 if (!replies[i].xdata)
                         continue;
-                if (dict_get_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, &size))
+                ret = quota_dict_get_meta (replies[i].xdata, QUOTA_SIZE_KEY,
+                                           &size);
+                if (ret == -1)
                         continue;
-                size = ntoh64 (size);
                 if (read_subvol == -1)
                         read_subvol = i;
-                if (size > max_size) {
+                if (size.size > max_size.size ||
+                    (size.file_count + size.dir_count) >
+                    (max_size.file_count + max_size.dir_count))
                         read_subvol = i;
-                        max_size = size;
-                }
+
+                if (size.size > max_size.size)
+                        max_size.size = size.size;
+                if (size.file_count > max_size.file_count)
+                        max_size.file_count = size.file_count;
+                if (size.dir_count > max_size.dir_count)
+                        max_size.dir_count = size.dir_count;
         }
 
-        if (!max_size)
+        if (max_size.size == 0 && max_size.file_count == 0 &&
+            max_size.dir_count == 0)
                 return read_subvol;
-
-        max_size = hton64 (max_size);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!replies[i].valid || replies[i].op_ret == -1)
@@ -100,8 +109,8 @@ afr_handle_quota_size (call_frame_t *frame, xlator_t *this)
                         continue;
                 if (!replies[i].xdata)
                         continue;
-                if (dict_set_uint64 (replies[i].xdata, QUOTA_SIZE_KEY, max_size))
-                        continue;
+                quota_dict_set_meta (replies[i].xdata, QUOTA_SIZE_KEY,
+                                     &max_size, IA_IFDIR);
         }
 
         return read_subvol;

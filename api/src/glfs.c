@@ -242,7 +242,7 @@ get_volfp (struct glfs *fs)
 
 	if ((specfp = fopen (cmd_args->volfile, "r")) == NULL) {
 		gf_log ("glfs", GF_LOG_ERROR,
-			"volume file %s: %s",
+			"volume file %s open failed: %s",
 			cmd_args->volfile,
 			strerror (errno));
 		return NULL;
@@ -546,6 +546,12 @@ glfs_poller (void *data)
 	return NULL;
 }
 
+/*
+ * please note all the variable initializations done here probably
+ * need to be added in 'glfs_new_from_ctx()' as well, so that,
+ * we do not miss out while adding new members in 'fs'.
+*/
+
 
 struct glfs *
 pub_glfs_new (const char *volname)
@@ -594,6 +600,11 @@ pub_glfs_new (const char *volname)
 
 	INIT_LIST_HEAD (&fs->openfds);
 
+        INIT_LIST_HEAD (&fs->upcall_list);
+        pthread_mutex_init (&fs->upcall_list_mutex, NULL);
+
+        fs->pin_refcnt = 0;
+
 	return fs;
 }
 
@@ -614,10 +625,16 @@ priv_glfs_new_from_ctx (glusterfs_ctx_t *ctx)
         fs->ctx = ctx;
 
         (void) pthread_cond_init (&fs->cond, NULL);
+        (void) pthread_cond_init (&fs->child_down_cond, NULL);
 
         (void) pthread_mutex_init (&fs->mutex, NULL);
 
         INIT_LIST_HEAD (&fs->openfds);
+
+        INIT_LIST_HEAD (&fs->upcall_list);
+        pthread_mutex_init (&fs->upcall_list_mutex, NULL);
+
+        fs->pin_refcnt = 0;
 
         return fs;
 }
@@ -628,15 +645,28 @@ GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_new_from_ctx, 3.7.0);
 void
 priv_glfs_free_from_ctx (struct glfs *fs)
 {
+        upcall_entry       *u_list   = NULL;
+        upcall_entry       *tmp      = NULL;
+
         if (!fs)
                 return;
+
+        /* cleanup upcall structures */
+        list_for_each_entry_safe (u_list, tmp,
+                                  &fs->upcall_list,
+                                  upcall_list) {
+                list_del_init (&u_list->upcall_list);
+        }
+        (void) pthread_mutex_destroy (&fs->upcall_list_mutex);
 
         (void) pthread_cond_destroy (&fs->cond);
         (void) pthread_cond_destroy (&fs->child_down_cond);
 
         (void) pthread_mutex_destroy (&fs->mutex);
 
-        FREE (fs->volname);
+        if (fs->volname)
+                FREE (fs->volname);
+
         FREE (fs);
 }
 
@@ -899,27 +929,46 @@ pub_glfs_fini (struct glfs *fs)
         int                fs_init = 0;
         int                err = -1;
 
+
         if (!fs) {
                 errno = EINVAL;
                 return 0;
         }
 
         ctx = fs->ctx;
+        if (!ctx) {
+                goto free_fs;
+        }
+
+        __glfs_entry_fs (fs);
+
         if (ctx->mgmt) {
                 rpc_clnt_disable (ctx->mgmt);
                 ctx->mgmt = NULL;
         }
 
-        __glfs_entry_fs (fs);
-
         call_pool = fs->ctx->pool;
 
         while (countdown--) {
                 /* give some time for background frames to finish */
-                if (!call_pool->cnt)
-                        break;
+                pthread_mutex_lock (&fs->mutex);
+                {
+                        /* Do we need to increase countdown? */
+                        if ((!call_pool->cnt) && (!fs->pin_refcnt)) {
+                                gf_log ("glfs", GF_LOG_ERROR,
+                                        "call_pool_cnt - %ld,"
+                                        "pin_refcnt - %d",
+                                        call_pool->cnt, fs->pin_refcnt);
+
+                                ctx->cleanup_started = 1;
+                                pthread_mutex_unlock (&fs->mutex);
+                                break;
+                        }
+                }
+                pthread_mutex_unlock (&fs->mutex);
                 usleep (100000);
         }
+
         /* leaked frames may exist, we ignore */
 
         /*We deem glfs_fini as successful if there are no pending frames in the call
@@ -1026,6 +1075,7 @@ pub_glfs_fini (struct glfs *fs)
         if (glusterfs_ctx_destroy (ctx) != 0)
                 ret = -1;
 
+free_fs:
         glfs_free_from_ctx (fs);
 
 fail:
@@ -1060,3 +1110,27 @@ pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volfile, 3.6.0);
 
+int
+pub_glfs_ipc (struct glfs *fs, int opcode)
+{
+	xlator_t        *subvol = NULL;
+        int             ret;
+
+	__glfs_entry_fs (fs);
+
+	subvol = glfs_active_subvol (fs);
+	if (!subvol) {
+		ret = -1;
+		errno = EIO;
+		goto out;
+	}
+
+	ret = syncop_ipc (subvol, opcode, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+out:
+        glfs_subvol_done (fs, subvol);
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ipc, 3.7.0);

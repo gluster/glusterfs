@@ -88,6 +88,7 @@
 #define GF_XATTR_GET_REAL_FILENAME_KEY "glusterfs.get_real_filename:"
 #define GF_XATTR_USER_PATHINFO_KEY   "glusterfs.pathinfo"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
+#define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 #define GF_INTERNAL_IGNORE_DEEM_STATFS "ignore-deem-statfs"
 
@@ -128,10 +129,11 @@
 #define GLUSTERFS_POSIXLK_COUNT "glusterfs.posixlk-count"
 #define GLUSTERFS_PARENT_ENTRYLK "glusterfs.parent-entrylk"
 #define GLUSTERFS_INODELK_DOM_COUNT "glusterfs.inodelk-dom-count"
-#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define GFID_TO_PATH_KEY "glusterfs.gfid2path"
 #define GF_XATTR_STIME_PATTERN "trusted.glusterfs.*.stime"
 #define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
+
+#define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 
 /* Index xlator related */
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
@@ -139,7 +141,9 @@
 
 #define GF_AFR_HEAL_INFO "glusterfs.heal-info"
 #define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"
-#define GF_AFR_SBRAIN_STATUS "afr.split-brain-status"
+#define GF_AFR_SBRAIN_STATUS "replica.split-brain-status"
+#define GF_AFR_SBRAIN_CHOICE "replica.split-brain-choice"
+#define GF_AFR_SBRAIN_RESOLVE "replica.split-brain-heal-finalize"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
@@ -204,6 +208,10 @@
 #define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 
+/*CTR requires inode dentry link count from posix*/
+#define CTR_RESPONSE_LINK_COUNT_XDATA "ctr_response_link_count"
+#define CTR_REQUEST_LINK_COUNT_XDATA  "ctr_request_link_count"
+
 #define GF_LOG_LRU_BUFSIZE_DEFAULT 5
 #define GF_LOG_LRU_BUFSIZE_MIN 0
 #define GF_LOG_LRU_BUFSIZE_MAX 20
@@ -238,7 +246,7 @@ typedef enum {
         GF_FOP_WRITE,
         GF_FOP_STATFS,
         GF_FOP_FLUSH,
-        GF_FOP_FSYNC,      /* 15 */
+        GF_FOP_FSYNC,      /* 16 */
         GF_FOP_SETXATTR,
         GF_FOP_GETXATTR,
         GF_FOP_REMOVEXATTR,
@@ -271,6 +279,7 @@ typedef enum {
 	GF_FOP_FALLOCATE,
 	GF_FOP_DISCARD,
         GF_FOP_ZEROFILL,
+        GF_FOP_IPC,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
@@ -384,6 +393,8 @@ struct _cmd_args {
         uint32_t         log_buf_size;
         uint32_t         log_flush_timeout;
         int32_t          max_connect_attempts;
+        char            *print_exports;
+        char            *print_netgroups;
         /* advanced options */
         uint32_t         volfile_server_port;
         char            *volfile_server_transport;
@@ -446,6 +457,7 @@ struct _glusterfs_graph {
         struct timeval            dob;
         void                     *first;
         void                     *top;   /* selected by -n */
+        uint32_t                  leaf_count;
         int                       xl_count;
         int                       id;    /* Used in logging */
         int                       used;  /* Should be set when fuse gets
@@ -562,6 +574,7 @@ typedef enum {
         GF_EVENT_VOLUME_DEFRAG,
         GF_EVENT_PARENT_DOWN,
         GF_EVENT_VOLUME_BARRIER_OP,
+        GF_EVENT_UPCALL,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
@@ -572,6 +585,14 @@ struct gf_flock {
         off_t        l_len;
         pid_t        l_pid;
         gf_lkowner_t l_owner;
+};
+
+struct gf_upcall {
+        char  *client_uid;
+	char  gfid[16];
+        u_int event_type;
+        u_int flags;
+        u_int expire_time_attr;
 };
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
@@ -606,6 +627,7 @@ int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy_residual (glusterfs_graph_t *graph);
 int glusterfs_graph_deactivate (glusterfs_graph_t *graph);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
+int glusterfs_get_leaf_count (glusterfs_graph_t *graph);
 int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
 glusterfs_graph_t *glusterfs_graph_new ();

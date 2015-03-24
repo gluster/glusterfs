@@ -443,6 +443,10 @@ typedef int32_t (*fop_zerofill_cbk_t) (call_frame_t *frame,
                                       struct iatt *preop_stbuf,
                                       struct iatt *postop_stbuf, dict_t *xdata);
 
+typedef int32_t (*fop_ipc_cbk_t) (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  xlator_t *this,
                                  loc_t *loc,
@@ -674,12 +678,16 @@ typedef int32_t (*fop_discard_t) (call_frame_t *frame,
 				  off_t offset,
 				  size_t len,
                                   dict_t *xdata);
+
 typedef int32_t (*fop_zerofill_t) (call_frame_t *frame,
                                   xlator_t *this,
                                   fd_t *fd,
                                   off_t offset,
                                   off_t len,
                                   dict_t *xdata);
+
+typedef int32_t (*fop_ipc_t) (call_frame_t *frame, xlator_t *this, int32_t op,
+                              dict_t *xdata);
 
 struct xlator_fops {
         fop_lookup_t         lookup;
@@ -727,6 +735,7 @@ struct xlator_fops {
 	fop_fallocate_t	     fallocate;
 	fop_discard_t	     discard;
         fop_zerofill_t       zerofill;
+        fop_ipc_t            ipc;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         fop_lookup_cbk_t         lookup_cbk;
@@ -774,6 +783,7 @@ struct xlator_fops {
 	fop_fallocate_cbk_t	 fallocate_cbk;
 	fop_discard_cbk_t	 discard_cbk;
         fop_zerofill_cbk_t       zerofill_cbk;
+        fop_ipc_cbk_t            ipc_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,
@@ -950,6 +960,7 @@ int loc_path (loc_t *loc, const char *bname);
 void loc_gfid (loc_t *loc, uuid_t gfid);
 char* loc_gfid_utoa (loc_t *loc);
 gf_boolean_t loc_is_root (loc_t *loc);
+int32_t loc_build_child (loc_t *child, loc_t *parent, char *name);
 int xlator_mem_acct_init (xlator_t *xl, int num_types);
 int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int glusterd_check_log_level (const char *value);
@@ -967,4 +978,11 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
 
 int
 loc_touchup (loc_t *loc, const char *name);
+
+int
+glusterfs_leaf_position(xlator_t *tgt);
+
+int
+glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves);
+
 #endif /* _XLATOR_H */

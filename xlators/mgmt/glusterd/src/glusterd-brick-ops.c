@@ -288,6 +288,10 @@ gd_rmbr_validate_replica_count (glusterd_volinfo_t *volinfo,
         int replica_nodes = 0;
 
         switch (volinfo->type) {
+        case GF_CLUSTER_TYPE_TIER:
+                ret = 1;
+                goto out;
+
         case GF_CLUSTER_TYPE_NONE:
         case GF_CLUSTER_TYPE_STRIPE:
         case GF_CLUSTER_TYPE_DISPERSE:
@@ -367,7 +371,6 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         int32_t                         replica_count = 0;
         int32_t                         stripe_count = 0;
         int                             type = 0;
-
         this = THIS;
         GF_ASSERT(this);
 
@@ -453,6 +456,17 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         }
 
         total_bricks = volinfo->brick_count + brick_count;
+
+        if (dict_get (dict, "attach-tier")) {
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        snprintf (err_str, sizeof (err_str),
+                                  "Volume %s is already a tier.", volname);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                        ret = -1;
+                        goto out;
+                }
+                goto brick_val;
+        }
 
         if (!stripe_count && !replica_count) {
                 if (volinfo->type == GF_CLUSTER_TYPE_NONE)
@@ -639,6 +653,40 @@ subvol_matcher_destroy (int *subvols)
         GF_FREE (subvols);
 }
 
+static int
+glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo)
+{
+        char key[256] = {0,};
+        char value[256] = {0,};
+        int brick_num = 0;
+        int hot_brick_num = 0;
+        glusterd_brickinfo_t *brickinfo;
+        int ret = 0;
+
+        /* cold tier bricks at tail of list so use reverse iteration */
+        cds_list_for_each_entry_reverse (brickinfo, &volinfo->bricks,
+                                         brick_list) {
+                brick_num++;
+                if (brick_num > volinfo->tier_info.cold_brick_count) {
+                        hot_brick_num++;
+                        sprintf (key, "brick%d", hot_brick_num);
+                        snprintf (value, 256, "%s:%s",
+                                  brickinfo->hostname,
+                                  brickinfo->path);
+
+                        ret = dict_set_str (dict, key, strdup(value));
+                        if (ret)
+                                break;
+                }
+        }
+
+        ret = dict_set_int32(dict, "count", hot_brick_num);
+        if (ret)
+                return -1;
+
+        return hot_brick_num;
+}
+
 int
 __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 {
@@ -794,7 +842,8 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
 	/* Do not allow remove-brick if the bricks given is less than
            the replica count or stripe count */
-        if (!replica_count && (volinfo->type != GF_CLUSTER_TYPE_NONE)) {
+        if (!replica_count && (volinfo->type != GF_CLUSTER_TYPE_NONE) &&
+            (volinfo->type != GF_CLUSTER_TYPE_TIER))  {
                 if (volinfo->dist_leaf_count &&
                     (count % volinfo->dist_leaf_count)) {
                         snprintf (err_str, sizeof (err_str), "Remove brick "
@@ -813,6 +862,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
+
         strcpy (brick_list, " ");
 
         if ((volinfo->type != GF_CLUSTER_TYPE_NONE) &&
@@ -821,6 +871,9 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 if (ret)
                         goto out;
         }
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                count = glusterd_set_detach_bricks(dict, volinfo);
 
         while ( i <= count) {
                 snprintf (key, sizeof (key), "brick%d", i);
@@ -836,6 +889,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
                 ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo,
                                                              &brickinfo);
+
                 if (ret) {
                         snprintf (err_str, sizeof (err_str), "Incorrect brick "
                                   "%s for volume %s", brick, volname);
@@ -883,7 +937,8 @@ out:
 
         }
 
-        GF_FREE (brick_list);
+        if (brick_list)
+                GF_FREE (brick_list);
         subvol_matcher_destroy (subvols);
         free (cli_req.dict.dict_val); //its malloced by xdr
 
@@ -1081,7 +1136,11 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret)
                         goto out;
-                if (stripe_count || replica_count) {
+
+                /* hot tier bricks are added to head of brick list */
+                if (dict_get (dict, "attach-tier")) {
+                        cds_list_add (&brickinfo->brick_list, &volinfo->bricks);
+                } else if (stripe_count || replica_count) {
                         add_brick_at_right_order (brickinfo, volinfo, (i - 1),
                                                   stripe_count, replica_count);
                 } else {
@@ -1674,6 +1733,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
                 break;
 
+        case GF_OP_CMD_DETACH:
         case GF_OP_CMD_COMMIT_FORCE:
                 break;
         }
@@ -1767,6 +1827,35 @@ glusterd_remove_brick_migrate_cbk (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
+static int
+glusterd_op_perform_attach_tier (dict_t *dict,
+                                 glusterd_volinfo_t *volinfo,
+                                 int count,
+                                 char *bricks)
+{
+        int                                     ret = 0;
+        int                                     replica_count = 0;
+
+        /*
+         * Store the new (cold) tier's structure until the graph is generated.
+         * If there is a failure before the graph is generated the
+         * structure will revert to its original state.
+         */
+        volinfo->tier_info.cold_dist_leaf_count = volinfo->dist_leaf_count;
+        volinfo->tier_info.cold_type           = volinfo->type;
+        volinfo->tier_info.cold_brick_count    = volinfo->brick_count;
+        volinfo->tier_info.cold_replica_count  = volinfo->replica_count;
+        volinfo->tier_info.cold_disperse_count = volinfo->disperse_count;
+
+        ret = dict_get_int32 (dict, "replica-count", &replica_count);
+        if (!ret)
+                volinfo->tier_info.hot_replica_count  = replica_count;
+        else
+                volinfo->tier_info.hot_replica_count  = 1;
+        volinfo->tier_info.hot_brick_count     = count;
+
+        return ret;
+}
 
 int
 glusterd_op_add_brick (dict_t *dict, char **op_errstr)
@@ -1778,6 +1867,7 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
         xlator_t                                *this = NULL;
         char                                    *bricks = NULL;
         int32_t                                 count = 0;
+        int32_t                                 replica_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1812,6 +1902,11 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        if (dict_get(dict, "attach-tier")) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Adding tier");
+                glusterd_op_perform_attach_tier (dict, volinfo, count, bricks);
+        }
+
         ret = glusterd_op_perform_add_bricks (volinfo, count, bricks, dict);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to add bricks");
@@ -1827,6 +1922,14 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
 
 out:
         return ret;
+}
+
+static void
+glusterd_op_perform_detach_tier (glusterd_volinfo_t *volinfo)
+{
+        volinfo->type           = volinfo->tier_info.cold_type;
+        volinfo->replica_count  = volinfo->tier_info.cold_replica_count;
+        volinfo->disperse_count = volinfo->tier_info.cold_disperse_count;
 }
 
 int
@@ -1959,6 +2062,10 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 force = 1;
                 break;
 
+        case GF_OP_CMD_DETACH:
+                glusterd_op_perform_detach_tier (volinfo);
+                /* fall through */
+
         case GF_OP_CMD_COMMIT_FORCE:
 
                 if (volinfo->decommission_in_progress) {
@@ -2051,7 +2158,12 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 volinfo->sub_count = replica_count;
                 volinfo->dist_leaf_count = glusterd_get_dist_leaf_count (volinfo);
 
-                if (replica_count == 1) {
+                /*
+                 * volinfo->type and sub_count have already been set for
+                 * volumes undergoing a detach operation, they should not
+                 * be modified here.
+                 */
+                if ((replica_count == 1) && (cmd != GF_OP_CMD_DETACH)) {
                         if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
                                 volinfo->type = GF_CLUSTER_TYPE_NONE;
                                 /* backward compatibility */
@@ -2223,4 +2335,17 @@ glusterd_op_barrier (dict_t *dict, char **op_errstr)
 out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
+
+int
+glusterd_handle_attach_tier (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req, __glusterd_handle_add_brick);
+}
+
+int
+glusterd_handle_detach_tier (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                                            __glusterd_handle_remove_brick);
 }

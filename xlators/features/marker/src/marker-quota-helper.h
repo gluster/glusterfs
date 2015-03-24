@@ -44,7 +44,7 @@ inode_contribution_t *
 mq_add_new_contribution_node (xlator_t *, quota_inode_ctx_t *, loc_t *);
 
 int32_t
-mq_dict_set_contribution (xlator_t *, dict_t *, loc_t *);
+mq_dict_set_contribution (xlator_t *, dict_t *, loc_t *, uuid_t, char *);
 
 quota_inode_ctx_t *
 mq_inode_ctx_new (inode_t *, xlator_t *);

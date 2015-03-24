@@ -1295,6 +1295,16 @@ default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+
+int32_t
+default_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (ipc, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+
 /* RESUME */
 
 int32_t
@@ -1722,6 +1732,17 @@ default_zerofill_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
         STACK_WIND(frame, default_zerofill_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->zerofill, fd, offset, len,
                    xdata);
+        return 0;
+}
+
+
+int32_t
+default_ipc_resume (call_frame_t *frame, xlator_t *this, int32_t op,
+                    dict_t *xdata)
+{
+        STACK_WIND (frame, default_ipc_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->ipc,
+                    op, xdata);
         return 0;
 }
 
@@ -2162,6 +2183,16 @@ default_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 int32_t
+default_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        STACK_WIND_TAIL (frame,
+                         FIRST_CHILD(this), FIRST_CHILD(this)->fops->ipc,
+                         op, xdata);
+        return 0;
+}
+
+
+int32_t
 default_forget (xlator_t *this, inode_t *inode)
 {
         gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
@@ -2283,6 +2314,21 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
                         if (parent->xlator->init_succeeded)
                                 xlator_notify (parent->xlator, event,
                                                this, NULL);
+                        parent = parent->next;
+                }
+        }
+        break;
+        case GF_EVENT_UPCALL:
+        {
+                xlator_list_t *parent = this->parents;
+
+                if (!parent && this->ctx && this->ctx->master)
+                        xlator_notify (this->ctx->master, event, data, NULL);
+
+                while (parent) {
+                        if (parent->xlator->init_succeeded)
+                                xlator_notify (parent->xlator, event,
+                                               data, NULL);
                         parent = parent->next;
                 }
         }

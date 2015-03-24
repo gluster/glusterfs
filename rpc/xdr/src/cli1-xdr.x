@@ -3,7 +3,9 @@
         GF_DEFRAG_CMD_STOP,
         GF_DEFRAG_CMD_STATUS,
         GF_DEFRAG_CMD_START_LAYOUT_FIX,
-        GF_DEFRAG_CMD_START_FORCE /* used by remove-brick data migration */
+        GF_DEFRAG_CMD_START_FORCE, /* used by remove-brick data migration */
+        GF_DEFRAG_CMD_START_TIER,
+        GF_DEFRAG_CMD_STATUS_TIER
 };
 
  enum gf_defrag_status_t {
@@ -24,7 +26,8 @@
         GF_CLUSTER_TYPE_STRIPE,
         GF_CLUSTER_TYPE_REPLICATE,
         GF_CLUSTER_TYPE_STRIPE_REPLICATE,
-        GF_CLUSTER_TYPE_DISPERSE
+        GF_CLUSTER_TYPE_DISPERSE,
+        GF_CLUSTER_TYPE_TIER
 };
 
  enum gf1_cli_replace_op {
@@ -37,13 +40,24 @@
         GF_REPLACE_OP_COMMIT_FORCE
 };
 
+enum gf_bitrot_type {
+        GF_BITROT_OPTION_TYPE_NONE = 0,
+        GF_BITROT_OPTION_TYPE_ENABLE,
+        GF_BITROT_OPTION_TYPE_DISABLE,
+        GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE,
+        GF_BITROT_OPTION_TYPE_SCRUB_FREQ,
+        GF_BITROT_OPTION_TYPE_SCRUB,
+        GF_BITROT_OPTION_TYPE_MAX
+};
+
  enum gf1_op_commands {
         GF_OP_CMD_NONE = 0,
         GF_OP_CMD_START,
         GF_OP_CMD_COMMIT,
         GF_OP_CMD_STOP,
         GF_OP_CMD_STATUS,
-        GF_OP_CMD_COMMIT_FORCE
+        GF_OP_CMD_COMMIT_FORCE,
+        GF_OP_CMD_DETACH
 };
 
 enum gf_quota_type {
@@ -57,7 +71,11 @@ enum gf_quota_type {
         GF_QUOTA_OPTION_TYPE_ALERT_TIME,
         GF_QUOTA_OPTION_TYPE_SOFT_TIMEOUT,
         GF_QUOTA_OPTION_TYPE_HARD_TIMEOUT,
-        GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT
+        GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT,
+        GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_LIST_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS,
+        GF_QUOTA_OPTION_TYPE_MAX
 };
 
 enum gf1_cli_friends_list {
@@ -151,6 +169,7 @@ enum gf1_cli_snapshot {
         GF_SNAP_OPTION_TYPE_LIST,
         GF_SNAP_OPTION_TYPE_STATUS,
         GF_SNAP_OPTION_TYPE_CONFIG,
+        GF_SNAP_OPTION_TYPE_CLONE,
         GF_SNAP_OPTION_TYPE_INFO
 };
 

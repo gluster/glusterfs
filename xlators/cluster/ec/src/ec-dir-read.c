@@ -304,8 +304,6 @@ void ec_adjust_readdir(ec_t * ec, int32_t idx, gf_dirent_t * entries)
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        entry->d_off = ec_itransform(ec, idx, entry->d_off);
-
         if (entry->d_stat.ia_type == IA_IFREG)
         {
             if ((entry->dict == NULL) ||
@@ -413,10 +411,20 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 
             if (fop->offset != 0)
             {
-                int32_t idx;
+                int32_t idx = -1;
+                ec_t    *ec = fop->xl->private;
 
-                fop->offset = ec_deitransform(fop->xl->private, &idx,
-                                              fop->offset);
+                idx = gf_deitransform(fop->xl, fop->offset);
+
+                if ((idx < 0) || (idx >= ec->nodes)) {
+
+                        gf_log(fop->xl->name, GF_LOG_ERROR,
+                               "Invalid index %d in readdirp request", idx);
+
+                        fop->error = EIO;
+
+                        return EC_STATE_REPORT;
+                }
                 fop->mask &= 1ULL << idx;
             }
 

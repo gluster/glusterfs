@@ -725,7 +725,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     sent = 0;
         int                     parse_error = 0;
 
-	int                     ret = -1;
+        int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
@@ -840,6 +840,142 @@ out:
         return ret;
 }
 
+int
+cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
+                                struct cli_cmd_word *word, const char **words,
+                                int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
+        gf_answer_t             answer = GF_ANSWER_NO;
+        cli_local_t             *local = NULL;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        if (state->mode & GLUSTER_MODE_WIGNORE) {
+                ret = dict_set_int32 (options, "force", _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set force "
+                                "option");
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (options, "attach-tier", 1);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "type", GF_CLUSTER_TYPE_TIER);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ATTACH_TIER];
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("attach-tier failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
+int
+cli_cmd_volume_detach_tier_cbk (struct cli_state *state,
+                              struct cli_cmd_word *word, const char **words,
+                              int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
+        gf_answer_t             answer = GF_ANSWER_NO;
+        cli_local_t             *local = NULL;
+        int                     need_question = 0;
+
+        const char *question = "Removing tier can result in data loss. "
+                               "Do you want to Continue?";
+
+        if (wordcount != 3)
+                goto out;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        options = dict_new ();
+        if (!options)
+                goto out;
+
+        ret = dict_set_int32 (options, "force", 1);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "command", GF_OP_CMD_DETACH);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (options, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "count", 1);
+        if (ret)
+                goto out;
+
+        if (!(state->mode & GLUSTER_MODE_SCRIPT) && need_question) {
+                /* we need to ask question only in case of 'commit or force' */
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_DETACH_TIER];
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume detach-tier failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
 static int
 gf_cli_create_auxiliary_mount (char *volname)
 {
@@ -900,38 +1036,28 @@ cli_stage_quota_op (char *volname, int op_code)
         int ret = -1;
 
         switch (op_code) {
-                case GF_QUOTA_OPTION_TYPE_ENABLE:
-                case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
-                case GF_QUOTA_OPTION_TYPE_REMOVE:
-                case GF_QUOTA_OPTION_TYPE_LIST:
-                        ret = gf_cli_create_auxiliary_mount (volname);
-                        if (ret) {
-                                cli_err ("quota: Could not start quota "
-                                         "auxiliary mount");
-                                goto out;
-                        }
-                        ret = 0;
-                        break;
+        case GF_QUOTA_OPTION_TYPE_ENABLE:
+        case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+        case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
+        case GF_QUOTA_OPTION_TYPE_REMOVE:
+        case GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS:
+        case GF_QUOTA_OPTION_TYPE_LIST:
+                ret = gf_cli_create_auxiliary_mount (volname);
+                if (ret) {
+                        cli_err ("quota: Could not start quota "
+                                 "auxiliary mount");
+                        goto out;
+                }
+                ret = 0;
+                break;
 
-                default:
-                        ret = 0;
-                        break;
+        default:
+                ret = 0;
+                break;
         }
 
 out:
         return ret;
-}
-
-static void
-print_quota_list_header (void)
-{
-        //Header
-        cli_out ("                  Path                   Hard-limit "
-                 "Soft-limit   Used  Available  Soft-limit exceeded?"
-                 " Hard-limit exceeded?");
-        cli_out ("-----------------------------------------------------"
-                 "-----------------------------------------------------"
-                 "-----------------");
 }
 
 int
@@ -1082,6 +1208,7 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         char                     quota_conf_file[PATH_MAX] = {0};
         gf_boolean_t             xml_err_flag   = _gf_false;
         char                     err_str[NAME_MAX] = {0,};
+        int32_t                  type       = 0;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -1092,6 +1219,18 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         ret = dict_get_str (options, "volname", &volname);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to get volume name");
+                goto out;
+        }
+
+        ret = dict_get_int32 (options, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get quota option type");
+                goto out;
+        }
+
+        ret = dict_set_int32 (xdata, "type", type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to set type in xdata");
                 goto out;
         }
 
@@ -1164,7 +1303,7 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         proc = &cli_quotad_clnt.proctable[GF_AGGREGATOR_GETLIMIT];
 
         if (!(global_state->mode & GLUSTER_MODE_XML)) {
-                print_quota_list_header ();
+                print_quota_list_header (type);
         } else {
                 ret = cli_xml_output_vol_quota_limit_list_begin
                         (local, 0, 0, NULL);
@@ -1248,6 +1387,106 @@ out:
         return ret;
 }
 
+int cli_cmd_ganesha_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                         const char **words, int wordcount)
+
+{
+         int                     sent        =   0;
+         int                     parse_error =   0;
+         int                     ret         =  -1;
+         rpc_clnt_procedure_t    *proc       =  NULL;
+         call_frame_t            *frame      =  NULL;
+         dict_t                  *options    =  NULL;
+         cli_local_t             *local      =  NULL;
+         char                    *op_errstr  =  NULL;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GANESHA];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_ganesha_parse (state, words, wordcount,
+                                     &options, &op_errstr);
+        if (ret) {
+                if (op_errstr) {
+                    cli_err ("%s", op_errstr);
+                    GF_FREE (op_errstr);
+                } else
+                    cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Setting global option failed");
+        }
+
+        CLI_STACK_DESTROY (frame);
+        return ret;
+}
+
+int
+cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                    const char **words, int wordcount)
+{
+
+        int                     ret        = -1;
+        int                     parse_err  = 0;
+        call_frame_t            *frame     = NULL;
+        dict_t                  *options   = NULL;
+        cli_local_t             *local     = NULL;
+        rpc_clnt_procedure_t    *proc      = NULL;
+        int                     sent       = 0;
+
+        ret = cli_cmd_bitrot_parse (words, wordcount, &options);
+        if (ret < 0) {
+                cli_usage_out (word->pattern);
+                parse_err = 1;
+                goto out;
+        }
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_BITROT];
+        if (proc == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        CLI_LOCAL_INIT (local, words, frame, options);
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_err == 0))
+                    cli_err ("Bit rot command failed. Please check the cli "
+                             "logs for more details");
+
+        }
+
+        CLI_STACK_DESTROY (frame);
+
+        return ret;
+}
+
 int
 cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                    const char **words, int wordcount)
@@ -1288,6 +1527,7 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
                 break;
         case GF_QUOTA_OPTION_TYPE_LIST:
+        case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                 if (wordcount != 4)
                         break;
                 ret = cli_cmd_quota_handle_list_all (words, options);
@@ -2304,7 +2544,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_info_cbk,
           "list information of all volumes"},
 
-        { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] "
+        { "volume create <NEW-VOLNAME> [stripe <COUNT>] "
+          "[replica <COUNT> [arbiter <COUNT>]] "
           "[disperse [<COUNT>]] [disperse-data <COUNT>] [redundancy <COUNT>] "
           "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK>"
 #ifdef HAVE_BD_XLATOR
@@ -2330,6 +2571,14 @@ struct cli_cmd volume_cmds[] = {
         /*{ "volume rename <VOLNAME> <NEW-VOLNAME>",
           cli_cmd_volume_rename_cbk,
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
+
+        { "volume attach-tier <VOLNAME> [<replica COUNT>] <NEW-BRICK>...",
+          cli_cmd_volume_attach_tier_cbk,
+          "attach tier to volume <VOLNAME>"},
+
+        { "volume detach-tier <VOLNAME>",
+          cli_cmd_volume_detach_tier_cbk,
+          "detach tier from volume <VOLNAME>"},
 
         { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT>] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,
@@ -2389,11 +2638,18 @@ struct cli_cmd volume_cmds[] = {
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
 
-        { "volume quota <VOLNAME> {enable|disable|list [<path> ...]|remove <path>| default-soft-limit <percent>} |\n"
+        { "volume quota <VOLNAME> {enable|disable|list [<path> ...]| "
+          "list-objects [<path> ...] | remove <path>| remove-objects <path> | "
+          "default-soft-limit <percent>} |\n"
           "volume quota <VOLNAME> {limit-usage <path> <size> [<percent>]} |\n"
+          "volume quota <VOLNAME> {limit-objects <path> <number> [<percent>]} |\n"
           "volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
           cli_cmd_quota_cbk,
           "quota translator specific operations"},
+
+        { "features.ganesha { enable| disable } ",
+           cli_cmd_ganesha_cbk,
+          "global ganesha operations" },
 
          { "volume top <VOLNAME> {open|read|write|opendir|readdir|clear} [nfs|brick <brick>] [list-cnt <value>] |\n"
            "volume top <VOLNAME> {read-perf|write-perf} [bs <size> count <count>] [brick <brick>] [list-cnt <value>]",
@@ -2433,7 +2689,17 @@ struct cli_cmd volume_cmds[] = {
         },
         {"volume get <VOLNAME> <key|all>",
          cli_cmd_volume_getopt_cbk,
-         "Get the value of the all options or given option for volume <VOLNAME>"},
+         "Get the value of the all options or given option for volume <VOLNAME>"
+        },
+        { "volume bitrot <volname> {enable|disable} |\n"
+          "volume bitrot <volname> {scrub-throttle frozen|lazy|normal"
+          "|aggressive} |\n"
+          "volume bitrot <volname> {scrub-frequency daily|weekly|biweekly"
+          "|monthly} |\n"
+          "volume bitrot <volname> {scrub pause|resume}",
+          cli_cmd_bitrot_cbk,
+          "Bitrot translator specific operations."
+        },
         { NULL, NULL, NULL }
 };
 

@@ -24,6 +24,7 @@
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"
+#include "gf-dirent.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
 extern rpc_clnt_prog_t clnt_dump_prog;
@@ -1913,6 +1914,9 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!conf || !conf->fops)
                 goto out;
 
+        if (off != 0)
+                off = gf_dirent_orig_offset(this, off);
+
         args.fd = fd;
         args.size = size;
         args.offset = off;
@@ -1947,6 +1951,9 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         conf = this->private;
         if (!conf || !conf->fops)
                 goto out;
+
+        if (off != 0)
+                off = gf_dirent_orig_offset(this, off);
 
         args.fd = fd;
         args.size = size;
@@ -2138,6 +2145,38 @@ out:
         if (ret)
                 STACK_UNWIND_STRICT(zerofill, frame, -1, ENOTCONN,
                                     NULL, NULL, NULL);
+
+        return 0;
+}
+
+
+int32_t
+client_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        int          ret              = -1;
+        clnt_conf_t *conf             = NULL;
+        rpc_clnt_procedure_t *proc    = NULL;
+        clnt_args_t  args             = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.cmd = op;
+        args.xdata = xdata;
+
+        proc = &conf->fops->proctable[GF_FOP_IPC];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_IPC]);
+                goto out;
+        }
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT(ipc, frame, -1, ENOTCONN, NULL);
 
         return 0;
 }
@@ -2415,7 +2454,7 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int                     ret = -1;
 
-        if (!conf)
+       if (!conf)
                 goto out;
 
         GF_OPTION_INIT ("frame-timeout", conf->rpc_conf.rpc_timeout,
@@ -2437,6 +2476,8 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                         bool, out);
 
         GF_OPTION_INIT ("send-gids", conf->send_gids, bool, out);
+
+        conf->client_id = glusterfs_leaf_position(this);
 
         ret = client_check_remote_host (this, this->options);
         if (ret)
@@ -2943,6 +2984,7 @@ struct xlator_fops fops = {
 	.discard     = client_discard,
         .zerofill    = client_zerofill,
         .getspec     = client_getspec,
+        .ipc         = client_ipc,
 };
 
 

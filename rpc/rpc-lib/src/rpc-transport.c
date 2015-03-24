@@ -572,7 +572,7 @@ out:
 //why call it if you dont set it.
 int
 rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
-                                     int32_t time)
+                                     int32_t time, int32_t timeout)
 {
         int                     ret = -1;
 
@@ -586,6 +586,11 @@ rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
 
         ret = dict_set_int32 (options,
                 "transport.socket.keepalive-time", time);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options,
+                "transport.tcp-user-timeout", timeout);
         if (ret)
                 goto out;
 out:

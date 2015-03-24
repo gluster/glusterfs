@@ -32,6 +32,8 @@
 #define VKEY_MARKER_XTIME_FORCE   GEOREP".ignore-pid-check"
 #define VKEY_CHANGELOG            "changelog.changelog"
 #define VKEY_FEATURES_QUOTA       "features.quota"
+#define VKEY_FEATURES_TRASH       "features.trash"
+#define VKEY_FEATURES_BITROT      "features.bitrot"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"
@@ -86,6 +88,7 @@ typedef enum {
         GF_XLATOR_POSIX = 0,
         GF_XLATOR_ACL,
         GF_XLATOR_LOCKS,
+        GF_XLATOR_UPCALL,
         GF_XLATOR_IOT,
         GF_XLATOR_INDEX,
         GF_XLATOR_MARKER,

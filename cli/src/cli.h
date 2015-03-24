@@ -19,6 +19,7 @@
 #include "glusterfs.h"
 #include "protocol-common.h"
 #include "logging.h"
+#include "quota-common-utils.h"
 
 #include "cli1-xdr.h"
 
@@ -237,8 +238,14 @@ int32_t
 cli_cmd_quota_parse (const char **words, int wordcount, dict_t **opt);
 
 int32_t
+cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **opt);
+
+int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount,
                           dict_t **options, char **op_errstr);
+int32_t
+cli_cmd_ganesha_parse (struct cli_state *state, const char **words,
+                       int wordcount, dict_t **options, char **op_errstr);
 
 int32_t
 cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
@@ -372,6 +379,11 @@ cli_quota_xml_output (cli_local_t *local, char *path, char *hl_str,
                       char *sl, char *hl);
 
 int
+cli_quota_object_xml_output (cli_local_t *local, char *path, char *sl_str,
+                             quota_limits_t *limits, quota_meta_t *used_space,
+                             int64_t avail, char *sl, char *hl);
+
+int
 cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                             char *op_errstr);
 
@@ -422,4 +434,11 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
 int
 cli_xml_output_vol_getopts (dict_t *dict, int op_ret, int op_errno,
                              char *op_errstr);
+
+void
+print_quota_list_header (int type);
+
+void
+print_quota_list_empty (char *path, int type);
+
 #endif /* __CLI_H__ */

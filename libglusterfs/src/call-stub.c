@@ -2297,7 +2297,53 @@ out:
 }
 
 
-static void
+call_stub_t *
+fop_ipc_cbk_stub (call_frame_t *frame, fop_ipc_cbk_t fn,
+                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_IPC);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.ipc = fn;
+
+        stub->args_cbk.op_ret = op_ret;
+        stub->args_cbk.op_errno = op_errno;
+
+        if (xdata)
+                stub->args_cbk.xdata = dict_ref (xdata);
+out:
+        return stub;
+}
+
+call_stub_t *
+fop_ipc_stub (call_frame_t *frame, fop_ipc_t fn,
+              int32_t op, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_IPC);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.ipc = fn;
+
+        stub->args.cmd = op;
+
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+out:
+        return stub;
+
+}
+
+
+void
 call_resume_wind (call_stub_t *stub)
 {
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
@@ -2529,6 +2575,10 @@ call_resume_wind (call_stub_t *stub)
                                  stub->args.fd, stub->args.offset,
                                  stub->args.size, stub->args.xdata);
                 break;
+        case GF_FOP_IPC:
+                stub->fn.ipc (stub->frame, stub->frame->this,
+                              stub->args.cmd, stub->args.xdata);
+                break;
 
         default:
                 gf_log_callingfn ("call-stub", GF_LOG_ERROR,
@@ -2735,6 +2785,9 @@ call_resume_unwind (call_stub_t *stub)
         case GF_FOP_ZEROFILL:
                 STUB_UNWIND(stub, zerofill, &stub->args_cbk.prestat,
                             &stub->args_cbk.poststat, stub->args_cbk.xdata);
+                break;
+        case GF_FOP_IPC:
+                STUB_UNWIND (stub, ipc, stub->args_cbk.xdata);
                 break;
 
         default:

@@ -560,6 +560,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
         new_volinfo->sub_count = volinfo->sub_count;
         new_volinfo->transport_type = volinfo->transport_type;
         new_volinfo->brick_count = volinfo->brick_count;
+        new_volinfo->tier_info = volinfo->tier_info;
 
         dict_copy (volinfo->dict, new_volinfo->dict);
         dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);
@@ -8344,7 +8345,9 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
         }
 
         if ((type != GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) &&
-            (type != GF_QUOTA_OPTION_TYPE_REMOVE)) {
+            (type != GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) &&
+            (type != GF_QUOTA_OPTION_TYPE_REMOVE) &&
+            (type != GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS)) {
                 dict_copy (rsp_dict, dict);
                 ret = 0;
                 goto out;
@@ -9157,6 +9160,12 @@ glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo)
 }
 
 int
+glusterd_is_bitrot_enabled (glusterd_volinfo_t *volinfo)
+{
+        return glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_BITROT);
+}
+
+int
 glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
                                 char **op_errstr)
 {
@@ -9183,7 +9192,9 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
         }
 
         if ((op_code != GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) &&
-            (op_code != GF_QUOTA_OPTION_TYPE_REMOVE)) {
+            (op_code != GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) &&
+            (op_code != GF_QUOTA_OPTION_TYPE_REMOVE) &&
+            (op_code != GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS)) {
                 ret = 0;
                 goto out;
         }

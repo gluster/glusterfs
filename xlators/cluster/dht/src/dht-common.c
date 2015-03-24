@@ -23,6 +23,7 @@
 #include "defaults.h"
 #include "byte-order.h"
 #include "glusterfs-acl.h"
+#include "quota-common-utils.h"
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -31,47 +32,90 @@
 int dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret);
 
 int
+dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
+{
+        int              ret            = -1;
+        quota_meta_t    *meta_dst       = NULL;
+        quota_meta_t    *meta_src       = NULL;
+        int64_t         *size           = NULL;
+        int64_t          dst_dir_count  = 0;
+        int64_t          src_dir_count  = 0;
+
+        if (value == NULL) {
+                gf_log ("dht", GF_LOG_WARNING, "data value is NULL");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_bin (dst, key, (void **)&meta_dst);
+        if (ret < 0) {
+                meta_dst = GF_CALLOC (1, sizeof (quota_meta_t),
+                                      gf_common_quota_meta_t);
+                if (meta_dst == NULL) {
+                        gf_msg ("dht", GF_LOG_WARNING, 0, DHT_MSG_NO_MEMORY,
+                                "Memory allocation failed");
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_bin (dst, key, meta_dst,
+                                    sizeof (quota_meta_t));
+                if (ret < 0) {
+                        gf_log ("dht", GF_LOG_WARNING,
+                                "dht aggregate dict set failed");
+                        GF_FREE (meta_dst);
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (value->len > sizeof (int64_t)) {
+                meta_src = data_to_bin (value);
+
+                meta_dst->size = hton64 (ntoh64 (meta_dst->size) +
+                                         ntoh64 (meta_src->size));
+                meta_dst->file_count = hton64 (ntoh64 (meta_dst->file_count) +
+                                               ntoh64 (meta_src->file_count));
+
+                if (value->len > (2 * sizeof (int64_t))) {
+                        dst_dir_count = ntoh64 (meta_dst->dir_count);
+                        src_dir_count = ntoh64 (meta_src->dir_count);
+
+                        if (src_dir_count > dst_dir_count)
+                                meta_dst->dir_count = meta_src->dir_count;
+                } else {
+                        meta_dst->dir_count = 0;
+                }
+        } else {
+                size = data_to_bin (value);
+                meta_dst->size = hton64 (ntoh64 (meta_dst->size) +
+                                         ntoh64 (*size));
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
 {
-        dict_t  *dst  = NULL;
-        int64_t *ptr  = 0, *size = NULL;
-        int32_t  ret  = -1;
-        data_t  *dict_data = NULL;
+        dict_t          *dst            = NULL;
+        int32_t          ret            = -1;
+        data_t          *dict_data      = NULL;
 
         dst = data;
 
-        if (strcmp (key, GF_XATTR_QUOTA_SIZE_KEY) == 0) {
-                ret = dict_get_bin (dst, key, (void **)&size);
-                if (ret < 0) {
-                        size = GF_CALLOC (1, sizeof (int64_t),
-                                          gf_common_mt_char);
-                        if (size == NULL) {
-                                gf_msg ("dht", GF_LOG_WARNING, 0,
-                                        DHT_MSG_NO_MEMORY,
-                                        "Memory allocation failed");
-                                return -1;
-                        }
-                        ret = dict_set_bin (dst, key, size, sizeof (int64_t));
-                        if (ret < 0) {
-                                gf_log ("dht", GF_LOG_WARNING,
-                                        "dht aggregate dict set failed");
-                                GF_FREE (size);
-                                return -1;
-                        }
+        if (strcmp (key, QUOTA_SIZE_KEY) == 0) {
+                ret = dht_aggregate_quota_xattr (dst, key, value);
+                if (ret) {
+                        gf_log ("dht", GF_LOG_WARNING, "Failed to "
+                                "aggregate qutoa xattr");
+                        goto out;
                 }
-
-                ptr = data_to_bin (value);
-                if (ptr == NULL) {
-                        gf_log ("dht", GF_LOG_WARNING, "data to bin failed");
-                        return -1;
-                }
-
-                *size = hton64 (ntoh64 (*size) + ntoh64 (*ptr));
-
         } else if (fnmatch (GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0) {
                 ret = gf_get_min_stime (THIS, dst, key, value);
                 if (ret < 0)
-                        return ret;
+                        goto out;
         } else {
                 /* compare user xattrs only */
                 if (!strncmp (key, "user.", strlen ("user."))) {
@@ -85,14 +129,17 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                         }
                 }
                 ret = dict_set (dst, key, value);
-                if (ret)
+                if (ret) {
                         gf_msg ("dht", GF_LOG_WARNING, 0,
                                 DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set dictionary value: key = %s",
                                 key);
+                }
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -254,7 +301,6 @@ selfheal:
         return ret;
 
 }
-
 
 int
 dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2840,6 +2886,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
+
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 if (!hashed_subvol) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2864,6 +2911,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENODATA;
                         goto err;
                 }
+
                 STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
                             hashed_subvol->fops->getxattr, loc,
                             GF_XATTR_PATHINFO_KEY, xdata);
@@ -2894,7 +2942,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && !strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key)) {
+        if (key && (!strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key) ||
+                    !strcmp (GF_XATTR_QUOTA_LIMIT_LIST_OBJECT, key))) {
                 /* quota hardlimit and aggregated size of a directory is stored
                  * in inode contexts of each brick. Hence its good enough that
                  * we send getxattr for this key to any brick.
@@ -3126,6 +3175,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol   = NULL;
         dht_local_t  *local    = NULL;
         dht_conf_t   *conf     = NULL;
+        dht_methods_t *methods = NULL;
         dht_layout_t *layout   = NULL;
         int           i        = 0;
         int           op_errno = EINVAL;
@@ -3142,6 +3192,10 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
 
         conf   = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, err);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, err);
 
         GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
                                    op_errno, err);
@@ -3206,8 +3260,8 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                local->rebalance.target_node =
-                        dht_subvol_get_hashed (this, &local->loc);
+                methods->migration_get_dst_subvol(this, local);
+
                 if (!local->rebalance.target_node) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_HASHED_SUBVOL_GET_FAILED,
@@ -3670,7 +3724,6 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
-        VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (this->private, err);
 
         conf = this->private;
@@ -3681,7 +3734,7 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto err;
         }
 
-        if (IA_ISDIR (loc->inode->ia_type)) {
+        if (!loc->inode || IA_ISDIR (loc->inode->ia_type)) {
                 local->call_cnt = conf->subvolume_cnt;
 
                 for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -3771,6 +3824,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         int           count = 0;
         dht_layout_t *layout = 0;
         dht_conf_t   *conf   = NULL;
+        dht_methods_t *methods = NULL;
         xlator_t     *subvol = 0;
         xlator_t     *hashed_subvol = 0;
         int           ret    = 0;
@@ -3779,7 +3833,12 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
+
         conf  = this->private;
+        GF_VALIDATE_OR_GOTO(this->name, conf, unwind);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO(this->name, conf->methods, done);
 
         if (op_ret < 0)
                 goto done;
@@ -3818,8 +3877,8 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
                         }
 
-                        hashed_subvol = dht_layout_search (this, layout, \
-                                                           orig_entry->d_name);
+                        hashed_subvol = methods->layout_search (this, layout,
+                                                         orig_entry->d_name);
 
                         if (prev->this == hashed_subvol)
                                 goto list;
@@ -3845,8 +3904,8 @@ list:
 
                 /* Do this if conf->search_unhashed is set to "auto" */
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
-                        subvol = dht_layout_search (this, layout,
-                                                    orig_entry->d_name);
+                        subvol = methods->layout_search (this, layout,
+                                                         orig_entry->d_name);
                         if (!subvol || (subvol != prev->this)) {
                                 /* TODO: Count the number of entries which need
                                    linkfile to prove its existence in fs */
@@ -3854,9 +3913,7 @@ list:
                         }
                 }
 
-                dht_itransform (this, prev->this, orig_entry->d_off,
-                                &entry->d_off);
-
+                entry->d_off  = orig_entry->d_off;
                 entry->d_stat = orig_entry->d_stat;
                 entry->d_ino  = orig_entry->d_ino;
                 entry->d_type = orig_entry->d_type;
@@ -3961,10 +4018,18 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           count = 0;
         dht_layout_t *layout = 0;
         xlator_t     *subvol = 0;
+        dht_conf_t   *conf = NULL;
+        dht_methods_t *methods = NULL;
 
         INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, done);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, conf->methods, done);
 
         if (op_ret < 0)
                 goto done;
@@ -3977,7 +4042,8 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
 
-                subvol = dht_layout_search (this, layout, orig_entry->d_name);
+                subvol = methods->layout_search (this, layout,
+                                                 orig_entry->d_name);
 
                 if (!subvol || (subvol == prev->this)) {
                         entry = gf_dirent_for_name (orig_entry->d_name);
@@ -3988,9 +4054,7 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 goto unwind;
                         }
 
-                        dht_itransform (this, prev->this, orig_entry->d_off,
-                                        &entry->d_off);
-
+                        entry->d_off  = orig_entry->d_off;
                         entry->d_ino  = orig_entry->d_ino;
                         entry->d_type = orig_entry->d_type;
                         entry->d_len  = orig_entry->d_len;
@@ -4050,7 +4114,6 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         dht_local_t  *local  = NULL;
         int           op_errno = -1;
         xlator_t     *xvol = NULL;
-        off_t         xoff = 0;
         int           ret = 0;
         dht_conf_t   *conf = NULL;
 
@@ -4072,7 +4135,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->xattr_req = (dict)? dict_ref (dict) : NULL;
         local->first_up_subvol = dht_first_up_subvol (this);
 
-        dht_deitransform (this, yoff, &xvol, (uint64_t *)&xoff);
+        dht_deitransform (this, yoff, &xvol);
 
         /* TODO: do proper readdir */
         if (whichop == GF_FOP_READDIRP) {
@@ -4111,10 +4174,10 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 }
 
                 STACK_WIND (frame, dht_readdirp_cbk, xvol, xvol->fops->readdirp,
-                            fd, size, xoff, local->xattr);
+                            fd, size, yoff, local->xattr);
         } else {
                 STACK_WIND (frame, dht_readdir_cbk, xvol, xvol->fops->readdir,
-                            fd, size, xoff, local->xattr);
+                            fd, size, yoff, local->xattr);
         }
 
         return 0;
@@ -6029,11 +6092,13 @@ dht_notify (xlator_t *this, int event, void *data, ...)
         gf_defrag_type           cmd    = 0;
         dict_t                  *output = NULL;
         va_list                  ap;
-
+        dht_methods_t           *methods = NULL;
 
         conf = this->private;
-        if (!conf)
-                return ret;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        methods = conf->methods;
+        GF_VALIDATE_OR_GOTO (this->name, methods, out);
 
         /* had all subvolumes reported status once till now? */
         had_heard_from_all = 1;
@@ -6227,12 +6292,18 @@ unlock:
                  * not need to handle CHILD_DOWN event here.
                  */
                 if (conf->defrag) {
-                        ret = gf_thread_create (&conf->defrag->th, NULL,
-						gf_defrag_start, this);
-                        if (ret) {
-                                conf->defrag = NULL;
+                        if (methods->migration_needed(this)) {
+                                ret = gf_thread_create(&conf->defrag->th,
+                                                       NULL,
+                                                       gf_defrag_start, this);
+                                if (ret) {
+                                        GF_FREE (conf->defrag);
+                                        conf->defrag = NULL;
+                                        kill (getpid(), SIGTERM);
+                                }
+                        } else {
                                 GF_FREE (conf->defrag);
-                                kill (getpid(), SIGTERM);
+                                conf->defrag = NULL;
                         }
                 }
         }
@@ -6240,7 +6311,7 @@ unlock:
         ret = 0;
         if (propagate)
                 ret = default_notify (this, event, data);
-
+out:
         return ret;
 }
 
@@ -6367,4 +6438,41 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
 err:
         GF_FREE (output_string);
+}
+
+int32_t dht_migration_get_dst_subvol(xlator_t *this, dht_local_t  *local)
+{
+        int ret = -1;
+
+        if (!local)
+                goto out;
+
+        local->rebalance.target_node =
+                dht_subvol_get_hashed (this, &local->loc);
+
+        if (local->rebalance.target_node)
+                ret = 0;
+
+out:
+        return ret;
+}
+
+int32_t dht_migration_needed(xlator_t *this)
+{
+        gf_defrag_info_t        *defrag = NULL;
+        dht_conf_t              *conf   = NULL;
+        int                      ret = 0;
+
+        conf = this->private;
+
+        GF_VALIDATE_OR_GOTO ("dht", conf, out);
+        GF_VALIDATE_OR_GOTO ("dht", conf->defrag, out);
+
+        defrag = conf->defrag;
+
+        if (defrag->cmd != GF_DEFRAG_CMD_START_TIER)
+                ret = 1;
+
+out:
+        return ret;
 }

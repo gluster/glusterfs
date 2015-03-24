@@ -40,7 +40,7 @@ main (int argc, char ** argv)
         char fbuf[PATH_MAX] = {0,};
 
         /* get changes for brick "/home/vshankar/export/yow/yow-1" */
-        ret = gf_changelog_register ("/home/vshankar/exports/yow/yow-1",
+        ret = gf_changelog_register ("/export/z1/zwoop",
                                      "/tmp/scratch", "/tmp/change.log", 9, 5);
         if (ret) {
                 handle_error ("register failed");

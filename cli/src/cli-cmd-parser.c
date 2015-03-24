@@ -355,6 +355,10 @@ cli_validate_disperse_volume (char *word, gf1_cluster_type type,
                 cli_err ("striped-replicated-dispersed volume "
                          "is not supported");
                 goto out;
+        case GF_CLUSTER_TYPE_TIER:
+                cli_err ("tier-dispersed volume is not "
+                         "supported");
+                goto out;
         case GF_CLUSTER_TYPE_STRIPE:
                 cli_err ("striped-dispersed volume is not "
                          "supported");
@@ -364,6 +368,55 @@ cli_validate_disperse_volume (char *word, gf1_cluster_type type,
                          "supported");
                 goto out;
         }
+out:
+        return ret;
+}
+
+int32_t
+cli_validate_volname (const char *volname)
+{
+        int32_t            ret                       = -1;
+        int32_t            i                         = -1;
+        static const char * const invalid_volnames[] = {
+                                      "volume", "type", "subvolumes", "option",
+                                      "end-volume", "all", "volume_not_in_ring",
+                                      "description", "force",
+                                      "snap-max-hard-limit",
+                                      "snap-max-soft-limit", "auto-delete",
+                                      "activate-on-create", NULL};
+
+        if (volname[0] == '-')
+                goto out;
+
+        for (i = 0; invalid_volnames[i]; i++) {
+                if (!strcmp (volname, invalid_volnames[i])) {
+                        cli_err ("\"%s\" cannot be the name of a volume.",
+                                 volname);
+                        goto out;
+                }
+        }
+
+        if (strchr (volname, '/'))
+                goto out;
+
+        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                cli_err("Volume name exceeds %d characters.",
+                        GD_VOLUME_NAME_MAX);
+                goto out;
+        }
+
+        for (i = 0; i < strlen (volname); i++) {
+                if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                   (volname[i] != '-')) {
+                        cli_err ("Volume name should not contain \"%c\""
+                                 " character.\nVolume names can only"
+                                 "contain alphanumeric, '-' and '_' "
+                                 "characters.", volname[i]);
+                        goto out;
+                }
+        }
+
+        ret = 0;
 out:
         return ret;
 }
@@ -379,24 +432,18 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         int     count = 1;
         int     sub_count = 1;
         int     brick_index = 0;
-        int     i = 0;
         char    *trans_type = NULL;
         int32_t index = 0;
         char    *bricks = NULL;
         int32_t brick_count = 0;
         char    *opwords[] = { "replica", "stripe", "transport", "disperse",
-                               "redundancy", "disperse-data", NULL };
+                               "redundancy", "disperse-data", "arbiter", NULL };
 
-        char    *invalid_volnames[] = {"volume", "type", "subvolumes", "option",
-                                       "end-volume", "all", "volume_not_in_ring",
-                                       "description", "force",
-                                       "snap-max-hard-limit",
-                                       "snap-max-soft-limit", "auto-delete",
-                                       "activate-on-create", NULL};
         char    *w = NULL;
         char    *ptr = NULL;
         int      op_count = 0;
         int32_t  replica_count = 1;
+        int32_t  arbiter_count = 0;
         int32_t  stripe_count = 1;
         int32_t  disperse_count = -1;
         int32_t  redundancy_count = -1;
@@ -420,37 +467,8 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         GF_ASSERT (volname);
 
         /* Validate the volume name here itself */
-        {
-                if (volname[0] == '-')
-                        goto out;
-
-                for (i = 0; invalid_volnames[i]; i++) {
-                        if (!strcmp (volname, invalid_volnames[i])) {
-                                cli_err ("\"%s\" cannot be the name of a volume.",
-                                         volname);
-                                goto out;
-                        }
-                }
-
-                if (strchr (volname, '/'))
-                        goto out;
-
-                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
-                        cli_err("Volume name exceeds %d characters.",
-                                GD_VOLUME_NAME_MAX);
-                        goto out;
-                }
-
-                for (i = 0; i < strlen (volname); i++)
-                        if (!isalnum (volname[i]) && (volname[i] != '_') &&
-                           (volname[i] != '-')) {
-                                cli_err ("Volume name should not contain \"%c\""
-                                         " character.\nVolume names can only"
-                                         "contain alphanumeric, '-' and '_' "
-                                         "characters.",volname[i]);
-                                goto out;
-                        }
-        }
+        if (cli_validate_volname (volname) < 0)
+                goto out;
 
         if (wordcount < 4) {
                 ret = -1;
@@ -477,6 +495,11 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         case GF_CLUSTER_TYPE_STRIPE:
                                 type = GF_CLUSTER_TYPE_STRIPE_REPLICATE;
                                 break;
+                        case GF_CLUSTER_TYPE_TIER:
+                                cli_err ("replicated-tiered volume is not "
+                                         "supported");
+                                goto out;
+                                break;
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 cli_err ("replicated-dispersed volume is not "
                                          "supported");
@@ -499,6 +522,25 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 goto out;
 
                         index += 2;
+                        if (!strcmp (words[index], "arbiter")) {
+                                ret = gf_string2int (words[index+1],
+                                                     &arbiter_count);
+                                if (ret == -1 || arbiter_count != 1 ||
+                                    replica_count != 3) {
+                                        cli_err ("For arbiter configuration, "
+                                                 "replica count must be 3 and "
+                                                 "arbiter count must be 1. "
+                                                 "The 3rd brick of the replica "
+                                                 "will be the arbiter.");
+                                        ret = -1;
+                                        goto out;
+                                }
+                                ret = dict_set_int32 (dict, "arbiter-count",
+                                                      arbiter_count);
+                                if (ret)
+                                        goto out;
+                                index += 2;
+                        }
 
                 } else if ((strcmp (w, "stripe")) == 0) {
                         switch (type) {
@@ -514,6 +556,10 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 break;
                         case GF_CLUSTER_TYPE_DISPERSE:
                                 cli_err ("striped-dispersed volume is not "
+                                         "supported");
+                                goto out;
+                        case GF_CLUSTER_TYPE_TIER:
+                                cli_err ("striped-tier volume is not "
                                          "supported");
                                 goto out;
                         }
@@ -754,30 +800,128 @@ out:
                 return ret;
 }
 
+/* Parsing global option for NFS-Ganesha config
+ *  gluster features.ganesha enable/disable */
+
+int32_t
+cli_cmd_ganesha_parse (struct cli_state *state,
+                       const char **words, int wordcount,
+                       dict_t **options, char **op_errstr)
+{
+        dict_t  *dict     =       NULL;
+        int     ret       =       -1;
+        int     flags     =       0;
+        char    *key      =       NULL;
+        char    *value    =       NULL;
+        int     i         =       0;
+        char    *w        =       NULL;
+        char   *opwords[] =      { "enable", "disable" };
+        const char      *question       =       NULL;
+        gf_answer_t     answer          =       GF_ANSWER_NO;
+
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        if (wordcount != 2)
+                goto out;
+
+        key   = (char *) words[0];
+        value = (char *) words[1];
+
+        if (!key || !value) {
+                cli_out ("Usage : features.ganesha <enable/disable>");
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_strip_whitespace (value, strlen (value));
+        if (ret == -1)
+                goto out;
+
+        if (strcmp (key, "features.ganesha")) {
+                gf_asprintf (op_errstr, "Global option: error: ' %s '"
+                          "is not a valid global option.", key);
+                ret = -1;
+                goto out;
+        }
+
+        w = str_getunamb (value, opwords);
+        if (!w) {
+                cli_out ("Invalid global option \n"
+                         "Usage : features.ganesha <enable/disable>");
+                ret = -1;
+                goto out;
+        }
+
+        question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
+                   "disabled across the trusted pool. Do you "
+                   "still want to continue?";
+
+        if (strcmp (value, "enable") == 0) {
+                answer = cli_cmd_get_confirmation (state, question);
+                if (GF_ANSWER_NO == answer) {
+                        gf_log ("cli", GF_LOG_ERROR, "Global operation "
+                                "cancelled, exiting");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = dict_set_str (dict, "key", key);
+        if (ret) {
+               gf_log (THIS->name, GF_LOG_ERROR, "dict set on key failed");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "value", value);
+        if (ret) {
+               gf_log (THIS->name, GF_LOG_ERROR, "dict set on value failed");
+                goto out;
+        }
+
+        *options = dict;
+out:
+        if (ret)
+                dict_unref (dict);
+
+        return ret;
+}
+
 int32_t
 cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t          *dict    = NULL;
         char            *volname = NULL;
         int              ret     = -1;
-        int              i       = 0;
+        int              i       = -1;
         char             key[20] = {0, };
         uint64_t         value   = 0;
         gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
         char           *opwords[] = { "enable", "disable", "limit-usage",
                                       "remove", "list", "alert-time",
                                       "soft-timeout", "hard-timeout",
-                                      "default-soft-limit", NULL};
+                                      "default-soft-limit", "limit-objects",
+                                      "list-objects", "remove-objects", NULL};
         char            *w       = NULL;
         uint32_t         time    = 0;
         double           percent = 0;
+        char            *end_ptr = NULL;
+        int64_t          limit   = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
 
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                gf_log ("cli", GF_LOG_ERROR, "dict_new failed");
                 goto out;
+        }
 
         if (wordcount < 4)
                 goto out;
@@ -789,34 +933,8 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         /* Validate the volume name here itself */
-        {
-                if (volname[0] == '-')
-                        goto out;
-
-                if (!strcmp (volname, "all")) {
-                        cli_err ("\"all\" cannot be the name of a volume.");
-                        goto out;
-                }
-
-                if (strchr (volname, '/'))
-                        goto out;
-
-                if (strlen (volname) > GD_VOLUME_NAME_MAX) {
-                        cli_err("Volname can not exceed %d characters.",
-                                GD_VOLUME_NAME_MAX);
-                        goto out;
-                }
-
-                for (i = 0; i < strlen (volname); i++)
-                       if (!isalnum (volname[i]) && (volname[i] != '_') &&
-                          (volname[i] != '-')) {
-                                cli_err ("Volume name should not contain \"%c\""
-                                         " character.\nVolume names can only"
-                                         "contain alphanumeric, '-' and '_' "
-                                         "characters.",volname[i]);
-                                goto out;
-                       }
-        }
+        if (cli_validate_volname (volname) < 0)
+                goto out;
 
         ret = dict_set_str (dict, "volname", volname);
         if (ret < 0)
@@ -852,13 +970,18 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         if (strcmp (w, "limit-usage") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
+        } else if (strcmp (w, "limit-objects") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS;
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
+            type == GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) {
 
                 if (wordcount < 6 || wordcount > 7) {
                         ret = -1;
                         goto out;
                 }
-
-                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
 
                 if (words[4][0] != '/') {
                         cli_err ("Please enter absolute path");
@@ -875,13 +998,26 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 }
 
-                ret = gf_string2bytesize_uint64 (words[5], &value);
-                if (ret != 0) {
-                        if (errno == ERANGE)
-                                cli_err ("Value too large: %s", words[5]);
-                        else
-                                cli_err ("Please enter a correct value");
-                        goto out;
+                if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
+                        ret = gf_string2bytesize_uint64 (words[5], &value);
+                        if (ret != 0) {
+                                if (errno == ERANGE)
+                                        cli_err ("Value too large: %s",
+                                                 words[5]);
+                                else
+                                        cli_err ("Please enter a correct "
+                                                 "value");
+                                goto out;
+                        }
+                } else {
+                        errno = 0;
+                        limit = strtol (words[5], &end_ptr, 10);
+                        if (errno == ERANGE || errno == EINVAL || limit <= 0) {
+                                ret = -1;
+                                cli_err ("Please enter an interger value in "
+                                         "the range 1 - %"PRId64, INT64_MAX);
+                                goto out;
+                        }
                 }
 
                 ret  = dict_set_str (dict, "hard-limit", (char *) words[5]);
@@ -904,6 +1040,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 
                 goto set_type;
         }
+
         if (strcmp (w, "remove") == 0) {
                 if (wordcount != 5) {
                         ret = -1;
@@ -911,6 +1048,26 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 }
 
                 type = GF_QUOTA_OPTION_TYPE_REMOVE;
+
+                if (words[4][0] != '/') {
+                        cli_err ("Please enter absolute path");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "path", (char *) words[4]);
+                if (ret < 0)
+                        goto out;
+                goto set_type;
+        }
+
+        if (strcmp (w, "remove-objects") == 0) {
+                if (wordcount != 5) {
+                        ret = -1;
+                        goto out;
+                }
+
+                type = GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS;
 
                 if (words[4][0] != '/') {
                         cli_err ("Please enter absolute path");
@@ -948,6 +1105,35 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto set_type;
         }
 
+        if (strcmp (w, "list-objects") == 0) {
+                if (wordcount < 4) {
+                        ret = -1;
+                        goto out;
+                }
+
+                type = GF_QUOTA_OPTION_TYPE_LIST_OBJECTS;
+
+                i = 4;
+                while (i < wordcount) {
+                        snprintf (key, 20, "path%d", i-4);
+
+                        ret = dict_set_str (dict, key, (char *) words[i++]);
+                        if (ret < 0) {
+                                gf_log ("cli", GF_LOG_ERROR, "Failed to set "
+                                        "quota patch in request dictionary");
+                                goto out;
+                        }
+                }
+
+                ret = dict_set_int32 (dict, "count", i - 4);
+                if (ret < 0) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set quota "
+                                "limit count in request dictionary");
+                        goto out;
+                }
+
+                goto set_type;
+        }
 
         if (strcmp (w, "alert-time") == 0) {
                 if (wordcount != 5) {
@@ -968,6 +1154,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 goto set_type;
         }
+
         if (strcmp (w, "soft-timeout") == 0) {
                 if (wordcount != 5) {
                         ret = -1;
@@ -987,6 +1174,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
                 goto set_type;
         }
+
         if (strcmp (w, "hard-timeout") == 0) {
                 if(wordcount != 5) {
                         ret = -1;
@@ -3229,6 +3417,16 @@ cli_cmd_volume_defrag_parse (const char **words, int wordcount,
                 if (strcmp (words[3], "start") && strcmp (words[3], "stop") &&
                     strcmp (words[3], "status"))
                             goto out;
+        } else if ((strcmp (words[3], "tier") == 0) &&
+               (strcmp (words[4], "start") == 0)) {
+                volname = (char *) words[2];
+                cmd = GF_DEFRAG_CMD_START_TIER;
+                goto done;
+        } else if ((strcmp (words[3], "tier") == 0) &&
+               (strcmp (words[4], "status") == 0)) {
+                volname = (char *) words[2];
+                cmd = GF_DEFRAG_CMD_STATUS_TIER;
+                goto done;
         } else {
                 if (strcmp (words[3], "fix-layout") &&
                     strcmp (words[3], "start"))
@@ -3357,6 +3555,83 @@ cli_check_if_volname_repeated (const char **words, unsigned int start_index,
 out:
         return ret;
 }
+
+/* snapshot clone <clonename> <snapname>
+ * @arg-0, dict     : Request Dictionary to be sent to server side.
+ * @arg-1, words    : Contains individual words of CLI command.
+ * @arg-2, wordcount: Contains number of words present in the CLI command.
+ *
+ * return value : -1 on failure
+ *                 0 on success
+ */
+int
+cli_snap_clone_parse (dict_t *dict, const char **words, int wordcount) {
+        uint64_t        i               =       0;
+        int             ret             =       -1;
+        char            key[PATH_MAX]   =       "";
+        char            *clonename      =       NULL;
+        unsigned int    cmdi            =       2;
+        int             flags           =       0;
+        /* cmdi is command index, here cmdi is "2" (gluster snapshot clone)*/
+
+        GF_ASSERT (words);
+        GF_ASSERT (dict);
+
+        if (wordcount == cmdi + 1) {
+                cli_err ("Invalid Syntax.");
+                gf_log ("cli", GF_LOG_ERROR,
+                        "Invalid number of  words for snap clone command");
+                goto out;
+        }
+
+        if (strlen(words[cmdi]) >= GLUSTERD_MAX_SNAP_NAME) {
+                cli_err ("snapshot clone: failed: clonename cannot exceed "
+                         "255 characters.");
+                gf_log ("cli", GF_LOG_ERROR, "Clone name too long");
+
+                goto out;
+        }
+
+        clonename = (char *) words[cmdi];
+        for (i = 0 ; i < strlen (clonename); i++) {
+                /* Following volume name convention */
+                if (!isalnum (clonename[i]) && (clonename[i] != '_'
+                                           && (clonename[i] != '-'))) {
+                        /* TODO : Is this message enough?? */
+                        cli_err ("Clonename can contain only alphanumeric, "
+                                 "\"-\" and \"_\" characters");
+                        goto out;
+                }
+        }
+
+        ret = dict_set_int32 (dict, "volcount", 1);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save volcount");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "clonename", (char *)words[cmdi]);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not save clone "
+                        "name(%s)", (char *)words[cmdi]);
+                goto out;
+        }
+
+        /* Filling snap name in the dictionary */
+        ret = dict_set_str (dict, "snapname", (char *)words[cmdi+1]);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not "
+                        "save snap name(%s)", (char *)words[cmdi+1]);
+                goto out;
+        }
+
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
 
 /* snapshot create <snapname> <vol-name(s)> [description <description>]
  *                                           [force]
@@ -4223,16 +4498,16 @@ out:
 }
 
 int
-validate_snapname (const char *snapname, char **opwords) {
+validate_op_name (const char *op, const char *opname, char **opwords) {
         int     ret     =       -1;
         int     i       =       0;
 
-        GF_ASSERT (snapname);
+        GF_ASSERT (opname);
         GF_ASSERT (opwords);
 
         for (i = 0 ; opwords[i] != NULL; i++) {
-                if (strcmp (opwords[i], snapname) == 0) {
-                        cli_out ("\"%s\" cannot be a snapname", snapname);
+                if (strcmp (opwords[i], opname) == 0) {
+                        cli_out ("\"%s\" cannot be a %s", opname, op);
                         goto out;
                 }
         }
@@ -4251,9 +4526,19 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
         char               *w         = NULL;
         char               *opwords[] = {"create", "delete", "restore",
                                         "activate", "deactivate", "list",
-                                        "status", "config", "info", NULL};
+                                        "status", "config", "info", "clone",
+                                        NULL};
         char               *invalid_snapnames[] = {"description", "force",
                                                   "volume", "all", NULL};
+        char               *invalid_volnames[]  = {"volume", "type",
+                                                   "subvolumes", "option",
+                                                   "end-volume", "all",
+                                                   "volume_not_in_ring",
+                                                   "description", "force",
+                                                   "snap-max-hard-limit",
+                                                   "snap-max-soft-limit",
+                                                   "auto-delete",
+                                                   "activate-on-create", NULL};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -4295,6 +4580,8 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                 type = GF_SNAP_OPTION_TYPE_ACTIVATE;
         } else if (!strcmp (w, "deactivate")) {
                 type = GF_SNAP_OPTION_TYPE_DEACTIVATE;
+        } else if (!strcmp(w, "clone")) {
+                type = GF_SNAP_OPTION_TYPE_CLONE;
         }
 
         if (type != GF_SNAP_OPTION_TYPE_CONFIG &&
@@ -4339,7 +4626,8 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
 
-                ret = validate_snapname (words[2], invalid_snapnames);
+                ret = validate_op_name ("snapname", words[2],
+                                        invalid_snapnames);
                 if (ret) {
                         goto out;
                 }
@@ -4351,6 +4639,35 @@ cli_cmd_snapshot_parse (const char **words, int wordcount, dict_t **options,
                         goto out;
                 }
                 break;
+
+        case GF_SNAP_OPTION_TYPE_CLONE:
+                /* Syntax :
+                 * gluster snapshot clone <clonename> <snapname>
+                 */
+                /* In cases where the clonename is not given then
+                 * parsing fails & snapname cannot be "description",
+                 * "force" and "volume", that check is made here
+                 */
+                if (wordcount == 2) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "Invalid Syntax");
+                        goto out;
+                }
+
+                ret = validate_op_name ("clonename", words[2],
+                                        invalid_volnames);
+                if (ret) {
+                        goto out;
+                }
+
+                ret = cli_snap_clone_parse (dict, words, wordcount);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "clone command parsing failed.");
+                        goto out;
+                }
+                break;
+
 
         case GF_SNAP_OPTION_TYPE_INFO:
                 /* Syntax :
@@ -4488,6 +4805,225 @@ out:
                         dict_destroy (dict);
         } else
                 *options = dict;
+
+        return ret;
+}
+
+int
+cli_cmd_validate_volume (char *volname)
+{
+        int       i        =  0;
+        int       ret      = -1;
+
+
+        if (volname[0] == '-')
+                return ret;
+
+        if (!strcmp (volname, "all")) {
+                cli_err ("\"all\" cannot be the name of a volume.");
+                return ret;
+        }
+
+        if (strchr (volname, '/')) {
+                cli_err ("Volume name should not contain \"/\" character.");
+                return ret;
+        }
+
+        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+                cli_err ("Volname can not exceed %d characters.",
+                        GD_VOLUME_NAME_MAX);
+                return ret;
+        }
+
+        for (i = 0; i < strlen (volname); i++)
+                if (!isalnum (volname[i]) && (volname[i] != '_') &&
+                    (volname[i] != '-')) {
+                        cli_err ("Volume name should not contain \"%c\""
+                                 " character.\nVolume names can only"
+                                 "contain alphanumeric, '-' and '_' "
+                                 "characters.", volname[i]);
+                        return ret;
+                }
+
+        ret = 0;
+
+        return ret;
+}
+
+int32_t
+cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
+{
+        int32_t            ret                    = -1;
+        char               *w                     = NULL;
+        char               *volname               = NULL;
+        char               *opwords[]             = {"enable", "disable",
+                                                     "scrub-throttle",
+                                                     "scrub-frequency",
+                                                     "scrub"};
+        char               *scrub_throt_values[]  = {"frozen", "lazy", "normal",
+                                                     "aggressive"};
+        char               *scrub_freq_values[]   = {"daily", "weekly",
+                                                     "biweekly", "monthly"};
+        char               *scrub_values[]        = {"pause", "resume"};
+        dict_t             *dict                  = NULL;
+        gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount < 4 || wordcount > 5) {
+                gf_log ("", GF_LOG_ERROR, "Invalid syntax");
+                goto out;
+        }
+
+        volname = (char *)words[2];
+        if (!volname) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_validate_volume (volname);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to validate volume name");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret) {
+                cli_out ("Failed to set volume name in dictionary ");
+                goto out;
+        }
+
+        w = str_getunamb (words[3], opwords);
+        if (!w) {
+                cli_out ("Invalid bit rot option : %s", words[3]);
+                ret = -1;
+                goto out;
+        }
+
+        if (strcmp (w, "enable") == 0) {
+                if (wordcount == 4) {
+                        type = GF_BITROT_OPTION_TYPE_ENABLE;
+                        ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (strcmp (w, "disable") == 0) {
+                if (wordcount == 4) {
+                        type = GF_BITROT_OPTION_TYPE_DISABLE;
+                        ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (!strcmp (w, "scrub-throttle")) {
+                if (!words[4]) {
+                        cli_err ("Missing scrub-throttle value for bitrot "
+                                 "option");
+                        ret = -1;
+                        goto out;
+                } else {
+                        w = str_getunamb (words[4], scrub_throt_values);
+                        if (!w) {
+                                cli_err ("Invalid scrub-throttle option for "
+                                         "bitrot");
+                                ret = -1;
+                                goto out;
+                        } else {
+                                type = GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE;
+                                ret =  dict_set_str (dict,
+                                                     "scrub-throttle-value",
+                                                     (char *) words[4]);
+                                if (ret) {
+                                        cli_out ("Failed to set scrub-throttle "
+                                                 "value in the dict");
+                                        goto out;
+                                }
+                                goto set_type;
+                        }
+                }
+        }
+
+        if (!strcmp (words[3], "scrub-frequency")) {
+                if (!words[4]) {
+                        cli_err ("Missing scrub-frequency value");
+                        ret = -1;
+                        goto out;
+                } else {
+                        w = str_getunamb (words[4], scrub_freq_values);
+                        if (!w) {
+                                cli_err ("Invalid frequency option for bitrot");
+                                ret = -1;
+                                goto out;
+                        } else {
+                                type = GF_BITROT_OPTION_TYPE_SCRUB_FREQ;
+                                ret = dict_set_str (dict,
+                                                    "scrub-frequency-value",
+                                                    (char *) words[4]);
+                                if (ret) {
+                                        cli_out ("Failed to set dict for "
+                                                 "bitrot");
+                                        goto out;
+                                }
+                                goto set_type;
+                        }
+                }
+        }
+
+        if (!strcmp (words[3], "scrub")) {
+                if (!words[4]) {
+                        cli_err ("Missing scrub value for bitrot option");
+                        ret = -1;
+                        goto out;
+                } else {
+                        w = str_getunamb (words[4], scrub_values);
+                        if (!w) {
+                                cli_err ("Invalid scrub option for bitrot");
+                                ret = -1;
+                                goto out;
+                        } else {
+                                type = GF_BITROT_OPTION_TYPE_SCRUB;
+                                ret =  dict_set_str (dict, "scrub-value",
+                                                    (char *) words[4]);
+                                if (ret) {
+                                        cli_out ("Failed to set dict for "
+                                                 "bitrot");
+                                        goto out;
+                                }
+                                goto set_type;
+                        }
+                }
+        } else {
+                cli_err ("Invalid option %s for bitrot. Please enter valid "
+                         "bitrot option", words[3]);
+                ret = -1;
+                goto out;
+        }
+
+set_type:
+        ret = dict_set_int32 (dict, "type", type);
+        if (ret < 0)
+                goto out;
+
+        *options = dict;
+
+out:
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse bitrot command");
+                if (dict)
+                        dict_destroy (dict);
+        }
 
         return ret;
 }

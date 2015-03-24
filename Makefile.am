@@ -1,7 +1,7 @@
 EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 \
 	INSTALL README.md AUTHORS THANKS NEWS \
-	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in \
+	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in libgfdb.pc.in \
 	run-tests.sh \
 	build-aux/pkg-version \
 	build-aux/xdrgen \
@@ -14,7 +14,7 @@ SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api xlators glusterfsd \
 	@UMOUNTD_SUBDIR@ tools
 
 pkgconfigdir = @pkgconfigdir@
-pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
+pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc libgfdb.pc
 
 CLEANFILES =
 
