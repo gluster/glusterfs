@@ -625,10 +625,21 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         gf_log (this->name, GF_LOG_DEBUG, "Acquired lock on localhost");
 
 local_locking_done:
+        txn_op_info.local_xaction_peers =
+                GF_CALLOC (1, sizeof (struct cds_list_head *),
+                           gf_common_mt_list_head_t);
+        if (!txn_op_info.local_xaction_peers) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
+        CDS_INIT_LIST_HEAD (txn_op_info.local_xaction_peers);
 
-        CDS_INIT_LIST_HEAD (&priv->xaction_peers);
-
-        npeers = gd_build_peers_list (&priv->peers, &priv->xaction_peers, op);
+        /* Maintain xaction_peers on per transaction basis */
+        npeers = gd_build_local_xaction_peers_list
+                                        (&priv->peers,
+                                         txn_op_info.local_xaction_peers,
+                                         op);
 
         /* If no volname is given as a part of the command, locks will
          * not be held, hence sending stage event. */

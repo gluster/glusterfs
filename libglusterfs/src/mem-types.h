@@ -150,6 +150,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_nfs_exports          = 131,
         gf_common_mt_gf_brick_spec_t      = 132,
         gf_common_mt_gf_timer_entry_t     = 133,
+        gf_common_mt_list_head_t          = 134,
         gf_common_mt_end
 };
 #endif

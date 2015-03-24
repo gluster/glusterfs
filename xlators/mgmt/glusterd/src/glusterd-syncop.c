@@ -1128,25 +1128,6 @@ unlock:
         return npeers;
 }
 
-void
-gd_cleanup_local_xaction_peers_list (struct cds_list_head *xact_peers)
-{
-        glusterd_local_peers_t *local_peers = NULL;
-        glusterd_local_peers_t *tmp         = NULL;
-
-        GF_ASSERT (xact_peers);
-
-        if (cds_list_empty (xact_peers))
-                return;
-
-        cds_list_for_each_entry_safe (local_peers, tmp, xact_peers,
-                                      op_peers_list) {
-                GF_FREE (local_peers);
-                /*  local_peers->peerinfo need not be freed because it does not
-                 *  ownership of peerinfo, but merely refer it */
-        }
-}
-
 int
 gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                   char **op_errstr, int npeers, uuid_t txn_id,
@@ -1615,7 +1596,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *txn_id          = NULL;
         struct cds_list_head        xaction_peers    = {0,};
-        glusterd_op_info_t          txn_opinfo;
+        glusterd_op_info_t          txn_opinfo       = {{0},};
 
         this = THIS;
         GF_ASSERT (this);

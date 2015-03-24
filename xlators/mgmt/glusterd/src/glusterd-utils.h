@@ -46,6 +46,16 @@
                         *active_count = *active_count + 1;\
 } while (0)
 
+#define list_for_each_local_xaction_peers(xact_peer, xact_peers_head)      \
+        glusterd_local_peers_t *pos = NULL;                                \
+        for (pos = cds_list_entry ((xact_peers_head)->next,                \
+             glusterd_local_peers_t, op_peers_list),                       \
+             xact_peer = pos->peerinfo;                                    \
+             &pos->op_peers_list != (xact_peers_head);                     \
+             pos = cds_list_entry(pos->op_peers_list.next,                 \
+                                  glusterd_local_peers_t,  op_peers_list), \
+             xact_peer = pos->peerinfo)
+
 struct glusterd_lock_ {
         uuid_t  owner;
         time_t  timestamp;
@@ -697,5 +707,8 @@ void
 glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
                         int (*compare)(struct cds_list_head *,
                                        struct cds_list_head *));
+
+void
+gd_cleanup_local_xaction_peers_list (struct cds_list_head *peers);
 
 #endif
