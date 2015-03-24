@@ -2919,14 +2919,13 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
         if (active_count)
                 *active_count = 1;
 
+        rcu_read_lock ();
         if (!peer_list) {
-                rcu_read_lock ();
                 cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
                                              uuid_list) {
                         glusterd_quorum_count(peerinfo, inquorum_count,
                                                 active_count, out);
                 }
-                rcu_read_unlock ();
         } else {
                 if (_local_xaction_peers) {
                         list_for_each_local_xaction_peers (peerinfo,
@@ -2958,6 +2957,8 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
         *quorum_count = count;
         ret = 0;
 out:
+        rcu_read_unlock ();
+
         return ret;
 }
 
