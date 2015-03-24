@@ -3016,8 +3016,10 @@ glusterd_friend_remove (uuid_t uuid, char *hostname)
         rcu_read_lock ();
 
         peerinfo = glusterd_peerinfo_find (uuid, hostname);
-        if (peerinfo == NULL)
+        if (peerinfo == NULL) {
+                rcu_read_unlock ();
                 goto out;
+        }
 
         ret = glusterd_friend_remove_cleanup_vols (peerinfo->uuid);
         if (ret)
