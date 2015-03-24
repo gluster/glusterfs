@@ -36,17 +36,6 @@
                 synclock_lock (&conf->big_lock);                               \
         } while (0)
 
-
-#define list_for_each_local_xaction_peers(xact_peer, xact_peers_head)         \
-        glusterd_local_peers_t *pos = NULL;                                   \
-        for (pos = list_entry((xact_peers_head)->next, glusterd_local_peers_t,\
-             op_peers_list),                                                  \
-                xact_peer = pos->peerinfo;                                    \
-             &pos->op_peers_list != (xact_peers_head);                        \
-             pos = list_entry(pos->op_peers_list.next, glusterd_local_peers_t,\
-                              op_peers_list),                                 \
-                xact_peer = pos->peerinfo)
-
 int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req, void *local,
                               void *cookie, rpc_clnt_prog_t *prog, int procnum,
                               fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
@@ -72,9 +61,6 @@ int
 gd_build_local_xaction_peers_list (struct list_head *peers,
                                    struct list_head *xact_peers,
                                    glusterd_op_t op);
-
-void
-gd_cleanup_local_xaction_peers_list (struct list_head *peers);
 
 int
 gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,

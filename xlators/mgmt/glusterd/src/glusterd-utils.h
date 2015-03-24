@@ -45,6 +45,16 @@
                 if (active_count && (peerinfo->quorum_contrib == QUORUM_UP))\
                         *active_count = *active_count + 1;\
 
+#define list_for_each_local_xaction_peers(xact_peer, xact_peers_head)      \
+        glusterd_local_peers_t *pos = NULL;                                \
+        for (pos = list_entry ((xact_peers_head)->next,                    \
+             glusterd_local_peers_t, op_peers_list),                       \
+             xact_peer = pos->peerinfo;                                    \
+             &pos->op_peers_list != (xact_peers_head);                     \
+             pos = list_entry(pos->op_peers_list.next,                     \
+                              glusterd_local_peers_t, op_peers_list),      \
+             xact_peer = pos->peerinfo)
+
 struct glusterd_lock_ {
         uuid_t  owner;
         time_t  timestamp;
@@ -915,4 +925,8 @@ mntopts_exists (const char *str, const char *opts);
 void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
                                 char *path, int path_len);
+
+void
+gd_cleanup_local_xaction_peers_list (struct list_head *peers);
+
 #endif
