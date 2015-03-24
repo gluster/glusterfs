@@ -8,6 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
+#include "gfdb_sqlite3.h"
 #include "gfdb_data_store.h"
 #include "list.h"
 
@@ -646,4 +647,15 @@ find_recently_changed_files_freq(gfdb_conn_node_t *_conn_node,
 
         return ret;
 
+}
+
+void get_gfdb_methods (gfdb_methods_t *methods)
+{
+        methods->init_db = init_db;
+        methods->fini_db = fini_db;
+        methods->find_unchanged_for_time = find_unchanged_for_time;
+        methods->find_recently_changed_files = find_recently_changed_files;
+        methods->find_unchanged_for_time_freq = find_unchanged_for_time_freq;
+        methods->find_recently_changed_files_freq = find_recently_changed_files_freq;
+        methods->dbpath = strdup(GFDB_SQL_PARAM_DBPATH);
 }

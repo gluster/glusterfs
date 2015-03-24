@@ -12,6 +12,7 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+#include <dlfcn.h>
 
 #include "dht-common.h"
 #include "tier.h"
@@ -23,7 +24,15 @@ static gfdb_db_type_t dht_tier_db_type = GFDB_SQLITE3;
 /*Mutex for updating the data movement stats*/
 static pthread_mutex_t dm_stat_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static char *promotion_qfile;
+static char *demotion_qfile;
+
+static void *libhandle;
+static gfdb_methods_t gfdb_methods;
+
 #define DB_QUERY_RECORD_SIZE 4096
+
+
 
 static int
 tier_parse_query_str (char *query_record_str,
@@ -64,6 +73,51 @@ out:
 }
 
 static int
+tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
+{
+        int     ret            = -1;
+        dict_t *dict           = NULL;
+        char   *uuid_str       = NULL;
+        uuid_t  node_uuid      = {0,};
+
+        GF_VALIDATE_OR_GOTO ("tier", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, defrag, out);
+
+        if (syncop_getxattr (this, loc, &dict, GF_XATTR_NODE_UUID_KEY, NULL)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "Unable to get NODE_UUID_KEY %s %s\n",
+                        loc->name, loc->path);
+                goto out;
+        }
+
+        if (dict_get_str (dict, GF_XATTR_NODE_UUID_KEY, &uuid_str) < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "Failed to get node-uuid for %s", loc->path);
+                goto out;
+        }
+
+        if (uuid_parse (uuid_str, node_uuid)) {
+                gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_ERROR,
+                        "uuid_parse failed for %s", loc->path);
+                goto out;
+        }
+
+        if (uuid_compare (node_uuid, defrag->node_uuid)) {
+                gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
+                        "%s does not belong to this node", loc->path);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (dict)
+                dict_unref(dict);
+
+        return ret;
+}
+
+static int
 tier_migrate_using_query_file (void *_args)
 {
         int ret                                 = -1;
@@ -77,7 +131,7 @@ tier_migrate_using_query_file (void *_args)
         char *link_buffer                       = NULL;
         gfdb_query_record_t *query_record       = NULL;
         gfdb_link_info_t *link_info             = NULL;
-        struct iatt par_stbuf                      = {0,};
+        struct iatt par_stbuf                   = {0,};
         struct iatt current                     = {0,};
         loc_t p_loc                             = {0,};
         loc_t loc                               = {0,};
@@ -104,7 +158,8 @@ tier_migrate_using_query_file (void *_args)
                 goto out;
         }
 
-        query_record->_link_info_str = calloc (DB_QUERY_RECORD_SIZE, 1);
+        query_record->_link_info_str = GF_CALLOC (1, DB_QUERY_RECORD_SIZE,
+                                                  gf_common_mt_char);
         if (!query_record->_link_info_str) {
                 goto out;
         }
@@ -249,6 +304,11 @@ tier_migrate_using_query_file (void *_args)
                                 DHT_MSG_LOG_TIER_STATUS, "Tier migrate file %s",
                                 loc.name);
 
+                        if (tier_check_same_node (this, &loc, defrag)) {
+                                per_link_status = -1;
+                                goto error;
+                        }
+
                         ret = syncop_setxattr (this, &loc, migrate_data, 0);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -259,16 +319,11 @@ tier_migrate_using_query_file (void *_args)
                                 per_link_status = -1;
                                 goto error;
                         }
-                        inode_unref (loc.inode);
-                        inode_unref (loc.parent);
-                        inode_unref (p_loc.inode);
 error:
-                        if (loc.name) {
-                                GF_FREE ((char *) loc.name);
-                        }
-                        if (loc.path) {
-                                GF_FREE ((char *) loc.path);
-                        }
+
+                        loc_wipe(&loc);
+                        loc_wipe(&p_loc);
+
                         token_str = NULL;
                         token_str = strtok (NULL, delimiter);
                         GF_FREE (link_str);
@@ -292,7 +347,7 @@ per_file_out:
 
 out:
         if (link_buffer)
-                free (link_buffer);
+                GF_FREE (link_buffer);
         gfdb_link_info_fini (&link_info);
         if (migrate_data)
                 dict_unref (migrate_data);
@@ -362,11 +417,11 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
                         "DB Params cannot initialized!");
                 goto out;
         }
-        SET_DB_PARAM_TO_DICT(this->name, params_dict, GFDB_SQL_PARAM_DBPATH,
+        SET_DB_PARAM_TO_DICT(this->name, params_dict, gfdb_methods.dbpath,
                                 db_path, ret, out);
 
         /*Get the db connection*/
-        conn_node = init_db((void *)params_dict, dht_tier_db_type);
+        conn_node = gfdb_methods.init_db((void *)params_dict, dht_tier_db_type);
         if (!conn_node) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_LOG_TIER_ERROR,
@@ -388,12 +443,14 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
         if (!gfdb_brick_dict_info->_gfdb_promote) {
                 if (query_cbk_args->defrag->write_freq_threshold == 0 &&
                         query_cbk_args->defrag->read_freq_threshold == 0) {
-                                ret = find_unchanged_for_time(conn_node,
+                                ret = gfdb_methods.find_unchanged_for_time (
+                                        conn_node,
                                         tier_gf_query_callback,
                                         (void *)query_cbk_args,
                                         gfdb_brick_dict_info->time_stamp);
                 } else {
-                                ret = find_unchanged_for_time_freq(conn_node,
+                                ret = gfdb_methods.find_unchanged_for_time_freq (
+                                        conn_node,
                                         tier_gf_query_callback,
                                         (void *)query_cbk_args,
                                         gfdb_brick_dict_info->time_stamp,
@@ -406,20 +463,21 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
         } else {
                 if (query_cbk_args->defrag->write_freq_threshold == 0 &&
                         query_cbk_args->defrag->read_freq_threshold == 0) {
-                        ret = find_recently_changed_files(conn_node,
-                                        tier_gf_query_callback,
-                                        (void *)query_cbk_args,
-                                        gfdb_brick_dict_info->time_stamp);
+                        ret = gfdb_methods.find_recently_changed_files (
+                                conn_node,
+                                tier_gf_query_callback,
+                                (void *)query_cbk_args,
+                                gfdb_brick_dict_info->time_stamp);
                 } else {
-                        ret = find_recently_changed_files_freq(conn_node,
-                                        tier_gf_query_callback,
-                                        (void *)query_cbk_args,
-                                        gfdb_brick_dict_info->time_stamp,
-                                        query_cbk_args->defrag->
-                                                        write_freq_threshold,
-                                        query_cbk_args->defrag->
-                                                        read_freq_threshold,
-                                        _gf_false);
+                        ret = gfdb_methods.find_recently_changed_files_freq (
+                                conn_node,
+                                tier_gf_query_callback,
+                                (void *)query_cbk_args,
+                                gfdb_brick_dict_info->time_stamp,
+                                query_cbk_args->defrag->
+                                write_freq_threshold,
+                                query_cbk_args->defrag->read_freq_threshold,
+                                _gf_false);
                 }
         }
         if (ret) {
@@ -434,7 +492,7 @@ out:
                 fclose (query_cbk_args->queryFILE);
                 query_cbk_args->queryFILE = NULL;
         }
-        fini_db (conn_node);
+        gfdb_methods.fini_db (conn_node);
         return ret;
 }
 
@@ -538,7 +596,7 @@ tier_demote (void *args)
 
         /* Migrate files using the query file */
         ret = tier_migrate_files_using_qfile (args,
-                                              &query_cbk_args, DEMOTION_QFILE);
+                                              &query_cbk_args, demotion_qfile);
         if (ret)
                 goto out;
 
@@ -574,7 +632,7 @@ static void
         /* Migrate files using the query file */
         ret = tier_migrate_files_using_qfile (args,
                                               &query_cbk_args,
-                                              PROMOTION_QFILE);
+                                              promotion_qfile);
         if (ret)
                 goto out;
 
@@ -626,7 +684,9 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
                                 goto out;
                         }
 
-                        sprintf(db_path, "%s/.glusterfs/%s", rv, db_name);
+                        sprintf(db_path, "%s/%s/%s", rv,
+                                GF_HIDDEN_PATH,
+                                db_name);
                         if (dict_add_dynstr_with_alloc(bricklist, "brick",
                                                        db_path))
                                 goto out;
@@ -855,6 +915,43 @@ dht_methods_t tier_methods = {
         .layout_search   = tier_search,
 };
 
+static int
+tier_load_externals (xlator_t *this)
+{
+        int               ret            = -1;
+        char *libpathfull = (LIBDIR "/libgfdb.so." LIBGFDB_VERSION);
+        get_gfdb_methods_t get_gfdb_methods;
+
+        GF_VALIDATE_OR_GOTO("this", this, out);
+
+        libhandle = dlopen (libpathfull, RTLD_NOW);
+        if (!libhandle) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_LOG_TIER_ERROR,
+                       "Error loading libgfdb.so %s\n", dlerror());
+                ret = -1;
+                goto out;
+        }
+
+        get_gfdb_methods = dlsym (libhandle, "get_gfdb_methods");
+        if (!get_gfdb_methods) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_LOG_TIER_ERROR,
+                       "Error loading get_gfdb_methods()");
+                ret = -1;
+                goto out;
+        }
+
+        get_gfdb_methods (&gfdb_methods);
+
+        ret = 0;
+
+out:
+        if (ret && libhandle)
+                dlclose (libhandle);
+
+        return ret;
+}
 
 int
 tier_init (xlator_t *this)
@@ -889,11 +986,16 @@ tier_init (xlator_t *this)
                 goto out;
         }
 
-        defrag = conf->defrag;
+        /* if instatiated from server side, load db libraries */
+        ret = tier_load_externals(this);
+        if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       DHT_MSG_LOG_TIER_ERROR,
+                       "Could not load externals. Aborting");
+                goto out;
+        }
 
-        GF_OPTION_INIT ("tier-promote-frequency",
-                        defrag->tier_promote_frequency,
-                        int32, out);
+        defrag = conf->defrag;
 
         ret = dict_get_int32 (this->options,
                               "tier-promote-frequency", &freq);
@@ -903,10 +1005,6 @@ tier_init (xlator_t *this)
 
         defrag->tier_promote_frequency = freq;
 
-        GF_OPTION_INIT ("tier-demote-frequency",
-                        defrag->tier_demote_frequency,
-                        int32, out);
-
         ret = dict_get_int32 (this->options,
                               "tier-demote-frequency", &freq);
         if (ret) {
@@ -915,23 +1013,56 @@ tier_init (xlator_t *this)
 
         defrag->tier_demote_frequency = freq;
 
-        GF_OPTION_INIT ("write-freq-threshold",
-                        defrag->write_freq_threshold,
-                        int32, out);
+        ret = dict_get_int32 (this->options,
+                              "write-freq-threshold", &freq);
+        if (ret) {
+                freq = DEFAULT_WRITE_FREQ_SEC;
+        }
 
-        GF_OPTION_INIT ("read-freq-threshold",
-                        defrag->read_freq_threshold,
-                        int32, out);
+        defrag->write_freq_threshold = freq;
+
+        ret = dict_get_int32 (this->options,
+                              "read-freq-threshold", &freq);
+        if (ret) {
+                freq = DEFAULT_READ_FREQ_SEC;
+        }
+
+        defrag->read_freq_threshold = freq;
+
+        ret = gf_asprintf(&promotion_qfile, "%s/%s-%d",
+                          DEFAULT_VAR_RUN_DIRECTORY,
+                          PROMOTION_QFILE,
+                          getpid());
+        if (ret < 0)
+                goto out;
+
+        ret = gf_asprintf(&demotion_qfile, "%s/%s-%d",
+                          DEFAULT_VAR_RUN_DIRECTORY,
+                          DEMOTION_QFILE,
+                          getpid());
+        if (ret < 0) {
+                GF_FREE(promotion_qfile);
+                goto out;
+        }
 
         gf_msg(this->name, GF_LOG_INFO, 0,
                DHT_MSG_LOG_TIER_STATUS,
-               "Promote frequency set to %d demote set to %d",
+               "Promote/demote frequency %d/%d "
+               "Write/Read freq thresholds %d/%d",
                defrag->tier_promote_frequency,
-               defrag->tier_demote_frequency);
+               defrag->tier_demote_frequency,
+               defrag->write_freq_threshold,
+               defrag->read_freq_threshold);
+
+        gf_msg(this->name, GF_LOG_INFO, 0,
+               DHT_MSG_LOG_TIER_STATUS,
+               "Promote file %s demote file %s",
+               promotion_qfile, demotion_qfile);
 
         ret = 0;
 
 out:
+
         return ret;
 }
 
@@ -967,9 +1098,21 @@ out:
         return dht_reconfigure (this, options);
 }
 
+void
+tier_fini (xlator_t *this)
+{
+        if (libhandle)
+                dlclose(libhandle);
+
+        GF_FREE(demotion_qfile);
+        GF_FREE(promotion_qfile);
+
+        dht_fini(this);
+}
+
 class_methods_t class_methods = {
         .init           = tier_init,
-        .fini           = dht_fini,
+        .fini           = tier_fini,
         .reconfigure    = tier_reconfigure,
         .notify         = dht_notify
 };
