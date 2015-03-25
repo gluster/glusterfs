@@ -409,6 +409,9 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
 
         } else if (fnmatch (marker_contri_key, key, 0) == 0) {
                 ret = _posix_get_marker_quota_contributions (filler, key);
+        } else if (strcmp(key, CTR_REQUEST_LINK_COUNT_XDATA) == 0) {
+                ret = dict_set (filler->xattr,
+                                CTR_REQUEST_LINK_COUNT_XDATA, data);
         } else {
                 ret = _posix_xattr_get_set_from_backend (filler, key);
         }
