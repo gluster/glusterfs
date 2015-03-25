@@ -448,10 +448,25 @@ tier_build_migration_qfile (demotion_args_t *args,
         gfdb_time_t                     time_in_past;
         int                             ret = -1;
 
-        remove (GET_QFILE_PATH (is_promotion));
+        /*
+         *  The first time this function is called, query file will
+         *  not exist on a given instance of running the migration daemon.
+         * The remove call is optimistic and it is legal if it fails.
+         */
+
+        ret = remove (GET_QFILE_PATH (is_promotion));
+        if (ret == -1) {
+                gf_msg (args->this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Failed to remove %s",
+                        GET_QFILE_PATH (is_promotion));
+        }
+
         time_in_past.tv_sec = args->freq_time;
         time_in_past.tv_usec = 0;
-        if (gettimeofday (&current_time, NULL) == -1) {
+
+        ret = gettimeofday (&current_time, NULL);
+        if (ret == -1) {
                 gf_log (args->this->name, GF_LOG_ERROR,
                         "Failed to get current timen");
                 goto out;
