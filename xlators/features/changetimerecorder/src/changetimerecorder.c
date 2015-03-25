@@ -451,11 +451,6 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 remaining_links = -1;
         }
 
-        /*As the xdata is no more required by CTR Xlator.*/
-        if (xdata) {
-                dict_unref (xdata);
-        }
-
         /*This is not the only link*/
         if (remaining_links != 1) {
 
@@ -476,8 +471,6 @@ ctr_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-
-
 out:
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
                         postparent, NULL);
@@ -494,6 +487,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
         gf_ctr_link_context_t ctr_link_cx;
         gf_ctr_link_context_t *_link_cx = &ctr_link_cx;
+        gf_boolean_t is_xdata_created = _gf_false;
 
         GF_ASSERT (frame);
 
@@ -517,8 +511,6 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
                                 "Failed inserting unlink wind");
         }
 
-
-
         /*
          *
          * Sending CTR_REQUEST_LINK_COUNT_XDATA
@@ -526,8 +518,10 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
          *
          * */
         /*create xdata if NULL*/
-        if (!xdata)
+        if (!xdata) {
                 xdata = dict_new();
+                is_xdata_created = (xdata) ? _gf_true : _gf_false;
+        }
         if (!xdata) {
                 gf_log (this->name, GF_LOG_ERROR,
                                 "xdata is NULL :"
@@ -540,18 +534,20 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                                 "Failed setting CTR_REQUEST_LINK_COUNT_XDATA");
-                if (xdata) {
+                if (is_xdata_created) {
                         dict_unref (xdata);
                 }
                 goto out;
         }
 
-
-
 out:
         STACK_WIND (frame, ctr_unlink_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->unlink,
                     loc, xflag, xdata);
+
+        if (is_xdata_created)
+                dict_unref (xdata);
+
         return 0;
 }
 
