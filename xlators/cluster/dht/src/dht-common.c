@@ -1496,15 +1496,6 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                  conf->link_xattr_name);
 
                 if (is_linkfile) {
-
-                        gf_msg_debug (this->name, 0,
-                                      "Found linktofile on %s for %s",
-                                       subvol->name, loc->path);
-
-               }
-                is_dir = check_is_dir (inode, buf, xattr);
-
-                if (is_linkfile) {
                         link_subvol = dht_linkfile_subvol (this, inode, buf,
                                                            xattr);
                         gf_msg_debug (this->name, 0,
@@ -1514,8 +1505,12 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                /* non linkfile GFID takes precedence */
-                gf_uuid_copy (local->gfid, buf->ia_gfid);
+                is_dir = check_is_dir (inode, buf, xattr);
+
+                /* non linkfile GFID takes precedence but don't overwrite
+                 gfid if we have already found a cached file*/
+                if (!local->cached_subvol)
+                        gf_uuid_copy (local->gfid, buf->ia_gfid);
 
                 if (is_dir) {
                         local->dir_count++;
