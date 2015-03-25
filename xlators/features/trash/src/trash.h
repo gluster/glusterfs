@@ -50,6 +50,7 @@ struct trash_struct {
         int32_t  loop_count;
         struct iatt preparent;
         struct iatt postparent;
+        gf_boolean_t ctr_link_count_req;
 };
 typedef struct trash_struct trash_local_t;
 

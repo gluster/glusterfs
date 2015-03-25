@@ -750,6 +750,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char               *dir_name           = NULL;
         char               *tmp_cookie         = NULL;
         loc_t              tmp_loc             = {0,};
+        dict_t             *new_xdata          = NULL;
         char               *tmp_stat           = NULL;
         char               real_path[PATH_MAX] = {0,};
         int                ret                 = 0;
@@ -829,14 +830,69 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        /**********************************************************************
+         *
+         * CTR Xlator message handling done here!
+         *
+         **********************************************************************/
+        /**
+         * If unlink is handled by trash translator, it should inform the
+         * CTR Xlator. And trash translator only handles the unlink for
+         * the last hardlink.
+         *
+         * Check if there is a CTR_REQUEST_LINK_COUNT_XDATA from CTR Xlator
+         *
+         */
+
+        if (local->ctr_link_count_req) {
+
+                /* Sending back inode link count to ctr_unlink
+                 * (changetimerecoder xlator) via
+                 * "CTR_RESPONSE_LINK_COUNT_XDATA" key using xdata.
+                 * */
+                if (xdata) {
+                        ret = dict_set_uint32 (xdata,
+                                               CTR_RESPONSE_LINK_COUNT_XDATA,
+                                               1);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to set"
+                                        " CTR_RESPONSE_LINK_COUNT_XDATA");
+                        }
+                } else {
+                        new_xdata = dict_new ();
+                        if (!new_xdata) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Memory allocation failure while "
+                                        "creating new_xdata");
+                                goto ctr_out;
+                        }
+                        ret = dict_set_uint32 (new_xdata,
+                                               CTR_RESPONSE_LINK_COUNT_XDATA,
+                                               1);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to set"
+                                        " CTR_RESPONSE_LINK_COUNT_XDATA");
+                        }
+ctr_out:
+                        TRASH_STACK_UNWIND (unlink, frame, 0, op_errno,
+                                            &local->preparent,
+                                            &local->postparent, new_xdata);
+                        goto out;
+                }
+         }
         /* All other cases, unlink should return success */
         TRASH_STACK_UNWIND (unlink, frame, 0, op_errno, &local->preparent,
                             &local->postparent, xdata);
 out:
+
         if (tmp_str)
                 GF_FREE (tmp_str);
         if (tmp_cookie)
                 GF_FREE (tmp_cookie);
+        if (new_xdata)
+                dict_unref (new_xdata);
 
         return ret;
 }
@@ -938,6 +994,7 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
         trash_private_t         *priv           = NULL;
         trash_local_t           *local          = NULL;/* files inside trash */
         int32_t                 match           = 0;
+        int32_t                 ctr_link_req    = 0;
         char                    *pathbuf        = NULL;
         int                     ret             = 0;
 
@@ -1033,6 +1090,15 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
                             xdata);
                 goto out;
         }
+
+        /* To know whether CTR xlator requested for the link count */
+        ret = dict_get_int32 (xdata, CTR_REQUEST_LINK_COUNT_XDATA,
+                              &ctr_link_req);
+        if (ret) {
+                local->ctr_link_count_req = _gf_false;
+                ret = 0;
+        } else
+                local->ctr_link_count_req = _gf_true;
 
         LOCK_INIT (&frame->lock);
 
