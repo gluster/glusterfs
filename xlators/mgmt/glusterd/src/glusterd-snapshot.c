@@ -1879,20 +1879,22 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                         }
                         if (!clone) {
                         snprintf (err_str, PATH_MAX,
-                                  "brick %s:%s is not started. "
+                                  "One or more bricks are not running. "
+                                  "Please run volume status command to see "
+                                  "brick status.\n"
                                   "Please start the stopped brick "
                                   "and then issue snapshot create "
                                   "command or use [force] option in "
                                   "snapshot create to override this "
-                                  "behavior.", brickinfo->hostname,
-                                  brickinfo->path);
+                                  "behavior.");
                         } else {
                         snprintf (err_str, PATH_MAX,
-                                  "brick %s:%s is not started. "
+                                  "One or more bricks are not running. "
+                                  "Please run snapshot status command to see "
+                                  "brick status.\n"
                                   "Please start the stopped brick "
                                   "and then issue snapshot clone "
-                                  "command ", brickinfo->hostname,
-                                  brickinfo->path);
+                                  "command ");
                         }
                         ret = -1;
                         goto out;
