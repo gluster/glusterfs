@@ -1394,9 +1394,15 @@ void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version,
     fop->frame->root->uid = 0;
     fop->frame->root->gid = 0;
 
-    ec_xattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
-               ec_update_size_version_done, lock, loc,
-               GF_XATTROP_ADD_ARRAY64, dict, NULL);
+    if (fop->use_fd) {
+            ec_fxattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
+                       ec_update_size_version_done, lock, fop->fd,
+                       GF_XATTROP_ADD_ARRAY64, dict, NULL);
+    } else {
+            ec_xattrop(fop->frame, fop->xl, fop->mask, EC_MINIMUM_MIN,
+                       ec_update_size_version_done, lock, loc,
+                       GF_XATTROP_ADD_ARRAY64, dict, NULL);
+    }
 
     fop->frame->root->uid = uid;
     fop->frame->root->gid = gid;
