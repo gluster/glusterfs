@@ -600,6 +600,8 @@ fuse_ignore_xattr_set (fuse_private_t *priv, char *key)
                            key, FNM_PERIOD) == 0)
               || (fnmatch ("*.glusterfs.volume-mark.*",
                            key, FNM_PERIOD) == 0)
+              || (fnmatch ("system.posix_acl_access",
+                           key, FNM_PERIOD) == 0)
               || (fnmatch ("glusterfs.gfid.newfile",
                            key, FNM_PERIOD) == 0)))
                 ret = -1;

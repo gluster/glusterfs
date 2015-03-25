@@ -831,6 +831,7 @@ class SlaveRemote(object):
              '--stats', '--numeric-ids', '--no-implied-dirs'] + \
             gconf.rsync_options.split() + \
             (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
+            (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ['.'] + list(args)
         po = Popen(argv, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         for f in files:
@@ -854,10 +855,12 @@ class SlaveRemote(object):
         (host, rdir) = slaveurl.split(':')
         tar_cmd = ["tar"] + \
             (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
+            (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ["-cf", "-", "--files-from", "-"]
         ssh_cmd = gconf.ssh_command_tar.split() + \
             [host, "tar"] + \
             (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
+            (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ["--overwrite", "-xf", "-", "-C", rdir]
         p0 = Popen(tar_cmd, stdout=subprocess.PIPE,
                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
