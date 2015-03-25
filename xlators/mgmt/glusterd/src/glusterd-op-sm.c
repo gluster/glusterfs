@@ -685,6 +685,8 @@ glusterd_node_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
 {
         int                     ret = -1;
         gd1_mgmt_brick_op_req   *brick_req = NULL;
+        char                    xlname[1024] = {0,};
+        char                    *volname = NULL;
 
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
@@ -713,6 +715,20 @@ glusterd_node_op_build_payload (glusterd_op_t op, gd1_mgmt_brick_op_req **req,
 
                 break;
 
+        case GD_OP_SCRUB_STATUS:
+                brick_req = GF_CALLOC (1, sizeof(*brick_req),
+                                       gf_gld_mt_mop_brick_req_t);
+                if (!brick_req)
+                        goto out;
+
+                brick_req->op = GLUSTERD_NODE_BITROT;
+
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret)
+                        goto out;
+
+                brick_req->name = gf_strdup (volname);
+                break;
         default:
                 goto out;
         }
@@ -4035,6 +4051,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_DEFRAG_BRICK_VOLUME:
                 case GD_OP_BARRIER:
                 case GD_OP_BITROT:
+                case GD_OP_SCRUB_STATUS:
                         {
                                 do_common = _gf_true;
                         }
@@ -4616,6 +4633,7 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
          * same
          */
         case GD_OP_DEFRAG_BRICK_VOLUME:
+        case GD_OP_SCRUB_STATUS:
                 ret = dict_get_int32 (op_ctx, "count", &count);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
@@ -4662,6 +4680,13 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_CONVERSION_FAILED,
                                 "Failed uuid to hostname conversion");
+
+                /* Since Both rebalance and bitrot scrub status are going to
+                 * use same code path till here, we should break in case
+                 * of scrub status */
+                if (op == GD_OP_SCRUB_STATUS) {
+                        break;
+                }
 
                 ret = glusterd_op_check_peer_defrag_status (op_ctx, count);
                 if (ret)
@@ -5258,6 +5283,7 @@ glusterd_need_brick_op (glusterd_op_t op)
         case GD_OP_STATUS_VOLUME:
         case GD_OP_DEFRAG_BRICK_VOLUME:
         case GD_OP_HEAL_VOLUME:
+        case GD_OP_SCRUB_STATUS:
                 ret = _gf_true;
                 break;
         default:
@@ -5520,6 +5546,7 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_BITROT:
+                case GD_OP_SCRUB_STATUS:
                         ret = glusterd_op_stage_bitrot (dict, op_errstr,
                                                         rsp_dict);
                         break;
@@ -5644,6 +5671,7 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_BITROT:
+                case GD_OP_SCRUB_STATUS:
                         ret = glusterd_op_bitrot (dict, op_errstr, rsp_dict);
                         break;
 
@@ -6808,6 +6836,68 @@ out:
         return ret;
 }
 
+static int
+glusterd_bricks_select_scrub (dict_t *dict, char **op_errstr,
+                              struct cds_list_head *selected)
+{
+        int                       ret           = -1;
+        char                      *volname      = NULL;
+        char                      msg[2048]     = {0,};
+        xlator_t                  *this         = NULL;
+        glusterd_conf_t           *priv         = NULL;
+        glusterd_volinfo_t        *volinfo      = NULL;
+        glusterd_brickinfo_t      *brickinfo    = NULL;
+        glusterd_pending_node_t   *pending_node = NULL;
+
+        this = THIS;
+        priv = this->private;
+        GF_ASSERT (this);
+        GF_ASSERT (priv);
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get"
+                        " volname");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Volume %s does not exist",
+                          volname);
+
+                *op_errstr = gf_strdup (msg);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOL_NOT_FOUND, "%s", msg);
+                goto out;
+        }
+
+        if (!priv->scrub_svc.online) {
+                ret = 0;
+                snprintf (msg, sizeof (msg), "Scrubber daemon is not running");
+
+                gf_msg_debug (this->name, 0, "%s", msg);
+                goto out;
+        }
+
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                goto out;
+        }
+
+        pending_node->node = &(priv->scrub_svc);
+        pending_node->type = GD_NODE_SCRUB;
+        cds_list_add_tail (&pending_node->list, selected);
+        pending_node = NULL;
+out:
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        return ret;
+}
 /* Select the bricks to send the barrier request to.
  * This selects the bricks of the given volume which are present on this peer
  * and are running
@@ -7020,6 +7110,9 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 break;
         case GD_OP_SNAP:
                 ret = glusterd_bricks_select_snap (dict, op_errstr, selected);
+                break;
+        case GD_OP_SCRUB_STATUS:
+                ret = glusterd_bricks_select_scrub (dict, op_errstr, selected);
                 break;
         default:
                 break;

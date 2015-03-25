@@ -36,7 +36,7 @@
  */
 
 #define GLFS_COMP_BASE          GLFS_MSGID_COMP_GLUSTERFSD
-#define GLFS_NUM_MESSAGES       34
+#define GLFS_NUM_MESSAGES       36
 #define GLFS_MSGID_END          (GLFS_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"
@@ -104,6 +104,10 @@
                         "was provided"
 #define glusterfsd_msg_34 (GLFS_COMP_BASE + 34), "memory accounting init" \
                         " failed."
+#define glusterfsd_msg_35 (GLFS_COMP_BASE + 35), "rpc req buffer " \
+                        " unserialization failed."
+#define glusterfsd_msg_36 (GLFS_COMP_BASE + 36), "problem in xlator " \
+                        " loading."
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 

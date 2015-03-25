@@ -39,15 +39,16 @@ const char *gd_bitrot_op_list[GF_BITROT_OPTION_TYPE_MAX] = {
 int
 __glusterd_handle_bitrot (rpcsvc_request_t *req)
 {
-        int32_t                         ret = -1;
-        gf_cli_req                      cli_req = { {0,} };
-        dict_t                         *dict = NULL;
-        glusterd_op_t                   cli_op = GD_OP_BITROT;
-        char                           *volname = NULL;
-        int32_t                         type = 0;
+        int32_t                         ret       = -1;
+        gf_cli_req                      cli_req   = { {0,} };
+        dict_t                         *dict      = NULL;
+        glusterd_op_t                   cli_op    = GD_OP_BITROT;
+        char                           *volname   = NULL;
+        char                           *scrub     = NULL;
+        int32_t                         type      = 0;
         char                            msg[2048] = {0,};
-        xlator_t                       *this = NULL;
-        glusterd_conf_t                *conf = NULL;
+        xlator_t                       *this      = NULL;
+        glusterd_conf_t                *conf      = NULL;
 
         GF_ASSERT (req);
 
@@ -107,6 +108,34 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
                           gd_bitrot_op_list[type]);
                 ret = -1;
                 goto out;
+        }
+
+        if (type == GF_BITROT_CMD_SCRUB_STATUS) {
+                /* Backward compatibility handling for scrub status command*/
+                if (conf->op_version < GD_OP_VERSION_3_7_7) {
+                        snprintf (msg, sizeof (msg), "Cannot execute command. "
+                                  "The cluster is operating at version %d. "
+                                  "Bitrot scrub status command unavailable in "
+                                  "this version", conf->op_version);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, "scrub-value", &scrub);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get scrub value.");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (!strncmp (scrub, "status", strlen ("status"))) {
+                        ret = glusterd_op_begin_synctask (req,
+                                                          GD_OP_SCRUB_STATUS,
+                                                          dict);
+                        goto out;
+                }
         }
 
         ret = glusterd_op_begin_synctask (req, GD_OP_BITROT, dict);
@@ -542,6 +571,7 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                    op_errstr);
                 if (ret)
                         goto out;
+        case GF_BITROT_CMD_SCRUB_STATUS:
                 break;
 
         default:

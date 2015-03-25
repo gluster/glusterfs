@@ -142,6 +142,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_SNAP:
         case GD_OP_BARRIER:
         case GD_OP_BITROT:
+        case GD_OP_SCRUB_STATUS:
         {
                 /*nothing specific to be done*/
                 break;
@@ -2234,6 +2235,7 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                 if ((pending_node->type == GD_NODE_NFS) ||
                     (pending_node->type == GD_NODE_QUOTAD) ||
                     (pending_node->type == GD_NODE_SNAPD) ||
+                    (pending_node->type == GD_NODE_SCRUB) ||
                     ((pending_node->type == GD_NODE_SHD) &&
                      (req_ctx->op == GD_OP_STATUS_VOLUME)))
                         ret = glusterd_node_op_build_payload

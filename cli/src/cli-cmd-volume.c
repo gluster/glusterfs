@@ -2785,7 +2785,7 @@ struct cli_cmd volume_cmds[] = {
          "volume bitrot <volname> scrub-throttle {lazy|normal|aggressive} |\n"
          "volume bitrot <volname> scrub-frequency {hourly|daily|weekly|biweekly"
          "|monthly} |\n"
-         "volume bitrot <volname> scrub {pause|resume}",
+         "volume bitrot <volname> scrub {pause|resume|status}",
          cli_cmd_bitrot_cbk,
          "Bitrot translator specific operation. For more information about "
          "bitrot command type  'man gluster'"

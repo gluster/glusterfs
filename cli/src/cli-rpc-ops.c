@@ -10666,10 +10666,156 @@ out:
 }
 
 int
+gf_cli_print_bitrot_scrub_status (dict_t *dict)
+{
+        int            i                = 1;
+        int            ret              = -1;
+        int            count            = 0;
+        char           key[256]         = {0,};
+        char           *volname         = NULL;
+        char           *node_name       = NULL;
+        char           *scrub_freq      = NULL;
+        char           *state_scrub     = NULL;
+        char           *scrub_impact    = NULL;
+        char           *scrub_log_file  = NULL;
+        char           *bitrot_log_file = NULL;
+        uint64_t       scrub_files      = 0;
+        uint64_t       unsigned_files   = 0;
+        uint64_t       scrub_time       = 0;
+        uint64_t       last_scrub       = 0;
+        uint64_t       error_count      = 0;
+
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get volume name");
+
+        ret = dict_get_str (dict, "features.scrub", &state_scrub);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get scrub state value");
+
+        ret = dict_get_str (dict, "features.scrub-throttle", &scrub_impact);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get scrub impact "
+                        "value");
+
+        ret = dict_get_str (dict, "features.scrub-freq", &scrub_freq);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get scrub -freq value");
+
+        ret = dict_get_str (dict, "bitrot_log_file", &bitrot_log_file);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get bitrot log file "
+                        "location");
+
+        ret = dict_get_str (dict, "scrub_log_file", &scrub_log_file);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get scrubber log file "
+                        "location");
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "count not get count value from"
+                        " dictionary");
+                goto out;
+        }
+
+        cli_out ("\n%s: %s\n", "Volume name ", volname);
+
+        cli_out ("%s: %s\n", "State of scrub", state_scrub);
+
+        cli_out ("%s: %s\n", "Scrub impact", scrub_impact);
+
+        cli_out ("%s: %s\n", "Scrub frequency", scrub_freq);
+
+        cli_out ("%s: %s\n", "Bitrot error log location", bitrot_log_file);
+
+        cli_out ("%s: %s\n", "Scrubber error log location", scrub_log_file);
+
+
+        for (i = 1; i <= count; i++) {
+                /* Reset the variables to prevent carryover of values */
+                node_name       = NULL;
+                last_scrub      = 0;
+                scrub_time      = 0;
+                error_count     = 0;
+                scrub_files     = 0;
+                unsigned_files  = 0;
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "node-name-%d", i);
+                ret = dict_get_str (dict, key, &node_name);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrubbed-files-%d", i);
+                ret = dict_get_uint64 (dict, key, &scrub_files);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get scrubbed "
+                                "files");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "unsigned-files-%d", i);
+                ret = dict_get_uint64 (dict, key, &unsigned_files);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get unsigned "
+                                "files");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-duration-%d", i);
+                ret = dict_get_uint64 (dict, key, &scrub_time);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub "
+                                "duration");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "last-scrub-time-%d", i);
+                ret = dict_get_uint64 (dict, key, &last_scrub);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub"
+                                " time");
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "error-count-%d", i);
+                ret = dict_get_uint64 (dict, key, &error_count);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE, "failed to get error "
+                                "count");
+
+                cli_out ("\n%s\n", "=========================================="
+                         "===============");
+
+                cli_out ("%s: %s\n", "Node name", node_name);
+
+                cli_out ("%s: %"PRIu64 "\n", "Number of Scrubbed files",
+                          scrub_files);
+
+                cli_out ("%s: %"PRIu64 "\n", "Number of Unsigned files",
+                          unsigned_files);
+
+                cli_out ("%s: %"PRIu64 "\n", "Last completed scrub time",
+                          scrub_time);
+
+                cli_out ("%s: %"PRIu64 "\n", "Duration of last scrub",
+                          last_scrub);
+
+                cli_out ("%s: %"PRIu64 "\n", "Error count", error_count);
+
+        }
+        cli_out ("%s\n", "=========================================="
+                 "===============");
+
+out:
+        return 0;
+}
+
+int
 gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
                    int count, void *myframe)
 {
         int                  ret                       = -1;
+        int                  type                      = 0;
         gf_cli_rsp           rsp                       = {0, };
         dict_t               *dict                     = NULL;
         call_frame_t         *frame                    = NULL;
@@ -10723,6 +10869,22 @@ gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to bit rot command");
 
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get command type");
+                goto out;
+        }
+
+        if ((type == GF_BITROT_CMD_SCRUB_STATUS) &&
+             !(global_state->mode & GLUSTER_MODE_XML)) {
+                ret = gf_cli_print_bitrot_scrub_status (dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to print bitrot "
+                                "scrub status");
+                }
+                goto out;
+        }
+
 xml_output:
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_profile (dict, rsp.op_ret,
@@ -10749,7 +10911,6 @@ out:
         cli_cmd_broadcast_response (ret);
 
         return ret;
-
 }
 
 int32_t

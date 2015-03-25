@@ -1550,9 +1550,12 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int           idx    = -1;
+        int           ret    = -1;
         xlator_t     *subvol = NULL;
         br_child_t   *child  = NULL;
         br_private_t *priv   = NULL;
+        dict_t       *output = NULL;
+        va_list       ap;
 
         subvol = (xlator_t *)data;
         priv = this->private;
@@ -1619,6 +1622,21 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         default_notify (this, event, data);
                 break;
 
+        case GF_EVENT_SCRUB_STATUS:
+                gf_log (this->name, GF_LOG_INFO, "BitRot scrub status "
+                        "called");
+                va_start (ap, data);
+                output = va_arg (ap, dict_t *);
+
+                /* As of now hardcoding last-scrub-time value. At the time of
+                 * Final patch submission this option value along with other
+                 * few option value will be calculate based on real time */
+                ret = dict_set_uint64 (output, "last-scrub-time", 12);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, "Failed to set last "
+                                "scrub time value");
+                }
+                break;
         default:
                 default_notify (this, event, data);
         }
