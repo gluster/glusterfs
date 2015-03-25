@@ -663,9 +663,6 @@ gf_boolean_t
 glusterd_have_peers ();
 
 void
-glusterd_op_clear_xaction_peers ();
-
-void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
                                 char *path, int path_len);
 

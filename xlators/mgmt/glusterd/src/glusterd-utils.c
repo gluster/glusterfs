@@ -9916,28 +9916,6 @@ glusterd_have_peers ()
         return !cds_list_empty (&conf->peers);
 }
 
-void
-glusterd_op_clear_xaction_peers ()
-{
-        xlator_t               *this     = NULL;
-        glusterd_conf_t        *priv     = NULL;
-        glusterd_peerinfo_t    *peerinfo = NULL;
-        glusterd_peerinfo_t    *tmp      = NULL;
-
-        this = THIS;
-        priv = this->private;
-
-        GF_ASSERT (this);
-        GF_ASSERT (priv);
-
-        cds_list_for_each_entry_safe (peerinfo, tmp, &priv->xaction_peers,
-                                      op_peers_list) {
-                GF_ASSERT (peerinfo);
-                cds_list_del_init (&peerinfo->op_peers_list);
-        }
-
-}
-
 gf_boolean_t
 glusterd_is_volume_started (glusterd_volinfo_t  *volinfo)
 {
