@@ -1545,7 +1545,6 @@ init (xlator_t *this)
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
         CDS_INIT_LIST_HEAD (&conf->peers);
-        CDS_INIT_LIST_HEAD (&conf->xaction_peers);
         CDS_INIT_LIST_HEAD (&conf->volumes);
         CDS_INIT_LIST_HEAD (&conf->snapshots);
         CDS_INIT_LIST_HEAD (&conf->missed_snaps_list);

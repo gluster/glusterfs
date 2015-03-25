@@ -233,8 +233,6 @@ glusterd_dump_priv (xlator_t *this)
                 gf_proc_dump_write (key, "%d", priv->quotad_svc.online);
 
                 GLUSTERD_DUMP_PEERS (&priv->peers, uuid_list, _gf_false);
-                GLUSTERD_DUMP_PEERS (&priv->xaction_peers, op_peers_list,
-                                     _gf_true);
                 glusterd_dump_client_details (priv);
                 glusterd_dict_mgmt_v3_lock_statedump(priv->mgmt_v3_lock);
                 dict_dump_to_statedump (priv->opts, "options", "glusterd");
