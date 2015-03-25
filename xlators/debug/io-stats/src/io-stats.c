@@ -726,7 +726,7 @@ ios_stats_cleanup (xlator_t *this, inode_t *inode)
                         fprintf (logfp, fmt);                   \
                         fprintf (logfp, "\n");                  \
                 }                                               \
-                gf_log (this->name, GF_LOG_DEBUG, fmt);        \
+                gf_log (this->name, GF_LOG_TRACE, fmt);         \
         } while (0)
 
 int

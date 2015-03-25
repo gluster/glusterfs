@@ -1933,9 +1933,23 @@ mnt3_check_cached_fh (struct mount3_state *ms, struct nfs3_fh *fh,
                       const char *host_addr, gf_boolean_t is_write_op)
 {
         if (!is_write_op)
-                return is_nfs_fh_cached (ms->authcache, fh, host_addr);
+                return auth_cache_allows_fh (ms->authcache, fh, host_addr);
 
-        return is_nfs_fh_cached_and_writeable (ms->authcache, fh, host_addr);
+        return auth_cache_allows_write_to_fh (ms->authcache, fh, host_addr);
+}
+
+/**
+ * mnt3_check_cached_path -- Check if path is cached.
+ *
+ * Calls auxiliary functions based on whether we are checking
+ * a write operation.
+ *
+ */
+int
+mnt3_check_cached_path (struct mount3_state *ms, const char *path,
+                        const char *host_addr, gf_boolean_t is_write_op)
+{
+        return auth_cache_allows_path (ms->authcache, path, host_addr);
 }
 
 /**
@@ -1969,7 +1983,7 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
         char                    *pathdup         = NULL;
         size_t                  dlen             = 0;
         char                    *auth_host       = NULL;
-        gf_boolean_t            fh_cached        = _gf_false;
+        auth_cache_status_t     auth_cache_status = AUTH_CACHE_HOST_ENOENT;
         struct export_item      *expitem         = NULL;
 
         GF_VALIDATE_OR_GOTO (GF_MNT, ms, out);
@@ -1990,12 +2004,24 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
         }
 
         /* Check if the filehandle is cached */
-        fh_cached = mnt3_check_cached_fh (ms, fh, host_addr_ip, is_write_op);
-        if (fh_cached) {
-                gf_msg_trace (GF_MNT, 0, "Found cached FH for %s",
-                              host_addr_ip);
+        auth_cache_status = fh ? mnt3_check_cached_fh (ms, fh, host_addr_ip,
+                                                       is_write_op) :
+                                 mnt3_check_cached_path (ms, path, host_addr_ip,
+                                                         is_write_op);
+
+        if (auth_cache_status == AUTH_CACHE_HOST_AUTH_OK) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Found authorized cached "
+                                              "FH for [%s]!", host_addr_ip);
                 auth_status_code = 0;
                 goto free_and_out;
+        } else if (auth_cache_status == AUTH_CACHE_HOST_EACCES) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Found de-authorized cached "
+                                                "FH for [%s]!", host_addr_ip);
+                auth_status_code = -EACCES;
+                goto free_and_out;
+        } else {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Cached FH not found for [%s]!",
+                        host_addr_ip);
         }
 
         /* Check if the IP is authorized */
@@ -2026,10 +2052,20 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
          * host if they are null.
          */
         if (!authorized_export || !authorized_host) {
-                /* Cache the file handle if it was authorized */
-                if (fh && auth_status_code == 0)
-                        cache_nfs_fh (ms->authcache, fh, host_addr_ip, expitem);
+                if (auth_status_code == 0) {
+                        auth_cache_status = AUTH_CACHE_HOST_AUTH_OK;
+                } else {
+                        auth_cache_status = AUTH_CACHE_HOST_EACCES;
+                }
 
+                if (fh) {
+                        cache_nfs_fh (ms->authcache, fh, host_addr_ip,
+                                      expitem, auth_cache_status);
+                }
+                if (path) {
+                        cache_nfs_path (ms->authcache, path, host_addr_ip,
+                                        expitem, auth_cache_status);
+                }
                 goto free_and_out;
         }
 

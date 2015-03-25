@@ -51,23 +51,28 @@ struct export_options {
         char            *anon_uid;         /* anonuid option */
         char            *sec_type;         /* X, for sec=X */
 };
+typedef struct export_options export_options_t;
+
 
 struct export_item {
-        char                  *name;  /* Name of the export item */
-        struct export_options *opts;  /* NFS Options */
+        char             *name;  /* Name of the export item */
+        export_options_t *opts;  /* NFS Options */
 };
+typedef struct export_item export_item_t;
 
 struct export_dir {
         char    *dir_name;      /* Directory */
         dict_t  *netgroups;     /* Dict of netgroups */
         dict_t  *hosts;         /* Dict of hosts */
 };
+typedef struct export_dir export_dir_t;
 
 struct exports_file {
         char    *filename;      /* Filename */
         dict_t  *exports_dict;  /* Dict of export_dir_t */
         dict_t  *exports_map;   /* Map of SuperFastHash(<export>) -> expdir */
 };
+typedef struct exports_file exports_file_t;
 
 void
 exp_file_deinit (struct exports_file *expfile);
