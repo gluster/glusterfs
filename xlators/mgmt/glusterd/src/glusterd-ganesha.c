@@ -9,7 +9,6 @@
 */
 
 
-
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
@@ -23,6 +22,75 @@
 #include "glusterd-nfs-svc.h"
 #define MAXBUF 1024
 #define DELIM "=\""
+
+typedef struct service_command {
+        char *binary;
+        char *service;
+        int (*action) (struct service_command *, char *);
+} service_command;
+
+static int
+sc_systemctl_action (struct service_command *sc, char *command)
+{
+        runner_t        runner   = {0,};
+
+        runinit (&runner);
+        runner_add_args (&runner, sc->binary, command, sc->service, NULL);
+        return runner_run (&runner);
+}
+
+static int
+sc_service_action (struct service_command *sc, char *command)
+{
+        runner_t      runner = {0,};
+
+        runinit (&runner);
+        runner_add_args (&runner, sc->binary, sc->service, command, NULL);
+        return runner_run (&runner);
+}
+
+static int
+manage_service (char *action)
+{
+        struct stat stbuf       = {0,};
+        int     i               = 0;
+        int     ret             = 0;
+        struct service_command sc_list[] = {
+                { .binary  = "/usr/bin/systemctl",
+                  .service = "nfs-ganesha",
+                  .action  = sc_systemctl_action
+                },
+                { .binary  = "/sbin/invoke-rc.d",
+                  .service = "nfs-ganesha",
+                  .action  = sc_service_action
+                },
+                { .binary  = "/sbin/service",
+                  .service = "nfs-ganesha",
+                  .action  = sc_service_action
+                },
+                { .binary  = NULL
+                }
+        };
+
+        while (sc_list[i].binary != NULL) {
+                ret = stat (sc_list[i].binary, &stbuf);
+                if (ret == 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "%s found.", sc_list[i].binary);
+                        if (strcmp (sc_list[i].binary, "/usr/bin/systemctl") == 0)
+                                ret = sc_systemctl_action (&sc_list[i], action);
+                        else
+                                ret = sc_service_action (&sc_list[i], action);
+
+                        return ret;
+                }
+                i++;
+        }
+        gf_log (THIS->name, GF_LOG_ERROR,
+                "Could not %s NFS-Ganesha.Service manager for distro"
+                " not recognized.", action);
+        return ret;
+}
 
 int
 glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
@@ -407,9 +475,10 @@ stop_ganesha (char **op_errstr)
         }
 
         if (check_host_list ()) {
-                runinit (&runner);
-                runner_add_args (&runner, "service", " nfs-ganesha", "stop", NULL);
-                ret =  runner_run (&runner);
+                ret = manage_service ("stop");
+                if (ret)
+                        gf_asprintf (op_errstr, "NFS-Ganesha service could not"
+                                     "be stopped.");
         }
 out:
         return ret;
@@ -418,8 +487,6 @@ out:
 int
 start_ganesha (char **op_errstr)
 {
-
-        runner_t                runner                     = {0,};
         int                     ret                        = -1;
         char                    key[1024]                  = {0,};
         char                    *hostname                  = NULL;
@@ -450,11 +517,7 @@ start_ganesha (char **op_errstr)
         }
 
         if (check_host_list()) {
-                runinit(&runner);
-                runner_add_args (&runner, "service",
-                                 "nfs-ganesha", "start", NULL);
-
-                ret =  runner_run (&runner);
+                ret = manage_service ("start");
                 if (ret) {
                         gf_asprintf (op_errstr, "NFS-Ganesha failed to start."
                         "Please see log file for details");
