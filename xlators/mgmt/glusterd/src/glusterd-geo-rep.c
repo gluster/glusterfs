@@ -5025,7 +5025,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount",
+                         "aux-gfid-mount acl",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -5148,7 +5148,7 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf_path);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount",
+                         "aux-gfid-mount acl",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
