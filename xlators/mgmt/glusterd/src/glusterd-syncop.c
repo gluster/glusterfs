@@ -304,6 +304,9 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                         goto out;
         break;
 
+        case GD_OP_SCRUB_STATUS:
+                ret = glusterd_volume_bitrot_scrub_use_rsp_dict (aggr, rsp);
+        break;
         default:
         break;
         }
@@ -932,7 +935,7 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
         args.op_errno = ENOTCONN;
 
         if ((pnode->type == GD_NODE_NFS) ||
-            (pnode->type == GD_NODE_QUOTAD) ||
+            (pnode->type == GD_NODE_QUOTAD) || (pnode->type == GD_NODE_SCRUB) ||
             ((pnode->type == GD_NODE_SHD) && (op == GD_OP_STATUS_VOLUME))) {
                 ret = glusterd_node_op_build_payload (op, &req, dict_out);
 

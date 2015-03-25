@@ -5116,7 +5116,7 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                                                      "biweekly", "monthly",
                                                       NULL};
         char               *scrub_values[]        = {"pause", "resume",
-                                                      NULL};
+                                                     "status", NULL};
         dict_t             *dict                  = NULL;
         gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
         int32_t            expiry_time            = 0;
@@ -5173,6 +5173,23 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                 if (wordcount == 4) {
                         type = GF_BITROT_OPTION_TYPE_DISABLE;
                         ret = 0;
+                        goto set_type;
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if ((strcmp (words[3], "scrub") == 0) &&
+            (strcmp (words[4], "status") == 0)) {
+                if (wordcount == 5) {
+                        type = GF_BITROT_CMD_SCRUB_STATUS;
+                        ret =  dict_set_str (dict, "scrub-value",
+                                             (char *) words[4]);
+                        if (ret) {
+                                cli_out ("Failed to set dict for scrub status");
+                                goto out;
+                        }
                         goto set_type;
                 } else {
                         ret = -1;

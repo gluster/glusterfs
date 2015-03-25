@@ -116,6 +116,7 @@ typedef enum glusterd_op_ {
         GD_OP_BITROT,
         GD_OP_DETACH_TIER,
         GD_OP_TIER_MIGRATE,
+        GD_OP_SCRUB_STATUS,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -276,6 +277,20 @@ typedef struct _auth auth_t;
 #define CAPS_OFFLOAD_SNAPSHOT 0x00000008
 #define CAPS_OFFLOAD_ZERO     0x00000020
 
+struct glusterd_bitrot_scrub_ {
+        char        *scrub_state;
+        char        *scrub_impact;
+        char        *scrub_freq;
+        uint64_t    scrubbed_files;
+        uint64_t    unsigned_files;
+        uint64_t    last_scrub_time;
+        uint64_t    scrub_duration;
+        uint64_t    error_count;
+};
+
+typedef struct glusterd_bitrot_scrub_ glusterd_bitrot_scrub_t;
+
+
 struct glusterd_rebalance_ {
         gf_defrag_status_t       defrag_status;
         uint64_t                 rebalance_files;
@@ -381,6 +396,9 @@ struct glusterd_volinfo_ {
 
         /* Replace brick status */
         glusterd_replace_brick_t  rep_brick;
+
+        /* Bitrot scrub status*/
+        glusterd_bitrot_scrub_t   bitrot_scrub;
 
         int                       version;
         uint32_t                  quota_conf_version;

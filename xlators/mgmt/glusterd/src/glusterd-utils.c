@@ -4222,7 +4222,8 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
 
         } else if (pending_node->type == GD_NODE_SHD ||
                    pending_node->type == GD_NODE_NFS ||
-                   pending_node->type == GD_NODE_QUOTAD) {
+                   pending_node->type == GD_NODE_QUOTAD ||
+                   pending_node->type == GD_NODE_SCRUB) {
                 svc = pending_node->node;
                 rpc = svc->conn.rpc;
         } else if (pending_node->type == GD_NODE_REBALANCE) {
@@ -8241,6 +8242,393 @@ out:
 }
 
 int
+glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
+{
+        int                      ret                = -1;
+        uint64_t                 value              = 0;
+        int32_t                  count              = 0;
+        char                     key[256]           = {0,};
+        uint64_t                 error_count        = 0;
+        uint64_t                 scrubbed_files     = 0;
+        uint64_t                 unsigned_files     = 0;
+        uint64_t                 scrub_duration     = 0;
+        uint64_t                 last_scrub_time    = 0;
+        char                    *volname            = NULL;
+        char                    *node_uuid          = NULL;
+        char                    *node_uuid_str      = NULL;
+        char                    *bitd_log           = NULL;
+        char                    *scrub_log          = NULL;
+        char                    *scrub_freq         = NULL;
+        char                    *scrub_state        = NULL;
+        char                    *scrub_impact       = NULL;
+        xlator_t                *this               = NULL;
+        glusterd_conf_t         *priv               = NULL;
+        glusterd_volinfo_t      *volinfo            = NULL;
+        int                      src_count          = 0;
+        int                      dst_count          = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_get_str (aggr, "volname", &volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+                        "Unable to find volinfo for volume: %s", volname);
+                goto out;
+        }
+
+        ret = dict_get_int32 (aggr, "count", &dst_count);
+
+        ret = dict_get_int32 (rsp_dict, "count", &src_count);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "failed to get count value");
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_set_int32 (aggr, "count", src_count+dst_count);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Failed to set count in dictonary");
+
+        snprintf (key, 256, "node-uuid-%d", src_count);
+        ret = dict_get_str (rsp_dict, key, &node_uuid);
+        if (!ret) {
+                node_uuid_str = gf_strdup (node_uuid);
+
+                memset (key, 0, 256);
+                snprintf (key, 256, "node-uuid-%d", src_count+dst_count);
+                ret = dict_set_dynstr (aggr, key, node_uuid_str);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "failed to set node-uuid");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "scrubbed-files-%d", src_count);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrubbed-files-%d", src_count+dst_count);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrubbed-file value");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "unsigned-files-%d", src_count);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "unsigned-files-%d", src_count+dst_count);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "unsigned-file value");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "last-scrub-time-%d", src_count);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "last-scrub-time-%d", src_count+dst_count);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "last scrub time value");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "scrub-duration-%d", src_count);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-duration-%d", src_count+dst_count);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrubbed-duration value");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "error-count-%d", src_count);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "error-count-%d", src_count+dst_count);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set error "
+                                      "count value");
+                }
+        }
+
+        ret = dict_get_str (rsp_dict, "bitrot_log_file", &bitd_log);
+        if (!ret) {
+                ret = dict_set_str (aggr, "bitrot_log_file", bitd_log);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "bitrot log file location");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (rsp_dict, "scrub_log_file", &scrub_log);
+        if (!ret) {
+                ret = dict_set_str (aggr, "scrub_log_file", scrub_log);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrubber log file location");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (rsp_dict, "features.scrub-freq", &scrub_freq);
+        if (!ret) {
+                ret = dict_set_str (aggr, "features.scrub-freq", scrub_freq);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub-frequency value to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (rsp_dict, "features.scrub-throttle", &scrub_impact);
+        if (!ret) {
+                ret = dict_set_str (aggr, "features.scrub-throttle",
+                                    scrub_impact);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub-throttle value to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (rsp_dict, "features.scrub", &scrub_state);
+        if (!ret) {
+                ret = dict_set_str (aggr, "features.scrub", scrub_state);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub state value to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
+{
+        int                      ret                = -1;
+        uint64_t                 value              = 0;
+        int32_t                  count              = 0;
+        int32_t                  index              = 0;
+        char                     key[256]           = {0,};
+        char                     buf[1024]          = {0,};
+        uint64_t                 error_count        = 0;
+        int32_t                  i                  = 0;
+        uint64_t                 scrubbed_files     = 0;
+        uint64_t                 unsigned_files     = 0;
+        uint64_t                 scrub_duration     = 0;
+        uint64_t                 last_scrub_time    = 0;
+        char                    *volname            = NULL;
+        char                    *node_str           = NULL;
+        char                    *scrub_freq         = NULL;
+        char                    *scrub_state        = NULL;
+        char                    *scrub_impact       = NULL;
+        xlator_t                *this               = NULL;
+        glusterd_conf_t         *priv               = NULL;
+        glusterd_volinfo_t      *volinfo            = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = dict_set_str (aggr, "bitrot_log_file",
+                           (priv->bitd_svc.proc.logfile));
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Failed to set bitrot log file location");
+                goto out;
+        }
+
+        ret = dict_set_str (aggr, "scrub_log_file",
+                           (priv->scrub_svc.proc.logfile));
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Failed to set scrubber log file location");
+                goto out;
+        }
+
+        ret = dict_get_str (aggr, "volname", &volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+                        "Unable to find volinfo for volume: %s", volname);
+                goto out;
+        }
+
+        ret = dict_get_int32 (aggr, "count", &i);
+        i++;
+
+        ret = dict_set_int32 (aggr, "count", i);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Failed to set count");
+
+        snprintf (buf, 1024, "%s", uuid_utoa (MY_UUID));
+
+        snprintf (key, 256, "node-uuid-%d", i);
+        ret = dict_set_dynstr_with_alloc (aggr, key, buf);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "failed to set node-uuid");
+
+        ret = dict_get_str (volinfo->dict, "features.scrub-freq", &scrub_freq);
+        if (!ret) {
+                ret = dict_set_str (aggr, "features.scrub-freq", scrub_freq);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub-frequency value to dictionary");
+                }
+        } else {
+                /* By Default scrub-frequency is bi-weekly. So when user
+                 * enable bitrot then scrub-frequency value will not be
+                 * present in volinfo->dict. Setting by-default value of
+                 * scrub-frequency explicitly for presenting it to scrub
+                 * status.
+                 */
+                 ret = dict_set_dynstr_with_alloc (aggr, "features.scrub-freq",
+                                                   "biweekly");
+                 if (ret) {
+                         gf_msg_debug (this->name, 0, "Failed to set "
+                                       "scrub-frequency value to dictionary");
+                 }
+        }
+
+        ret = dict_get_str (volinfo->dict, "features.scrub-throttle",
+                            &scrub_impact);
+        if (!ret) {
+                ret = dict_set_str (aggr, "features.scrub-throttle",
+                                    scrub_impact);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub-throttle value to dictionary");
+                }
+        } else {
+                /* By Default scrub-throttle is lazy. So when user
+                 * enable bitrot then scrub-throttle value will not be
+                 * present in volinfo->dict. Setting by-default value of
+                 * scrub-throttle explicitly for presenting it to
+                 * scrub status.
+                 */
+                 ret = dict_set_dynstr_with_alloc (aggr,
+                                                   "features.scrub-throttle",
+                                                   "lazy");
+                 if (ret) {
+                         gf_msg_debug (this->name, 0, "Failed to set "
+                                       "scrub-throttle value to dictionary");
+                 }
+        }
+
+        ret = dict_get_str (volinfo->dict, "features.scrub", &scrub_state);
+        if (!ret) {
+                ret = dict_set_str (aggr, "features.scrub", scrub_state);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrub state value to dictionary");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "scrubbed-files", &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrubbed-files-%d", i);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrubbed-file value");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "unsigned-files", &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "unsigned-files-%d", i);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "unsigned-file value");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "last-scrub-time", &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "last-scrub-time-%d", i);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "last scrub time value");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "scrub-duration", &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "scrub-duration-%d", i);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set "
+                                      "scrubbed-duration value");
+                }
+        }
+
+        ret = dict_get_uint64 (rsp_dict, "error-count", &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "error-count-%d", i);
+                ret = dict_set_uint64 (aggr, key, value);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Failed to set error "
+                                      "count value");
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
         char                 key[256]      = {0,};
@@ -9138,6 +9526,10 @@ glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
         case GD_OP_HEAL_VOLUME:
                 ret = glusterd_heal_volume_brick_rsp (req_dict, rsp_dict,
                                                       op_ctx, op_errstr);
+                break;
+        case GD_OP_SCRUB_STATUS:
+                ret = glusterd_bitrot_volume_node_rsp (op_ctx, rsp_dict);
+
                 break;
         default:
                 break;

@@ -436,6 +436,11 @@ int32_t
 glusterd_handle_node_rsp (dict_t *req_ctx, void *pending_entry,
                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
                           char **op_errstr, gd_node_type type);
+int
+glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
+
+int
+glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 
 int32_t
 glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo);
