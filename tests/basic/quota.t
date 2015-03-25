@@ -155,14 +155,7 @@ TEST $CLI volume add-brick $V0 $H0:$B0/brick{3,4}
 TEST $CLI volume rebalance $V0 start;
 
 ## Wait for rebalance
-while true; do
-        rebalance_completed
-        if [ $? -eq 1 ]; then
-                sleep 1;
-        else
-                break;
-        fi
-done
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 
 ## <Try creating data beyond limit>
 ## --------------------------------
