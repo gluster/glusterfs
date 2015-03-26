@@ -458,6 +458,9 @@ cluster_handle_marker_getxattr (call_frame_t *frame, loc_t *loc,
         if (GF_CLIENT_PID_GSYNCD != frame->root->pid)
                 return -EINVAL;
 
+        if (name == NULL)
+                return -EINVAL;
+
         if (strcmp (GF_XATTR_MARKER_KEY, name) == 0) {
                 type = MARKER_UUID_TYPE;
                 memcpy (gauge, marker_uuid_default_gauge, sizeof (gauge));
