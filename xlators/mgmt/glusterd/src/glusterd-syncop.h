@@ -59,15 +59,6 @@ void
 gd_synctask_barrier_wait (struct syncargs *args, int count);
 
 int
-gd_build_peers_list (struct cds_list_head *peers,
-                     struct cds_list_head *xact_peers, glusterd_op_t op);
-
-int
-gd_build_local_xaction_peers_list (struct cds_list_head *peers,
-                                   struct cds_list_head *xact_peers,
-                                   glusterd_op_t op);
-
-int
 gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                    char **op_errstr);
 
