@@ -258,8 +258,15 @@ glusterd_peerinfo_t *
 glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
                        const char *hostname, int port)
 {
-        glusterd_peerinfo_t      *new_peer = NULL;
-        int                      ret = -1;
+        glusterd_peerinfo_t *new_peer = NULL;
+        int                  ret      = -1;
+        xlator_t            *this     = NULL;
+        glusterd_conf_t     *conf     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
 
         new_peer = GF_CALLOC (1, sizeof (*new_peer), gf_gld_mt_peerinfo_t);
         if (!new_peer)
@@ -297,6 +304,8 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         new_peer->port = port;
 
         pthread_mutex_init (&new_peer->delete_lock, NULL);
+
+        new_peer->generation = uatomic_add_return (&conf->generation, 1);
 out:
         if (ret && new_peer) {
                 glusterd_peerinfo_cleanup (new_peer);

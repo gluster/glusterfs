@@ -626,22 +626,6 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         gf_log (this->name, GF_LOG_DEBUG, "Acquired lock on localhost");
 
 local_locking_done:
-        txn_op_info.local_xaction_peers =
-                GF_CALLOC (1, sizeof (struct cds_list_head),
-                           gf_common_mt_list_head_t);
-        if (!txn_op_info.local_xaction_peers) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
-                goto out;
-        }
-        CDS_INIT_LIST_HEAD (txn_op_info.local_xaction_peers);
-
-        /* Maintain xaction_peers on per transaction basis */
-        npeers = gd_build_local_xaction_peers_list
-                                        (&priv->peers,
-                                         txn_op_info.local_xaction_peers,
-                                         op);
-
         /* If no volname is given as a part of the command, locks will
          * not be held, hence sending stage event. */
         if (volname || (priv->op_version < GD_OP_VERSION_3_6_0))
@@ -898,8 +882,8 @@ __glusterd_handle_stage_op (rpcsvc_request_t *req)
                         "No transaction's opinfo set");
 
                 state.state = GD_OP_STATE_LOCKED;
-                glusterd_txn_opinfo_init (&txn_op_info, &state,
-                                          &op_req.op, req_ctx->dict, req);
+                glusterd_txn_opinfo_init (&txn_op_info, &state, &op_req.op,
+                                          req_ctx->dict, req);
 
                 ret = glusterd_set_txn_opinfo (txn_id, &txn_op_info);
                 if (ret) {
