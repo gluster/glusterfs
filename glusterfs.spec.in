@@ -323,6 +323,7 @@ Group:            Applications/File
 BuildRequires:    fuse-devel
 
 Requires:         %{name} = %{version}-%{release}
+Requires:         attr
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
@@ -1037,6 +1038,9 @@ fi
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 %changelog
+* Thu Mar 26 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- attr dependency (#1184626)
+
 * Thu Sep 25 2014 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - better logic in %%post server, (#1113543, reopened)
 
