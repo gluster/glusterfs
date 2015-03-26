@@ -595,6 +595,30 @@ ec_marker_populate_args (call_frame_t *frame, int type, int *gauge,
 }
 
 int32_t
+ec_handle_heal_commands (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                         const char *name, dict_t *xdata)
+{
+        dict_t  *dict_rsp = NULL;
+        int     op_ret = -1;
+        int     op_errno = ENOMEM;
+
+        if (!name || strcmp (name, GF_HEAL_INFO))
+                return -1;
+
+        dict_rsp = dict_new ();
+        if (dict_rsp == NULL)
+                goto out;
+
+        if (dict_set_str (dict_rsp, "heal-info", "heal") == 0)
+                op_ret = 0;
+out:
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict_rsp, NULL);
+        if (dict_rsp)
+                dict_unref (dict_rsp);
+        return 0;
+}
+
+int32_t
 ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata)
 {
@@ -604,6 +628,9 @@ ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (name && strcmp (name, EC_XATTR_HEAL) != 0) {
                 EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
         }
+
+        if (ec_handle_heal_commands (frame, this, loc, name, xdata) == 0)
+                return 0;
 
         if (cluster_handle_marker_getxattr (frame, loc, name, ec->vol_uuid,
                                             NULL, ec_marker_populate_args) == 0)

@@ -156,7 +156,7 @@
 #define GF_XATTROP_INDEX_GFID "glusterfs.xattrop_index_gfid"
 #define GF_XATTROP_INDEX_COUNT "glusterfs.xattrop_index_count"
 
-#define GF_AFR_HEAL_INFO "glusterfs.heal-info"
+#define GF_HEAL_INFO "glusterfs.heal-info"
 #define GF_AFR_HEAL_SBRAIN "glusterfs.heal-sbrain"
 #define GF_AFR_SBRAIN_STATUS "replica.split-brain-status"
 #define GF_AFR_SBRAIN_CHOICE "replica.split-brain-choice"
