@@ -333,6 +333,7 @@ for GlusterFS.
 Summary:          Fuse client
 Group:            Applications/File
 BuildRequires:    fuse-devel
+Requires:         attr
 
 Requires:         %{name} = %{version}-%{release}
 
@@ -1100,6 +1101,9 @@ fi
 
 
 %changelog
+* Thu Mar 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- attr dependency (#1174627)
+
 * Tue Mar 24 2015 Niels de Vos <ndevos@redhat.com>
 - move libgfdb (with sqlite dependency) to -server subpackage (#1194753)
 
