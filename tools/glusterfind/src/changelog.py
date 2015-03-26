@@ -198,6 +198,7 @@ def get_changes(brick, hash_dir, log_file, end, args):
     of gfid to 'gfid_list' file.
     """
     try:
+        libgfchangelog.cl_init()
         libgfchangelog.cl_register(brick, hash_dir, log_file,
                                    CHANGELOG_LOG_LEVEL, CHANGELOG_CONN_RETRIES)
     except libgfchangelog.ChangelogException as e:
