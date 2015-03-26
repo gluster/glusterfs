@@ -2267,8 +2267,6 @@ fini (xlator_t *this)
 
         this->private = NULL;
 
-        GF_FREE (priv->path);
-        GF_FREE (priv->special_dir);
         GF_FREE (priv);
 
         return;
