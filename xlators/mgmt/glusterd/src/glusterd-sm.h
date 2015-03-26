@@ -104,6 +104,7 @@ struct glusterd_peerinfo_ {
         /* Members required for proper cleanup using RCU */
         gd_rcu_head                     rcu_head;
         pthread_mutex_t                 delete_lock;
+        struct timespec                 create_ts;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;

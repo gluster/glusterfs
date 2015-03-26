@@ -296,6 +296,8 @@ glusterd_peerinfo_new (glusterd_friend_sm_state_t state, uuid_t *uuid,
         new_peer->port = port;
 
         pthread_mutex_init (&new_peer->delete_lock, NULL);
+
+        timespec_now (&new_peer->create_ts);
 out:
         if (ret && new_peer) {
                 glusterd_peerinfo_cleanup (new_peer);
