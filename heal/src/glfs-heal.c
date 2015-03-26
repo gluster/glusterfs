@@ -507,7 +507,7 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         while (xl) {
                 if (strcmp (xl->type, "protocol/client") == 0) {
                         afr_xl = _get_afr_ancestor (xl);
-                        if (afr_xl)
+                        if (afr_xl) {
                                 old_THIS = THIS;
                                 THIS = afr_xl;
                                 glfsh_print_pending_heals (fs, top_subvol,
@@ -515,6 +515,7 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                                                            heal_op);
                                 THIS = old_THIS;
                                 printf ("\n");
+                        }
                 }
 
                 xl = xl->prev;
