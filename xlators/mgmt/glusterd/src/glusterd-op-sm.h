@@ -103,6 +103,8 @@ struct glusterd_op_info_ {
         int32_t                         op_errno;
         char                            *op_errstr;
         struct  cds_list_head           pending_bricks;
+        struct  cds_list_head           *local_xaction_peers;
+
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
