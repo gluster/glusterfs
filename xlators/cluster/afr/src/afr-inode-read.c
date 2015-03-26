@@ -1477,7 +1477,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                                             afr_marker_populate_args) == 0)
                 return 0;
 
-        if (!strcmp (name, GF_AFR_HEAL_INFO)) {
+        if (!strcmp (name, GF_HEAL_INFO)) {
                 afr_get_heal_info (frame, this, loc, xdata);
                 return 0;
         }

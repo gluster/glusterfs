@@ -94,8 +94,18 @@ out:
 }
 
 static xlator_t*
-_get_afr_ancestor (xlator_t *xl)
+_get_ancestor (xlator_t *xl, gf_xl_afr_op_t heal_op)
 {
+        static char *replica_xl[] = {"cluster/replicate", NULL};
+        static char *heal_xls[] = {"cluster/replicate", "cluster/disperse",
+                                         NULL};
+        char **ancestors = NULL;
+
+        if (heal_op == GF_SHD_OP_INDEX_SUMMARY)
+                ancestors = heal_xls;
+        else
+                ancestors = replica_xl;
+
         if (!xl || !xl->parents)
                 return NULL;
 
@@ -103,7 +113,7 @@ _get_afr_ancestor (xlator_t *xl)
                 xl = xl->parents->xlator;
                 if (!xl)
                         break;
-                if (strcmp (xl->type, "cluster/replicate") == 0)
+                if (gf_get_index_by_elem (ancestors, xl->type) != -1)
                         return xl;
         }
 
@@ -234,8 +244,7 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
 
                 uuid_parse (entry->d_name, gfid);
                 uuid_copy (loc.gfid, gfid);
-                ret = syncop_getxattr (this, &loc, &dict, GF_AFR_HEAL_INFO,
-                                       NULL);
+                ret = syncop_getxattr (this, &loc, &dict, GF_HEAL_INFO, NULL);
                 if (ret)
                         continue;
 
@@ -434,9 +443,9 @@ out:
 }
 
 static int
-glfsh_validate_replicate_volume (xlator_t *xl)
+glfsh_validate_volume (xlator_t *xl, gf_xl_afr_op_t heal_op)
 {
-        xlator_t        *afr_xl = NULL;
+        xlator_t        *heal_xl = NULL;
         int             ret = -1;
 
         while (xl->next)
@@ -444,8 +453,8 @@ glfsh_validate_replicate_volume (xlator_t *xl)
 
         while (xl) {
                 if (strcmp (xl->type, "protocol/client") == 0) {
-                        afr_xl = _get_afr_ancestor (xl);
-                        if (afr_xl) {
+                        heal_xl = _get_ancestor (xl, heal_op);
+                        if (heal_xl) {
                                 ret = 0;
                                 break;
                         }
@@ -498,7 +507,7 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                         gf_xl_afr_op_t heal_op)
 {
         xlator_t  *xl       = NULL;
-        xlator_t  *afr_xl   = NULL;
+        xlator_t  *heal_xl   = NULL;
         xlator_t  *old_THIS = NULL;
 
         xl = top_subvol;
@@ -506,10 +515,10 @@ glfsh_gather_heal_info (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 xl = xl->next;
         while (xl) {
                 if (strcmp (xl->type, "protocol/client") == 0) {
-                        afr_xl = _get_afr_ancestor (xl);
-                        if (afr_xl) {
+                        heal_xl = _get_ancestor (xl, heal_op);
+                        if (heal_xl) {
                                 old_THIS = THIS;
-                                THIS = afr_xl;
+                                THIS = heal_xl;
                                 glfsh_print_pending_heals (fs, top_subvol,
                                                            rootloc, xl,
                                                            heal_op);
@@ -778,9 +787,11 @@ main (int argc, char **argv)
                 goto out;
         }
 
-        ret = glfsh_validate_replicate_volume (top_subvol);
+        ret = glfsh_validate_volume (top_subvol, heal_op);
         if (ret < 0) {
-                printf ("Volume %s is not of type replicate\n", volname);
+                printf ("Volume %s is not of type %s\n", volname,
+                        (heal_op == GF_SHD_OP_INDEX_SUMMARY) ?
+                        "replicate/disperse":"replicate");
                 goto out;
         }
         rootloc.inode = inode_ref (top_subvol->itable->root);
