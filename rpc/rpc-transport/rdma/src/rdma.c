@@ -4676,6 +4676,8 @@ gf_rdma_listen (rpc_transport_t *this)
 
         sprintf (this->myinfo.identifier, "%s:%s", host, service);
 
+#if defined(RDMA_OPTION_ID_REUSEADDR)
+/* Ubuntu Precise LTS does not have RDMA_OPTION_ID_REUSEADDR */
         ret = rdma_set_option(peer->cm_id, RDMA_OPTION_ID,
                               RDMA_OPTION_ID_REUSEADDR,
                               (void *)&optval, sizeof(optval));
@@ -4684,6 +4686,7 @@ gf_rdma_listen (rpc_transport_t *this)
                         "rdma option set failed (%s)", strerror (errno));
                 goto err;
         }
+#endif
 
         ret = rdma_bind_addr (peer->cm_id, &sock_union.sa);
         if (ret != 0) {
