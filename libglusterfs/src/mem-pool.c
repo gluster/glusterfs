@@ -49,12 +49,13 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr, size_t size,
 		      uint32_t type, const char *typestr)
 {
 
-        char    *ptr = NULL;
+        void              *ptr    = NULL;
+        struct mem_header *header = NULL;
 
         if (!alloc_ptr)
                 return -1;
 
-        ptr = (char *) (*alloc_ptr);
+        ptr = *alloc_ptr;
 
         GF_ASSERT (xl != NULL);
 
@@ -78,18 +79,18 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr, size_t size,
         }
         UNLOCK(&xl->mem_acct.rec[type].lock);
 
-        *(uint32_t *)(ptr) = type;
-        ptr = ptr + 4;
-        memcpy (ptr, &size, sizeof(size_t));
-        ptr += sizeof (size_t);
-        memcpy (ptr, &xl, sizeof(xlator_t *));
-        ptr += sizeof (xlator_t *);
-        *(uint32_t *)(ptr) = GF_MEM_HEADER_MAGIC;
-        ptr = ptr + 4;
-        ptr = ptr + 8; //padding
+        header = (struct mem_header *) ptr;
+        header->type = type;
+        header->size = size;
+        header->xlator = xl;
+        header->magic = GF_MEM_HEADER_MAGIC;
+
+        ptr += sizeof (struct mem_header);
+
+        /* data follows in this gap of 'size' bytes */
         *(uint32_t *) (ptr + size) = GF_MEM_TRAILER_MAGIC;
 
-        *alloc_ptr = (void *)ptr;
+        *alloc_ptr = ptr;
         return 0;
 }
 
@@ -148,11 +149,11 @@ __gf_malloc (size_t size, uint32_t type, const char *typestr)
 void *
 __gf_realloc (void *ptr, size_t size)
 {
-        size_t          tot_size = 0;
-        char            *orig_ptr = NULL;
-        xlator_t        *xl = NULL;
-        uint32_t        type = 0;
-        char            *new_ptr;
+        uint32_t           type = 0;
+        size_t             tot_size = 0;
+        xlator_t          *xl = NULL;
+        char              *new_ptr;
+        struct mem_header *header = NULL;
 
         if (!THIS->ctx->mem_acct_enable)
                 return REALLOC (ptr, size);
@@ -161,17 +162,14 @@ __gf_realloc (void *ptr, size_t size)
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
 
-        orig_ptr = (char *)ptr - 8 - 4;
+        header = (struct mem_header *) (ptr - GF_MEM_HEADER_SIZE);
 
-        GF_ASSERT (*(uint32_t *)orig_ptr == GF_MEM_HEADER_MAGIC);
+        GF_ASSERT (header->magic == GF_MEM_HEADER_MAGIC);
 
-        orig_ptr = orig_ptr - sizeof(xlator_t *);
-        xl = *((xlator_t **)orig_ptr);
+        xl = (xlator_t *) header->xlator;
+        type = header->type;
 
-        orig_ptr = (char *)ptr - GF_MEM_HEADER_SIZE;
-        type = *(uint32_t *)orig_ptr;
-
-        new_ptr = realloc (orig_ptr, tot_size);
+        new_ptr = realloc (header, tot_size);
         if (!new_ptr) {
                 gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
@@ -228,13 +226,53 @@ gf_asprintf (char **string_ptr, const char *format, ...)
         return rv;
 }
 
+#ifdef DEBUG
+void
+__gf_mem_invalidate (void *ptr)
+{
+        struct mem_header *header = ptr;
+        void              *end    = NULL;
+
+        struct mem_invalid inval = {
+                .magic = GF_MEM_INVALID_MAGIC,
+                .xlator = header->xlator,
+                .type = header->type,
+                .size = header->size,
+                .baseaddr = ptr + GF_MEM_HEADER_SIZE,
+        };
+
+        /* calculate the last byte of the allocated area */
+        end = ptr + GF_MEM_HEADER_SIZE + inval.size + GF_MEM_TRAILER_SIZE;
+
+        /* overwrite the old mem_header */
+        memcpy (ptr, &inval, sizeof (inval));
+        ptr += sizeof (inval);
+
+        /* zero out remaining (old) mem_header bytes) */
+        memset (ptr, 0x00, sizeof (*header) - sizeof (inval));
+        ptr += sizeof (*header) - sizeof (inval);
+
+        /* zero out the first byte of data */
+        *(uint32_t *)(ptr) = 0x00;
+        ptr += 1;
+
+        /* repeated writes of invalid structurein data area */
+        while ((ptr + (sizeof (inval))) < (end - 1)) {
+                memcpy (ptr, &inval, sizeof (inval));
+                ptr += sizeof (inval);
+        }
+
+        /* fill out remaining data area with 0xff */
+        memset (ptr, 0xff, end - ptr);
+}
+#endif /* DEBUG */
+
 void
 __gf_free (void *free_ptr)
 {
-        size_t          req_size = 0;
-        char            *ptr = NULL;
-        uint32_t        type = 0;
-        xlator_t        *xl = NULL;
+        void              *ptr = NULL;
+        xlator_t          *xl = NULL;
+        struct mem_header *header = NULL;
 
         if (!THIS->ctx->mem_acct_enable) {
                 FREE (free_ptr);
@@ -244,47 +282,39 @@ __gf_free (void *free_ptr)
         if (!free_ptr)
                 return;
 
-        ptr = (char *)free_ptr - 8 - 4;
+        ptr = free_ptr - GF_MEM_HEADER_SIZE;
+        header = (struct mem_header *) ptr;
 
         //Possible corruption, assert here
-        GF_ASSERT (GF_MEM_HEADER_MAGIC == *(uint32_t *)ptr);
-
-        *(uint32_t *)ptr = 0;
-
-        ptr = ptr - sizeof(xlator_t *);
-        memcpy (&xl, ptr, sizeof(xlator_t *));
+        GF_ASSERT (GF_MEM_HEADER_MAGIC == header->magic);
 
         //gf_free expects xl to be available
-        GF_ASSERT (xl != NULL);
+        GF_ASSERT (header->xlator != NULL);
+        xl = header->xlator;
 
         if (!xl->mem_acct.rec) {
-                ptr = (char *)free_ptr - GF_MEM_HEADER_SIZE;
                 goto free;
         }
 
-
-        ptr = ptr - sizeof(size_t);
-        memcpy (&req_size, ptr, sizeof (size_t));
-        ptr = ptr - 4;
-        type = *(uint32_t *)ptr;
-
         // This points to a memory overrun
         GF_ASSERT (GF_MEM_TRAILER_MAGIC ==
-                *(uint32_t *)((char *)free_ptr + req_size));
+                *(uint32_t *)((char *)free_ptr + header->size));
 
-        *(uint32_t *) ((char *)free_ptr + req_size) = 0;
-
-        LOCK (&xl->mem_acct.rec[type].lock);
+        LOCK (&xl->mem_acct.rec[header->type].lock);
         {
-                xl->mem_acct.rec[type].size -= req_size;
-                xl->mem_acct.rec[type].num_allocs--;
+                xl->mem_acct.rec[header->type].size -= header->size;
+                xl->mem_acct.rec[header->type].num_allocs--;
                 /* If all the instaces are freed up then ensure typestr is
                  * set to NULL */
-                if (!xl->mem_acct.rec[type].num_allocs)
-                        xl->mem_acct.rec[type].typestr = NULL;
+                if (!xl->mem_acct.rec[header->type].num_allocs)
+                        xl->mem_acct.rec[header->type].typestr = NULL;
         }
-        UNLOCK (&xl->mem_acct.rec[type].lock);
+        UNLOCK (&xl->mem_acct.rec[header->type].lock);
 free:
+#ifdef DEBUG
+        __gf_mem_invalidate (ptr);
+#endif
+
         FREE (ptr);
 }
 

@@ -31,10 +31,10 @@
 #include <cmocka.h>
 #endif
 
-#define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4 + 8)
 #define GF_MEM_TRAILER_SIZE 8
 #define GF_MEM_HEADER_MAGIC  0xCAFEBABE
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
+#define GF_MEM_INVALID_MAGIC 0xDEADC0DE
 
 struct mem_acct {
         uint32_t            num_types;
@@ -51,6 +51,25 @@ struct mem_acct_rec {
         gf_lock_t       lock;
 };
 
+struct mem_header {
+        uint32_t  type;
+        size_t    size;
+        void     *xlator;
+        uint32_t  magic;
+        int       padding[8];
+};
+
+#define GF_MEM_HEADER_SIZE  (sizeof (struct mem_header))
+
+#ifdef DEBUG
+struct mem_invalid {
+        uint32_t  magic;
+        void     *xlator;
+        uint32_t  type;
+        size_t    size;
+        void     *baseaddr;
+};
+#endif
 
 void *
 __gf_calloc (size_t cnt, size_t size, uint32_t type, const char *typestr);
