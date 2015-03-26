@@ -994,7 +994,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "STATUS: hashed_subvol %s "
+        gf_log (this->name, GF_LOG_DEBUG, "STATUS: hashed_subvol %s "
                 "cached_subvol %s",
                 (hashed_subvol == NULL)?"null":hashed_subvol->name,
                 (cached_subvol == NULL)?"null":cached_subvol->name);
