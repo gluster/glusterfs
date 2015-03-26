@@ -1714,6 +1714,51 @@ changelog_open (call_frame_t *frame, xlator_t *this,
 
 /* {{{ */
 
+
+/* }}} */
+
+int32_t
+_changelog_generic_dispatcher (dict_t *dict,
+                               char *key, data_t *value, void *data)
+{
+        xlator_t *this = NULL;
+        changelog_priv_t *priv = NULL;
+
+        this = data;
+        priv = this->private;
+
+        changelog_dispatch_event (this, priv, (changelog_event_t *)value->data);
+        return 0;
+}
+
+/**
+ * changelog ipc dispatches events, pointers of which are passed in
+ * @xdata. Dispatching is orderless (whatever order dict_foreach()
+ * traverses the dictionary).
+ */
+int32_t
+changelog_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
+{
+        if (op != GF_IPC_TARGET_CHANGELOG)
+                goto wind;
+
+        /* it's for us, do the job */
+        if (xdata)
+                (void) dict_foreach (xdata,
+                                     _changelog_generic_dispatcher, this);
+
+        STACK_UNWIND_STRICT (ipc, frame, 0, 0, NULL);
+        return 0;
+
+ wind:
+        STACK_WIND (frame, default_ipc_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->ipc, op, xdata);
+        return 0;
+}
+
+
+/* {{{ */
+
 int32_t
 changelog_release (xlator_t *this, fd_t *fd)
 {
@@ -2621,6 +2666,7 @@ struct xlator_fops fops = {
         .fsetxattr    = changelog_fsetxattr,
         .removexattr  = changelog_removexattr,
         .fremovexattr = changelog_fremovexattr,
+        .ipc          = changelog_ipc,
 };
 
 struct xlator_cbks cbks = {

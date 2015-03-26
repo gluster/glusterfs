@@ -1651,8 +1651,6 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         gf_log (this->name, GF_LOG_DEBUG,
                 "Transaction ID : %s", uuid_utoa (*txn_id));
 
-        opinfo = txn_opinfo;
-
         /* Save the MY_UUID as the originator_uuid */
         ret = glusterd_set_originator_uuid (op_ctx);
         if (ret) {

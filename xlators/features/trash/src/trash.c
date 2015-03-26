@@ -879,8 +879,16 @@ trash_unlink_stat_cbk (call_frame_t *frame,  void *cookie, xlator_t *this,
                 goto out;
         }
 
-        /* if the file is too big  just unlink it */
+        /* Only last hardlink will be moved to trash directory */
+        if (buf->ia_nlink > 1) {
+                STACK_WIND (frame, trash_common_unwind_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->unlink, &local->loc,
+                            0, xdata);
+                goto out;
+        }
 
+        /* if the file is too big  just unlink it */
         if (buf->ia_size > (priv->max_trash_file_size)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                                 "%s: file size too big (%"PRId64") to "
@@ -1470,6 +1478,16 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 NULL, xdata);
                 goto out;
         }
+
+        /* Only last hardlink will be moved to trash directory */
+        if (buf->ia_nlink > 1) {
+                STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->truncate,
+                            &local->loc, local->fop_offset, xdata);
+                goto out;
+        }
+
         /* If the file is too big, just unlink it. */
         if (buf->ia_size > (priv->max_trash_file_size)) {
                 gf_log (this->name, GF_LOG_DEBUG, "%s: file too big, "
@@ -1972,6 +1990,16 @@ trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     NULL, xdata);
                 goto out;
         }
+
+        /* Only last hardlink will be moved to trash directory */
+        if (buf->ia_nlink > 1) {
+                STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->ftruncate,
+                            local->fd, local->fop_offset, xdata);
+                goto out;
+        }
+
         if ((buf->ia_size > (priv->max_trash_file_size)))
         {
                 STACK_WIND (frame, trash_common_unwind_buf_cbk,

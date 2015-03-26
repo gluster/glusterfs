@@ -2791,6 +2791,22 @@ dht_getxattr_get_real_filename (call_frame_t *frame, xlator_t *this,
 	return 0;
 }
 
+int
+dht_marker_populate_args (call_frame_t *frame, int type, int *gauge,
+                          xlator_t **subvols)
+{
+        dht_local_t *local = NULL;
+        int         i = 0;
+        dht_layout_t *layout = NULL;
+
+        local  = frame->local;
+        layout = local->layout;
+
+        for (i = 0; i < layout->cnt; i++)
+                subvols[i] = layout->list[i].xlator;
+
+        return layout->cnt;
+}
 
 int
 dht_getxattr (call_frame_t *frame, xlator_t *this,
@@ -2804,7 +2820,6 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
         dht_layout_t *layout        = NULL;
-        xlator_t     **sub_volumes  = NULL;
         int           op_errno      = -1;
         int           i             = 0;
         int           cnt           = 0;
@@ -2918,30 +2933,6 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && (!strcmp (GF_XATTR_MARKER_KEY, key))
-            && (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-                if (DHT_IS_DIR(layout)) {
-                        cnt = layout->cnt;
-                } else {
-                        cnt = 1;
-                }
-
-                sub_volumes = alloca ( cnt * sizeof (xlator_t *));
-                for (i = 0; i < cnt; i++)
-                        *(sub_volumes + i) = layout->list[i].xlator;
-
-                if (cluster_getmarkerattr (frame, this, loc, key,
-                                           local, dht_getxattr_unwind,
-                                           sub_volumes, cnt,
-                                           MARKER_UUID_TYPE, marker_uuid_default_gauge,
-                                           conf->vol_uuid)) {
-                        op_errno = EINVAL;
-                        goto err;
-                }
-
-                return 0;
-        }
-
         if (key && (!strcmp (GF_XATTR_QUOTA_LIMIT_LIST, key) ||
                     !strcmp (GF_XATTR_QUOTA_LIMIT_LIST_OBJECT, key))) {
                 /* quota hardlimit and aggregated size of a directory is stored
@@ -2955,31 +2946,10 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && *conf->vol_uuid) {
-                if ((match_uuid_local (key, conf->vol_uuid) == 0) &&
-                    (GF_CLIENT_PID_GSYNCD == frame->root->pid)) {
-                        if (DHT_IS_DIR(layout)) {
-                                cnt = layout->cnt;
-                        } else {
-                                cnt = 1;
-                        }
-                        sub_volumes = alloca ( cnt * sizeof (xlator_t *));
-                        for (i = 0; i < cnt; i++)
-                                sub_volumes[i] = layout->list[i].xlator;
-
-                        if (cluster_getmarkerattr (frame, this, loc, key,
-                                                   local, dht_getxattr_unwind,
-                                                   sub_volumes, cnt,
-                                                   MARKER_XTIME_TYPE,
-                                                   marker_xtime_default_gauge,
-                                                   conf->vol_uuid)) {
-                                op_errno = EINVAL;
-                                goto err;
-                        }
-
-                        return 0;
-                }
-        }
+        if (cluster_handle_marker_getxattr (frame, loc, key, conf->vol_uuid,
+                                            dht_getxattr_unwind,
+                                            dht_marker_populate_args) == 0)
+                return 0;
 
         if (DHT_IS_DIR(layout)) {
                 cnt = local->call_cnt = layout->cnt;

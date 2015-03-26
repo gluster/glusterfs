@@ -117,10 +117,17 @@ enum _gf_client_pid
         GF_CLIENT_PID_QUOTA_MOUNT       = -5,
         GF_CLIENT_PID_AFR_SELF_HEALD    = -6,
         GF_CLIENT_PID_GLFS_HEAL         = -7,
+        GF_CLIENT_PID_BITD              = -8,
+        GF_CLIENT_PID_SCRUB             = -9,
+};
+
+enum _gf_xlator_ipc_targets {
+        GF_IPC_TARGET_CHANGELOG = 0,
 };
 
 typedef enum _gf_boolean gf_boolean_t;
 typedef enum _gf_client_pid gf_client_pid_t;
+typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
 typedef int (*gf_cmp) (void *, void *);
 
 void gf_global_variable_init(void);
@@ -701,4 +708,8 @@ gf_get_index_by_elem (char **array, char *elem);
 
 int
 glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *local);
+
+int
+gf_thread_cleanup_xint (pthread_t thread);
+
 #endif /* _COMMON_UTILS_H */

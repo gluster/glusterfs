@@ -216,9 +216,6 @@ struct dht_local {
         /* gfid related */
         uuid_t  gfid;
 
-        /*Marker Related*/
-        struct marker_str    marker;
-
         /* flag used to make sure we need to return estale in
            {lookup,revalidate}_cbk */
         char return_estale;

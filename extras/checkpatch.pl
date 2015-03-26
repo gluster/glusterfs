@@ -1667,6 +1667,7 @@ sub process {
 
     our $clean = 1;
     my $signoff = 0;
+    my $subject_trailing_dot = 0;
     my $is_patch = 0;
 
     my $in_header_lines = 1;
@@ -1898,6 +1899,12 @@ sub process {
 
         next if ($realfile =~ /(checkpatch.pl)/);
         next if ($realfile =~ /\.(md|txt|doc|8|pdf|tex)$/);
+
+# Check that the subject does not have a trailing dot
+        if ($in_header_lines &&
+            $line =~ /^Subject: \[PATCH\] (.+)\.(\s*)$/) {
+                $subject_trailing_dot++;
+        }
 
 # Check the patch for a signoff:
         if ($line =~ /^\s*signed-off-by:/i) {
@@ -4232,6 +4239,10 @@ sub process {
     if (!$is_patch) {
         ERROR("NOT_UNIFIED_DIFF",
               "Does not appear to be a unified-diff format patch\n");
+    }
+    if ($is_patch && $subject_trailing_dot != 0) {
+        ERROR("SUBJECT_TRAILING_DOT",
+              "The subject of the patch should not end with a dot.\n");
     }
     if ($is_patch && $chk_signoff && $signoff == 0) {
         ERROR("MISSING_SIGN_OFF",

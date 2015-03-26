@@ -33,6 +33,7 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
+#include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
 #include "protocol-common.h"
 #include "glusterd-pmap.h"
@@ -133,6 +134,8 @@ typedef struct {
         rpcsvc_t                *rpc;
         glusterd_svc_t           shd_svc;
         glusterd_svc_t           nfs_svc;
+        glusterd_svc_t           bitd_svc;
+        glusterd_svc_t           scrub_svc;
         glusterd_svc_t           quotad_svc;
         struct pmap_registry    *pmap;
         struct cds_list_head     volumes;
@@ -1096,5 +1099,8 @@ glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
 
 int32_t
 glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
+
+gf_boolean_t
+glusterd_all_volumes_with_bitrot_stopped ();
 
 #endif

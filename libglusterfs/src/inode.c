@@ -344,6 +344,38 @@ __inode_destroy (inode_t *inode)
         mem_put (inode);
 }
 
+void
+inode_ctx_merge (fd_t *fd, inode_t *inode, inode_t *linked_inode)
+{
+        int       index    = 0;
+        xlator_t *xl       = NULL;
+        xlator_t *old_THIS = NULL;
+
+        if (!fd || !inode || !linked_inode) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "invalid inode");
+                return;
+        }
+
+        if (!inode->_ctx || !linked_inode->_ctx) {
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "invalid inode context");
+                return;
+        }
+
+        for (; index < inode->table->ctxcount; index++) {
+                if (inode->_ctx[index].xl_key) {
+                        xl = (xlator_t *)(long) inode->_ctx[index].xl_key;
+
+                        old_THIS = THIS;
+                        THIS = xl;
+                        if (xl->cbks->ictxmerge)
+                                xl->cbks->ictxmerge (xl, fd,
+                                                     inode, linked_inode);
+                        THIS = old_THIS;
+                }
+        }
+}
+
 static void
 __inode_activate (inode_t *inode)
 {

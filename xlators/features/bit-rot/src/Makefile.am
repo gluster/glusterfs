@@ -1,0 +1,1 @@
+SUBDIRS = stub bitd

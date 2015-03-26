@@ -34,6 +34,7 @@
 #define VKEY_FEATURES_QUOTA       "features.quota"
 #define VKEY_FEATURES_TRASH       "features.trash"
 #define VKEY_FEATURES_BITROT      "features.bitrot"
+#define VKEY_FEATURES_SCRUB       "features.scrub"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"
@@ -182,6 +183,12 @@ int
 build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict);
 
 int
+build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict);
+
+int
+build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict);
+
+int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo);
 int
@@ -265,10 +272,13 @@ gd_is_xlator_option (char *key);
 gf_boolean_t
 gd_is_boolean_option (char *key);
 
+
 char*
 volgen_get_shd_key (glusterd_volinfo_t *volinfo);
 
 int
 glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                           char *value, char **op_errstr);
+
+
 #endif

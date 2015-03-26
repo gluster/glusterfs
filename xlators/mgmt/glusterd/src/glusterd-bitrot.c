@@ -128,6 +128,99 @@ glusterd_handle_bitrot (rpcsvc_request_t *req)
 }
 
 static int
+glusterd_bitrot_scrub_throttle (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                char *key, char **op_errstr)
+{
+        int32_t        ret                  = -1;
+        char           *scrub_throttle      = NULL;
+        char           *option              = NULL;
+        xlator_t       *this                = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_str (dict, "scrub-throttle-value", &scrub_throttle);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch scrub-"
+                        "throttle value");
+                goto out;
+        }
+
+        option = gf_strdup (scrub_throttle);
+        ret = dict_set_dynstr (volinfo->dict, key, option);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                        key);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+static int
+glusterd_bitrot_scrub_freq (glusterd_volinfo_t *volinfo, dict_t *dict,
+                            char *key, char **op_errstr)
+{
+        int32_t        ret                  = -1;
+        char           *scrub_freq          = NULL;
+        xlator_t       *this                = NULL;
+        char           *option              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_str (dict, "scrub-frequency-value", &scrub_freq);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch scrub-"
+                        "freq value");
+                goto out;
+        }
+
+        option = gf_strdup (scrub_freq);
+        ret = dict_set_dynstr (volinfo->dict, key, option);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                        key);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+static int
+glusterd_bitrot_scrub (glusterd_volinfo_t *volinfo, dict_t *dict,
+                       char *key, char **op_errstr)
+{
+        int32_t        ret                  = -1;
+        char           *scrub_value         = NULL;
+        xlator_t       *this                = NULL;
+        char           *option              = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_str (dict, "scrub-value", &scrub_value);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to fetch scrub"
+                        "value");
+                goto out;
+        }
+
+        option = gf_strdup (scrub_value);
+        ret = dict_set_dynstr (volinfo->dict, key, option);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                        key);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+static int
 glusterd_bitrot_enable (glusterd_volinfo_t *volinfo, char **op_errstr)
 {
         int32_t         ret             = -1;
@@ -192,6 +285,27 @@ out:
         return ret;
 }
 
+gf_boolean_t
+glusterd_all_volumes_with_bitrot_stopped ()
+{
+        glusterd_conf_t *conf = THIS->private;
+        glusterd_volinfo_t *volinfo = NULL;
+        gf_boolean_t        stopped = _gf_true;
+
+        cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                if (!glusterd_is_bitrot_enabled (volinfo))
+                        continue;
+                else if (volinfo->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+                else {
+                        stopped = _gf_false;
+                        break;
+                }
+        }
+
+        return stopped;
+}
+
 static int
 glusterd_manage_bitrot (int opcode)
 {
@@ -207,28 +321,13 @@ glusterd_manage_bitrot (int opcode)
 
         switch (opcode) {
         case GF_BITROT_OPTION_TYPE_ENABLE:
-                /* TO DO:
-                 * Start bitd service. once bitd volfile generation patch
-                 * merge or this patch become dependent of bitd volfile
-                 * generation patch below comment will remove.
-                 * http://review.gluster.org/#/c/9710/
-                 */
-                /*ret = priv->bitd_svc.manager (&(priv->bitd_svc),
-                                                NULL, PROC_START);*/
         case GF_BITROT_OPTION_TYPE_DISABLE:
-
-                /* TO DO:
-                 * Stop bitd service. once bitd volfile generation patch
-                 * merge or this patch become dependent of bitd volfile
-                 * generation patch below comment will remove.
-                 * http://review.gluster.org/#/c/9710/
-                 */
-
-                /*if (glusterd_all_volumes_with_bitrot_stopped ())
-                        ret = glusterd_svc_stop (&(priv->bitd_svc),
-                                                 SIGTERM);
-                */
-                ret = 0;
+                ret = priv->bitd_svc.manager (&(priv->bitd_svc),
+                                                NULL, PROC_START_NO_WAIT);
+                if (ret)
+                        break;
+                ret = priv->scrub_svc.manager (&(priv->scrub_svc), NULL,
+                                               PROC_START_NO_WAIT);
                 break;
         default:
                 ret = 0;
@@ -289,6 +388,24 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
 
                 break;
+
+        case GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE:
+                ret = glusterd_bitrot_scrub_throttle (volinfo, dict,
+                                                      "features.scrub-throttle",
+                                                      op_errstr);
+                goto out;
+
+        case GF_BITROT_OPTION_TYPE_SCRUB_FREQ:
+                ret = glusterd_bitrot_scrub_freq (volinfo, dict,
+                                                  "features.scrub-freq",
+                                                  op_errstr);
+                goto out;
+
+        case GF_BITROT_OPTION_TYPE_SCRUB:
+                ret = glusterd_bitrot_scrub (volinfo, dict, "features.scrub",
+                                             op_errstr);
+                goto out;
+
         default:
                 gf_asprintf (op_errstr, "Bitrot command failed. Invalid "
                              "opcode");

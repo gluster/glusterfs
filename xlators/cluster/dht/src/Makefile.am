@@ -1,4 +1,10 @@
-xlator_LTLIBRARIES = dht.la nufa.la switch.la tier.la
+xlator_LTLIBRARIES = dht.la nufa.la switch.la
+if BUILD_GFDB
+   xlator_LTLIBRARIES += tier.la
+endif
+
+AM_CFLAGS = -Wall $(GF_CFLAGS)
+
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
 dht_common_source = dht-layout.c dht-helper.c dht-linkfile.c dht-rebalance.c \
@@ -21,10 +27,10 @@ nufa_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 switch_la_LDFLAGS = -module -avoid-version
 switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
+tier_la_CFLAGS = $(AM_CFLAGS) $(SQLITE_CFLAGS)
 tier_la_LDFLAGS = -module -avoid-version
 tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la\
 		 $(top_builddir)/libglusterfs/src/gfdb/libgfdb.la
-AM_CFLAGS = -Wall $(GF_CFLAGS) $(SQLITE_CFLAGS)
 
 noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h dht-helper.h tier.h\
 	$(top_builddir)/xlators/lib/src/libxlator.h
@@ -32,8 +38,6 @@ noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h dht-helper.h tier.h
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/libglusterfs/src/gfdb \
 	-I$(top_srcdir)/xlators/lib/src
-
-AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 CLEANFILES =
 

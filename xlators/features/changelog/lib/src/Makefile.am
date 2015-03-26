@@ -32,8 +32,6 @@ noinst_HEADERS = gf-changelog-helpers.h gf-changelog-rpc.h gf-changelog-journal.
 		$(CONTRIBDIR)/uuid/uuidd.h $(CONTRIBDIR)/uuid/uuid.h \
 		$(CONTRIBDIR)/uuid/uuidP.h $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
 
-libgfchangelog_HEADERS = changelog.h
-
 CLEANFILES =
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
 

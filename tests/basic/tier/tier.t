@@ -36,6 +36,15 @@ function confirm_tier_removed {
     fi
 }
 
+function confirm_vol_stopped {
+    $CLI volume stop $1
+    if [ $? == 0 ]; then
+        echo "0"
+    else
+        echo "1"
+    fi
+}
+
 LAST_BRICK=1
 CACHE_BRICK=2
 DEMOTE_TIMEOUT=12
@@ -101,7 +110,7 @@ TEST $CLI volume rebalance $V0 stop
 killall glusterd
 TEST glusterd
 
-# TBD: Remove force. Gracefully migrate data off hot tier.
+# TODO: Remove force. Gracefully migrate data off hot tier.
 # Rebalance+promotion/demotion is under construction.
 
 TEST $CLI volume detach-tier $V0
@@ -111,6 +120,6 @@ TEST $CLI volume detach-tier $V0
 
 EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK}
 
-TEST $CLI volume stop $V0
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" confirm_vol_stopped $V0
 
 cleanup

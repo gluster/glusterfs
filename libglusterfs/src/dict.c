@@ -2926,3 +2926,22 @@ dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain)
 
         return;
 }
+
+dict_t *
+dict_for_key_value (const char *name, const char *value, size_t size)
+{
+	dict_t *xattr = NULL;
+	int     ret = 0;
+
+	xattr = dict_new ();
+	if (!xattr)
+		return NULL;
+
+	ret = dict_set_static_bin (xattr, (char *)name, (void *)value, size);
+	if (ret) {
+		dict_destroy (xattr);
+		xattr = NULL;
+	}
+
+	return xattr;
+}

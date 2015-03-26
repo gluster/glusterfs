@@ -720,8 +720,6 @@ typedef struct _afr_local {
 
 	syncbarrier_t barrier;
 
-        struct marker_str     marker;
-
         /* extra data for fops */
         dict_t         *xdata_req;
         dict_t         *xdata_rsp;
