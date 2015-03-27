@@ -2249,48 +2249,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "%s%d."GLUSTERD_STORE_KEY_RB_STATUS, prefix, count);
-        ret = dict_set_int32 (dict, key, volinfo->rep_brick.rb_status);
-        if (ret)
-                goto out;
-
-        if (volinfo->rep_brick.rb_status > GF_RB_STATUS_NONE) {
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, 256, "%s%d."GLUSTERD_STORE_KEY_RB_SRC_BRICK,
-                          prefix, count);
-                gf_asprintf (&src_brick, "%s:%s",
-                             volinfo->rep_brick.src_brick->hostname,
-                             volinfo->rep_brick.src_brick->path);
-                ret = dict_set_dynstr (dict, key, src_brick);
-                if (ret)
-                        goto out;
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, 256, "%s%d."GLUSTERD_STORE_KEY_RB_DST_BRICK,
-                          prefix, count);
-                gf_asprintf (&dst_brick, "%s:%s",
-                             volinfo->rep_brick.dst_brick->hostname,
-                             volinfo->rep_brick.dst_brick->path);
-                ret = dict_set_dynstr (dict, key, dst_brick);
-                if (ret)
-                        goto out;
-
-                rb_id_str = gf_strdup (uuid_utoa (volinfo->rep_brick.rb_id));
-                if (!rb_id_str) {
-                        ret = -1;
-                        goto out;
-                }
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "%s%d.rb_id", prefix, count);
-                ret = dict_set_dynstr (dict, key, rb_id_str);
-                if (ret)
-                        goto out;
-                rb_id_str = NULL;
-        }
-
         snprintf (pfx, sizeof (pfx), "%s%d", prefix, count);
         ctx.dict = dict;
         ctx.prefix = pfx;
@@ -3297,58 +3255,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 snprintf (msg, sizeof (msg), "Failed to import rebalance dict "
                           "for volume.");
                 goto out;
-        }
-
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "%s%d."GLUSTERD_STORE_KEY_RB_STATUS, prefix, count);
-        ret = dict_get_int32 (peer_data, key, &rb_status);
-        if (ret)
-                goto out;
-        new_volinfo->rep_brick.rb_status = rb_status;
-
-        if (new_volinfo->rep_brick.rb_status > GF_RB_STATUS_NONE) {
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, 256, "%s%d."GLUSTERD_STORE_KEY_RB_SRC_BRICK,
-                          prefix, count);
-                ret = dict_get_str (peer_data, key, &src_brick);
-                if (ret)
-                        goto out;
-
-                ret = glusterd_brickinfo_new_from_brick (src_brick,
-                                        &new_volinfo->rep_brick.src_brick);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to create"
-                                " src brickinfo");
-                        goto out;
-                }
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, 256, "%s%d."GLUSTERD_STORE_KEY_RB_DST_BRICK,
-                          prefix, count);
-                ret = dict_get_str (peer_data, key, &dst_brick);
-                if (ret)
-                        goto out;
-
-                ret = glusterd_brickinfo_new_from_brick (dst_brick,
-                                     &new_volinfo->rep_brick.dst_brick);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to create"
-                                " dst brickinfo");
-                        goto out;
-                }
-
-                memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "%s%d.rb_id", prefix, count);
-                ret = dict_get_str (peer_data, key, &rb_id_str);
-                if (ret) {
-                        /* This is not present in older glusterfs versions,
-                         * so don't error out
-                         */
-                        ret = 0;
-                } else {
-                        gf_uuid_parse (rb_id_str, new_volinfo->rep_brick.rb_id);
-                }
         }
 
         memset (key, 0, sizeof (key));
@@ -5256,20 +5162,6 @@ glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
         return (volinfo->rebal.defrag != NULL);
 }
 
-gf_boolean_t
-glusterd_is_rb_ongoing (glusterd_volinfo_t *volinfo)
-{
-        gf_boolean_t     ret = _gf_false;
-
-        GF_ASSERT (volinfo);
-
-        if (glusterd_is_rb_started (volinfo) ||
-            glusterd_is_rb_paused (volinfo))
-                ret = _gf_true;
-
-        return ret;
-}
-
 int
 glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
                              char *op_errstr, size_t len)
@@ -5350,36 +5242,6 @@ out:
                 gf_log (this->name, GF_LOG_ERROR, "%s", op_errstr);
         gf_log (this->name, GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
-}
-
-int
-glusterd_is_rb_started(glusterd_volinfo_t *volinfo)
-{
-        gf_log ("", GF_LOG_DEBUG,
-                "is_rb_started:status=%d", volinfo->rep_brick.rb_status);
-        return (volinfo->rep_brick.rb_status == GF_RB_STATUS_STARTED);
-
-}
-
-int
-glusterd_is_rb_paused ( glusterd_volinfo_t *volinfo)
-{
-        gf_log ("", GF_LOG_DEBUG,
-                "is_rb_paused:status=%d", volinfo->rep_brick.rb_status);
-
-        return (volinfo->rep_brick.rb_status == GF_RB_STATUS_PAUSED);
-}
-
-inline int
-glusterd_set_rb_status (glusterd_volinfo_t *volinfo, gf_rb_status_t status)
-{
-        gf_log ("", GF_LOG_DEBUG,
-                "setting status from %d to %d",
-                volinfo->rep_brick.rb_status,
-                status);
-
-        volinfo->rep_brick.rb_status = status;
-        return 0;
 }
 
 inline int

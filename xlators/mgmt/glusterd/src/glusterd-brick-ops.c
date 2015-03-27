@@ -1419,16 +1419,6 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret)
                 goto out;
 
-        if (glusterd_is_rb_ongoing (volinfo)) {
-                snprintf (msg, sizeof (msg), "Replace brick is in progress on "
-                          "volume %s. Please retry after replace-brick "
-                          "operation is committed or aborted", volname);
-                gf_log (THIS->name, GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-                goto out;
-        }
-
         if (glusterd_is_defrag_on(volinfo)) {
                 snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
                           "progress. Please retry after completion", volname);
@@ -1610,16 +1600,6 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
                 goto out;
-
-        if (glusterd_is_rb_ongoing (volinfo)) {
-                snprintf (msg, sizeof (msg), "Replace brick is in progress on "
-                          "volume %s. Please retry after replace-brick "
-                          "operation is committed or aborted", volname);
-                gf_log (this->name, GF_LOG_ERROR, "%s", msg);
-                *op_errstr = gf_strdup (msg);
-                ret = -1;
-                goto out;
-        }
 
         ret = dict_get_int32 (dict, "command", &flag);
         if (ret) {

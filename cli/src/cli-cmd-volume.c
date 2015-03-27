@@ -1655,18 +1655,13 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
                                   const char **words,
                                   int wordcount)
 {
-        int                     ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
+        int                      ret          = -1;
+        rpc_clnt_procedure_t    *proc         = NULL;
+        call_frame_t            *frame        = NULL;
         dict_t                  *options = NULL;
-        int                     sent = 0;
-        int                     parse_error = 0;
+        int                      sent = 0;
+        int                      parse_error = 0;
         cli_local_t             *local = NULL;
-        int                     replace_op = 0;
-        char                    *q = "All replace-brick commands except "
-                                     "commit force are deprecated. "
-                                     "Do you want to continue?";
-        gf_answer_t             answer = GF_ANSWER_NO;
 
 #ifdef GF_SOLARIS_HOST_OS
         cli_out ("Command not supported on Solaris");
@@ -1684,24 +1679,6 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
-        }
-
-        ret = dict_get_int32 (options, "operation", &replace_op);
-        if (replace_op != GF_REPLACE_OP_COMMIT_FORCE) {
-                answer = cli_cmd_get_confirmation (state, q);
-                if (GF_ANSWER_NO == answer) {
-                        ret = 0;
-                        goto out;
-                }
-        }
-
-        if (state->mode & GLUSTER_MODE_WIGNORE) {
-                ret = dict_set_int32 (options, "force", _gf_true);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Failed to set force"
-                                "option");
-                        goto out;
-                }
         }
 
         CLI_LOCAL_INIT (local, words, frame, options);
@@ -2604,7 +2581,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_defrag_cbk,
           "rebalance operations"},
 
-        { "volume replace-brick <VOLNAME> <BRICK> <NEW-BRICK> {start [force]|pause|abort|status|commit [force]}",
+        { "volume replace-brick <VOLNAME> <SOURCE-BRICK> <NEW-BRICK> "
+          "{commit force}",
           cli_cmd_volume_replace_brick_cbk,
           "replace-brick operations"},
 
