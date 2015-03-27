@@ -102,6 +102,20 @@ command:
 
 `# setfacl –m –-set `
 
+Permissions must be a combination of the characters r (read), w (write), and x (execute). Specify the ACL entry_type as described below, separating multiple entry types with commas.
+
+u:*user_name:permissons*
+    Sets the access ACLs for a user. Specify the user name, or the UID.
+
+g:*group_name:permissions*
+    Sets the access ACLs for a group. Specify the group name, or the GID.
+
+m:*permission*
+    Sets the effective rights mask. The mask is the combination of all access permissions of the owning group, and all user and group entries.
+
+o:*permissions*
+    Sets the access ACLs for users other than the ones in the group for the file.
+
 For example, to set the default ACLs for the /data directory to read for
 users not in the user group:
 
@@ -166,6 +180,24 @@ To remove all the permissions for a user, groups, or others, use the
 following command:
 
 `# setfacl -x `
+
+####setfaclentry_type Options
+
+The ACL entry_type translates to the POSIX ACL representations of owner, group, and other.
+
+Permissions must be a combination of the characters r (read), w (write), and x (execute). Specify the ACL entry_type as described below, separating multiple entry types with commas.
+
+u:*user_name*
+    Sets the access ACLs for a user. Specify the user name, or the UID.
+
+g:*group_name*
+    Sets the access ACLs for a group. Specify the group name, or the GID.
+
+m:*permission*
+    Sets the effective rights mask. The mask is the combination of all access permissions of the owning group, and all user and group entries.
+
+o:*permissions*
+    Sets the access ACLs for users other than the ones in the group for the file.
 
 For example, to remove all permissions from the user antony:
 
