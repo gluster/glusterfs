@@ -101,11 +101,13 @@
 } while (0)
 
 
-#define SHARD_MD_READ_FOP_INIT_REQ_DICT(this, xattr_req, gfid, label) do {    \
+#define SHARD_MD_READ_FOP_INIT_REQ_DICT(this, dict, gfid, local, label)  do { \
         int __ret = -1;                                                       \
                                                                               \
-        __ret = dict_set_uint64 (xattr_req, GF_XATTR_SHARD_FILE_SIZE, 8 * 4); \
+        __ret = dict_set_uint64 (dict, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);      \
         if (__ret) {                                                          \
+                local->op_ret = -1;                                           \
+                local->op_errno = ENOMEM;                                     \
                 gf_log (this->name, GF_LOG_WARNING, "Failed to set dict"      \
                         " value: key:%s for %s.", GF_XATTR_SHARD_FILE_SIZE,   \
                         uuid_utoa (gfid));                                    \
@@ -125,6 +127,9 @@ typedef struct {
         short type;
         char *domain;
 } shard_lock_t;
+
+typedef int32_t (*shard_post_fop_handler_t) (call_frame_t *frame,
+                                             xlator_t *this);
 
 typedef struct shard_local {
         int op_ret;
@@ -151,6 +156,7 @@ typedef struct shard_local {
         struct iatt postbuf;
         struct iovec *vector;
         struct iobref *iobref;
+        shard_post_fop_handler_t handler;
         struct {
                 int lock_count;
                 fop_inodelk_cbk_t inodelk_cbk;
