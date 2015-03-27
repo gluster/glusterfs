@@ -9260,7 +9260,7 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
                 gf_asprintf (op_errstr, "Failed to get trusted.gfid attribute "
                              "on path %s. Reason : %s", path,
                              strerror (ENOENT));
-                ret = -1;
+                ret = -ENOENT;
                 goto out;
         }
 
