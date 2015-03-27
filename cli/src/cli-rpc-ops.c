@@ -3121,10 +3121,14 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
                 if (global_state->mode & GLUSTER_MODE_XML)
                         goto xml_output;
 
-                if (strcmp (rsp.op_errstr, ""))
+                if (strcmp (rsp.op_errstr, "")) {
                         cli_err ("quota command failed : %s", rsp.op_errstr);
-                else
+                        if (rsp.op_ret == -ENOENT)
+                                cli_err ("please enter the path relative to "
+                                         "the volume");
+                } else {
                         cli_err ("quota command : failed");
+                }
 
                 goto out;
         }
