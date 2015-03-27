@@ -2758,15 +2758,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                /* don't attempt to start gsync if replace-brick is
-                 * in progress */
-                if (glusterd_is_rb_ongoing (volinfo)) {
-                        snprintf (errmsg, sizeof(errmsg), "replace-brick is in"
-                                   " progress, not starting geo-replication");
-                        ret = -1;
-                        goto out;
-                }
-
                 ret = glusterd_op_verify_gsync_start_options (volinfo, slave,
                                                               conf_path,
                                                               statefile,

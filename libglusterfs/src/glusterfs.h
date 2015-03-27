@@ -210,7 +210,6 @@
 
 #define GF_REBALANCE_TID_KEY     "rebalance-id"
 #define GF_REMOVE_BRICK_TID_KEY  "remove-brick-id"
-#define GF_REPLACE_BRICK_TID_KEY "replace-brick-id"
 
 #define UUID_CANONICAL_FORM_LEN  36
 

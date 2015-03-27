@@ -2316,8 +2316,6 @@ out:
         return ret;
 }
 
-
-
 int
 gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -2330,11 +2328,11 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         char                            *src_brick        = NULL;
         char                            *dst_brick        = NULL;
         char                            *status_reply     = NULL;
-        gf1_cli_replace_op               replace_op       = 0;
         char                            *rb_operation_str = NULL;
         dict_t                          *rsp_dict         = NULL;
         char                             msg[1024]        = {0,};
         char                            *task_id_str      = NULL;
+        char                            *replace_op       = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -2353,9 +2351,9 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         GF_ASSERT (local);
         dict = local->dict;
 
-        ret = dict_get_int32 (dict, "operation", (int32_t *)&replace_op);
+        ret = dict_get_str (dict, "operation", &replace_op);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (frame->this->name, GF_LOG_ERROR,
                         "dict_get on operation failed");
                 goto out;
         }
@@ -2368,101 +2366,23 @@ gf_cli_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                                 rsp.dict.dict_len,
                                 &rsp_dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                        "failed to "
-                                        "unserialize rsp buffer to dictionary");
+                        gf_log (frame->this->name, GF_LOG_ERROR, "failed to "
+                                "unserialize rsp buffer to dictionary");
                         goto out;
                 }
         }
 
-        switch (replace_op) {
-        case GF_REPLACE_OP_START:
-                if (rsp.op_ret) {
-                        rb_operation_str = gf_strdup ("replace-brick failed to"
-                                                      " start");
-                } else {
-                        ret = dict_get_str (rsp_dict, GF_REPLACE_BRICK_TID_KEY,
-                                            &task_id_str);
-                        if (ret) {
-                                gf_log ("cli", GF_LOG_ERROR, "Failed to get "
-                                        "\"replace-brick-id\" from dict");
-                                goto out;
-                        }
-                        ret = gf_asprintf (&rb_operation_str,
-                                           "replace-brick started successfully"
-                                           "\nID: %s", task_id_str);
-                        if (ret < 0)
-                                goto out;
-                }
-                break;
-
-        case GF_REPLACE_OP_STATUS:
-
-                if (rsp.op_ret || ret) {
-                        rb_operation_str = gf_strdup ("replace-brick status "
-                                                      "unknown");
-                } else {
-                        ret = dict_get_str (rsp_dict, "status-reply",
-                                            &status_reply);
-                        if (ret) {
-                                gf_log (frame->this->name, GF_LOG_ERROR, "failed to"
-                                        "get status");
-                                goto out;
-                        }
-
-                        rb_operation_str = gf_strdup (status_reply);
-                }
-
-                break;
-
-        case GF_REPLACE_OP_PAUSE:
-                if (rsp.op_ret)
-                        rb_operation_str = gf_strdup ("replace-brick pause "
-                                                      "failed");
-                else
-                        rb_operation_str = gf_strdup ("replace-brick paused "
-                                                      "successfully");
-                break;
-
-        case GF_REPLACE_OP_ABORT:
-                if (rsp.op_ret)
-                        rb_operation_str = gf_strdup ("replace-brick abort "
-                                                      "failed");
-                else
-                        rb_operation_str = gf_strdup ("replace-brick aborted "
-                                                      "successfully");
-                break;
-
-        case GF_REPLACE_OP_COMMIT:
-        case GF_REPLACE_OP_COMMIT_FORCE:
-                ret = dict_get_str (dict, "src-brick", &src_brick);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "dict_get on src-brick failed");
-                        goto out;
-                }
-
-                ret = dict_get_str (dict, "dst-brick", &dst_brick);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "dict_get on dst-brick failed");
-                        goto out;
-                }
-
+        if (!strcmp(replace_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
 
                 if (rsp.op_ret || ret)
                         rb_operation_str = gf_strdup ("replace-brick commit "
-                                                      "failed");
+                                                      "force operation failed");
                 else
                         rb_operation_str = gf_strdup ("replace-brick commit "
+                                                      "force operation "
                                                       "successful");
-
-                break;
-
-        default:
-                gf_log ("", GF_LOG_DEBUG,
-                        "Unknown operation");
-                break;
+        } else {
+                gf_log (frame->this->name, GF_LOG_DEBUG, "Unknown operation");
         }
 
         if (rsp.op_ret && (strcmp (rsp.op_errstr, ""))) {
@@ -6928,35 +6848,7 @@ cli_print_volume_status_tasks (dict_t *dict)
 
                 snprintf (task, sizeof (task), "task%d", i);
 
-                /*
-                   Replace brick only has two states - In progress and Complete
-                   Ref: xlators/mgmt/glusterd/src/glusterd-replace-brick.c
-                */
-
-                if (!strcmp (op, "Replace brick")) {
-                        if (status)
-                                status = GF_DEFRAG_STATUS_COMPLETE;
-                        else
-                                status = GF_DEFRAG_STATUS_STARTED;
-
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "%s.src-brick", task);
-                        ret = dict_get_str (dict, key, &src_brick);
-                        if (ret)
-                                goto out;
-
-                        cli_out ("%-20s : %-20s", "Source Brick", src_brick);
-
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "%s.dst-brick", task);
-                        ret = dict_get_str (dict, key, &dest_brick);
-                        if (ret)
-                                goto out;
-
-                        cli_out ("%-20s : %-20s", "Destination Brick",
-                                 dest_brick);
-
-                } else if (!strcmp (op, "Remove brick")) {
+                if (!strcmp (op, "Remove brick")) {
                         memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%s.count", task);
                         ret = dict_get_int32 (dict, key, &count);

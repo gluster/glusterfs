@@ -291,10 +291,8 @@ struct glusterd_rebalance_ {
 typedef struct glusterd_rebalance_ glusterd_rebalance_t;
 
 struct glusterd_replace_brick_ {
-        gf_rb_status_t          rb_status;
         glusterd_brickinfo_t   *src_brick;
         glusterd_brickinfo_t   *dst_brick;
-        uuid_t                  rb_id;
 };
 
 typedef struct glusterd_replace_brick_ glusterd_replace_brick_t;
@@ -361,7 +359,6 @@ struct glusterd_volinfo_ {
                                                     distribute subvolume */
         int                       port;
         gf_store_handle_t        *shandle;
-        gf_store_handle_t        *rb_shandle;
         gf_store_handle_t        *node_state_shandle;
         gf_store_handle_t        *quota_conf_shandle;
 

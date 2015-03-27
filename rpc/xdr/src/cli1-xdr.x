@@ -33,16 +33,6 @@
         GF_CLUSTER_TYPE_MAX
 };
 
- enum gf1_cli_replace_op {
-        GF_REPLACE_OP_NONE = 0,
-        GF_REPLACE_OP_START,
-        GF_REPLACE_OP_COMMIT,
-        GF_REPLACE_OP_PAUSE,
-        GF_REPLACE_OP_ABORT,
-        GF_REPLACE_OP_STATUS,
-        GF_REPLACE_OP_COMMIT_FORCE
-};
-
 enum gf_bitrot_type {
         GF_BITROT_OPTION_TYPE_NONE = 0,
         GF_BITROT_OPTION_TYPE_ENABLE,

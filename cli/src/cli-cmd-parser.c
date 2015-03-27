@@ -1891,43 +1891,35 @@ out:
 
 int32_t
 cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
-                                   dict_t **options)
+                                    dict_t **options)
 {
-        dict_t  *dict = NULL;
-        char    *volname = NULL;
-        int     ret = -1;
-        int     op_index = 0;
-        char    *delimiter = NULL;
-        gf1_cli_replace_op replace_op = GF_REPLACE_OP_NONE;
-        char    *opwords[] = { "start", "commit", "pause", "abort", "status",
-                                NULL };
-        char    *w = NULL;
-        gf_boolean_t is_force = _gf_false;
+        int                   ret        = -1;
+        char                 *volname    = NULL;
+        char                 *delimiter  = NULL;
+        dict_t               *dict       = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
 
+        if (wordcount != 7) {
+                ret = -1;
+                goto out;
+        }
+
         dict = dict_new ();
 
-        if (!dict)
+        if (!dict) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to allocate dictionary");
                 goto out;
-
-        if (wordcount < 3)
-                goto out;
+        }
 
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
 
         ret = dict_set_str (dict, "volname", volname);
-
         if (ret)
                 goto out;
-
-        if (wordcount < 4) {
-                ret = -1;
-                goto out;
-        }
 
         if (validate_brick_name ((char *)words[3])) {
                 cli_err ("wrong brick type: %s, use "
@@ -1940,15 +1932,10 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 if (ret)
                         goto out;
         }
-        ret = dict_set_str (dict, "src-brick", (char *)words[3]);
 
+        ret = dict_set_str (dict, "src-brick", (char *)words[3]);
         if (ret)
                 goto out;
-
-        if (wordcount < 5) {
-                ret = -1;
-                goto out;
-        }
 
         if (validate_brick_name ((char *)words[4])) {
                 cli_err ("wrong brick type: %s, use "
@@ -1962,69 +1949,20 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                         goto out;
         }
 
-
         ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
-
         if (ret)
                 goto out;
-
-        op_index = 5;
-        if ((wordcount < (op_index + 1))) {
-                ret = -1;
-                goto out;
-        }
-
-        w = str_getunamb (words[op_index], opwords);
-
-        if (!w) {
-        } else if (!strcmp ("start", w)) {
-                replace_op = GF_REPLACE_OP_START;
-        } else if (!strcmp ("commit", w)) {
-                replace_op = GF_REPLACE_OP_COMMIT;
-        } else if (!strcmp ("pause", w)) {
-                replace_op = GF_REPLACE_OP_PAUSE;
-        } else if (!strcmp ("abort", w)) {
-                replace_op = GF_REPLACE_OP_ABORT;
-        } else if (!strcmp ("status", w)) {
-                replace_op = GF_REPLACE_OP_STATUS;
-        } else
-                GF_ASSERT (!"opword mismatch");
 
         /* commit force option */
-
-        op_index = 6;
-
-        if (wordcount > (op_index + 1)) {
+        if (strcmp ("commit", words[5]) || strcmp ("force", words[6])) {
+                cli_err ("Invalid option '%s' '%s' for replace-brick. Please "
+                         "enter valid replace-brick command", words[5],
+                         words[6]);
                 ret = -1;
                 goto out;
         }
 
-        if (wordcount == (op_index + 1)) {
-                if ((replace_op != GF_REPLACE_OP_COMMIT) &&
-                    (replace_op != GF_REPLACE_OP_START)) {
-                        ret = -1;
-                        goto out;
-                }
-                if (!strcmp ("force", words[op_index])) {
-                        if (replace_op == GF_REPLACE_OP_COMMIT)
-                                replace_op = GF_REPLACE_OP_COMMIT_FORCE;
-
-                        else if (replace_op == GF_REPLACE_OP_START)
-                                is_force = _gf_true;
-                }
-        }
-
-        if (replace_op == GF_REPLACE_OP_NONE) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_int32 (dict, "operation", (int32_t) replace_op);
-
-        if (ret)
-                goto out;
-
-        ret = dict_set_int32 (dict, "force", is_force);
+        ret = dict_set_str (dict, "operation", "GF_REPLACE_OP_COMMIT_FORCE");
         if (ret)
                 goto out;
 

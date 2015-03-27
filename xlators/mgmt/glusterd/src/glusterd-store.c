@@ -1103,21 +1103,6 @@ out:
 }
 
 static void
-glusterd_store_rbstatepath_set (glusterd_volinfo_t *volinfo, char *rbstatepath,
-                                size_t len)
-{
-        char    voldirpath[PATH_MAX] = {0,};
-        GF_ASSERT (volinfo);
-        GF_ASSERT (rbstatepath);
-        GF_ASSERT (len <= PATH_MAX);
-
-        glusterd_store_voldirpath_set (volinfo, voldirpath,
-                                       sizeof (voldirpath));
-        snprintf (rbstatepath, len, "%s/%s", voldirpath,
-                  GLUSTERD_VOLUME_RBSTATE_FILE);
-}
-
-static void
 glusterd_store_volfpath_set (glusterd_volinfo_t *volinfo, char *volfpath,
                              size_t len)
 {
@@ -1189,20 +1174,6 @@ glusterd_store_snapfpath_set (glusterd_snap_t *snap, char *snap_fpath,
 
         snprintf (snap_fpath, len, "%s/snaps/%s/%s", priv->workdir,
                   snap->snapname, GLUSTERD_SNAP_INFO_FILE);
-}
-
-int32_t
-glusterd_store_create_rbstate_shandle_on_absence (glusterd_volinfo_t *volinfo)
-{
-        char            rbstatepath[PATH_MAX] = {0};
-        int32_t         ret                   = 0;
-
-        GF_ASSERT (volinfo);
-
-        glusterd_store_rbstatepath_set (volinfo, rbstatepath, sizeof (rbstatepath));
-        ret = gf_store_handle_create_on_absence (&volinfo->rb_shandle,
-                                                 rbstatepath);
-        return ret;
 }
 
 int32_t
@@ -1305,93 +1276,6 @@ glusterd_store_brickinfos (glusterd_volinfo_t *volinfo, int vol_fd)
                 brick_count++;
         }
 out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int32_t
-glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
-{
-        int     ret             = -1;
-        int     port            = 0;
-        char    buf[PATH_MAX]   = {0, };
-
-        GF_ASSERT (fd > 0);
-        GF_ASSERT (volinfo);
-
-        snprintf (buf, sizeof (buf), "%d", volinfo->rep_brick.rb_status);
-        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_RB_STATUS, buf);
-        if (ret)
-                goto out;
-
-        if (volinfo->rep_brick.rb_status > GF_RB_STATUS_NONE) {
-
-                snprintf (buf, sizeof (buf), "%s:%s",
-                          volinfo->rep_brick.src_brick->hostname,
-                          volinfo->rep_brick.src_brick->path);
-                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
-                                           buf);
-                if (ret)
-                        goto out;
-
-                snprintf (buf, sizeof (buf), "%s:%s",
-                          volinfo->rep_brick.dst_brick->hostname,
-                          volinfo->rep_brick.dst_brick->path);
-                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_RB_DST_BRICK,
-                                           buf);
-                if (ret)
-                        goto out;
-
-                switch (volinfo->transport_type) {
-                        case GF_TRANSPORT_RDMA:
-                                port = volinfo->rep_brick.dst_brick->rdma_port;
-                                break;
-
-                        case GF_TRANSPORT_TCP:
-                        case GF_TRANSPORT_BOTH_TCP_RDMA:
-                                port = volinfo->rep_brick.dst_brick->port;
-                                break;
-                }
-
-                snprintf (buf, sizeof (buf), "%d", port);
-                ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_RB_DST_PORT,
-                                           buf);
-                if (ret)
-                        goto out;
-                gf_uuid_unparse (volinfo->rep_brick.rb_id, buf);
-                ret = gf_store_save_value (fd, GF_REPLACE_BRICK_TID_KEY, buf);
-        }
-
-        ret = 0;
-out:
-        gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int32_t
-glusterd_store_perform_rbstate_store (glusterd_volinfo_t *volinfo)
-{
-        int                         fd = -1;
-        int32_t                     ret = -1;
-        GF_ASSERT (volinfo);
-
-        fd = gf_store_mkstemp (volinfo->rb_shandle);
-        if (fd <= 0) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = glusterd_store_rbstate_write (fd, volinfo);
-        if (ret)
-                goto out;
-
-        ret = gf_store_rename_tmppath (volinfo->rb_shandle);
-        if (ret)
-                goto out;
-
-out:
-        if (ret && (fd > 0))
-                gf_store_unlink_tmppath (volinfo->rb_shandle);
         gf_log (THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1549,8 +1433,6 @@ glusterd_store_volume_cleanup_tmp (glusterd_volinfo_t *volinfo)
 
         gf_store_unlink_tmppath (volinfo->shandle);
 
-        gf_store_unlink_tmppath (volinfo->rb_shandle);
-
         gf_store_unlink_tmppath (volinfo->node_state_shandle);
 
         gf_store_unlink_tmppath (volinfo->snapd.handle);
@@ -1676,10 +1558,6 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
         if (ret)
                 goto out;
 
-        ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
-        if (ret)
-                goto out;
-
         ret = glusterd_store_create_nodestate_sh_on_absence (volinfo);
         if (ret)
                 goto out;
@@ -1694,10 +1572,6 @@ glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t a
                                                          GLUSTERD_VOLINFO_VER_AC_DECREMENT);
                 goto out;
         }
-
-        ret = glusterd_store_perform_rbstate_store (volinfo);
-        if (ret)
-                goto out;
 
         ret = glusterd_store_perform_node_state_store (volinfo);
         if (ret)
@@ -2445,106 +2319,6 @@ out:
         return ret;
 }
 
-
-int32_t
-glusterd_store_retrieve_rbstate (glusterd_volinfo_t *volinfo)
-{
-        int32_t                   ret                   = -1;
-        gf_store_iter_t           *iter                 = NULL;
-        char                      *key                  = NULL;
-        char                      *value                = NULL;
-        char                      volpath[PATH_MAX]     = {0,};
-        glusterd_conf_t           *priv                 = NULL;
-        char                      path[PATH_MAX]        = {0,};
-        gf_store_op_errno_t       op_errno              = GD_STORE_SUCCESS;
-        xlator_t                 *this                  = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-        GF_ASSERT (volinfo);
-
-        GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
-        snprintf (path, sizeof (path), "%s/%s", volpath,
-                  GLUSTERD_VOLUME_RBSTATE_FILE);
-
-        ret = gf_store_handle_retrieve (path, &volinfo->rb_shandle);
-
-        if (ret)
-                goto out;
-
-        ret = gf_store_iter_new (volinfo->rb_shandle, &iter);
-
-        if (ret)
-                goto out;
-
-        ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
-        if (ret)
-                goto out;
-
-        while (!ret) {
-                if (!strncmp (key, GLUSTERD_STORE_KEY_RB_STATUS,
-                              strlen (GLUSTERD_STORE_KEY_RB_STATUS))) {
-                        volinfo->rep_brick.rb_status = atoi (value);
-                }
-
-                if (volinfo->rep_brick.rb_status > GF_RB_STATUS_NONE) {
-                        if (!strncmp (key, GLUSTERD_STORE_KEY_RB_SRC_BRICK,
-                                      strlen (GLUSTERD_STORE_KEY_RB_SRC_BRICK))) {
-                                ret = glusterd_brickinfo_new_from_brick (value,
-                                                &volinfo->rep_brick.src_brick);
-                                if (ret)
-                                        goto out;
-                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_DST_BRICK,
-                                             strlen (GLUSTERD_STORE_KEY_RB_DST_BRICK))) {
-                                ret = glusterd_brickinfo_new_from_brick (value,
-                                                &volinfo->rep_brick.dst_brick);
-                                if (ret)
-                                        goto out;
-                        } else if (!strncmp (key, GLUSTERD_STORE_KEY_RB_DST_PORT,
-                                             strlen (GLUSTERD_STORE_KEY_RB_DST_PORT))) {
-                                switch (volinfo->transport_type) {
-                                case GF_TRANSPORT_RDMA:
-                                volinfo->rep_brick.dst_brick->rdma_port =
-                                                 atoi (value);
-                                        break;
-
-                                case GF_TRANSPORT_TCP:
-                                case GF_TRANSPORT_BOTH_TCP_RDMA:
-                                volinfo->rep_brick.dst_brick->port =
-                                                atoi (value);
-                                        break;
-                                }
-                        } else if (!strncmp (key, GF_REPLACE_BRICK_TID_KEY,
-                                             strlen (GF_REPLACE_BRICK_TID_KEY))) {
-                                        gf_uuid_parse (value,
-                                                    volinfo->rep_brick.rb_id);
-                        }
-                }
-
-                GF_FREE (key);
-                GF_FREE (value);
-                key = NULL;
-                value = NULL;
-
-                ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
-        }
-
-        if (op_errno != GD_STORE_EOF)
-                goto out;
-
-        ret = gf_store_iter_destroy (iter);
-
-        if (ret)
-                goto out;
-
-out:
-        gf_log (this->name, GF_LOG_TRACE, "Returning with %d", ret);
-
-        return ret;
-}
-
 int32_t
 glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
 {
@@ -3159,15 +2933,6 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                                 "volume: %s", entry->d_name);
                         ret = -1;
                         goto out;
-                }
-
-                ret = glusterd_store_retrieve_rbstate (volinfo);
-                if (ret) {
-                        /* Backward compatibility */
-                        gf_log ("", GF_LOG_INFO, "Creating a new rbstate "
-                                "for volume: %s.", entry->d_name);
-                        ret = glusterd_store_create_rbstate_shandle_on_absence (volinfo);
-                        ret = glusterd_store_perform_rbstate_store (volinfo);
                 }
 
                 ret = glusterd_store_retrieve_node_state (volinfo);

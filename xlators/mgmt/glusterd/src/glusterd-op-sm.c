@@ -2496,41 +2496,6 @@ out:
 }
 
 static int
-_add_brick_name_to_dict (dict_t *dict, char *key, glusterd_brickinfo_t *brick)
-{
-        int     ret = -1;
-        char    tmp[1024] = {0,};
-        char    *brickname = NULL;
-        xlator_t *this = NULL;
-
-        GF_ASSERT (dict);
-        GF_ASSERT (key);
-        GF_ASSERT (brick);
-
-        this = THIS;
-        GF_ASSERT (this);
-
-        snprintf (tmp, sizeof (tmp), "%s:%s", brick->hostname, brick->path);
-        brickname = gf_strdup (tmp);
-        if (!brickname) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to dup brick name");
-                goto out;
-        }
-
-        ret = dict_set_dynstr (dict, key, brickname);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to add brick name to dict");
-                goto out;
-        }
-        brickname = NULL;
-out:
-        if (brickname)
-                GF_FREE (brickname);
-        return ret;
-}
-
-static int
 _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
                             char *prefix)
 {
@@ -2624,25 +2589,6 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
                 status = volinfo->rebal.defrag_status;
                 break;
 
-        case GD_OP_REPLACE_BRICK:
-                snprintf (key, sizeof (key), "task%d.src-brick", index);
-                ret = _add_brick_name_to_dict (dict, key,
-                                               volinfo->rep_brick.src_brick);
-                if (ret)
-                        goto out;
-                memset (key, 0, sizeof (key));
-
-                snprintf (key, sizeof (key), "task%d.dst-brick", index);
-                ret = _add_brick_name_to_dict (dict, key,
-                                               volinfo->rep_brick.dst_brick);
-                if (ret)
-                        goto out;
-                memset (key, 0, sizeof (key));
-
-                uuid_str = gf_strdup (uuid_utoa (volinfo->rep_brick.rb_id));
-                status = volinfo->rep_brick.rb_status;
-                break;
-
         default:
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "%s operation doesn't have a"
@@ -2698,17 +2644,6 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
 
         if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
                 ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
-                                         tasks);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to add task details to dict");
-                        goto out;
-                }
-                tasks++;
-        }
-
-        if (!gf_uuid_is_null (volinfo->rep_brick.rb_id)) {
-                ret = _add_task_to_dict (rsp_dict, volinfo, GD_OP_REPLACE_BRICK,
                                          tasks);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3791,67 +3726,6 @@ out:
 
 }
 
-static int32_t
-glusterd_op_start_rb_timer (dict_t *dict, uuid_t *txn_id)
-{
-        int32_t         op = 0;
-        struct timespec timeout = {0, };
-        glusterd_conf_t *priv = NULL;
-        int32_t         ret = -1;
-        dict_t          *rb_ctx = NULL;
-        uuid_t          *rb_txn_id = NULL;
-
-        GF_ASSERT (dict);
-        priv = THIS->private;
-
-        ret = dict_get_int32 (dict, "operation", &op);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "dict_get on operation failed");
-                goto out;
-        }
-
-        if (op != GF_REPLACE_OP_START) {
-                ret = glusterd_op_sm_inject_all_acc (txn_id);
-                goto out;
-        }
-
-        rb_txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
-        if (!rb_txn_id)
-                goto out;
-
-        gf_uuid_copy (*rb_txn_id, *txn_id);
-        timeout.tv_sec  = 5;
-        timeout.tv_nsec = 0;
-
-        rb_ctx = dict_copy (dict, rb_ctx);
-        if (!rb_ctx) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Couldn't copy "
-                        "replace brick context. Can't start replace brick");
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_bin (rb_ctx, "transaction_id",
-                            rb_txn_id, sizeof (*rb_txn_id));
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR,
-                       "Failed to set transaction id.");
-                goto out;
-        } else
-               gf_log ("", GF_LOG_DEBUG,
-                        "transaction_id = %s", uuid_utoa (*rb_txn_id));
-
-        priv->timer = gf_timer_call_after (THIS->ctx, timeout,
-                                           glusterd_do_replace_brick,
-                                           (void *) rb_ctx);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
 /* This function takes a dict and converts the uuid values of key specified
  * into hostnames
  */
@@ -4342,15 +4216,14 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
 static int
 glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                     ret = 0;
-        rpc_clnt_procedure_t    *proc = NULL;
-        glusterd_conf_t         *priv = NULL;
-        xlator_t                *this = NULL;
-        dict_t                  *dict = NULL;
-        dict_t                  *op_dict = NULL;
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        char                    *op_errstr  = NULL;
-        glusterd_op_t           op = GD_OP_NONE;
+        int                     ret           = 0;
+        rpc_clnt_procedure_t    *proc         = NULL;
+        glusterd_conf_t         *priv         = NULL;
+        xlator_t                *this         = NULL;
+        dict_t                  *dict         = NULL;
+        glusterd_peerinfo_t     *peerinfo     = NULL;
+        char                    *op_errstr    = NULL;
+        glusterd_op_t           op            = GD_OP_NONE;
         uint32_t                pending_count = 0;
 
         this = THIS;
@@ -4359,7 +4232,6 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         GF_ASSERT (priv);
 
         op      = glusterd_op_get_op ();
-        op_dict = glusterd_op_get_ctx ();
 
         ret = glusterd_op_build_payload (&dict, &op_errstr, NULL);
         if (ret) {
@@ -4434,9 +4306,7 @@ out:
 
         if (!opinfo.pending_count) {
                 if (op == GD_OP_REPLACE_BRICK) {
-                        ret = glusterd_op_start_rb_timer (op_dict,
-                                                          &event->txn_id);
-
+                        ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
                 } else {
                         glusterd_op_modify_op_ctx (op, NULL);
                         ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
@@ -4569,7 +4439,6 @@ out:
 static int
 glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
-        dict_t                 *op_ctx            = NULL;
         int                     ret               = 0;
         gf_boolean_t            commit_ack_inject = _gf_true;
         glusterd_op_t           op                = GD_OP_NONE;
@@ -4587,15 +4456,7 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
 
         if (op == GD_OP_REPLACE_BRICK) {
-                op_ctx = glusterd_op_get_ctx ();
-                if (!op_ctx) {
-                        gf_log (this->name, GF_LOG_CRITICAL, "Operation "
-                                "context is not present.");
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = glusterd_op_start_rb_timer (op_ctx, &event->txn_id);
+                ret = glusterd_op_sm_inject_all_acc (&event->txn_id);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Couldn't start "
                                 "replace-brick operation.");

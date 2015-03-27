@@ -15,7 +15,5 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 
 TEST $CLI volume profile $V0 start
 TEST $CLI volume profile $V0 info
-TEST $CLI volume replace-brick $V0 $H0:$B0/brick1 $H0:$B0/brick2 start
-TEST $CLI volume replace-brick $V0 $H0:$B0/brick1 $H0:$B0/brick2 status
 
 cleanup;

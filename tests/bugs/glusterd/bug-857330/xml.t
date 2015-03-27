@@ -47,29 +47,7 @@ EXPECT_WITHIN 300 $PATTERN get-task-status
 ###################
 ## Replace-brick ##
 ###################
-REP_BRICK_PAIR="$H0:$B0/${V0}2 $H0:$B0/${V0}3"
-
-COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR start"
-PATTERN="task-id"
-TEST check-and-store-task-id-xml
-
-COMMAND="volume status $V0"
-PATTERN="id"
-EXPECT $TASK_ID get-task-id-xml
-
-COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR status"
-PATTERN="task-id"
-EXPECT $TASK_ID get-task-id-xml
-
-## TODO: Add more tests for replace-brick pause|abort
-
-COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR status"
-PATTERN="complete"
-EXPECT_WITHIN 300 $PATTERN get-task-status
-
-COMMAND="volume replace-brick $V0 $REP_BRICK_PAIR commit"
-PATTERN="task-id"
-EXPECT $TASK_ID get-task-id-xml
+TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}2 $H0:$B0/${V0}3 commit force
 
 ##################
 ## Remove-brick ##
