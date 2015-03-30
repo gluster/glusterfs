@@ -733,7 +733,8 @@ pub_glfs_set_volfile (struct glfs *fs, const char *volfile)
 		return -1;
 
 	cmd_args->volfile = gf_strdup (volfile);
-
+        if (!cmd_args->volfile)
+                return -1;
 	return 0;
 }
 
