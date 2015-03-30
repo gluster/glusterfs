@@ -42,30 +42,36 @@ client_cbk_ino_flush (struct rpc_clnt *rpc, void *mydata, void *data)
 }
 
 int
-client_cbk_upcall (struct rpc_clnt *rpc, void *mydata, void *data)
+client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        int              ret          = -1;
-        gfs3_upcall_req  up_req;
-        struct gf_upcall upcall_data;
-        struct iovec     *iov         = NULL;
+        int              ret                        = -1;
+        struct iovec     *iov                       = NULL;
+        struct gf_upcall upcall_data                = {0,};
+        uuid_t           gfid;
+        struct gf_upcall_cache_invalidation ca_data = {0,};
+        gfs3_cbk_cache_invalidation_req     ca_req  = {{0,},};
 
-        gf_log (THIS->name, GF_LOG_TRACE,
-                "Upcall callback is called");
+        gf_log (THIS->name, GF_LOG_TRACE, "Upcall callback is called");
 
         if (!rpc || !mydata || !data)
                 goto out;
 
         iov = (struct iovec *)data;
-        ret =  xdr_to_generic (*iov, &up_req,
-                               (xdrproc_t)xdr_gfs3_upcall_req);
+        ret =  xdr_to_generic (*iov, &ca_req,
+                               (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req);
 
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "XDR decode of cache_invalidation failed.");
                 goto out;
+        }
 
-        gf_proto_upcall_to_upcall (&up_req, &upcall_data);
+        upcall_data.data = &ca_data;
+        gf_proto_cache_invalidation_to_upcall (&ca_req, &upcall_data);
 
+        memcpy (gfid, ca_req.gfid, 16);
         gf_log (THIS->name, GF_LOG_TRACE, "Upcall gfid = %s, ret = %d",
-                 (char *)(up_req.gfid), ret);
+                uuid_utoa (gfid), ret);
 
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
 
@@ -77,7 +83,9 @@ rpcclnt_cb_actor_t gluster_cbk_actors[GF_CBK_MAXVALUE] = {
         [GF_CBK_NULL]      = {"NULL",      GF_CBK_NULL,      client_cbk_null },
         [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, client_cbk_fetchspec },
         [GF_CBK_INO_FLUSH] = {"INO_FLUSH", GF_CBK_INO_FLUSH, client_cbk_ino_flush },
-        [GF_CBK_UPCALL]    = {"UPCALL",    GF_CBK_UPCALL,    client_cbk_upcall },
+        [GF_CBK_CACHE_INVALIDATION] = {"CACHE_INVALIDATION",
+                                       GF_CBK_CACHE_INVALIDATION,
+                                       client_cbk_cache_invalidation },
 };
 
 

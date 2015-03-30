@@ -1114,73 +1114,101 @@ fini (xlator_t *this)
 }
 
 int
+server_process_event_upcall (xlator_t *this, void *data)
+{
+        int              ret          = -1;
+        server_conf_t    *conf        = NULL;
+        client_t         *client      = NULL;
+        char             *client_uid  = NULL;
+        struct gf_upcall *upcall_data = NULL;
+        void             *up_req      = NULL;
+        rpc_transport_t  *xprt        = NULL;
+        enum gf_cbk_procnum cbk_procnum          = GF_CBK_NULL;
+        gfs3_cbk_cache_invalidation_req gf_c_req = {{0,},};
+        xdrproc_t        xdrproc;
+
+        GF_VALIDATE_OR_GOTO(this->name, data, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO(this->name, conf, out);
+
+        upcall_data = (struct gf_upcall *)data;
+
+        client_uid = upcall_data->client_uid;
+
+        GF_VALIDATE_OR_GOTO(this->name, client_uid, out);
+
+        switch (upcall_data->event_type) {
+        case GF_UPCALL_CACHE_INVALIDATION:
+                gf_proto_cache_invalidation_from_upcall (&gf_c_req,
+                                                         upcall_data);
+
+                up_req = &gf_c_req;
+                cbk_procnum = GF_CBK_CACHE_INVALIDATION;
+                xdrproc = (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req;
+                break;
+        default:
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Received invalid upcall event(%d)",
+                        upcall_data->event_type);
+                goto out;
+        }
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        client = xprt->xl_private;
+
+                        if (strcmp(client->client_uid, client_uid))
+                                continue;
+
+                        rpcsvc_request_submit(conf->rpc, xprt,
+                                              &server_cbk_prog,
+                                              cbk_procnum,
+                                              up_req,
+                                              this->ctx,
+                                              xdrproc);
+                        break;
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
-        int              ret          = 0;
+        int              ret          = -1;
         int32_t          val          = 0;
         dict_t           *dict        = NULL;
         dict_t           *output      = NULL;
         va_list          ap;
-        client_t         *client      = NULL;
-        char             *client_uid  = NULL;
-        struct gf_upcall *upcall_data = NULL;
-        gfs3_upcall_req  up_req;
-        server_conf_t    *conf        = NULL;
-        rpc_transport_t  *xprt        = NULL;
 
         dict = data;
         va_start (ap, data);
         output = va_arg (ap, dict_t*);
         va_end (ap);
 
-        conf = this->private;
-        if (!conf)
-                return 0;
-
         switch (event) {
         case GF_EVENT_UPCALL:
         {
-                if (!data) {
-                        ret = -1;
+                GF_VALIDATE_OR_GOTO(this->name, data, out);
+
+                ret = server_process_event_upcall (this, data);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "server_process_event_upcall failed");
                         goto out;
                 }
-
-                upcall_data = (struct gf_upcall *)data;
-
-                client_uid = upcall_data->client_uid;
-
-                if (!client_uid) {
-                        ret = -1;
-                        goto out;
-                }
-
-                gf_proto_upcall_from_upcall (&up_req, upcall_data);
-
-                pthread_mutex_lock (&conf->mutex);
-                {
-                        list_for_each_entry (xprt, &conf->xprt_list, list) {
-                                client = xprt->xl_private;
-
-                                if (strcmp(client->client_uid, client_uid))
-                                        continue;
-
-                                rpcsvc_request_submit(
-                                        conf->rpc, xprt,
-                                        &server_cbk_prog,
-                                        GF_CBK_UPCALL,
-                                        &up_req,
-                                        this->ctx,
-                                        (xdrproc_t)xdr_gfs3_upcall_req);
-                                break;
-                        }
-                }
-                pthread_mutex_unlock (&conf->mutex);
                 break;
         }
         default:
                 default_notify (this, event, data);
                 break;
         }
+        ret = 0;
 out:
         return ret;
 }
