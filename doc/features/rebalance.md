@@ -2,7 +2,7 @@
 
 
 For a more detailed description, view Jeff Darcy's blog post [here] 
-(http://hekafs.org/index.php/2012/03/glusterfs-algorithms-distribution/) 
+(http://pl.atyp.us/hekafs.org/index.php/2012/03/glusterfs-algorithms-distribution/)
 
 GlusterFS uses the distribute translator (DHT) to aggregate space of multiple servers. DHT distributes files among its subvolumes using a consistent hashing method providing 32-bit hashes. Each DHT subvolume is given a range in the 32-bit hash space. A hash value is calculated for every file using a combination of its name. The file is then placed in the subvolume with the hash range that contains the hash value. 
 
