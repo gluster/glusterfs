@@ -711,10 +711,6 @@ mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/nfs/run
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
-%if ( 0%{!?_without_georeplication:1} )
-install -p -m 0744 extras/hook-scripts/S56glusterd-geo-rep-create-post.sh \
-    %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/gsync-create/post
-%endif
 %{__install} -p -m 0744 extras/hook-scripts/start/post/*.sh   \
     %{buildroot}%{_sharedstatedir}/glusterd/hooks/1/start/post
 %{__install} -p -m 0744 extras/hook-scripts/stop/pre/*.sh   \
