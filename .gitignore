@@ -7,8 +7,10 @@ cscope.*
 depcomp
 install-sh
 ltmain.sh
+Makefile
 Makefile.in
 missing
+stamp-h1
 test-driver
 *compile
 *.gcda
@@ -24,8 +26,7 @@ test-driver
 *.patch
 .libs
 .deps
-Makefile
-stamp-h1
+
 # Softlinks to test and log
 log
 *.vol
