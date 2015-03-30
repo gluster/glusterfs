@@ -14,6 +14,7 @@
 #include "glfs-mem-types.h"
 #include "syncop.h"
 #include "glfs.h"
+#include "gfapi-messages.h"
 #include "compat-errno.h"
 #include <limits.h>
 #include "glusterfs3.h"
@@ -25,6 +26,48 @@
 #endif
 
 #define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
+
+/*
+ * This routine is called when an upcall event of type
+ * 'GF_UPCALL_CACHE_INVALIDATION' is received.
+ * It makes a copy of the contents of the upcall cache-invalidation
+ * data received into an entry which is stored in the upcall list
+ * maintained by gfapi.
+ */
+int
+glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
+                                    struct gf_upcall *from_up_data)
+{
+
+        struct gf_upcall_cache_invalidation *ca_data = NULL;
+        struct gf_upcall_cache_invalidation *f_ca_data = NULL;
+        int                                 ret      = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, to_up_data, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, from_up_data, out);
+
+        f_ca_data = from_up_data->data;
+        GF_VALIDATE_OR_GOTO (THIS->name, f_ca_data, out);
+
+        ca_data = GF_CALLOC (1, sizeof(*ca_data),
+                            glfs_mt_upcall_entry_t);
+
+        if (!ca_data) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        API_MSG_ALLOC_FAILED,
+                        "Upcall entry allocation failed.");
+                goto out;
+        }
+
+        to_up_data->data = ca_data;
+
+        ca_data->flags = f_ca_data->flags;
+        ca_data->expire_time_attr = f_ca_data->expire_time_attr;
+
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 glfs_loc_link (loc_t *loc, struct iatt *iatt)
@@ -3493,7 +3536,6 @@ void
 priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 {
         int                ret             = -1;
-        inode_t            *inode          = NULL;
         uuid_t             gfid;
         upcall_entry       *u_list         = NULL;
         glusterfs_ctx_t    *ctx            = NULL;
@@ -3523,12 +3565,12 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
         }
         pthread_mutex_unlock (&fs->mutex);
 
+
         upcall_data = (struct gf_upcall *)data;
 
-        gf_log (THIS->name, GF_LOG_DEBUG, "Upcall gfapi gfid = %s"
+        gf_log (THIS->name, GF_LOG_TRACE, "Upcall gfapi gfid = %s"
                 "ret = %d", (char *)(upcall_data->gfid), ret);
 
-        memcpy(gfid, (char *)(upcall_data->gfid), 16);
         u_list = GF_CALLOC (1, sizeof(*u_list),
                             glfs_mt_upcall_entry_t);
 
@@ -3540,10 +3582,24 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 
         INIT_LIST_HEAD (&u_list->upcall_list);
 
-        gf_uuid_copy (u_list->gfid, gfid);
-        u_list->event_type = upcall_data->event_type;
-        u_list->flags = (uint32_t)(upcall_data->flags);
-        u_list->expire_time_attr = upcall_data->expire_time_attr;
+        gf_uuid_copy (u_list->upcall_data.gfid, upcall_data->gfid);
+        u_list->upcall_data.event_type = upcall_data->event_type;
+
+        switch (upcall_data->event_type) {
+        case GF_UPCALL_CACHE_INVALIDATION:
+                ret = glfs_get_upcall_cache_invalidation (&u_list->upcall_data,
+                                                          upcall_data);
+                break;
+        default:
+                goto out;
+        }
+
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        API_MSG_INVALID_ENTRY,
+                        "Upcall entry validation failed.");
+                goto out;
+        }
 
         pthread_mutex_lock (&fs->upcall_list_mutex);
         {
@@ -3557,7 +3613,11 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
                 fs->pin_refcnt--;
         }
         pthread_mutex_unlock (&fs->mutex);
+
+        ret = 0;
 out:
+        if (ret && u_list)
+                GF_FREE(u_list);
         return;
 }
 

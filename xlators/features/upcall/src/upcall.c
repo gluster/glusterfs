@@ -887,6 +887,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         notify_event_data_t *notify_event    = NULL;
         struct gf_upcall    up_req           = {0,};
         upcall_client_t     *up_client_entry = NULL;
+        struct gf_upcall_cache_invalidation  ca_req = {0,};
 
         switch (event) {
         case GF_EVENT_UPCALL:
@@ -903,16 +904,17 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                 up_req.client_uid = up_client_entry->client_uid;
 
-                memcpy (up_req.gfid, notify_event->gfid, 16);
+                gf_uuid_copy (up_req.gfid, notify_event->gfid);
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Sending notify to the client- %s, gfid - %s",
                         up_client_entry->client_uid, up_req.gfid);
 
                 switch (notify_event->event_type) {
-                case CACHE_INVALIDATION:
-                        GF_ASSERT (notify_event->extra);
-                        up_req.flags = notify_event->invalidate_flags;
-                        up_req.expire_time_attr = up_client_entry->expire_time_attr;
+                case GF_UPCALL_CACHE_INVALIDATION:
+                        ca_req.flags = notify_event->invalidate_flags;
+                        ca_req.expire_time_attr =
+                                        up_client_entry->expire_time_attr;
+                        up_req.data = &ca_req;
                         break;
                 default:
                         goto out;

@@ -1641,15 +1641,17 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 int
 pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 {
-        struct glfs_object  *object   = NULL;
-        uuid_t              gfid;
-        upcall_entry        *u_list   = NULL;
-        upcall_entry        *tmp      = NULL;
-        xlator_t            *subvol   = NULL;
-        int                 found     = 0;
-        int                 reason    = 0;
-        glusterfs_ctx_t     *ctx      = NULL;
-        int                 ret       = -1;
+        struct glfs_object                  *object         = NULL;
+        uuid_t                              gfid;
+        upcall_entry                        *u_list         = NULL;
+        upcall_entry                        *tmp            = NULL;
+        xlator_t                            *subvol         = NULL;
+        int                                 found           = 0;
+        int                                 reason          = 0;
+        glusterfs_ctx_t                     *ctx            = NULL;
+        int                                 ret             = -1;
+        struct gf_upcall                    *upcall_data    = NULL;
+        struct gf_upcall_cache_invalidation *ca_data        = NULL;
 
         if (!fs || !up_arg) {
                 errno = EINVAL;
@@ -1689,7 +1691,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                 list_for_each_entry_safe (u_list, tmp,
                                           &fs->upcall_list,
                                           upcall_list) {
-                        gf_uuid_copy (gfid, u_list->gfid);
+                        gf_uuid_copy (gfid, u_list->upcall_data.gfid);
                         found = 1;
                         break;
                 }
@@ -1707,12 +1709,19 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                         goto out;
                 }
 
-                switch (u_list->event_type) {
-                case CACHE_INVALIDATION:
+                upcall_data = &u_list->upcall_data;
+
+                switch (upcall_data->event_type) {
+                case GF_UPCALL_CACHE_INVALIDATION:
                         /* XXX: Need to revisit this to support
                          * GFAPI_INODE_UPDATE if required.
                          */
+                        ca_data = upcall_data->data;
+                        GF_VALIDATE_OR_GOTO ("glfs_h_poll_upcall",
+                                             ca_data, out);
                         reason = GFAPI_INODE_INVALIDATE;
+                        up_arg->flags = ca_data->flags;
+                        up_arg->expire_time_attr = ca_data->expire_time_attr;
                         break;
                 default:
                         break;
@@ -1720,10 +1729,9 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 
                 up_arg->object = object;
                 up_arg->reason = reason;
-                up_arg->flags = u_list->flags;
-                up_arg->expire_time_attr = u_list->expire_time_attr;
 
                 list_del_init (&u_list->upcall_list);
+                GF_FREE (u_list->upcall_data.data);
                 GF_FREE (u_list);
         }
 

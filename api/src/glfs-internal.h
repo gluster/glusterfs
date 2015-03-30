@@ -13,6 +13,7 @@
 #define _GLFS_INTERNAL_H
 
 #include "xlator.h"
+#include "glusterfs.h"
 
 #define GLFS_SYMLINK_MAX_FOLLOW 2048
 
@@ -108,22 +109,9 @@
 
 struct glfs;
 
-/* This enum should be in sync with
- * 'upcall_event_type' declared in
- * 'xlators/features/upcall/src/upcall.h'
- */
-enum upcall_event_type_t {
-        EVENT_NULL,
-        CACHE_INVALIDATION,
-};
-typedef enum upcall_event_type_t upcall_event_type;
-
 struct _upcall_entry_t {
         struct list_head  upcall_list;
-        uuid_t            gfid;
-        upcall_event_type event_type;
-        uint32_t          flags;
-        uint32_t          expire_time_attr;
+        struct gf_upcall  upcall_data;
 };
 typedef struct _upcall_entry_t upcall_entry;
 
@@ -345,5 +333,7 @@ struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx)
 void glfs_free_from_ctx (struct glfs *fs)
          GFAPI_PRIVATE(glfs_free_from_ctx, 3.7.0);
 
+int glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
+                                        struct gf_upcall *from_up_data);
 
 #endif /* !_GLFS_INTERNAL_H */

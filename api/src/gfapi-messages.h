@@ -96,6 +96,7 @@
 #define API_MSG_VOLFILE_INFO                    (GLFS_GFAPI_BASE + 43)
 #define API_MSG_VOLFILE_CONNECTING              (GLFS_GFAPI_BASE + 44)
 #define API_MSG_NEW_GRAPH                       (GLFS_GFAPI_BASE + 45)
+#define API_MSG_ALLOC_FAILED                    (GLFS_GFAPI_BASE + 46)
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 

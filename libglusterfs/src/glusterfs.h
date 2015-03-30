@@ -37,6 +37,7 @@
 #include "list.h"
 #include "logging.h"
 #include "lkowner.h"
+#include "compat-uuid.h"
 
 #define GF_YES 1
 #define GF_NO  0
@@ -370,6 +371,11 @@ typedef enum {
 } gf_xattrop_flags_t;
 
 
+typedef enum {
+        GF_UPCALL_EVENT_NULL,
+        GF_UPCALL_CACHE_INVALIDATION,
+} gf_upcall_event_t;
+
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
 #define GF_SET_DIR_ONLY       0x4
@@ -617,9 +623,13 @@ struct gf_flock {
 };
 
 struct gf_upcall {
-        char  *client_uid;
-	char  gfid[16];
-        u_int event_type;
+        char   *client_uid;
+        uuid_t gfid;
+        u_int  event_type;
+        void   *data;
+};
+
+struct gf_upcall_cache_invalidation {
         u_int flags;
         u_int expire_time_attr;
 };
