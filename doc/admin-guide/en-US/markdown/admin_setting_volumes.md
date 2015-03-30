@@ -398,7 +398,7 @@ of this volume type is supported only for Map Reduce workloads.
     > - GlusterFS will fail to create a distribute replicate volume if more than one brick of a replica set is present on the same peer. For eg. four node distribute (replicated) volume with a more than one brick of replica set is present on the same peer.
     > ```
     # gluster volume create <volname> stripe 2 replica 2 server1:/brick1 server1:/brick2 server2:/brick3 server4:/brick4
-    volume create: <volname>: failed: Multiple bricks of a replicate volume are present on the same server. This setup is not optimal. Use 'force' at the end of the command if you want to override this behavior.```
+    volume create: <volname>: failed: Multiple bricks of a replicate volume are present on the same server. This setup is not optimal. Use `force` at the end of the command if you want to override this behavior.```
 
     >  Use the `force` option at the end of command if you want to create the volume in this case.
 
