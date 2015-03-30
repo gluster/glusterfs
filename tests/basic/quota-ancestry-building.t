@@ -37,7 +37,7 @@ TEST fd_open 5 'w' "$M0/$deep/file3"
 TEST fd_open 6 'w' "$M0/$deep/file4"
 
 # consume all quota
-TEST ! dd if=/dev/zero of="$M0/$deep/file" bs=1MB count=1
+TEST ! dd if=/dev/zero of="$M0/$deep/file" bs=1000000 count=1
 
 # simulate name-less lookups for re-open where the parent information is lost.
 # Stopping and starting the bricks will trigger client re-open which happens on
