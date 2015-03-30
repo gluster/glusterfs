@@ -927,6 +927,12 @@ class GMasterChangelogMixin(GMasterCommon):
         def purge_update():
             files_pending['purge'] += 1
 
+        def log_failures(failures, entry_key, gfid_prefix, log_prefix):
+            for failure in failures:
+                st = lstat(os.path.join(gfid_prefix, failure[0][entry_key]))
+                if not isinstance(st, int):
+                    logging.warn('%s FAILED: %s' % (log_prefix, repr(failure)))
+
         for e in clist:
             e = e.strip()
             et = e[self.IDX_START:self.IDX_END]   # entry type
@@ -1029,7 +1035,8 @@ class GMasterChangelogMixin(GMasterCommon):
             self.update_worker_cumilitive_status(files_pending)
         # sync namespace
         if entries:
-            self.slave.server.entry_ops(entries)
+            failures = self.slave.server.entry_ops(entries)
+            log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
         # sync metadata
         if meta_gfid:
             meta_entries = []
@@ -1043,7 +1050,8 @@ class GMasterChangelogMixin(GMasterCommon):
                     continue
                 meta_entries.append(edct('META', go=go[0], stat=st))
             if meta_entries:
-                self.slave.server.meta_ops(meta_entries)
+                failures = self.slave.server.meta_ops(meta_entries)
+                log_failures(failures, 'go', '', 'META')
         # sync data
         if datas:
             self.a_syncdata(datas)

@@ -484,7 +484,7 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[ESTALE]):
             if nr_tries == GF_OP_RETRIES:
                 # probably a screwed state, cannot do much...
                 logging.warn('reached maximum retries (%s)...' % repr(arg))
-                return
+                return ex.errno
             time.sleep(0.250)  # retry the call
 
 
