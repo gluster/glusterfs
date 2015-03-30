@@ -9549,11 +9549,11 @@ glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
         struct cds_list_head *pos = NULL;
 
         cds_list_for_each_rcu (pos, head) {
-                if (compare (new, pos) >= 0)
+                if (compare (new, pos) <= 0)
                         break;
         }
 
-        cds_list_add_rcu (new, pos);
+        cds_list_add_rcu (new, rcu_dereference (pos->prev));
 }
 
 void
