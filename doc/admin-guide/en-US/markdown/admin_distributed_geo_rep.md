@@ -44,6 +44,27 @@ gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> crea
 ```
 In this case the master node rsa-key distribution to slave node does not happen and above mentioned slave verification is not performed and these two things has to be taken care externaly.
 
+### Configuring meta volume
+A gluster meta volume needs to be configured with geo-replication to
+better handle rename and other consistency issues in geo-replication during
+brick/node down scenarios when master volume is configured with EC(Erasure Code)/AFR.
+Following are the steps to configure meta volume
+
+Create a 3 way replicated meta volume in the master cluster with all three bricks from different nodes as follows.
+```sh
+gluster volume create <meta_vol> replica 3 <host1>:<brick_path> <host2>:<brick_path> <host3>:<brick_path>
+```
+
+Start the meta volume as follows.
+```sh
+gluster volume start <meta_vol>
+```
+
+Configure meta volume with geo-replication session as follows.
+```sh
+gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> config meta_volume <meta_vol>
+```
+
 #### Starting a geo-rep session
 There is no change in this command from previous versions to this version.
 ```sh
