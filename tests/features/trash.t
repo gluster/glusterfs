@@ -51,9 +51,9 @@ truncate_op() {
         sleep 2
 
         test -e $M0/$1
-        test $(du -b $M0/$1 | awk '{print $1}') -eq 2 &>/dev/null
+        test $(ls -l $M0/$1 | awk '{print $5}') -eq 2 &>/dev/null
         test -e $M0/.trashcan/$1*
-        test $(du -b $M0/.trashcan/$1*|awk '{print $1}') -eq $2 &>/dev/null
+        test $(ls -l $M0/.trashcan/$1*|awk '{print $5}') -eq $2 &>/dev/null
 
         # truncate from trashcan
         truncate -s 1 $M0/.trashcan/$1*
@@ -94,7 +94,7 @@ TEST unlink_op file1
 TEST truncate_op file2 4
 
 # create files directory hierarchy and check [16]
-mkdir $M0/1/2/3 -p
+mkdir -p $M0/1/2/3
 create_files $M0/1/2/3/foo1 $M0/1/2/3/foo2
 TEST file_exists 1/2/3/foo1 1/2/3/foo2
 
@@ -122,7 +122,7 @@ TEST [ ! -e $M0/.trashcan/a/test1* ]
 # truncate from eliminate path [23-25]
 truncate -s 2 $M0/a/test2
 TEST [ -e $M0/a/test2 ]
-TEST [ `du -b $M0/a/test2 | awk '{print $1}'` -eq 2 ]
+TEST [ `ls -l $M0/a/test2 | awk '{print $5}'` -eq 2 ]
 TEST [ ! -e $M0/.trashcan/a/test2* ]
 
 # set internal op on [26-27]
