@@ -222,17 +222,6 @@ int32_t ec_heal_symlink_cbk(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-int32_t ec_heal_create_cbk(call_frame_t * frame, void * cookie,
-                           xlator_t * this, int32_t op_ret, int32_t op_errno,
-                           fd_t * fd, inode_t * inode, struct iatt * buf,
-                           struct iatt * preparent, struct iatt * postparent,
-                           dict_t * xdata)
-{
-    ec_heal_update(cookie, 1);
-
-    return 0;
-}
-
 int32_t ec_heal_setattr_cbk(call_frame_t * frame, void * cookie,
                             xlator_t * this, int32_t op_ret, int32_t op_errno,
                             struct iatt * preop_stbuf,
@@ -258,34 +247,6 @@ int32_t ec_heal_removexattr_cbk(call_frame_t * frame, void * cookie,
                                 int32_t op_errno, dict_t * xdata)
 {
     ec_heal_update(cookie, 0);
-
-    return 0;
-}
-
-int32_t ec_heal_link_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                         int32_t op_ret, int32_t op_errno, inode_t * inode,
-                         struct iatt * buf, struct iatt * preparent,
-                         struct iatt * postparent, dict_t * xdata)
-{
-    ec_fop_data_t * fop = cookie;
-    ec_heal_t * heal = fop->data;
-    uintptr_t good, bad;
-
-    bad = ec_heal_check(fop, &good);
-    ec_heal_exclude(heal, good);
-
-    if (bad != 0)
-    {
-        fop->error = 0;
-
-        xdata = fop->xdata;
-        fop = fop->parent;
-
-        ec_create(fop->frame, fop->xl, bad, EC_MINIMUM_ONE,
-                  ec_heal_create_cbk, heal, &heal->loc, 0,
-                  st_mode_from_ia(heal->iatt.ia_prot, IA_INVAL),
-                  0, heal->fd, xdata);
-    }
 
     return 0;
 }
@@ -334,37 +295,19 @@ int32_t ec_heal_reopen_cbk(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-int32_t ec_heal_create(ec_heal_t * heal, uintptr_t mask, int32_t try_link)
+int32_t ec_heal_create (ec_heal_t *heal, uintptr_t mask)
 {
-    loc_t loc;
     dict_t * xdata;
+    int error = 0;
 
     xdata = dict_new();
     if (xdata == NULL)
-    {
         return ENOMEM;
-    }
 
     if (dict_set_static_bin(xdata, "gfid-req", heal->iatt.ia_gfid,
-                            sizeof(uuid_t)) != 0)
-    {
-        dict_unref(xdata);
-
-        return ENOMEM;
-    }
-
-    if ((heal->iatt.ia_type == IA_IFREG) && try_link)
-    {
-        memset(&loc, 0, sizeof(loc));
-        loc.inode = heal->loc.inode;
-        gf_uuid_copy(loc.gfid, heal->iatt.ia_gfid);
-
-        ec_link(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
-                ec_heal_link_cbk, heal, &loc, &heal->loc, xdata);
-
-        dict_unref(xdata);
-
-        return 0;
+                            sizeof(uuid_t))) {
+            error = ENOMEM;
+            goto out;
     }
 
     switch (heal->iatt.ia_type)
@@ -372,7 +315,7 @@ int32_t ec_heal_create(ec_heal_t * heal, uintptr_t mask, int32_t try_link)
         case IA_IFDIR:
             ec_mkdir(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
                      ec_heal_mkdir_cbk, heal, &heal->loc,
-                     st_mode_from_ia(heal->iatt.ia_prot, IA_INVAL),
+                     st_mode_from_ia(heal->iatt.ia_prot, heal->iatt.ia_type),
                      0, xdata);
 
             break;
@@ -384,26 +327,32 @@ int32_t ec_heal_create(ec_heal_t * heal, uintptr_t mask, int32_t try_link)
 
             break;
 
-        case IA_IFREG:
-            ec_create(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
-                      ec_heal_create_cbk, heal, &heal->loc, 0,
-                      st_mode_from_ia(heal->iatt.ia_prot, IA_INVAL),
-                      0, heal->fd, xdata);
-
-            break;
-
         default:
+            /* If mknod comes with the presence of GLUSTERFS_INTERNAL_FOP_KEY
+             * then posix_mknod checks if there are already any gfid-links and
+             * does link() instead of mknod. There still can be a race where
+             * two posix_mknods with same gfid see that gfid-link file is not
+             * present and proceeds with mknods and result in two different
+             * files with same gfid. which is yet to be fixed in posix.*/
+            if (dict_set_int32 (xdata, GLUSTERFS_INTERNAL_FOP_KEY, 1)) {
+                    error = ENOMEM;
+                    goto out;
+            }
+
             ec_mknod(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
                      ec_heal_mknod_cbk, heal, &heal->loc,
-                     st_mode_from_ia(heal->iatt.ia_prot, IA_INVAL),
+                     st_mode_from_ia(heal->iatt.ia_prot, heal->iatt.ia_type),
                      heal->iatt.ia_rdev, 0, xdata);
 
             break;
     }
+    error = 0;
 
-    dict_unref(xdata);
+out:
+    if (xdata)
+        dict_unref(xdata);
 
-    return 0;
+    return error;
 }
 
 int32_t ec_heal_parent_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
@@ -414,7 +363,7 @@ int32_t ec_heal_parent_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
     ec_heal_t *heal = fop->data;
 
     /* Even if parent self-heal has failed, we try to heal the current entry */
-    ec_heal_create(heal, fop->mask, 0);
+    ec_heal_create(heal, fop->mask);
 
     return 0;
 }
@@ -437,7 +386,7 @@ void ec_heal_parent(ec_heal_t *heal, uintptr_t mask)
     }
 
     if (!healing) {
-        ec_heal_create(heal, mask, 0);
+        ec_heal_create(heal, mask);
     }
 }
 
@@ -646,9 +595,8 @@ void ec_heal_remove(ec_heal_t * heal, ec_cbk_data_t * cbk)
 {
     if (cbk->iatt[0].ia_type == IA_IFDIR)
     {
-        // TODO: Remove directory recursively ?
         ec_rmdir(heal->fop->frame, heal->xl, cbk->mask, EC_MINIMUM_ONE,
-                 ec_heal_rmdir_cbk, heal, &heal->loc, 0, NULL);
+                 ec_heal_rmdir_cbk, heal, &heal->loc, 1, NULL);
     }
     else
     {
@@ -703,7 +651,7 @@ void ec_heal_prepare_others(ec_heal_t * heal)
         {
             if ((cbk->op_errno == ENOENT) || (cbk->op_errno == ESTALE))
             {
-                ec_heal_create(heal, cbk->mask, 1);
+                ec_heal_create(heal, cbk->mask);
             }
             else
             {
