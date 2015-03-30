@@ -1691,15 +1691,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* tier translator - global tunables */
-        { .key         = "cluster.write-freq-thresold",
+        { .key         = "cluster.write-freq-threshold",
           .voltype     = "cluster/tier",
-          .option      = "write-freq-thresold",
+          .option      = "write-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT
         },
-        { .key         = "cluster.read-freq-thresold",
+        { .key         = "cluster.read-freq-threshold",
           .voltype     = "cluster/tier",
-          .option      = "read-freq-thresold",
+          .option      = "read-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT
         },
