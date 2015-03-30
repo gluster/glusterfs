@@ -1258,7 +1258,6 @@ init (xlator_t *this)
         struct stat        buf               = {0,};
         char               storedir [PATH_MAX] = {0,};
         char               workdir [PATH_MAX] = {0,};
-        char               hooks_dir [PATH_MAX] = {0,};
         char               cmd_log_filename [PATH_MAX] = {0,};
         int                first_time        = 0;
         char              *mountbroker_root  = NULL;
@@ -1593,14 +1592,16 @@ init (xlator_t *this)
         glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();
 
-        GLUSTERD_GET_HOOKS_DIR (hooks_dir, GLUSTERD_HOOK_VER, conf);
-        if (stat (hooks_dir, &buf)) {
-                ret = glusterd_hooks_create_hooks_directory (conf->workdir);
-                if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_CRITICAL,
-                                "Unable to create hooks directory ");
-                        exit (1);
-                }
+        /* Make install copies few of the hook-scripts by creating hooks
+         * directory. Hence purposefully not doing the check for the presence of
+         * hooks directory. Doing so avoids creation of complete hooks directory
+         * tree.
+         */
+        ret = glusterd_hooks_create_hooks_directory (conf->workdir);
+        if (-1 == ret) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create hooks directory ");
+                exit (1);
         }
 
         CDS_INIT_LIST_HEAD (&conf->mount_specs);
