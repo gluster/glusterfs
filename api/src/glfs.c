@@ -709,6 +709,8 @@ priv_glfs_free_from_ctx (struct glfs *fs)
                                   &fs->upcall_list,
                                   upcall_list) {
                 list_del_init (&u_list->upcall_list);
+                GF_FREE (u_list->upcall_data.data);
+                GF_FREE (u_list);
         }
         (void) pthread_mutex_destroy (&fs->upcall_list_mutex);
 

@@ -44,12 +44,13 @@ struct gf_iatt {
 };
 
 
-struct gfs3_upcall_req {
+struct gfs3_cbk_cache_invalidation_req {
         opaque         gfid[16];
         unsigned int   event_type; /* Upcall event type */
         unsigned int   flags;  /* or mask of events incase of inotify */
         unsigned int   expire_time_attr; /* the amount of time which client
                                           * can cache this entry */
+        opaque   xdata<>; /* Extra data */
 };
 
 struct gfs3_stat_req {

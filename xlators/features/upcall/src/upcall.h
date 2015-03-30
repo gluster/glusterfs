@@ -59,12 +59,6 @@ struct _upcall_private_t {
 };
 typedef struct _upcall_private_t upcall_private_t;
 
-enum _upcall_event_type_t {
-        EVENT_NULL,
-        CACHE_INVALIDATION,
-};
-typedef enum _upcall_event_type_t upcall_event_type_t;
-
 struct _upcall_client_t {
         struct list_head client_list;
         /* strdup to store client_uid, strdup. Free it explicitly */
@@ -86,7 +80,7 @@ typedef struct _upcall_inode_ctx_t upcall_inode_ctx_t;
 struct _notify_event_data {
         uuid_t gfid;
         upcall_client_t *client_entry;
-        upcall_event_type_t event_type;
+        gf_upcall_event_t event_type;
         uint32_t invalidate_flags;
         /* any extra data needed, like inode flags
          * to be invalidated incase of cache invalidation,
