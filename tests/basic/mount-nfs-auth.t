@@ -76,12 +76,35 @@ function setup_cluster() {
         create_vol                      # Create the volume
 }
 
-function do_mount () {
+function check_mount_success {
         mount_nfs $H0:/$1 $N0 nolock
+        if [ $? -eq 0 ]; then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}
+
+function check_mount_failure {
+        mount_nfs $H0:/$1 $N0 nolock
+        if [ $? -ne 0 ]; then
+                echo "Y"
+        else
+                local timeout=$UMOUNT_TIMEOUT
+                while ! umount_nfs $N0 && [$timeout -ne 0] ; do
+                        timeout=$(( $timeout - 1 ))
+                        sleep 1
+                done
+        fi
 }
 
 function small_write () {
         dd if=/dev/zero of=$N0/test-small-write count=1 bs=1k 2>&1
+        if [ $? -ne 0 ]; then
+                echo "N"
+        else
+                echo "Y"
+        fi
 }
 
 function bg_write () {
@@ -124,7 +147,6 @@ TEST $CLI vol set $V0 cluster.self-heal-daemon off
 TEST $CLI vol set $V0 nfs.disable off
 TEST $CLI vol set $V0 cluster.choose-local off
 TEST $CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 # Get NFS state directory
 NFSDIR=$( $CLI volume get patchy nfs.mount-rmtab | \
@@ -137,20 +159,17 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 ## NFS server starts with auth disabled
 ## Do some tests to verify that.
 
-TEST do_mount $V0
+EXPECT "Y" check_mount_success $V0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Disallow host
 TEST export_deny_this_host
 TEST netgroup_deny_this_host
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 ## Technically deauthorized this host, but since auth is disabled we should be
 ## able to do mounts, writes, etc.
-TEST do_mount $V0
-TEST small_write
-EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
-TEST do_mount $V0
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Reauthorize this host
@@ -164,84 +183,70 @@ $CLI vol start $V0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 ## Mount NFS
-TEST do_mount $V0
+EXPECT "Y" check_mount_success $V0
+
 ## Disallow host
 TEST export_deny_this_host
 TEST netgroup_deny_this_host
 
-## nfs-server is not enable to load the changes in the export/netgroup files
-## dynamically, a restart is required.
-
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-
 ## Writes should not be allowed, host is not authorized
-TEST ! small_write
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "N" small_write
+
 ## Unmount so we can test mount
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 ## Subsequent ounts should not be allowed, host is not authorized
-TEST ! do_mount $V0
+EXPECT "Y" check_mount_failure $V0
 
 ## Reauthorize host
 TEST export_allow_this_host
 TEST netgroup_allow_this_host
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
-TEST do_mount $V0
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Allow host in netgroups but not in exports, host should be allowed
 TEST export_deny_this_host
 TEST netgroup_allow_this_host
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-TEST do_mount $V0
-TEST small_write
+
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT "Y" small_write
 TEST big_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Allow host in exports but not in netgroups, host should be allowed
 TEST export_allow_this_host
 TEST netgroup_deny_this_host
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-TEST do_mount $V0
+
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Finally, reauth the host in export and netgroup, test mount & write
 TEST export_allow_this_host_l1
 TEST netgroup_allow_this_host
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-TEST do_mount $V0L1
-TEST small_write
+
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0L1
+EXPECT "Y" small_write
 
 ## Failover test: Restarting NFS and then doing a write should pass
 bg_write
 TEST restart_nfs
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
+
 TEST wait $BG_WRITE_PID
-TEST small_write
+EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Test deep mounts
-TEST do_mount $V0L1
-TEST small_write
+EXPECT "Y" check_mount_success $V0L1
+EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 TEST export_allow_this_host_ro
 TEST netgroup_deny_this_host
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-TEST do_mount $V0
-TEST ! small_write # Writes should not be allowed
+
+EXPECT "Y" check_mount_success $V0
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "N" small_write # Writes should not be allowed
 TEST ! create      # Create should not be allowed
 TEST stat_nfs      # Stat should be allowed
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
@@ -249,38 +254,32 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 TEST export_deny_this_host
 TEST netgroup_deny_this_host
 TEST export_allow_this_host_l1 # Allow this host at L1
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-TEST ! do_mount $V0 #V0 shouldnt be allowed
-TEST do_mount $V0L1 #V0L1 should be
+
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_failure $V0 #V0 shouldnt be allowed
+EXPECT "Y" check_mount_success $V0L1 #V0L1 should be
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Test wildcard hosts
 TEST export_allow_wildcard
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
-TEST do_mount $V0
-TEST small_write
+
+EXPECT "Y" check_mount_success $V0
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Test if path is parsed correctly
 ## by mounting host:vol/ instead of host:vol
-TEST do_mount $V0/
-TEST small_write
+EXPECT "Y" check_mount_success $V0/
+EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 TEST export_allow_this_host_with_slash
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
-TEST do_mount $V0
-TEST small_write
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
-TEST do_mount $V0/
-TEST small_write
+
+EXPECT "Y" check_mount_success $V0/
+EXPECT "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 
@@ -292,11 +291,8 @@ EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
 TEST export_deny_this_host # Deny the host
 TEST netgroup_deny_this_host
-$CLI vol stop $V0
-$CLI vol start $V0
-EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 
-TEST do_mount $V0 # Do a mount & test
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0 # Do a mount & test
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 ## Turn back on the exports authentication
@@ -304,6 +300,7 @@ $CLI vol stop $V0
 TEST $CLI vol set $V0 nfs.exports-auth-enable on
 $CLI vol start $V0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
+
 ## Do a simple test to set the refresh time to 20 seconds
 TEST $CLI vol set $V0 nfs.auth-refresh-interval-sec 20
 

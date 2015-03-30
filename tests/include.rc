@@ -62,6 +62,7 @@ MARKER_UPDATE_TIMEOUT=20
 JANITOR_TIMEOUT=60
 UMOUNT_TIMEOUT=5
 CONFIG_UPDATE_TIMEOUT=5
+AUTH_REFRESH_INTERVAL=10
 
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
