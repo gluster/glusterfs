@@ -142,12 +142,17 @@ tier_migrate_using_query_file (void *_args)
         int total_status                        = 0;
         FILE *queryFILE                         = NULL;
         char *link_str                          = NULL;
+        xlator_t *src_subvol                    = NULL;
+        dht_conf_t   *conf                      = NULL;
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->this, out);
         this = query_cbk_args->this;
         GF_VALIDATE_OR_GOTO (this->name, query_cbk_args->defrag, out);
         GF_VALIDATE_OR_GOTO (this->name, query_cbk_args->queryFILE, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        conf = this->private;
 
         defrag = query_cbk_args->defrag;
 
@@ -300,8 +305,29 @@ tier_migrate_using_query_file (void *_args)
                         inode_unref (loc.inode);
                         loc.inode = linked_inode;
 
+                        /*
+                         * Do not promote/demote if file already is where it
+                         * should be. This shall become a skipped count.
+                         */
+                        src_subvol = dht_subvol_get_cached(this, loc.inode);
+
+                        if (query_cbk_args->is_promotion &&
+                             src_subvol == conf->subvolumes[1]) {
+                                per_link_status = -1;
+                                goto error;
+                        }
+
+                        if (!query_cbk_args->is_promotion &&
+                            src_subvol == conf->subvolumes[0]) {
+                                per_link_status = -1;
+                                goto error;
+                        }
+
                         gf_msg (this->name, GF_LOG_INFO, 0,
-                                DHT_MSG_LOG_TIER_STATUS, "Tier migrate file %s",
+                                DHT_MSG_LOG_TIER_STATUS, "Tier %d"
+                                " src_subvol %s file %s",
+                                query_cbk_args->is_promotion,
+                                src_subvol->name,
                                 loc.name);
 
                         if (tier_check_same_node (this, &loc, defrag)) {
@@ -587,6 +613,7 @@ tier_demote (void *args)
 
         query_cbk_args.this = demotion_args->this;
         query_cbk_args.defrag = demotion_args->defrag;
+        query_cbk_args.is_promotion = 0;
 
         /*Build the query file using bricklist*/
         ret = tier_build_migration_qfile(demotion_args, &query_cbk_args,
@@ -622,6 +649,7 @@ static void
 
         query_cbk_args.this = promotion_args->this;
         query_cbk_args.defrag = promotion_args->defrag;
+        query_cbk_args.is_promotion = 1;
 
         /*Build the query file using bricklist*/
         ret = tier_build_migration_qfile(promotion_args, &query_cbk_args,
@@ -641,7 +669,7 @@ out:
         return NULL;
 }
 
-static void
+static int
 tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
 {
         xlator_list_t  *child = NULL;
@@ -690,14 +718,17 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
                         if (dict_add_dynstr_with_alloc(bricklist, "brick",
                                                        db_path))
                                 goto out;
+
+                        ret = 0;
+                        goto out;
                 }
         }
 
         for (child = xl->children; child; child = child->next) {
-                tier_get_bricklist(child->xlator, bricklist);
+                ret = tier_get_bricklist(child->xlator, bricklist);
         }
 out:
-        return;
+        return ret;
 }
 
 int

@@ -249,7 +249,7 @@ cli_cmd_ganesha_parse (struct cli_state *state, const char **words,
 
 int32_t
 cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
-                                dict_t **options);
+                                dict_t **options, int *type);
 
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,

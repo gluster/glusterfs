@@ -787,7 +787,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
+        ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options, 0);
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
@@ -847,12 +847,13 @@ cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
         int                     parse_error = 0;
         gf_answer_t             answer = GF_ANSWER_NO;
         cli_local_t             *local = NULL;
+        int                     type = 0;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
+        ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options, &type);
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
@@ -872,7 +873,7 @@ cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
         if (ret)
                 goto out;
 
-        ret = dict_set_int32 (options, "type", GF_CLUSTER_TYPE_TIER);
+        ret = dict_set_int32 (options, "type", type);
         if (ret)
                 goto out;
 

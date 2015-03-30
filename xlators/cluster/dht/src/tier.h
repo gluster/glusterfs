@@ -50,6 +50,7 @@ typedef struct _query_cbk_args {
         xlator_t *this;
         gf_defrag_info_t *defrag;
         FILE *queryFILE;
+        int is_promotion;
 } query_cbk_args_t;
 
 int

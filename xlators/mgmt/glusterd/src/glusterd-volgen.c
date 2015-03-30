@@ -3107,11 +3107,13 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
         /* All other cases, it will have one or the other cluster type */
         switch (volinfo->type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-                clusters = volgen_link_bricks_from_list_tail (graph, volinfo,
-                                                        replicate_args[0],
-                                                        replicate_args[1],
-                                                        volinfo->brick_count,
-                                                        volinfo->replica_count);
+                clusters = volgen_link_bricks_from_list_tail
+                        (graph, volinfo,
+                         replicate_args[0],
+                         replicate_args[1],
+                         volinfo->brick_count,
+                         volinfo->replica_count);
+
                 if (clusters < 0)
                         goto out;
                 break;
@@ -3284,12 +3286,12 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->type           = volinfo->tier_info.cold_type;
         sprintf (volinfo->volname, "%s-cold", st_volname);
 
-        ret = volume_volgen_graph_build_clusters (graph, volinfo, _gf_false);
+        ret = volume_volgen_graph_build_clusters (graph, volinfo, is_quotad);
         if (ret)
                 goto out;
         cxl = first_of(graph);
 
-        volinfo->type           = GF_CLUSTER_TYPE_TIER;
+        volinfo->type           = volinfo->tier_info.hot_type;
         volinfo->brick_count    = volinfo->tier_info.hot_brick_count;
         volinfo->replica_count  = volinfo->tier_info.hot_replica_count;
         volinfo->dist_leaf_count = glusterd_get_dist_leaf_count(volinfo);
@@ -3297,21 +3299,34 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
 
         sprintf (volinfo->volname, "%s-hot", st_volname);
 
-        if (volinfo->dist_leaf_count == 1) {
-                dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
-                ret = volgen_link_bricks_from_list_head (graph,  volinfo,
-                                                         "cluster/distribute",
-                                                         "%s-dht",
-                                                         dist_count,
-                                                         dist_count);
+        dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
+
+        if (volinfo->dist_leaf_count != 1) {
+                ret = volgen_link_bricks_from_list_head
+                        (graph, volinfo,
+                         "cluster/replicate",
+                         "%s-replicate-%d",
+                         volinfo->brick_count,
+                         volinfo->replica_count);
+                if (ret != -1)
+                        volgen_link_bricks_from_list_tail (graph,  volinfo,
+                                                           "cluster/distribute",
+                                                           "%s-dht",
+                                                           dist_count,
+                                                           dist_count);
         } else {
-                ret = volume_volgen_graph_build_clusters (graph,
-                                                          volinfo,
-                                                          _gf_false);
+                ret = volgen_link_bricks_from_list_head (graph,  volinfo,
+                                                 "cluster/distribute",
+                                                 "%s-dht",
+                                                 dist_count,
+                                                 dist_count);
         }
+        if (ret == -1)
+                goto out;
 
         hxl = first_of(graph);
 
+        volinfo->type           = GF_CLUSTER_TYPE_TIER;
         xl = volgen_graph_add_nolink (graph, "cluster/tier", "%s",
                                       "tier-dht", 0);
         gf_asprintf(&rule, "%s-hot-dht", st_volname);

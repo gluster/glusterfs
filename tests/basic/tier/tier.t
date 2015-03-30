@@ -3,6 +3,12 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
+LAST_BRICK=3
+CACHE_BRICK_FIRST=4
+CACHE_BRICK_LAST=5
+DEMOTE_TIMEOUT=12
+PROMOTE_TIMEOUT=5
+
 function file_on_slow_tier {
     s=$(md5sum $1)
     for i in `seq 0 $LAST_BRICK`; do
@@ -19,8 +25,9 @@ function file_on_fast_tier {
     local ret="1"
 
     s1=$(md5sum $1)
-    s2=$(md5sum $B0/${V0}${CACHE_BRICK}/$1)
-    if [ -e $B0/${V0}${CACHE_BRICK}/$1 ] && ! [ "$s1" == "$s2" ]; then
+    s2=$(md5sum $B0/${V0}${CACHE_BRICK_FIRST}/$1)
+
+    if [ -e $B0/${V0}${CACHE_BRICK_FIRST}/$1 ] && ! [ "$s1" == "$s2" ]; then
         echo "0"
     else
         echo "1"
@@ -45,17 +52,14 @@ function confirm_vol_stopped {
     fi
 }
 
-LAST_BRICK=1
-CACHE_BRICK=2
-DEMOTE_TIMEOUT=12
-PROMOTE_TIMEOUT=5
 cleanup
 
 
 TEST glusterd
 TEST pidof glusterd
-TEST $CLI volume create $V0 $H0:$B0/${V0}{0..$LAST_BRICK}
-TEST $CLI volume attach-tier $V0 $H0:$B0/${V0}${CACHE_BRICK}
+
+TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
+TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 TEST $CLI volume start $V0
 TEST $CLI volume set $V0 features.ctr-enabled on
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
@@ -120,7 +124,7 @@ TEST $CLI volume detach-tier $V0
 # temporarily comment out
 #TEST ! [ -e $M0/d1/data.txt ]
 
-EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK}
+EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK_FIRST}
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "0" confirm_vol_stopped $V0
 

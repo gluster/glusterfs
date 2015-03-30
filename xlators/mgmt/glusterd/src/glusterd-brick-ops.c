@@ -465,6 +465,9 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                         ret = -1;
                         goto out;
                 }
+
+                ret = dict_get_int32 (dict, "type", &type);
+
                 goto brick_val;
         }
 
@@ -1835,6 +1838,7 @@ glusterd_op_perform_attach_tier (dict_t *dict,
 {
         int                                     ret = 0;
         int                                     replica_count = 0;
+        int                                     type = 0;
 
         /*
          * Store the new (cold) tier's structure until the graph is generated.
@@ -1853,6 +1857,9 @@ glusterd_op_perform_attach_tier (dict_t *dict,
         else
                 volinfo->tier_info.hot_replica_count  = 1;
         volinfo->tier_info.hot_brick_count     = count;
+        ret = dict_get_int32 (dict, "type", &type);
+        volinfo->tier_info.hot_type      = type;
+        ret = dict_set_int32 (dict, "type", GF_CLUSTER_TYPE_TIER);
 
         return ret;
 }
