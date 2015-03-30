@@ -143,7 +143,7 @@ TEST ! snapshot_exists 1 ${V0}_snap
 TEST ! snapshot_exists 1 ${V1}_snap
 
 delete_volumes 2
-TEST ! volume_exists $V0
-TEST ! volume_exists $V1
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V0
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V1
 
 cleanup;

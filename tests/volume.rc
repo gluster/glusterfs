@@ -402,13 +402,12 @@ function delete_volumes() {
 }
 
 function volume_exists() {
-        local volname=$1
-        $CLI volume info $volname 2>&1 | grep -q 'does not exist'
-        if [ $? -eq 0 ]; then
-                return 1
-        else
-                return 0
-        fi
+        $CLI volume info $1 > /dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		echo "Y"
+	else
+		echo "N"
+	fi
 }
 
 function afr_get_index_count {
