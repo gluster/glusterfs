@@ -98,8 +98,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field ${V0}_clone 'Status';
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field ${V1}_clone 'Status';
 #Clean up
 stop_force_volumes 2
-EXPECT 'Stopped' volinfo_field $V0 'Status';
-EXPECT 'Stopped' volinfo_field $V1 'Status';
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field $V0 'Status';
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field $V1 'Status';
 
 TEST delete_snapshot ${V0}_snap
 TEST delete_snapshot ${V1}_snap
@@ -108,7 +108,7 @@ TEST ! snapshot_exists 1 ${V0}_snap
 TEST ! snapshot_exists 1 ${V1}_snap
 
 delete_volumes 2
-TEST ! volume_exists $V0
-TEST ! volume_exists $V1
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V0
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V1
 
 cleanup;

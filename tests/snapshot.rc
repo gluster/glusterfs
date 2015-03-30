@@ -314,12 +314,11 @@ function volinfo_field()
 
 
 function volume_exists() {
-        local volname=$1
-        $CLI_1 volume info $volname 2>&1 | grep -q 'does not exist'
+        $CLI_1 volume info $1 > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-                return 1
+                echo "Y"
         else
-                return 0
+                echo "N"
         fi
 }
 
@@ -407,6 +406,6 @@ NetBSD)
         SKIP_TESTS
         exit 0
         ;;
-*)      
+*)
         ;;
-esac  
+esac
