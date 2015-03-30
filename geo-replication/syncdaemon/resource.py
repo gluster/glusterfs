@@ -607,6 +607,19 @@ class Server(object):
                     er = errno_wrap(os.rmdir, [entry], [ENOENT, ENOTEMPTY])
                     if er == ENOTEMPTY:
                         return er
+
+        def collect_failure(e, cmd_ret):
+            # We do this for failing fops on Slave
+            # Master should be logging this
+            if cmd_ret == EEXIST:
+                disk_gfid = cls.gfid_mnt(e['entry'])
+                if isinstance(disk_gfid, basestring):
+                    if e['gfid'] != disk_gfid:
+                        failures.append((e, cmd_ret, disk_gfid))
+            else:
+                failures.append((e, cmd_ret))
+
+        failures = []
         for e in entries:
             blob = None
             op = e['op']
@@ -644,7 +657,10 @@ class Server(object):
                     (pg, bname) = entry2pb(entry)
                     blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
-                    errno_wrap(os.link, [slink, entry], [ENOENT, EEXIST])
+                    cmd_ret = errno_wrap(os.link,
+                                         [slink, entry],
+                                         [ENOENT, EEXIST])
+                    collect_failure(e, cmd_ret)
             elif op == 'SYMLINK':
                 blob = entry_pack_symlink(gfid, bname, e['link'], e['stat'])
             elif op == 'RENAME':
@@ -655,16 +671,22 @@ class Server(object):
                         (pg, bname) = entry2pb(en)
                         blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
-                    errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
+                    cmd_ret = errno_wrap(os.rename,
+                                         [entry, en],
+                                         [ENOENT, EEXIST])
+                    collect_failure(e, cmd_ret)
             if blob:
-                errno_wrap(Xattr.lsetxattr,
-                           [pg, 'glusterfs.gfid.newfile', blob],
-                           [EEXIST],
-                           [ENOENT, ESTALE, EINVAL])
+                cmd_ret = errno_wrap(Xattr.lsetxattr,
+                                     [pg, 'glusterfs.gfid.newfile', blob],
+                                     [EEXIST],
+                                     [ENOENT, ESTALE, EINVAL])
+                collect_failure(e, cmd_ret)
+        return failures
 
     @classmethod
     def meta_ops(cls, meta_entries):
         logging.debug('Meta-entries: %s' % repr(meta_entries))
+        failures = []
         for e in meta_entries:
             mode = e['stat']['mode']
             uid = e['stat']['uid']
@@ -672,10 +694,18 @@ class Server(object):
             atime = e['stat']['atime']
             mtime = e['stat']['mtime']
             go = e['go']
-            errno_wrap(os.chmod, [go, mode], [ENOENT], [ESTALE, EINVAL])
+            cmd_ret = errno_wrap(os.chmod, [go, mode],
+                                 [ENOENT], [ESTALE, EINVAL])
+            # This is a fail fast mechanism
+            # We do this for failing fops on Slave
+            # Master should be logging this
+            if isinstance(cmd_ret, int):
+                failures.append((e, cmd_ret))
+                continue
             errno_wrap(os.chown, [go, uid, gid], [ENOENT], [ESTALE, EINVAL])
             errno_wrap(os.utime, [go, (atime, mtime)],
                        [ENOENT], [ESTALE, EINVAL])
+        return failures
 
     @classmethod
     @_pathguard
