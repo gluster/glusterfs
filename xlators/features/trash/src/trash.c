@@ -118,12 +118,15 @@ copy_trash_path (const char *priv_value, gf_boolean_t internal, char *path)
  * similar to orginal path.
  */
 void
-remove_trash_path (const char *path, gf_boolean_t internal, char *rem_path)
+remove_trash_path (const char *path, gf_boolean_t internal, char **rem_path)
 {
+        if (rem_path == NULL) {
+                return;
+        }
 
-        rem_path =  strchr (path + 1, '/');
+        *rem_path =  strchr (path + 1, '/');
         if (internal)
-                rem_path =  strchr (path + 1, '/');
+                *rem_path =  strchr (path + 1, '/');
 }
 
 /**
@@ -643,7 +646,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_path,
@@ -713,7 +716,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         strcpy (real_path, priv->brick_path);
-        remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+        remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
                 strcat (real_path, tmp_stat);
 
@@ -784,7 +787,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_str, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_str, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 /* create the directory with proper permissions */
@@ -1230,7 +1233,7 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 /* create the directory with proper permissions */
@@ -1352,7 +1355,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
@@ -1422,7 +1425,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         strcpy (real_path, priv->brick_path);
-        remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+        remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
                 strcat (real_path, tmp_stat);
 
