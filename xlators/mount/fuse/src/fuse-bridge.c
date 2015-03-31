@@ -2507,6 +2507,7 @@ fuse_opendir_resume (fuse_state_t *state)
                         state->finh->unique);
                 send_fuse_err (state->this, state->finh, ENOMEM);
                 free_fuse_state (state);
+                return;
         }
 
         fdctx = fuse_fd_ctx_check_n_create (state->this, fd);
