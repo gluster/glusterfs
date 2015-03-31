@@ -589,7 +589,10 @@ gf_changelog_register (char *brick_path, char *scratch_dir,
 {
         struct gf_brick_spec brick = {0,};
 
-        THIS = master;
+        if (master)
+                THIS = master;
+        else
+                return -1;
 
         brick.brick_path = brick_path;
         brick.filter     = CHANGELOG_OP_TYPE_JOURNAL;
