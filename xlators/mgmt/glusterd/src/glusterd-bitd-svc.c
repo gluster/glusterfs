@@ -70,26 +70,40 @@ out:
 int
 glusterd_bitdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
-        int          ret    = -EINVAL;
+        int                      ret           = 0;
+        xlator_t                *this          = NULL;
+        glusterd_volinfo_t      *volinfo       = data;
+        glusterd_brickinfo_t    *brickinfo     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (volinfo);
 
         if (glusterd_all_volumes_with_bitrot_stopped ()) {
                 ret = svc->stop (svc, SIGTERM);
         } else {
-                ret = glusterd_bitdsvc_create_volfile ();
-                if (ret)
-                        goto out;
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
+                        if (!glusterd_is_local_brick (this, volinfo, brickinfo))
+                                continue;
 
-                ret = svc->stop (svc, SIGKILL);
-                if (ret)
-                        goto out;
+                        ret = glusterd_bitdsvc_create_volfile ();
+                        if (ret)
+                                goto out;
 
-                ret = svc->start (svc, flags);
-                if (ret)
-                        goto out;
+                        ret = svc->stop (svc, SIGKILL);
+                        if (ret)
+                                goto out;
 
-                ret = glusterd_conn_connect (&(svc->conn));
-                if (ret)
-                        goto out;
+                        ret = svc->start (svc, flags);
+                        if (ret)
+                                goto out;
+
+                        ret = glusterd_conn_connect (&(svc->conn));
+                        if (ret)
+                                goto out;
+                        break;
+                }
         }
 
 out:

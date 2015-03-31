@@ -310,7 +310,7 @@ glusterd_all_volumes_with_bitrot_stopped ()
 }
 
 static int
-glusterd_manage_bitrot (int opcode)
+glusterd_manage_bitrot (int opcode, glusterd_volinfo_t *volinfo)
 {
         int              ret   = -1;
         xlator_t         *this = NULL;
@@ -326,7 +326,7 @@ glusterd_manage_bitrot (int opcode)
         case GF_BITROT_OPTION_TYPE_ENABLE:
         case GF_BITROT_OPTION_TYPE_DISABLE:
                 ret = priv->bitd_svc.manager (&(priv->bitd_svc),
-                                                NULL, PROC_START_NO_WAIT);
+                                                volinfo, PROC_START_NO_WAIT);
                 if (ret)
                         break;
                 ret = priv->scrub_svc.manager (&(priv->scrub_svc), NULL,
@@ -416,7 +416,7 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_manage_bitrot (type);
+        ret = glusterd_manage_bitrot (type, volinfo);
         if (ret)
                 goto out;
 
