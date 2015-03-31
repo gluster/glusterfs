@@ -139,6 +139,8 @@ glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
         if (req)
                 opinfo->req = req;
 
+        timespec_now (&opinfo->start_ts);
+
         return;
 }
 

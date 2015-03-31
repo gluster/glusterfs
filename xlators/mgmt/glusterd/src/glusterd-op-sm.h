@@ -104,6 +104,7 @@ struct glusterd_op_info_ {
         char                            *op_errstr;
         struct  cds_list_head           pending_bricks;
         struct  cds_list_head           *local_xaction_peers;
+        struct timespec                 start_ts;
 
 };
 
