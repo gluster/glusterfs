@@ -626,7 +626,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
 
 local_locking_done:
         txn_op_info.local_xaction_peers =
-                GF_CALLOC (1, sizeof (struct cds_list_head *),
+                GF_CALLOC (1, sizeof (struct cds_list_head),
                            gf_common_mt_list_head_t);
         if (!txn_op_info.local_xaction_peers) {
                 ret = -1;

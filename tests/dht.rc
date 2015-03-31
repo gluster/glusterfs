@@ -76,7 +76,11 @@ function rebalance_completed()
        fi
 
        echo $val
-       return $val
+       # Do not *return* the value here.  If it's non-zero, that will cause
+       # EXPECT_WITHIN (e.g. in bug-884455.t) to return prematurely, leading to
+       # a spurious test failure.  Nothing else checks the return value anyway
+       # (they all check the output) so there's no need for it to be non-zero
+       # just because grep didn't find what we want.
 }
 
 function remove_brick_completed()

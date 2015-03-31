@@ -2489,7 +2489,8 @@ changelog_cleanup_rpc (xlator_t *this, changelog_priv_t *priv)
         rbuf_dtor (priv->rbuf);
 
         /* cleanup poller thread */
-        (void) changelog_thread_cleanup (this, priv->poller);
+        if (priv->poller)
+                (void) changelog_thread_cleanup (this, priv->poller);
 }
 
 static int
@@ -2503,13 +2504,6 @@ changelog_init_rpc (xlator_t *this, changelog_priv_t *priv)
 
         /* initialize event selection */
         changelog_init_event_selection (this, selection);
-
-        ret = pthread_create (&priv->poller, NULL, changelog_rpc_poller, this);
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to spawn poller thread");
-                goto error_return;
-        }
 
         priv->rbuf = rbuf_init (NR_ROTT_BUFFS);
         if (!priv->rbuf)
@@ -2526,8 +2520,9 @@ changelog_init_rpc (xlator_t *this, changelog_priv_t *priv)
  cleanup_rbuf:
         rbuf_dtor (priv->rbuf);
  cleanup_thread:
-        (void) changelog_thread_cleanup (this, priv->poller);
- error_return:
+        if (priv->poller)
+                (void) changelog_thread_cleanup (this, priv->poller);
+
         return -1;
 }
 

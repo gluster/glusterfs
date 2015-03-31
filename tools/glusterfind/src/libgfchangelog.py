@@ -26,6 +26,12 @@ def raise_oserr():
     raise ChangelogException(errn, os.strerror(errn))
 
 
+def cl_init():
+    ret = libgfc.gf_changelog_init(None)
+    if ret == -1:
+        raise_oserr()
+
+
 def cl_register(brick, path, log_file, log_level, retries=0):
     ret = libgfc.gf_changelog_register(brick, path, log_file,
                                        log_level, retries)

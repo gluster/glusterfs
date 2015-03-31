@@ -864,14 +864,14 @@ struct volume_options options[] = {
           .description = "Frequency to demote files to slow tier"
         },
 
-        { .key  = {"write-freq-thresold"},
+        { .key  = {"write-freq-threshold"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "0",
           .description = "Defines the write fequency "
                         "that would be considered hot"
         },
 
-        { .key  = {"read-freq-thresold"},
+        { .key  = {"read-freq-threshold"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "0",
           .description = "Defines the read fequency "

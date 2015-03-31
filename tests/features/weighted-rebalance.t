@@ -22,17 +22,6 @@ count_files () {
         echo $found
 }
 
-wait_for_rebalance () {
-        while true; do
-                rebalance_completed
-                if [ $? -eq 1 ]; then
-                        sleep 1
-                else
-                        break
-                fi
-        done
-}
-
 get_xattr () {
         cmd="getfattr --absolute-names --only-values -n trusted.glusterfs.dht"
         $cmd $1 | od -tx1 -An | tr -d ' '
@@ -77,7 +66,7 @@ TEST $CLI volume set $V0 cluster.weighted-rebalance off
 
 # Rebalance again and check that the distribution is even again.
 TEST $CLI volume rebalance $V0 start force
-TEST wait_for_rebalance
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 nfiles=$(count_files ${B0}/${V0}2)
 #echo $nfiles $(get_xattr ${B0}/${V0}1) $(get_xattr ${B0}/${V0}2) 3>&2 2>&1 1>&3 3>&-
 TEST [ $nfiles -le 580 ]

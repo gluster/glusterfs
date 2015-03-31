@@ -31,6 +31,12 @@ class Changes(object):
         return getattr(cls.libgfc, call)
 
     @classmethod
+    def cl_init(cls):
+        ret = cls._get_api('gf_changelog_init')(None)
+        if ret == -1:
+            cls.raise_changelog_err()
+
+    @classmethod
     def cl_register(cls, brick, path, log_file, log_level, retries=0):
         ret = cls._get_api('gf_changelog_register')(brick, path,
                                                     log_file,

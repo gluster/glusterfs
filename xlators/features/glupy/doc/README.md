@@ -41,4 +41,4 @@ article is here:_
 https://github.com/jdarcy/glupy/tree/4bbae91ba459ea46ef32f2966562492e4ca9187a
 
 [1] http://www.gluster.org
-[2] http://hekafs.org/dist/xlator_api_2.html
+[2] http://pl.atyp.us/hekafs.org/dist/xlator_api_2.html

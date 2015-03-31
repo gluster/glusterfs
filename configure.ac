@@ -605,6 +605,13 @@ if test "x$enable_ibverbs" != "xno"; then
                [HAVE_LIBIBVERBS="yes"],
                [HAVE_LIBIBVERBS="no"])
   AC_CHECK_LIB([rdmacm], [rdma_create_id], [HAVE_RDMACM="yes"], [HAVE_RDMACM="no"])
+  if test "x$HAVE_RDMACM" = "xyes" ; then
+    AC_CHECK_DECLS(
+                  [RDMA_OPTION_ID_REUSEADDR],
+                  [],
+                  [AC_ERROR([Need at least version 1.0.15 of librdmacm])],
+                  [[#include <rdma/rdma_cma.h>]])
+  fi
 fi
 
 if test "x$enable_ibverbs" = "xyes"; then

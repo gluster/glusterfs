@@ -3001,9 +3001,6 @@ out:
                 GF_FREE (fdctx);
         }
 
-        if (ret && fr)
-                STACK_DESTROY (fr->root);
-
         return ret;
 }
 
@@ -3190,12 +3187,6 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         GF_FREE (req.xdata.xdata_val);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
-
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
 
         return 0;
 
@@ -4798,12 +4789,6 @@ client3_3_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         GF_FREE (req.xdata.xdata_val);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
-
         return 0;
 unwind:
         CLIENT_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL, NULL);
@@ -4939,12 +4924,6 @@ client3_3_getxattr (call_frame_t *frame, xlator_t *this,
 
         GF_FREE (req.xdata.xdata_val);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
-
         return 0;
 unwind:
         if (rsp_iobuf)
@@ -5054,12 +5033,6 @@ client3_3_xattrop (call_frame_t *frame, xlator_t *this,
         GF_FREE (req.dict.dict_val);
 
         GF_FREE (req.xdata.xdata_val);
-
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
 
         return 0;
 unwind:
@@ -5780,12 +5753,6 @@ client3_3_readdir (call_frame_t *frame, xlator_t *this,
 
         GF_FREE (req.xdata.xdata_val);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
-
         return 0;
 
 unwind:
@@ -5890,12 +5857,6 @@ client3_3_readdirp (call_frame_t *frame, xlator_t *this,
         }
 
         GF_FREE (req.dict.dict_val);
-
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
 
         return 0;
 unwind:

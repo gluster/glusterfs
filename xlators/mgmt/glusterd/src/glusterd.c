@@ -640,7 +640,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount",
+                         "aux-gfid-mount acl",
                          ".", ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -764,7 +764,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         /* gluster-params */
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner, "gluster-params",
-                         "aux-gfid-mount",
+                         "aux-gfid-mount acl",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 

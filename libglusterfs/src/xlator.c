@@ -557,6 +557,25 @@ xlator_list_destroy (xlator_list_t *list)
 }
 
 static int
+xlator_memrec_free (xlator_t *xl)
+{
+        uint32_t i = 0;
+
+        if (!xl)
+                return 0;
+
+        if (xl->mem_acct.rec) {
+                for (i = 0; i < xl->mem_acct.num_types; i++) {
+                        LOCK_DESTROY (&(xl->mem_acct.rec[i].lock));
+                }
+                FREE (xl->mem_acct.rec);
+                xl->mem_acct.rec = NULL;
+        }
+
+        return 0;
+}
+
+static int
 xlator_members_free (xlator_t *xl)
 {
         volume_opt_list_t *vol_opt = NULL;
@@ -912,6 +931,7 @@ xlator_destroy (xlator_t *xl)
                 return 0;
 
         xlator_members_free (xl);
+        xlator_memrec_free (xl);
         GF_FREE (xl);
 
         return 0;

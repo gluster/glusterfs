@@ -8302,20 +8302,35 @@ out:
 int
 glusterd_volume_heal_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
-        int            ret      = 0;
-        dict_t        *ctx_dict = NULL;
-        glusterd_op_t  op       = GD_OP_NONE;
+        int                 ret         = 0;
+        dict_t             *ctx_dict    = NULL;
+        uuid_t             *txn_id      = NULL;
+        glusterd_op_info_t  txn_op_info = {{0},};
+        glusterd_op_t       op          = GD_OP_NONE;
 
         GF_ASSERT (rsp_dict);
 
-        op = glusterd_op_get_op ();
+        ret = dict_get_bin (aggr, "transaction_id", (void **)&txn_id);
+        if (ret)
+                goto out;
+        gf_log (THIS->name, GF_LOG_DEBUG, "transaction ID = %s",
+                uuid_utoa (*txn_id));
+
+        ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Failed to get txn_op_info "
+                        "for txn_id = %s", uuid_utoa (*txn_id));
+                goto out;
+        }
+
+        op = txn_op_info.op;
         GF_ASSERT (GD_OP_HEAL_VOLUME == op);
 
         if (aggr) {
                 ctx_dict = aggr;
 
         } else {
-                ctx_dict = glusterd_op_get_ctx (op);
+                ctx_dict = txn_op_info.op_ctx;
         }
 
         if (!ctx_dict)

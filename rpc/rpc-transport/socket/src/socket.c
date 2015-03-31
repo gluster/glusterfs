@@ -3912,7 +3912,7 @@ socket_init (rpc_transport_t *this)
 	if (priv->ssl_enabled || priv->mgmt_ssl) {
 		SSL_library_init();
 		SSL_load_error_strings();
-		priv->ssl_meth = (SSL_METHOD *)TLSv1_method();
+		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
                 if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {

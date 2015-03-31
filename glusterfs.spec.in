@@ -333,6 +333,7 @@ for GlusterFS.
 Summary:          Fuse client
 Group:            Applications/File
 BuildRequires:    fuse-devel
+Requires:         attr
 
 Requires:         %{name} = %{version}-%{release}
 
@@ -418,7 +419,7 @@ This package provides the base GlusterFS libraries
 Summary:          GlusterFS rdma support for ib-verbs
 Group:            Applications/File
 BuildRequires:    libibverbs-devel
-BuildRequires:    librdmacm-devel
+BuildRequires:    librdmacm-devel >= 1.0.15
 Requires:         %{name} = %{version}-%{release}
 
 %description rdma
@@ -1100,6 +1101,12 @@ fi
 
 
 %changelog
+* Sat Mar 28 2015 Mohammed Rafi KC <rkavunga@redhat.com>
+- Add dependency for librdmacm version >= 1.0.15 (#1206744)
+
+* Thu Mar 26 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- attr dependency (#1174627)
+
 * Tue Mar 24 2015 Niels de Vos <ndevos@redhat.com>
 - move libgfdb (with sqlite dependency) to -server subpackage (#1194753)
 

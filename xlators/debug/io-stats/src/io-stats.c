@@ -481,11 +481,13 @@ ios_stat_add_to_list (struct ios_stat_head *list_head, uint64_t value,
                         new->value = value;
                         ios_stat_ref (iosstat);
                         list_add_tail (&new->list, &tmp->list);
-                        stat = last->iosstat;
-                        last->iosstat = NULL;
-                        ios_stat_unref (stat);
-                        list_del (&last->list);
-                        GF_FREE (last);
+                        if (last) {
+                                stat = last->iosstat;
+                                last->iosstat = NULL;
+                                ios_stat_unref (stat);
+                                list_del (&last->list);
+                                GF_FREE (last);
+                        }
                         if (reposition == MAX_LIST_MEMBERS)
                                 list_head->min_cnt = value;
                         else if (min_count) {

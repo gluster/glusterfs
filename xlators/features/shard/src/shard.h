@@ -21,7 +21,8 @@
 #include "compat-errno.h"
 
 #define GF_SHARD_DIR ".shard"
-#define SHARD_MIN_BLOCK_SIZE  (128*GF_UNIT_KB)
+#define SHARD_MIN_BLOCK_SIZE  (4 * GF_UNIT_MB)
+#define SHARD_MAX_BLOCK_SIZE  (4 * GF_UNIT_TB)
 #define GF_XATTR_SHARD_BLOCK_SIZE "trusted.glusterfs.shard.block-size"
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
 #define SHARD_INODE_LRU_LIMIT 4096
@@ -69,7 +70,6 @@
 typedef struct shard_priv {
         uint64_t block_size;
         uuid_t dot_shard_gfid;
-        inode_table_t *inode_table;
         inode_t *dot_shard_inode;
 } shard_priv_t;
 
@@ -93,7 +93,7 @@ typedef struct shard_local {
         uint64_t block_size;
         off_t offset;
         size_t total_size;
-        uuid_t shard_gfid;
+        size_t written_size;
         loc_t loc;
         loc_t dot_shard_loc;
         fd_t *fd;

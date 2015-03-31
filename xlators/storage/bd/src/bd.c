@@ -693,7 +693,8 @@ out:
 
         GF_FREE (devpath);
         if (ret) {
-                close (_fd);
+                if (_fd >= 0)
+                        close (_fd);
                 GF_FREE (bd_fd);
         }
 
@@ -1592,7 +1593,8 @@ revert_xattr:
         /* revert setxattr */
         op_ret = dict_get_str (local->dict, BD_XATTR, &bd);
         GF_FREE (bd);
-        gf_asprintf (&bd, "%s:%ld", bdatt->type, bdatt->iatt.ia_size);
+	if (bdatt)
+		gf_asprintf (&bd, "%s:%ld", bdatt->type, bdatt->iatt.ia_size);
 
         if (local->fd)
                 STACK_WIND (frame, bd_trunc_setxattr_setx_cbk,
