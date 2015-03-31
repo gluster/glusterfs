@@ -833,12 +833,29 @@ class SlaveRemote(object):
             (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
             (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ['.'] + list(args)
-        po = Popen(argv, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        po = Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                   stderr=subprocess.PIPE)
         for f in files:
             po.stdin.write(f)
             po.stdin.write('\0')
 
         po.stdin.close()
+
+        if gconf.log_rsync_performance:
+            out = po.stdout.read()
+            rsync_msg = []
+            for line in out.split("\n"):
+                if line.startswith("Number of files:") or \
+                   line.startswith("Number of regular files transferred:") or \
+                   line.startswith("Total file size:") or \
+                   line.startswith("Total transferred file size:") or \
+                   line.startswith("Literal data:") or \
+                   line.startswith("Matched data:") or \
+                   line.startswith("Total bytes sent:") or \
+                   line.startswith("Total bytes received:") or \
+                   line.startswith("sent "):
+                    rsync_msg.append(line)
+            logging.info("rsync performance: %s" % ", ".join(rsync_msg))
         po.wait()
         po.terminate_geterr(fail_on_err=False)
 

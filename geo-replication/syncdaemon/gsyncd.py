@@ -233,6 +233,8 @@ def main_i():
     op.add_option('--use-rsync-xattrs', default=False, action='store_true')
     op.add_option('--sync-xattrs', default=True, action='store_true')
     op.add_option('--sync-acls', default=True, action='store_true')
+    op.add_option('--log-rsync-performance', default=False,
+                  action='store_true')
     op.add_option('--pause-on-start', default=False, action='store_true')
     op.add_option('-L', '--log-level', metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',
