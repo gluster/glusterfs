@@ -6768,7 +6768,7 @@ glusterd_snapshot_clone_commit (dict_t *dict, char **op_errstr,
 
        cds_list_del_init (&snap_vol->vol_list);
        ret = dict_set_dynstr_with_alloc (rsp_dict, "snapuuid",
-                                         uuid_utoa (snap->snap_id));
+                                         uuid_utoa (snap_vol->volume_id));
        if (ret) {
                gf_msg (this->name, GF_LOG_ERROR, 0,
                        GD_MSG_DICT_SET_FAILED, "Failed to set snap "
