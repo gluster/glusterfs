@@ -418,7 +418,8 @@ gf_sqlite3_init (dict_t *args, void **db_conn) {
         temp_str = NULL;
         GET_DB_PARAM_FROM_DICT(GFDB_STR_SQLITE3, args,
                         GFDB_SQL_PARAM_DBPATH, temp_str, out);
-        strncpy(sql_conn->sqlite3_db_path, temp_str, PATH_MAX);
+        strncpy(sql_conn->sqlite3_db_path, temp_str, PATH_MAX-1);
+        sql_conn->sqlite3_db_path[PATH_MAX-1] = 0;
 
         is_dbfile_exist = (stat (sql_conn->sqlite3_db_path, &stbuf) == 0) ?
                                                 _gf_true : _gf_false;
