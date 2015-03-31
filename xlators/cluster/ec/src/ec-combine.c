@@ -168,96 +168,40 @@ void ec_iatt_rebuild(ec_t * ec, struct iatt * iatt, int32_t count,
     }
 }
 
-int32_t ec_dict_data_compare(dict_t * dict, char * key, data_t * value,
-                             void * arg)
+gf_boolean_t
+ec_xattr_match (dict_t *dict, char *key, data_t *value, void *arg)
 {
-    ec_dict_info_t * info = arg;
-    data_t * data;
+        if (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0)
+                return _gf_false;
 
-    data = dict_get(info->dict, key);
-    if (data == NULL)
-    {
-        gf_log("ec", GF_LOG_DEBUG, "key '%s' found only on one dict", key);
-
-        return -1;
-    }
-
-    info->count--;
-
-    if ((strcmp(key, GF_CONTENT_KEY) == 0) ||
-        (strcmp(key, GF_XATTR_PATHINFO_KEY) == 0) ||
-        (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0) ||
-        (strcmp(key, GF_XATTR_LOCKINFO_KEY) == 0) ||
-        (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) ||
-        (strncmp(key, GF_XATTR_CLRLK_CMD, strlen(GF_XATTR_CLRLK_CMD)) == 0) ||
-        (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
-        (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
-        (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
-        (fnmatch(GF_XATTR_MARKER_KEY ".*", key, 0) == 0) ||
-        (XATTR_IS_NODE_UUID(key)))
-    {
-        return 0;
-    }
-
-    if ((data->len != value->len) ||
-        (memcmp(data->data, value->data, data->len) != 0))
-    {
-        gf_log("ec", GF_LOG_DEBUG, "key '%s' is different (size: %u, %u)",
-               key, data->len, value->len);
-
-        return -1;
-    }
-
-    return 0;
+        return _gf_true;
 }
 
-int32_t ec_dict_data_show(dict_t * dict, char * key, data_t * value,
-                          void * arg)
+gf_boolean_t
+ec_value_ignore (char *key)
 {
-    if (dict_get(arg, key) == NULL)
-    {
-        gf_log("ec", GF_LOG_DEBUG, "key '%s' found only on one dict", key);
-    }
-
-    return 0;
-}
-
-int32_t ec_dict_compare(dict_t * dict1, dict_t * dict2)
-{
-    ec_dict_info_t info;
-    dict_t * dict;
-
-    if (dict1 != NULL)
-    {
-        info.dict = dict1;
-        info.count = dict1->count;
-        dict = dict2;
-    }
-    else if (dict2 != NULL)
-    {
-        info.dict = dict2;
-        info.count = dict2->count;
-        dict = dict1;
-    }
-    else
-    {
-        return 1;
-    }
-
-    if (dict != NULL)
-    {
-        if (dict_foreach(dict, ec_dict_data_compare, &info) != 0)
-        {
-            return 0;
+        if ((strcmp(key, GF_CONTENT_KEY) == 0) ||
+            (strcmp(key, GF_XATTR_PATHINFO_KEY) == 0) ||
+            (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0) ||
+            (strcmp(key, GF_XATTR_LOCKINFO_KEY) == 0) ||
+            (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) ||
+            (strncmp(key, GF_XATTR_CLRLK_CMD,
+                     strlen (GF_XATTR_CLRLK_CMD)) == 0) ||
+            (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
+            (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
+            (fnmatch(GF_XATTR_MARKER_KEY ".*", key, 0) == 0) ||
+            (XATTR_IS_NODE_UUID(key))) {
+                return _gf_true;
         }
-    }
+        return _gf_false;
+}
 
-    if (info.count != 0)
-    {
-        dict_foreach(info.dict, ec_dict_data_show, dict);
-    }
-
-    return (info.count == 0);
+int32_t
+ec_dict_compare (dict_t *dict1, dict_t *dict2)
+{
+        if (are_dicts_equal (dict1, dict2, ec_xattr_match, ec_value_ignore))
+                return 1;
+        return 0;
 }
 
 int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,

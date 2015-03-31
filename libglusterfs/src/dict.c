@@ -31,6 +31,11 @@
 #include "globals.h"
 #include "statedump.h"
 
+struct dict_cmp {
+        dict_t *dict;
+        gf_boolean_t (*value_ignore) (char *k);
+};
+
 data_t *
 get_new_data ()
 {
@@ -107,7 +112,6 @@ dict_new (void)
         return dict;
 }
 
-
 int32_t
 is_data_equal (data_t *one,
                data_t *two)
@@ -132,6 +136,87 @@ is_data_equal (data_t *one,
                 return 1;
 
         return 0;
+}
+
+static int
+key_value_cmp (dict_t *one, char *key1, data_t *value1, void *data)
+{
+        struct dict_cmp *cmp = data;
+        dict_t *two = NULL;
+        data_t *value2 = NULL;
+
+        two = cmp->dict;
+        value2 = dict_get (two, key1);
+
+        if (value2) {
+                if (cmp->value_ignore && cmp->value_ignore (key1))
+                        return 0;
+
+                if (is_data_equal (value1, value2) == 1)
+                        return 0;
+        }
+
+        if (value2 == NULL) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "'%s' found only on one dict", key1);
+        } else {
+                gf_log (THIS->name, GF_LOG_DEBUG, "'%s' is different in two "
+                        "dicts (%u, %u)", key1, value1->len, value2->len);
+        }
+
+        return -1;
+}
+
+/* If both dicts are NULL then equal. If one of the dicts is NULL but the
+ * other has only ignorable keys then also they are equal. If both dicts are
+ * non-null then check if for each non-ignorable key, values are same or
+ * not.  value_ignore function is used to skip comparing values for the keys
+ * which must be present in both the dictionaries but the value could be
+ * different.
+ */
+gf_boolean_t
+are_dicts_equal (dict_t *one, dict_t *two,
+                 gf_boolean_t (*match) (dict_t *d, char *k, data_t *v,
+                                        void *data),
+                 gf_boolean_t (*value_ignore) (char *k))
+{
+        int     num_matches1 = 0;
+        int     num_matches2 = 0;
+        struct  dict_cmp cmp = {0};
+
+        if (one == two)
+                return _gf_true;
+
+        if (!match)
+                match = dict_match_everything;
+
+        cmp.dict = two;
+        cmp.value_ignore = value_ignore;
+        if (!two) {
+                num_matches1 = dict_foreach_match (one, match, NULL,
+                                                   dict_null_foreach_fn, NULL);
+                goto done;
+        } else {
+                num_matches1 = dict_foreach_match (one, match, NULL,
+                                                   key_value_cmp, &cmp);
+        }
+
+        if (num_matches1 == -1)
+                return _gf_false;
+
+        if ((num_matches1 == one->count) && (one->count == two->count))
+                return _gf_true;
+
+        num_matches2 = dict_foreach_match (two, match, NULL,
+                                           dict_null_foreach_fn, NULL);
+done:
+        /* If the number of matches is same in 'two' then for all the
+         * valid-keys that exist in 'one' the value matched and no extra valid
+         * keys exist in 'two' alone. Otherwise there exists at least one extra
+         * valid-key in 'two' which doesn't exist in 'one' */
+        if (num_matches1 == num_matches2)
+                return _gf_true;
+        return _gf_false;
 }
 
 void
