@@ -307,6 +307,10 @@ def mode_create(session_dir, args):
     logger.debug("Init is called - Session: %s, Volume: %s"
                  % (args.session, args.volume))
 
+    execute(["gluster", "volume", "info", args.volume],
+            exit_msg="Unable to get volume details",
+            logger=logger)
+
     mkdirp(session_dir, exit_on_err=True, logger=logger)
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)
