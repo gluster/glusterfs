@@ -4526,6 +4526,65 @@ out:
         return ret;
 }
 
+/* This function will generate snapshot clone output in xml format.
+ *
+ * @param writer        xmlTextWriterPtr
+ * @param doc           xmlDocPtr
+ * @param dict          dict containing create output
+ *
+ * @return 0 on success and -1 on failure
+ */
+static int
+cli_xml_snapshot_clone (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
+{
+        int     ret             = -1;
+        char   *str_value       = NULL;
+
+        GF_VALIDATE_OR_GOTO ("cli", writer, out);
+        GF_VALIDATE_OR_GOTO ("cli", doc, out);
+        GF_VALIDATE_OR_GOTO ("cli", dict, out);
+
+        /* <CloneCreate> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"CloneCreate");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* <volume> */
+        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volume");
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = dict_get_str (dict, "clonename", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get clone name");
+                goto out;
+        }
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "name",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+
+        ret = dict_get_str (dict, "snapuuid", &str_value);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get clone uuid");
+                goto out;
+        }
+
+        ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *) "uuid",
+                                               "%s", str_value);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </volume> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        /* </CloneCreate> */
+        ret = xmlTextWriterEndElement (writer);
+        XML_RET_CHECK_AND_GOTO (ret, out);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 
 /* This function will generate snapshot restore output in xml format.
  *
@@ -5102,10 +5161,13 @@ cli_xml_snapshot_volume_status (xmlTextWriterPtr writer, xmlDocPtr doc,
 
                 ret = dict_get_str (dict, key, &buffer);
                 if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR,
+                        gf_log ("cli", GF_LOG_INFO,
                                 "Unable to get Brick Running");
-                        goto out;
+                        strcpy (buffer, "N/A");
                 }
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                    (xmlChar *) "BrickRunning", "%s", buffer);
+                XML_RET_CHECK_AND_GOTO (ret, out);
 
                 snprintf (key, sizeof (key), "%s.brick%d.pid", keyprefix, i);
 
@@ -5952,6 +6014,14 @@ cli_xml_output_snapshot (int cmd_type, dict_t *dict, int op_ret,
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to create "
                                 "xml output for snapshot create command");
+                        goto out;
+                }
+                break;
+        case GF_SNAP_OPTION_TYPE_CLONE:
+                ret = cli_xml_snapshot_clone (writer, doc, dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to create "
+                                "xml output for snapshot clone command");
                         goto out;
                 }
                 break;
