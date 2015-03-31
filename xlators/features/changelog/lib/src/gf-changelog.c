@@ -357,7 +357,8 @@ gf_setup_brick_connection (xlator_t *this,
         entry->connstate = GF_CHANGELOG_CONN_STATE_PENDING;
 
         entry->notify = brick->filter;
-        (void) strncpy (entry->brick, brick->brick_path, PATH_MAX);
+        (void) strncpy (entry->brick, brick->brick_path, PATH_MAX-1);
+        entry->brick[PATH_MAX-1] = 0;
 
         entry->this = this;
         entry->invokerxl = xl;
