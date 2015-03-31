@@ -807,15 +807,18 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                 }
         }
 
-        /*All fops update times read or write*/
-        ret = gf_update_time (sql_conn, gfid_str, modtime,
-                gfdb_db_record->do_record_counters,
-                its_wind,
-                isreadfop (gfdb_db_record->gfdb_fop_type));
-        if (ret) {
-                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
-                        "Failed update wind time in DB");
-                goto out;
+        /* update times only when said!*/
+        if (gfdb_db_record->do_record_times) {
+                /*All fops update times read or write*/
+                ret = gf_update_time (sql_conn, gfid_str, modtime,
+                        gfdb_db_record->do_record_counters,
+                        its_wind,
+                        isreadfop (gfdb_db_record->gfdb_fop_type));
+                if (ret) {
+                        gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
+                                "Failed update wind time in DB");
+                        goto out;
+                }
         }
 
         ret = 0;
@@ -851,7 +854,8 @@ gf_sql_insert_unwind (gf_sql_connection_t  *sql_conn,
         }
 
         /*Only update if recording unwind is set*/
-        if (gfdb_db_record->do_record_uwind_time) {
+        if (gfdb_db_record->do_record_times &&
+                gfdb_db_record->do_record_uwind_time) {
                 modtime = &gfdb_db_record->gfdb_unwind_change_time;
                 ret = gf_update_time (sql_conn, gfid_str, modtime,
                         gfdb_db_record->do_record_counters,
@@ -918,16 +922,18 @@ gf_sql_update_delete_wind (gf_sql_connection_t  *sql_conn,
                         goto out;
         }
 
-        /*Update the wind write times*/
-        modtime = &gfdb_db_record->gfdb_unwind_change_time;
-        ret = gf_update_time (sql_conn, gfid_str, modtime,
+        if (gfdb_db_record->do_record_times) {
+                /*Update the wind write times*/
+                modtime = &gfdb_db_record->gfdb_wind_change_time;
+                ret = gf_update_time (sql_conn, gfid_str, modtime,
                         gfdb_db_record->do_record_counters,
                         _gf_true,
                         isreadfop (gfdb_db_record->gfdb_fop_type));
-        if (ret) {
-                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
-                        "Failed update wind time in DB");
-                goto out;
+                if (ret) {
+                        gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
+                                "Failed update wind time in DB");
+                        goto out;
+                }
         }
 
         ret = gf_sql_update_link_flags (sql_conn, gfid_str, pargfid_str,
@@ -989,7 +995,8 @@ gf_sql_delete_unwind (gf_sql_connection_t  *sql_conn,
                         goto out;
                 }
 
-                if (gfdb_db_record->do_record_uwind_time) {
+                if (gfdb_db_record->do_record_times &&
+                        gfdb_db_record->do_record_uwind_time) {
                         ret = gf_update_time (sql_conn, gfid_str, modtime,
                                 gfdb_db_record->do_record_counters,
                                 _gf_false,

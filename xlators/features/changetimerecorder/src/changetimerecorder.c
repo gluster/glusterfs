@@ -50,6 +50,7 @@ ctr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
         /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, fd->inode->ia_type,
@@ -109,6 +110,7 @@ ctr_setattr (call_frame_t *frame,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -163,6 +165,7 @@ ctr_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
 
          /*Fill ctr inode context*/
@@ -193,6 +196,7 @@ ctr_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
 
         ret = ctr_insert_unwind(frame, this,
@@ -217,6 +221,7 @@ ctr_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
 
          /*Fill ctr inode context*/
@@ -274,6 +279,7 @@ ctr_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -327,7 +333,7 @@ ctr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
-
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, fd->inode->ia_type,
@@ -389,6 +395,7 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         gf_ctr_link_context_t *_olink_cx = &old_link_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
         /*Fill old link context*/
         FILL_CTR_LINK_CX(_olink_cx, oldloc->pargfid, oldloc->name,
@@ -488,6 +495,8 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         gf_ctr_link_context_t ctr_link_cx;
         gf_ctr_link_context_t *_link_cx = &ctr_link_cx;
 
+        GF_ASSERT (frame);
+
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
         /*Fill link context*/
@@ -497,6 +506,9 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
                 loc->inode->gfid, _link_cx, NULL,
                 GFDB_FOP_DENTRY_WRITE, GFDB_FOP_WDEL);
+
+        /*Internal FOP*/
+        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, _inode_cx);
@@ -576,6 +588,7 @@ ctr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, fd->inode->ia_type,
@@ -629,6 +642,7 @@ ctr_setxattr (call_frame_t *frame, xlator_t *this,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
@@ -694,8 +708,6 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
 
         GF_ASSERT(frame);
         GF_ASSERT(frame->root);
-        CTR_IF_REBALANCE_FOP_THEN_GOTO (frame, out);
-        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
         /*get gfid from xdata dict*/
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
@@ -713,6 +725,9 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         FILL_CTR_INODE_CONTEXT (_inode_cx, loc->inode->ia_type,
                 *ptr_gfid, _link_cx, NULL,
                 GFDB_FOP_CREATE_WRITE, GFDB_FOP_WIND);
+
+        /*Internal FOP*/
+        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, _inode_cx);
@@ -771,6 +786,9 @@ ctr_create (call_frame_t *frame, xlator_t *this,
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
+        GF_ASSERT(frame);
+        GF_ASSERT(frame->root);
+
         /*Get GFID from Xdata dict*/
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
@@ -787,6 +805,9 @@ ctr_create (call_frame_t *frame, xlator_t *this,
         FILL_CTR_INODE_CONTEXT(_inode_cx, loc->inode->ia_type,
                 *ptr_gfid, _link_cx, NULL,
                 GFDB_FOP_CREATE_WRITE, GFDB_FOP_WIND);
+
+        /*Internal FOP*/
+        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, &ctr_inode_cx);
@@ -838,7 +859,8 @@ ctr_link (call_frame_t *frame, xlator_t *this,
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
-        CTR_IF_REBALANCE_FOP_THEN_GOTO (frame, out);
+        GF_ASSERT(frame);
+        GF_ASSERT(frame->root);
 
         /*fill ctr link context*/
         FILL_CTR_LINK_CX(_link_cx, newloc->pargfid, newloc->name,
@@ -848,6 +870,9 @@ ctr_link (call_frame_t *frame, xlator_t *this,
         FILL_CTR_INODE_CONTEXT(_inode_cx, oldloc->inode->ia_type,
                 oldloc->inode->gfid, _link_cx, NULL,
                 GFDB_FOP_DENTRY_WRITE, GFDB_FOP_WIND);
+
+        /*Internal FOP*/
+        _inode_cx->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, xdata);
 
         /*record into the database*/
         ret = ctr_insert_wind(frame, this, _inode_cx);
@@ -896,6 +921,7 @@ ctr_readv (call_frame_t *frame, xlator_t *this,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
 
          /*Fill ctr inode context*/
         FILL_CTR_INODE_CONTEXT(_inode_cx, fd->inode->ia_type,

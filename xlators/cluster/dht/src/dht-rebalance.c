@@ -2039,7 +2039,12 @@ gf_defrag_start (void *data)
         if (!frame)
                 goto out;
 
-        frame->root->pid = GF_CLIENT_PID_DEFRAG;
+        /* If its a tiering rebalancer mark it seperately so that CTR Xlator
+         * can take appropriate action */
+        if (defrag->cmd == GF_DEFRAG_CMD_START_TIER)
+                frame->root->pid = GF_CLIENT_PID_TIER_DEFRAG;
+        else
+                frame->root->pid = GF_CLIENT_PID_DEFRAG;
 
         defrag->pid = frame->root->pid;
 

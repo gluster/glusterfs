@@ -120,6 +120,7 @@ enum _gf_client_pid
         GF_CLIENT_PID_GLFS_HEAL         = -7,
         GF_CLIENT_PID_BITD              = -8,
         GF_CLIENT_PID_SCRUB             = -9,
+        GF_CLIENT_PID_TIER_DEFRAG       = -10
 };
 
 enum _gf_xlator_ipc_targets {
