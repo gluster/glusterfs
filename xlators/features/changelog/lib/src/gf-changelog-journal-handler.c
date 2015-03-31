@@ -876,7 +876,8 @@ gf_changelog_init_history (xlator_t *this,
                 goto dealloc_hist;
         }
 
-        (void) strncpy (jnl->hist_jnl->jnl_brickpath, brick_path, PATH_MAX);
+        (void) strncpy (jnl->hist_jnl->jnl_brickpath, brick_path, PATH_MAX-1);
+        jnl->hist_jnl->jnl_brickpath[PATH_MAX-1] = 0;
 
         for (i = 0; i < 256; i++) {
                 jnl->hist_jnl->rfc3986[i] =
