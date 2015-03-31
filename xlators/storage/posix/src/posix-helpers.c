@@ -1856,8 +1856,12 @@ posix_fsyncer (void *d)
         }
 }
 
+/**
+ * TODO: move fd/inode interfaces into a single routine..
+ */
 static int32_t
-posix_fetch_signature_xattr (char *real_path, const char *key, dict_t *xattr)
+posix_fetch_signature_xattr (char *real_path,
+                             const char *key, dict_t *xattr, size_t *xsize)
 {
         int32_t ret = 0;
         char    *memptr    = NULL;
@@ -1880,6 +1884,45 @@ posix_fetch_signature_xattr (char *real_path, const char *key, dict_t *xattr)
         if (ret)
                 goto freemem;
 
+        if (xsize)
+                *xsize = xattrsize;
+
+        return 0;
+
+ freemem:
+        GF_FREE (memptr);
+ error_return:
+        return -1;
+}
+
+static int32_t
+posix_fd_fetch_signature_xattr (int fd,
+                                const char *key, dict_t *xattr, size_t *xsize)
+{
+        int32_t ret = 0;
+        char    *memptr    = NULL;
+        ssize_t  xattrsize = 0;
+
+        xattrsize = sys_fgetxattr (fd, key, NULL, 0);
+        if ((xattrsize == -1) && ((errno == ENOATTR) || (errno == ENODATA)))
+                return 0;
+        if (xattrsize == -1)
+                goto error_return;
+
+        memptr = GF_CALLOC (xattrsize + 1, sizeof (char), gf_posix_mt_char);
+        if (!memptr)
+                goto error_return;
+        ret = sys_fgetxattr (fd, key, memptr, xattrsize);
+        if (ret == -1)
+                goto freemem;
+
+        ret = dict_set_dynptr (xattr, (char *)key, memptr, xattrsize);
+        if (ret)
+                goto freemem;
+
+        if (xsize)
+                *xsize = xattrsize;
+
         return 0;
 
  freemem:
@@ -1898,21 +1941,60 @@ int32_t
 posix_get_objectsignature (char *real_path, dict_t *xattr)
 {
         int32_t ret = 0;
+        size_t signsize = 0;
 
         ret = posix_fetch_signature_xattr
-                             (real_path, BITROT_CURRENT_VERSION_KEY, xattr);
+                (real_path, BITROT_CURRENT_VERSION_KEY, xattr, NULL);
         if (ret)
                 goto error_return;
 
         ret = posix_fetch_signature_xattr
-                             (real_path, BITROT_SIGNING_VERSION_KEY, xattr);
+                (real_path, BITROT_SIGNING_VERSION_KEY, xattr, &signsize);
         if (ret)
-                goto delkey;
+                goto delkey1;
+
+        ret = dict_set_uint32
+                  (xattr, BITROT_SIGNING_XATTR_SIZE_KEY, (uint32_t) signsize);
+        if (ret)
+                goto delkey2;
 
         return 0;
 
- delkey:
+ delkey2:
+        dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
+ delkey1:
         dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
  error_return:
-        return -1;
+        return -EINVAL;
+}
+
+int32_t
+posix_fdget_objectsignature (int fd, dict_t *xattr)
+{
+        int32_t ret = 0;
+        size_t signsize = 0;
+
+        ret = posix_fd_fetch_signature_xattr
+                (fd, BITROT_CURRENT_VERSION_KEY, xattr, NULL);
+        if (ret)
+                goto error_return;
+
+        ret = posix_fd_fetch_signature_xattr
+                (fd, BITROT_SIGNING_VERSION_KEY, xattr, &signsize);
+        if (ret)
+                goto delkey1;
+
+        ret = dict_set_uint32
+                  (xattr, BITROT_SIGNING_XATTR_SIZE_KEY, (uint32_t) signsize);
+        if (ret)
+                goto delkey2;
+
+        return 0;
+
+ delkey2:
+        dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
+ delkey1:
+        dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
+ error_return:
+        return -EINVAL;
 }

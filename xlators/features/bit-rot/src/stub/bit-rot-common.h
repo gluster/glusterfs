@@ -76,6 +76,7 @@ typedef struct br_isignature_in {
         unsigned long signedversion;     /* version against which the
                                             object was signed         */
 
+        size_t signaturelen;             /* signature length          */
         char signature[0];               /* object signature          */
 } br_isignature_t;
 
@@ -86,11 +87,14 @@ typedef struct br_isignature_in {
 typedef struct br_isignature_out {
         char stale;                      /* stale signature?          */
 
+        unsigned long version;           /* current signed version    */
+
         uint32_t time[2];                /* time when the object
                                             got dirtied               */
 
         int8_t signaturetype;            /* hash type                 */
-        char signature[0];               /* signature (hash)          */
+        size_t signaturelen;             /* signature length          */
+        char   signature[0];             /* signature (hash)          */
 } br_isignature_out_t;
 
 typedef struct br_stub_init {

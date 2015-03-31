@@ -124,6 +124,9 @@
 #define BITROT_CURRENT_VERSION_KEY  "trusted.glusterfs.bit-rot.version"
 #define BITROT_SIGNING_VERSION_KEY  "trusted.glusterfs.bit-rot.signature"
 
+/* on-disk size of signing xattr (not the signature itself) */
+#define BITROT_SIGNING_XATTR_SIZE_KEY  "trusted.glusterfs.bit-rot.size"
+
 /* GET/SET object signature */
 #define GLUSTERFS_GET_OBJECT_SIGNATURE "trusted.glusterfs.get-signature"
 #define GLUSTERFS_SET_OBJECT_SIGNATURE "trusted.glusterfs.set-signature"

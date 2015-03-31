@@ -4134,6 +4134,17 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
+        if (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
+                      strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0) {
+                op_ret = posix_fdget_objectsignature (_fd, dict);
+                if (op_ret < 0) {
+                        op_errno = -op_ret;
+                        op_ret = -1;
+                }
+
+                goto done;
+        }
+
         if (name) {
                 strcpy (key, name);
 #ifdef GF_DARWIN_HOST_OS

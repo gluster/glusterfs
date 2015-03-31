@@ -566,7 +566,7 @@ br_stub_prepare_signature (xlator_t *this, dict_t *dict,
         if (!br_is_signature_type_valid (sign->signaturetype))
                 goto error_return;
 
-        signaturelen = strlen (sign->signature);
+        signaturelen = sign->signaturelen;
         ret = br_stub_alloc_versions (NULL, &sbuf, signaturelen);
         if (ret)
                 goto error_return;
@@ -657,8 +657,8 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
         int32_t              ret          = 0;
-        ssize_t              totallen     = 0;
-        ssize_t              signaturelen = 0;
+        size_t               totallen     = 0;
+        size_t               signaturelen = 0;
         br_version_t        *obuf         = NULL;
         br_signature_t      *sbuf         = NULL;
         br_isignature_out_t *sign         = NULL;
@@ -681,8 +681,21 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             || (status == BR_VXATTR_STATUS_UNSIGNED))
                 goto delkeys;
 
-        signaturelen = strlen (sbuf->signature);
-        totallen = signaturelen + sizeof (br_isignature_out_t);
+        /**
+         * okay.. we have enough information to satisfy the request,
+         * namely: version and signing extended attribute. what's
+         * pending is the signature length -- that's figured out
+         * indirectly via the size of the _whole_ xattr and the
+         * on-disk signing xattr header size.
+         */
+        op_errno = EINVAL;
+        ret = dict_get_uint32 (xattr, BITROT_SIGNING_XATTR_SIZE_KEY,
+                               (uint32_t *)&signaturelen);
+        if (ret)
+                goto delkeys;
+
+        signaturelen -= sizeof (br_signature_t);
+        totallen = sizeof (br_isignature_out_t) + signaturelen;
 
         op_errno = ENOMEM;
         sign = GF_CALLOC (1, totallen, gf_br_stub_mt_signature_t);
@@ -692,10 +705,12 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sign->time[0] = obuf->timebuf[0];
         sign->time[1] = obuf->timebuf[1];
 
-        /* Object's dirty state */
+        /* Object's dirty state & current signed version */
+        sign->version = sbuf->signedversion;
         sign->stale = (obuf->ongoingversion != sbuf->signedversion) ? 1 : 0;
 
         /* Object's signature */
+        sign->signaturelen  = signaturelen;
         sign->signaturetype = sbuf->signaturetype;
         (void) memcpy (sign->signature, sbuf->signature, signaturelen);
 
