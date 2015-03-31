@@ -18,18 +18,24 @@
  *
  ******************************************************************************/
 int
-fill_db_record_for_unwind(gf_ctr_local_t        *ctr_local,
+fill_db_record_for_unwind(xlator_t              *this,
+                          gf_ctr_local_t        *ctr_local,
                           gfdb_fop_type_t       fop_type,
                           gfdb_fop_path_t       fop_path)
 {
         int ret                         = -1;
         gfdb_time_t *ctr_uwtime         = NULL;
+        gf_ctr_private_t *_priv                 = NULL;
+
+        GF_ASSERT (this);
+        _priv = this->private;
+        GF_ASSERT (_priv);
 
         GF_ASSERT(ctr_local);
 
         /*If not unwind path error*/
         if (!isunwindpath(fop_path)) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR, "Wrong fop_path."
+                gf_log (this->name, GF_LOG_ERROR, "Wrong fop_path."
                         "Should be unwind");
                 goto out;
         }
@@ -38,15 +44,22 @@ fill_db_record_for_unwind(gf_ctr_local_t        *ctr_local,
         CTR_DB_REC(ctr_local).gfdb_fop_path = fop_path;
         CTR_DB_REC(ctr_local).gfdb_fop_type = fop_type;
 
-        /*Time is not recorded for internal fops*/
-        if (!ctr_local->is_internal_fop) {
-                ret = gettimeofday (ctr_uwtime, NULL);
-                if (ret == -1) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+        ret = gettimeofday (ctr_uwtime, NULL);
+        if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Error filling unwind time record %s",
                                 strerror(errno));
                         goto out;
                 }
+
+        /* Special case i.e if its a tier rebalance
+         * + cold tier brick
+         * + its a create/mknod FOP
+         * we record unwind time as zero */
+        if (ctr_local->client_pid == GF_CLIENT_PID_TIER_DEFRAG
+                && (!_priv->ctr_hot_brick)
+                && isdentrycreatefop(fop_type)) {
+                memset(ctr_uwtime, 0, sizeof(*ctr_uwtime));
         }
         ret = 0;
 out:
@@ -60,18 +73,23 @@ out:
  *
  ******************************************************************************/
 int
-fill_db_record_for_wind(gf_ctr_local_t          *ctr_local,
+fill_db_record_for_wind (xlator_t               *this,
+                        gf_ctr_local_t          *ctr_local,
                         gf_ctr_inode_context_t  *ctr_inode_cx)
 {
         int ret                                 = -1;
-        gfdb_time_t *ctr_wtime                = NULL;
+        gfdb_time_t *ctr_wtime                  = NULL;
+        gf_ctr_private_t *_priv                 = NULL;
 
-        GF_ASSERT(ctr_local);
-        IS_CTR_INODE_CX_SANE(ctr_inode_cx);
+        GF_ASSERT (this);
+        _priv = this->private;
+        GF_ASSERT (_priv);
+        GF_ASSERT (ctr_local);
+        IS_CTR_INODE_CX_SANE (ctr_inode_cx);
 
         /*if not wind path error!*/
         if (!iswindpath(ctr_inode_cx->fop_path)) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "Wrong fop_path. Should be wind");
                 goto out;
         }
@@ -80,15 +98,22 @@ fill_db_record_for_wind(gf_ctr_local_t          *ctr_local,
         CTR_DB_REC(ctr_local).gfdb_fop_path = ctr_inode_cx->fop_path;
         CTR_DB_REC(ctr_local).gfdb_fop_type = ctr_inode_cx->fop_type;
 
-        /*Time is not recorded for internal fops*/
-        if (!ctr_local->is_internal_fop) {
-                ret = gettimeofday (ctr_wtime, NULL);
-                if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+        ret = gettimeofday (ctr_wtime, NULL);
+        if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Error filling wind time record %s",
                                 strerror(errno));
                         goto out;
-                }
+        }
+
+        /* Special case i.e if its a tier rebalance
+         * + cold tier brick
+         * + its a create/mknod FOP
+         * we record wind time as zero */
+        if (ctr_local->client_pid == GF_CLIENT_PID_TIER_DEFRAG
+                && (!_priv->ctr_hot_brick)
+                && isdentrycreatefop(ctr_inode_cx->fop_type)) {
+                memset(ctr_wtime, 0, sizeof(*ctr_wtime));
         }
 
         /*Copy gfid into db record*/

@@ -852,7 +852,7 @@ gf_sqlite3_find_recently_changed_files_freq (void *db_conn,
                 " OR "
                 /*Second condition: For Reads */
                 "( ((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
-                GF_COL_TB_RWMSEC ") <= ?)"
+                GF_COL_TB_RWMSEC ") >= ?)"
                 " AND "" (" GF_COL_TB_RFC " >= ? ) )";
 
         from_time_usec = gfdb_time_2_usec(from_time);
