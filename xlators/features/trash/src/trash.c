@@ -126,7 +126,7 @@ remove_trash_path (const char *path, gf_boolean_t internal, char **rem_path)
 
         *rem_path =  strchr (path + 1, '/');
         if (internal)
-                *rem_path =  strchr (path + 1, '/');
+                *rem_path =  strchr (*rem_path + 1, '/');
 }
 
 /**
