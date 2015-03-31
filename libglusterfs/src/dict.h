@@ -264,4 +264,9 @@ dict_match_everything (dict_t *d, char *k, data_t *v, void *data);
 dict_t *
 dict_for_key_value (const char *name, const char *value, size_t size);
 
+gf_boolean_t
+are_dicts_equal (dict_t *one, dict_t *two,
+                 gf_boolean_t (*match) (dict_t *d, char *k, data_t *v,
+                                        void *data),
+                 gf_boolean_t (*value_ignore) (char *k));
 #endif
