@@ -947,7 +947,8 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
                 goto dealloc_private;
         }
 
-        (void) strncpy (jnl->jnl_brickpath, brick->brick_path, PATH_MAX);
+        (void) strncpy (jnl->jnl_brickpath, brick->brick_path, PATH_MAX-1);
+        jnl->jnl_brickpath[PATH_MAX-1] = 0;
 
         /* RFC 3986 {de,en}coding */
         for (i = 0; i < 256; i++) {
