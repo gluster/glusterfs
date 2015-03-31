@@ -173,13 +173,18 @@ check_whether_eliminate_path (trash_elim_path *trav, const char *path)
  * Stores the eliminate path into internal eliminate path structure
  */
 int
-store_eliminate_path (char *str, trash_elim_path *eliminate)
+store_eliminate_path (char *str, trash_elim_path **eliminate)
 {
         trash_elim_path         *trav                   = NULL;
         char                    *component              = NULL;
         char                    elm_path[PATH_MAX]      = {0,};
         int                     ret                     = 0;
         char                    *strtokptr              = NULL;
+
+        if (eliminate == NULL) {
+                ret = EINVAL;
+                goto out;
+        }
 
         component = strtok_r (str, ",", &strtokptr);
         while (component) {
@@ -203,8 +208,8 @@ store_eliminate_path (char *str, trash_elim_path *eliminate)
                                 gf_log ("trash", GF_LOG_DEBUG, "out of memory");
                                 goto out;
                 }
-                trav->next = eliminate;
-                eliminate = trav;
+                trav->next = *eliminate;
+                *eliminate = trav;
                 component = strtok_r (NULL, ",", &strtokptr);
         }
 out:
@@ -259,13 +264,20 @@ out:
  * recursive call
  */
 void
-wipe_eliminate_path (trash_elim_path *trav)
+wipe_eliminate_path (trash_elim_path **trav)
 {
-        if (trav) {
-                wipe_eliminate_path (trav->next);
-                GF_FREE (trav->path);
-                GF_FREE (trav);
+        if (trav == NULL) {
+                return;
         }
+
+        if (*trav == NULL) {
+                return;
+        }
+
+        wipe_eliminate_path (&(*trav)->next);
+        GF_FREE ((*trav)->path);
+        GF_FREE (*trav);
+        *trav = NULL;
 }
 
 /**
@@ -1967,7 +1979,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         "no option specified for 'eliminate', using NULL");
         } else {
                 if (priv->eliminate)
-                        wipe_eliminate_path (priv->eliminate);
+                        wipe_eliminate_path (&priv->eliminate);
 
                 tmp_str = gf_strdup (tmp);
                 if (!tmp_str) {
@@ -1975,7 +1987,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         ret = ENOMEM;
                         goto out;
                 }
-                ret = store_eliminate_path (tmp_str, priv->eliminate);
+                ret = store_eliminate_path (tmp_str, &priv->eliminate);
 
         }
 
@@ -2256,7 +2268,7 @@ init (xlator_t *this)
                         ret = ENOMEM;
                         goto out;
                 }
-                ret = store_eliminate_path (tmp_str, priv->eliminate);
+                ret = store_eliminate_path (tmp_str, &priv->eliminate);
 
         }
         tmp = NULL;
@@ -2326,7 +2338,7 @@ out:
                         if (priv->brick_path)
                                 GF_FREE (priv->brick_path);
                         if (priv->eliminate)
-                                wipe_eliminate_path (priv->eliminate);
+                                wipe_eliminate_path (&priv->eliminate);
                         GF_FREE (priv);
                 }
                 mem_pool_destroy (this->local_pool);
@@ -2353,7 +2365,7 @@ fini (xlator_t *this)
                 if (priv->brick_path)
                         GF_FREE (priv->brick_path);
                 if (priv->eliminate)
-                        wipe_eliminate_path (priv->eliminate);
+                        wipe_eliminate_path (&priv->eliminate);
                 GF_FREE (priv);
         }
         mem_pool_destroy (this->local_pool);
