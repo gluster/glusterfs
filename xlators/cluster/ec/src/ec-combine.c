@@ -192,6 +192,7 @@ int32_t ec_dict_data_compare(dict_t * dict, char * key, data_t * value,
         (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
         (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
         (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
+        (fnmatch(GF_XATTR_MARKER_KEY ".*", key, 0) == 0) ||
         (XATTR_IS_NODE_UUID(key)))
     {
         return 0;
