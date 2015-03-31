@@ -554,7 +554,8 @@ gf_history_consume (void * data)
         len        = hist_data->len;
         n_parallel = hist_data->n_parallel;
 
-        this = THIS;
+        THIS = hist_data->this;
+        this = hist_data->this;
         if (!this) {
                 ret = -1;
                 goto out;
@@ -883,6 +884,7 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         hist_data->to         = to;
                         hist_data->len        = len;
                         hist_data->n_parallel = n_parallel;
+                        hist_data->this       = this;
 
                         ret = pthread_attr_setdetachstate
                                 (&attr, PTHREAD_CREATE_DETACHED);

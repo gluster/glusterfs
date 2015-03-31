@@ -61,6 +61,7 @@ typedef struct gf_changelog_journal {
 
         pthread_spinlock_t lock;
         int connected;
+        xlator_t *this;
 } gf_changelog_journal_t;
 
 #define JNL_SET_API_STATE(jnl, state)  (jnl->connected = state)
@@ -78,6 +79,7 @@ typedef struct gf_changelog_history_data {
         /* history from, to indexes */
         unsigned long from;
         unsigned long to;
+        xlator_t      *this;
 } gf_changelog_history_data_t;
 
 typedef struct gf_changelog_consume_data {
