@@ -1239,48 +1239,19 @@ afr_is_xattr_ignorable (char *key)
         return _gf_false;
 }
 
-int
-xattr_is_equal (dict_t *this, char *key1, data_t *value1, void *data)
+static gf_boolean_t
+afr_xattr_match (dict_t *this, char *key1, data_t *value1, void *data)
 {
-        dict_t *xattr2 = (dict_t *)data;
-        data_t *value2 = NULL;
+        if (!afr_is_xattr_ignorable (key1))
+                return _gf_true;
 
-        if (afr_is_xattr_ignorable (key1))
-                return 0;
-
-        value2 = dict_get (xattr2, key1);
-        if (!value2)
-                return -1;
-
-        if (value1->len != value2->len)
-                return -1;
-        if(memcmp(value1->data, value2->data, value1->len))
-                return -1;
-        else
-                return 0;
-
+        return _gf_false;
 }
 
-/* To conclude that both dicts are equal, we need to check if
- * 1) For every key-val pair in dict1, a match is present in dict2
- * 2) For every key-val pair in dict2, a match is present in dict1
- * We need to do both because ignoring glusterfs' internal xattrs
- * happens only in xattr_is_equal().
- */
 gf_boolean_t
 afr_xattrs_are_equal (dict_t *dict1, dict_t *dict2)
 {
-        int ret = 0;
-
-        ret = dict_foreach (dict1, xattr_is_equal, dict2);
-        if (ret == -1)
-                return _gf_false;
-
-        ret = dict_foreach (dict2, xattr_is_equal, dict1);
-        if (ret == -1)
-                 return _gf_false;
-
-        return _gf_true;
+        return are_dicts_equal (dict1, dict2, afr_xattr_match, NULL);
 }
 
 static int

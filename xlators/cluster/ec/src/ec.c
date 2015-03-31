@@ -670,6 +670,7 @@ ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         int     error = 0;
         ec_t    *ec = this->private;
+        int32_t minimum = EC_MINIMUM_MIN;
 
         if (name && strcmp (name, EC_XATTR_HEAL) != 0) {
                 EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
@@ -682,7 +683,10 @@ ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                             NULL, ec_marker_populate_args) == 0)
                 return 0;
 
-        ec_getxattr (frame, this, -1, EC_MINIMUM_MIN, default_getxattr_cbk,
+        if (name && (fnmatch (GF_XATTR_STIME_PATTERN, name, 0) == 0))
+                minimum = EC_MINIMUM_ALL;
+
+        ec_getxattr (frame, this, -1, minimum, default_getxattr_cbk,
                      NULL, loc, name, xdata);
 
         return 0;

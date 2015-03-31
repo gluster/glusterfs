@@ -234,6 +234,25 @@ void ec_wind_getxattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       &fop->loc[0], fop->str[0], fop->xdata);
 }
 
+void
+ec_handle_special_xattrs (ec_fop_data_t *fop)
+{
+        ec_cbk_data_t *cbk = NULL;
+        /* Stime may not be available on all the bricks, so even if some of the
+         * subvols succeed the operation, treat it as answer.*/
+        if (fop->str[0] &&
+            fnmatch (GF_XATTR_STIME_PATTERN, fop->str[0], 0) == 0) {
+                if (!fop->answer || (fop->answer->op_ret < 0)) {
+                        list_for_each_entry (cbk, &fop->cbk_list, list) {
+                                if (cbk->op_ret >= 0) {
+                                        fop->answer = cbk;
+                                        break;
+                                }
+                        }
+                }
+        }
+}
+
 int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
@@ -263,6 +282,7 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
+            ec_handle_special_xattrs (fop);
             cbk = fop->answer;
             if (cbk != NULL)
             {
