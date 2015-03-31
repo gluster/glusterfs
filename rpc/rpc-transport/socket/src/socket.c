@@ -3681,6 +3681,63 @@ out:
 
 }
 
+/*
+ * Unlike the stuff in init, this only needs to be called once GLOBALLY no
+ * matter how many translators/sockets we end up with.  Conveniently,
+ * __attribute__(constructor) provides exactly those semantics in a pretty
+ * portable fashion.
+ */
+
+static pthread_mutex_t  *lock_array     = NULL;
+static gf_boolean_t     constructor_ok  = _gf_false;
+
+static void
+locking_func (int mode, int type, const char *file, int line)
+{
+        if (mode & CRYPTO_UNLOCK) {
+                pthread_mutex_unlock (&lock_array[type]);
+        } else {
+                pthread_mutex_lock (&lock_array[type]);
+        }
+}
+
+static void
+threadid_func (CRYPTO_THREADID *id)
+{
+        /*
+         * We're not supposed to know whether a pthread_t is a number or a
+         * pointer, but we definitely need an unsigned long.  Even though it
+         * happens to be an unsigned long already on Linux, do the cast just in
+         * case that's not so on another platform.  Note that this can still
+         * break if any platforms are left where a pointer is larger than an
+         * unsigned long.  In that case there's not much we can do; hopefully
+         * anyone porting to such a platform will be aware enough to notice the
+         * compile warnings about truncating the pointer value.
+         */
+        CRYPTO_THREADID_set_numeric (id, (unsigned long)pthread_self());
+}
+
+static void __attribute__((constructor))
+init_openssl_mt (void)
+{
+        int     num_locks       = CRYPTO_num_locks();
+        int     i;
+
+        lock_array = GF_CALLOC (num_locks, sizeof(pthread_mutex_t),
+                                gf_sock_mt_lock_array);
+        if (lock_array) {
+                for (i = 0; i < num_locks; ++i) {
+                        pthread_mutex_init (&lock_array[i], NULL);
+                }
+                CRYPTO_set_locking_callback (locking_func);
+                CRYPTO_THREADID_set_callback (threadid_func);
+                constructor_ok = _gf_true;
+        }
+
+        SSL_library_init();
+        SSL_load_error_strings();
+}
+
 static int
 socket_init (rpc_transport_t *this)
 {
@@ -3910,8 +3967,18 @@ socket_init (rpc_transport_t *this)
         }
 
 	if (priv->ssl_enabled || priv->mgmt_ssl) {
-		SSL_library_init();
-		SSL_load_error_strings();
+                /*
+                 * The right time to check this is after all of our relevant
+                 * fields have been set, but before we start issuing OpenSSL
+                 * calls for the current translator.  In other words, now.
+                 */
+                if (!constructor_ok) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "can't initialize TLS socket (%s)",
+                                "static constructor failed");
+                        goto err;
+                }
+
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
@@ -4014,7 +4081,6 @@ fini (rpc_transport_t *this)
 
         this->private = NULL;
 }
-
 
 int32_t
 init (rpc_transport_t *this)
