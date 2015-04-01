@@ -1238,6 +1238,14 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret)
                 goto unwind;
 
+        if (!IA_ISDIR (buf->ia_type)) {
+                gf_log (this->name, GF_LOG_CRITICAL, "/.shard already exists "
+                        "and is not a directory. Please remove /.shard from all"
+                        " bricks and try again");
+                op_errno = EIO;
+                goto unwind;
+        }
+
         shard_link_dot_shard_inode (local, inode, buf);
         shard_writev_create_write_shards (frame, this);
         return 0;
