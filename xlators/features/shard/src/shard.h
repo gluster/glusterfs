@@ -24,6 +24,7 @@
 #define SHARD_MIN_BLOCK_SIZE  (4 * GF_UNIT_MB)
 #define SHARD_MAX_BLOCK_SIZE  (4 * GF_UNIT_TB)
 #define GF_XATTR_SHARD_BLOCK_SIZE "trusted.glusterfs.shard.block-size"
+#define GF_XATTR_SHARD_FILE_SIZE  "trusted.glusterfs.shard.file-size"
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
 #define SHARD_INODE_LRU_LIMIT 4096
 
@@ -70,6 +71,7 @@
 
 #define SHARD_INODE_CREATE_INIT(this, local, xattr_req, loc, label) do {      \
         int            __ret       = -1;                                      \
+        uint64_t      *__size_attr = NULL;                                    \
         shard_priv_t  *__priv      = NULL;                                    \
                                                                               \
         __priv = this->private;                                               \
@@ -84,7 +86,33 @@
                 goto label;                                                   \
         }                                                                     \
                                                                               \
+        __ret = shard_set_size_attrs (0, 0, &__size_attr);                    \
+        if (__ret)                                                            \
+                goto label;                                                   \
+                                                                              \
+        __ret = dict_set_bin (xattr_req, GF_XATTR_SHARD_FILE_SIZE,            \
+                              __size_attr, 8 * 4);                            \
+        if (__ret) {                                                          \
+                gf_log (this->name, GF_LOG_WARNING, "Failed to set key: %s "  \
+                        "on path %s", GF_XATTR_SHARD_FILE_SIZE, loc->path);   \
+                GF_FREE (__size_attr);                                        \
+                goto label;                                                   \
+        }                                                                     \
 } while (0)
+
+
+#define SHARD_MD_READ_FOP_INIT_REQ_DICT(this, xattr_req, gfid, label) do {    \
+        int __ret = -1;                                                       \
+                                                                              \
+        __ret = dict_set_uint64 (xattr_req, GF_XATTR_SHARD_FILE_SIZE, 8 * 4); \
+        if (__ret) {                                                          \
+                gf_log (this->name, GF_LOG_WARNING, "Failed to set dict"      \
+                        " value: key:%s for %s.", GF_XATTR_SHARD_FILE_SIZE,   \
+                        uuid_utoa (gfid));                                    \
+                goto label;                                                   \
+        }                                                                     \
+} while (0)
+
 
 typedef struct shard_priv {
         uint64_t block_size;
@@ -119,6 +147,8 @@ typedef struct shard_local {
         dict_t *xattr_req;
         dict_t *xattr_rsp;
         inode_t **inode_list;
+        struct iatt prebuf;
+        struct iatt postbuf;
         struct iovec *vector;
         struct iobref *iobref;
         struct {
