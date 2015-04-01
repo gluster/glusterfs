@@ -22,7 +22,7 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 TEST $CLI volume quota $V0 enable
-TEST $CLI volume quota $V0 limit-usage / 1
+TEST $CLI volume quota $V0 limit-usage / 1B
 TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
 

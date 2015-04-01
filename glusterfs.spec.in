@@ -204,8 +204,8 @@ BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 BuildRequires:    userspace-rcu-devel >= 0.7
-%if ( 0%{?_with_cmocka:0} )
-BuildRequires:    libcmocka-devel >= 1.0.0
+%if ( 0%{?_with_cmocka:1} )
+BuildRequires:    libcmocka-devel >= 1.0.1
 %endif
 BuildRequires:    sqlite-devel
 %if ( 0%{!?_without_systemtap:1} )

@@ -259,15 +259,15 @@ static void get_groups(fuse_private_t *priv, call_frame_t *frame)
 	const gid_list_t *gl;
 	gid_list_t agl;
 
+	if (!priv || !priv->gid_cache_timeout) {
+		frame_fill_groups(frame);
+		return;
+	}
+
         if (-1 == priv->gid_cache_timeout) {
                 frame->root->ngrps = 0;
                 return;
         }
-
-	if (!priv->gid_cache_timeout) {
-		frame_fill_groups(frame);
-		return;
-	}
 
 	gl = gid_cache_lookup(&priv->gid_cache, frame->root->pid,
 			      frame->root->uid, frame->root->gid);
@@ -326,7 +326,7 @@ get_call_frame_for_req (fuse_state_t *state)
                                           state->lk_owner);
         }
 
-	get_groups(priv, frame);
+        get_groups(priv, frame);
 
         if (priv && priv->client_pid_set)
                 frame->root->pid = priv->client_pid;

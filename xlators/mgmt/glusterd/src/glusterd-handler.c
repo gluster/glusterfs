@@ -31,6 +31,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-server-quorum.h"
 #include "glusterd-store.h"
 #include "glusterd-locks.h"
 #include "glusterd-snapshot-utils.h"
@@ -4360,6 +4361,16 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                           " %s, check log file for more"
                                           " details", key);
                         }
+                }
+
+                /* Request is for a single option, explicitly set count to 1
+                 * in the dictionary.
+                 */
+                ret = dict_set_int32 (dict, "count", 1);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to set count "
+                                "value in the dictionary");
+                        goto out;
                 }
         } else {
                 /* Handle the "all" volume option request */

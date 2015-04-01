@@ -118,12 +118,15 @@ copy_trash_path (const char *priv_value, gf_boolean_t internal, char *path)
  * similar to orginal path.
  */
 void
-remove_trash_path (const char *path, gf_boolean_t internal, char *rem_path)
+remove_trash_path (const char *path, gf_boolean_t internal, char **rem_path)
 {
+        if (rem_path == NULL) {
+                return;
+        }
 
-        rem_path =  strchr (path + 1, '/');
+        *rem_path =  strchr (path + 1, '/');
         if (internal)
-                rem_path =  strchr (path + 1, '/');
+                *rem_path =  strchr (*rem_path + 1, '/');
 }
 
 /**
@@ -173,13 +176,18 @@ check_whether_eliminate_path (trash_elim_path *trav, const char *path)
  * Stores the eliminate path into internal eliminate path structure
  */
 int
-store_eliminate_path (char *str, trash_elim_path *eliminate)
+store_eliminate_path (char *str, trash_elim_path **eliminate)
 {
         trash_elim_path         *trav                   = NULL;
         char                    *component              = NULL;
         char                    elm_path[PATH_MAX]      = {0,};
         int                     ret                     = 0;
         char                    *strtokptr              = NULL;
+
+        if (eliminate == NULL) {
+                ret = EINVAL;
+                goto out;
+        }
 
         component = strtok_r (str, ",", &strtokptr);
         while (component) {
@@ -203,8 +211,8 @@ store_eliminate_path (char *str, trash_elim_path *eliminate)
                                 gf_log ("trash", GF_LOG_DEBUG, "out of memory");
                                 goto out;
                 }
-                trav->next = eliminate;
-                eliminate = trav;
+                trav->next = *eliminate;
+                *eliminate = trav;
                 component = strtok_r (NULL, ",", &strtokptr);
         }
 out:
@@ -259,13 +267,20 @@ out:
  * recursive call
  */
 void
-wipe_eliminate_path (trash_elim_path *trav)
+wipe_eliminate_path (trash_elim_path **trav)
 {
-        if (trav) {
-                wipe_eliminate_path (trav->next);
-                GF_FREE (trav->path);
-                GF_FREE (trav);
+        if (trav == NULL) {
+                return;
         }
+
+        if (*trav == NULL) {
+                return;
+        }
+
+        wipe_eliminate_path (&(*trav)->next);
+        GF_FREE ((*trav)->path);
+        GF_FREE (*trav);
+        *trav = NULL;
 }
 
 /**
@@ -631,7 +646,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_path,
@@ -701,7 +716,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         strcpy (real_path, priv->brick_path);
-        remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+        remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
                 strcat (real_path, tmp_stat);
 
@@ -772,7 +787,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_str, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_str, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 /* create the directory with proper permissions */
@@ -1218,7 +1233,7 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 /* create the directory with proper permissions */
@@ -1340,7 +1355,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
                 strcpy (real_path, priv->brick_path);
-                remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+                remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
                         strcat (real_path, tmp_stat);
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
@@ -1410,7 +1425,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         strcpy (real_path, priv->brick_path);
-        remove_trash_path (tmp_path, (frame->root->pid < 0), tmp_stat);
+        remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
                 strcat (real_path, tmp_stat);
 
@@ -1967,7 +1982,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         "no option specified for 'eliminate', using NULL");
         } else {
                 if (priv->eliminate)
-                        wipe_eliminate_path (priv->eliminate);
+                        wipe_eliminate_path (&priv->eliminate);
 
                 tmp_str = gf_strdup (tmp);
                 if (!tmp_str) {
@@ -1975,7 +1990,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         ret = ENOMEM;
                         goto out;
                 }
-                ret = store_eliminate_path (tmp_str, priv->eliminate);
+                ret = store_eliminate_path (tmp_str, &priv->eliminate);
 
         }
 
@@ -2256,7 +2271,7 @@ init (xlator_t *this)
                         ret = ENOMEM;
                         goto out;
                 }
-                ret = store_eliminate_path (tmp_str, priv->eliminate);
+                ret = store_eliminate_path (tmp_str, &priv->eliminate);
 
         }
         tmp = NULL;
@@ -2326,7 +2341,7 @@ out:
                         if (priv->brick_path)
                                 GF_FREE (priv->brick_path);
                         if (priv->eliminate)
-                                wipe_eliminate_path (priv->eliminate);
+                                wipe_eliminate_path (&priv->eliminate);
                         GF_FREE (priv);
                 }
                 mem_pool_destroy (this->local_pool);
@@ -2353,7 +2368,7 @@ fini (xlator_t *this)
                 if (priv->brick_path)
                         GF_FREE (priv->brick_path);
                 if (priv->eliminate)
-                        wipe_eliminate_path (priv->eliminate);
+                        wipe_eliminate_path (&priv->eliminate);
                 GF_FREE (priv);
         }
         mem_pool_destroy (this->local_pool);

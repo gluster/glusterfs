@@ -2507,6 +2507,7 @@ fuse_opendir_resume (fuse_state_t *state)
                         state->finh->unique);
                 send_fuse_err (state->this, state->finh, ENOMEM);
                 free_fuse_state (state);
+                return;
         }
 
         fdctx = fuse_fd_ctx_check_n_create (state->this, fd);
@@ -3254,7 +3255,6 @@ static int
 fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
-        int             need_to_free_dict = 0;
         char           *value = "";
         fuse_state_t   *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -3338,9 +3338,6 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } /* if(op_ret>=0)...else */
 
 out:
-        if (need_to_free_dict)
-                dict_unref (dict);
-
         free_fuse_state (state);
         STACK_DESTROY (frame->root);
 
@@ -4094,6 +4091,11 @@ fuse_first_lookup (xlator_t *this)
 
         dict = dict_new ();
         frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to create frame");
+                return -1;
+        }
+
         frame->root->type = GF_OP_TYPE_FOP;
 
         xl = priv->active_subvol;

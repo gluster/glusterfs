@@ -30,6 +30,7 @@
 #include "glusterd-svc-helper.h"
 #include "glusterd-snapd-svc-helper.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-server-quorum.h"
 
 /*
  *  glusterd_snap_geo_rep_restore:

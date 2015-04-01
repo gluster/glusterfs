@@ -2376,7 +2376,7 @@ reconfigure (xlator_t *this, dict_t *options)
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "changelog reconfigured");
-                if (active_now)
+                if (active_now && priv)
                         priv->active = _gf_true;
         }
 
