@@ -1149,9 +1149,13 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         synctask_barrier_init((&args));
         peer_cnt = 0;
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
                 if (timespec_cmp (peerinfo->create_ts,
-                                  txn_opinfo->start_ts) < 0)
+                                  txn_opinfo->start_ts) > 0)
                         continue;
+
                 if (conf->op_version < GD_OP_VERSION_3_6_0) {
                         /* Reset lock status */
                         peerinfo->locked = _gf_false;
@@ -1267,8 +1271,11 @@ stage_done:
 
         rcu_read_lock ();
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
                 if (timespec_cmp (peerinfo->create_ts,
-                                  txn_opinfo->start_ts) < 0)
+                                  txn_opinfo->start_ts) > 0)
                         continue;
                 ret = gd_syncop_mgmt_stage_op (peerinfo, &args,
                                                MY_UUID, tmp_uuid,
@@ -1383,8 +1390,11 @@ commit_done:
         peer_cnt = 0;
 
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
                 if (timespec_cmp (peerinfo->create_ts,
-                                  txn_opinfo->start_ts) < 0)
+                                  txn_opinfo->start_ts) > 0)
                         continue;
 
                 ret = gd_syncop_mgmt_commit_op (peerinfo, &args,
@@ -1446,9 +1456,13 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         peer_cnt = 0;
 
         if (conf->op_version < GD_OP_VERSION_3_6_0) {
-                cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
+                                             uuid_list) {
+                        /* Only send requests to peers who were available before
+                         * the transaction started
+                         */
                         if (timespec_cmp (peerinfo->create_ts,
-                                                txn_opinfo->start_ts) < 0)
+                                          txn_opinfo->start_ts) > 0)
                                 continue;
                         /* Only unlock peers that were locked */
                         if (peerinfo->locked) {
@@ -1459,9 +1473,13 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                 }
         } else {
                 if (volname) {
-                        cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                        cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
+                                                     uuid_list) {
+                                /* Only send requests to peers who were
+                                 * available before the transaction started
+                                 */
                                 if (timespec_cmp (peerinfo->create_ts,
-                                                        txn_opinfo->start_ts) < 0)
+                                                  txn_opinfo->start_ts) > 0)
                                         continue;
 
                                 gd_syncop_mgmt_v3_unlock (op_ctx, peerinfo,
