@@ -906,7 +906,7 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         int              ret     = -1;
         int              i       = -1;
         char             key[20] = {0, };
-        uint64_t         value   = 0;
+        int64_t          value   = 0;
         gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
         char           *opwords[] = { "enable", "disable", "limit-usage",
                                       "remove", "list", "alert-time",
@@ -1004,11 +1004,12 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 }
 
                 if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
-                        ret = gf_string2bytesize_uint64 (words[5], &value);
-                        if (ret != 0) {
-                                if (errno == ERANGE)
-                                        cli_err ("Value too large: %s",
-                                                 words[5]);
+                        ret = gf_string2bytesize_int64 (words[5], &value);
+                        if (ret != 0 || value < 0) {
+                                if (errno == ERANGE || value < 0)
+                                        cli_err ("Value out of range "
+                                                 "(0 - %"PRId64 "): %s",
+                                                 INT64_MAX, words[5]);
                                 else
                                         cli_err ("Please enter a correct "
                                                  "value");

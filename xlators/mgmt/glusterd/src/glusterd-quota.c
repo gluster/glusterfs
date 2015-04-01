@@ -500,7 +500,7 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
 
         new_limit.sl = hton64 (new_limit.sl);
 
-        ret = gf_string2bytesize_uint64 (hard_limit, (uint64_t*)&new_limit.hl);
+        ret = gf_string2bytesize_int64 (hard_limit, &new_limit.hl);
         if (ret)
                 goto out;
 
@@ -1370,8 +1370,8 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_conf_t    *priv           = NULL;
         glusterd_volinfo_t *volinfo        = NULL;
         char               *hard_limit_str = NULL;
-        uint64_t           hard_limit      = 0;
-        gf_boolean_t       get_gfid        = _gf_false;
+        int64_t             hard_limit     = 0;
+        gf_boolean_t        get_gfid       = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1460,20 +1460,16 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 "Faild to get hard-limit from dict");
                         goto out;
                 }
-                ret = gf_string2bytesize_uint64 (hard_limit_str, &hard_limit);
+                ret = gf_string2bytesize_int64 (hard_limit_str, &hard_limit);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Failed to convert hard-limit string to value");
-                        goto out;
-                }
-                if (hard_limit > UINT64_MAX) {
-                        ret = -1;
-                        ret = gf_asprintf (op_errstr, "Hard-limit %s is greater"
-                                           " than %"PRId64"bytes. Please set a "
-                                           "smaller limit.", hard_limit_str,
-                                           INT64_MAX);
-                        gf_log (this->name, GF_LOG_ERROR, "hard-limit %s "
-                                "greater than INT64_MAX", hard_limit_str);
+                        if (errno == ERANGE || hard_limit < 0)
+                                gf_asprintf (op_errstr, "Hard-limit "
+                                        "value out of range (0 - %"PRId64
+                                        "): %s", hard_limit_str);
+                        else
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to convert hard-limit "
+                                        "from string to bytes");
                         goto out;
                 }
                 get_gfid = _gf_true;
