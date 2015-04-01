@@ -15,7 +15,7 @@
 #include "config.h"
 #endif
 
-#define glusterd_quorum_count(peerinfo, inquorum_count,\
+#define GLUSTERD_QUORUM_COUNT(peerinfo, inquorum_count,\
                               active_count, _exit)\
 do {\
                 if (peerinfo->quorum_contrib == QUORUM_WAITING)\
@@ -40,7 +40,7 @@ glusterd_do_quorum_action ();
 int
 glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
                                     int *quorum_count,
-                                    struct list_head *peer_list,
+                                    struct cds_list_head *peer_list,
                                     gf_boolean_t _local__xaction_peers);
 
 gf_boolean_t
@@ -54,6 +54,6 @@ glusterd_is_any_volume_in_server_quorum (xlator_t *this);
 
 gf_boolean_t
 does_gd_meet_server_quorum (xlator_t *this,
-                            struct list_head *peers_list,
+                            struct cds_list_head *peers_list,
                             gf_boolean_t _local__xaction_peers);
 #endif /* _GLUSTERD_SERVER_QUORUM_H */
