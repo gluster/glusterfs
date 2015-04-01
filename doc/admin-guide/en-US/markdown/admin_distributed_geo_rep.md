@@ -77,7 +77,7 @@ This command actually starts the session. Meaning the gsyncd monitor process wil
 gluster now has variants of status command.
 
 ```sh
-gluster volume geo-replication <master_volume> <slave_volume>::<slave_volume> status
+gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> status
 ```
 
 This displays the status of session from each brick of the master to each brick of the slave node.
@@ -85,7 +85,7 @@ This displays the status of session from each brick of the master to each brick 
 If you want more detailed status, then run 'status detail'
 
 ```sh
-gluster volume geo-replication <master_volume> <slave_volume>::<slave_volume> status detail
+gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> status detail
 ```
 
 This command displays extra information like, total files synced, files that needs to be synced, deletes pending etc.
@@ -95,7 +95,7 @@ This command displays extra information like, total files synced, files that nee
 This command stops all geo-rep relates processes i.e. gsyncd monitor and works processes. Note that changelog will **not** be turned off with this command.
 
 ```sh
-gluster volume geo-replication <master_volume> <slave_volume>::<slave_volume> stop [force]
+gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> stop [force]
 ```
 Force option is to be used, when one of the node (or glusterd in one of the node) is down. Once stopped, the session can be restarted any time. Note that upon restarting of the session, the change detection mechanism falls back to xsync mode. This happens even though you have changelog generating journals, while the geo-rep session is stopped.
 
@@ -104,7 +104,7 @@ Force option is to be used, when one of the node (or glusterd in one of the node
 Now you can delete the glusterfs geo-rep session. This will delete all the config data associated with the geo-rep session.
 
 ```sh
-gluster volume geo-replication <master_volume> <slave_volume>::<slave_volume> delete
+gluster volume geo-replication <master_volume> <slave_host>::<slave_volume> delete
 ```
 
 This deletes all the gsync conf files in each of the nodes. This returns failure, if any of the node is down. And unlike geo-rep stop, there is 'force' option with this.
