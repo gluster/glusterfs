@@ -65,7 +65,26 @@
                 shard_local_wipe (__local);                    \
                 mem_put (__local);                             \
         }                                                      \
-} while (0)                                                    \
+} while (0)
+
+
+#define SHARD_INODE_CREATE_INIT(this, local, xattr_req, loc, label) do {      \
+        int            __ret       = -1;                                      \
+        shard_priv_t  *__priv      = NULL;                                    \
+                                                                              \
+        __priv = this->private;                                               \
+                                                                              \
+        local->block_size = hton64 (__priv->block_size);                      \
+        __ret = dict_set_static_bin (xattr_req, GF_XATTR_SHARD_BLOCK_SIZE,    \
+                                     &local->block_size,                      \
+                                     sizeof (local->block_size));             \
+        if (__ret) {                                                          \
+                gf_log (this->name, GF_LOG_WARNING, "Failed to set key: %s "  \
+                        "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, loc->path);  \
+                goto label;                                                   \
+        }                                                                     \
+                                                                              \
+} while (0)
 
 typedef struct shard_priv {
         uint64_t block_size;
