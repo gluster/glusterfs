@@ -508,14 +508,13 @@ cli_out_options ( char *substr, char *optstr, char *valstr)
 
         while (ptr1)
         {
+ /* Avoiding segmentation fault. */
+                if (!ptr2)
+                        return;
                 if (*ptr1 != *ptr2)
                         break;
                 ptr1++;
                 ptr2++;
-                if (!ptr1)
-                        return;
-                if (!ptr2)
-                        return;
         }
 
         if (*ptr2 == '\0')
@@ -1094,8 +1093,6 @@ out:
         cli_local_wipe (local);
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
-        if (dict)
-                dict_unref (dict);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
@@ -1190,7 +1187,7 @@ gf_cli_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR, "dict get failed");
+                gf_log ("cli", GF_LOG_ERROR, "dict get failed");
                 goto out;
         }
 
@@ -1614,7 +1611,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = dict_get_int32 (local_dict, "rebalance-command", (int32_t*)&cmd);
         if (ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_log ("cli", GF_LOG_ERROR,
                         "Failed to get command");
                 goto out;
         }
