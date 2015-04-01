@@ -2783,7 +2783,14 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
 
         xattr_size = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
                                     NULL, 0);
-        if (xattr_size > (sizeof (int64_t) * 2)) {
+        if (xattr_size < (sizeof (int64_t) * 2) &&
+            type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS) {
+                ret = -1;
+
+                /* This can happen when glusterfs is upgraded from 3.6 to 3.7
+                 * and the xattr healing is not completed.
+                 */
+        } else if (xattr_size > (sizeof (int64_t) * 2)) {
                 ret = sys_lgetxattr (mountdir, "trusted.glusterfs.quota.size",
                                      &used_space, sizeof (used_space));
         } else if (xattr_size > 0) {
@@ -2962,6 +2969,16 @@ print_quota_list_from_quotad (call_frame_t *frame, dict_t *rsp_dict)
         limits.sl = ntoh64 (size_limits->sl);
 
         ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY, &used_space);
+        if (ret == -2 && type == GF_QUOTA_OPTION_TYPE_LIST) {
+                ret = 0;
+                /* quota_dict_get_meta returns -2 if metadata for inode
+                 * quotas is missing.
+                 * This can happen when glusterfs is upgraded from 3.6 to 3.7
+                 * and the xattr healing is not completed.
+                 * We can contiue as success if we are listing only file usage
+                 */
+        }
+
         if (ret < 0) {
                 gf_log ("cli", GF_LOG_WARNING,
                         "size key not present in dict");

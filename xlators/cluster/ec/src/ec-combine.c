@@ -17,6 +17,7 @@
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
+#include "quota-common-utils.h"
 
 #define EC_QUOTA_PREFIX "trusted.glusterfs.quota."
 
@@ -584,11 +585,14 @@ int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
 
 int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
-    data_t *data[cbk->count];
-    dict_t *dict;
-    ec_t *ec;
-    int32_t i, num;
-    uint64_t max, tmp;
+    data_t      *data[cbk->count];
+    dict_t      *dict             = NULL;
+    ec_t        *ec               = NULL;
+    int32_t      i                = 0;
+    int32_t      num              = 0;
+    int32_t      ret              = -1;
+    quota_meta_t size             = {0, };
+    quota_meta_t max_size         = {0, };
 
     num = cbk->count;
     if (!ec_dict_list(data, &num, cbk, which, key)) {
@@ -604,19 +608,24 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
      * bricks and we can receive slightly different values. If that's the
      * case, we take the maximum of all received values.
      */
-    max = ntoh64(*(uint64_t *)data_to_ptr(data[0]));
-    for (i = 1; i < num; i++) {
-        tmp = ntoh64(*(uint64_t *)data_to_ptr(data[i]));
-        if (max < tmp) {
-            max = tmp;
-        }
+    for (i = 0; i < num; i++) {
+        ret = quota_data_to_meta (data[i], QUOTA_SIZE_KEY, &size);
+        if (ret == -1)
+                continue;
+
+        if (size.size > max_size.size)
+                max_size.size = size.size;
+        if (size.file_count > max_size.file_count)
+                max_size.file_count = size.file_count;
+        if (size.dir_count > max_size.dir_count)
+                max_size.dir_count = size.dir_count;
     }
 
     ec = cbk->fop->xl->private;
-    max *= ec->fragments;
+    max_size.size *= ec->fragments;
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    if (ec_dict_set_number(dict, key, max) != 0) {
+    if (quota_dict_set_meta (dict, key, &max_size, IA_IFDIR) != 0) {
         return -1;
     }
 
