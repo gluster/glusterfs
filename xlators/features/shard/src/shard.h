@@ -98,6 +98,7 @@ typedef struct shard_local {
         loc_t dot_shard_loc;
         fd_t *fd;
         dict_t *xattr_req;
+        dict_t *xattr_rsp;
         inode_t **inode_list;
         struct iovec *vector;
         struct iobref *iobref;
