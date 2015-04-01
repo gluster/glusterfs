@@ -475,7 +475,7 @@ __svs_initialise_snapshot_volume (xlator_t *this, const char *name,
                                        24007);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "setting the "
-                        "volfile srever for snap volume %s "
+                        "volfile server for snap volume %s "
                         "failed", dirent->name);
                 goto out;
         }
