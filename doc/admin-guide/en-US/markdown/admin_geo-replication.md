@@ -128,8 +128,6 @@ and slave nodes within your environment:
     time lag, all the changes in brick2 between this period may go
     unnoticed during synchronization of files with Slave.
 
-    For more information on setting up NTP, see [][].
-
 **To setup Geo-replication for SSH**
 
 Password-less login has to be set up between the host machine (where
@@ -139,13 +137,13 @@ geo-replication Start command will be issued) and the remote machine
 1.  On the node where geo-replication sessions are to be set up, run the
     following command:
 
-    `# ssh-keygen -f /var/lib/glusterd/geo-replication/secret.pem`
+        # ssh-keygen -f /var/lib/glusterd/geo-replication/secret.pem
 
     Press Enter twice to avoid passphrase.
 
 2.  Run the following command on master for all the slave hosts:
 
-    `# ssh-copy-id -i /var/lib/glusterd/geo-replication/secret.pem.pub @`
+        # ssh-copy-id -i /var/lib/glusterd/geo-replication/secret.pem.pub @
 
 ##Setting Up the Environment for a Secure Geo-replication Slave
 
@@ -184,7 +182,7 @@ except for the following:
 
     -   Slave must have a running instance of glusterd, even if there is
         no gluster volume among the mounted slave resources (that is,
-        file tree slaves are used exclusively) .
+        file tree slaves are used exclusively).
 
 ### Restricting Remote Command Execution
 
@@ -237,73 +235,66 @@ level access to the particular volume.
 
 **To setup an auxiliary gluster mount for the agent**:
 
-1.  Create a new group. For example, `geogroup`.
+1.  In all Slave nodes, create a new group. For example, `geogroup`.
 
-2.  Create a unprivileged account. For example, ` geoaccount`. Make it a
+2.  In all Slave nodes, create a unprivileged account. For example, ` geoaccount`. Make it a
     member of ` geogroup`.
 
-3.  Create a new directory owned by root and with permissions *0711.*
+3.  In all Slave nodes, Create a new directory owned by root and with permissions *0711.*
     For example, create a create mountbroker-root directory
     `/var/mountbroker-root`.
 
-4.  Add the following options to the glusterd volfile, assuming the name
-    of the slave gluster volume as `slavevol`:
+4.  In any one of Slave node, Run the following commands to add options to glusterd vol
+file(`/etc/glusterfs/glusterd.vol`)
+    in rpm installations and `/usr/local/etc/glusterfs/glusterd.vol` in Source installation.
 
-    `option mountbroker-root /var/mountbroker-root `
+    ```sh
+    gluster system:: execute mountbroker opt mountbroker-root /var/mountbroker-root
+    gluster system:: execute mountbroker opt geo-replication-log-group geogroup
+    gluster system:: execute mountbroker opt rpc-auth-allow-insecure on
+    ```
 
-    `option mountbroker-geo-replication.geoaccount slavevol`
+5.  In any one of the Slave node, Add Mountbroker user to glusterd vol file using,
 
-    `option geo-replication-log-group geogroup`
+    ```sh
+    gluster system:: execute mountbroker user geoaccount slavevol
+    ```
 
-    If you are unable to locate the glusterd volfile at
-    `/etc/glusterfs/glusterd.vol`, you can create a volfile containing
-    both the default configuration and the above options and place it at
-    `/etc/glusterfs/`.
+    where slavevol is the Slave Volume name
 
-    A sample glusterd volfile along with default options:
+    If you host multiple slave volumes on Slave, for each of them and add the following options to the
+volfile using,
 
-        volume management
-            type mgmt/glusterd
-            option working-directory /var/lib/glusterd
-            option transport-type socket,rdma
-            option transport.socket.keepalive-time 10
-            option transport.socket.keepalive-interval 2
-            option transport.socket.read-fail-log off
+    ```sh
+    gluster system:: execute mountbroker user geoaccount2 slavevol2
+    gluster system:: execute mountbroker user geoaccount3 slavevol3
+    ```
 
-            option mountbroker-root /var/mountbroker-root 
-            option mountbroker-geo-replication.geoaccount slavevol
-            option geo-replication-log-group geogroup
-        end-volume
+    To add multiple volumes per mountbroker user,
 
-    If you host multiple slave volumes on Slave, you can repeat step 2.
-    for each of them and add the following options to the `volfile`:
+    ```sh
+    gluster system:: execute mountbroker user geoaccount1 slavevol11,slavevol12,slavevol13
+    gluster system:: execute mountbroker user geoaccount2 slavevol21,slavevol22
+    gluster system:: execute mountbroker user geoaccount3 slavevol31
+    ```
+6.  Restart `glusterd` service on all Slave nodes.
 
-        option mountbroker-geo-replication.geoaccount2 slavevol2
-        option mountbroker-geo-replication.geoaccount3 slavevol3
+7.  Setup a passwdless SSH from one of the master node to the user on one of the slave node.
+For example, to geoaccount.
 
-5.  Setup Master to access Slave as `geoaccount@Slave`.
+8.  Create a geo-replication relationship between master and slave to the user by running the
+following command on the master node:
 
-    You can add multiple slave volumes within the same account
-    (geoaccount) by providing comma-separated list (without spaces) as
-    the argument of `mountbroker-geo-replication.geogroup`. You can also
-    have multiple options of the form `mountbroker-geo-replication.*`.
-    It is recommended to use one service account per Master machine. For
-    example, if there are multiple slave volumes on Slave for the master
-    machines Master1, Master2, and Master3, then create a dedicated
-    service user on Slave for them by repeating Step 2. for each (like
-    geogroup1, geogroup2, and geogroup3), and then add the following
-    corresponding options to the volfile:
+    ```sh
+    gluster volume geo-replication <master_volume> <mountbroker_user>@<slave_host>::<slave_volume> create push-pem [force]
+    ```
 
-    `option mountbroker-geo-replication.geoaccount1 slavevol11,slavevol12,slavevol13`
+9.  In the slavenode, which is used to create relationship, run `/usr/libexec/glusterfs/set_geo_rep_pem_keys.sh`
+as a root with user name, master volume name, and slave volume names as the arguments.
 
-    `option mountbroker-geo-replication.geoaccount2 slavevol21,slavevol22`
-
-    `option mountbroker-geo-replication.geoaccount3 slavevol31`
-
-    Now set up Master1 to ssh to geoaccount1@Slave, etc.
-
-    You must restart glusterd after making changes in the configuration
-    to effect the updates.
+    ```sh
+    /usr/libexec/glusterfs/set_geo_rep_pem_keys.sh <mountbroker_user> <master_volume> <slave_volume>
+    ```
 
 ### Using IP based Access Control
 
@@ -316,7 +307,7 @@ To set access control based on IP address for file tree slaves:
 
 1.  Set a general restriction for accessibility of file tree resources:
 
-    `# gluster volume geo-replication '/*' config allow-network ::1,127.0.0.1 `
+        # gluster volume geo-replication '/*' config allow-network ::1,127.0.0.1
 
     This will refuse all requests for spawning slave agents except for
     requests initiated locally.
@@ -324,7 +315,7 @@ To set access control based on IP address for file tree slaves:
 2.  If you want the to lease file tree at `/data/slave-tree` to Master,
     enter the following command:
 
-    `# gluster volume geo-replicationconfig allow-network `
+        # gluster volume geo-replicationconfig allow-network
 
     `MasterIP` is the IP address of Master. The slave agent spawn
     request from master will be accepted if it is executed at
@@ -338,7 +329,7 @@ comma-separated lists of CIDR subnets.
 If you want to extend IP based access control to gluster slaves, use the
 following command:
 
-`# gluster volume geo-replication '*' config allow-network ::1,127.0.0.1`
+        # gluster volume geo-replication '*' config allow-network ::1,127.0.0.1
 
 ##Starting Geo-replication
 
@@ -350,9 +341,9 @@ functioning correctly.
 
 To start Gluster Geo-replication
 
--   Start geo-replication between the hosts using the following command:
+-   Use the following command to start geo-replication between the hosts:
 
-    `# gluster volume geo-replication  start`
+        # gluster volume geo-replication  start
 
     For example:
 
@@ -374,14 +365,12 @@ Geo-replication in your environment.
 
 -   Verify the status by issuing the following command on host:
 
-    `# gluster volume geo-replication  status`
+        # gluster volume geo-replication  status
 
     For example:
 
-    `# gluster volume geo-replication Volume1 example.com:/data/remote_dir status`
-
         # gluster volume geo-replication Volume1 example.com:/data/remote_dir status
-
+        # gluster volume geo-replication Volume1 example.com:/data/remote_dir status
         MASTER    SLAVE                            STATUS
         ______    ______________________________   ____________
         Volume1 root@example.com:/data/remote_dir  Starting....
@@ -394,24 +383,18 @@ geo-replication sessions, as needed.
 
 **To display geo-replication status information**
 
--   Display information of all geo-replication sessions using the
-    following command:
+-   Use the following command to display information of all geo-replication sessions:
 
         # gluster volume geo-replication Volume1 example.com:/data/remote_dir status
 
-        MASTER    SLAVE                            STATUS
-        ______    ______________________________   ____________
-        Volume1 root@example.com:/data/remote_dir  Starting....
+-   Use the following command to display information of a particular master slave session:
 
--   Display information of a particular master slave session using the
-    following command:
-
-    `# gluster volume geo-replication  status`
+        # gluster volume geo-replication  status
 
     For example, to display information of Volume1 and
     example.com:/data/remote\_dir
 
-    `# gluster volume geo-replication Volume1 example.com:/data/remote_dir status`
+        # gluster volume geo-replication Volume1 example.com:/data/remote_dir status
 
     The status of the geo-replication between Volume1 and
     example.com:/data/remote\_dir is displayed.
@@ -419,32 +402,38 @@ geo-replication sessions, as needed.
 -   Display information of all geo-replication sessions belonging to a
     master
 
-    `# gluster volume geo-replication MASTER status`
+        # gluster volume geo-replication MASTER status
 
     For example, to display information of Volume1
 
         # gluster volume geo-replication Volume1 example.com:/data/remote_dir status
 
-        MASTER    SLAVE                            STATUS
-        ______    ______________________________   ____________
-        Volume1 ssh://example.com:gluster://127.0.0.1:remove_volume  OK
+    The status of a session could be one of the following:
 
-        Volume1 ssh://example.com:file:///data/remote_dir  OK
+-   **Initializing**: This is the initial phase of the Geo-replication session;
+    it remains in this state for a minute in order to make sure no abnormalities are present.
 
-    The status of a session could be one of the following four:
+-   **Not Started**: The geo-replication session is created, but not started.
 
--   **Starting**: This is the initial phase of the Geo-replication
-    session; it remains in this state for a minute, to make sure no
-    abnormalities are present.
+-   **Active**: The gsync daemon in this node is active and syncing the data.
 
--   **OK**: The geo-replication session is in a stable state.
+-   **Passive**: A replica pair of the active node. The data synchronization is handled by active node.
+    Hence, this node does not sync any data.
 
--   **Faulty**: The geo-replication session has witnessed some
-    abnormality and the situation has to be investigated further.
+-   **Faulty**: The geo-replication session has experienced a problem, and the issue needs to be
+    investigated further.
 
--   **Corrupt**: The monitor thread which is monitoring the
-    geo-replication session has died. This situation should not occur
-    normally.
+-   **Stopped**: The geo-replication session has stopped, but has not been deleted.
+
+    The Crawl Status can be one of the following:
+
+-   **Changelog Crawl**: The changelog translator has produced the changelog and that is being consumed
+    by gsyncd daemon to sync data.
+
+-   **Hybrid Crawl**: The gsyncd daemon is crawling the glusterFS file system and generating pseudo
+    changelog to sync data.
+
+-   **Checkpoint Status**: Displays the status of the checkpoint, if set. Otherwise, it displays as N/A.
 
 ##Configuring Geo-replication
 
@@ -452,13 +441,32 @@ To configure Gluster Geo-replication
 
 -   Use the following command at the Gluster command line:
 
-    `# gluster volume geo-replication  config [options]`
+        # gluster volume geo-replication  config [options]
 
     For example:
 
-    To view list of all option/value pair, use the following command:
+    Use the following command to view list of all option/value pair:
 
-    `# gluster volume geo-replication Volume1 example.com:/data/remote_dir config`
+        # gluster volume geo-replication Volume1 example.com:/data/remote_dir config
+
+####Configurable Options
+
+The following table provides an overview of the configurable options for a geo-replication setting:
+
+  Option                        | Description
+  ---                           | ---
+  gluster-log-file LOGFILE 	| The path to the geo-replication glusterfs log file.
+  gluster-log-level LOGFILELEVEL| The log level for glusterfs processes.
+  log-file LOGFILE 	        | The path to the geo-replication log file.
+  log-level LOGFILELEVEL 	| The log level for geo-replication.
+  ssh-command COMMAND 	        | The SSH command to connect to the remote machine (the default is SSH).
+  rsync-command COMMAND 	| The rsync command to use for synchronizing the files (the default is rsync).
+  use-tarssh true 	        | The use-tarssh command allows tar over Secure Shell protocol. Use this option to handle workloads of files that have not undergone edits.
+  volume_id=UID 	        | The command to delete the existing master UID for the intermediate/slave node.
+  timeout SECONDS 	        | The timeout period in seconds.
+  sync-jobs N 	                | The number of simultaneous files/directories that can be synchronized.
+  ignore-deletes 	        | If this option is set to 1, a file deleted on the master will not trigger a delete operation on the slave. As a result, the slave will remain as a superset of the master and can be used to recover the master in the event of a crash and/or accidental delete.
+  checkpoint [LABEL&#124;now] 	| Sets a checkpoint with the given option LABEL. If the option is set as now, then the current time will be used as the label.
 
 ##Stopping Geo-replication
 
@@ -467,9 +475,9 @@ of data from Master to Slave) in your environment.
 
 **To stop Gluster Geo-replication**
 
--   Stop geo-replication between the hosts using the following command:
+-   Use the following command to stop geo-replication between the hosts:
 
-    `# gluster volume geo-replication  stop `
+        # gluster volume geo-replication  stop
 
     For example:
 
@@ -502,10 +510,6 @@ geo-replication session run the following command on Master:
 
     # gluster volume geo-replication Volume1 root@example.com:/data/remote_dir status
 
-    MASTER    SLAVE                             STATUS
-    ______    ______________________________    ____________
-    Volume1  root@example.com:/data/remote_dir   OK
-
 **Before Failure**
 
 Assume that the Master volume had 100 files and was mounted at
@@ -528,11 +532,7 @@ Geo-replication session is changed from "OK" to "Faulty". To view the
 status of this geo-replication session run the following command on
 Master:
 
-    # gluster volume geo-replication Volume1 root@example.com:/data/remote_dir status
-
-    MASTER    SLAVE                              STATUS
-    ______    ______________________________     ____________
-    Volume1   root@example.com:/data/remote_dir  Faulty
+        # gluster volume geo-replication Volume1 root@example.com:/data/remote_dir status
 
 Machine2 is failed and now you can see discrepancy in number of files
 between master and slave. Few files will be missing from the master
@@ -540,20 +540,19 @@ volume but they will be available only on slave as shown below.
 
 Run the following command on Client:
 
-    client # ls /mnt/gluster | wc –l
-    52
+        client # ls /mnt/gluster | wc –l
+        52
 
 Run the following command on slave (example.com):
 
-    Example.com# # ls /data/remote_dir/ | wc –l
-    100
+        Example.com# # ls /data/remote_dir/ | wc –l
+        100
 
 **To restore data from the slave machine**
 
-1.  Stop all Master's geo-replication sessions using the following
-    command:
+1.  Use the following command to stop all Master's geo-replication sessions:
 
-    `# gluster volume geo-replication  stop`
+        # gluster volume geo-replication  stop
 
     For example:
 
@@ -568,29 +567,27 @@ Run the following command on slave (example.com):
     > Repeat `# gluster volume geo-replication  stop `command on all
     > active geo-replication sessions of master volume.
 
-2.  Replace the faulty brick in the master by using the following
-    command:
+2.  Use the following command to replace the faulty brick in the master:
 
-    `# gluster volume replace-brick  start`
+        # gluster volume replace-brick  start
 
     For example:
 
         machine1# gluster volume replace-brick Volume1 machine2:/export/dir16 machine3:/export/dir16 start
         Replace-brick started successfully
 
-3.  Commit the migration of data using the following command:
+3.  Use the following command to commit the migration of data:
 
-    `# gluster volume replace-brick  commit force `
+        # gluster volume replace-brick  commit force
 
     For example:
 
         machine1# gluster volume replace-brick Volume1 machine2:/export/dir16 machine3:/export/dir16 commit force
         Replace-brick commit successful
 
-4.  Verify the migration of brick by viewing the volume info using the
-    following command:
+4.  Use the following command to verify the migration of brick by viewing the volume info:
 
-    `# gluster volume info `
+        # gluster volume info
 
     For example:
 
@@ -611,7 +608,7 @@ Run the following command on slave (example.com):
 
     For example:
 
-    `example.com# rsync -PavhS --xattrs --ignore-existing /data/remote_dir/ client:/mnt/gluster`
+        example.com# rsync -PavhS --xattrs --ignore-existing /data/remote_dir/ client:/mnt/gluster
 
     Verify that the data is synced by using the following command:
 
@@ -627,10 +624,9 @@ Run the following command on slave (example.com):
 
     Now Master volume and Slave directory is synced.
 
-6.  Restart geo-replication session from master to slave using the
-    following command:
+6.  Use the following command to restart geo-replication session from master to slave:
 
-    `# gluster volume geo-replication  start `
+        # gluster volume geo-replication  start
 
     For example:
 
@@ -650,18 +646,17 @@ geo-replication index, so the recommended way to set the time manually is:
 1.  Stop geo-replication between the master and slave using the
     following command:
 
-    `# gluster volume geo-replication  sto`p
+        # gluster volume geo-replication stop
 
 2.  Stop the geo-replication indexing using the following command:
 
-    `# gluster volume set  geo-replication.indexing of`f
+        # gluster volume set  geo-replication.indexing of
 
-3.  Set uniform time on all bricks.s
+3.  Set uniform time on all bricks.
 
-4.  Restart your geo-replication sessions by using the following
-    command:
+4.  Use the following command to restart your geo-replication session:
 
-    `# gluster volume geo-replication start `
+        # gluster volume geo-replication start
 
 **Running Geo-replication commands in one system**
 
@@ -684,5 +679,3 @@ available in follow-up minor release.
   [ Geo-replication over WAN ]: ../images/Geo-Rep_WAN.png
   [ Geo-replication over Internet ]: ../images/Geo-Rep03_Internet.png
   [ Multi-site cascading Geo-replication ]: ../images/Geo-Rep04_Cascading.png
-  []: http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/Migration_Planning_Guide/ch04s07.html
-  [1]: www.redhat.com/support/
