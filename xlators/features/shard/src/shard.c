@@ -196,6 +196,8 @@ shard_local_wipe (shard_local_t *local)
 
         if (local->xattr_req)
                 dict_unref (local->xattr_req);
+        if (local->xattr_rsp)
+                dict_unref (local->xattr_rsp);
 
         for (i = 0; i < count; i++) {
                 if (local->inode_list[i])
@@ -1258,14 +1260,36 @@ unwind:
 int
 shard_lookup_dot_shard (call_frame_t *frame, xlator_t *this)
 {
-        shard_local_t *local = NULL;
+        int                 ret       = -1;
+        dict_t             *xattr_req = NULL;
+        shard_priv_t       *priv      = NULL;
+        shard_local_t      *local     = NULL;
 
         local = frame->local;
+        priv = this->private;
+
+        xattr_req = dict_new ();
+        if (!xattr_req)
+                goto err;
+
+        ret = dict_set_static_bin (xattr_req, "gfid-req", priv->dot_shard_gfid,
+                                   16);
+        if (!ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set gfid of "
+                        "/.shard into dict");
+                goto err;
+        }
 
         STACK_WIND (frame, shard_lookup_dot_shard_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, &local->dot_shard_loc,
-                    local->xattr_req);
+                    xattr_req);
+        dict_unref (xattr_req);
+        return 0;
 
+err:
+        if (xattr_req)
+                dict_unref (xattr_req);
+        SHARD_STACK_UNWIND (writev, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1307,9 +1331,14 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
         shard_local_t  *local         = NULL;
         shard_priv_t   *priv          = NULL;
         loc_t          *dot_shard_loc = NULL;
+        dict_t         *xattr_req     = NULL;
 
         local = frame->local;
         priv = this->private;
+
+        xattr_req = dict_new ();
+        if (!xattr_req)
+                goto err;
 
         dot_shard_loc = &local->dot_shard_loc;
 
@@ -1327,8 +1356,8 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
         if (dot_shard_loc->name)
                 dot_shard_loc->name++;
 
-        ret = dict_set_static_bin (local->xattr_req, "gfid-req",
-                                   priv->dot_shard_gfid, 16);
+        ret = dict_set_static_bin (xattr_req, "gfid-req", priv->dot_shard_gfid,
+                                   16);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set gfid-req for "
                         "/.shard");
@@ -1337,10 +1366,13 @@ shard_writev_mkdir_dot_shard (call_frame_t *frame, xlator_t *this)
 
         STACK_WIND (frame, shard_writev_mkdir_dot_shard_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir, &local->dot_shard_loc,
-                    0755, 0, local->xattr_req);
+                    0755, 0, xattr_req);
+        dict_unref (xattr_req);
         return 0;
 
 err:
+        if (xattr_req)
+                dict_unref (xattr_req);
         SHARD_STACK_UNWIND (writev, frame, -1, ENOMEM, NULL, NULL, NULL);
         return 0;
 }
