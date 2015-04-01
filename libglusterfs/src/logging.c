@@ -1790,6 +1790,9 @@ gf_log_inject_timer_event (glusterfs_ctx_t *ctx)
 {
         int ret = -1;
 
+        if (!ctx)
+                return -1;
+
         pthread_mutex_lock (&ctx->log.log_buf_lock);
         {
                 ret = __gf_log_inject_timer_event (ctx);
