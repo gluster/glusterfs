@@ -15,18 +15,13 @@
 #include "quota-common-utils.h"
 
 int32_t
-quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
+quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta)
 {
         int32_t        ret      = -1;
-        data_t        *data     = NULL;
         quota_meta_t  *value    = NULL;
         int64_t       *size     = NULL;
 
-        if (!dict || !key || !meta)
-                goto out;
-
-        data = dict_get (dict, key);
-        if (!data || !data->data)
+        if (!data || !key || !meta)
                 goto out;
 
         if (data->len > sizeof (int64_t)) {
@@ -53,6 +48,26 @@ quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
         }
 
         ret = 0;
+out:
+
+        return ret;
+}
+
+int32_t
+quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta)
+{
+        int32_t        ret      = -1;
+        data_t        *data     = NULL;
+
+        if (!dict || !key || !meta)
+                goto out;
+
+        data = dict_get (dict, key);
+        if (!data || !data->data)
+                goto out;
+
+        ret = quota_data_to_meta (data, key, meta);
+
 out:
 
         return ret;
