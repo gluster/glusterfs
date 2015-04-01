@@ -240,19 +240,18 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0)
                 goto unwind;
 
-        if ((op_ret == 0) && (!IA_ISDIR (buf->ia_type))) {
-                ret = dict_get_uint64 (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &size);
-                if (!ret && size) {
-                        ctx_tmp.block_size = ntoh64 (size);
-                        ctx_tmp.mode = st_mode_from_ia (buf->ia_prot,
-                                                        buf->ia_type);
-                        ctx_tmp.rdev = buf->ia_rdev;
-                        ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_WARNING, "Failed to "
-                                        "set inode ctx for %s",
-                                        uuid_utoa (inode->gfid));
-                }
+        if (IA_ISDIR (buf->ia_type))
+                goto unwind;
+
+        ret = dict_get_uint64 (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &size);
+        if (!ret && size) {
+                ctx_tmp.block_size = ntoh64 (size);
+                ctx_tmp.mode = st_mode_from_ia (buf->ia_prot, buf->ia_type);
+                ctx_tmp.rdev = buf->ia_rdev;
+                ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
+                                "inode ctx for %s", uuid_utoa (buf->ia_gfid));
         }
 
         /* To-Do: return the call with aggregated values of ia_size and
@@ -411,12 +410,7 @@ int
 shard_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
              dev_t rdev, mode_t umask, dict_t *xdata)
 {
-        int             ret        = -1;
-        int32_t         op_errno   = ENOMEM;
         shard_local_t  *local      = NULL;
-        shard_priv_t   *priv       = NULL;
-
-        priv = this->private;
 
         local = mem_get0 (this->local_pool);
         if (!local)
@@ -424,24 +418,15 @@ shard_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         frame->local = local;
 
-        local->block_size = hton64 (priv->block_size);
-
-        ret = dict_set_static_bin (xdata, GF_XATTR_SHARD_BLOCK_SIZE,
-                                   &local->block_size, sizeof (uint64_t));
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set key: %s "
-                        "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, loc->path);
-                goto err;
-        }
+        SHARD_INODE_CREATE_INIT (this, local, xdata, loc, err);
 
         STACK_WIND (frame, shard_mknod_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, umask,
                     xdata);
         return 0;
 
-
 err:
-        SHARD_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL,
+        SHARD_STACK_UNWIND (mknod, frame, -1, ENOMEM, NULL, NULL, NULL,
                             NULL, NULL);
         return 0;
 
@@ -566,12 +551,7 @@ int
 shard_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
               mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        int             ret        = -1;
-        int32_t         op_errno   = ENOMEM;
         shard_local_t  *local      = NULL;
-        shard_priv_t   *priv       = NULL;
-
-        priv = this->private;
 
         local = mem_get0 (this->local_pool);
         if (!local)
@@ -579,15 +559,7 @@ shard_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         frame->local = local;
 
-        local->block_size = hton64 (priv->block_size);
-
-        ret = dict_set_static_bin (xdata, GF_XATTR_SHARD_BLOCK_SIZE,
-                                   &local->block_size, sizeof (uint64_t));
-        if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set key: %s "
-                        "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, loc->path);
-                goto err;
-        }
+        SHARD_INODE_CREATE_INIT (this, local, xdata, loc, err);
 
         STACK_WIND (frame, shard_create_cbk, FIRST_CHILD (this),
                     FIRST_CHILD(this)->fops->create, loc, flags, mode, umask,
@@ -595,7 +567,7 @@ shard_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         return 0;
 
 err:
-        SHARD_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
+        SHARD_STACK_UNWIND (create, frame, -1, ENOMEM, NULL, NULL, NULL,
                              NULL, NULL, NULL);
         return 0;
 
@@ -1160,7 +1132,7 @@ err:
 }
 
 int
-shard_writev_create_write_shards (call_frame_t *frame, xlator_t *this)
+shard_common_resolve_shards (call_frame_t *frame, xlator_t *this)
 {
         int            i              = -1;
         uint32_t       shard_idx_iter = 0;
@@ -1249,7 +1221,7 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         shard_link_dot_shard_inode (local, inode, buf);
-        shard_writev_create_write_shards (frame, this);
+        shard_common_resolve_shards (frame, this);
         return 0;
 
 unwind:
@@ -1316,7 +1288,7 @@ shard_writev_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
         }
 
         shard_link_dot_shard_inode (local, inode, buf);
-        shard_writev_create_write_shards (frame, this);
+        shard_common_resolve_shards (frame, this);
         return 0;
 
 unwind:
@@ -1460,7 +1432,7 @@ shard_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!local->dot_shard_loc.inode)
                 shard_writev_mkdir_dot_shard (frame, this);
         else
-                shard_writev_create_write_shards (frame, this);
+                shard_common_resolve_shards (frame, this);
 
         return 0;
 out:
