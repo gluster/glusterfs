@@ -93,7 +93,7 @@ gf_history_changelog_done (char *file)
 /**
  * @API
  *  gf_history_changelog_start_fresh:
- *     For a set of changelogs, start from the begining.
+ *     For a set of changelogs, start from the beginning.
  *     It will truncates the history tracker fd.
  *
  *  RETURN VALUES:
@@ -399,7 +399,7 @@ out:
  * @value       : time stamp to search
  * @from        : start index to search
  * @to          : end index to search
- * @len         : length of fixes length strings seperated by null
+ * @len         : length of fixes length strings separated by null
  */
 
 int

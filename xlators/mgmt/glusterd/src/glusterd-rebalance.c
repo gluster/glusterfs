@@ -351,7 +351,7 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
          */
         if (reconnect) {
                 ret = sys_stat (sockfile, &buf);
-                /* TODO: Remove this once we don't need backward compatability
+                /* TODO: Remove this once we don't need backward compatibility
                  * with the older path
                  */
                 if (ret && (errno == ENOENT)) {
@@ -845,7 +845,7 @@ glusterd_defrag_event_notify_handle (dict_t *dict)
                 volname = volname_ptr + 1;
         } else {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "volname recieved (%s) is not prefixed with rebalance.",
+                        "volname received (%s) is not prefixed with rebalance.",
                         volname);
                 ret = -1;
                 goto out;

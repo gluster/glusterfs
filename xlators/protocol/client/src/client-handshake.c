@@ -739,7 +739,7 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = 0;
 
         if (attempt_lock_recovery) {
-                /* Delay decrementing the reopen fd count untill all the
+                /* Delay decrementing the reopen fd count until all the
                    locks corresponding to this fd are acquired.*/
                 gf_log (this->name, GF_LOG_DEBUG, "acquiring locks "
                         "on %s", local->loc.path);

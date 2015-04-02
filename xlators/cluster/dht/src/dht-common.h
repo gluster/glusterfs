@@ -364,7 +364,7 @@ struct dht_conf {
         /* Will be a global flag to control the layout spread count */
         uint32_t       dir_spread_cnt;
 
-        /* to keep track of nodes which are decomissioned */
+        /* to keep track of nodes which are decommissioned */
         xlator_t     **decommissioned_bricks;
         int            decommission_in_progress;
         int            decommission_subvols_cnt;

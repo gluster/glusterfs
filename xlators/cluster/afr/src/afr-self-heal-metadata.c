@@ -116,7 +116,7 @@ mtime_ns(struct iatt *ia)
 /*
  * When directory content is modified, [mc]time is updated. On
  * Linux, the filesystem does it, while at least on NetBSD, the
- * kernel file-system independant code does it. This means that
+ * kernel file-system independent code does it. This means that
  * when entries are added while bricks are down, the kernel sends
  * a SETATTR [mc]time which will cause metadata split brain for
  * the directory. In this case, clear the split brain by finding

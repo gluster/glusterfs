@@ -336,7 +336,7 @@ dht_init_regex (xlator_t *this, dict_t *odict, char *name,
         }
 
         if (regcomp(re,temp_str,REG_EXTENDED) == 0) {
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "using regex %s = %s", name, temp_str);
                 *re_valid = _gf_true;
         }

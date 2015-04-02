@@ -369,7 +369,7 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
                /*
                 * Backend vfs ignores the 'offset' for append mode fd so
                 * locking just the region provided for the writev does not
-                * give consistency gurantee. The actual write may happen at a
+                * give consistency guarantee. The actual write may happen at a
                 * completely different range than the one provided by the
                 * offset, len in the fop. So lock the entire file.
                 */

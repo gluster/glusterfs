@@ -842,7 +842,7 @@ gf_changelog_open_dirs (xlator_t *this, gf_changelog_journal_t *jnl)
 int
 gf_changelog_init_history (xlator_t *this,
                            gf_changelog_journal_t *jnl,
-                           char *brick_path, char *scratch_dir)
+                           char *brick_path)
 {
         int i   = 0;
         int ret = 0;
@@ -856,7 +856,6 @@ gf_changelog_init_history (xlator_t *this,
         jnl->hist_jnl->jnl_dir = NULL;
         jnl->hist_jnl->jnl_fd =  -1;
 
-        (void) strncpy (hist_scratch_dir, scratch_dir, PATH_MAX);
         (void) snprintf (hist_scratch_dir, PATH_MAX,
                          "%s/"GF_CHANGELOG_HISTORY_DIR"/",
                          jnl->jnl_working_dir);
@@ -876,7 +875,8 @@ gf_changelog_init_history (xlator_t *this,
                 goto dealloc_hist;
         }
 
-        (void) strncpy (jnl->hist_jnl->jnl_brickpath, brick_path, PATH_MAX);
+        (void) strncpy (jnl->hist_jnl->jnl_brickpath, brick_path, PATH_MAX-1);
+        jnl->hist_jnl->jnl_brickpath[PATH_MAX-1] = 0;
 
         for (i = 0; i < 256; i++) {
                 jnl->hist_jnl->rfc3986[i] =
@@ -956,8 +956,7 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
                         i == '-' || i == '.' || i == '_') ? i : 0;
         }
 
-        ret = gf_changelog_init_history (this, jnl,
-                                         brick->brick_path, scratch_dir);
+        ret = gf_changelog_init_history (this, jnl, brick->brick_path);
         if (ret)
                 goto cleanup_fds;
 
