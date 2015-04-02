@@ -62,7 +62,7 @@ int _gf_log_callingfn (const char *domain, const char *file,
     return 0;
 }
 
-void uuid_unparse(const uuid_t uu, char *out)
+void gf_uuid_unparse(const uuid_t uu, char *out)
 {
     // could call a will-return function here
     // to place the correct data in *out

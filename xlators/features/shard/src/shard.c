@@ -20,7 +20,7 @@ __is_shard_dir (uuid_t gfid)
 {
         shard_priv_t  *priv = THIS->private;
 
-        if (uuid_compare (gfid, priv->dot_shard_gfid) == 0)
+        if (gf_uuid_compare (gfid, priv->dot_shard_gfid) == 0)
                 return _gf_true;
 
         return _gf_false;
@@ -31,7 +31,7 @@ shard_make_block_bname (int block_num, uuid_t gfid, char *buf, size_t len)
 {
         char gfid_str[GF_UUID_BUF_SIZE] = {0,};
 
-        uuid_unparse (gfid, gfid_str);
+        gf_uuid_unparse (gfid, gfid_str);
         snprintf (buf, len, "%s.%d", gfid_str, block_num);
 }
 
@@ -41,7 +41,7 @@ shard_make_block_abspath (int block_num, uuid_t gfid, char *filepath,
 {
         char gfid_str[GF_UUID_BUF_SIZE] = {0,};
 
-        uuid_unparse (gfid, gfid_str);
+        gf_uuid_unparse (gfid, gfid_str);
         snprintf (filepath, len, "/%s/%s.%d", GF_SHARD_DIR, gfid_str,
                   block_num);
 }
@@ -891,7 +891,7 @@ shard_create_gfid_dict (dict_t *dict)
                 goto out;
         }
 
-        uuid_generate (*gfid);
+        gf_uuid_generate (*gfid);
 
         ret = dict_set_dynptr (new, "gfid-req", gfid, sizeof (uuid_t));
 
@@ -1715,7 +1715,7 @@ init (xlator_t *this)
                         "from mempool");
                 goto out;
         }
-        uuid_parse (SHARD_ROOT_GFID, priv->dot_shard_gfid);
+        gf_uuid_parse (SHARD_ROOT_GFID, priv->dot_shard_gfid);
 
         this->private = priv;
         ret = 0;

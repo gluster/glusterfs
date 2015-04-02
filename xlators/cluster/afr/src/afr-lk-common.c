@@ -65,7 +65,7 @@ afr_entry_lockee_cmp (const void *l1, const void *l2)
 
         loc_gfid ((loc_t*)&r1->loc, gfid1);
         loc_gfid ((loc_t*)&r2->loc, gfid2);
-        ret = uuid_compare (gfid1, gfid2);
+        ret = gf_uuid_compare (gfid1, gfid2);
         /*Entrylks with NULL basename are the 'smallest'*/
         if (ret == 0) {
                 if (!r1->basename)

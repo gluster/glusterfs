@@ -181,7 +181,7 @@
 
 
 #define MAKE_INODE_HANDLE(rpath, this, loc, iatt_p) do {                \
-        if (uuid_is_null (loc->gfid)) {                                 \
+        if (gf_uuid_is_null (loc->gfid)) {                              \
                 gf_log (this->name, GF_LOG_ERROR,                       \
                         "null gfid for path %s", (loc)->path);          \
                 break;                                                  \
@@ -210,7 +210,7 @@
 #define MAKE_ENTRY_HANDLE(entp, parp, this, loc, ent_p) do {            \
         char *__parp;                                                   \
                                                                         \
-        if (uuid_is_null (loc->pargfid) || !loc->name) {                \
+        if (gf_uuid_is_null (loc->pargfid) || !loc->name) {             \
                 gf_log (this->name, GF_LOG_ERROR,                       \
                         "null pargfid/name for path %s", loc->path);    \
                 break;                                                  \

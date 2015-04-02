@@ -48,7 +48,7 @@ static const char *fmt_upper =
 #define FMT_DEFAULT fmt_lower
 #endif
 
-static void uuid_unparse_x(const uuid_t uu, char *out, const char *fmt)
+static void gf_uuid_unparse_x(const uuid_t uu, char *out, const char *fmt)
 {
 	struct uuid uuid;
 
@@ -60,17 +60,17 @@ static void uuid_unparse_x(const uuid_t uu, char *out, const char *fmt)
 		uuid.node[3], uuid.node[4], uuid.node[5]);
 }
 
-void uuid_unparse_lower(const uuid_t uu, char *out)
+void gf_uuid_unparse_lower(const uuid_t uu, char *out)
 {
-	uuid_unparse_x(uu, out,	fmt_lower);
+	gf_uuid_unparse_x(uu, out,	fmt_lower);
 }
 
-void uuid_unparse_upper(const uuid_t uu, char *out)
+void gf_uuid_unparse_upper(const uuid_t uu, char *out)
 {
-	uuid_unparse_x(uu, out,	fmt_upper);
+	gf_uuid_unparse_x(uu, out,	fmt_upper);
 }
 
-void uuid_unparse(const uuid_t uu, char *out)
+void gf_uuid_unparse(const uuid_t uu, char *out)
 {
-	uuid_unparse_x(uu, out, FMT_DEFAULT);
+	gf_uuid_unparse_x(uu, out, FMT_DEFAULT);
 }

@@ -421,7 +421,7 @@ upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
 
         if (t_expired < timeout) {
                 /* Send notify call */
-                uuid_copy(n_event_data.gfid, gfid);
+                gf_uuid_copy(n_event_data.gfid, gfid);
                 n_event_data.client_entry = up_client_entry;
                 n_event_data.event_type = CACHE_INVALIDATION;
                 n_event_data.invalidate_flags = flags;

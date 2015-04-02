@@ -4014,7 +4014,7 @@ static int32_t crypt_lookup_cbk(call_frame_t *frame,
 	local->postbuf = *postparent;
 	if (xdata)
 		local->xdata = dict_ref(xdata);
-	uuid_copy(local->loc->gfid, buf->ia_gfid);
+	gf_uuid_copy(local->loc->gfid, buf->ia_gfid);
 
 	STACK_WIND(frame,
 		   load_file_size,

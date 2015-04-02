@@ -32,7 +32,7 @@ mq_loc_copy (loc_t *dst, loc_t *src)
         GF_VALIDATE_OR_GOTO ("marker", src, out);
 
         if (src->inode == NULL ||
-            ((src->parent == NULL) && (uuid_is_null (src->pargfid))
+            ((src->parent == NULL) && (gf_uuid_is_null (src->pargfid))
              && !__is_root_gfid (src->inode->gfid))) {
                 gf_log ("marker", GF_LOG_WARNING,
                         "src loc is not valid");
@@ -173,7 +173,7 @@ mq_loc_fill_from_name (xlator_t *this, loc_t *newloc, loc_t *oldloc,
         }
 
         newloc->parent = inode_ref (oldloc->inode);
-        uuid_copy (newloc->pargfid, oldloc->inode->gfid);
+        gf_uuid_copy (newloc->pargfid, oldloc->inode->gfid);
 
         if (!oldloc->path) {
                 ret = loc_path (oldloc, NULL);
@@ -309,8 +309,8 @@ wind:
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND (frame, mq_release_lock_on_dirty_inode,
@@ -382,8 +382,8 @@ mq_update_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -447,8 +447,8 @@ mq_get_dirty_inode_size (call_frame_t *frame, xlator_t *this)
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -773,8 +773,8 @@ mq_check_if_still_dirty (call_frame_t *frame,
 
         local->d_off = 0;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
         STACK_WIND(frame,
@@ -823,10 +823,10 @@ mq_get_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret)
                 goto err;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
-        if (uuid_is_null (local->loc.gfid)) {
+        if (gf_uuid_is_null (local->loc.gfid)) {
                 ret = -1;
                 goto err;
         }
@@ -992,7 +992,7 @@ mq_create_dirty_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto err;
                 }
 
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
                 GF_UUID_ASSERT (local->loc.gfid);
 
                 STACK_WIND (frame, mq_xattr_creation_release_lock,
@@ -1057,9 +1057,9 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
         }
 
         if ((local->loc.path && strcmp (local->loc.path, "/") != 0)
-            || (local->loc.inode && !uuid_is_null (local->loc.inode->gfid) &&
+            || (local->loc.inode && !gf_uuid_is_null (local->loc.inode->gfid) &&
                 !__is_root_gfid (local->loc.inode->gfid))
-            || (!uuid_is_null (local->loc.gfid)
+            || (!gf_uuid_is_null (local->loc.gfid)
                 && !__is_root_gfid (local->loc.gfid))) {
                 contri = mq_add_new_contribution_node (this, ctx, &local->loc);
                 if (contri == NULL)
@@ -1073,7 +1073,7 @@ mq_create_xattr (xlator_t *this, call_frame_t *frame)
                         goto free_value;
         }
 
-        if (uuid_is_null (local->loc.gfid)) {
+        if (gf_uuid_is_null (local->loc.gfid)) {
                 ret = -1;
                 goto out;
         }
@@ -1134,10 +1134,10 @@ mq_check_n_set_inode_xattr (call_frame_t *frame, void *cookie,
 
         //check contribution xattr if not root
         if ((local->loc.path && strcmp (local->loc.path, "/") != 0)
-            || (!uuid_is_null (local->loc.gfid)
+            || (!gf_uuid_is_null (local->loc.gfid)
                 && !__is_root_gfid (local->loc.gfid))
             || (local->loc.inode
-                && !uuid_is_null (local->loc.inode->gfid)
+                && !gf_uuid_is_null (local->loc.inode->gfid)
                 && !__is_root_gfid (local->loc.inode->gfid))) {
                 GET_CONTRI_KEY (contri_key, local->loc.parent->gfid, ret);
                 if (ret < 0)
@@ -1153,8 +1153,8 @@ out:
         return 0;
 
 create_xattr:
-        if (uuid_is_null (local->loc.gfid)) {
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid)) {
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
         }
 
         mq_create_xattr (this, frame);
@@ -1187,10 +1187,10 @@ mq_get_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
-        if (uuid_is_null (local->loc.gfid)) {
+        if (gf_uuid_is_null (local->loc.gfid)) {
                 ret = -1;
                 goto err;
         }
@@ -1527,7 +1527,7 @@ mq_mark_undirty (call_frame_t *frame,
                 goto err;
         }
 
-        uuid_copy (local->parent_loc.gfid, local->parent_loc.inode->gfid);
+        gf_uuid_copy (local->parent_loc.gfid, local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
         STACK_WIND (frame, mq_release_parent_lock,
@@ -1613,8 +1613,8 @@ mq_update_parent_size (call_frame_t *frame,
                 goto err;
         }
 
-        if (uuid_is_null (local->parent_loc.gfid))
-                        uuid_copy (local->parent_loc.gfid,
+        if (gf_uuid_is_null (local->parent_loc.gfid))
+                        gf_uuid_copy (local->parent_loc.gfid,
                                    local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
@@ -1741,8 +1741,8 @@ unlock:
                 goto err;
         }
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -1838,8 +1838,8 @@ mq_fetch_child_size_and_contri (call_frame_t *frame, void *cookie,
 
         mq_set_ctx_updation_status (local->ctx, _gf_false);
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -1900,7 +1900,7 @@ mq_markdirty (call_frame_t *frame, void *cookie,
         if (ret == -1)
                 goto err;
 
-        uuid_copy (local->parent_loc.gfid,
+        gf_uuid_copy (local->parent_loc.gfid,
                    local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 
@@ -2780,10 +2780,10 @@ mq_start_quota_txn_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                 goto out;
         }
 
-        if (uuid_is_null (child_loc.gfid))
-                uuid_copy (child_loc.gfid, child_loc.inode->gfid);
+        if (gf_uuid_is_null (child_loc.gfid))
+                gf_uuid_copy (child_loc.gfid, child_loc.inode->gfid);
 
-        if (uuid_is_null (child_loc.gfid)) {
+        if (gf_uuid_is_null (child_loc.gfid)) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_DEBUG, "UUID is null for %s",
                         child_loc.path);
@@ -2906,10 +2906,10 @@ mq_create_xattrs_task (void *opaque)
         this = args->this;
         THIS = this;
 
-        if (uuid_is_null (loc->gfid))
-                uuid_copy (loc->gfid, loc->inode->gfid);
+        if (gf_uuid_is_null (loc->gfid))
+                gf_uuid_copy (loc->gfid, loc->inode->gfid);
 
-        if (uuid_is_null (loc->gfid)) {
+        if (gf_uuid_is_null (loc->gfid)) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_DEBUG, "UUID is null for %s",
                         loc->path);
@@ -3228,10 +3228,10 @@ mq_update_dirty_inode_v2 (xlator_t *this, loc_t *loc, quota_inode_ctx_t *ctx,
                 goto out;
         }
 
-        if (uuid_is_null (loc->gfid))
-                uuid_copy (loc->gfid, loc->inode->gfid);
+        if (gf_uuid_is_null (loc->gfid))
+                gf_uuid_copy (loc->gfid, loc->inode->gfid);
 
-        if (uuid_is_null (loc->gfid)) {
+        if (gf_uuid_is_null (loc->gfid)) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_DEBUG, "UUID is null for %s",
                         loc->path);
@@ -3402,7 +3402,7 @@ mq_inspect_directory_xattr_task (void *opaque)
         if (!loc_is_root(loc)) {
                 contribution = mq_add_new_contribution_node (this, ctx, loc);
                 if (contribution == NULL) {
-                        if (!uuid_is_null (loc->inode->gfid))
+                        if (!gf_uuid_is_null (loc->inode->gfid))
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "cannot add a new contribution node "
                                         "(%s)", uuid_utoa (loc->inode->gfid));
@@ -3720,9 +3720,9 @@ _mq_inode_remove_done (call_frame_t *frame, void *cookie, xlator_t *this,
                 else {
                         loc.parent = inode_ref (other_dentry->parent);
                         loc.name = gf_strdup (other_dentry->name);
-                        uuid_copy (loc.pargfid , other_dentry->parent->gfid);
+                        gf_uuid_copy (loc.pargfid , other_dentry->parent->gfid);
                         loc.inode = inode_ref (inode);
-                        uuid_copy (loc.gfid, inode->gfid);
+                        gf_uuid_copy (loc.gfid, inode->gfid);
                         inode_path (other_dentry->parent, other_dentry->name,
                                     (char **)&loc.path);
 
@@ -3839,7 +3839,7 @@ mq_reduce_parent_size_xattr (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret < 0)
                 goto err;
 
-        uuid_copy (local->parent_loc.gfid,
+        gf_uuid_copy (local->parent_loc.gfid,
                    local->parent_loc.inode->gfid);
         GF_UUID_ASSERT (local->parent_loc.gfid);
 

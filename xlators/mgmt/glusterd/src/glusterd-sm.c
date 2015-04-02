@@ -252,7 +252,7 @@ glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
         new_ev_ctx->req = NULL;
 
         new_event->peername = gf_strdup (peerinfo->hostname);
-        uuid_copy (new_event->peerid, peerinfo->uuid);
+        gf_uuid_copy (new_event->peerid, peerinfo->uuid);
         new_event->ctx = new_ev_ctx;
 
         ret = glusterd_friend_sm_inject_event (new_event);
@@ -438,7 +438,7 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
 
                 if (!ret) {
                         new_event->peername = peerinfo->hostname;
-                        uuid_copy (new_event->peerid, peerinfo->uuid);
+                        gf_uuid_copy (new_event->peerid, peerinfo->uuid);
                         ret = glusterd_friend_sm_inject_event (new_event);
                 } else {
                         gf_log ("glusterd", GF_LOG_ERROR,
@@ -646,7 +646,7 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
                 }
 
                 new_event->peername = gf_strdup (peerinfo->hostname);
-                uuid_copy (new_event->peerid, peerinfo->uuid);
+                gf_uuid_copy (new_event->peerid, peerinfo->uuid);
 
                 ret = glusterd_friend_sm_inject_event (new_event);
                 if (ret) {
@@ -739,7 +739,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
 
         GF_ASSERT (ctx);
         ev_ctx = ctx;
-        uuid_copy (uuid, ev_ctx->uuid);
+        gf_uuid_copy (uuid, ev_ctx->uuid);
 
         rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (event->peerid, event->peername);
@@ -755,7 +755,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         /* TODO: Updating within a read-critical section is also invalid
          *       Update properly with updater synchronization
          */
-        uuid_copy (peerinfo->uuid, ev_ctx->uuid);
+        gf_uuid_copy (peerinfo->uuid, ev_ctx->uuid);
 
         rcu_read_unlock ();
 
@@ -822,7 +822,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         }
 
         new_event->peername = gf_strdup (event->peername);
-        uuid_copy (new_event->peerid, event->peerid);
+        gf_uuid_copy (new_event->peerid, event->peerid);
 
         new_ev_ctx = GF_CALLOC (1, sizeof (*new_ev_ctx),
                                 gf_gld_mt_friend_update_ctx_t);
@@ -831,7 +831,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        uuid_copy (new_ev_ctx->uuid, ev_ctx->uuid);
+        gf_uuid_copy (new_ev_ctx->uuid, ev_ctx->uuid);
         new_ev_ctx->hostname = gf_strdup (ev_ctx->hostname);
         new_ev_ctx->op = GD_FRIEND_UPDATE_ADD;
 

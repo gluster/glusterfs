@@ -316,7 +316,7 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if ((op_errno == ENOENT || op_errno == ESTALE) &&
-                    !uuid_is_null (local->loc.gfid)) {
+                    !gf_uuid_is_null (local->loc.gfid)) {
                         ret = svc_inode_ctx_get (this, inode, &inode_type);
                         if (ret < 0 && subvolume == FIRST_CHILD (this)) {
                                 gf_log (this->name, GF_LOG_DEBUG,
@@ -339,7 +339,7 @@ svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 parent = inode_ref (local->loc.parent);
         else {
                 parent = inode_parent (inode, NULL, NULL);
-                if (!parent && !uuid_is_null (local->loc.pargfid)) {
+                if (!parent && !gf_uuid_is_null (local->loc.pargfid)) {
                         parent = inode_find (inode->table,
                                              local->loc.pargfid);
                 }
@@ -443,7 +443,7 @@ svc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         */
 
         if (!loc->name) {
-                if (uuid_is_null (loc->inode->gfid)) {
+                if (gf_uuid_is_null (loc->inode->gfid)) {
                         subvolume = FIRST_CHILD (this);
                         local->subvolume = subvolume;
                         wind = _gf_true;
@@ -1682,9 +1682,9 @@ svc_readdir_on_special_dir (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                uuid_copy (local->loc.pargfid, fd->inode->gfid);
-                uuid_copy (local->loc.gfid, inode->gfid);
-                if (uuid_is_null (inode->gfid))
+                gf_uuid_copy (local->loc.pargfid, fd->inode->gfid);
+                gf_uuid_copy (local->loc.gfid, inode->gfid);
+                if (gf_uuid_is_null (inode->gfid))
                         ret = inode_path (fd->inode, private->path, &path);
                 else
                         ret = inode_path (inode, NULL, &path);

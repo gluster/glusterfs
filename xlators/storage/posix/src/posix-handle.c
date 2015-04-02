@@ -87,7 +87,7 @@ posix_make_ancestral_node (const char *priv_base_path, char *path, int pathsize,
                 strcat (real_path, "/");
                 strcat (real_path, path);
                 loc.inode = inode_ref (inode);
-                uuid_copy (loc.gfid, inode->gfid);
+                gf_uuid_copy (loc.gfid, inode->gfid);
 
                 entry->dict = posix_lookup_xattr_fill (THIS, real_path, &loc,
                                                        xdata, iabuf);
@@ -119,7 +119,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         int          ret        = -1;
         uuid_t       tmp_gfid   = {0, };
 
-        if (!path || !parent || !priv_base_path || uuid_is_null (gfid)) {
+        if (!path || !parent || !priv_base_path || gf_uuid_is_null (gfid)) {
                 goto out;
         }
 
@@ -135,7 +135,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                 inode = itable->root;
 
                 memset (&iabuf, 0, sizeof (iabuf));
-                uuid_copy (iabuf.ia_gfid, inode->gfid);
+                gf_uuid_copy (iabuf.ia_gfid, inode->gfid);
                 iabuf.ia_type = inode->ia_type;
 
                 ret = posix_make_ancestral_node (priv_base_path, path, pathsize,
@@ -163,7 +163,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         pgfidstr = strtok_r (linkname + SLEN("../../00/00/"), "/", &saveptr);
         dir_name = strtok_r (NULL, "/", &saveptr);
 
-        uuid_parse (pgfidstr, tmp_gfid);
+        gf_uuid_parse (pgfidstr, tmp_gfid);
 
         ret = posix_make_ancestryfromgfid (this, path, pathsize, head, type,
                                            tmp_gfid, handle_size,
@@ -609,7 +609,7 @@ posix_mv_old_trash_into_new_trash (xlator_t *this, char *old, char *new)
 
         if (!posix_does_old_trash_exists (old))
                 goto out;
-        uuid_generate (dest_name);
+        gf_uuid_generate (dest_name);
         snprintf (dest_old, sizeof (dest_old), "%s/%s", new,
                   uuid_utoa (dest_name));
         ret = rename (old, dest_old);

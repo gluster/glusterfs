@@ -450,7 +450,7 @@ ios_stat_add_to_list (struct ios_stat_head *list_head, uint64_t value,
                         if (cnt == list_head->members)
                                 last = entry;
 
-                        if (!uuid_compare (iosstat->gfid,
+                        if (!gf_uuid_compare (iosstat->gfid,
                             entry->iosstat->gfid)) {
                                 list_entry = entry;
                                 found = cnt;
@@ -1258,7 +1258,7 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
         iosstat->filename = gf_strdup (path);
-        uuid_copy (iosstat->gfid, buf->ia_gfid);
+        gf_uuid_copy (iosstat->gfid, buf->ia_gfid);
         LOCK_INIT (&iosstat->lock);
         ios_inode_ctx_set (fd->inode, this, iosstat);
 
@@ -1308,7 +1308,7 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                      gf_io_stats_mt_ios_stat);
                 if (iosstat) {
                         iosstat->filename = gf_strdup (path);
-                        uuid_copy (iosstat->gfid, fd->inode->gfid);
+                        gf_uuid_copy (iosstat->gfid, fd->inode->gfid);
                         LOCK_INIT (&iosstat->lock);
                         ios_inode_ctx_set (fd->inode, this, iosstat);
                 }
@@ -1562,7 +1562,7 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (iosstat) {
                 LOCK_INIT (&iosstat->lock);
                 iosstat->filename = gf_strdup(path);
-                uuid_copy (iosstat->gfid, buf->ia_gfid);
+                gf_uuid_copy (iosstat->gfid, buf->ia_gfid);
                 ios_inode_ctx_set (inode, this, iosstat);
         }
 

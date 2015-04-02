@@ -1358,7 +1358,7 @@ glusterd_store_rbstate_write (int fd, glusterd_volinfo_t *volinfo)
                                            buf);
                 if (ret)
                         goto out;
-                uuid_unparse (volinfo->rep_brick.rb_id, buf);
+                gf_uuid_unparse (volinfo->rep_brick.rb_id, buf);
                 ret = gf_store_save_value (fd, GF_REPLACE_BRICK_TID_KEY, buf);
         }
 
@@ -1440,7 +1440,7 @@ glusterd_store_node_state_write (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        uuid_unparse (volinfo->rebal.rebalance_id, buf);
+        gf_uuid_unparse (volinfo->rebal.rebalance_id, buf);
         ret = gf_store_save_value (fd, GF_REBALANCE_TID_KEY, buf);
         if (ret)
                 goto out;
@@ -2166,7 +2166,7 @@ glusterd_retrieve_uuid ()
                 goto out;
         }
 
-        uuid_parse (uuid_str, priv->uuid);
+        gf_uuid_parse (uuid_str, priv->uuid);
 
 out:
         GF_FREE (uuid_str);
@@ -2518,7 +2518,7 @@ glusterd_store_retrieve_rbstate (glusterd_volinfo_t *volinfo)
                                 }
                         } else if (!strncmp (key, GF_REPLACE_BRICK_TID_KEY,
                                              strlen (GF_REPLACE_BRICK_TID_KEY))) {
-                                        uuid_parse (value,
+                                        gf_uuid_parse (value,
                                                     volinfo->rep_brick.rb_id);
                         }
                 }
@@ -2592,7 +2592,7 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
                                 volinfo->rebal.defrag_status = atoi (value);
                 } else if (!strncmp (key, GF_REBALANCE_TID_KEY,
                                      strlen (GF_REBALANCE_TID_KEY))) {
-                        uuid_parse (value, volinfo->rebal.rebalance_id);
+                        gf_uuid_parse (value, volinfo->rebal.rebalance_id);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_DEFRAG_OP,
                                         strlen (GLUSTERD_STORE_KEY_DEFRAG_OP))) {
                         volinfo->rebal.op = atoi (value);
@@ -2736,7 +2736,7 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         volinfo->transport_type = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_ID,
                                      strlen (GLUSTERD_STORE_KEY_VOL_ID))) {
-                        ret = uuid_parse (value, volinfo->volume_id);
+                        ret = gf_uuid_parse (value, volinfo->volume_id);
                         if (ret)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
@@ -2776,7 +2776,7 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         volinfo->snap_max_hard_limit = (uint64_t) atoll (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
                               strlen (GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
-                        ret = uuid_parse (value, volinfo->restored_from_snap);
+                        ret = gf_uuid_parse (value, volinfo->restored_from_snap);
                         if (ret)
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "failed to parse restored snap's uuid");
@@ -3321,7 +3321,7 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
                  * snapshot is pending, or the brick is not
                  * a snapshotted brick, we continue
                 */
-                if ((uuid_compare (brickinfo->uuid, MY_UUID)) ||
+                if ((gf_uuid_compare (brickinfo->uuid, MY_UUID)) ||
                     (brickinfo->snap_status == -1) ||
                     (strlen(brickinfo->device_path) == 0))
                         continue;
@@ -3461,7 +3461,7 @@ glusterd_store_update_snap (glusterd_snap_t *snap)
 
                 if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_ID,
                                      strlen (GLUSTERD_STORE_KEY_SNAP_ID))) {
-                        ret = uuid_parse (value, snap->snap_id);
+                        ret = gf_uuid_parse (value, snap->snap_id);
                         if (ret)
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "Failed to parse uuid");
@@ -3826,7 +3826,7 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
         snprintf (peerdir, PATH_MAX, "%s/peers", priv->workdir);
 
 
-        if (uuid_is_null (peerinfo->uuid)) {
+        if (gf_uuid_is_null (peerinfo->uuid)) {
 
                 if (peerinfo->hostname) {
                         snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
@@ -3898,7 +3898,7 @@ glusterd_store_uuid_peerpath_set (glusterd_peerinfo_t *peerinfo, char *peerfpath
         GF_ASSERT (len >= PATH_MAX);
 
         glusterd_store_peerinfo_dirpath_set (peerdir, sizeof (peerdir));
-        uuid_unparse (peerinfo->uuid, str);
+        gf_uuid_unparse (peerinfo->uuid, str);
         snprintf (peerfpath, len, "%s/%s", peerdir, str);
 }
 
@@ -3968,7 +3968,7 @@ glusterd_store_create_peer_shandle (glusterd_peerinfo_t *peerinfo)
 
         GF_ASSERT (peerinfo);
 
-        if (uuid_is_null (peerinfo->uuid)) {
+        if (gf_uuid_is_null (peerinfo->uuid)) {
                 ret = glusterd_store_peerinfo_hostname_shandle_create (peerinfo);
         } else {
                 ret = glusterd_peerinfo_hostname_shandle_check_destroy (peerinfo);
@@ -4128,7 +4128,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
                         if (!strncmp (GLUSTERD_STORE_KEY_PEER_UUID, key,
                                       strlen (GLUSTERD_STORE_KEY_PEER_UUID))) {
                                 if (value)
-                                        uuid_parse (value, peerinfo->uuid);
+                                        gf_uuid_parse (value, peerinfo->uuid);
                         } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_STATE,
                                     key,
                                     strlen (GLUSTERD_STORE_KEY_PEER_STATE))) {
@@ -4220,7 +4220,7 @@ glusterd_recreate_all_snap_brick_mounts (xlator_t  *this)
         /* Recreate bricks of volumes restored from snaps */
         cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 /* If the volume is not a restored volume then continue */
-                if (uuid_is_null (volinfo->restored_from_snap))
+                if (gf_uuid_is_null (volinfo->restored_from_snap))
                         continue;
 
                 ret = glusterd_recreate_vol_brick_mounts (this, volinfo);

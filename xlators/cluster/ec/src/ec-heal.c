@@ -357,7 +357,7 @@ int32_t ec_heal_create(ec_heal_t * heal, uintptr_t mask, int32_t try_link)
     {
         memset(&loc, 0, sizeof(loc));
         loc.inode = heal->loc.inode;
-        uuid_copy(loc.gfid, heal->iatt.ia_gfid);
+        gf_uuid_copy(loc.gfid, heal->iatt.ia_gfid);
 
         ec_link(heal->fop->frame, heal->xl, mask, EC_MINIMUM_ONE,
                 ec_heal_link_cbk, heal, &loc, &heal->loc, xdata);
@@ -717,7 +717,7 @@ void ec_heal_prepare_others(ec_heal_t * heal)
         else
         {
             if ((heal->iatt.ia_type != cbk->iatt[0].ia_type) ||
-                (uuid_compare(heal->iatt.ia_gfid, cbk->iatt[0].ia_gfid) != 0))
+                (gf_uuid_compare(heal->iatt.ia_gfid, cbk->iatt[0].ia_gfid) != 0))
             {
                 ec_heal_remove(heal, cbk);
             }
@@ -846,7 +846,7 @@ int32_t ec_heal_open_others(ec_heal_t * heal)
         cbk = list_entry(item, ec_cbk_data_t, list);
 
         if ((cbk->op_ret < 0) || (cbk->iatt[0].ia_type != IA_IFREG) ||
-            (uuid_compare(heal->iatt.ia_gfid, cbk->iatt[0].ia_gfid) != 0))
+            (gf_uuid_compare(heal->iatt.ia_gfid, cbk->iatt[0].ia_gfid) != 0))
         {
             ec_heal_exclude(heal, cbk->mask);
         }
@@ -1293,7 +1293,7 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
             heal = fop->heal;
             /* root loc doesn't have pargfid/parent */
             if (loc_is_root (&heal->loc) ||
-                !uuid_is_null(heal->loc.pargfid) || heal->loc.parent) {
+                !gf_uuid_is_null(heal->loc.pargfid) || heal->loc.parent) {
                     heal->nameheal = _gf_true;
                     return EC_STATE_DISPATCH;
             } else {
@@ -1332,7 +1332,7 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
                     return EC_STATE_HEAL_DISPATCH;
 
             /* Only heal data/metadata if enough information is supplied. */
-            if (uuid_is_null(heal->loc.gfid))
+            if (gf_uuid_is_null(heal->loc.gfid))
             {
                 ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
 

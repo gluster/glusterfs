@@ -575,7 +575,7 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
                         "failed to get gfid from dict");
                 goto wind;
         }
-        uuid_copy (gfid, uuid_req);
+        gf_uuid_copy (gfid, uuid_req);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
 
@@ -711,7 +711,7 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
                         "failed to get gfid from dict");
                 goto wind;
         }
-        uuid_copy (gfid, uuid_req);
+        gf_uuid_copy (gfid, uuid_req);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 2);
 
@@ -839,7 +839,7 @@ changelog_mknod (call_frame_t *frame,
                         "failed to get gfid from dict");
                 goto wind;
         }
-        uuid_copy (gfid, uuid_req);
+        gf_uuid_copy (gfid, uuid_req);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
 
@@ -923,7 +923,7 @@ changelog_create_cbk (call_frame_t *frame,
 
         /* fill the event structure.. similar to open() */
         ev.ev_type = CHANGELOG_OP_TYPE_CREATE;
-        uuid_copy (ev.u.create.gfid, buf->ia_gfid);
+        gf_uuid_copy (ev.u.create.gfid, buf->ia_gfid);
         ev.u.create.flags = fd->flags;
         changelog_dispatch_event (this, priv, &ev);
 
@@ -993,7 +993,7 @@ changelog_create (call_frame_t *frame, xlator_t *this,
                         "failed to get gfid from dict");
                 goto wind;
         }
-        uuid_copy (gfid, uuid_req);
+        gf_uuid_copy (gfid, uuid_req);
 
         /* init with two extra records */
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
@@ -1676,7 +1676,7 @@ changelog_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* fill the event structure */
         ev.ev_type = CHANGELOG_OP_TYPE_OPEN;
-        uuid_copy (ev.u.open.gfid, fd->inode->gfid);
+        gf_uuid_copy (ev.u.open.gfid, fd->inode->gfid);
         ev.u.open.flags = fd->flags;
         changelog_dispatch_event (this, priv, &ev);
 
@@ -1768,7 +1768,7 @@ changelog_release (xlator_t *this, fd_t *fd)
         priv = this->private;
 
         ev.ev_type = CHANGELOG_OP_TYPE_RELEASE;
-        uuid_copy (ev.u.release.gfid, fd->inode->gfid);
+        gf_uuid_copy (ev.u.release.gfid, fd->inode->gfid);
         changelog_dispatch_event (this, priv, &ev);
 
         (void) fd_ctx_del (fd, this, NULL);

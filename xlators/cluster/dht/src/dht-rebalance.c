@@ -154,7 +154,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
 
         conf = this->private;
 
-        if (uuid_is_null (loc->pargfid)) {
+        if (gf_uuid_is_null (loc->pargfid)) {
                 gf_msg ("", GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed :"
@@ -162,7 +162,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                 goto out;
         }
 
-        if (uuid_is_null (loc->gfid)) {
+        if (gf_uuid_is_null (loc->gfid)) {
                 gf_msg ("", GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed :"
@@ -381,7 +381,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         ret = syncop_lookup (to, loc, NULL, &new_stbuf, NULL, NULL);
         if (!ret) {
                 /* File exits in the destination, check if gfid matches */
-                if (uuid_compare (stbuf->ia_gfid, new_stbuf.ia_gfid) != 0) {
+                if (gf_uuid_compare (stbuf->ia_gfid, new_stbuf.ia_gfid) != 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_GFID_MISMATCH,
                                 "file %s exists in %s with different gfid",
@@ -428,7 +428,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         ret = syncop_lookup (to, loc, NULL, &check_stbuf, NULL, NULL);
         if (!ret) {
 
-                if (uuid_compare (stbuf->ia_gfid, check_stbuf.ia_gfid) != 0) {
+                if (gf_uuid_compare (stbuf->ia_gfid, check_stbuf.ia_gfid) != 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_GFID_MISMATCH,
                                 "file %s exists in %s with different gfid,"
@@ -918,7 +918,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         flock.l_type = F_WRLCK;
 
         tmp_loc.inode = inode_ref (loc->inode);
-        uuid_copy (tmp_loc.gfid, loc->gfid);
+        gf_uuid_copy (tmp_loc.gfid, loc->gfid);
         tmp_loc.path = gf_strdup(loc->path);
 
         ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc, F_SETLKW,
@@ -1155,7 +1155,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 rcvd_enoent_from_src = 1;
         }
 
-        if ((uuid_compare (empty_iatt.ia_gfid, loc->gfid) == 0 ) &&
+        if ((gf_uuid_compare (empty_iatt.ia_gfid, loc->gfid) == 0 ) &&
             (!rcvd_enoent_from_src)) {
                 /* take out the source from namespace */
                 ret = syncop_unlink (from, loc);
@@ -1511,7 +1511,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 goto out;
                         }
 
-                        if (uuid_is_null (entry->d_stat.ia_gfid)) {
+                        if (gf_uuid_is_null (entry->d_stat.ia_gfid)) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_GFID_NULL,
                                         "%s/%s gfid not present", loc->path,
@@ -1519,9 +1519,9 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
                         }
 
-                        uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
+                        gf_uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
 
-                        if (uuid_is_null (loc->gfid)) {
+                        if (gf_uuid_is_null (loc->gfid)) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_GFID_NULL,
                                         "%s/%s gfid not present", loc->path,
@@ -1529,7 +1529,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
                         }
 
-                        uuid_copy (entry_loc.pargfid, loc->gfid);
+                        gf_uuid_copy (entry_loc.pargfid, loc->gfid);
 
                         entry_loc.inode->ia_type = entry->d_stat.ia_type;
 
@@ -1566,8 +1566,8 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 continue;
                         }
 
-                        if (uuid_parse (uuid_str, node_uuid)) {
-                                gf_log (this->name, GF_LOG_ERROR, "uuid_parse "
+                        if (gf_uuid_parse (uuid_str, node_uuid)) {
+                                gf_log (this->name, GF_LOG_ERROR, "gf_uuid_parse "
                                         "failed for %s", entry_loc.path);
                                 continue;
                         }
@@ -1575,7 +1575,7 @@ gf_defrag_migrate_data (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         /* if file belongs to different node, skip migration
                          * the other node will take responsibility of migration
                          */
-                        if (uuid_compare (node_uuid, defrag->node_uuid)) {
+                        if (gf_uuid_compare (node_uuid, defrag->node_uuid)) {
                                 gf_msg_trace (this->name, 0, "%s does not"
                                               "belong to this node",
                                               entry_loc.path);
@@ -1781,7 +1781,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 goto out;
                         }
 
-                        if (uuid_is_null (entry->d_stat.ia_gfid)) {
+                        if (gf_uuid_is_null (entry->d_stat.ia_gfid)) {
                                 gf_log (this->name, GF_LOG_ERROR, "%s/%s"
                                         " gfid not present", loc->path,
                                          entry->d_name);
@@ -1789,7 +1789,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         }
 
 
-                        uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
+                        gf_uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
 
                         /*In case the gfid stored in the inode by inode_link
                          * and the gfid obtained in the lookup differs, then
@@ -1805,14 +1805,14 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         entry_loc.inode = linked_inode;
                         inode_unref (inode);
 
-                        if (uuid_is_null (loc->gfid)) {
+                        if (gf_uuid_is_null (loc->gfid)) {
                                 gf_log (this->name, GF_LOG_ERROR, "%s/%s"
                                         " gfid not present", loc->path,
                                          entry->d_name);
                                 continue;
                         }
 
-                        uuid_copy (entry_loc.pargfid, loc->gfid);
+                        gf_uuid_copy (entry_loc.pargfid, loc->gfid);
 
                         ret = syncop_lookup (this, &entry_loc, NULL, &iatt,
                                              NULL, NULL);

@@ -298,7 +298,7 @@ out:
                 gf_log (frame->this->name, GF_LOG_DEBUG,
                         "Volume Id: %s", volume_id_str);
                 pthread_mutex_lock (&fs->mutex);
-                uuid_parse (volume_id_str, fs->vol_uuid);
+                gf_uuid_parse (volume_id_str, fs->vol_uuid);
                 pthread_mutex_unlock (&fs->mutex);
         }
 
@@ -333,7 +333,7 @@ pub_glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
         pthread_mutex_lock (&fs->mutex);
         {
                 /* check if the volume uuid is initialized */
-                if (!uuid_is_null (fs->vol_uuid)) {
+                if (!gf_uuid_is_null (fs->vol_uuid)) {
                         pthread_mutex_unlock (&fs->mutex);
                         goto done;
                 }
@@ -343,7 +343,7 @@ pub_glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
         /* Need to fetch volume_uuid */
         glfs_get_volume_info (fs);
 
-        if (uuid_is_null (fs->vol_uuid)) {
+        if (gf_uuid_is_null (fs->vol_uuid)) {
                 gf_log (THIS->name, GF_LOG_ERROR, "Unable to fetch volume UUID");
                 return -1;
         }

@@ -595,7 +595,7 @@ void uuid__generate_time(uuid_t out, int *num)
 	uuid_pack(&uu, out);
 }
 
-void uuid_generate_time(uuid_t out)
+void gf_uuid_generate_time(uuid_t out)
 {
 #ifdef TLS
 	THREAD_LOCAL int		num = 0;
@@ -662,7 +662,7 @@ void uuid__generate_random(uuid_t out, int *num)
 	}
 }
 
-void uuid_generate_random(uuid_t out)
+void gf_uuid_generate_random(uuid_t out)
 {
 	int	num = 1;
 	/* No real reason to use the daemon for random uuid's -- yet */
@@ -672,15 +672,15 @@ void uuid_generate_random(uuid_t out)
 
 
 /*
- * This is the generic front-end to uuid_generate_random and
- * uuid_generate_time.  It uses uuid_generate_random only if
+ * This is the generic front-end to gf_uuid_generate_random and
+ * gf_uuid_generate_time.  It uses gf_uuid_generate_random only if
  * /dev/urandom is available, since otherwise we won't have
  * high-quality randomness.
  */
-void uuid_generate(uuid_t out)
+void gf_uuid_generate(uuid_t out)
 {
 	if (get_random_fd() >= 0)
-		uuid_generate_random(out);
+		gf_uuid_generate_random(out);
 	else
-		uuid_generate_time(out);
+		gf_uuid_generate_time(out);
 }

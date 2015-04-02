@@ -37,8 +37,8 @@ mq_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
         if (parent)
                 loc->parent = inode_ref (parent);
 
-        if (!uuid_is_null (inode->gfid))
-                uuid_copy (loc->gfid, inode->gfid);
+        if (!gf_uuid_is_null (inode->gfid))
+                gf_uuid_copy (loc->gfid, inode->gfid);
 
         loc->path = gf_strdup (path);
         if (!loc->path) {
@@ -140,7 +140,7 @@ mq_get_contribution_node (inode_t *inode, quota_inode_ctx_t *ctx)
                 goto out;
 
         list_for_each_entry (temp, &ctx->contribution_head, contri_list) {
-                if (uuid_compare (temp->gfid, inode->gfid) == 0) {
+                if (gf_uuid_compare (temp->gfid, inode->gfid) == 0) {
                         contri = temp;
                         goto out;
                 }
@@ -171,7 +171,7 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
         inode_contribution_t *contribution = NULL;
 
         if (!loc->parent) {
-                if (!uuid_is_null (loc->pargfid))
+                if (!gf_uuid_is_null (loc->pargfid))
                         loc->parent = inode_find (loc->inode->table,
                                                   loc->pargfid);
 
@@ -185,7 +185,7 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
         list_for_each_entry (contribution, &ctx->contribution_head,
                              contri_list) {
                 if (loc->parent &&
-                    uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
+                    gf_uuid_compare (contribution->gfid, loc->parent->gfid) == 0) {
                         goto out;
                 }
         }
@@ -196,7 +196,7 @@ __mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
 
         contribution->contribution = 0;
 
-        uuid_copy (contribution->gfid, loc->parent->gfid);
+        gf_uuid_copy (contribution->gfid, loc->parent->gfid);
 
 	LOCK_INIT (&contribution->lock);
         INIT_LIST_HEAD (&contribution->contri_list);
@@ -218,7 +218,7 @@ mq_add_new_contribution_node (xlator_t *this, quota_inode_ctx_t *ctx,
                 return NULL;
 
         if (((loc->path) && (strcmp (loc->path, "/") == 0))
-            || (!loc->path && uuid_is_null (loc->pargfid)))
+            || (!loc->path && gf_uuid_is_null (loc->pargfid)))
                 return NULL;
 
         LOCK (&ctx->lock);
@@ -242,7 +242,7 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
         GF_VALIDATE_OR_GOTO ("marker", dict, out);
         GF_VALIDATE_OR_GOTO ("marker", loc, out);
 
-        if (gfid && !uuid_is_null(gfid)) {
+        if (gfid && !gf_uuid_is_null(gfid)) {
                 GET_CONTRI_KEY (key, gfid, ret);
         } else if (loc->parent) {
                 GET_CONTRI_KEY (key, loc->parent->gfid, ret);

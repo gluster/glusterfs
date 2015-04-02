@@ -405,7 +405,7 @@ up_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         CACHE_INVALIDATE_DIR (frame, this, client, local->inode, flags);
 
         /* XXX: notify oldparent as well */
-/*        if (uuid_compare (preoldparent->ia_gfid, prenewparent->ia_gfid))
+/*        if (gf_uuid_compare (preoldparent->ia_gfid, prenewparent->ia_gfid))
                 CACHE_INVALIDATE (frame, this, client, prenewparent->ia_gfid, flags);*/
 
 out:

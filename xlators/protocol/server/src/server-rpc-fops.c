@@ -116,7 +116,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* we just looked up root ("/") */
                 stbuf->ia_ino = 1;
                 rootgfid[15]  = 1;
-                uuid_copy (stbuf->ia_gfid, rootgfid);
+                gf_uuid_copy (stbuf->ia_gfid, rootgfid);
                 if (inode->ia_type == 0)
                         inode->ia_type = stbuf->ia_type;
         }

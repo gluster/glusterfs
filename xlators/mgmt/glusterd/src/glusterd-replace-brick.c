@@ -1682,7 +1682,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 ret = -1;
                                 goto out;
                         }
-                        if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
+                        if (!gf_uuid_is_null (volinfo->rep_brick.rb_id)) {
                                 ret = glusterd_copy_uuid_to_dict
                                         (volinfo->rep_brick.rb_id, ctx,
                                          GF_REPLACE_BRICK_TID_KEY);
@@ -1709,7 +1709,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 "Missing replace-brick-id");
                         ret = 0;
                 } else {
-                        uuid_parse (task_id_str, volinfo->rep_brick.rb_id);
+                        gf_uuid_parse (task_id_str, volinfo->rep_brick.rb_id);
                 }
 
                 if (gf_is_local_addr (dst_brickinfo->hostname)) {
@@ -1815,7 +1815,7 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                 glusterd_brickinfo_delete (volinfo->rep_brick.dst_brick);
                 volinfo->rep_brick.src_brick = NULL;
                 volinfo->rep_brick.dst_brick = NULL;
-                uuid_clear (volinfo->rep_brick.rb_id);
+                gf_uuid_clear (volinfo->rep_brick.rb_id);
         }
         break;
 

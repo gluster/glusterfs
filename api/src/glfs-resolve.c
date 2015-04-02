@@ -93,7 +93,7 @@ glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode)
 	if (newinode)
 		return newinode;
 
-	uuid_copy (loc.gfid, oldinode->gfid);
+	gf_uuid_copy (loc.gfid, oldinode->gfid);
 	loc.inode = inode_new (subvol->itable);
 	if (!loc.inode)
 		return NULL;
@@ -162,7 +162,7 @@ glfs_resolve_symlink (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 	int    ret = -1;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 	ret = inode_path (inode, NULL, &rpath);
 	if (ret < 0)
 		goto out;
@@ -191,7 +191,7 @@ glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 	char       *path = NULL;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	ret = inode_path (loc.inode, NULL, &path);
 	loc.path = path;
@@ -224,7 +224,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	loc.name = component;
 
 	loc.parent = inode_ref (parent);
-	uuid_copy (loc.pargfid, parent->gfid);
+	gf_uuid_copy (loc.pargfid, parent->gfid);
 
         /* /.. and /. should point back to /
            we lookup using inode and gfid of root
@@ -247,7 +247,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 
 
 	if (loc.inode) {
-		uuid_copy (loc.gfid, loc.inode->gfid);
+		gf_uuid_copy (loc.gfid, loc.inode->gfid);
 		reval = 1;
 
 		if (!force_lookup) {
@@ -256,7 +256,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 			goto found;
 		}
 	} else {
-		uuid_generate (gfid);
+		gf_uuid_generate (gfid);
 		loc.inode = inode_new (parent->table);
                 if (!loc.inode) {
                         errno = ENOMEM;
@@ -305,7 +305,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 			goto out;
 		}
 
-		uuid_generate (gfid);
+		gf_uuid_generate (gfid);
 
 		ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
 		if (ret) {
@@ -458,13 +458,13 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 
 	loc->parent = parent;
 	if (parent) {
-		uuid_copy (loc->pargfid, parent->gfid);
+		gf_uuid_copy (loc->pargfid, parent->gfid);
 		loc->name = component;
 	}
 
 	loc->inode = inode;
 	if (inode) {
-		uuid_copy (loc->gfid, inode->gfid);
+		gf_uuid_copy (loc->gfid, inode->gfid);
 		if (iatt)
 			*iatt = ciatt;
 		ret = 0;
@@ -644,7 +644,7 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
                 goto out;
         }
 
-        uuid_copy (loc.gfid, oldinode->gfid);
+        gf_uuid_copy (loc.gfid, oldinode->gfid);
 
 
 	if (IA_ISDIR (oldinode->ia_type))
@@ -757,7 +757,7 @@ __glfs_migrate_openfds (struct glfs *fs, xlator_t *subvol)
 	fd_t *fd = NULL;
 
 	list_for_each_entry (glfd, &fs->openfds, openfds) {
-		if (uuid_is_null (glfd->fd->inode->gfid)) {
+		if (gf_uuid_is_null (glfd->fd->inode->gfid)) {
 			gf_log (fs->volname, GF_LOG_INFO,
 				"skipping openfd %p/%p in graph %s (%d)",
 				glfd, glfd->fd,	graphid_str(subvol),
@@ -1002,7 +1002,7 @@ glfs_create_object (loc_t *loc, struct glfs_object **retobject)
 	}
 
 	object->inode = loc->inode;
-	uuid_copy (object->gfid, object->inode->gfid);
+	gf_uuid_copy (object->gfid, object->inode->gfid);
 
 	/* we hold the reference */
 	loc->inode = NULL;
