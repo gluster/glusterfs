@@ -80,10 +80,10 @@ TEST move_files $M1
 # It's regrettable that renaming 1000 files might take more than 30 seconds,
 # but on our test systems sometimes it does, so double the time from what we'd
 # use otherwise.  There still seem to be some spurious failures, 1 in 20 when
-# this does not complete, added an additional 15 seconds to take false reports
-# out of the system, during test runs.
-EXPECT_WITHIN 75 "done" cat $M0/status_0
-EXPECT_WITHIN 75 "done" cat $M1/status_1
+# this does not complete, added an additional 60 seconds to take false reports
+# out of the system, during test runs, especially on slower test systems.
+EXPECT_WITHIN 120 "done" cat $M0/status_0
+EXPECT_WITHIN 120 "done" cat $M1/status_1
 
 TEST umount $M0
 TEST umount $M1
