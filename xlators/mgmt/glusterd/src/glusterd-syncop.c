@@ -1159,6 +1159,13 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                                   txn_opinfo->start_ts) > 0)
                         continue;
 
+                if (!peerinfo->connected)
+                        continue;
+                if (op != GD_OP_SYNC_VOLUME &&
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                        continue;
+
+
                 if (conf->op_version < GD_OP_VERSION_3_6_0) {
                         /* Reset lock status */
                         peerinfo->locked = _gf_false;
@@ -1282,6 +1289,13 @@ stage_done:
                 if (timespec_cmp (peerinfo->create_ts,
                                   txn_opinfo->start_ts) > 0)
                         continue;
+
+                if (!peerinfo->connected)
+                        continue;
+                if (op != GD_OP_SYNC_VOLUME &&
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                        continue;
+
                 ret = gd_syncop_mgmt_stage_op (peerinfo, &args,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, op_ctx);
@@ -1403,6 +1417,12 @@ commit_done:
                                   txn_opinfo->start_ts) > 0)
                         continue;
 
+                if (!peerinfo->connected)
+                        continue;
+                if (op != GD_OP_SYNC_VOLUME &&
+                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                        continue;
+
                 ret = gd_syncop_mgmt_commit_op (peerinfo, &args,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, op_ctx);
@@ -1473,6 +1493,13 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                         if (timespec_cmp (peerinfo->create_ts,
                                           txn_opinfo->start_ts) > 0)
                                 continue;
+
+                        if (!peerinfo->connected)
+                                continue;
+                        if (op != GD_OP_SYNC_VOLUME &&
+                            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                                continue;
+
                         /* Only unlock peers that were locked */
                         if (peerinfo->locked) {
                                 gd_syncop_mgmt_unlock (peerinfo, &args,
@@ -1491,6 +1518,12 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                                  */
                                 if (timespec_cmp (peerinfo->create_ts,
                                                   txn_opinfo->start_ts) > 0)
+                                        continue;
+
+                                if (!peerinfo->connected)
+                                        continue;
+                                if (op != GD_OP_SYNC_VOLUME &&
+                                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                                         continue;
 
                                 gd_syncop_mgmt_v3_unlock (op_ctx, peerinfo,
