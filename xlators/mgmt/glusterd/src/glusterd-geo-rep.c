@@ -1115,7 +1115,7 @@ glusterd_gsync_get_uuid (char *slave, glusterd_volinfo_t *vol,
         t = strchr (slaveentry, ':');
         GF_ASSERT (t);
         *t = '\0';
-        ret = uuid_parse (slaveentry, uuid);
+        ret = gf_uuid_parse (slaveentry, uuid);
         *t = ':';
 
  out:
@@ -3647,7 +3647,7 @@ fetch_data:
                 gsync_count = 0;
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
                 sts_val = GF_CALLOC (1, sizeof(gf_gsync_status_t),

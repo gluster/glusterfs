@@ -554,7 +554,7 @@ glusterd_find_gfid_match (uuid_t gfid, unsigned char *buf, size_t bytes_read,
 
         while (gfid_index != bytes_read) {
                 memcpy ((void *)tmp_buf, (void *)&buf[gfid_index], 16);
-                if (!uuid_compare (gfid, tmp_buf)) {
+                if (!gf_uuid_compare (gfid, tmp_buf)) {
                         if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE) {
                                 shift_count = bytes_read - (gfid_index + 16);
                                 memmove ((void *)&buf[gfid_index],
@@ -674,7 +674,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 ret = -1;
                 goto out;
         }
-        uuid_parse (gfid_str, gfid);
+        gf_uuid_parse (gfid_str, gfid);
 
         for (;;) {
                 bytes_read = read (conf_fd, (void*)&buf, entry_sz);
@@ -1251,7 +1251,7 @@ glusterd_get_gfid_from_brick (dict_t *dict, glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
                 if (brickinfo->vg[0])

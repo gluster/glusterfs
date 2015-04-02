@@ -330,7 +330,7 @@ pub_glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 		goto out;
 	}
 
-	uuid_generate (gfid);
+	gf_uuid_generate (gfid);
 	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
 	if (ret) {
 		ret = -1;
@@ -1317,7 +1317,7 @@ pub_glfs_symlink (struct glfs *fs, const char *data, const char *path)
 		goto out;
 	}
 
-	uuid_generate (gfid);
+	gf_uuid_generate (gfid);
 	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
 	if (ret) {
 		ret = -1;
@@ -1452,7 +1452,7 @@ pub_glfs_mknod (struct glfs *fs, const char *path, mode_t mode, dev_t dev)
 		goto out;
 	}
 
-	uuid_generate (gfid);
+	gf_uuid_generate (gfid);
 	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
 	if (ret) {
 		ret = -1;
@@ -1536,7 +1536,7 @@ pub_glfs_mkdir (struct glfs *fs, const char *path, mode_t mode)
 		goto out;
 	}
 
-	uuid_generate (gfid);
+	gf_uuid_generate (gfid);
 	ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
 	if (ret) {
 		ret = -1;
@@ -3537,7 +3537,7 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 
         INIT_LIST_HEAD (&u_list->upcall_list);
 
-        uuid_copy (u_list->gfid, gfid);
+        gf_uuid_copy (u_list->gfid, gfid);
         u_list->event_type = upcall_data->event_type;
         u_list->flags = (uint32_t)(upcall_data->flags);
         u_list->expire_time_attr = upcall_data->expire_time_attr;

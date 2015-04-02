@@ -1793,7 +1793,7 @@ brick_graph_add_marker (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 goto out;
 
-        uuid_unparse (volinfo->volume_id, volume_id);
+        gf_uuid_unparse (volinfo->volume_id, volume_id);
         ret = xlator_set_option (xl, "volume-uuid", volume_id);
         if (ret)
                 goto out;

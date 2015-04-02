@@ -88,8 +88,8 @@ do {\
                 0, sizeof(gfdb_time_t));\
         memset(&(ctr_local->gfdb_db_record.gfdb_unwind_change_time),\
                 0, sizeof(gfdb_time_t));\
-        uuid_clear (ctr_local->gfdb_db_record.gfid);\
-        uuid_clear (ctr_local->gfdb_db_record.pargfid);\
+        gf_uuid_clear (ctr_local->gfdb_db_record.gfid);\
+        gf_uuid_clear (ctr_local->gfdb_db_record.pargfid);\
         memset(ctr_local->gfdb_db_record.file_name, 0, PATH_MAX);\
         memset(ctr_local->gfdb_db_record.old_file_name, 0, PATH_MAX);\
         ctr_local->gfdb_db_record.gfdb_fop_type = GFDB_FOP_INVALID_OP;\

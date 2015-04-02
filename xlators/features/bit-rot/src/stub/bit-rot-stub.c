@@ -282,7 +282,7 @@ br_stub_fill_local (br_stub_local_t *local,
                 local->u.context.fd = fd_ref (fd);
         if (inode)
                 local->u.context.inode = inode_ref (inode);
-        uuid_copy (local->u.context.gfid, gfid);
+        gf_uuid_copy (local->u.context.gfid, gfid);
 
         /* mark inode dirty/fresh according to durability */
         local->u.context.markdirty = (dirty) ? _gf_true : _gf_false;
@@ -799,8 +799,8 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
         if (name
             && (strncmp (name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
                           strlen (GLUSTERFS_GET_BR_STUB_INIT_TIME)) == 0)
-            && ((uuid_compare (loc->gfid, rootgfid) == 0)
-                || (uuid_compare (loc->inode->gfid, rootgfid) == 0))) {
+            && ((gf_uuid_compare (loc->gfid, rootgfid) == 0)
+                || (gf_uuid_compare (loc->inode->gfid, rootgfid) == 0))) {
                 br_stub_send_stub_init_time (frame, this);
                 return 0;
         }
@@ -844,7 +844,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (name
             && (strncmp (name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
                          strlen (GLUSTERFS_GET_BR_STUB_INIT_TIME)) == 0)
-            && (uuid_compare (fd->inode->gfid, rootgfid) == 0)) {
+            && (gf_uuid_compare (fd->inode->gfid, rootgfid) == 0)) {
                 br_stub_send_stub_init_time (frame, this);
                 return 0;
         }
@@ -1269,7 +1269,7 @@ br_stub_send_ipc_fop (xlator_t *this,
         ev.ev_type = CHANGELOG_OP_TYPE_BR_RELEASE;
         ev.u.releasebr.flags = flags;
         ev.u.releasebr.version = releaseversion;
-        uuid_copy (ev.u.releasebr.gfid, fd->inode->gfid);
+        gf_uuid_copy (ev.u.releasebr.gfid, fd->inode->gfid);
 
         xdata = dict_new ();
         if (!xdata) {

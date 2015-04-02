@@ -300,7 +300,7 @@ cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 } else {
                         local->volmark = memdup (volmark, sizeof (*volmark));
                         VALIDATE_OR_GOTO (local->volmark, unlock);
-                        uuid_unparse (volmark->uuid, vol_uuid);
+                        gf_uuid_unparse (volmark->uuid, vol_uuid);
                         if (volmark->retval)
                                 local->retval = volmark->retval;
                         local->count[MCNT_FOUND]++;

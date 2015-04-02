@@ -674,7 +674,7 @@ dht_iatt_merge (xlator_t *this, struct iatt *to,
 
         to->ia_dev      = from->ia_dev;
 
-        uuid_copy (to->ia_gfid, from->ia_gfid);
+        gf_uuid_copy (to->ia_gfid, from->ia_gfid);
 
         to->ia_ino      = from->ia_ino;
         to->ia_prot     = from->ia_prot;
@@ -914,7 +914,7 @@ dht_migration_complete_check_task (void *data)
                         goto out;
                 }
 
-                if (uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
+                if (gf_uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_GFID_MISMATCH,
                                 "%s: gfid different on the target file on %s",
@@ -1111,7 +1111,7 @@ dht_rebalance_inprogress_task (void *data)
                         goto out;
                 }
 
-                if (uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
+                if (gf_uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_GFID_MISMATCH,
                                 "%s: gfid different on the target file on %s",
@@ -1693,7 +1693,7 @@ dht_lock_request_cmp (const void *val1, const void *val2)
         ret = strcmp (lock1->xl->name, lock2->xl->name);
 
         if (ret == 0) {
-                ret = uuid_compare (lock1->loc.gfid, lock2->loc.gfid);
+                ret = gf_uuid_compare (lock1->loc.gfid, lock2->loc.gfid);
         }
 
 out:

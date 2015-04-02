@@ -81,7 +81,7 @@ quota_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-                uuid_copy (loc->gfid, inode->gfid);
+                gf_uuid_copy (loc->gfid, inode->gfid);
         }
 
         if (parent) {
@@ -215,7 +215,7 @@ __quota_dentry_new (quota_inode_ctx_t *ctx, char *name, uuid_t par)
                 goto err;
         }
 
-        uuid_copy (dentry->par, par);
+        gf_uuid_copy (dentry->par, par);
 
         if (ctx != NULL)
                 list_add_tail (&dentry->next, &ctx->parents);
@@ -321,7 +321,7 @@ int32_t quota_find_common_ancestor (inode_t *inode1, inode_t *inode2,
         }
 
         if (cur_inode1 && cur_inode2) {
-                uuid_copy (*common_ancestor, cur_inode1->gfid);
+                gf_uuid_copy (*common_ancestor, cur_inode1->gfid);
                 ret = 0;
         }
 out:
@@ -436,7 +436,7 @@ check_ancestory_2 (xlator_t *this, quota_local_t *local, inode_t *inode)
 
         name = (char *) local->loc.name;
         if (local->loc.parent) {
-                uuid_copy (pgfid, local->loc.parent->gfid);
+                gf_uuid_copy (pgfid, local->loc.parent->gfid);
                 parent = local->loc.parent;
         }
 
@@ -458,7 +458,7 @@ check_ancestory_2 (xlator_t *this, quota_local_t *local, inode_t *inode)
 
                 if (name != NULL) {
                         name = NULL;
-                        uuid_clear (pgfid);
+                        gf_uuid_clear (pgfid);
                 }
 
                 inode_unref (cur_inode);
@@ -623,7 +623,7 @@ quota_add_parent (quota_dentry_t *dentry, struct list_head *list)
         }
 
         list_for_each_entry (entry, list, next) {
-                if (uuid_compare (dentry->par, entry->par) == 0) {
+                if (gf_uuid_compare (dentry->par, entry->par) == 0) {
                         found = _gf_true;
                         goto out;
                 }
@@ -680,7 +680,7 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 tmp_parent = NULL;
                         }
 
-                        uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
+                        gf_uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
 
                         loc.inode = inode_ref (entry->inode);
                         loc.parent = inode_ref (tmp_parent);
@@ -1162,14 +1162,14 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
         UNLOCK (&local->lock);
 
         if ( par != NULL ) {
-                uuid_copy (trav_uuid, par);
+                gf_uuid_copy (trav_uuid, par);
         }
 
         do {
                 /* In a rename operation, enforce should be stopped at common
                    ancestor */
-                if (!uuid_is_null (local->common_ancestor) &&
-                    !uuid_compare (_inode->gfid, local->common_ancestor)) {
+                if (!gf_uuid_is_null (local->common_ancestor) &&
+                    !gf_uuid_compare (_inode->gfid, local->common_ancestor)) {
                         quota_link_count_decrement (local);
                         break;
                 }
@@ -1207,7 +1207,7 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
                 if (name != NULL) {
                         name = NULL;
-                        uuid_clear (trav_uuid);
+                        gf_uuid_clear (trav_uuid);
                 }
 
                 if (parent == NULL) {
@@ -1358,7 +1358,7 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
 
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, loc->name) == 0) &&
-                            (uuid_compare (loc->parent->gfid,
+                            (gf_uuid_compare (loc->parent->gfid,
                                            dentry->par) == 0)) {
                                 found = 1;
                                 break;
@@ -1414,7 +1414,7 @@ quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         QUOTA_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
                             dict, postparent);
 
-        if (op_ret < 0 || this_inode == NULL || uuid_is_null(this_inode->gfid))
+        if (op_ret < 0 || this_inode == NULL || gf_uuid_is_null(this_inode->gfid))
                 goto out;
 
         check_ancestory_2 (this, local, this_inode);
@@ -1980,7 +1980,7 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, local->loc.name) == 0) &&
-                            (uuid_compare (local->loc.parent->gfid,
+                            (gf_uuid_compare (local->loc.parent->gfid,
                                            dentry->par) == 0)) {
                                 old_dentry = dentry;
                                 break;
@@ -2074,7 +2074,7 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, local->loc.name) == 0) &&
-                            (uuid_compare (local->loc.parent->gfid,
+                            (gf_uuid_compare (local->loc.parent->gfid,
                                            dentry->par) == 0)) {
                                 found = 1;
                                 gf_log (this->name, GF_LOG_WARNING,
@@ -2174,7 +2174,7 @@ quota_link_continue (call_frame_t *frame)
                 ret = quota_find_common_ancestor (local->oldloc.inode,
                                                   local->newloc.parent,
                                                   &common_ancestor);
-                if (ret < 0 || uuid_is_null(common_ancestor)) {
+                if (ret < 0 || gf_uuid_is_null(common_ancestor)) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to get "
                                 "common_ancestor for %s and %s",
                                 local->oldloc.path, local->newloc.path);
@@ -2194,7 +2194,7 @@ quota_link_continue (call_frame_t *frame)
                 /* No need to check quota limit if src and dst parents are same
                  */
                 if (src_parent == dst_parent ||
-                    uuid_compare (src_parent->gfid, dst_parent->gfid) == 0) {
+                    gf_uuid_compare (src_parent->gfid, dst_parent->gfid) == 0) {
                         inode_unref (src_parent);
                         inode_unref (dst_parent);
                         goto off;
@@ -2217,7 +2217,7 @@ quota_link_continue (call_frame_t *frame)
         {
                 local->link_count = 1;
                 local->delta = (ctx != NULL) ? ctx->buf.ia_blocks * 512 : 0;
-                uuid_copy (local->common_ancestor, common_ancestor);
+                gf_uuid_copy (local->common_ancestor, common_ancestor);
         }
         UNLOCK (&local->lock);
 
@@ -2256,7 +2256,7 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         /* No need to check quota limit if src and dst parents are same */
         if (oldloc->parent && newloc->parent &&
-            !uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
+            !gf_uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
                 gf_log (this->name, GF_LOG_DEBUG, "link %s -> %s are "
                         "in the same directory, so skip check limit",
                         oldloc->path, newloc->path);
@@ -2372,12 +2372,12 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 list_for_each_entry (dentry, &ctx->parents, next) {
                         if ((strcmp (dentry->name, local->oldloc.name) == 0) &&
-                            (uuid_compare (local->oldloc.parent->gfid,
+                            (gf_uuid_compare (local->oldloc.parent->gfid,
                                            dentry->par) == 0)) {
                                 old_dentry = dentry;
                         } else if ((strcmp (dentry->name,
                                             local->newloc.name) == 0) &&
-                                   (uuid_compare (local->newloc.parent->gfid,
+                                   (gf_uuid_compare (local->newloc.parent->gfid,
                                                   dentry->par) == 0)) {
                                 new_dentry_found = 1;
                                 gf_log (this->name, GF_LOG_WARNING,
@@ -2524,7 +2524,7 @@ quota_rename_continue (call_frame_t *frame)
         ret = quota_find_common_ancestor (local->oldloc.parent,
                                           local->newloc.parent,
                                           &common_ancestor);
-        if (ret < 0 || uuid_is_null(common_ancestor)) {
+        if (ret < 0 || gf_uuid_is_null(common_ancestor)) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to get "
                         "common_ancestor for %s and %s",
                         local->oldloc.path, local->newloc.path);
@@ -2535,7 +2535,7 @@ quota_rename_continue (call_frame_t *frame)
         LOCK (&local->lock);
         {
                 local->link_count = 1;
-                uuid_copy (local->common_ancestor, common_ancestor);
+                gf_uuid_copy (local->common_ancestor, common_ancestor);
         }
         UNLOCK (&local->lock);
 
@@ -2601,7 +2601,7 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         /* No need to check quota limit if src and dst parents are same */
         if (oldloc->parent && newloc->parent &&
-            !uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
+            !gf_uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
                 gf_log (this->name, GF_LOG_DEBUG, "rename %s -> %s are "
                         "in the same directory, so skip check limit",
                         oldloc->path, newloc->path);
@@ -4444,10 +4444,10 @@ quota_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     || (strcmp (entry->d_name, "..") == 0))
                         continue;
 
-                uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
+                gf_uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
                 loc.inode = inode_ref (entry->inode);
                 loc.parent = inode_ref (local->loc.inode);
-                uuid_copy (loc.pargfid, loc.parent->gfid);
+                gf_uuid_copy (loc.pargfid, loc.parent->gfid);
                 loc.name = entry->d_name;
 
                 quota_fill_inodectx (this, entry->inode, entry->dict,

@@ -358,7 +358,7 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        uuid_generate (volume_id);
+        gf_uuid_generate (volume_id);
         free_ptr = gf_strdup (uuid_utoa (volume_id));
         ret = dict_set_dynstr (dict, "volume-id", free_ptr);
         if (ret) {
@@ -371,7 +371,7 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         /* generate internal username and password */
 
-        uuid_generate (tmp_uuid);
+        gf_uuid_generate (tmp_uuid);
         username = gf_strdup (uuid_utoa (tmp_uuid));
         ret = dict_set_dynstr (dict, "internal-username", username);
         if (ret) {
@@ -380,7 +380,7 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        uuid_generate (tmp_uuid);
+        gf_uuid_generate (tmp_uuid);
         password = gf_strdup (uuid_utoa (tmp_uuid));
         ret = dict_set_dynstr (dict, "internal-password", password);
         if (ret) {
@@ -1058,7 +1058,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-        ret = uuid_parse (volume_uuid_str, volume_uuid);
+        ret = gf_uuid_parse (volume_uuid_str, volume_uuid);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Unable to parse volume id of"
                         " volume %s", volname);
@@ -1120,7 +1120,7 @@ glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
-                if (!uuid_compare (brick_info->uuid, MY_UUID)) {
+                if (!gf_uuid_compare (brick_info->uuid, MY_UUID)) {
 #ifdef HAVE_BD_XLATOR
                         if (brick_info->vg[0]) {
                                 ret = glusterd_is_valid_vg (brick_info, 1, msg);
@@ -1338,7 +1338,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
-                if ((uuid_compare (brickinfo->uuid, MY_UUID)) ||
+                if ((gf_uuid_compare (brickinfo->uuid, MY_UUID)) ||
                     (brickinfo->snap_status == -1))
                         continue;
 
@@ -1376,7 +1376,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                                 continue;
                         }
                 }
-                if (uuid_compare (volinfo->volume_id, volume_id)) {
+                if (gf_uuid_compare (volinfo->volume_id, volume_id)) {
                         snprintf (msg, sizeof (msg), "Volume id mismatch for "
                                   "brick %s:%s. Expected volume id %s, "
                                   "volume id %s found", brickinfo->hostname,
@@ -2069,7 +2069,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                         "Unable to get volume-id of volume %s", volname);
                 goto out;
         }
-        ret = uuid_parse (str, volinfo->volume_id);
+        ret = gf_uuid_parse (str, volinfo->volume_id);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "unable to parse uuid %s of volume %s", str, volname);
@@ -2146,7 +2146,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 }
 
 #ifdef HAVE_BD_XLATOR
-                if (!uuid_compare (brickinfo->uuid, MY_UUID)
+                if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)
                     && brickinfo->vg[0]) {
                         ret = glusterd_is_valid_vg (brickinfo, 0, msg);
                         if (ret) {
@@ -2298,7 +2298,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                         brick_count++;
                         /* Don't check bricks that are not owned by you
                          */
-                        if (uuid_compare (brickinfo->uuid, MY_UUID))
+                        if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                                 continue;
                         if (strlen(brickinfo->mount_dir) < 1) {
                                 brick_mount_dir = NULL;
@@ -2707,7 +2707,7 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
         index = -1;
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 index++;
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                         continue;
 
                 if (volinfo->transport_type == GF_TRANSPORT_RDMA) {

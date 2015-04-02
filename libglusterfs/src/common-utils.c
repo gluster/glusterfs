@@ -2336,7 +2336,7 @@ char *
 uuid_utoa (uuid_t uuid)
 {
         char *uuid_buffer = glusterfs_uuid_buf_get ();
-        uuid_unparse (uuid, uuid_buffer);
+        gf_uuid_unparse (uuid, uuid_buffer);
         return uuid_buffer;
 }
 
@@ -2346,7 +2346,7 @@ uuid_utoa_r (uuid_t uuid, char *dst)
 {
         if(!dst)
                 return NULL;
-        uuid_unparse (uuid, dst);
+        gf_uuid_unparse (uuid, dst);
         return dst;
 }
 

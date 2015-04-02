@@ -244,11 +244,11 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (local->postparent_size < postparent->ia_size)
                                 local->postparent_size = postparent->ia_size;
 
-                        if (uuid_is_null (local->ia_gfid))
-                                uuid_copy (local->ia_gfid, buf->ia_gfid);
+                        if (gf_uuid_is_null (local->ia_gfid))
+                                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
 
                         /* Make sure the gfid on all the nodes are same */
-                        if (uuid_compare (local->ia_gfid, buf->ia_gfid)) {
+                        if (gf_uuid_compare (local->ia_gfid, buf->ia_gfid)) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "%s: gfid different on subvolume %s",
                                         local->loc.path, prev->this->name);
@@ -259,7 +259,7 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!callcnt) {
                 if (local->op_ret == 0 && local->entry_self_heal_needed &&
-                    !uuid_is_null (local->loc.inode->gfid))
+                    !gf_uuid_is_null (local->loc.inode->gfid))
                         stripe_entry_self_heal (frame, this, local);
 
                 if (local->failed)
@@ -1485,8 +1485,8 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         /* Can be used as a mechanism to understand if mknod
                            was successful in at least one place */
-                        if (uuid_is_null (local->ia_gfid))
-                                uuid_copy (local->ia_gfid, buf->ia_gfid);
+                        if (gf_uuid_is_null (local->ia_gfid))
+                                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
 
 			if (stripe_ctx_handle(this, prev, local, xdata))
 				gf_log(this->name, GF_LOG_ERROR,
@@ -1512,7 +1512,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->failed)
                         local->op_ret = -1;
 
-                if ((local->op_ret == -1) && !uuid_is_null (local->ia_gfid)) {
+                if ((local->op_ret == -1) && !gf_uuid_is_null (local->ia_gfid)) {
                         /* ia_gfid set means, at least on one node 'mknod'
                            is successful */
                         local->call_count = priv->child_count;
@@ -1590,8 +1590,8 @@ stripe_mknod_first_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->preparent  = *preparent;
         local->postparent = *postparent;
 
-        if (uuid_is_null (local->ia_gfid))
-                uuid_copy (local->ia_gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->ia_gfid))
+                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
         local->preparent.ia_blocks  = local->preparent_blocks;
         local->preparent.ia_size    = local->preparent_size;
         local->postparent.ia_blocks = local->postparent_blocks;
@@ -4910,7 +4910,7 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 loc.inode = inode_ref (local_entry->inode);
 
-                uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
+                gf_uuid_copy (loc.gfid, local_entry->d_stat.ia_gfid);
 
                 local_ent->orig_frame = frame;
 

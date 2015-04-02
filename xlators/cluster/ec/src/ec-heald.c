@@ -144,7 +144,7 @@ ec_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
         loc.inode = inode_new (this->itable);
         if (!loc.inode)
                 goto out;
-        uuid_copy (loc.gfid, gfid);
+        gf_uuid_copy (loc.gfid, gfid);
 
         ret = syncop_lookup (subvol, &loc, NULL, &iatt, NULL, NULL);
         if (ret < 0)
@@ -169,7 +169,7 @@ ec_shd_index_inode (xlator_t *this, xlator_t *subvol)
         void    *index_gfid = NULL;
 
         rootloc.inode = inode_ref (this->itable->root);
-        uuid_copy (rootloc.gfid, rootloc.inode->gfid);
+        gf_uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
         ret = syncop_getxattr (subvol, &rootloc, &xattr,
                                GF_XATTROP_INDEX_GFID, NULL);
@@ -234,7 +234,7 @@ ec_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         gf_log (healer->this->name, GF_LOG_DEBUG, "got entry: %s",
                 entry->d_name);
 
-        ret = uuid_parse (entry->d_name, loc.gfid);
+        ret = gf_uuid_parse (entry->d_name, loc.gfid);
         if (ret)
                 return 0;
 
@@ -301,7 +301,7 @@ ec_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
 
         loc.parent = inode_ref (parent->inode);
         loc.name   = entry->d_name;
-        uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
+        gf_uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
 
         /* If this fails with ENOENT/ESTALE index is stale */
         ret = syncop_gfid_to_path (this->itable, subvol, loc.gfid,

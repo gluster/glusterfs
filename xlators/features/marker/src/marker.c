@@ -66,8 +66,8 @@ marker_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         if (inode) {
                 loc->inode = inode_ref (inode);
-                if (uuid_is_null (loc->gfid)) {
-                        uuid_copy (loc->gfid, loc->inode->gfid);
+                if (gf_uuid_is_null (loc->gfid)) {
+                        gf_uuid_copy (loc->gfid, loc->inode->gfid);
                 }
         }
 
@@ -501,8 +501,8 @@ marker_start_setxattr (call_frame_t *frame, xlator_t *this)
         if (!dict)
                 goto out;
 
-        if (local->loc.inode && uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        if (local->loc.inode && gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         GF_UUID_ASSERT (local->loc.gfid);
 
@@ -605,8 +605,8 @@ marker_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1 || local == NULL)
                 goto out;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         priv = this->private;
 
@@ -679,8 +679,8 @@ marker_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1 || local == NULL)
                 goto out;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         priv = this->private;
 
@@ -1089,7 +1089,7 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (priv->feature_enabled & GF_XTIME) {
                 //update marks on oldpath
-                uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
+                gf_uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
                 marker_xtime_update_marks (this, oplocal);
                 marker_xtime_update_marks (this, local);
         }
@@ -1244,7 +1244,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (newloc.name)
                         newloc.name++;
                 newloc.parent = inode_ref (local->loc.parent);
-                uuid_copy (newloc.gfid, oplocal->loc.inode->gfid);
+                gf_uuid_copy (newloc.gfid, oplocal->loc.inode->gfid);
 
                 STACK_WIND_COOKIE (frame, marker_rename_release_oldp_lock,
                                    frame->cookie, FIRST_CHILD(this),
@@ -1265,7 +1265,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (priv->feature_enabled & GF_XTIME) {
                         //update marks on oldpath
-                        uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
+                        gf_uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
                         marker_xtime_update_marks (this, oplocal);
                         marker_xtime_update_marks (this, local);
                 }
@@ -1385,8 +1385,8 @@ marker_get_newpath_contribution (call_frame_t *frame, void *cookie,
                  * reset them in the callback.
                  */
                 MARKER_SET_UID_GID (frame, local, frame->root);
-                if (uuid_is_null (local->loc.gfid))
-                        uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+                if (gf_uuid_is_null (local->loc.gfid))
+                        gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
                 GF_UUID_ASSERT (local->loc.gfid);
 
@@ -1439,8 +1439,8 @@ marker_get_oldpath_contribution (call_frame_t *frame, void *cookie,
          */
         MARKER_SET_UID_GID (frame, local, frame->root);
 
-        if (uuid_is_null (oplocal->loc.gfid))
-                        uuid_copy (oplocal->loc.gfid,
+        if (gf_uuid_is_null (oplocal->loc.gfid))
+                        gf_uuid_copy (oplocal->loc.gfid,
                                    oplocal->loc.inode->gfid);
 
         GF_UUID_ASSERT (oplocal->loc.gfid);
@@ -1567,7 +1567,7 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 goto err;
 
         if ((newloc->inode != NULL) && (newloc->parent != oldloc->parent)
-            && (uuid_compare (newloc->parent->gfid,
+            && (gf_uuid_compare (newloc->parent->gfid,
                               oldloc->parent->gfid) < 0)) {
                 lock_on = &local->parent_loc;
                 local->next_lock_on = &oplocal->parent_loc;
@@ -1767,8 +1767,8 @@ marker_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1 || local == NULL)
                 goto out;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         priv = this->private;
 
@@ -1841,8 +1841,8 @@ marker_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1 ||  local == NULL)
                 goto out;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
         priv = this->private;
 
@@ -2675,8 +2675,8 @@ marker_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * would have not yet linked to the inode table which happens
          * in protocol/server.
          */
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, buf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, buf->ia_gfid);
 
 
         if (priv->feature_enabled & GF_QUOTA) {
@@ -2915,7 +2915,7 @@ init_xtime_priv (xlator_t *this, dict_t *options)
         if((data = dict_get (options, VOLUME_UUID)) != NULL) {
                 priv->volume_uuid = data->data;
 
-                ret = uuid_parse (priv->volume_uuid, priv->volume_uuid_bin);
+                ret = gf_uuid_parse (priv->volume_uuid, priv->volume_uuid_bin);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid volume uuid %s", priv->volume_uuid);

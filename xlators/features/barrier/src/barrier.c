@@ -29,7 +29,7 @@ barrier_local_set_gfid (call_frame_t *frame, uuid_t gfid, xlator_t *this)
                                 ". gfid will not be dumped in statedump file.");
                         return;
                 }
-                uuid_copy (*id, gfid);
+                gf_uuid_copy (*id, gfid);
                 frame->local = id;
         }
 }

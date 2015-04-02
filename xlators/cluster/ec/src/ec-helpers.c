@@ -256,19 +256,19 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
 
 int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
 {
-    if (uuid_is_null(src))
+    if (gf_uuid_is_null(src))
     {
         return 1;
     }
 
-    if (uuid_is_null(dst))
+    if (gf_uuid_is_null(dst))
     {
-        uuid_copy(dst, src);
+        gf_uuid_copy(dst, src);
 
         return 1;
     }
 
-    if (uuid_compare(dst, src) != 0)
+    if (gf_uuid_compare(dst, src) != 0)
     {
         gf_log(xl->name, GF_LOG_WARNING, "Mismatching GFID's in loc");
 
@@ -287,7 +287,7 @@ int32_t ec_loc_setup_inode(xlator_t *xl, loc_t *loc)
             goto out;
         }
     } else if (loc->parent != NULL) {
-        if (!uuid_is_null(loc->gfid)) {
+        if (!gf_uuid_is_null(loc->gfid)) {
             loc->inode = inode_find(loc->parent->table, loc->gfid);
         } else if (loc->path && strchr (loc->path, '/')) {
             loc->inode = inode_resolve(loc->parent->table, (char *)loc->path);
@@ -310,7 +310,7 @@ int32_t ec_loc_setup_parent(xlator_t *xl, loc_t *loc)
             goto out;
         }
     } else if (loc->inode != NULL) {
-        if (!uuid_is_null(loc->pargfid)) {
+        if (!gf_uuid_is_null(loc->pargfid)) {
             loc->parent = inode_find(loc->inode->table, loc->pargfid);
         } else if (loc->path && strchr (loc->path, '/')) {
             path = gf_strdup(loc->path);
@@ -385,8 +385,8 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
     if (loc->parent != NULL) {
         parent->inode = inode_ref(loc->parent);
     }
-    if (!uuid_is_null(loc->pargfid)) {
-        uuid_copy(parent->gfid, loc->pargfid);
+    if (!gf_uuid_is_null(loc->pargfid)) {
+        gf_uuid_copy(parent->gfid, loc->pargfid);
     }
     if (loc->path && strchr (loc->path, '/')) {
         str = gf_strdup(loc->path);
@@ -412,7 +412,7 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
     }
 
     if ((parent->inode == NULL) && (parent->path == NULL) &&
-        uuid_is_null(parent->gfid)) {
+        gf_uuid_is_null(parent->gfid)) {
         gf_log(xl->name, GF_LOG_ERROR, "Parent inode missing for loc_t");
 
         goto out;
@@ -441,7 +441,7 @@ int32_t ec_loc_update(xlator_t *xl, loc_t *loc, inode_t *inode,
             inode_unref(loc->inode);
         }
         loc->inode = inode_ref(inode);
-        uuid_copy(loc->gfid, inode->gfid);
+        gf_uuid_copy(loc->gfid, inode->gfid);
     }
 
     if (iatt != NULL) {

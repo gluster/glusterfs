@@ -178,7 +178,7 @@ glusterd_uuid_generate_save ()
         priv = this->private;
         GF_ASSERT (priv);
 
-        uuid_generate (priv->uuid);
+        gf_uuid_generate (priv->uuid);
 
         gf_log (this->name, GF_LOG_INFO, "generated UUID: %s",
                 uuid_utoa (priv->uuid));

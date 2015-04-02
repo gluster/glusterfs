@@ -126,7 +126,7 @@
         do {                                                    \
                 char _gfid_unparsed[40];                        \
                 if (_gfid != NULL) {                            \
-                        uuid_unparse (_gfid, _gfid_unparsed);   \
+                        gf_uuid_unparse (_gfid, _gfid_unparsed);\
                         _ret = gf_asprintf (var, QUOTA_XATTR_PREFIX     \
                                             "%s.%s." CONTRIBUTION,      \
                                             _vol_name, _gfid_unparsed); \

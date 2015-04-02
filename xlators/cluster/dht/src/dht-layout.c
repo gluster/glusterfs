@@ -667,7 +667,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
                 goto out;
         }
 
-        uuid_unparse(loc->gfid, gfid);
+        gf_uuid_unparse(loc->gfid, gfid);
 
         ret = dht_layout_anomalies (this, loc, layout,
                                     &holes, &overlaps,
@@ -733,7 +733,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
         char        gfid[GF_UUID_BUF_SIZE] = {0};
 
         if(loc && loc->inode)
-                uuid_unparse(loc->inode->gfid, gfid);
+                gf_uuid_unparse(loc->inode->gfid, gfid);
 
         for (idx = 0; idx < layout->cnt; idx++) {
                 if (layout->list[idx].xlator == subvol) {

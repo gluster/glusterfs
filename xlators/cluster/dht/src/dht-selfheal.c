@@ -657,7 +657,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 goto err;
         }
 
-        uuid_unparse(loc->inode->gfid, gfid);
+        gf_uuid_unparse(loc->inode->gfid, gfid);
 
         ret = dht_disk_layout_extract (this, layout, i, &disk_layout);
         if (ret == -1) {
@@ -700,8 +700,8 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 }
         }
 
-        if (!uuid_is_null (local->gfid))
-                uuid_copy (loc->gfid, local->gfid);
+        if (!gf_uuid_is_null (local->gfid))
+                gf_uuid_copy (loc->gfid, local->gfid);
 
         STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
                     subvol, subvol->fops->setxattr,
@@ -1041,8 +1041,8 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                 return 0;
         }
 
-        if (!uuid_is_null (local->gfid))
-                uuid_copy (loc->gfid, local->gfid);
+        if (!gf_uuid_is_null (local->gfid))
+                gf_uuid_copy (loc->gfid, local->gfid);
 
         local->call_cnt = missing_attr;
         for (i = 0; i < layout->cnt; i++) {
@@ -1093,7 +1093,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret) {
 
-                uuid_unparse(local->loc.gfid, gfid);
+                gf_uuid_unparse(local->loc.gfid, gfid);
                 gf_msg (this->name, ((op_errno == EEXIST) ? GF_LOG_DEBUG :
                                      GF_LOG_WARNING),
                         op_errno, DHT_MSG_DIR_SELFHEAL_FAILED,
@@ -1188,7 +1188,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
         }
 
         local->call_cnt = missing_dirs;
-        if (!uuid_is_null (local->gfid)) {
+        if (!gf_uuid_is_null (local->gfid)) {
                 dict = dict_new ();
                 if (!dict)
                         return -1;
@@ -1739,7 +1739,7 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
         local = frame->local;
         this = frame->this;
 
-        uuid_unparse(loc->gfid, gfid);
+        gf_uuid_unparse(loc->gfid, gfid);
 
         dht_layout_anomalies (this, loc, layout,
                               &local->selfheal.hole_cnt,
@@ -1915,7 +1915,7 @@ dht_dir_attr_heal (void *data)
                                       (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                       NULL, NULL);
                 if (ret) {
-                        uuid_unparse(local->loc.gfid, gfid);
+                        gf_uuid_unparse(local->loc.gfid, gfid);
 
                         gf_msg ("dht", GF_LOG_ERROR, -ret,
                                 DHT_MSG_DIR_ATTR_HEAL_FAILED,

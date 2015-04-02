@@ -796,7 +796,7 @@ changelog_local_init (xlator_t *this, inode_t *inode,
 
         local->update_no_check = update_flag;
 
-        uuid_copy (local->cld.cld_gfid, gfid);
+        gf_uuid_copy (local->cld.cld_gfid, gfid);
 
         local->cld.cld_iobuf = iobuf;
         local->cld.cld_xtra_records = 0; /* set by the caller */

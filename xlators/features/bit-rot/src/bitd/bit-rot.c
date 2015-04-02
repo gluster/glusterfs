@@ -205,7 +205,7 @@ br_object_lookup (xlator_t *this, br_object_t *object,
 		goto out;
         }
 
-	uuid_copy (loc.gfid, object->gfid);
+	gf_uuid_copy (loc.gfid, object->gfid);
 
 	ret = syncop_lookup (object->child->xl, &loc, NULL, iatt, NULL, NULL);
 	if (ret < 0)
@@ -251,7 +251,7 @@ br_object_open (xlator_t *this,
         }
 
         loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
         ret = syncop_open (object->child->xl, &loc, O_RDONLY, fd);
 	if (ret) {
@@ -618,7 +618,7 @@ br_initialize_object (xlator_t *this, br_child_t *child, changelog_event_t *ev)
 
         object->this  = this;
         object->child = child;
-        uuid_copy (object->gfid, ev->u.releasebr.gfid);
+        gf_uuid_copy (object->gfid, ev->u.releasebr.gfid);
 
         /* NOTE: it's BE, but no worry */
         object->signedversion = ev->u.releasebr.version;
@@ -677,9 +677,9 @@ br_brick_callback (void *xl, char *brick,
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
         GF_ASSERT (ev->ev_type == CHANGELOG_OP_TYPE_BR_RELEASE);
-        GF_ASSERT (!uuid_is_null (ev->u.releasebr.gfid));
+        GF_ASSERT (!gf_uuid_is_null (ev->u.releasebr.gfid));
 
-        uuid_copy (gfid, ev->u.releasebr.gfid);
+        gf_uuid_copy (gfid, ev->u.releasebr.gfid);
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "RELEASE EVENT [GFID %s]", uuid_utoa (gfid));
@@ -830,7 +830,7 @@ br_prepare_loc (xlator_t *this, br_child_t *child, loc_t *parent,
         }
 
         loc->parent = inode_ref (parent->inode);
-        uuid_copy (loc->pargfid, parent->inode->gfid);
+        gf_uuid_copy (loc->pargfid, parent->inode->gfid);
 
         ret = inode_path (parent->inode, entry->d_name, (char **)&loc->path);
         if (ret < 0 || !loc->path) {
@@ -1076,7 +1076,7 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         priv = this->private;
 
         loc.inode = inode_ref (child->table->root);
-        uuid_copy (loc.gfid, loc.inode->gfid);
+        gf_uuid_copy (loc.gfid, loc.inode->gfid);
         loc.path = gf_strdup ("/");
 
         ret = syncop_lookup (child->xl, &loc, NULL, &buf, NULL, &parent);

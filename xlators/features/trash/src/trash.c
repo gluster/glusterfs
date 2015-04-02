@@ -347,7 +347,7 @@ trash_notify_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG, "inode found with gfid %s",
                                    uuid_utoa(buf->ia_gfid));
 
-                uuid_copy (loc.gfid,  trash_gfid);
+                gf_uuid_copy (loc.gfid,  trash_gfid);
 
                 /* Find trash inode using available information */
                 priv->trash_inode = inode_link (inode, NULL, NULL, buf);
@@ -422,10 +422,10 @@ trash_notify_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = ENOMEM;
                         goto out;
                 }
-                uuid_copy (*gfid_ptr, internal_op_gfid);
+                gf_uuid_copy (*gfid_ptr, internal_op_gfid);
 
-                uuid_copy (loc.gfid, internal_op_gfid);
-                uuid_copy (loc.pargfid, trash_gfid);
+                gf_uuid_copy (loc.gfid, internal_op_gfid);
+                gf_uuid_copy (loc.pargfid, trash_gfid);
                 loc.name = gf_strdup ("internal_op");
 
                 if (!loc.name) {
@@ -967,10 +967,10 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
                 goto out;
         }
         /* loc need some gfid which will be present in inode */
-        uuid_copy (loc->gfid, loc->inode->gfid);
+        gf_uuid_copy (loc->gfid, loc->inode->gfid);
 
         /* Checking for valid location */
-        if (uuid_is_null (loc->gfid) && uuid_is_null (loc->inode->gfid)) {
+        if (gf_uuid_is_null (loc->gfid) && gf_uuid_is_null (loc->inode->gfid)) {
                 gf_log (this->name, GF_LOG_DEBUG, "Bad address");
                 STACK_WIND (frame, trash_common_unwind_cbk,
                             FIRST_CHILD(this),
@@ -1546,10 +1546,10 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Creating vaild parent and pargfids for both files */
 
         local->loc.parent = inode_ref (dir_entry->parent);
-        uuid_copy (local->loc.pargfid, dir_entry->parent->gfid);
+        gf_uuid_copy (local->loc.pargfid, dir_entry->parent->gfid);
 
         local->newloc.parent = inode_ref (dir_entry->parent);
-        uuid_copy (local->newloc.pargfid, dir_entry->parent->gfid);
+        gf_uuid_copy (local->newloc.pargfid, dir_entry->parent->gfid);
 
         flags = O_CREAT|O_EXCL|O_WRONLY;
 
@@ -1738,7 +1738,7 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         local->loc.path  = pathbuf;
         local->loc.inode = inode_ref (fd->inode);
-        uuid_copy (local->loc.gfid, local->loc.inode->gfid);
+        gf_uuid_copy (local->loc.gfid, local->loc.inode->gfid);
 
         local->fop_offset = offset;
 
@@ -1904,8 +1904,8 @@ reconfigure (xlator_t *this, dict_t *options)
                         frame = create_frame (this, this->ctx->pool);
 
                         /* assign new location values to new_loc members */
-                        uuid_copy (new_loc.gfid, trash_gfid);
-                        uuid_copy (new_loc.pargfid, root_gfid);
+                        gf_uuid_copy (new_loc.gfid, trash_gfid);
+                        gf_uuid_copy (new_loc.pargfid, root_gfid);
                         ret = extract_trash_directory (priv->newtrash_dir,
                                                                 &new_loc.name);
                         if (ret) {
@@ -1922,8 +1922,8 @@ reconfigure (xlator_t *this, dict_t *options)
                         }
 
                         /* assign old location values to old_loc members */
-                        uuid_copy (old_loc.gfid, trash_gfid);
-                        uuid_copy (old_loc.pargfid, root_gfid);
+                        gf_uuid_copy (old_loc.gfid, trash_gfid);
+                        gf_uuid_copy (old_loc.pargfid, root_gfid);
                         ret = extract_trash_directory (priv->oldtrash_dir,
                                                                 &old_loc.name);
                         if (ret) {
@@ -1940,7 +1940,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         }
 
                         old_loc.inode = inode_ref (priv->trash_inode);
-                        uuid_copy(old_loc.inode->gfid, old_loc.gfid);
+                        gf_uuid_copy(old_loc.inode->gfid, old_loc.gfid);
 
                         STACK_WIND (frame, trash_reconf_rename_cbk,
                                     FIRST_CHILD(this),
@@ -2040,7 +2040,7 @@ notify (xlator_t *this, int event, void *data, ...)
                  */
                 if (!priv->oldtrash_dir) {
                         loc.inode = inode_new (priv->trash_itable);
-                        uuid_copy (loc.gfid, trash_gfid);
+                        gf_uuid_copy (loc.gfid, trash_gfid);
 
                         gf_log (this->name, GF_LOG_DEBUG, "nameless lookup for"
                                            "old trash directory");
@@ -2064,10 +2064,10 @@ notify (xlator_t *this, int event, void *data, ...)
                                 ret = ENOMEM;
                                 goto out;
                         }
-                        uuid_copy (*tgfid_ptr, trash_gfid);
+                        gf_uuid_copy (*tgfid_ptr, trash_gfid);
 
-                        uuid_copy (loc.gfid, trash_gfid);
-                        uuid_copy (loc.pargfid, root_gfid);
+                        gf_uuid_copy (loc.gfid, trash_gfid);
+                        gf_uuid_copy (loc.pargfid, root_gfid);
                         ret = extract_trash_directory (priv->newtrash_dir,
                                                                 &loc.name);
                         if (ret) {
@@ -2108,8 +2108,8 @@ notify (xlator_t *this, int event, void *data, ...)
                         gf_log (this->name, GF_LOG_DEBUG, "Renaming %s -> %s"
                                         " from notify", priv->oldtrash_dir,
                                         priv->newtrash_dir);
-                        uuid_copy (loc.gfid, trash_gfid);
-                        uuid_copy (loc.pargfid, root_gfid);
+                        gf_uuid_copy (loc.gfid, trash_gfid);
+                        gf_uuid_copy (loc.pargfid, root_gfid);
                         ret = extract_trash_directory (priv->newtrash_dir,
                                                                 &loc.name);
                         if (ret) {
@@ -2125,8 +2125,8 @@ notify (xlator_t *this, int event, void *data, ...)
                                 goto out;
                         }
                         /* assign old location values to old_loc members */
-                        uuid_copy (old_loc.gfid, trash_gfid);
-                        uuid_copy (old_loc.pargfid, root_gfid);
+                        gf_uuid_copy (old_loc.gfid, trash_gfid);
+                        gf_uuid_copy (old_loc.pargfid, root_gfid);
                         ret = extract_trash_directory (priv->oldtrash_dir,
                                                                 &old_loc.name);
                         if (ret) {
@@ -2143,7 +2143,7 @@ notify (xlator_t *this, int event, void *data, ...)
                         }
 
                         old_loc.inode = inode_ref (priv->trash_inode);
-                        uuid_copy(old_loc.inode->gfid, old_loc.gfid);
+                        gf_uuid_copy(old_loc.inode->gfid, old_loc.gfid);
 
                         STACK_WIND (frame, trash_notify_rename_cbk,
                                     FIRST_CHILD(this),

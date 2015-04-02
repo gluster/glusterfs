@@ -414,7 +414,7 @@ str_to_link_info (char *str_link,
         token_str = strtok_r(str_link, delimiter, &saveptr);
         if (token_str != NULL) {
                 strcpy (gfid, token_str);
-                ret = uuid_parse (gfid, link_info->pargfid);
+                ret = gf_uuid_parse (gfid, link_info->pargfid);
                 if (ret == -1)
                         goto out;
         }

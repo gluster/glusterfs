@@ -91,13 +91,13 @@ fill_db_record_for_wind(gf_ctr_local_t          *ctr_local,
         }
 
         /*Copy gfid into db record*/
-        uuid_copy (CTR_DB_REC(ctr_local).gfid, *(ctr_inode_cx->gfid));
+        gf_uuid_copy (CTR_DB_REC(ctr_local).gfid, *(ctr_inode_cx->gfid));
 
         /*Hard Links*/
         if (isdentryfop(ctr_inode_cx->fop_type)) {
                 /*new link fop*/
                 if (NEW_LINK_CX(ctr_inode_cx)) {
-                        uuid_copy (CTR_DB_REC(ctr_local).pargfid,
+                        gf_uuid_copy (CTR_DB_REC(ctr_local).pargfid,
                                 *((NEW_LINK_CX(ctr_inode_cx))->pargfid));
                         strcpy (CTR_DB_REC(ctr_local).file_name,
                                 NEW_LINK_CX(ctr_inode_cx)->basename);
@@ -106,7 +106,7 @@ fill_db_record_for_wind(gf_ctr_local_t          *ctr_local,
                 }
                 /*rename fop*/
                 if (OLD_LINK_CX(ctr_inode_cx)) {
-                        uuid_copy (CTR_DB_REC(ctr_local).old_pargfid,
+                        gf_uuid_copy (CTR_DB_REC(ctr_local).old_pargfid,
                                 *((OLD_LINK_CX(ctr_inode_cx))->pargfid));
                         strcpy (CTR_DB_REC(ctr_local).old_file_name,
                                 OLD_LINK_CX(ctr_inode_cx)->basename);

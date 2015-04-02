@@ -128,13 +128,13 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
         op_ret = dict_get_int32 (xdata, GF_GFIDLESS_LOOKUP, &gfidless);
         op_ret = -1;
-        if (uuid_is_null (loc->pargfid) || (loc->name == NULL)) {
+        if (gf_uuid_is_null (loc->pargfid) || (loc->name == NULL)) {
                 /* nameless lookup */
                 MAKE_INODE_HANDLE (real_path, this, loc, &buf);
         } else {
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
-                if (uuid_is_null (loc->inode->gfid)) {
+                if (gf_uuid_is_null (loc->inode->gfid)) {
                         posix_gfid_heal (this, real_path, loc, xdata);
                         MAKE_ENTRY_HANDLE (real_path, par_path, this,
                                            loc, &buf);
@@ -161,7 +161,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         if (priv->update_pgfid_nlinks) {
-                if (!uuid_is_null (loc->pargfid) && !IA_ISDIR (buf.ia_type)) {
+                if (!gf_uuid_is_null (loc->pargfid) && !IA_ISDIR (buf.ia_type)) {
                         MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
                                               PGFID_XATTR_KEY_PREFIX,
                                               loc->pargfid);
@@ -199,7 +199,7 @@ parent:
 
         op_ret = entry_ret;
 out:
-        if (!op_ret && !gfidless && uuid_is_null (buf.ia_gfid)) {
+        if (!op_ret && !gfidless && gf_uuid_is_null (buf.ia_gfid)) {
                 gf_log (this->name, GF_LOG_ERROR, "buf->ia_gfid is null for "
                         "%s", (real_path) ? real_path: "");
                 op_ret = -1;
@@ -1314,7 +1314,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, gid);
 
         op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
-        if (uuid_req && !uuid_is_null (uuid_req)) {
+        if (uuid_req && !gf_uuid_is_null (uuid_req)) {
                 op_ret = posix_istat (this, uuid_req, NULL, &stbuf);
                 if ((op_ret == 0) && IA_ISDIR (stbuf.ia_type)) {
                         size = posix_handle_path (this, uuid_req, NULL, NULL,
@@ -2004,7 +2004,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
         } else {
-                uuid_copy (victim, stbuf.ia_gfid);
+                gf_uuid_copy (victim, stbuf.ia_gfid);
                 if (IA_ISDIR (stbuf.ia_type))
                         was_dir = 1;
                 nlink = stbuf.ia_nlink;
@@ -2020,7 +2020,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         }
 
         if (was_present && IA_ISDIR(stbuf.ia_type) &&
-            uuid_compare (newloc->inode->gfid, stbuf.ia_gfid)) {
+            gf_uuid_compare (newloc->inode->gfid, stbuf.ia_gfid)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "found directory %s at %s while renaming %s",
                         uuid_utoa_r (newloc->inode->gfid, olddirid),
@@ -2789,7 +2789,7 @@ _fill_writev_xdata (fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
         if (fd)
                 inode = fd->inode;
 
-        if (!fd || !fd->inode || uuid_is_null (fd->inode->gfid)) {
+        if (!fd || !fd->inode || gf_uuid_is_null (fd->inode->gfid)) {
                 gf_log_callingfn (this->name, GF_LOG_ERROR, "Invalid Args: "
                                   "fd: %p inode: %p gfid:%s", fd, inode?inode:0,
                                   inode?uuid_utoa(inode->gfid):"N/A");
@@ -3418,7 +3418,7 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                         loc_t loc = {0, };
 
                         loc.inode = inode_ref (leaf_inode);
-                        uuid_copy (loc.gfid, leaf_inode->gfid);
+                        gf_uuid_copy (loc.gfid, leaf_inode->gfid);
 
                         strcpy (temppath, dirpath);
                         strcat (temppath, "/");
@@ -3510,7 +3510,7 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                 goto out;
         }
 
-        uuid_copy (loc->gfid, leaf_inode->gfid);
+        gf_uuid_copy (loc->gfid, leaf_inode->gfid);
 
         MAKE_INODE_HANDLE (leaf_path, this, loc, NULL);
         if (!leaf_path) {
@@ -3592,7 +3592,7 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                 nlink_samepgfid = ntoh32 (nlink_samepgfid);
 
                 strcpy (pgfidstr, key + strlen(PGFID_XATTR_KEY_PREFIX));
-                uuid_parse (pgfidstr, pgfid);
+                gf_uuid_parse (pgfidstr, pgfid);
 
                 handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 
@@ -3792,7 +3792,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 (void) snprintf (host_buf, 1024,
                                  "<POSIX(%s):%s:%s>", priv->base_path,
                                  ((priv->node_uuid_pathinfo
-                                   && !uuid_is_null(priv->glusterd_uuid))
+                                   && !gf_uuid_is_null(priv->glusterd_uuid))
                                       ? uuid_utoa (priv->glusterd_uuid)
                                       : priv->hostname),
                                  rpath);
@@ -3816,7 +3816,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (loc->inode && name &&
             (strcmp (name, GF_XATTR_NODE_UUID_KEY) == 0)
-            && !uuid_is_null (priv->glusterd_uuid)) {
+            && !gf_uuid_is_null (priv->glusterd_uuid)) {
                 (void) snprintf (host_buf, 1024, "%s",
                                  uuid_utoa (priv->glusterd_uuid));
 
@@ -4785,7 +4785,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 _fd = pfd->fd;
         }
 
-        if (loc && !uuid_is_null (loc->gfid))
+        if (loc && !gf_uuid_is_null (loc->gfid))
                 MAKE_INODE_HANDLE (real_path, this, loc, NULL);
 
         if (real_path) {
@@ -5163,12 +5163,12 @@ posix_fill_readdir (fd_t *fd, DIR *dir, off_t off, size_t size,
 		* when the cluster/dht xlator decides to distribute
 		* exended attribute backing file across storage servers.
 		*/
-		if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
+		if ((gf_uuid_compare (fd->inode->gfid, rootgfid) == 0)
 		    && (!strcmp(entry->d_name, ".attribute")))
 			continue;
 #endif /* __NetBSD__ */
 
-                if ((uuid_compare (fd->inode->gfid, rootgfid) == 0)
+                if ((gf_uuid_compare (fd->inode->gfid, rootgfid) == 0)
                     && (!strcmp (GF_HIDDEN_PATH, entry->d_name))) {
                         continue;
                 }
@@ -5296,7 +5296,7 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
 		inode = inode_grep (fd->inode->table, fd->inode,
 				    entry->d_name);
 		if (inode)
-			uuid_copy (gfid, inode->gfid);
+			gf_uuid_copy (gfid, inode->gfid);
 
 		strcpy (&hpath[len+1], entry->d_name);
 
@@ -5725,7 +5725,7 @@ reconfigure (xlator_t *this, dict_t *options)
                           options, bool, out);
 
         if (priv->node_uuid_pathinfo &&
-            (uuid_is_null (priv->glusterd_uuid))) {
+            (gf_uuid_is_null (priv->glusterd_uuid))) {
                     gf_log (this->name, GF_LOG_INFO,
                             "glusterd uuid is NULL, pathinfo xattr would"
                             " fallback to <hostname>:<export>");
@@ -5837,7 +5837,7 @@ init (xlator_t *this)
 
         tmp_data = dict_get (this->options, "volume-id");
         if (tmp_data) {
-                op_ret = uuid_parse (tmp_data->data, dict_uuid);
+                op_ret = gf_uuid_parse (tmp_data->data, dict_uuid);
                 if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "wrong volume-id (%s) set in volume file",
@@ -5848,7 +5848,7 @@ init (xlator_t *this)
                 size = sys_lgetxattr (dir_data->data,
                                       "trusted.glusterfs.volume-id", old_uuid, 16);
                 if (size == 16) {
-                        if (uuid_compare (old_uuid, dict_uuid)) {
+                        if (gf_uuid_compare (old_uuid, dict_uuid)) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "mismatching volume-id (%s) received. "
                                         "already is a part of volume %s ",
@@ -6054,7 +6054,7 @@ init (xlator_t *this)
 
         ret = dict_get_str (this->options, "glusterd-uuid", &guuid);
         if (!ret) {
-                if (uuid_parse (guuid, _private->glusterd_uuid))
+                if (gf_uuid_parse (guuid, _private->glusterd_uuid))
                         gf_log (this->name, GF_LOG_WARNING, "Cannot parse "
                                 "glusterd (node) UUID, node-uuid xattr "
                                 "request would return - \"No such attribute\"");
@@ -6155,7 +6155,7 @@ init (xlator_t *this)
         GF_OPTION_INIT ("node-uuid-pathinfo",
                         _private->node_uuid_pathinfo, bool, out);
         if (_private->node_uuid_pathinfo &&
-            (uuid_is_null (_private->glusterd_uuid))) {
+            (gf_uuid_is_null (_private->glusterd_uuid))) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "glusterd uuid is NULL, pathinfo xattr would"
                                 " fallback to <hostname>:<export>");

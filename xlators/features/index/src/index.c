@@ -191,7 +191,7 @@ index_get_index (index_priv_t *priv, uuid_t index)
 {
         LOCK (&priv->lock);
         {
-                uuid_copy (index, priv->index);
+                gf_uuid_copy (index, priv->index);
         }
         UNLOCK (&priv->lock);
 }
@@ -204,9 +204,9 @@ index_generate_index (index_priv_t *priv, uuid_t index)
                 //To prevent duplicate generates.
                 //This method fails if number of contending threads is greater
                 //than MAX_LINK count of the fs
-                if (!uuid_compare (priv->index, index))
-                        uuid_generate (priv->index);
-                uuid_copy (index, priv->index);
+                if (!gf_uuid_compare (priv->index, index))
+                        gf_uuid_generate (priv->index);
+                gf_uuid_copy (index, priv->index);
         }
         UNLOCK (&priv->lock);
 }
@@ -398,7 +398,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir)
         int               fd = 0;
 
         priv = this->private;
-        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !uuid_is_null (gfid),
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
                                        out, op_errno, EINVAL);
 
         make_gfid_path (priv->index_basepath, subdir, gfid,
@@ -463,7 +463,7 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir)
         char         gfid_path[PATH_MAX] = {0};
 
         priv = this->private;
-        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !uuid_is_null (gfid),
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
                                        out, op_errno, EINVAL);
         make_gfid_path (priv->index_basepath, subdir, gfid,
                         gfid_path, sizeof (gfid_path));
@@ -576,7 +576,7 @@ __index_fd_ctx_get (fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
         index_priv_t      *priv = NULL;
 
         priv = this->private;
-        if (uuid_compare (fd->inode->gfid, priv->xattrop_vgfid)) {
+        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid)) {
                 ret = -EINVAL;
                 goto out;
         }
@@ -914,11 +914,11 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         VALIDATE_OR_GOTO (loc, done);
-        if (!uuid_compare (loc->gfid, priv->xattrop_vgfid)) {
+        if (!gf_uuid_compare (loc->gfid, priv->xattrop_vgfid)) {
                 make_index_dir_path (priv->index_basepath, XATTROP_SUBDIR,
                                      path, sizeof (path));
                 is_dir = _gf_true;
-        } else if (!uuid_compare (loc->pargfid, priv->xattrop_vgfid)) {
+        } else if (!gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid)) {
                 make_file_path (priv->index_basepath, XATTROP_SUBDIR,
                                 loc->name, path, sizeof (path));
         }
@@ -943,9 +943,9 @@ index_lookup_wrapper (call_frame_t *frame, xlator_t *this,
 
         iatt_from_stat (&stbuf, &lstatbuf);
         if (is_dir)
-                uuid_copy (stbuf.ia_gfid, priv->xattrop_vgfid);
+                gf_uuid_copy (stbuf.ia_gfid, priv->xattrop_vgfid);
         else
-                uuid_generate (stbuf.ia_gfid);
+                gf_uuid_generate (stbuf.ia_gfid);
         stbuf.ia_ino = -1;
         op_ret = 0;
 done:
@@ -1023,9 +1023,9 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         }
 
         iatt_from_stat (&preparent, &lstatbuf);
-        uuid_copy (preparent.ia_gfid, priv->xattrop_vgfid);
+        gf_uuid_copy (preparent.ia_gfid, priv->xattrop_vgfid);
         preparent.ia_ino = -1;
-        uuid_parse (loc->name, gfid);
+        gf_uuid_parse (loc->name, gfid);
         ret = index_del (this, gfid, XATTROP_SUBDIR);
         if (ret < 0) {
                 op_ret = -1;
@@ -1040,7 +1040,7 @@ index_unlink_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
                 goto done;
         }
         iatt_from_stat (&postparent, &lstatbuf);
-        uuid_copy (postparent.ia_gfid, priv->xattrop_vgfid);
+        gf_uuid_copy (postparent.ia_gfid, priv->xattrop_vgfid);
         postparent.ia_ino = -1;
 done:
         INDEX_STACK_UNWIND (unlink, frame, op_ret, op_errno, &preparent,
@@ -1084,8 +1084,8 @@ index_lookup (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        if (uuid_compare (loc->gfid, priv->xattrop_vgfid) &&
-            uuid_compare (loc->pargfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (loc->gfid, priv->xattrop_vgfid) &&
+            gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid))
                 goto normal;
 
         stub = fop_lookup_stub (frame, index_lookup_wrapper, loc, xattr_req);
@@ -1110,7 +1110,7 @@ index_opendir (call_frame_t *frame, xlator_t *this,
         index_priv_t    *priv = NULL;
 
         priv = this->private;
-        if (uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
                 goto normal;
 
         frame->local = NULL;
@@ -1131,7 +1131,7 @@ index_readdir (call_frame_t *frame, xlator_t *this,
         index_priv_t    *priv = NULL;
 
         priv = this->private;
-        if (uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (fd->inode->gfid, priv->xattrop_vgfid))
                 goto out;
         stub = fop_readdir_stub (frame, index_readdir_wrapper, fd, size, off,
                                  xdata);
@@ -1155,7 +1155,7 @@ index_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         index_priv_t    *priv = NULL;
 
         priv = this->private;
-        if (uuid_compare (loc->pargfid, priv->xattrop_vgfid))
+        if (gf_uuid_compare (loc->pargfid, priv->xattrop_vgfid))
                 goto out;
 
         stub = fop_unlink_stub (frame, index_unlink_wrapper, loc, xflag, xdata);
@@ -1308,8 +1308,8 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
-        uuid_generate (priv->index);
-        uuid_generate (priv->xattrop_vgfid);
+        gf_uuid_generate (priv->index);
+        gf_uuid_generate (priv->xattrop_vgfid);
         INIT_LIST_HEAD (&priv->callstubs);
 
         this->private = priv;

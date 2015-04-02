@@ -294,7 +294,7 @@ selfheal:
         main_frame->local = local;
         discover_frame->local =  NULL;
         FRAME_SU_DO (main_frame, dht_local_t);
-        uuid_copy (local->loc.gfid, local->gfid);
+        gf_uuid_copy (local->loc.gfid, local->gfid);
         ret = dht_selfheal_directory_for_nameless_lookup (main_frame,
                                                         dht_lookup_selfheal_cbk,
                                                           &local->loc, layout);
@@ -334,10 +334,10 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
         /* Check if the gfid is different for file from other node */
-        if (!op_ret && uuid_compare (local->gfid, stbuf->ia_gfid)) {
+        if (!op_ret && gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
 
-                uuid_unparse(stbuf->ia_gfid, gfid_node);
-                uuid_unparse(local->gfid, gfid_local);
+                gf_uuid_unparse(stbuf->ia_gfid, gfid_node);
+                gf_uuid_unparse(local->gfid, gfid_local);
 
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_GFID_MISMATCH,
@@ -469,7 +469,7 @@ dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto err;
         }
 
-        uuid_copy (local->gfid, loc->gfid);
+        gf_uuid_copy (local->gfid, loc->gfid);
 
         discover_frame = copy_frame (frame);
         if (!discover_frame) {
@@ -524,15 +524,15 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         layout = local->layout;
 
-        if (!op_ret && uuid_is_null (local->gfid))
+        if (!op_ret && gf_uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
 
         /* Check if the gfid is different for file from other node */
-        if (!op_ret && uuid_compare (local->gfid, stbuf->ia_gfid)) {
+        if (!op_ret && gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
 
-                uuid_unparse(stbuf->ia_gfid, gfid_node);
-                uuid_unparse(local->gfid, gfid_local);
+                gf_uuid_unparse(stbuf->ia_gfid, gfid_node);
+                gf_uuid_unparse(local->gfid, gfid_local);
 
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_GFID_MISMATCH,
@@ -631,7 +631,7 @@ unlock:
 
 selfheal:
         FRAME_SU_DO (frame, dht_local_t);
-        uuid_copy (local->loc.gfid, local->gfid);
+        gf_uuid_copy (local->loc.gfid, local->gfid);
         ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
                                       &local->loc, layout);
 out:
@@ -667,7 +667,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!conf)
                 goto out;
 
-        uuid_unparse (local->loc.gfid, gfid);
+        gf_uuid_unparse (local->loc.gfid, gfid);
 
         LOCK (&frame->lock);
         {
@@ -803,7 +803,7 @@ out:
                 }
                 if (local->need_selfheal) {
                         local->need_selfheal = 0;
-                        uuid_copy (local->gfid, local->stbuf.ia_gfid);
+                        gf_uuid_copy (local->gfid, local->stbuf.ia_gfid);
                         local->stbuf.ia_gid = local->prebuf.ia_gid;
                         local->stbuf.ia_uid = local->prebuf.ia_uid;
                         copy = create_frame (this, this->ctx->pool);
@@ -888,7 +888,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         cached_subvol = local->cached_subvol;
         conf = this->private;
 
-        uuid_unparse(local->loc.gfid, gfid);
+        gf_uuid_unparse(local->loc.gfid, gfid);
 
         ret = dht_layout_preset (this, local->cached_subvol, local->loc.inode);
         if (ret < 0) {
@@ -1118,7 +1118,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
         hashed_subvol = local->hashed_subvol;
         cached_subvol = local->cached_subvol;
 
-        uuid_unparse (local->loc.gfid, gfid);
+        gf_uuid_unparse (local->loc.gfid, gfid);
 
         if (local->file_count && local->dir_count) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1244,7 +1244,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                 if (local->skip_unlink.handle_valid_link == _gf_true) {
                         if (cached_subvol == local->skip_unlink.hash_links_to) {
 
-                             if (uuid_compare (local->skip_unlink.cached_gfid,
+                             if (gf_uuid_compare (local->skip_unlink.cached_gfid,
                                                local->skip_unlink.hashed_gfid)){
 
                                         /*GFID different, return error*/
@@ -1335,7 +1335,7 @@ preset_layout:
         if (found_non_linkto_on_hashed) {
 
                 if (local->need_lookup_everywhere) {
-                        if (uuid_compare (local->gfid, local->inode->gfid)) {
+                        if (gf_uuid_compare (local->gfid, local->inode->gfid)) {
                                 /* GFID different, return error */
                                 DHT_STACK_UNWIND (lookup, frame, -1, ENOENT,
                                                   NULL, NULL, NULL, NULL);
@@ -1478,12 +1478,12 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                if (uuid_is_null (local->gfid))
-                        uuid_copy (local->gfid, buf->ia_gfid);
+                if (gf_uuid_is_null (local->gfid))
+                        gf_uuid_copy (local->gfid, buf->ia_gfid);
 
-                uuid_unparse(local->gfid, gfid);
+                gf_uuid_unparse(local->gfid, gfid);
 
-                if (uuid_compare (local->gfid, buf->ia_gfid)) {
+                if (gf_uuid_compare (local->gfid, buf->ia_gfid)) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_GFID_MISMATCH,
                                 "%s: gfid differs on subvolume %s,"
@@ -1515,7 +1515,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 /* non linkfile GFID takes precedence */
-                uuid_copy (local->gfid, buf->ia_gfid);
+                gf_uuid_copy (local->gfid, buf->ia_gfid);
 
                 if (is_dir) {
                         local->dir_count++;
@@ -1544,7 +1544,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
 
-                                uuid_copy (local->skip_unlink.cached_gfid,
+                                gf_uuid_copy (local->skip_unlink.cached_gfid,
                                            buf->ia_gfid);
                         } else {
                                 /* This is where we need 'rename' both entries logic */
@@ -1580,7 +1580,7 @@ unlock:
                         local->skip_unlink.handle_valid_link = _gf_true;
                         local->skip_unlink.opend_fd_count = fd_count;
                         local->skip_unlink.hash_links_to = link_subvol;
-                        uuid_copy (local->skip_unlink.hashed_gfid,
+                        gf_uuid_copy (local->skip_unlink.hashed_gfid,
                                    buf->ia_gfid);
 
                         gf_msg_debug (this->name, 0, "Found"
@@ -1708,7 +1708,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         local  = frame->local;
         loc    = &local->loc;
 
-        uuid_unparse(loc->gfid, gfid);
+        gf_uuid_unparse(loc->gfid, gfid);
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -1741,7 +1741,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        if (uuid_compare (local->gfid, stbuf->ia_gfid)) {
+        if (gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_GFID_MISMATCH,
                         "%s: gfid different on data file on %s,"
@@ -1815,7 +1815,7 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 local->xattr = NULL;
         }
 
-        if (!uuid_is_null (local->gfid)) {
+        if (!gf_uuid_is_null (local->gfid)) {
                 ret = dict_set_static_bin (local->xattr_req, "gfid-req",
                                            local->gfid, 16);
                 if (ret)
@@ -1871,7 +1871,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* This is required for handling stale linkfile deletion,
          * or any more call which happens from this 'loc'.
          */
-        if (!op_ret && uuid_is_null (local->gfid))
+        if (!op_ret && gf_uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
         gf_msg_debug (this->name, 0,
@@ -2074,7 +2074,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 local->xattr_req = dict_new ();
         }
 
-        if (uuid_is_null (loc->pargfid) && !uuid_is_null (loc->gfid) &&
+        if (gf_uuid_is_null (loc->pargfid) && !gf_uuid_is_null (loc->gfid) &&
             !__is_root_gfid (loc->inode->gfid)) {
                 local->cached_subvol = NULL;
                 dht_discover (frame, this, loc);
@@ -4762,7 +4762,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
         }
 
         if (hashed_subvol != cached_subvol) {
-                uuid_copy (local->gfid, oldloc->inode->gfid);
+                gf_uuid_copy (local->gfid, oldloc->inode->gfid);
                 dht_linkfile_create (frame, dht_link_linkfile_cbk, this,
                                      cached_subvol, hashed_subvol, newloc);
         } else {
@@ -5068,8 +5068,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         conf = this->private;
         hashed_subvol = local->hashed_subvol;
 
-        if (uuid_is_null (local->loc.gfid) && !op_ret)
-                uuid_copy (local->loc.gfid, stbuf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid) && !op_ret)
+                gf_uuid_copy (local->loc.gfid, stbuf->ia_gfid);
 
         if (dht_is_subvol_filled (this, hashed_subvol))
                 ret = dht_layout_merge (this, layout, prev->this,
@@ -5098,8 +5098,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 
         local->call_cnt = conf->subvolume_cnt - 1;
 
-        if (uuid_is_null (local->loc.gfid))
-                uuid_copy (local->loc.gfid, stbuf->ia_gfid);
+        if (gf_uuid_is_null (local->loc.gfid))
+                gf_uuid_copy (local->loc.gfid, stbuf->ia_gfid);
         if (local->call_cnt == 0) {
                 dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
                                         &local->loc, layout);
@@ -5214,7 +5214,7 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev  = cookie;
         conf = this->private;
 
-        uuid_unparse(local->loc.gfid, gfid);
+        gf_uuid_unparse(local->loc.gfid, gfid);
 
         LOCK (&frame->lock);
         {
@@ -5252,7 +5252,7 @@ unlock:
                         /* TODO: neater interface needed below */
                         local->stbuf.ia_type = local->loc.inode->ia_type;
 
-                        uuid_copy (local->gfid, local->loc.inode->gfid);
+                        gf_uuid_copy (local->gfid, local->loc.inode->gfid);
                         dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
                                               &local->loc, local->layout);
                } else {
@@ -5305,7 +5305,7 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         local->need_selfheal = 1;
                         }
 
-                        uuid_unparse(local->loc.gfid, gfid);
+                        gf_uuid_unparse(local->loc.gfid, gfid);
 
                         gf_msg_debug (this->name, 0,
                                       "rmdir on %s for %s failed."
@@ -5343,7 +5343,7 @@ unlock:
                         /* TODO: neater interface needed below */
                         local->stbuf.ia_type = local->loc.inode->ia_type;
 
-                        uuid_copy (local->gfid, local->loc.inode->gfid);
+                        gf_uuid_copy (local->gfid, local->loc.inode->gfid);
                         dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
                                               &local->loc, local->layout);
                 } else if (this_call_cnt) {
@@ -5405,7 +5405,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
         hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
 
         if (!hashed_subvol) {
-                uuid_unparse(local->loc.gfid, gfid);
+                gf_uuid_unparse(local->loc.gfid, gfid);
 
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_HASHED_SUBVOL_GET_FAILED,
@@ -5465,7 +5465,7 @@ dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this
         main_frame = local->main_frame;
         main_local = main_frame->local;
 
-        uuid_unparse(local->loc.gfid, gfid);
+        gf_uuid_unparse(local->loc.gfid, gfid);
 
         if (op_ret == 0) {
                 gf_msg_trace (this->name, 0,
@@ -5517,7 +5517,7 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 main_local->op_ret  = -1;
                 main_local->op_errno = ENOTEMPTY;
 
-                 uuid_unparse(local->loc.gfid, gfid);
+                 gf_uuid_unparse(local->loc.gfid, gfid);
 
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s on %s is not a linkfile (type=0%o, gfid = %s)",
@@ -5691,9 +5691,9 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 if (build_ret != 0)
                         goto err;
 
-                uuid_copy (lookup_local->loc.gfid, trav->d_stat.ia_gfid);
+                gf_uuid_copy (lookup_local->loc.gfid, trav->d_stat.ia_gfid);
 
-                uuid_unparse(lookup_local->loc.gfid, gfid);
+                gf_uuid_unparse(lookup_local->loc.gfid, gfid);
 
                 gf_msg_trace (this->name, 0,
                               "looking up %s on subvolume %s, gfid = %s",
@@ -5802,7 +5802,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         this_call_cnt = dht_frame_return (frame);
         if (op_ret == -1) {
-                uuid_unparse(local->loc.gfid, gfid);
+                gf_uuid_unparse(local->loc.gfid, gfid);
 
                 gf_msg_debug (this->name, 0,
                               "opendir on %s for %s failed, "
@@ -5946,7 +5946,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
 
         subvol = local->cached_subvol;
         if (!subvol) {
-                uuid_unparse(loc->gfid, gfid);
+                gf_uuid_unparse(loc->gfid, gfid);
 
                 gf_msg_debug (this->name, 0,
                               "no cached subvolume for path=%s, "
@@ -5996,7 +5996,7 @@ dht_fentrylk (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO(fd->inode, err);
 
-        uuid_unparse(fd->inode->gfid, gfid);
+        gf_uuid_unparse(fd->inode->gfid, gfid);
 
         subvol = dht_subvol_get_cached (this, fd->inode);
         if (!subvol) {

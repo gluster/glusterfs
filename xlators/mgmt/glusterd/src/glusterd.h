@@ -664,7 +664,7 @@ __glusterd_uuid()
 {
         glusterd_conf_t *priv = THIS->private;
 
-        if (uuid_is_null (priv->uuid))
+        if (gf_uuid_is_null (priv->uuid))
                 glusterd_uuid_init();
         return &priv->uuid[0];
 }

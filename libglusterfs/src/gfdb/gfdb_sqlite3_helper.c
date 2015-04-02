@@ -1051,7 +1051,7 @@ gf_sql_query_function (sqlite3_stmt              *prep_stmt,
                                         "Failed retriving GF_ID");
                                 goto out;
                         }
-                        ret = uuid_parse (text_column, gfdb_query_record->gfid);
+                        ret = gf_uuid_parse (text_column, gfdb_query_record->gfid);
                         if (ret) {
                                 gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
                                         "Failed parsing GF_ID");

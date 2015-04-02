@@ -177,7 +177,7 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
-                if ((!uuid_compare (brickinfo->uuid, MY_UUID)) &&
+                if ((!gf_uuid_compare (brickinfo->uuid, MY_UUID)) &&
                     (brickinfo->snap_status != -1)) {
                         /* We need to replace the volume id of all the bricks
                          * to the volume id of the origin volume. new_volinfo
@@ -264,14 +264,14 @@ glusterd_snap_volinfo_find_by_volume_id (uuid_t volume_id,
         GF_ASSERT (priv);
         GF_ASSERT (volinfo);
 
-        if (uuid_is_null(volume_id)) {
+        if (gf_uuid_is_null(volume_id)) {
                 gf_log (this->name, GF_LOG_WARNING, "Volume UUID is NULL");
                 goto out;
         }
 
         cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
                 cds_list_for_each_entry (voliter, &snap->volumes, vol_list) {
-                        if (uuid_compare (volume_id, voliter->volume_id))
+                        if (gf_uuid_compare (volume_id, voliter->volume_id))
                                 continue;
                         *volinfo = voliter;
                         ret = 0;
@@ -606,7 +606,7 @@ glusterd_add_snap_to_dict (glusterd_snap_t *snap, dict_t *peer_data,
 
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
-                        if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
                                 host_bricks = _gf_true;
                                 break;
                         }
@@ -856,7 +856,7 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        uuid_parse (restored_snap, volinfo->restored_from_snap);
+        gf_uuid_parse (restored_snap, volinfo->restored_from_snap);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.snap-max-hard-limit", prefix);
@@ -923,7 +923,7 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
                         }
 
                         volinfo->version--;
-                        uuid_copy (volinfo->restored_from_snap, null_uuid);
+                        gf_uuid_copy (volinfo->restored_from_snap, null_uuid);
 
                         /* gd_restore_snap_volume() uses the dict and volcount
                          * to fetch snap brick info from other nodes, which were
@@ -945,7 +945,7 @@ glusterd_perform_missed_op (glusterd_snap_t *snap, int32_t op)
                         /* Restore is successful therefore delete the original
                          * volume's volinfo. If the volinfo is already restored
                          * then we should delete the backend LVMs */
-                        if (!uuid_is_null (volinfo->restored_from_snap)) {
+                        if (!gf_uuid_is_null (volinfo->restored_from_snap)) {
                                 ret = glusterd_lvm_snapshot_remove (dict,
                                                                     volinfo);
                                 if (ret) {
@@ -1023,7 +1023,7 @@ glusterd_perform_missed_snap_ops ()
                         continue;
 
                 /* Find the snap id */
-                uuid_parse (missed_snapinfo->snap_uuid, snap_uuid);
+                gf_uuid_parse (missed_snapinfo->snap_uuid, snap_uuid);
                 snap = NULL;
                 snap = glusterd_find_snap_by_id (snap_uuid);
                 if (!snap) {
@@ -1157,8 +1157,8 @@ glusterd_is_peer_snap_conflicting (char *peer_snap_name, char *peer_snap_id,
 
         *snap = glusterd_find_snap_by_name (peer_snap_name);
         if (*snap) {
-                uuid_parse (peer_snap_id, peer_snap_uuid);
-                if (!uuid_compare (peer_snap_uuid, (*snap)->snap_id)) {
+                gf_uuid_parse (peer_snap_id, peer_snap_uuid);
+                if (!gf_uuid_compare (peer_snap_uuid, (*snap)->snap_id)) {
                         /* Current node contains the same snap having
                          * the same snapname and snap_id
                          */
@@ -1201,7 +1201,7 @@ glusterd_are_snap_bricks_local (glusterd_snap_t *snap)
         cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
-                        if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
                                 is_local = _gf_true;
                                 goto out;
                         }
@@ -1377,7 +1377,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
         }
 
         strcpy (snap->snapname, peer_snap_name);
-        uuid_parse (peer_snap_id, snap->snap_id);
+        gf_uuid_parse (peer_snap_id, snap->snap_id);
 
         snprintf (buf, sizeof(buf), "%s.snapid", prefix);
         ret = dict_get_str (peer_data, buf, &snap->description);

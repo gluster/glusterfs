@@ -82,7 +82,7 @@
 
 #define GLFS_LOC_FILL_INODE(oinode, loc, label) do {   \
 	loc.inode = inode_ref (oinode);                \
-	uuid_copy (loc.gfid, oinode->gfid);            \
+	gf_uuid_copy (loc.gfid, oinode->gfid);         \
 	ret = glfs_loc_touchup (&loc);                 \
 	if (ret != 0) {                                \
 		errno = EINVAL;                        \

@@ -548,7 +548,7 @@ afr_handle_quorum (call_frame_t *frame)
                 return;
 
         if (local->fd) {
-                uuid_copy (gfid, local->fd->inode->gfid);
+                gf_uuid_copy (gfid, local->fd->inode->gfid);
                 file = uuid_utoa (gfid);
         } else {
                 loc_path (&local->loc, local->loc.name);

@@ -64,7 +64,7 @@ int32_t ec_iatt_combine(struct iatt * dst, struct iatt * src, int32_t count)
              (dst[i].ia_size != src[i].ia_size)) ||
             (st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type) !=
              st_mode_from_ia(src[i].ia_prot, src[i].ia_type)) ||
-            (uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0))
+            (gf_uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0))
         {
             gf_log(THIS->name, GF_LOG_WARNING,
                    "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "

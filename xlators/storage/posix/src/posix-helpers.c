@@ -420,7 +420,7 @@ posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf)
         int i = 0;
 
         /* consider least significant 8 bytes of value out of gfid */
-        if (uuid_is_null (buf->ia_gfid)) {
+        if (gf_uuid_is_null (buf->ia_gfid)) {
                 buf->ia_ino = -1;
                 goto out;
         }
@@ -519,7 +519,7 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
         if (basename)
                 posix_fill_gfid_path (this, real_path, &stbuf);
         else
-                uuid_copy (stbuf.ia_gfid, gfid);
+                gf_uuid_copy (stbuf.ia_gfid, gfid);
 
         posix_fill_ino_from_gfid (this, &stbuf);
 
@@ -574,8 +574,8 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
 
         iatt_from_stat (&stbuf, &lstatbuf);
 
-        if (gfid && !uuid_is_null (gfid))
-                uuid_copy (stbuf.ia_gfid, gfid);
+        if (gfid && !gf_uuid_is_null (gfid))
+                gf_uuid_copy (stbuf.ia_gfid, gfid);
         else
                 posix_fill_gfid_path (this, path, &stbuf);
 
@@ -724,7 +724,7 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
                         strerror (errno));
                 goto out;
         }
-        uuid_copy (uuid_curr, uuid_req);
+        gf_uuid_copy (uuid_curr, uuid_req);
 
 verify_handle:
         if (!S_ISDIR (stat.st_mode))
@@ -1125,7 +1125,7 @@ del_stale_dir_handle (xlator_t *this, uuid_t gfid)
                 gf_log (this->name, GF_LOG_DEBUG, "%s: %s", newpath,
                         strerror (ENOENT));
                 stale = _gf_true;
-        } else if (size == 16 && uuid_compare (gfid, gfid_curr)) {
+        } else if (size == 16 && gf_uuid_compare (gfid, gfid_curr)) {
                 gf_log (this->name, GF_LOG_DEBUG, "%s: mismatching gfid: %s, "
                         "at %s", hpath, uuid_utoa (gfid_curr), newpath);
                 stale = _gf_true;

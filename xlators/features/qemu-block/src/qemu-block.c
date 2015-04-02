@@ -141,7 +141,7 @@ qb_format_extract (xlator_t *this, char *format, inode_t *inode)
 			goto invalid;
 		ret = sscanf(s, "<gfid:%[^>]s", gfid_str);
 		if (ret == 1) {
-			ret = uuid_parse(gfid_str, gfid);
+			ret = gf_uuid_parse(gfid_str, gfid);
 			if (ret < 0)
 				goto invalid;
 		}
@@ -164,8 +164,8 @@ qb_format_extract (xlator_t *this, char *format, inode_t *inode)
 	 * associated with a backing image as a filename local to the parent
 	 * directory. The format processing will validate further.
 	 */
-	if (!uuid_is_null(gfid))
-		uuid_copy(qb_inode->backing_gfid, gfid);
+	if (!gf_uuid_is_null(gfid))
+		gf_uuid_copy(qb_inode->backing_gfid, gfid);
 	else if (s)
 		qb_inode->backing_fname = gf_strdup(s);
 

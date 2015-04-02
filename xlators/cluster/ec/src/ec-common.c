@@ -603,7 +603,7 @@ ec_lock_t * ec_lock_allocate(xlator_t * xl, int32_t kind, loc_t * loc)
     ec_lock_t * lock;
 
     if ((loc->inode == NULL) ||
-        (uuid_is_null(loc->gfid) && uuid_is_null(loc->inode->gfid)))
+        (gf_uuid_is_null(loc->gfid) && gf_uuid_is_null(loc->inode->gfid)))
     {
         gf_log(xl->name, GF_LOG_ERROR, "Trying to lock based on an invalid "
                                        "inode");
@@ -636,7 +636,7 @@ void ec_lock_destroy(ec_lock_t * lock)
 
 int32_t ec_lock_compare(ec_lock_t * lock1, ec_lock_t * lock2)
 {
-    return uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
+    return gf_uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
 }
 
 ec_lock_link_t *ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock,
@@ -1156,7 +1156,7 @@ void ec_get_size_version(ec_fop_data_t * fop)
         {
             goto out;
         }
-        if (uuid_is_null(loc.pargfid))
+        if (gf_uuid_is_null(loc.pargfid))
         {
             if (loc.parent != NULL)
             {

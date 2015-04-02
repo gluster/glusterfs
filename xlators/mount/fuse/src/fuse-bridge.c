@@ -409,7 +409,7 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == 0) {
                 if (__is_root_gfid (state->loc.inode->gfid))
                         buf->ia_ino = 1;
-                if (uuid_is_null (buf->ia_gfid)) {
+                if (gf_uuid_is_null (buf->ia_gfid)) {
                         /* With a NULL gfid inode linking is
                            not possible. Let's not pretend this
                            call was a "success".
@@ -535,8 +535,8 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_unref (state->loc.inode);
                 state->loc.inode = inode_new (itable);
                 state->is_revalidate = 2;
-                if (uuid_is_null (state->gfid))
-                        uuid_generate (state->gfid);
+                if (gf_uuid_is_null (state->gfid))
+                        gf_uuid_generate (state->gfid);
                 fuse_gfid_set (state);
 
                 STACK_WIND (frame, fuse_lookup_cbk,
@@ -599,8 +599,8 @@ fuse_lookup_resume (fuse_state_t *state)
                         "%"PRIu64": LOOKUP %s", state->finh->unique,
                         state->loc.path);
                 state->loc.inode = inode_new (state->loc.parent->table);
-                if (uuid_is_null (state->gfid))
-                        uuid_generate (state->gfid);
+                if (gf_uuid_is_null (state->gfid))
+                        gf_uuid_generate (state->gfid);
                 fuse_gfid_set (state);
         }
 
@@ -1496,7 +1496,7 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
 
-        uuid_generate (state->gfid);
+        gf_uuid_generate (state->gfid);
 
         fuse_resolve_entry_init (state, &state->resolve, finh->nodeid, name);
 
@@ -1562,7 +1562,7 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
 
-        uuid_generate (state->gfid);
+        gf_uuid_generate (state->gfid);
 
         fuse_resolve_entry_init (state, &state->resolve, finh->nodeid, name);
 
@@ -1696,7 +1696,7 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
 
-        uuid_generate (state->gfid);
+        gf_uuid_generate (state->gfid);
 
         fuse_resolve_entry_init (state, &state->resolve, finh->nodeid, name);
 
@@ -2067,7 +2067,7 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
 
-        uuid_generate (state->gfid);
+        gf_uuid_generate (state->gfid);
 
         fuse_resolve_entry_init (state, &state->resolve, finh->nodeid, name);
 
@@ -4086,7 +4086,7 @@ fuse_first_lookup (xlator_t *this)
         loc.path = "/";
         loc.name = "";
         loc.inode = fuse_ino_to_inode (1, this);
-        uuid_copy (loc.gfid, loc.inode->gfid);
+        gf_uuid_copy (loc.gfid, loc.inode->gfid);
         loc.parent = NULL;
 
         dict = dict_new ();
@@ -4155,7 +4155,7 @@ fuse_nameless_lookup (xlator_t *xl, uuid_t gfid, loc_t *loc)
                 }
         }
 
-        uuid_copy (loc->gfid, gfid);
+        gf_uuid_copy (loc->gfid, gfid);
 
         xattr_req = dict_new ();
         if (xattr_req == NULL) {
@@ -4202,7 +4202,7 @@ fuse_migrate_fd_open (xlator_t *this, fd_t *basefd, fd_t *oldfd,
                 goto out;
         }
 
-        uuid_copy (loc.gfid, basefd->inode->gfid);
+        gf_uuid_copy (loc.gfid, basefd->inode->gfid);
 
         loc.inode = inode_find (new_subvol->itable, basefd->inode->gfid);
 
@@ -4394,7 +4394,7 @@ fuse_migrate_fd (xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
 
         LOCK (&oldfd->inode->lock);
         {
-                if (uuid_is_null (oldfd->inode->gfid)) {
+                if (gf_uuid_is_null (oldfd->inode->gfid)) {
                         create_in_progress = 1;
                 } else {
                         create_in_progress = 0;

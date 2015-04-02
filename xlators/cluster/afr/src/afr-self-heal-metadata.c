@@ -49,7 +49,7 @@ __afr_selfheal_metadata_do (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	priv = this->private;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	gf_log (this->name, GF_LOG_INFO, "performing metadata selfheal on %s",
 		uuid_utoa (inode->gfid));

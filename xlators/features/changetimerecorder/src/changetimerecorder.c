@@ -703,7 +703,7 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
                         "failed to get gfid from dict");
                 goto out;
         }
-        uuid_copy (gfid, uuid_req);
+        gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
         FILL_CTR_LINK_CX (_link_cx, loc->pargfid, loc->name, loc->path);
@@ -777,7 +777,7 @@ ctr_create (call_frame_t *frame, xlator_t *this,
                         "failed to get gfid from dict");
                 goto out;
         }
-        uuid_copy (gfid, uuid_req);
+        gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
         FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, loc->path);

@@ -52,7 +52,7 @@ afr_is_fd_fixable (fd_t *fd)
                 return _gf_false;
         else if (fd_is_anonymous (fd))
                 return _gf_false;
-        else if (uuid_is_null (fd->inode->gfid))
+        else if (gf_uuid_is_null (fd->inode->gfid))
                 return _gf_false;
 
         return _gf_true;

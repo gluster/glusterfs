@@ -45,7 +45,7 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	local = frame->local;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	STACK_WIND (frame, afr_selfheal_post_op_cbk, priv->children[subvol],
 		    priv->children[subvol]->fops->xattrop, &loc,
@@ -711,7 +711,7 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 	}
 
 	loc.parent = inode_ref (parent);
-	uuid_copy (loc.pargfid, parent->gfid);
+	gf_uuid_copy (loc.pargfid, parent->gfid);
 	loc.name = name;
 	loc.inode = inode_ref (inode);
 
@@ -749,7 +749,7 @@ afr_selfheal_unlocked_discover_on (call_frame_t *frame, inode_t *inode,
 	}
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, gfid);
+	gf_uuid_copy (loc.gfid, gfid);
 
 	AFR_ONLIST (discover_on, frame, afr_selfheal_discover_cbk, lookup, &loc,
 		    xattr_req);
@@ -840,7 +840,7 @@ afr_selfheal_tryinodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	struct gf_flock flock = {0, };
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	flock.l_type = F_WRLCK;
 	flock.l_start = off;
@@ -870,7 +870,7 @@ afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	local = frame->local;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	flock.l_type = F_WRLCK;
 	flock.l_start = off;
@@ -908,7 +908,7 @@ afr_selfheal_uninodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	flock.l_type = F_UNLCK;
 	flock.l_start = off;
@@ -930,7 +930,7 @@ afr_selfheal_tryentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	loc_t loc = {0,};
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	AFR_ONALL (frame, afr_selfheal_lock_cbk, entrylk, dom,
 		   &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
@@ -954,7 +954,7 @@ afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	local = frame->local;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	AFR_ONALL (frame, afr_selfheal_lock_cbk, entrylk, dom, &loc,
 		   name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
@@ -985,7 +985,7 @@ afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	loc_t loc = {0,};
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	AFR_ONLIST (locked_on, frame, afr_selfheal_lock_cbk, entrylk,
 		    dom, &loc, name, ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
@@ -1225,7 +1225,7 @@ afr_inode_find (xlator_t *this, uuid_t gfid)
 	if (!inode)
 		return NULL;
 
-	uuid_copy (inode->gfid, gfid);
+	gf_uuid_copy (inode->gfid, gfid);
 
 	return inode;
 }
@@ -1271,7 +1271,7 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	priv = this->private;
 
-	uuid_copy (inode->gfid, replies[source].poststat.ia_gfid);
+	gf_uuid_copy (inode->gfid, replies[source].poststat.ia_gfid);
 
 	xattr = dict_new();
 	if (!xattr)

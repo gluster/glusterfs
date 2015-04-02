@@ -39,7 +39,7 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret)
                 goto out;
 
-        uuid_unparse(local->loc.gfid, gfid);
+        gf_uuid_unparse(local->loc.gfid, gfid);
 
         is_linkfile = check_is_linkfile (inode, stbuf, xattr,
                                          conf->link_xattr_name);
@@ -136,8 +136,8 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         }
 
 
-        if (!uuid_is_null (local->gfid)) {
-                uuid_unparse(local->gfid, gfid);
+        if (!gf_uuid_is_null (local->gfid)) {
+                gf_uuid_unparse(local->gfid, gfid);
 
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
@@ -146,7 +146,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                                 "%s: Failed to set dictionary value: "
                                 "key = gfid-req, gfid = %s ", loc->path, gfid);
         } else {
-                uuid_unparse(loc->gfid, gfid);
+                gf_uuid_unparse(loc->gfid, gfid);
         }
 
         ret = dict_set_str (dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
@@ -208,7 +208,7 @@ dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
 
-                uuid_unparse(local->loc.gfid, gfid);
+                gf_uuid_unparse(local->loc.gfid, gfid);
                 gf_msg (this->name, GF_LOG_INFO, op_errno,
                         DHT_MSG_UNLINK_FAILED,
                         "Unlinking linkfile %s (gfid = %s)on "
@@ -327,7 +327,7 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
         if (local->stbuf.ia_type == IA_INVAL)
                 return 0;
 
-        uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
+        gf_uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
 
         copy = copy_frame (frame);
 

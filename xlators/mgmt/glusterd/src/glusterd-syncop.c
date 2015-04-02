@@ -352,7 +352,7 @@ gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         if (ret < 0)
                 goto out;
 
-        uuid_copy (args->uuid, rsp.uuid);
+        gf_uuid_copy (args->uuid, rsp.uuid);
 
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
@@ -393,8 +393,8 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         if (ret)
                 goto out;
 
-        uuid_copy (req.uuid, my_uuid);
-        uuid_copy (req.txn_id, txn_id);
+        gf_uuid_copy (req.uuid, my_uuid);
+        gf_uuid_copy (req.txn_id, txn_id);
         req.op = op;
         synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
@@ -446,7 +446,7 @@ gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         if (ret < 0)
                 goto out;
 
-        uuid_copy (args->uuid, rsp.uuid);
+        gf_uuid_copy (args->uuid, rsp.uuid);
 
         /* Set peer as locked, so we unlock only the locked peers */
         if (rsp.op_ret == 0)
@@ -489,8 +489,8 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         if (ret)
                 goto out;
 
-        uuid_copy (req.uuid, my_uuid);
-        uuid_copy (req.txn_id, txn_id);
+        gf_uuid_copy (req.uuid, my_uuid);
+        gf_uuid_copy (req.txn_id, txn_id);
         synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_v3_prog,
@@ -539,7 +539,7 @@ _gd_syncop_mgmt_lock_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret < 0)
                 goto out;
 
-        uuid_copy (args->uuid, rsp.uuid);
+        gf_uuid_copy (args->uuid, rsp.uuid);
 
         /* Set peer as locked, so we unlock only the locked peers */
         if (rsp.op_ret == 0)
@@ -570,7 +570,7 @@ gd_syncop_mgmt_lock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         gd1_mgmt_cluster_lock_req req  = {{0},};
         glusterd_conf_t           *conf = THIS->private;
 
-        uuid_copy (req.uuid, my_uuid);
+        gf_uuid_copy (req.uuid, my_uuid);
         synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_prog,
@@ -615,7 +615,7 @@ _gd_syncop_mgmt_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret < 0)
                 goto out;
 
-        uuid_copy (args->uuid, rsp.uuid);
+        gf_uuid_copy (args->uuid, rsp.uuid);
 
         peerinfo->locked = _gf_false;
         op_ret = rsp.op_ret;
@@ -645,7 +645,7 @@ gd_syncop_mgmt_unlock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         gd1_mgmt_cluster_unlock_req req     = {{0},};
         glusterd_conf_t             *conf   = THIS->private;
 
-        uuid_copy (req.uuid, my_uuid);
+        gf_uuid_copy (req.uuid, my_uuid);
         synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
                                         &gd_mgmt_prog,
@@ -716,7 +716,7 @@ _gd_syncop_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        uuid_copy (args->uuid, rsp.uuid);
+        gf_uuid_copy (args->uuid, rsp.uuid);
         if (rsp.op == GD_OP_REPLACE_BRICK || rsp.op == GD_OP_QUOTA ||
             rsp.op == GD_OP_CREATE_VOLUME || rsp.op == GD_OP_ADD_BRICK ||
             rsp.op == GD_OP_START_VOLUME) {
@@ -769,7 +769,7 @@ gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         if (!req)
                 goto out;
 
-        uuid_copy (req->uuid, my_uuid);
+        gf_uuid_copy (req->uuid, my_uuid);
         req->op = op;
 
         ret = dict_allocate_and_serialize (dict_out,
@@ -986,7 +986,7 @@ _gd_syncop_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        uuid_copy (args->uuid, rsp.uuid);
+        gf_uuid_copy (args->uuid, rsp.uuid);
         if (rsp.op == GD_OP_QUOTA) {
                 ret = dict_get_int32 (args->dict, "type", &type);
                 if (ret) {
@@ -1046,7 +1046,7 @@ gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         if (!req)
                 goto out;
 
-        uuid_copy (req->uuid, my_uuid);
+        gf_uuid_copy (req->uuid, my_uuid);
         req->op = op;
 
         ret = dict_allocate_and_serialize (dict_out,

@@ -557,7 +557,7 @@ __changelog_inode_ctx_get (xlator_t *, inode_t *, unsigned long **,
                 co->co_convert = converter;                             \
                 co->co_free = freefn;                                   \
                 co->co_type = CHANGELOG_OPT_REC_ENTRY;                  \
-                uuid_copy (co->co_entry.cef_uuid, pargfid);             \
+                gf_uuid_copy (co->co_entry.cef_uuid, pargfid);          \
                 co->co_entry.cef_bname = gf_strdup(bname);              \
                 if (!co->co_entry.cef_bname)                            \
                         goto label;                                     \

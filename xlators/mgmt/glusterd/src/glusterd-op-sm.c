@@ -161,9 +161,9 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
                 goto out;
 
         if (priv->op_version < GD_OP_VERSION_3_6_0)
-                uuid_copy (**txn_id, priv->global_txn_id);
+                gf_uuid_copy (**txn_id, priv->global_txn_id);
         else
-                uuid_generate (**txn_id);
+                gf_uuid_generate (**txn_id);
 
         ret = dict_set_bin (dict, "transaction_id",
                             *txn_id, sizeof (**txn_id));
@@ -979,7 +979,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         list_for_each_entry (brickinfo, &volinfo->bricks,
                                              brick_list) {
                                 /* Check for local brick */
-                                if (!uuid_compare (brickinfo->uuid, MY_UUID)) {
+                                if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
                                         trash_path = gf_strdup (brickinfo->path);
                                         strcat(trash_path, "/");
                                         strcat(trash_path, value);
@@ -2612,7 +2612,7 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
         this = THIS;
         GF_ASSERT (this);
 
-        if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
+        if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
                 ret = _add_task_to_dict (rsp_dict, volinfo, volinfo->rebal.op,
                                          tasks);
                 if (ret) {
@@ -2623,7 +2623,7 @@ glusterd_aggregate_task_status (dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
                 tasks++;
         }
 
-        if (!uuid_is_null (volinfo->rep_brick.rb_id)) {
+        if (!gf_uuid_is_null (volinfo->rep_brick.rb_id)) {
                 ret = _add_task_to_dict (rsp_dict, volinfo, GD_OP_REPLACE_BRICK,
                                          tasks);
                 if (ret) {
@@ -2752,7 +2752,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 if (ret)
                         goto out;
 
-                if (uuid_compare (brickinfo->uuid, MY_UUID))
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                         goto out;
 
                 glusterd_add_brick_to_dict (volinfo, brickinfo, rsp_dict,
@@ -2771,7 +2771,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
                         brick_index++;
-                        if (uuid_compare (brickinfo->uuid, MY_UUID))
+                        if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
                                 continue;
 
                         glusterd_add_brick_to_dict (volinfo, brickinfo,
@@ -3649,7 +3649,7 @@ glusterd_op_start_rb_timer (dict_t *dict, uuid_t *txn_id)
         if (!rb_txn_id)
                 goto out;
 
-        uuid_copy (*rb_txn_id, *txn_id);
+        gf_uuid_copy (*rb_txn_id, *txn_id);
         timeout.tv_sec  = 5;
         timeout.tv_nsec = 0;
 
@@ -3712,7 +3712,7 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
                 gf_log (this->name, GF_LOG_DEBUG, "Got uuid %s",
                         uuid_str);
 
-                ret = uuid_parse (uuid_str, uuid);
+                ret = gf_uuid_parse (uuid_str, uuid);
                 /* if parsing fails don't error out
                  * let the original value be retained
                  */
@@ -4636,7 +4636,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
 
         if (txn_id)
-                uuid_copy (*txn_id, event->txn_id);
+                gf_uuid_copy (*txn_id, event->txn_id);
         else {
                 ret = -1;
                 goto out;
@@ -4748,7 +4748,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
 
         if (txn_id)
-                uuid_copy (*txn_id, event->txn_id);
+                gf_uuid_copy (*txn_id, event->txn_id);
         else {
                 ret = -1;
                 goto out;
@@ -5445,7 +5445,7 @@ get_replica_index_for_per_replica_cmd (glusterd_volinfo_t *volinfo,
         replica_count = volinfo->replica_count;
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_is_null (brickinfo->uuid))
+                if (gf_uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
                 if (!strcmp (brickinfo->path,  path) &&
                     !strcmp (brickinfo->hostname, hostname)) {
@@ -5483,10 +5483,10 @@ _select_hxlator_with_matching_brick (xlator_t *this,
         hxl_children = _get_hxl_children_count (volinfo);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_is_null (brickinfo->uuid))
+                if (gf_uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                if (!uuid_compare (MY_UUID, brickinfo->uuid)) {
+                if (!gf_uuid_compare (MY_UUID, brickinfo->uuid)) {
                         _add_hxlator_to_dict (dict, volinfo,
                                               (index - 1)/hxl_children, 0);
                         return 1;
@@ -5512,10 +5512,10 @@ _select_hxlators_with_local_bricks (xlator_t *this, glusterd_volinfo_t *volinfo,
         hxl_children = _get_hxl_children_count (volinfo);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_is_null (brickinfo->uuid))
+                if (gf_uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                if (!uuid_compare (MY_UUID, brickinfo->uuid))
+                if (!gf_uuid_compare (MY_UUID, brickinfo->uuid))
                         add = _gf_true;
 
                 if (index % hxl_children == 0) {
@@ -5554,20 +5554,20 @@ _select_hxlators_for_full_self_heal (xlator_t *this,
         }
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_is_null (brickinfo->uuid))
+                if (gf_uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                if (uuid_compare (brickinfo->uuid, candidate) > 0)
-                        uuid_copy (candidate, brickinfo->uuid);
+                if (gf_uuid_compare (brickinfo->uuid, candidate) > 0)
+                        gf_uuid_copy (candidate, brickinfo->uuid);
 
                 if (index % hxl_children == 0) {
-                        if (!uuid_compare (MY_UUID, candidate)) {
+                        if (!gf_uuid_compare (MY_UUID, candidate)) {
                                 _add_hxlator_to_dict (dict, volinfo,
                                                       (index-1)/hxl_children,
                                                       hxlator_count);
                                 hxlator_count++;
                         }
-                        uuid_clear (candidate);
+                        gf_uuid_clear (candidate);
                 }
 
                 index++;
@@ -5606,7 +5606,7 @@ glusterd_bricks_select_snap (dict_t *dict, char **op_errstr,
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 brick_index++;
-                if (uuid_compare (brickinfo->uuid, MY_UUID) ||
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID) ||
                     !glusterd_is_brick_started (brickinfo)) {
                         continue;
                 }
@@ -5658,10 +5658,10 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
         }
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_is_null (brickinfo->uuid))
+                if (gf_uuid_is_null (brickinfo->uuid))
                         (void)glusterd_resolve_brick (brickinfo);
 
-                if (uuid_compare (MY_UUID, brickinfo->uuid)) {
+                if (gf_uuid_compare (MY_UUID, brickinfo->uuid)) {
                         index++;
                         continue;
                 }
@@ -5950,7 +5950,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 if (ret)
                         goto out;
 
-                if (uuid_compare (brickinfo->uuid, MY_UUID)||
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID)||
                     !glusterd_is_brick_started (brickinfo))
                         goto out;
 
@@ -6049,7 +6049,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
                         brick_index++;
-                        if (uuid_compare (brickinfo->uuid, MY_UUID) ||
+                        if (gf_uuid_compare (brickinfo->uuid, MY_UUID) ||
                             !glusterd_is_brick_started (brickinfo)) {
                                 continue;
                         }
@@ -6101,7 +6101,7 @@ glusterd_bricks_select_barrier (dict_t *dict, struct cds_list_head *selected)
         }
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                if (uuid_compare (brickinfo->uuid, MY_UUID) ||
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID) ||
                     !glusterd_is_brick_started (brickinfo)) {
                         continue;
                 }
@@ -6143,7 +6143,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                                      gf_gld_mt_op_allack_ctx_t);
                 op = glusterd_op_get_op ();
                 req_ctx->op = op;
-                uuid_copy (req_ctx->uuid, MY_UUID);
+                gf_uuid_copy (req_ctx->uuid, MY_UUID);
                 ret = glusterd_op_build_payload (&req_ctx->dict, &op_errstr,
                                                  NULL);
                 if (ret) {
@@ -6618,7 +6618,7 @@ glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
         event->ctx = ctx;
 
         if (txn_id)
-                uuid_copy (event->txn_id, *txn_id);
+                gf_uuid_copy (event->txn_id, *txn_id);
 
         gf_log (THIS->name, GF_LOG_DEBUG, "Enqueue event: '%s'",
                 glusterd_op_sm_event_name_get (event->event));

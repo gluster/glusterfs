@@ -296,7 +296,7 @@ afr_selfheal_data_restore_time (call_frame_t *frame, xlator_t *this,
 	loc_t loc = {0, };
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	AFR_ONLIST (healed_sinks, frame, attr_cbk, setattr, &loc,
 		    &replies[source].poststat,
@@ -748,7 +748,7 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode)
 		return NULL;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd);
 	if (ret) {

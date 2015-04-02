@@ -437,7 +437,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
                 INIT_LIST_HEAD (&pl_inode->reservelk_list);
                 INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
                 INIT_LIST_HEAD (&pl_inode->blocked_calls);
-                uuid_copy (pl_inode->gfid, inode->gfid);
+                gf_uuid_copy (pl_inode->gfid, inode->gfid);
 
                 __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
         }

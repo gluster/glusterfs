@@ -71,7 +71,7 @@ glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
                 goto out;
         }
 
-        uuid_copy (dirloc->gfid, index_gfid);
+        gf_uuid_copy (dirloc->gfid, index_gfid);
         dirloc->path = "";
         dirloc->inode = inode_new (rootloc->inode->table);
         ret = syncop_lookup (xl, dirloc, NULL,
@@ -238,12 +238,12 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
                         dict_unref (dict);
                         dict = NULL;
                 }
-                uuid_clear (gfid);
+                gf_uuid_clear (gfid);
                 GF_FREE (path);
                 path = NULL;
 
-                uuid_parse (entry->d_name, gfid);
-                uuid_copy (loc.gfid, gfid);
+                gf_uuid_parse (entry->d_name, gfid);
+                gf_uuid_copy (loc.gfid, gfid);
                 ret = syncop_getxattr (this, &loc, &dict, GF_HEAL_INFO, NULL);
                 if (ret)
                         continue;
@@ -552,7 +552,7 @@ glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 filename = gf_strdup(file);
                 path = strtok (filename, ":");
                 path = strtok (NULL, ";");
-                uuid_parse (path, loc.gfid);
+                gf_uuid_parse (path, loc.gfid);
                 loc.path = gf_strdup (uuid_utoa (loc.gfid));
                 loc.inode = inode_new (rootloc->inode->table);
                 ret = syncop_lookup (xl, &loc, xattr_req, 0, &xattr_rsp, 0);
