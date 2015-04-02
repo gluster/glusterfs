@@ -4,13 +4,15 @@ This section describes how to perform common GlusterFS management
 operations, including the following:
 
 - [Tuning Volume Options](#tuning-options)
+- [Configuring Transport Types for a Volume](#configuring-transport-types-for-a-volume)
 - [Expanding Volumes](#expanding-volumes)
 - [Shrinking Volumes](#shrinking-volumes)
 - [Migrating Volumes](#migrating-volumes)
 - [Rebalancing Volumes](#rebalancing-volumes)
 - [Stopping Volumes](#stopping-volumes)
 - [Deleting Volumes](#deleting-volumes)
-- [Triggering Self-Heal on Replicate](#self-heal)
+- [Triggering Self-Heal on Replicate](#triggering-self-heal-on-replicate)
+- [Non Uniform File Allocation(NUFA)](#non-uniform-file-allocation)
 
 <a name="tuning-options" />
 ##Tuning Volume Options
@@ -29,7 +31,7 @@ available.
 
 Tune volume options using the following command:
 
-    `# gluster volume set `
+    # gluster volume set
 
 For example, to specify the performance cache size for test-volume:
 
@@ -44,58 +46,81 @@ description and default value:
 > The default options given here are subject to modification at any
 > given time and may not be the same for all versions.
 
-
 Option | Description | Default Value | Available Options
 --- | --- | --- | ---
 auth.allow | IP addresses of the clients which should be allowed to access the volume. | \* (allow all) | Valid IP address which includes wild card patterns including \*, such as 192.168.1.\*
 auth.reject | IP addresses of the clients which should be denied to access the volume. | NONE (reject none)  | Valid IP address which includes wild card patterns including \*, such as 192.168.2.\*
 client.grace-timeout | Specifies the duration for the lock state to be maintained on the client after a network disconnection. | 10 | 10 - 1800 secs
-cluster.self-heal-window-size | Specifies the maximum number of blocks per file on which self-heal would happen simultaneously. | 16 | 0 - 1025 blocks 
-cluster.data-self-heal-algorithm | Specifies the type of self-heal. If you set the option as "full", the entire file is copied from source to destinations. If the option is set to "diff" the file blocks that are not in sync are copied to destinations. Reset uses a heuristic model. If the file does not exist on one of the subvolumes, or a zero-byte file exists (created by entry self-heal) the entire content has to be copied anyway, so there is no benefit from using the "diff" algorithm. If the file size is about the same as page size, the entire file can be read and written with a few operations, which will be faster than "diff" which has to read checksums and then read and write. | reset | full/diff/reset 
-cluster.min-free-disk | Specifies the percentage of disk space that must be kept free. Might be useful for non-uniform bricks | 10% | Percentage of required minimum free disk space 
+cluster.self-heal-window-size | Specifies the maximum number of blocks per file on which self-heal would happen simultaneously. | 16 | 0 - 1025 blocks
+cluster.data-self-heal-algorithm | Specifies the type of self-heal. If you set the option as "full", the entire file is copied from source to destinations. If the option is set to "diff" the file blocks that are not in sync are copied to destinations. Reset uses a heuristic model. If the file does not exist on one of the subvolumes, or a zero-byte file exists (created by entry self-heal) the entire content has to be copied anyway, so there is no benefit from using the "diff" algorithm. If the file size is about the same as page size, the entire file can be read and written with a few operations, which will be faster than "diff" which has to read checksums and then read and write. | reset | full/diff/reset
+cluster.min-free-disk | Specifies the percentage of disk space that must be kept free. Might be useful for non-uniform bricks | 10% | Percentage of required minimum free disk space
 cluster.stripe-block-size | Specifies the size of the stripe unit that will be read from or written to. | 128 KB (for all files) | size in bytes
 cluster.self-heal-daemon | Allows you to turn-off proactive self-heal on replicated | On | On/Off
 cluster.ensure-durability | This option makes sure the data/metadata is durable across abrupt shutdown of the brick. | On | On/Off
 diagnostics.brick-log-level | Changes the log-level of the bricks. | INFO | DEBUG/WARNING/ERROR/CRITICAL/NONE/TRACE
 diagnostics.client-log-level  |  Changes the log-level of the clients. | INFO | DEBUG/WARNING/ERROR/CRITICAL/NONE/TRACE
-diagnostics.latency-measurement | Statistics related to the latency of each operation would be tracked. | Off | On/Off 
+diagnostics.latency-measurement | Statistics related to the latency of each operation would be tracked. | Off | On/Off
 diagnostics.dump-fd-stats | Statistics related to file-operations would be tracked. | Off | On
-features.read-only | Enables you to mount the entire volume as read-only for all the clients (including NFS clients) accessing it. | Off | On/Off 
-features.lock-heal | Enables self-healing of locks when the network disconnects. | On | On/Off 
+features.read-only | Enables you to mount the entire volume as read-only for all the clients (including NFS clients) accessing it. | Off | On/Off
+features.lock-heal | Enables self-healing of locks when the network disconnects. | On | On/Off
 features.quota-timeout | For performance reasons, quota caches the directory sizes on client. You can set timeout indicating the maximum duration of directory sizes in cache, from the time they are populated, during which they are considered valid | 0 |  0 - 3600 secs
-geo-replication.indexing | Use this option to automatically sync the changes in the filesystem from Master to Slave. | Off | On/Off 
+geo-replication.indexing | Use this option to automatically sync the changes in the filesystem from Master to Slave. | Off | On/Off
 network.frame-timeout | The time frame after which the operation has to be declared as dead, if the server does not respond for a particular operation. | 1800 (30 mins) | 1800 secs
 network.ping-timeout | The time duration for which the client waits to check if the server is responsive. When a ping timeout happens, there is a network disconnect between the client and server. All resources held by server on behalf of the client get cleaned up. When a reconnection happens, all resources will need to be re-acquired before the client can resume its operations on the server. Additionally, the locks will be acquired and the lock tables updated. This reconnect is a very expensive operation and should be avoided. | 42 Secs | 42 Secs
 nfs.enable-ino32 | For 32-bit nfs clients or applications that do not support 64-bit inode numbers or large files, use this option from the CLI to make Gluster NFS return 32-bit inode numbers instead of 64-bit inode numbers. | Off | On/Off
 nfs.volume-access | Set the access type for the specified sub-volume. | read-write |  read-write/read-only
-nfs.trusted-write | If there is an UNSTABLE write from the client, STABLE flag will be returned to force the client to not send a COMMIT request. In some environments, combined with a replicated GlusterFS setup, this option can improve write performance. This flag allows users to trust Gluster replication logic to sync data to the disks and recover when required. COMMIT requests if received will be handled in a default manner by fsyncing. STABLE writes are still handled in a sync manner. | Off | On/Off 
+nfs.trusted-write | If there is an UNSTABLE write from the client, STABLE flag will be returned to force the client to not send a COMMIT request. In some environments, combined with a replicated GlusterFS setup, this option can improve write performance. This flag allows users to trust Gluster replication logic to sync data to the disks and recover when required. COMMIT requests if received will be handled in a default manner by fsyncing. STABLE writes are still handled in a sync manner. | Off | On/Off
 nfs.trusted-sync | All writes and COMMIT requests are treated as async. This implies that no write requests are guaranteed to be on server disks when the write reply is received at the NFS client. Trusted sync includes trusted-write behavior. | Off | On/Off
 nfs.export-dir | This option can be used to export specified comma separated subdirectories in the volume. The path must be an absolute path. Along with path allowed list of IPs/hostname can be associated with each subdirectory. If provided connection will allowed only from these IPs. Format: \<dir\>[(hostspec[hostspec...])][,...]. Where hostspec can be an IP address, hostname or an IP range in CIDR notation. **Note**: Care must be taken while configuring this option as invalid entries and/or unreachable DNS servers can introduce unwanted delay in all the mount calls. | No sub directory exported. | Absolute path with allowed list of IP/hostname
-nfs.export-volumes | Enable/Disable exporting entire volumes, instead if used in conjunction with nfs3.export-dir, can allow setting up only subdirectories as exports. | On | On/Off 
-nfs.rpc-auth-unix | Enable/Disable the AUTH\_UNIX authentication type. This option is enabled by default for better interoperability. However, you can disable it if required. | On | On/Off 
-nfs.rpc-auth-null | Enable/Disable the AUTH\_NULL authentication type. It is not recommended to change the default value for this option. | On | On/Off 
+nfs.export-volumes | Enable/Disable exporting entire volumes, instead if used in conjunction with nfs3.export-dir, can allow setting up only subdirectories as exports. | On | On/Off
+nfs.rpc-auth-unix | Enable/Disable the AUTH\_UNIX authentication type. This option is enabled by default for better interoperability. However, you can disable it if required. | On | On/Off
+nfs.rpc-auth-null | Enable/Disable the AUTH\_NULL authentication type. It is not recommended to change the default value for this option. | On | On/Off
 nfs.rpc-auth-allow\<IP- Addresses\> | Allow a comma separated list of addresses and/or hostnames to connect to the server. By default, all clients are disallowed. This allows you to define a general rule for all exported volumes. | Reject All | IP address or Host name
 nfs.rpc-auth-reject\<IP- Addresses\> | Reject a comma separated list of addresses and/or hostnames from connecting to the server. By default, all connections are disallowed. This allows you to define a general rule for all exported volumes. | Reject All | IP address or Host name
-nfs.ports-insecure | Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option. | Off | On/Off 
-nfs.addr-namelookup | Turn-off name lookup for incoming client connections using this option. In some setups, the name server can take too long to reply to DNS queries resulting in timeouts of mount requests. Use this option to turn off name lookups during address authentication. Note, turning this off will prevent you from using hostnames in rpc-auth.addr.\* filters. | On | On/Off 
-nfs.register-with-portmap | For systems that need to run multiple NFS servers, you need to prevent more than one from registering with portmap service. Use this option to turn off portmap registration for Gluster NFS. | On | On/Off 
+nfs.ports-insecure | Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option. | Off | On/Off
+nfs.addr-namelookup | Turn-off name lookup for incoming client connections using this option. In some setups, the name server can take too long to reply to DNS queries resulting in timeouts of mount requests. Use this option to turn off name lookups during address authentication. Note, turning this off will prevent you from using hostnames in rpc-auth.addr.\* filters. | On | On/Off
+nfs.register-with-portmap | For systems that need to run multiple NFS servers, you need to prevent more than one from registering with portmap service. Use this option to turn off portmap registration for Gluster NFS. | On | On/Off
 nfs.port \<PORT- NUMBER\> | Use this option on systems that need Gluster NFS to be associated with a non-default port number. | NA | 38465- 38467
 nfs.disable | Turn-off volume being exported by NFS | Off | On/Off
-performance.write-behind-window-size | Size of the per-file write-behind buffer. | 1MB | Write-behind cache size 
-performance.io-thread-count | The number of threads in IO threads translator. | 16 | 0-65 
-performance.flush-behind | If this option is set ON, instructs write-behind translator to perform flush in background, by returning success (or any errors, if any of previous writes were failed) to application even before flush is sent to backend filesystem. | On | On/Off 
+performance.write-behind-window-size | Size of the per-file write-behind buffer. | 1MB | Write-behind cache size
+performance.io-thread-count | The number of threads in IO threads translator. | 16 | 0-65
+performance.flush-behind | If this option is set ON, instructs write-behind translator to perform flush in background, by returning success (or any errors, if any of previous writes were failed) to application even before flush is sent to backend filesystem. | On | On/Off
 performance.cache-max-file-size | Sets the maximum file size cached by the io-cache translator. Can use the normal size descriptors of KB, MB, GB,TB or PB (for example, 6GB). Maximum size uint64. | 2 \^ 64 -1 bytes | size in bytes
 performance.cache-min-file-size | Sets the minimum file size cached by the io-cache translator. Values same as "max" above | 0B | size in bytes
-performance.cache-refresh-timeout | The cached data for a file will be retained till 'cache-refresh-timeout' seconds, after which data re-validation is performed. | 1s | 0-61  
+performance.cache-refresh-timeout | The cached data for a file will be retained till 'cache-refresh-timeout' seconds, after which data re-validation is performed. | 1s | 0-61
 performance.cache-size | Size of the read cache. | 32 MB |  size in bytes
-server.allow-insecure | Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option. | On | On/Off 
-server.grace-timeout | Specifies the duration for the lock state to be maintained on the server after a network disconnection. | 10 | 10 - 1800 secs 
+server.allow-insecure | Allow client connections from unprivileged ports. By default only privileged ports are allowed. This is a global setting in case insecure ports are to be enabled for all exports using a single option. | On | On/Off
+server.grace-timeout | Specifies the duration for the lock state to be maintained on the server after a network disconnection. | 10 | 10 - 1800 secs
 server.statedump-path | Location of the state dump file. | tmp directory of the brick |  New directory path
 storage.health-check-interval | Number of seconds between health-checks done on the filesystem that is used for the brick(s). Defaults to 30 seconds, set to 0 to disable. | tmp directory of the brick |  New directory path
 
 You can view the changed volume options using command:
- 
-    ` # gluster volume info `
+
+     # gluster volume info
+
+<a name="configuring-transport-types-for-a-volume" />
+##Configuring Transport Types for a Volume
+
+A volume can support one or more transport types for communication between clients and brick processes.
+There are three types of supported transport, which are tcp, rdma, and tcp,rdma.
+
+To change the supported transport types of a volume, follow the procedure:
+
+1.  Unmount the volume on all the clients using the following command:
+
+        # umount mount-point
+
+2.  Stop the volumes using the following command:
+
+        # gluster volume stop volname
+
+3.  Change the transport type. For example, to enable both tcp and rdma execute the followimg command:
+
+        # gluster volume set volname config.transport tcp,rdma OR tcp OR rdma
+
+4.  Mount the volume on all the clients. For example, to mount using rdma transport, use the following command:
+
+        # mount -t glusterfs -o transport=rdma server1:/test-volume /mnt/glusterfs
 
 <a name="expanding-volumes" />
 ##Expanding Volumes
@@ -156,7 +181,7 @@ replicated volume, increasing the capacity of the GlusterFS volume.
 4.  Rebalance the volume to ensure that all files are distributed to the
     new brick.
 
-    You can use the rebalance command as described in ?.
+    You can use the rebalance command as described in [Rebalancing Volumes](#rebalancing-volumes)
 
 <a name="shrinking-volumes" />
 ##Shrinking Volumes
@@ -196,12 +221,12 @@ set).
     following message indicating that the remove brick operation is
     successfully started:
 
-        Remove Brick successful 
+        Remove Brick successful
 
 3.  (Optional) View the status of the remove brick operation using the
     following command:
 
-    `# gluster volume remove-brick `` status`
+    `# gluster volume remove-brick  status`
 
     For example, to view the status of remove brick operation on
     server2:/exp2 brick:
@@ -230,7 +255,7 @@ set).
 5.  Rebalance the volume to ensure that all files are distributed to the
     new brick.
 
-    You can use the rebalance command as described in ?.
+    You can use the rebalance command as described in [Rebalancing Volumes](#rebalancing-volumes)
 
 <a name="migrating-volumes" />
 ##Migrating Volumes
@@ -273,7 +298,7 @@ cluster is online and available.
 4.  To abort the migration operation, if needed, use the following
     command:
 
-    ` # gluster volume replace-brick abort `
+    `# gluster volume replace-brick abort `
 
     For example, to abort the data migration from server3:/exp3 to
     server5:/exp5 in test-volume:
@@ -284,13 +309,13 @@ cluster is online and available.
 5.  Check the status of the migration operation using the following
     command:
 
-    ` # gluster volume replace-brick status `
+    `# gluster volume replace-brick status `
 
     For example, to check the data migration status from server3:/exp3
     to server5:/exp5 in test-volume:
 
         # gluster volume replace-brick test-volume server3:/exp3 server5:/exp5 status
-        Current File = /usr/src/linux-headers-2.6.31-14/block/Makefile 
+        Current File = /usr/src/linux-headers-2.6.31-14/block/Makefile
         Number of files migrated = 10567
         Migration complete
 
@@ -301,7 +326,7 @@ cluster is online and available.
 6.  Commit the migration of data from one brick to another using the
     following command:
 
-    ` # gluster volume replace-brick commit `
+    `# gluster volume replace-brick commit `
 
     For example, to commit the data migration from server3:/exp3 to
     server5:/exp5 in test-volume:
@@ -330,8 +355,6 @@ cluster is online and available.
         Brick4: server5:/exp5
 
         The new volume details are displayed.
-
-    The new volume details are displayed.
 
     In the above example, previously, there were bricks; 1,2,3, and 4
     and now brick 3 is replaced by brick 5.
@@ -469,7 +492,7 @@ You can stop the rebalance operation, as needed.
                                         Node  Rebalanced-files  size  scanned       status
                                    ---------  ----------------  ----  -------  -----------
         617c923e-6450-4065-8e33-865e28d9428f               59   590      244       stopped
-        Stopped rebalance process on volume test-volume 
+        Stopped rebalance process on volume test-volume
 
 <a name="stopping-volumes" />
 ##Stopping Volumes
@@ -488,7 +511,7 @@ You can stop the rebalance operation, as needed.
 
         Stopping volume test-volume has been successful
 
-<a name="" />
+<a name="deleting-volumes" />
 ##Deleting Volumes
 
 1.  Delete the volume using the following command:
@@ -505,7 +528,7 @@ You can stop the rebalance operation, as needed.
 
         Deleting volume test-volume has been successful
 
-<a name="self-heal" />
+<a name="triggering-self-heal-on-replicate" />
 ##Triggering Self-Heal on Replicate
 
 In replicate module, previously you had to manually trigger a self-heal
@@ -531,7 +554,7 @@ volume or only on the files which need *healing*.
 
 -   Trigger self-heal on all the files of a volume:
 
-    `# gluster volume heal ` `full`
+    `# gluster volume heal full`
 
     For example, to trigger self-heal on all the files of of
     test-volume:
@@ -541,7 +564,7 @@ volume or only on the files which need *healing*.
 
 -   View the list of files that needs *healing*:
 
-    `# gluster volume heal ` `info`
+    `# gluster volume heal info`
 
     For example, to view the list of files on test-volume that needs
     *healing*:
@@ -549,9 +572,9 @@ volume or only on the files which need *healing*.
         # gluster volume heal test-volume info
         Brick :/gfs/test-volume_0
         Number of entries: 0
-         
+
         Brick :/gfs/test-volume_1
-        Number of entries: 101 
+        Number of entries: 101
         /95.txt
         /32.txt
         /66.txt
@@ -565,16 +588,16 @@ volume or only on the files which need *healing*.
 
 -   View the list of files that are self-healed:
 
-    `# gluster volume heal ` `info healed`
+    `# gluster volume heal info healed`
 
     For example, to view the list of files on test-volume that are
     self-healed:
 
         # gluster volume heal test-volume info healed
-        Brick :/gfs/test-volume_0 
+        Brick :/gfs/test-volume_0
         Number of entries: 0
 
-        Brick :/gfs/test-volume_1 
+        Brick :/gfs/test-volume_1
         Number of entries: 69
         /99.txt
         /93.txt
@@ -593,16 +616,16 @@ volume or only on the files which need *healing*.
 -   View the list of files of a particular volume on which the self-heal
     failed:
 
-    `# gluster volume heal ` `info failed`
+    `# gluster volume heal info failed`
 
     For example, to view the list of files of test-volume that are not
     self-healed:
 
         # gluster volume heal test-volume info failed
         Brick :/gfs/test-volume_0
-        Number of entries: 0 
+        Number of entries: 0
 
-        Brick server2:/gfs/test-volume_3 
+        Brick server2:/gfs/test-volume_3
         Number of entries: 72
         /90.txt
         /95.txt
@@ -615,13 +638,13 @@ volume or only on the files which need *healing*.
 -   View the list of files of a particular volume which are in
     split-brain state:
 
-    `# gluster volume heal ` `info split-brain`
+    `# gluster volume heal info split-brain`
 
     For example, to view the list of files of test-volume which are in
     split-brain state:
 
         # gluster volume heal test-volume info split-brain
-        Brick server1:/gfs/test-volume_2 
+        Brick server1:/gfs/test-volume_2
         Number of entries: 12
         /83.txt
         /28.txt
@@ -635,4 +658,55 @@ volume or only on the files which need *healing*.
         /69.txt
         ...
 
+<a name="non-uniform-file-allocation" />
+##Non Uniform File Allocation
 
+NUFA translator or Non Uniform File Access translator is designed for giving higher preference
+to a local drive when used in a HPC type of environment. It can be applied to Distribute and Replica translators;
+in the latter case it ensures that *one* copy is local if space permits.
+
+When a client on a server creates files, the files are allocated to a brick in the volume based on the file name.
+This allocation may not be ideal, as there is higher latency and unnecessary network traffic for read/write operations
+to a non-local brick or export directory. NUFA ensures that the files are created in the local export directory
+of the server, and as a result, reduces latency and conserves bandwidth for that server accessing that file.
+This can also be useful for applications running on mount points on the storage server.
+
+If the local brick runs out of space or reaches the minimum disk free limit, instead of allocating files
+to the local brick, NUFA distributes files to other bricks in the same volume if there is
+space available on those bricks.
+
+NUFA should be enabled before creating any data in the volume.
+
+Use the following command to enable NUFA:
+
+     # gluster volume set VOLNAME cluster.nufa enable on
+
+**Important**
+
+NUFA is supported under the following conditions:
+
+- Volumes with only with one brick per server.
+- For use with a FUSE client.NUFA is not supported with NFS or SMB.
+- A client that is mounting a NUFA-enabled volume must be present within the trusted storage pool.
+
+The NUFA scheduler also exists, for use with the Unify translator; see below.
+
+    volume bricks
+      type cluster/nufa
+      option local-volume-name brick1
+      subvolumes brick1 brick2 brick3 brick4 brick5 brick6 brick7
+    end-volume
+
+#####NUFA additional options
+
+-   lookup-unhashed
+
+    This is an advanced option where files are looked up in all subvolumes if they are missing on the subvolume matching the hash value of the filename. The default is on.
+
+-   local-volume-name
+
+    The volume name to consider local and prefer file creations on. The default is to search for a volume matching the hostname of the system.
+
+-   subvolumes
+
+    This option lists the subvolumes that are part of this 'cluster/nufa' volume. This translator requires more than one subvolume.
