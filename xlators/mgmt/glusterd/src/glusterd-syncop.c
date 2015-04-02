@@ -1149,6 +1149,8 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         this = THIS;
         synctask_barrier_init((&args));
         peer_cnt = 0;
+
+        rcu_read_lock ();
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
                 /* Only send requests to peers who were available before the
                  * transaction started
@@ -1167,6 +1169,8 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                                                 MY_UUID, peer_uuid, txn_id);
                 peer_cnt++;
         }
+        rcu_read_unlock ();
+
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
@@ -1390,6 +1394,7 @@ commit_done:
         synctask_barrier_init((&args));
         peer_cnt = 0;
 
+        rcu_read_lock ();
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
                 /* Only send requests to peers who were available before the
                  * transaction started
@@ -1403,6 +1408,8 @@ commit_done:
                                                 op, req_dict, op_ctx);
                 peer_cnt++;
         }
+        rcu_read_unlock ();
+
         gd_synctask_barrier_wait((&args), peer_cnt);
         ret = args.op_ret;
         if (args.errstr)
@@ -1457,6 +1464,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         peer_cnt = 0;
 
         if (conf->op_version < GD_OP_VERSION_3_6_0) {
+                rcu_read_lock ();
                 cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
                                              uuid_list) {
                         /* Only send requests to peers who were available before
@@ -1472,8 +1480,10 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                                 peer_cnt++;
                         }
                 }
+                rcu_read_unlock ();
         } else {
                 if (volname) {
+                        rcu_read_lock ();
                         cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
                                                      uuid_list) {
                                 /* Only send requests to peers who were
@@ -1488,6 +1498,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                                                           tmp_uuid, txn_id);
                                 peer_cnt++;
                         }
+                        rcu_read_unlock ();
                 }
         }
         gd_synctask_barrier_wait((&args), peer_cnt);
