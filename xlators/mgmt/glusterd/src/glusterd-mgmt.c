@@ -1770,7 +1770,7 @@ out:
                         op_ret = ret;
                 }
         }
-rsp:
+
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
 
@@ -2080,7 +2080,7 @@ out:
                         op_ret = ret;
                 }
         }
-rsp:
+
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
 
