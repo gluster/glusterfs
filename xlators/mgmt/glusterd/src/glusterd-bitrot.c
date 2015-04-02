@@ -267,6 +267,9 @@ glusterd_bitrot_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
         int32_t           ret            = -1;
         xlator_t          *this          = NULL;
 
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
         GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
         GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
 
