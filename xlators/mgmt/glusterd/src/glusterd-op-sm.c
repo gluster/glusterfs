@@ -2921,9 +2921,13 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        list_for_each_local_xaction_peers (peerinfo,
-                                           opinfo.local_xaction_peers) {
-                GF_ASSERT (peerinfo);
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
+                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                        continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
@@ -2938,6 +2942,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                         if (proc->fn) {
                                 ret = proc->fn (NULL, this, peerinfo);
                                 if (ret) {
+                                        rcu_read_unlock ();
                                         gf_log (this->name, GF_LOG_WARNING,
                                                 "Failed to send lock request "
                                                 "for operation 'Volume %s' to "
@@ -2960,6 +2965,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                                 ret = dict_set_static_ptr (dict, "peerinfo",
                                                            peerinfo);
                                 if (ret) {
+                                        rcu_read_unlock ();
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "failed to set peerinfo");
                                         dict_unref (dict);
@@ -2983,6 +2989,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                         }
                 }
         }
+        rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
         if (!opinfo.pending_count)
@@ -3011,9 +3018,13 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         priv = this->private;
         GF_ASSERT (priv);
 
-        list_for_each_local_xaction_peers (peerinfo,
-                                           opinfo.local_xaction_peers) {
-                GF_ASSERT (peerinfo);
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
+                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                        continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt ||
                     !peerinfo->locked)
@@ -3085,6 +3096,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                         }
                 }
         }
+        rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
         if (!opinfo.pending_count)
@@ -3564,9 +3576,13 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         if (op == GD_OP_REPLACE_BRICK)
                 glusterd_rb_use_rsp_dict (NULL, rsp_dict);
 
-        list_for_each_local_xaction_peers (peerinfo,
-                                           opinfo.local_xaction_peers) {
-                GF_ASSERT (peerinfo);
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
+                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                        continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
@@ -3579,6 +3595,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 if (proc->fn) {
                         ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
                         if (ret) {
+                                rcu_read_unlock ();
                                 gf_log (this->name, GF_LOG_ERROR, "failed to "
                                         "set peerinfo");
                                 goto out;
@@ -3595,6 +3612,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                         pending_count++;
                 }
         }
+        rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
 out:
@@ -4214,9 +4232,13 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        list_for_each_local_xaction_peers (peerinfo,
-                                           opinfo.local_xaction_peers) {
-                GF_ASSERT (peerinfo);
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
+                /* Only send requests to peers who were available before the
+                 * transaction started
+                 */
+                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                        continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
@@ -4229,6 +4251,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 if (proc->fn) {
                         ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
                         if (ret) {
+                                rcu_read_unlock ();
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "failed to set peerinfo");
                                 goto out;
@@ -4244,6 +4267,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                         pending_count++;
                 }
         }
+        rcu_read_unlock ();
 
         opinfo.pending_count = pending_count;
         gf_log (this->name, GF_LOG_DEBUG, "Sent commit op req for 'Volume %s' "
