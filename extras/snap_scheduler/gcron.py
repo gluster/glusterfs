@@ -60,7 +60,8 @@ def takeSnap(volname=""):
     cli = ["gluster",
            "snapshot",
            "create",
-           "%s-snapshot-%s %s" % (volname, timeStr, volname)]
+           "%s-snapshot-%s" % (volname, timeStr),
+           "%s" % (volname)]
     log.debug("Running command '%s'", " ".join(cli))
 
     p = subprocess.Popen(cli, stdout=subprocess.PIPE,
