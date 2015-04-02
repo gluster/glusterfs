@@ -689,6 +689,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         /* Other perf xlators' options */
         { .key        = "performance.cache-size",
           .voltype    = "performance/quick-read",
+          .type       = NO_DOC,
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
@@ -853,6 +854,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "network.tcp-window-size",
           .voltype     = "protocol/server",
+          .type        = NO_DOC,
           .op_version  = 1
         },
         { .key         = "network.inode-lru-limit",
