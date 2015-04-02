@@ -316,9 +316,6 @@ glusterd_clear_txn_opinfo (uuid_t *txn_id)
 
         dict_del(priv->glusterd_txn_opinfo, uuid_utoa (*txn_id));
 
-        if (txn_op_info.local_xaction_peers)
-                GF_FREE (txn_op_info.local_xaction_peers);
-
         gf_log ("", GF_LOG_DEBUG,
                 "Successfully cleared opinfo for transaction ID : %s",
                 uuid_utoa (*txn_id));
@@ -4554,7 +4551,6 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         glusterd_op_clear_op ();
         glusterd_op_reset_ctx ();
         glusterd_op_clear_errstr ();
-        gd_cleanup_local_xaction_peers_list (opinfo.local_xaction_peers);
 
         /* Based on the op-version, we release the cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_3_6_0) {

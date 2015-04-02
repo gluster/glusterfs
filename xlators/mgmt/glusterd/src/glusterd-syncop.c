@@ -1067,69 +1067,6 @@ out:
 
 
 int
-gd_build_peers_list (struct cds_list_head *peers,
-                     struct cds_list_head *xact_peers, glusterd_op_t op)
-{
-        glusterd_peerinfo_t *peerinfo = NULL;
-        int                 npeers      = 0;
-
-        GF_ASSERT (peers);
-        GF_ASSERT (xact_peers);
-
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
-                if (!peerinfo->connected)
-                        continue;
-                if (op != GD_OP_SYNC_VOLUME &&
-                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
-                        continue;
-
-                cds_list_add_tail (&peerinfo->op_peers_list, xact_peers);
-                npeers++;
-        }
-        rcu_read_unlock ();
-
-        return npeers;
-}
-
-int
-gd_build_local_xaction_peers_list (struct cds_list_head *peers,
-                                   struct cds_list_head *xact_peers,
-                                   glusterd_op_t op)
-{
-        glusterd_peerinfo_t    *peerinfo    = NULL;
-        glusterd_local_peers_t *local_peers = NULL;
-        int                     npeers      = 0;
-
-        GF_ASSERT (peers);
-        GF_ASSERT (xact_peers);
-
-        rcu_read_lock ();
-        cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
-                if (!peerinfo->connected)
-                        continue;
-                if (op != GD_OP_SYNC_VOLUME &&
-                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
-                        continue;
-
-                local_peers = GF_CALLOC (1, sizeof (*local_peers),
-                                         gf_gld_mt_local_peers_t);
-                if (!local_peers) {
-                        npeers = -1;
-                        goto unlock;
-                }
-                CDS_INIT_LIST_HEAD (&local_peers->op_peers_list);
-                local_peers->peerinfo = peerinfo;
-                cds_list_add_tail (&local_peers->op_peers_list, xact_peers);
-                npeers++;
-        }
-unlock:
-        rcu_read_unlock ();
-
-        return npeers;
-}
-
-int
 gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                   char **op_errstr, int npeers, uuid_t txn_id,
                   glusterd_op_info_t *txn_opinfo)
@@ -1684,15 +1621,12 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *txn_id          = NULL;
-        struct cds_list_head        xaction_peers    = {0,};
         glusterd_op_info_t          txn_opinfo       = {{0},};
 
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
         GF_ASSERT (conf);
-
-        CDS_INIT_LIST_HEAD (&xaction_peers);
 
         ret = dict_get_int32 (op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
         if (ret) {
@@ -1774,15 +1708,6 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
 local_locking_done:
 
-        /* Maintain xaction_peers on per transaction basis */
-        npeers = gd_build_local_xaction_peers_list (&conf->peers,
-                                                    &xaction_peers, op);
-        if (npeers == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "building local peers list "
-                        "failed");
-                goto out;
-        }
-
         /* If no volname is given as a part of the command, locks will
          * not be held */
         if (volname || (conf->op_version < GD_OP_VERSION_3_6_0)) {
@@ -1836,8 +1761,6 @@ out:
         }
 
         glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
-
-        gd_cleanup_local_xaction_peers_list (&xaction_peers);
 
         if (volname)
                 GF_FREE (volname);

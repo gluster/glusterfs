@@ -1654,7 +1654,6 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
-        struct cds_list_head        xaction_peers    = {0,};
         struct timespec             xaction_start_ts = {0,};
 
         this = THIS;
@@ -1663,15 +1662,6 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (dict);
         conf = this->private;
         GF_ASSERT (conf);
-
-        CDS_INIT_LIST_HEAD (&xaction_peers);
-        npeers = gd_build_local_xaction_peers_list  (&conf->peers,
-                                                     &xaction_peers, op);
-        if (npeers == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "building local peers list "
-                        "failed");
-                goto rsp;
-        }
 
         /* Save the transaction start time */
         timespec_now (&xaction_start_ts);
@@ -1784,8 +1774,6 @@ rsp:
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
 
-        gd_cleanup_local_xaction_peers_list (&xaction_peers);
-
         if (req_dict)
                 dict_unref (req_dict);
 
@@ -1878,7 +1866,6 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
-        struct cds_list_head        xaction_peers    = {0,};
         struct timespec             xaction_start_ts = {0,};
 
         this = THIS;
@@ -1887,15 +1874,6 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (dict);
         conf = this->private;
         GF_ASSERT (conf);
-
-        CDS_INIT_LIST_HEAD (&xaction_peers);
-        npeers = gd_build_local_xaction_peers_list  (&conf->peers,
-                                                     &xaction_peers, op);
-        if (npeers == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "building local peers list "
-                        "failed");
-                goto rsp;
-        }
 
         /* Save the transaction start time */
         timespec_now (&xaction_start_ts);
@@ -2105,8 +2083,6 @@ out:
 rsp:
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
-
-        gd_cleanup_local_xaction_peers_list (&xaction_peers);
 
         if (req_dict)
                 dict_unref (req_dict);
