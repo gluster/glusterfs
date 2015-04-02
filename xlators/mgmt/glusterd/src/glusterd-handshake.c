@@ -38,6 +38,7 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
 
 #define TRUSTED_PREFIX         "trusted-"
+#define GD_PEER_ID_KEY         "peer-id"
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
 
@@ -955,20 +956,39 @@ out:
  * Requests are allowed if,
  *  - glusterd has no peers, or
  *  - the request came from a known peer
+ * A known peer is identified using the following steps
+ *  - the dict is checked for a peer uuid, which if present is matched with the
+ *  peer list, else
+ *  - the incoming request address is matched with the peer list
  */
 gf_boolean_t
-gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req)
+gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req, dict_t *dict)
 {
         int                  ret                         = -1;
         char                 hostname[UNIX_PATH_MAX + 1] = {0,};
         glusterd_peerinfo_t *peer                        = NULL;
         xlator_t            *this                        = NULL;
+        char                *uuid_str                    = NULL;
+        uuid_t               peer_uuid                   = {0,};
 
         this = THIS;
         GF_ASSERT (this);
 
         if (!glusterd_have_peers ())
                 return _gf_true;
+
+        ret = dict_get_str (dict, GD_PEER_ID_KEY, &uuid_str);
+        /* Try to match uuid only if available, don't fail as older peers will
+         * not send a uuid
+         */
+        if (!ret) {
+                gf_uuid_parse (uuid_str, peer_uuid);
+                rcu_read_lock ();
+                ret = (glusterd_peerinfo_find (peer_uuid, NULL) != NULL);
+                rcu_read_unlock ();
+                if (ret)
+                        return _gf_true;
+        }
 
         /* If you cannot get the hostname, you cannot authenticate */
         ret = glusterd_remote_hostname_get (req, hostname, sizeof (hostname));
@@ -999,21 +1019,26 @@ __glusterd_mgmt_hndsk_versions (rpcsvc_request_t *req)
         int                op_errno        = EINVAL;
         gf_mgmt_hndsk_req  args            = {{0,},};
         gf_mgmt_hndsk_rsp  rsp             = {0,};
+        dict_t            *args_dict       = NULL;
 
         this = THIS;
         conf = this->private;
-
-        /* Check if we can service the request */
-        if (!gd_validate_mgmt_hndsk_req (req)) {
-                ret = -1;
-                goto out;
-        }
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_mgmt_hndsk_req);
         if (ret < 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (this, args_dict, args.hndsk.hndsk_val,
+                                      (args.hndsk.hndsk_len), ret, op_errno,
+                                      out);
+
+        /* Check if we can service the request */
+        if (!gd_validate_mgmt_hndsk_req (req, args_dict)) {
+                ret = -1;
                 goto out;
         }
 
@@ -1092,12 +1117,6 @@ __glusterd_mgmt_hndsk_versions_ack (rpcsvc_request_t *req)
 
         this = THIS;
         conf = this->private;
-
-        /* Check if we can service the request */
-        if (!gd_validate_mgmt_hndsk_req (req)) {
-                ret = -1;
-                goto out;
-        }
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_mgmt_hndsk_req);
@@ -1813,13 +1832,30 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
         call_frame_t        *frame    = NULL;
         gf_mgmt_hndsk_req    req      = {{0,},};
         glusterd_peerinfo_t *peerinfo = NULL;
+        dict_t              *req_dict = NULL;
         int                  ret      = -1;
+        int                  op_errno = EINVAL;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame)
                 goto out;
 
         frame->local = peerctx;
+
+        req_dict = dict_new ();
+        if (!req_dict)
+                goto out;
+
+        ret = dict_set_dynstr (req_dict, GD_PEER_ID_KEY,
+                               gf_strdup (uuid_utoa (MY_UUID)));
+        if (ret) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "failed to set peer ID in dict");
+                goto out;
+        }
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, req_dict, (&req.hndsk.hndsk_val),
+                                    req.hndsk.hndsk_len, op_errno, out);
 
         rcu_read_lock ();
 
