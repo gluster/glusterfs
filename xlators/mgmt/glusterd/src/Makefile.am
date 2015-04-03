@@ -43,7 +43,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(rpclibdir) -I$(CONTRIBDIR)/rbtree \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_srcdir)/rpc/rpc-lib/src \
-	-I$(CONTRIBDIR)/uuid -I$(CONTRIBDIR)/mount \
+	-I$(CONTRIBDIR)/mount \
 	-I$(CONTRIBDIR)/userspace-rcu \
 	-DSBIN_DIR=\"$(sbindir)\" -DDATADIR=\"$(localstatedir)\" \
 	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\" \

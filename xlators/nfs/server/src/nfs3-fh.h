@@ -20,7 +20,7 @@
 #include "xdr-nfs3.h"
 #include "iatt.h"
 #include <sys/types.h>
-#include "uuid.h"
+#include "compat-uuid.h"
 
 /* BIG FAT WARNING: The file handle code is tightly coupled to NFSv3 file
  * handles for now. This will change if and when we need v4. */

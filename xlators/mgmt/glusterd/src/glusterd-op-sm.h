@@ -17,7 +17,7 @@
 
 
 #include <pthread.h>
-#include <uuid/uuid.h>
+#include "compat-uuid.h"
 
 #include "glusterfs.h"
 #include "xlator.h"

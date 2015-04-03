@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "uuid.h"
+#include "compat-uuid.h"
 #include "globals.h"
 #include "glusterfs.h"
 

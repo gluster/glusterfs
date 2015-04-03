@@ -25,7 +25,7 @@
 #include "xdr-nfs3.h"
 #include "locking.h"
 #include "nfs3-fh.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 #include "exports.h"
 #include "mount3-auth.h"
 #include "auth-cache.h"

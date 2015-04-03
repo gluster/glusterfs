@@ -21,7 +21,7 @@
 #include "xlator.h"
 #include "rpcsvc.h"
 #include "iatt.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 
 //NFS_PATH_MAX hard-coded to 4096 as a work around for bug 2476.
 //nfs server crashes when path received is longer than PATH_MAX

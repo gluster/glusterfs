@@ -18,7 +18,7 @@
 #include "marker-quota.h"
 #include "xlator.h"
 #include "defaults.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 #include "call-stub.h"
 
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"

@@ -16,7 +16,7 @@
 #endif
 
 #include <pthread.h>
-#include <uuid/uuid.h>
+#include "compat-uuid.h"
 
 #include "rpc-clnt.h"
 #include "glusterfs.h"
