@@ -41,7 +41,7 @@ void trap (void);
 #include "glusterfs.h"
 #include "locking.h"
 #include "mem-pool.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)

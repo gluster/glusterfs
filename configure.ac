@@ -397,6 +397,19 @@ case $host_os in
 esac
 AC_SUBST(MATH_LIB)
 
+dnl use libuuid.so or fall-back to contrib/uuid
+PKG_CHECK_MODULES([UUID], [uuid],
+        [HAVE_LIBUUID=yes
+         AC_DEFINE(HAVE_LIBUUID, 1, [have libuuid.so])
+         PKGCONFIG_UUID=uuid],
+        [HAVE_LIBUUID=no
+         UUID_CFLAGS='-I$(CONTRIBDIR)/uuid'])
+AM_CONDITIONAL([HAVE_LIBUUID], [test x$HAVE_LIBUUID = xyes])
+dnl libglusterfs needs uuid.h, practically everything depends on it
+GF_CPPFLAGS="${GF_CPPFLAGS} ${UUID_CFLAGS}"
+dnl PKGCONFIG_UUID is used for the dependency in *.pc.in files
+AC_SUBST(PKGCONFIG_UUID)
+
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
      *netbsd*)
@@ -837,6 +850,9 @@ if test "x${ac_cv_header_argp_h}" = "xno"; then
    ARGP_STANDALONE_DIR='${top_builddir}/contrib/argp-standalone'
 fi
 
+dnl libglusterfs needs argp.h, practically everything depends on it
+GF_CPPFLAGS="${GF_CPPFLAGS} ${ARGP_STANDALONE_CPPFLAGS}"
+
 AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
 AC_SUBST(ARGP_STANDALONE_LDADD)
 AC_SUBST(ARGP_STANDALONE_DIR)
@@ -923,7 +939,7 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT([$CLANG])
 
 if test "x$CLANG" = "xyes"; then
-   GF_COMPILER_FLAGS="-Wno-gnu"
+   GF_CFLAGS="${GF_CFLAGS} -Wno-gnu"
 fi
 
 if test "x$ac_cv_header_execinfo_h" = "xno"; then
@@ -937,7 +953,7 @@ if test "x$ac_cv_header_execinfo_h" = "xno"; then
    # execinfo.c in ./contrib/libexecinfo uses __builtin_frame_address(n)
    # for providing cross platform backtrace*() functions.
    if test "x$CLANG" = "xno"; then
-      CFLAGS="$CFLAGS -fno-omit-frame-pointer"
+      GF_CFLAGS="${GF_CFLAGS} -fno-omit-frame-pointer"
    fi
 fi
 
@@ -969,23 +985,19 @@ prefix=$old_prefix
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
-        GF_CFLAGS="${GF_COMPILER_FLAGS} ${ARGP_STANDALONE_CPPFLAGS}"
-        GF_LDADD="${ARGP_STANDALONE_LDADD}"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/lib/glusterd"
         ;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -m64"
-        GF_LDFLAGS=""
-        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_CFLAGS="${GF_CFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -m64"
         BUILD_FUSE_CLIENT=no
         FUSE_CLIENT_SUBDIR=""
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/lib/glusterd"
         ;;
      *netbsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_INCOMPLETE_XOPEN_C063"
+        GF_CFLAGS="${GF_CFLAGS} -D_INCOMPLETE_XOPEN_C063"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
@@ -1002,7 +1014,7 @@ case $host_os in
         ;;
      *freebsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${GF_COMPILER_FLAGS} ${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_CFLAGS="${GF_CFLAGS} ${ARGP_STANDALONE_CPPFLAGS} -O0"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_CFLAGS="${GF_CFLAGS} -D_LIBGEN_H_"
@@ -1022,7 +1034,7 @@ case $host_os in
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
         LIBTOOL=glibtool
-        GF_CFLAGS="${GF_COMPILER_FLAGS} ${ARGP_STANDALONE_CPPFLAGS} "
+        GF_CFLAGS="${GF_CFLAGS} ${ARGP_STANDALONE_CPPFLAGS} "
         GF_CFLAGS="${GF_CFLAGS} -D_REENTRANT -D_XOPEN_SOURCE "
         GF_CFLAGS="${GF_CFLAGS} -D_DARWIN_USE_64_BIT_INODE "
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
@@ -1239,8 +1251,8 @@ CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
 
 GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)'
-GF_CPPINCLUDES='-I$(top_srcdir)/libglusterfs/src -I$(CONTRIBDIR)/uuid'
-GF_CPPFLAGS="$GF_CPPDEFINES $GF_CPPINCLUDES"
+GF_CPPINCLUDES='-I$(top_srcdir)/libglusterfs/src'
+GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
 AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")

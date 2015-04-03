@@ -27,6 +27,7 @@
 #include "compat.h"
 #include "list.h"
 #include "latency.h"
+#include "compat-uuid.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 #define SECOND_CHILD(xl) (xl->children->next->xlator)
