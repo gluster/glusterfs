@@ -168,37 +168,29 @@ def load_tasks_from_file():
 
 
 def list_schedules():
-    ret = scheduler_status()
+    log.info("Listing snapshot schedules.")
+    ret = load_tasks_from_file()
     if ret:
-        if scheduler_enabled:
-            log.info("Listing snapshot schedules.")
-            ret = load_tasks_from_file()
-            if ret:
-                if len(tasks) == 0:
-                    output("No snapshots scheduled")
-                else:
-                    jobname = "JOB_NAME".ljust(longest_field+5)
-                    schedule = "SCHEDULE".ljust(longest_field+5)
-                    operation = "OPERATION".ljust(longest_field+5)
-                    volname = "VOLUME NAME".ljust(longest_field+5)
-                    hyphens = "".ljust((longest_field+5) * 4, '-')
-                    print(jobname+schedule+operation+volname)
-                    print(hyphens)
-                    for key in sorted(tasks):
-                        jobname = key.ljust(longest_field+5)
-                        schedule = tasks[key].split(":")[0].ljust(
-                            longest_field + 5)
-                        volname = tasks[key].split(":")[1].ljust(
-                            longest_field + 5)
-                        operation = "Snapshot Create".ljust(longest_field+5)
-                        print(jobname+schedule+operation+volname)
-            else:
-                log.error("Failed to load tasks from %s.", GCRON_ENABLED)
+        if len(tasks) == 0:
+            output("No snapshots scheduled")
         else:
-            print_str = "Failed to list snapshot schedules. " \
-                        "Error: Snapshot scheduling is currently disabled."
-            log.error(print_str)
-            output(print_str)
+            jobname = "JOB_NAME".ljust(longest_field+5)
+            schedule = "SCHEDULE".ljust(longest_field+5)
+            operation = "OPERATION".ljust(longest_field+5)
+            volname = "VOLUME NAME".ljust(longest_field+5)
+            hyphens = "".ljust((longest_field+5) * 4, '-')
+            print(jobname+schedule+operation+volname)
+            print(hyphens)
+            for key in sorted(tasks):
+                jobname = key.ljust(longest_field+5)
+                schedule = tasks[key].split(":")[0].ljust(
+                           longest_field + 5)
+                volname = tasks[key].split(":")[1].ljust(
+                          longest_field + 5)
+                operation = "Snapshot Create".ljust(longest_field+5)
+                print(jobname+schedule+operation+volname)
+    else:
+        log.error("Failed to load tasks from %s.", GCRON_ENABLED)
 
     return ret
 
@@ -230,109 +222,82 @@ def write_tasks_to_file():
 
 
 def add_schedules(jobname, schedule, volname):
-    ret = scheduler_status()
+    log.info("Adding snapshot schedules.")
+    ret = load_tasks_from_file()
     if ret:
-        if scheduler_enabled:
-            log.info("Adding snapshot schedules.")
-            ret = load_tasks_from_file()
-            if ret:
-                if jobname in tasks:
-                    print_str = ("%s already exists in schedule. Use "
-                                 "'edit' to modify %s" % (jobname, jobname))
-                    log.error(print_str)
-                    output(print_str)
-                else:
-                    tasks[jobname] = schedule + ":" + volname
-                    ret = write_tasks_to_file()
-                    if ret:
-                        # Create a LOCK_FILE for the job
-                        job_lockfile = LOCK_FILE_DIR + jobname
-                        try:
-                            f = os.open(job_lockfile,
-                                        os.O_CREAT | os.O_NONBLOCK, 0644)
-                            os.close(f)
-                        except IOError as (errno, strerror):
-                            log.error("Failed to open %s. Error: %s.",
-                                      job_lockfile, strerror)
-                            ret = False
-                            return ret
-                        log.info("Successfully added snapshot schedule %s"
-                                 % jobname)
-                        output("Successfully added snapshot schedule")
-            else:
-                log.error("Failed to load tasks from %s.", GCRON_ENABLED)
-        else:
-            print_str = ("Failed to add snapshot schedule. "
-                         "Error: Snapshot scheduling is currently disabled.")
+        if jobname in tasks:
+            print_str = ("%s already exists in schedule. Use "
+                         "'edit' to modify %s" % (jobname, jobname))
             log.error(print_str)
             output(print_str)
+        else:
+            tasks[jobname] = schedule + ":" + volname
+            ret = write_tasks_to_file()
+            if ret:
+                # Create a LOCK_FILE for the job
+                job_lockfile = LOCK_FILE_DIR + jobname
+                try:
+                    f = os.open(job_lockfile, os.O_CREAT | os.O_NONBLOCK, 0644)
+                    os.close(f)
+                except IOError as (errno, strerror):
+                    log.error("Failed to open %s. Error: %s.",
+                              job_lockfile, strerror)
+                    ret = False
+                    return ret
+                log.info("Successfully added snapshot schedule %s" % jobname)
+                output("Successfully added snapshot schedule")
+    else:
+        log.error("Failed to load tasks from %s.", GCRON_ENABLED)
 
     return ret
 
 
 def delete_schedules(jobname):
-    ret = scheduler_status()
+    log.info("Delete snapshot schedules.")
+    ret = load_tasks_from_file()
     if ret:
-        if scheduler_enabled:
-            log.info("Delete snapshot schedules.")
-            ret = load_tasks_from_file()
+        if jobname in tasks:
+            del tasks[jobname]
+            ret = write_tasks_to_file()
             if ret:
-                if jobname in tasks:
-                    del tasks[jobname]
-                    ret = write_tasks_to_file()
-                    if ret:
-                        # Delete the LOCK_FILE for the job
-                        job_lockfile = LOCK_FILE_DIR+jobname
-                        try:
-                            os.remove(job_lockfile)
-                        except IOError as (errno, strerror):
-                            log.error("Failed to open %s. Error: %s.",
-                                      job_lockfile, strerror)
-                        log.info("Successfully deleted snapshot schedule %s"
-                                 % jobname)
-                        output("Successfully deleted snapshot schedule")
-                else:
-                    print_str = ("Failed to delete %s. Error: No such "
-                                 "job scheduled" % jobname)
-                    log.error(print_str)
-                    output(print_str)
-            else:
-                log.error("Failed to load tasks from %s.", GCRON_ENABLED)
+                # Delete the LOCK_FILE for the job
+                job_lockfile = LOCK_FILE_DIR+jobname
+                try:
+                    os.remove(job_lockfile)
+                except IOError as (errno, strerror):
+                    log.error("Failed to open %s. Error: %s.",
+                              job_lockfile, strerror)
+                log.info("Successfully deleted snapshot schedule %s"
+                         % jobname)
+                output("Successfully deleted snapshot schedule")
         else:
-            print_str = ("Failed to delete snapshot schedule. "
-                         "Error: Snapshot scheduling is currently disabled.")
+            print_str = ("Failed to delete %s. Error: No such "
+                         "job scheduled" % jobname)
             log.error(print_str)
             output(print_str)
+    else:
+        log.error("Failed to load tasks from %s.", GCRON_ENABLED)
 
     return ret
 
 
 def edit_schedules(jobname, schedule, volname):
-    ret = scheduler_status()
+    log.info("Editing snapshot schedules.")
+    ret = load_tasks_from_file()
     if ret:
-        if scheduler_enabled:
-            log.info("Editing snapshot schedules.")
-            ret = load_tasks_from_file()
+        if jobname in tasks:
+            tasks[jobname] = schedule+":"+volname
+            ret = write_tasks_to_file()
             if ret:
-                if jobname in tasks:
-                    tasks[jobname] = schedule+":"+volname
-                    ret = write_tasks_to_file()
-                    if ret:
-                        log.info("Successfully edited snapshot schedule %s"
-                                 % jobname)
-                        output("Successfully edited snapshot schedule")
-                else:
-                    print_str = ("Failed to edit %s. Error: No such "
-                                 "job scheduled" % jobname)
-                    log.error(print_str)
-                    output(print_str)
-            else:
-                log.error("Failed to load tasks from %s.", GCRON_ENABLED)
+                log.info("Successfully edited snapshot schedule %s" % jobname)
+                output("Successfully edited snapshot schedule")
         else:
-            print_str = ("Failed to edit snapshot schedule. "
-                         "Error: Snapshot scheduling is currently disabled.")
+            print_str = ("Failed to edit %s. Error: No such "
+                         "job scheduled" % jobname)
             log.error(print_str)
             output(print_str)
+    else:
+        log.error("Failed to load tasks from %s.", GCRON_ENABLED)
 
     return ret
 
