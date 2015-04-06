@@ -74,6 +74,7 @@ glusterfsd/src/glusterfs
 glusterfsd/src/glusterfsd
 heal/src/glfsheal
 libgfchangelog.pc
+libgfdb.pc
 libglusterfs/src/graph.lex.c
 libglusterfs/src/y.tab.c
 libglusterfs/src/y.tab.h
@@ -86,5 +87,6 @@ xlators/features/glupy/src/setup.py
 xlators/mount/fuse/utils/mount.glusterfs
 xlators/mount/fuse/utils/mount_glusterfs
 extras/peer_add_secret_pub
+tools/gfind_missing_files/gcrawler
 tools/glusterfind/glusterfind
 tools/glusterfind/src/tool.conf
