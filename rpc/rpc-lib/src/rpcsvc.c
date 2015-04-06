@@ -179,13 +179,25 @@ rpcsvc_can_outstanding_req_be_ignored (rpcsvc_request_t *req)
 int
 rpcsvc_request_outstanding (rpcsvc_request_t *req, int delta)
 {
-        int ret = 0;
-        int old_count = 0;
-        int new_count = 0;
-        int limit = 0;
+        int             ret = -1;
+        int             old_count = 0;
+        int             new_count = 0;
+        int             limit = 0;
+        gf_boolean_t    throttle = _gf_false;
 
-        if (rpcsvc_can_outstanding_req_be_ignored (req))
-                return 0;
+        if (!req)
+                goto out;
+
+        throttle = rpcsvc_get_throttle (req->svc);
+        if (!throttle) {
+                ret = 0;
+                goto out;
+        }
+
+        if (rpcsvc_can_outstanding_req_be_ignored (req)) {
+                ret = 0;
+                goto out;
+        }
 
         pthread_mutex_lock (&req->trans->lock);
         {
@@ -206,6 +218,7 @@ rpcsvc_request_outstanding (rpcsvc_request_t *req, int delta)
 unlock:
         pthread_mutex_unlock (&req->trans->lock);
 
+out:
         return ret;
 }
 
