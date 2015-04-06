@@ -17,22 +17,7 @@
 #endif
 
 #include "glusterfs.h"
-
-/**
- * on-disk formats for ongoing version and object signature.
- */
-typedef struct br_version {
-        unsigned long ongoingversion;
-        uint32_t timebuf[2];
-} br_version_t;
-
-typedef struct br_signature {
-        int8_t signaturetype;
-
-        unsigned long signedversion;
-
-        char signature[0];
-} br_signature_t;
+#include "bit-rot-object-version.h"
 
 #define BR_VXATTR_VERSION   (1 << 0)
 #define BR_VXATTR_SIGNATURE (1 << 1)
