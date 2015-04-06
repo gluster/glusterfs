@@ -77,6 +77,8 @@ typedef struct rpcsvc_state {
 	/* per-client limit of outstanding rpc requests */
         int                     outstanding_rpc_limit;
         gf_boolean_t            addr_namelookup;
+        /* determine whether throttling is needed, by default OFF */
+        gf_boolean_t            throttle;
 } rpcsvc_t;
 
 /* DRC START */
