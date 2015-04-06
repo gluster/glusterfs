@@ -283,7 +283,7 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #endif
 
 #define GF_UUID_ASSERT(u) \
-        if (uuid_is_null (u))\
+        if (gf_uuid_is_null (u))\
                 GF_ASSERT (!"uuid null");
 
 union gf_sock_union {

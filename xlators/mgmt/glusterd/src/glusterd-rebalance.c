@@ -702,7 +702,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (cmd == GF_DEFRAG_CMD_STATUS ||
             cmd == GF_DEFRAG_CMD_STOP ||
             cmd == GF_DEFRAG_CMD_STATUS_TIER) {
-                if (!uuid_is_null (volinfo->rebal.rebalance_id)) {
+                if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
                         ctx = glusterd_op_get_ctx ();
                         if (!ctx) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -744,7 +744,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 "id");
                         ret = 0;
                 } else {
-                        uuid_parse (task_id_str, volinfo->rebal.rebalance_id) ;
+                        gf_uuid_parse (task_id_str, volinfo->rebal.rebalance_id) ;
                         volinfo->rebal.op = GD_OP_REBALANCE;
                 }
                 if (!gd_should_i_start_rebalance (volinfo)) {
@@ -767,7 +767,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  * Also clear the stored operation, so it doesn't cause trouble
                  * with future rebalance/remove-brick starts
                  */
-                uuid_clear (volinfo->rebal.rebalance_id);
+                gf_uuid_clear (volinfo->rebal.rebalance_id);
                 volinfo->rebal.op = GD_OP_NONE;
 
                 /* Fall back to the old volume file in case of decommission*/

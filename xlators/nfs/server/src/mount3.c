@@ -656,7 +656,7 @@ __mnt3_get_volume_id (struct mount3_state *ms, xlator_t *mntxl,
         LOCK (&ms->mountlock);
         list_for_each_entry (exp, &ms->exportlist, explist) {
                 if (exp->vol == mntxl) {
-                        uuid_copy (volumeid, exp->volumeid);
+                        gf_uuid_copy (volumeid, exp->volumeid);
                         ret = 0;
                         goto out;
                 }
@@ -1028,7 +1028,7 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
                 goto err;
 
         /* Wipe the contents of the previous component */
-        uuid_copy (gfid, mres->resolveloc.inode->gfid);
+        gf_uuid_copy (gfid, mres->resolveloc.inode->gfid);
         nfs_loc_wipe (&mres->resolveloc);
         ret = nfs_entry_loc_fill (mres->exp->vol->itable, gfid, nextcomp,
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
@@ -3150,7 +3150,7 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
          * actually use it when a mount request comes in and a file handle
          * needs to be built.
          */
-        uuid_copy (exp->volumeid, volumeid);
+        gf_uuid_copy (exp->volumeid, volumeid);
         exp->vol = xl;
 
         /* On success we should return from here*/
@@ -3213,7 +3213,7 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
         if ((!ms) || (!xlator) || (!opts))
                 return -1;
 
-        uuid_clear (volumeid);
+        gf_uuid_clear (volumeid);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
                 goto no_dvm;
 
@@ -3240,7 +3240,7 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
         }
 
         if (optstr) {
-                ret = uuid_parse (optstr, volumeid);
+                ret = gf_uuid_parse (optstr, volumeid);
                 if (ret < 0) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Failed to parse volume "
                                 "UUID");

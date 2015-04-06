@@ -2582,7 +2582,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
         int32_t  list_cnt       = -1;
         int      index          = 0;
         int      perf           = 0;
-        uint32_t  blk_size      = 0;
+        int32_t  blk_size      = 0;
         uint32_t  count         = 0;
         gf_boolean_t nfs        = _gf_false;
         char    *delimiter      = NULL;
@@ -2703,7 +2703,8 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                                 ret = -1;
                                 goto out;
                         }
-                        ret = dict_set_uint32 (dict, "blk-size", blk_size);
+                        ret = dict_set_uint32 (dict, "blk-size",
+                                                        (uint32_t)blk_size);
                 } else if (perf && !nfs && !strcmp (key, "count")) {
                         ret = gf_is_str_int (value);
                         if (!ret)

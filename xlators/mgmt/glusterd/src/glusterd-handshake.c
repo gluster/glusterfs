@@ -433,7 +433,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         GF_ASSERT (missed_snapinfo);
         GF_ASSERT (snap_opinfo);
 
-        uuid_parse (missed_snapinfo->snap_uuid, snap_uuid);
+        gf_uuid_parse (missed_snapinfo->snap_uuid, snap_uuid);
 
         /* Find the snap-object */
         snap = glusterd_find_snap_by_id (snap_uuid);
@@ -1521,7 +1521,7 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
         ctx->dict = peerctx->args.dict;
 
         event->peername = gf_strdup (peerinfo->hostname);
-        uuid_copy (event->peerid, peerinfo->uuid);
+        gf_uuid_copy (event->peerid, peerinfo->uuid);
         event->ctx = ctx;
 
         ret = glusterd_friend_sm_inject_event (event);

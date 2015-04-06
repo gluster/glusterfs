@@ -397,7 +397,7 @@ exp_file_dir_from_uuid (const struct exports_file *file,
         data_t            *dirdata              = NULL;
         struct export_dir *dir                  = NULL;
 
-        uuid_unparse (export_uuid, export_uuid_str);
+        gf_uuid_unparse (export_uuid, export_uuid_str);
 
         dirdata = dict_get (file->exports_map, export_uuid_str);
         if (dirdata)
@@ -441,7 +441,7 @@ _exp_file_insert (struct exports_file *file, struct export_dir *dir)
         hashedval = SuperFastHash (dirdup, strlen (dirdup));
         memset (export_uuid, 0, sizeof (export_uuid));
         memcpy (export_uuid, &hashedval, sizeof (hashedval));
-        uuid_unparse (export_uuid, export_uuid_str);
+        gf_uuid_unparse (export_uuid, export_uuid_str);
 
         dict_set (file->exports_map, export_uuid_str, dirdata);
 out:

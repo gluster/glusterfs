@@ -37,9 +37,9 @@ make_hashkey(char *hashkey, struct nfs3_fh *fh, const char *host)
         char    mountid[256]     = {0, };
         size_t  nbytes           = 0;
 
-        uuid_unparse (fh->exportid, exportid);
-        uuid_unparse (fh->gfid, gfid);
-        uuid_unparse (fh->mountid, mountid);
+        gf_uuid_unparse (fh->exportid, exportid);
+        gf_uuid_unparse (fh->gfid, gfid);
+        gf_uuid_unparse (fh->mountid, mountid);
         nbytes = strlen (exportid) + strlen (gfid) + strlen (host)
                  + strlen (mountid) + 5;
         hashkey = alloca (nbytes);

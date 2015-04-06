@@ -134,7 +134,7 @@ tier_migrate_using_query_file (void *_args)
                         continue;
                 }
 
-                uuid_parse (gfid_str, query_record->gfid);
+                gf_uuid_parse (gfid_str, query_record->gfid);
 
                 if (dict_get(migrate_data, GF_XATTR_FILE_MIGRATE_KEY))
                         dict_del(migrate_data, GF_XATTR_FILE_MIGRATE_KEY);
@@ -181,7 +181,7 @@ tier_migrate_using_query_file (void *_args)
                                 goto error;
                         }
 
-                        uuid_copy (p_loc.gfid, link_info->pargfid);
+                        gf_uuid_copy (p_loc.gfid, link_info->pargfid);
 
                         p_loc.inode = inode_new (defrag->root_inode->table);
                         if (!p_loc.inode) {
@@ -206,9 +206,9 @@ tier_migrate_using_query_file (void *_args)
                         inode_unref (p_loc.inode);
                         p_loc.inode = linked_inode;
 
-                        uuid_copy (loc.gfid, query_record->gfid);
+                        gf_uuid_copy (loc.gfid, query_record->gfid);
                         loc.inode = inode_new (defrag->root_inode->table);
-                        uuid_copy (loc.pargfid, link_info->pargfid);
+                        gf_uuid_copy (loc.pargfid, link_info->pargfid);
                         loc.parent = inode_ref(p_loc.inode);
 
                         loc.name = gf_strdup (link_info->file_name);
@@ -229,7 +229,7 @@ tier_migrate_using_query_file (void *_args)
                                 goto error;
                         }
 
-                        uuid_copy (loc.parent->gfid, link_info->pargfid);
+                        gf_uuid_copy (loc.parent->gfid, link_info->pargfid);
 
                         ret = syncop_lookup (this, &loc, NULL, &current,
                                              NULL, NULL);
@@ -313,7 +313,7 @@ tier_gf_query_callback (gfdb_query_record_t *gfdb_query_record,
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->defrag, out);
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args->queryFILE, out);
 
-        uuid_unparse (gfdb_query_record->gfid, gfid_str);
+        gf_uuid_unparse (gfdb_query_record->gfid, gfid_str);
         fprintf (query_cbk_args->queryFILE, "%s|%s|%ld\n", gfid_str,
                  gfdb_query_record->_link_info_str,
                  gfdb_query_record->link_info_size);
@@ -448,10 +448,25 @@ tier_build_migration_qfile (demotion_args_t *args,
         gfdb_time_t                     time_in_past;
         int                             ret = -1;
 
-        remove (GET_QFILE_PATH (is_promotion));
+        /*
+         *  The first time this function is called, query file will
+         *  not exist on a given instance of running the migration daemon.
+         * The remove call is optimistic and it is legal if it fails.
+         */
+
+        ret = remove (GET_QFILE_PATH (is_promotion));
+        if (ret == -1) {
+                gf_msg (args->this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_LOG_TIER_STATUS,
+                        "Failed to remove %s",
+                        GET_QFILE_PATH (is_promotion));
+        }
+
         time_in_past.tv_sec = args->freq_time;
         time_in_past.tv_usec = 0;
-        if (gettimeofday (&current_time, NULL) == -1) {
+
+        ret = gettimeofday (&current_time, NULL);
+        if (ret == -1) {
                 gf_log (args->this->name, GF_LOG_ERROR,
                         "Failed to get current timen");
                 goto out;

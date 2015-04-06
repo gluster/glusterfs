@@ -113,7 +113,7 @@ syncop_ftw (xlator_t *subvol, loc_t *loc, int pid, void *data,
 
                         if (entry->d_stat.ia_type == IA_IFDIR) {
                                 child_loc.inode = inode_ref (entry->inode);
-                                uuid_copy (child_loc.gfid, entry->inode->gfid);
+                                gf_uuid_copy (child_loc.gfid, entry->inode->gfid);
                                 ret = syncop_ftw (subvol, &child_loc,
                                                   pid, data, fn);
                                 loc_wipe (&child_loc);
@@ -198,7 +198,7 @@ syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
 
                         if (entry->d_stat.ia_type == IA_IFDIR) {
                                 child_loc.inode = inode_ref (entry->inode);
-                                uuid_copy (child_loc.gfid, entry->inode->gfid);
+                                gf_uuid_copy (child_loc.gfid, entry->inode->gfid);
                                 ret = syncop_ftw_throttle (subvol, &child_loc,
                                                            pid, data, fn, count,
                                                            sleep_time);
@@ -319,7 +319,7 @@ syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
         loc_t    loc   = {0,};
         dict_t  *xattr = NULL;
 
-        uuid_copy (loc.gfid, gfid);
+        gf_uuid_copy (loc.gfid, gfid);
         loc.inode = inode_new (itable);
 
         ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL);

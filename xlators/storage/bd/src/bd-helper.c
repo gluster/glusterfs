@@ -138,7 +138,7 @@ check:
                 goto out;
         }
 
-        op_ret = uuid_parse (tmp_data->data, dict_uuid);
+        op_ret = gf_uuid_parse (tmp_data->data, dict_uuid);
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "wrong volume-id (%s) set in volume file",
@@ -171,7 +171,7 @@ check:
                 goto out;
         }
 
-        op_ret = uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
+        op_ret = gf_uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
                              vg_uuid);
         if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -179,7 +179,7 @@ check:
                         op_ret = -1;
                         goto out;
         }
-        if (uuid_compare (dict_uuid, vg_uuid)) {
+        if (gf_uuid_compare (dict_uuid, vg_uuid)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "mismatching volume-id (%s) received. "
                         "already is a part of volume %s ",

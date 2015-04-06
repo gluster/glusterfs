@@ -620,7 +620,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -742,7 +742,7 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -834,7 +834,7 @@ pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -1189,7 +1189,7 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 
         /* populate the return object */
         object->inode = newinode;
-        uuid_copy (object->gfid, object->inode->gfid);
+        gf_uuid_copy (object->gfid, object->inode->gfid);
 
 out:
         /* TODO: Check where the inode ref is being held? */
@@ -1315,7 +1315,7 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
                 goto out;
         }
 
-        uuid_generate (gfid);
+        gf_uuid_generate (gfid);
         ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
         if (ret) {
                 ret = -1;
@@ -1682,7 +1682,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                 list_for_each_entry_safe (u_list, tmp,
                                           &fs->upcall_list,
                                           upcall_list) {
-                        uuid_copy (gfid, u_list->gfid);
+                        gf_uuid_copy (gfid, u_list->gfid);
                         found = 1;
                         break;
                 }

@@ -44,7 +44,7 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 	subvol = priv->children[child];
 
 	loc.parent = inode_ref (dir);
-	uuid_copy (loc.pargfid, dir->gfid);
+	gf_uuid_copy (loc.pargfid, dir->gfid);
 	loc.name = name;
 	loc.inode = inode_ref (inode);
 
@@ -97,7 +97,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		return -ENOMEM;
 
 	loc.parent = inode_ref (dir);
-	uuid_copy (loc.pargfid, dir->gfid);
+	gf_uuid_copy (loc.pargfid, dir->gfid);
 	loc.name = name;
 	loc.inode = inode_ref (inode);
 
@@ -113,7 +113,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 	iatt = &replies[source].poststat;
 
 	srcloc.inode = inode_ref (inode);
-	uuid_copy (srcloc.gfid, iatt->ia_gfid);
+	gf_uuid_copy (srcloc.gfid, iatt->ia_gfid);
 
 	mode = st_mode_from_ia (iatt->ia_prot, iatt->ia_type);
 
@@ -186,7 +186,7 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			ret = afr_selfheal_entry_delete (this, fd->inode, name,
                                                          inode, i, replies);
 		} else {
-			if (!uuid_compare (replies[i].poststat.ia_gfid,
+			if (!gf_uuid_compare (replies[i].poststat.ia_gfid,
 					   replies[source].poststat.ia_gfid))
 				continue;
 
@@ -227,7 +227,7 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                 if (replies[i].op_ret != 0)
                         continue;
 
-                if (uuid_compare (replies[src_idx].poststat.ia_gfid,
+                if (gf_uuid_compare (replies[src_idx].poststat.ia_gfid,
                                   replies[i].poststat.ia_gfid)) {
                         gf_log (this->name, GF_LOG_ERROR, "Gfid mismatch "
                                 "detected for <%s/%s>, %s on %s and %s on %s. "
@@ -680,7 +680,7 @@ afr_selfheal_data_opendir (xlator_t *this, inode_t *inode)
 		return NULL;
 
 	loc.inode = inode_ref (inode);
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	ret = syncop_opendir (this, &loc, fd);
 	if (ret) {

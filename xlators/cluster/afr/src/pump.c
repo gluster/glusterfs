@@ -38,7 +38,7 @@ afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
                 goto out;
         }
 
-        uuid_copy (*pgfid, gfid);
+        gf_uuid_copy (*pgfid, gfid);
 
         ret = dict_set_dynptr (dict, "gfid-req", pgfid, sizeof (uuid_t));
         if (ret)
@@ -73,12 +73,12 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
         if (!child)
                 goto out;
 
-        if (!uuid_is_null (parent->inode->gfid))
-                uuid_copy (pargfid, parent->inode->gfid);
-        else if (!uuid_is_null (parent->gfid))
-                uuid_copy (pargfid, parent->gfid);
+        if (!gf_uuid_is_null (parent->inode->gfid))
+                gf_uuid_copy (pargfid, parent->inode->gfid);
+        else if (!gf_uuid_is_null (parent->gfid))
+                gf_uuid_copy (pargfid, parent->gfid);
 
-        if (uuid_is_null (pargfid))
+        if (gf_uuid_is_null (pargfid))
                 goto out;
 
         if (strcmp (parent->path, "/") == 0)
@@ -98,7 +98,7 @@ afr_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 
         child->parent = inode_ref (parent->inode);
         child->inode = inode_new (parent->inode->table);
-        uuid_copy (child->pargfid, pargfid);
+        gf_uuid_copy (child->pargfid, pargfid);
 
         if (!child->inode) {
                 ret = -1;
@@ -122,7 +122,7 @@ afr_build_root_loc (xlator_t *this, loc_t *loc)
         loc->path = gf_strdup ("/");
         loc->name = "";
         loc->inode = inode_ref (priv->root_inode);
-        uuid_copy (loc->gfid, loc->inode->gfid);
+        gf_uuid_copy (loc->gfid, loc->inode->gfid);
 }
 
 static void
@@ -131,9 +131,9 @@ afr_update_loc_gfids (loc_t *loc, struct iatt *buf, struct iatt *postparent)
         GF_ASSERT (loc);
         GF_ASSERT (buf);
 
-        uuid_copy (loc->gfid, buf->ia_gfid);
+        gf_uuid_copy (loc->gfid, buf->ia_gfid);
         if (postparent)
-                uuid_copy (loc->pargfid, postparent->ia_gfid);
+                gf_uuid_copy (loc->pargfid, postparent->ia_gfid);
 }
 
 static uint64_t pump_pid = 0;
@@ -141,7 +141,7 @@ static inline void
 pump_fill_loc_info (loc_t *loc, struct iatt *iatt, struct iatt *parent)
 {
         afr_update_loc_gfids (loc, iatt, parent);
-        uuid_copy (loc->inode->gfid, iatt->ia_gfid);
+        gf_uuid_copy (loc->inode->gfid, iatt->ia_gfid);
 }
 
 static int
@@ -489,7 +489,7 @@ gf_pump_traverse_directory (loc_t *loc)
                                 "found readdir entry=%s", entry->d_name);
 
                         offset = entry->d_off;
-                        if (uuid_is_null (entry->d_stat.ia_gfid)) {
+                        if (gf_uuid_is_null (entry->d_stat.ia_gfid)) {
                                 gf_log (this->name, GF_LOG_WARNING, "%s/%s: No "
                                         "gfid present skipping",
                                         loc->path, entry->d_name);

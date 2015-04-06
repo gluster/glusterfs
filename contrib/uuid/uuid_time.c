@@ -54,7 +54,7 @@
 #include "uuidP.h"
 #include "logging.h"
 
-time_t uuid_time(const uuid_t uu, struct timeval *ret_tv)
+time_t gf_uuid_time(const uuid_t uu, struct timeval *ret_tv)
 {
 	struct timeval		tv;
 	struct uuid		uuid;
@@ -76,7 +76,7 @@ time_t uuid_time(const uuid_t uu, struct timeval *ret_tv)
 	return tv.tv_sec;
 }
 
-int uuid_type(const uuid_t uu)
+int gf_uuid_type(const uuid_t uu)
 {
 	struct uuid		uuid;
 
@@ -84,7 +84,7 @@ int uuid_type(const uuid_t uu)
 	return ((uuid.time_hi_and_version >> 12) & 0xF);
 }
 
-int uuid_variant(const uuid_t uu)
+int gf_uuid_variant(const uuid_t uu)
 {
 	struct uuid		uuid;
 	int			var;
@@ -129,13 +129,13 @@ main(int argc, char **argv)
 		fprintf(stderr, "Usage: %s uuid\n", argv[0]);
 		exit(1);
 	}
-	if (uuid_parse(argv[1], buf)) {
+	if (gf_uuid_parse(argv[1], buf)) {
 		fprintf(stderr, "Invalid UUID: %s\n", argv[1]);
 		exit(1);
 	}
-	variant = uuid_variant(buf);
-	type = uuid_type(buf);
-	time_reg = uuid_time(buf, &tv);
+	variant = gf_uuid_variant(buf);
+	type = gf_uuid_type(buf);
+	time_reg = gf_uuid_time(buf, &tv);
 
 	printf("UUID variant is %d (%s)\n", variant, variant_string(variant));
 	if (variant != UUID_VARIANT_DCE) {

@@ -796,7 +796,7 @@ bd_fsync (call_frame_t *frame, xlator_t *this,
                 local->bdatt->type = gf_strdup (bdatt->type);
                 memcpy (&local->bdatt->iatt, &bdatt->iatt, sizeof (struct iatt));
                 bd_update_amtime (&local->bdatt->iatt, valid);
-                uuid_copy (local->loc.gfid, fd->inode->gfid);
+                gf_uuid_copy (local->loc.gfid, fd->inode->gfid);
                 STACK_WIND (frame, bd_fsync_setattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->setattr, &local->loc,
                             &local->bdatt->iatt,
@@ -853,7 +853,7 @@ bd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         BD_VALIDATE_MEM_ALLOC (local, op_errno, out);
 
         local->fd = fd_ref (fd);
-        uuid_copy (loc.gfid, bdatt->iatt.ia_gfid);
+        gf_uuid_copy (loc.gfid, bdatt->iatt.ia_gfid);
 
         /* Update the a|mtime during flush */
         STACK_WIND (frame, bd_flush_setattr_cbk, FIRST_CHILD (this),
@@ -1269,7 +1269,7 @@ bd_do_merge(call_frame_t *frame, xlator_t *this)
                 op_errno = EINVAL;
                 goto out;
         }
-        uuid_copy (local->loc.pargfid, parent->gfid);
+        gf_uuid_copy (local->loc.pargfid, parent->gfid);
 
         p = strrchr (local->loc.path, '/');
         if (p)
@@ -1327,7 +1327,7 @@ bd_offload (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        uuid_parse (gfid, local->dloc->gfid);
+        gf_uuid_parse (gfid, local->dloc->gfid);
         local->offload = offload;
 
         STACK_WIND (frame, bd_offload_dest_lookup_cbk, FIRST_CHILD (this),

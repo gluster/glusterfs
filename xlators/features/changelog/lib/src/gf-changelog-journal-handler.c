@@ -583,10 +583,10 @@ gf_changelog_process (void *data)
         gf_changelog_entry_t *entry = NULL;
         gf_changelog_processor_t *jnl_proc = NULL;
 
-        this = THIS;
-
         jnl = data;
         jnl_proc = jnl->jnl_proc;
+        THIS = jnl->this;
+        this = jnl->this;
 
         while (1) {
                 pthread_mutex_lock (&jnl_proc->lock);
@@ -961,6 +961,7 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
                 goto cleanup_fds;
 
         /* initialize journal processor */
+        jnl->this = this;
         ret = gf_changelog_init_processor (jnl);
         if (ret)
                 goto cleanup_fds;

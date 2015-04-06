@@ -135,13 +135,13 @@ resolve_gfid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         */
         loc_wipe (resolve_loc);
 
-        if (uuid_is_null (resolve->pargfid)) {
+        if (gf_uuid_is_null (resolve->pargfid)) {
                 inode_unref (link_inode);
                 goto out;
         }
 
         resolve_loc->parent = link_inode;
-        uuid_copy (resolve_loc->pargfid, resolve_loc->parent->gfid);
+        gf_uuid_copy (resolve_loc->pargfid, resolve_loc->parent->gfid);
 
         resolve_loc->name = resolve->bname;
 
@@ -175,10 +175,10 @@ resolve_gfid (call_frame_t *frame)
         resolve = state->resolve_now;
         resolve_loc = &resolve->resolve_loc;
 
-        if (!uuid_is_null (resolve->pargfid))
-                uuid_copy (resolve_loc->gfid, resolve->pargfid);
-        else if (!uuid_is_null (resolve->gfid))
-                uuid_copy (resolve_loc->gfid, resolve->gfid);
+        if (!gf_uuid_is_null (resolve->pargfid))
+                gf_uuid_copy (resolve_loc->gfid, resolve->pargfid);
+        else if (!gf_uuid_is_null (resolve->gfid))
+                gf_uuid_copy (resolve_loc->gfid, resolve->gfid);
 
         resolve_loc->inode = inode_new (state->itable);
         ret = loc_path (resolve_loc, NULL);
@@ -208,9 +208,9 @@ resolve_continue (call_frame_t *frame)
         if (resolve->fd_no != -1) {
                 ret = resolve_anonfd_simple (frame);
                 goto out;
-        } else if (!uuid_is_null (resolve->pargfid))
+        } else if (!gf_uuid_is_null (resolve->pargfid))
                 ret = resolve_entry_simple (frame);
-        else if (!uuid_is_null (resolve->gfid))
+        else if (!gf_uuid_is_null (resolve->gfid))
                 ret = resolve_inode_simple (frame);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -256,7 +256,7 @@ resolve_entry_simple (call_frame_t *frame)
         }
 
         /* expected @parent was found from the inode cache */
-        uuid_copy (state->loc_now->pargfid, resolve->pargfid);
+        gf_uuid_copy (state->loc_now->pargfid, resolve->pargfid);
         state->loc_now->parent = inode_ref (parent);
         state->loc_now->name = resolve->bname;
 
@@ -355,7 +355,7 @@ resolve_inode_simple (call_frame_t *frame)
         ret = 0;
 
         state->loc_now->inode = inode_ref (inode);
-        uuid_copy (state->loc_now->gfid, resolve->gfid);
+        gf_uuid_copy (state->loc_now->gfid, resolve->gfid);
 
 out:
         if (inode)
@@ -509,11 +509,11 @@ server_resolve (call_frame_t *frame)
 
                 server_resolve_fd (frame);
 
-        } else if (!uuid_is_null (resolve->pargfid)) {
+        } else if (!gf_uuid_is_null (resolve->pargfid)) {
 
                 server_resolve_entry (frame);
 
-        } else if (!uuid_is_null (resolve->gfid)) {
+        } else if (!gf_uuid_is_null (resolve->gfid)) {
 
                 server_resolve_inode (frame);
 

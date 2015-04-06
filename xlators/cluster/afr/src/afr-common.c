@@ -680,7 +680,7 @@ afr_inode_refresh_subvol (call_frame_t *frame, xlator_t *this, int i,
 	priv = this->private;
 
 	loc.inode = inode;
-	uuid_copy (loc.gfid, inode->gfid);
+	gf_uuid_copy (loc.gfid, inode->gfid);
 
 	STACK_WIND_COOKIE (frame, afr_inode_refresh_subvol_cbk,
 			   (void *) (long) i, priv->children[i],
@@ -850,7 +850,7 @@ afr_hash_child (inode_t *inode, int32_t child_count, int hashmode)
         }
 
         if (inode) {
-               uuid_copy (gfid_copy, inode->gfid);
+               gf_uuid_copy (gfid_copy, inode->gfid);
         }
 
         if (hashmode > 1 && inode->ia_type != IA_IFDIR) {
@@ -1379,7 +1379,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 
 		if (read_subvol == -1 || !readable[read_subvol]) {
 			read_subvol = i;
-			uuid_copy (read_gfid, replies[i].poststat.ia_gfid);
+			gf_uuid_copy (read_gfid, replies[i].poststat.ia_gfid);
 			local->op_ret = 0;
 		}
 	}
@@ -1398,7 +1398,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 			continue;
 		}
 
-		if (!uuid_compare (replies[i].poststat.ia_gfid, read_gfid))
+		if (!gf_uuid_compare (replies[i].poststat.ia_gfid, read_gfid))
                         continue;
 
 		can_interpret = _gf_false;
@@ -1637,7 +1637,7 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
                         continue;
                 }
 
-                if (uuid_compare (stbuf.ia_gfid, replies[i].poststat.ia_gfid)) {
+                if (gf_uuid_compare (stbuf.ia_gfid, replies[i].poststat.ia_gfid)) {
                         start = _gf_false;
                         break;
                 }
@@ -1753,7 +1753,7 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 			break;
 		}
 
-		if (uuid_compare (replies[i].poststat.ia_gfid,
+		if (gf_uuid_compare (replies[i].poststat.ia_gfid,
 				  replies[first].poststat.ia_gfid)) {
 			need_heal = _gf_true;
 			break;
@@ -2004,7 +2004,7 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 		   allocate one for us */
 		local->xattr_req = dict_ref (xattr_req);
 
-	if (uuid_is_null (loc->inode->gfid)) {
+	if (gf_uuid_is_null (loc->inode->gfid)) {
 		afr_discover_do (frame, this, 0);
 		return 0;
 	}
@@ -2115,7 +2115,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         void          *gfid_req = NULL;
         int            ret = 0;
 
-	if (!loc->parent && uuid_is_null (loc->pargfid)) {
+	if (!loc->parent && gf_uuid_is_null (loc->pargfid)) {
                 if (xattr_req)
                         dict_del (xattr_req, "gfid-req");
 		afr_discover (frame, this, loc, xattr_req);
@@ -2149,7 +2149,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 		   allocate one for us */
                 ret = dict_get_ptr (xattr_req, "gfid-req", &gfid_req);
                 if (ret == 0) {
-                        uuid_copy (local->cont.lookup.gfid_req, gfid_req);
+                        gf_uuid_copy (local->cont.lookup.gfid_req, gfid_req);
                         dict_del (xattr_req, "gfid-req");
                 }
 		local->xattr_req = dict_ref (xattr_req);

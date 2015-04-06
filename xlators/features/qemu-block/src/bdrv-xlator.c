@@ -96,15 +96,15 @@ qemu_gluster_open (BlockDriverState *bs, QDict *options, int bdrv_flags)
 		struct iatt buf = {0,};
 		uuid_t gfid;
 
-		uuid_parse(gfid_str, gfid);
+		gf_uuid_parse(gfid_str, gfid);
 
 		loc.inode = inode_find(conf->root_inode->table, gfid);
 		if (!loc.inode) {
 			loc.inode = inode_new(conf->root_inode->table);
-			uuid_copy(loc.inode->gfid, gfid);
+			gf_uuid_copy(loc.inode->gfid, gfid);
 		}
 
-		uuid_copy(loc.gfid, loc.inode->gfid);
+		gf_uuid_copy(loc.gfid, loc.inode->gfid);
 		ret = syncop_lookup(FIRST_CHILD(THIS), &loc, NULL, &buf, NULL,
 				    NULL);
 		if (ret) {
