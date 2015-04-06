@@ -11,7 +11,7 @@ server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 
 noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h \
 	mount3.h nfs3-fh.h nfs3.h nfs3-helpers.h nfs-mem-types.h nlm4.h \
-	acl3.h netgroups.h exports.h mount3-auth.h auth-cache.h
+	acl3.h netgroups.h exports.h mount3-auth.h auth-cache.h nfs-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
