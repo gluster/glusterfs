@@ -373,6 +373,24 @@ def initialise_scheduler():
     return ret
 
 
+def syntax_checker(args):
+    ret = False
+
+    if (len(args.jobname.split()) != 1):
+        output("Invalid Jobname. Jobname should not be empty and should not contain \" \" character.")
+        return ret
+
+    if (len(args.volname.split()) != 1):
+        output("Invalid Volname. Volname should not be empty and should not contain \" \" character.")
+        return ret
+
+    args.jobname=args.jobname.strip()
+    args.volname=args.volname.strip()
+
+    ret = True
+    return ret
+
+
 def perform_operation(args):
     ret = False
 
@@ -433,6 +451,9 @@ def perform_operation(args):
 
     # Add snapshot schedules
     if args.action == "add":
+        ret = syntax_checker(args)
+        if not ret:
+            return ret
         ret = add_schedules(args.jobname, args.schedule, args.volname)
         if not ret:
             output("Failed to add snapshot schedule")
@@ -442,6 +463,9 @@ def perform_operation(args):
 
     # Delete snapshot schedules
     if args.action == "delete":
+        ret = syntax_checker(args)
+        if not ret:
+            return ret
         ret = delete_schedules(args.jobname)
         if not ret:
             output("Failed to delete snapshot schedule")
@@ -451,6 +475,9 @@ def perform_operation(args):
 
     # Edit snapshot schedules
     if args.action == "edit":
+        ret = syntax_checker(args)
+        if not ret:
+            return ret
         ret = edit_schedules(args.jobname, args.schedule, args.volname)
         if not ret:
             output("Failed to edit snapshot schedule")
