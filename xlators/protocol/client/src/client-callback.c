@@ -11,11 +11,12 @@
 #include "client.h"
 #include "rpc-clnt.h"
 #include "defaults.h"
+#include "client-messages.h"
 
 int
 client_cbk_null (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        gf_log (THIS->name, GF_LOG_WARNING,
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
                 "this function should not be called");
         return 0;
 }
@@ -23,7 +24,7 @@ client_cbk_null (struct rpc_clnt *rpc, void *mydata, void *data)
 int
 client_cbk_fetchspec (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        gf_log (THIS->name, GF_LOG_WARNING,
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
                 "this function should not be called");
         return 0;
 }
@@ -31,7 +32,7 @@ client_cbk_fetchspec (struct rpc_clnt *rpc, void *mydata, void *data)
 int
 client_cbk_ino_flush (struct rpc_clnt *rpc, void *mydata, void *data)
 {
-        gf_log (THIS->name, GF_LOG_WARNING,
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR,
                 "this function should not be called");
         return 0;
 }
@@ -46,7 +47,7 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         struct gf_upcall_cache_invalidation ca_data = {0,};
         gfs3_cbk_cache_invalidation_req     ca_req  = {0,};
 
-        gf_log (THIS->name, GF_LOG_TRACE, "Upcall callback is called");
+        gf_msg_trace (THIS->name, 0, "Upcall callback is called");
 
         if (!rpc || !mydata || !data)
                 goto out;
@@ -56,7 +57,8 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
                                (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req);
 
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_WARNING,
+                gf_msg (THIS->name, GF_LOG_WARNING, -ret,
+                        PC_MSG_CACHE_INVALIDATION_FAIL,
                         "XDR decode of cache_invalidation failed.");
                 goto out;
         }
@@ -64,8 +66,8 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         upcall_data.data = &ca_data;
         gf_proto_cache_invalidation_to_upcall (&ca_req, &upcall_data);
 
-        gf_log (THIS->name, GF_LOG_TRACE, "Upcall gfid = %s, ret = %d",
-                ca_req.gfid, ret);
+        gf_msg_trace (THIS->name, 0, "Upcall gfid = %s, ret = %d",
+                      ca_req.gfid, ret);
 
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
 
