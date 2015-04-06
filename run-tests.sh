@@ -181,6 +181,7 @@ function run_tests()
         fi
     done
     if [ ${RES} -ne 0 ] ; then
+        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
         echo "Failed tests ${FAILED}"
     fi
     return ${RES}
@@ -224,12 +225,42 @@ function main()
     fi
 }
 
+function main_and_retry()
+{
+    RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
+    main "$@" | tee ${RESFILE}
+
+    FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
+    if [ "x${FAILED}" != "x" ] ; then
+       echo ""
+       echo "       *********************************"
+       echo "       *       REGRESSION FAILED       *"
+       echo "       * Retrying failed tests in case *"
+       echo "       * we got some spurous failures  *"
+       echo "       *********************************"
+       echo ""
+       main ${FAILED}
+    fi
+
+    rm -f ${RESFILE}
+}
+
 echo
 echo ... GlusterFS Test Framework ...
 echo
 
-force=no
-test "x$1" = "x-f" && { force="yes"; shift; }
+force="no"
+retry="no"
+args=`getopt fr $*`
+set -- $args
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -f)    force="yes" ;;
+    -r)    retry="yes" ;;
+    --)    shift; break;;
+    esac
+    shift
+done
 
 # Make sure we're running as the root user
 check_user
@@ -241,4 +272,8 @@ check_dependencies
 check_location
 
 # Run the tests
-main "$@"
+if [ "x${retry}" = "xyes" ] ; then
+    main_and_retry $@
+else
+    main "$@"
+fi
