@@ -2678,14 +2678,25 @@ struct cli_cmd volume_cmds[] = {
          cli_cmd_volume_getopt_cbk,
          "Get the value of the all options or given option for volume <VOLNAME>"
         },
-        { "volume bitrot <volname> {enable|disable} |\n"
-          "volume bitrot <volname> {scrub-throttle frozen|lazy|normal"
-          "|aggressive} |\n"
-          "volume bitrot <volname> {scrub-frequency daily|weekly|biweekly"
-          "|monthly} |\n"
-          "volume bitrot <volname> {scrub pause|resume}",
+        {"volume bitrot <VOLNAME> {enable|disable}",
+         cli_cmd_bitrot_cbk,
+         "Enable/disable bitrot for volume <VOLNAME>"
+        },
+        {"volume bitrot <VOLNAME> {scrub-throttle frozen|lazy|normal"
+         "|aggressive}",
+         cli_cmd_bitrot_cbk,
+         "Scrub-throttle value is a measure of how fast or slow the scrubber "
+         "scrubs the filesystem for volume <VOLNAME>"
+        },
+        {"volume bitrot <VOLNAME> {scrub-frequency daily|weekly|biweekly"
+         "|monthly",
+         cli_cmd_bitrot_cbk,
+         "Scrub frequency for volume <VOLNAME>"
+        },
+        {"volume bitrot <VOLNAME> {scrub pause|resume}",
           cli_cmd_bitrot_cbk,
-          "Bitrot translator specific operations."
+         "Pause/Resume scrub. Upon resume, scrubber continues where it "
+         "left off."
         },
         { NULL, NULL, NULL }
 };
