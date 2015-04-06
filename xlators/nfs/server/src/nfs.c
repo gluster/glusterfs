@@ -36,6 +36,7 @@
 #include "acl3.h"
 #include "rpc-drc.h"
 #include "syscall.h"
+#include "rpcsvc.h"
 
 #define OPT_SERVER_AUX_GIDS             "nfs.server-aux-gids"
 #define OPT_SERVER_GID_CACHE_TIMEOUT    "nfs.server.aux-gid-timeout"
@@ -1049,6 +1050,12 @@ nfs_init_state (xlator_t *this)
         if (!nfs->rpcsvc) {
                 ret = -1;
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
+                goto free_foppool;
+        }
+
+        ret = rpcsvc_set_throttle_on (nfs->rpcsvc);
+        if (ret) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Enabling throttle failed");
                 goto free_foppool;
         }
 
