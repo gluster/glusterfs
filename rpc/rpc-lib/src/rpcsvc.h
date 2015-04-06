@@ -604,6 +604,16 @@ int
 rpcsvc_set_root_squash (rpcsvc_t *svc, dict_t *options);
 int
 rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options, int defvalue);
+
+int
+rpcsvc_set_throttle_on (rpcsvc_t *svc);
+
+int
+rpcsvc_set_throttle_off (rpcsvc_t *svc);
+
+gf_boolean_t
+rpcsvc_get_throttle (rpcsvc_t *svc);
+
 int
 rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
 rpcsvc_vector_sizer
