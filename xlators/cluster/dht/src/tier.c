@@ -97,13 +97,13 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
                 goto out;
         }
 
-        if (uuid_parse (uuid_str, node_uuid)) {
+        if (gf_uuid_parse (uuid_str, node_uuid)) {
                 gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_ERROR,
                         "uuid_parse failed for %s", loc->path);
                 goto out;
         }
 
-        if (uuid_compare (node_uuid, defrag->node_uuid)) {
+        if (gf_uuid_compare (node_uuid, defrag->node_uuid)) {
                 gf_msg (this->name, GF_LOG_INFO, 0, DHT_MSG_LOG_TIER_STATUS,
                         "%s does not belong to this node", loc->path);
                 goto out;
