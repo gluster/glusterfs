@@ -48,7 +48,8 @@ typedef enum {
                         goto label;                                     \
                 }                                                       \
                 if (remote_fd == -1) {                                  \
-                        gf_log (xl->name, GF_LOG_WARNING, " (%s) "      \
+                        gf_msg (xl->name, GF_LOG_WARNING, EBADFD,       \
+                                PC_MSG_BAD_FD, " (%s) "                 \
                                 "remote_fd is -1. EBADFD",              \
                                 uuid_utoa (fd->inode->gfid));           \
                         op_errno = EBADFD;                              \

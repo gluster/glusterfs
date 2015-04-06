@@ -12,6 +12,7 @@
 #include "xlator.h"
 #include "client.h"
 #include "lkowner.h"
+#include "client-messages.h"
 
 static void
 __insert_and_merge (clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock);
@@ -23,7 +24,7 @@ __dump_client_lock (client_posix_lock_t *lock)
 
         this = THIS;
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, PC_MSG_CLIENT_LOCK_INFO,
                 "{fd=%p}"
                 "{%s lk-owner:%s %"PRId64" - %"PRId64"}"
                 "{start=%"PRId64" end=%"PRId64"}",
@@ -225,7 +226,8 @@ subtract_locks (client_posix_lock_t *big, client_posix_lock_t *small)
 	}
         else {
                 /* LOG-TODO : decide what more info is required here*/
-                gf_log ("client-protocol", GF_LOG_CRITICAL,
+                gf_msg ("client-protocol", GF_LOG_CRITICAL, 0,
+                        PC_MSG_LOCK_ERROR,
                         "Unexpected case in subtract_locks. Please send "
                         "a bug report to gluster-devel@gluster.org");
         }
@@ -363,8 +365,8 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
         this = THIS;
         fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "fdctx not valid");
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        PC_MSG_FD_CTX_INVALID, "fdctx not valid");
                 ret = -1;
                 goto out;
         }
@@ -387,8 +389,8 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
         }
 
         /* FIXME: Need to actually print the locks instead of count */
-        gf_log (this->name, GF_LOG_TRACE,
-                "Number of locks cleared=%d", count);
+        gf_msg_trace (this->name, 0,
+                      "Number of locks cleared=%d", count);
 
 out:
         return ret;
@@ -421,8 +423,8 @@ delete_granted_locks_fd (clnt_fd_ctx_t *fdctx)
         }
 
         /* FIXME: Need to actually print the locks instead of count */
-        gf_log (this->name, GF_LOG_TRACE,
-                "Number of locks cleared=%d", count);
+        gf_msg_trace (this->name, 0,
+                      "Number of locks cleared=%d", count);
 
         return  ret;
 }
@@ -516,7 +518,7 @@ client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
         pthread_mutex_unlock (&conf->lock);
 
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL,
                         "failed to get fd context. sending EBADFD");
                 ret = -EBADFD;
                 goto out;
@@ -551,7 +553,8 @@ client_dump_locks (char *name, inode_t *inode,
 
         ret = dict_set_dynstr(new_dict, CLIENT_DUMP_LOCKS, dict_string);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING,
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        PC_MSG_DICT_SET_FAILED,
                         "could not set dict with %s", CLIENT_DUMP_LOCKS);
                 goto out;
         }
