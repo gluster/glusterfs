@@ -396,18 +396,24 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 ret = glusterd_bitrot_scrub_throttle (volinfo, dict,
                                                       "features.scrub-throttle",
                                                       op_errstr);
-                goto out;
+                if (ret)
+                        goto out;
+                break;
 
         case GF_BITROT_OPTION_TYPE_SCRUB_FREQ:
                 ret = glusterd_bitrot_scrub_freq (volinfo, dict,
                                                   "features.scrub-freq",
                                                   op_errstr);
-                goto out;
+                if (ret)
+                        goto out;
+                break;
 
         case GF_BITROT_OPTION_TYPE_SCRUB:
                 ret = glusterd_bitrot_scrub (volinfo, dict, "features.scrub",
                                              op_errstr);
-                goto out;
+                if (ret)
+                        goto out;
+                break;
 
         default:
                 gf_asprintf (op_errstr, "Bitrot command failed. Invalid "
