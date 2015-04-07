@@ -14,6 +14,7 @@
 #include "auth-cache.h"
 #include "nfs3.h"
 #include "exports.h"
+#include "nfs-messages.h"
 
 enum auth_cache_lookup_results {
         ENTRY_FOUND     =  0,
@@ -80,7 +81,8 @@ auth_cache_entry_init ()
 
         entry = GF_CALLOC (1, sizeof (*entry), gf_nfs_mt_auth_cache_entry);
         if (!entry)
-                gf_log (GF_NFS, GF_LOG_WARNING, "failed to allocate entry");
+                gf_msg (GF_NFS, GF_LOG_WARNING, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "failed to allocate entry");
 
         return entry;
 }
@@ -122,16 +124,16 @@ auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
 
         entry_data = dict_get (cache->cache_dict, hashkey);
         if (!entry_data) {
-                gf_log (GF_NFS, GF_LOG_DEBUG, "could not find entry for %s",
-                        host_addr);
+                gf_msg_debug (GF_NFS, 0, "could not find entry for %s",
+                              host_addr);
                 goto out;
         }
 
         lookup_res = (struct auth_cache_entry *)(entry_data->data);
 
         if ((time (NULL) - lookup_res->timestamp) > cache->ttl_sec) {
-                gf_log (GF_NFS, GF_LOG_DEBUG, "entry for host %s has expired",
-                        host_addr);
+                gf_msg_debug (GF_NFS, 0, "entry for host %s has expired",
+                              host_addr);
                 GF_FREE (lookup_res);
                 entry_data->data = NULL;
                 /* Remove from the cache */
@@ -274,8 +276,8 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
         /* If we could already find it in the cache, just return */
         ret = auth_cache_lookup (cache, fh, host_addr, &timestamp, &can_write);
         if (ret == 0) {
-                gf_log (GF_NFS, GF_LOG_TRACE, "found cached auth/fh for host "
-                        "%s", host_addr);
+                gf_msg_trace (GF_NFS, 0, "found cached auth/fh for host "
+                              "%s", host_addr);
                 goto out;
         }
 
@@ -304,7 +306,7 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
                 GF_FREE (entry);
                 goto out;
         }
-        gf_log (GF_NFS, GF_LOG_TRACE, "Caching file-handle (%s)", host_addr);
+        gf_msg_trace (GF_NFS, 0, "Caching file-handle (%s)", host_addr);
         ret = 0;
 out:
         return ret;

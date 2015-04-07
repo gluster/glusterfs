@@ -14,6 +14,7 @@
 
 #include "netgroups.h"
 #include "parse-utils.h"
+#include "nfs-messages.h"
 
 static void _nge_print (const struct netgroup_entry *nge);
 static void _netgroup_entry_deinit (struct netgroup_entry *ptr);
@@ -797,19 +798,23 @@ _ng_handle_host_part (char *match, struct netgroup_entry *ngp)
         GF_VALIDATE_OR_GOTO (GF_NG, ngp, out);
 
         if (!ngp->netgroup_name) {
-                gf_log (GF_NG, GF_LOG_WARNING,
-                                "Invalid: Line starts with hostname!");
+                gf_msg (GF_NG, GF_LOG_WARNING, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid: Line starts with hostname!");
                 goto out;
         }
 
         /* Parse the host string and get a struct for it */
         ret = _parse_ng_host (match, &ngh);
         if (ret < 0) {
-                gf_log (GF_NG, GF_LOG_CRITICAL,
+                gf_msg (GF_NG, GF_LOG_CRITICAL, -ret, NFS_MSG_PARSE_FAIL,
                         "Critical error : %s", strerror (-ret));
                 goto out;
         }
         if (ret != 0) {
+                /* Cannot change to gf_msg
+                 * gf_msg not giving output to STDOUT
+                 * Bug id : BZ1215017
+                 */
                 gf_log (GF_NG, GF_LOG_WARNING,
                         "Parse error for: %s", match);
                 goto out;
@@ -968,8 +973,11 @@ _parse_ng_line (char *ng_str, struct netgroups_file *file,
         match = parser_get_next_match (ng_file_parser);
         if (!match) {
                 ret = 1;
-                gf_log (GF_NG, GF_LOG_WARNING, "Unable to find first match.");
-                gf_log (GF_NG, GF_LOG_WARNING, "Error parsing str: %s", ng_str);
+                gf_msg (GF_NG, GF_LOG_WARNING, 0,
+                        NFS_MSG_FIND_FIRST_MATCH_FAIL, "Unable to find "
+                        "first match.");
+                gf_msg (GF_NG, GF_LOG_WARNING, 0, NFS_MSG_PARSE_FAIL,
+                        "Error parsing str: %s", ng_str);
                 goto out;
         }
 
@@ -1036,8 +1044,12 @@ _parse_ng_line (char *ng_str, struct netgroups_file *file,
 
         /* If there are no entries on the RHS, log an error, but continue */
         if (!num_entries) {
-                gf_log (GF_NG, GF_LOG_WARNING, "No netgroups were specified "
-                                               "except for the parent.");
+                /* Cannot change to gf_msg
+                 * gf_msg not giving output to STDOUT
+                 * Bug id : BZ1215017
+                 */
+                gf_log (GF_NG, GF_LOG_WARNING,
+                        "No netgroups were specified except for the parent.");
         }
 
         *ng_entry = ngp;
@@ -1085,14 +1097,14 @@ ng_file_parse (const char *filepath)
 
         file->ng_file_dict = dict_new ();
         if (!file->ng_file_dict) {
-                gf_log (GF_NG, GF_LOG_CRITICAL,
+                gf_msg (GF_NG, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to allocate netgroup file dict");
                 goto err;
         }
 
         file->filename = gf_strdup (filepath);
         if (!file->filename) {
-                gf_log (GF_NG, GF_LOG_CRITICAL,
+                gf_msg (GF_NG, GF_LOG_CRITICAL, errno, NFS_MSG_FILE_OP_FAILED,
                         "Failed to duplicate filename");
                 goto err;
         }
@@ -1109,15 +1121,16 @@ ng_file_parse (const char *filepath)
                 /* Parse the line into a netgroup entry */
                 ret = _parse_ng_line (line, file, &nge);
                 if (ret == -ENOMEM) {
-                        gf_log (GF_NG, GF_LOG_CRITICAL, "Allocation error "
-                                                        "while parsing line!");
+                        gf_msg (GF_NG, GF_LOG_CRITICAL, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Allocation error "
+                                "while parsing line!");
                         ng_file_deinit (file);
                         GF_FREE (line);
                         goto err;
                 }
                 if (ret != 0) {
-                        gf_log (GF_NG, GF_LOG_DEBUG,
-                                "Failed to parse line %s", line);
+                        gf_msg_debug (GF_NG, 0, "Failed to parse line %s",
+                                      line);
                         continue;
                 }
         }
