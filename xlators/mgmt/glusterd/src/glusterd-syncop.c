@@ -1068,7 +1068,7 @@ out:
 
 int
 gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
-                  char **op_errstr, int npeers, uuid_t txn_id,
+                  char **op_errstr, uuid_t txn_id,
                   glusterd_op_info_t *txn_opinfo)
 {
         int                     ret         = -1;
@@ -1077,11 +1077,6 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         xlator_t               *this        = NULL;
         glusterd_peerinfo_t    *peerinfo    = NULL;
         struct syncargs         args        = {0};
-
-        if (!npeers) {
-                ret = 0;
-                goto out;
-        }
 
         this = THIS;
         synctask_barrier_init((&args));
@@ -1115,6 +1110,11 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
         }
         rcu_read_unlock ();
 
+        if (0 == peer_cnt) {
+                ret = 0;
+                goto out;
+        }
+
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         if (args.op_ret) {
@@ -1143,7 +1143,7 @@ out:
 
 int
 gd_stage_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
-                   char **op_errstr, int npeers, glusterd_op_info_t *txn_opinfo)
+                   char **op_errstr, glusterd_op_info_t *txn_opinfo)
 {
         int                     ret             = -1;
         int                     peer_cnt        = 0;
@@ -1209,11 +1209,6 @@ stage_done:
                 goto out;
         }
 
-        if (!npeers) {
-                ret = 0;
-                goto out;
-        }
-
         gd_syncargs_init (&args, aggr_dict);
         synctask_barrier_init((&args));
         peer_cnt = 0;
@@ -1239,6 +1234,12 @@ stage_done:
                 peer_cnt++;
         }
         rcu_read_unlock ();
+
+        if (0 == peer_cnt) {
+                ret = 0;
+                goto out;
+        }
+
 
         gf_log (this->name, GF_LOG_DEBUG, "Sent stage op req for 'Volume %s' "
                 "to %d peers", gd_op_list[op], peer_cnt);
@@ -1268,8 +1269,7 @@ out:
 
 int
 gd_commit_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
-                    char **op_errstr, int npeers,
-                    glusterd_op_info_t *txn_opinfo)
+                    char **op_errstr, glusterd_op_info_t *txn_opinfo)
 {
         dict_t                 *rsp_dict      = NULL;
         int                     peer_cnt      = -1;
@@ -1336,11 +1336,6 @@ commit_done:
                 goto out;
         }
 
-        if (!npeers) {
-                ret = 0;
-                goto out;
-        }
-
         gd_syncargs_init (&args, op_ctx);
         synctask_barrier_init((&args));
         peer_cnt = 0;
@@ -1367,6 +1362,11 @@ commit_done:
         }
         rcu_read_unlock ();
 
+        if (0 == peer_cnt) {
+                ret = 0;
+                goto out;
+        }
+
         gd_synctask_barrier_wait((&args), peer_cnt);
         ret = args.op_ret;
         if (args.errstr)
@@ -1392,8 +1392,8 @@ out:
 int
 gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                     rpcsvc_request_t *req, dict_t *op_ctx, char *op_errstr,
-                    int npeers, char *volname, gf_boolean_t is_acquired,
-                    uuid_t txn_id, glusterd_op_info_t *txn_opinfo)
+                    char *volname, gf_boolean_t is_acquired, uuid_t txn_id,
+                    glusterd_op_info_t *txn_opinfo)
 {
         glusterd_peerinfo_t    *peerinfo    = NULL;
         uuid_t                  tmp_uuid    = {0};
@@ -1404,11 +1404,6 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
 
         this = THIS;
         GF_ASSERT (this);
-
-        if (!npeers) {
-                ret = 0;
-                goto out;
-        }
 
         /* If the lock has not been held during this
          * transaction, do not send unlock requests */
@@ -1471,6 +1466,12 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                         rcu_read_unlock ();
                 }
         }
+
+        if (0 == peer_cnt) {
+                ret = 0;
+                goto out;
+        }
+
         gd_synctask_barrier_wait((&args), peer_cnt);
 
         ret = args.op_ret;
@@ -1610,7 +1611,6 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 {
         int                         ret              = -1;
         int                         op_ret           = -1;
-        int                         npeers           = 0;
         dict_t                      *req_dict        = NULL;
         glusterd_conf_t             *conf            = NULL;
         glusterd_op_t               op               = 0;
@@ -1711,8 +1711,8 @@ local_locking_done:
         /* If no volname is given as a part of the command, locks will
          * not be held */
         if (volname || (conf->op_version < GD_OP_VERSION_3_6_0)) {
-                ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr,
-                                        npeers, *txn_id, &txn_opinfo);
+                ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr, *txn_id,
+                                        &txn_opinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Locking Peers Failed.");
@@ -1729,8 +1729,7 @@ local_locking_done:
                 goto out;
         }
 
-        ret = gd_stage_op_phase (op, op_ctx, req_dict, &op_errstr, npeers,
-                                 &txn_opinfo);
+        ret = gd_stage_op_phase (op, op_ctx, req_dict, &op_errstr, &txn_opinfo);
         if (ret)
                 goto out;
 
@@ -1738,7 +1737,7 @@ local_locking_done:
         if (ret)
                 goto out;
 
-        ret = gd_commit_op_phase (op, op_ctx, req_dict, &op_errstr, npeers,
+        ret = gd_commit_op_phase (op, op_ctx, req_dict, &op_errstr,
                                   &txn_opinfo);
         if (ret)
                 goto out;
@@ -1748,8 +1747,8 @@ out:
         op_ret = ret;
         if (txn_id) {
                 (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
-                                           op_errstr, npeers, volname,
-                                           is_acquired, *txn_id, &txn_opinfo);
+                                           op_errstr, volname, is_acquired,
+                                           *txn_id, &txn_opinfo);
 
                 /* Clearing the transaction opinfo */
                 ret = glusterd_clear_txn_opinfo (txn_id);
