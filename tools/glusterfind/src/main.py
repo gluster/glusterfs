@@ -39,6 +39,13 @@ class StoreAbsPath(Action):
         setattr(namespace, self.dest, os.path.abspath(values))
 
 
+def get_pem_key_path(session, volume):
+    return os.path.join(conf.get_opt("session_dir"),
+                        session,
+                        volume,
+                        "%s_%s_secret.pem" % (session, volume))
+
+
 def node_run(volume, host, path, start, outfile, args, fallback=False):
     """
     If host is local node, execute the command locally. If not local
@@ -46,6 +53,7 @@ def node_run(volume, host, path, start, outfile, args, fallback=False):
     remote node using scp.
     """
     localdir = is_host_local(host)
+    pem_key_path = get_pem_key_path(args.session, args.volume)
 
     # If Full backup is requested or start time is zero, use brickfind
     change_detector = conf.get_change_detector(args.change_detector)
@@ -69,7 +77,7 @@ def node_run(volume, host, path, start, outfile, args, fallback=False):
     if not localdir:
         # prefix with ssh command if not local node
         cmd = ["ssh",
-               "-i", conf.get_opt("secret_pem"),
+               "-i", pem_key_path,
                "root@%s" % host] + cmd
 
     rc, out, err = execute(cmd, logger=logger)
@@ -83,7 +91,7 @@ def node_run(volume, host, path, start, outfile, args, fallback=False):
 
     if not localdir:
         cmd_copy = ["scp",
-                    "-i", conf.get_opt("secret_pem"),
+                    "-i", pem_key_path,
                     "root@%s:/%s" % (host, outfile),
                     os.path.dirname(outfile)]
         execute(cmd_copy, exit_msg="%s - Copy command failed" % host,
@@ -92,6 +100,8 @@ def node_run(volume, host, path, start, outfile, args, fallback=False):
 
 def node_cleanup(host, args):
     localdir = is_host_local(host)
+
+    pem_key_path = get_pem_key_path(args.session, args.volume)
 
     # CHANGE_DETECTOR <SESSION> <VOLUME> <BRICK> <OUTFILE> <START> --debug
     # --gfidpath <TYPE>
@@ -102,7 +112,7 @@ def node_cleanup(host, args):
     if not localdir:
         # prefix with ssh command if not local node
         cmd = ["ssh",
-               "-i", conf.get_opt("secret_pem"),
+               "-i", pem_key_path,
                "root@%s" % host] + cmd
 
     execute(cmd, exit_msg="%s - Cleanup failed" % host, logger=logger)
@@ -264,27 +274,41 @@ def _get_args():
     return parser.parse_args()
 
 
-def ssh_setup():
-    if not os.path.exists(conf.get_opt("secret_pem")):
+def ssh_setup(args):
+    pem_key_path = get_pem_key_path(args.session, args.volume)
+
+    if not os.path.exists(pem_key_path):
         # Generate ssh-key
         cmd = ["ssh-keygen",
                "-N",
                "",
                "-f",
-               conf.get_opt("secret_pem")]
+               pem_key_path]
         execute(cmd,
                 exit_msg="Unable to generate ssh key %s"
-                % conf.get_opt("secret_pem"),
+                % pem_key_path,
                 logger=logger)
 
-        logger.info("Ssh key generated %s" % conf.get_opt("secret_pem"))
+        logger.info("Ssh key generated %s" % pem_key_path)
+
+    try:
+        shutil.copyfile(pem_key_path + ".pub",
+                        os.path.join(conf.get_opt("session_dir"),
+                                     ".keys",
+                                     "%s_%s_secret.pem.pub" % (args.session,
+                                                               args.volume)))
+    except (IOError, OSError) as e:
+        fail("Failed to copy public key to %s: %s"
+             % (os.path.join(conf.get_opt("session_dir"), ".keys"), e),
+             logger=logger)
 
     # Copy pub file to all nodes
     cmd = ["gluster",
            "system::",
            "copy",
            "file",
-           "/" + os.path.basename(conf.get_opt("secret_pem")) + ".pub"]
+           "/glusterfind/.keys/%s.pub" % os.path.basename(pem_key_path)]
+
     execute(cmd, exit_msg="Failed to distribute ssh keys", logger=logger)
 
     logger.info("Distributed ssh key to all nodes of Volume")
@@ -295,7 +319,7 @@ def ssh_setup():
            "execute",
            "add_secret_pub",
            "root",
-           os.path.basename(conf.get_opt("secret_pem")) + ".pub"]
+           "/glusterfind/.keys/%s.pub" % os.path.basename(pem_key_path)]
     execute(cmd,
             exit_msg="Failed to add ssh keys to authorized_keys file",
             logger=logger)
@@ -320,7 +344,7 @@ def mode_create(session_dir, args):
         fail("Session %s already created" % args.session, logger=logger)
 
     if not os.path.exists(status_file) or args.force:
-        ssh_setup()
+        ssh_setup(args)
 
         execute(["gluster", "volume", "set",
                  args.volume, "build-pgfid", "on"],
@@ -419,7 +443,8 @@ def mode_list(session_dir, args):
     else:
         sessions = []
         for d in os.listdir(session_dir):
-            sessions.append(d)
+            if d != ".keys":
+                sessions.append(d)
 
     output = []
     for session in sessions:
