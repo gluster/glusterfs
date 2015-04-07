@@ -7050,7 +7050,11 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         status.brick = GF_CALLOC (1, PATH_MAX + 256, gf_common_mt_strdup);
-
+        if (!status.brick) {
+                errno   = ENOMEM;
+                ret     = -1;
+                goto out;
+        }
         switch (cmd & GF_CLI_STATUS_MASK) {
                 case GF_CLI_STATUS_MEM:
                         cli_print_volume_status_mem (dict, notbrick);
