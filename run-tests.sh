@@ -186,11 +186,39 @@ function run_tests()
     return ${RES}
 }
 
+function run_all ()
+{
+    old_cores=$(ls /core.* 2> /dev/null | wc -l)
+
+    find ${regression_testsdir}/tests -name '*.t' \
+    | LC_COLLATE=C sort \
+    | while read t; do
+        retval=0
+        prove -f --timer $t
+        TMP_RES=$?
+        if [ ${TMP_RES} -ne 0 ] ; then
+            echo "$t: bad status $TMP_RES"
+            retval=$((retval+1))
+        fi
+        new_cores=$(ls /core.* 2> /dev/null | wc -l)
+        if [ x"$new_cores" != x"$old_cores" ]; then
+            core_diff=$((new_cores-old_cores))
+            echo "$t: $core_diff new core files"
+            retval=$((retval+2))
+        fi
+        if [ $retval -ne 0 ]; then
+            return $retval
+        fi
+    done
+}
+
 function main()
 {
     if [ $# -lt 1 ]; then
-        echo "Running all the regression test cases"
-        prove -rf --timer ${regression_testsdir}/tests;
+        echo "Running all the regression test cases (new way)"
+        #prove -rf --timer ${regression_testsdir}/tests;
+        run_all
+	echo "result = $?"
     else
         run_tests "$@"
     fi
