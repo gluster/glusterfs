@@ -1764,7 +1764,7 @@ mdc_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret != 0)
+        if (op_ret < 0)
                 goto out;
 
         local = frame->local;
@@ -1826,7 +1826,7 @@ mdc_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret != 0)
+        if (op_ret < 0)
                 goto out;
 
         local = frame->local;

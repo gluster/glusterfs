@@ -2742,20 +2742,94 @@ dht_getxattr_get_real_filename_cbk (call_frame_t *frame, void *cookie,
 
         local = frame->local;
 
-	if (op_ret != -1) {
-		if (local->xattr)
-			dict_unref (local->xattr);
-		local->xattr = dict_ref (xattr);
+        LOCK (&frame->lock);
+        {
+                if (local->op_errno == ENODATA ||
+                    local->op_errno == EOPNOTSUPP) {
+                        /* Nothing to do here, we have already found
+                         * a subvol which does not have the get_real_filename
+                         * optimization. If condition is for simple logic.
+                         */
+                        goto unlock;
+                }
 
-		if (local->xattr_req)
-			dict_unref (local->xattr_req);
-		local->xattr_req = dict_ref (xdata);
-	}
+                if (op_ret == -1) {
+
+                        if (op_errno == ENODATA || op_errno == EOPNOTSUPP) {
+                                /* This subvol does not have the optimization.
+                                 * Better let the user know we don't support it.
+                                 * Remove previous results if any.
+                                 */
+
+                                if (local->xattr) {
+                                        dict_unref (local->xattr);
+                                        local->xattr = NULL;
+                                }
+
+                                if (local->xattr_req) {
+                                        dict_unref (local->xattr_req);
+                                        local->xattr_req = NULL;
+                                }
+
+                                local->op_ret = op_ret;
+                                local->op_errno = op_errno;
+                                gf_log (this->name, GF_LOG_WARNING, "At least "
+                                        "one of the bricks does not support "
+                                        "this operation. Please upgrade all "
+                                        "bricks.");
+                                goto unlock;
+                        }
+
+                        if (op_errno == ENOENT) {
+                                /* Do nothing, our defaults are set to this.
+                                 */
+                                goto unlock;
+                        }
+
+                        /* This is a place holder for every other error
+                         * case. I am not sure of how to interpret
+                         * ENOTCONN etc. As of now, choosing to ignore
+                         * down subvol and return a good result(if any)
+                         * from other subvol.
+                         */
+                         gf_log (this->name, GF_LOG_WARNING,
+                                 "Failed to get real filename. "
+                                 "error:%s", strerror (op_errno));
+                        goto unlock;
+
+                }
+
+
+                /* This subvol has the required file.
+                 * There could be other subvols which have returned
+                 * success already, choosing to return the latest good
+                 * result.
+                 */
+                if (local->xattr)
+                        dict_unref (local->xattr);
+                local->xattr = dict_ref (xattr);
+
+                if (local->xattr_req) {
+                        dict_unref (local->xattr_req);
+                        local->xattr_req = NULL;
+                }
+                if (xdata)
+                        local->xattr_req = dict_ref (xdata);
+
+                local->op_ret = op_ret;
+                local->op_errno = 0;
+                gf_log (this->name, GF_LOG_DEBUG, "Found a matching "
+                        "file.");
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
-		DHT_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
-				  local->xattr, local->xattr_req);
+                DHT_STACK_UNWIND (getxattr, frame, local->op_ret,
+                                  local->op_errno, local->xattr,
+                                  local->xattr_req);
 	}
 
 	return 0;
@@ -2779,7 +2853,7 @@ dht_getxattr_get_real_filename (call_frame_t *frame, xlator_t *this,
 	cnt = local->call_cnt = layout->cnt;
 
 	local->op_ret = -1;
-	local->op_errno = ENODATA;
+	local->op_errno = ENOENT;
 
 	for (i = 0; i < cnt; i++) {
 		subvol = layout->list[i].xlator;

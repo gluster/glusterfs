@@ -27,17 +27,19 @@ nufa_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 switch_la_LDFLAGS = -module -avoid-version
 switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-tier_la_CFLAGS = $(AM_CFLAGS) $(SQLITE_CFLAGS)
+
 tier_la_LDFLAGS = -module -avoid-version
-tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la\
-		 $(top_builddir)/libglusterfs/src/gfdb/libgfdb.la
+tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h dht-helper.h tier.h\
 	$(top_builddir)/xlators/lib/src/libxlator.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/libglusterfs/src/gfdb \
-	-I$(top_srcdir)/xlators/lib/src
+	-I$(top_srcdir)/xlators/lib/src \
+	-DDATADIR=\"$(localstatedir)\" \
+	-DLIBDIR=\"$(libdir)\" \
+	-DLIBGFDB_VERSION=\"$(LIBGFDB_VERSION)\"
 
 CLEANFILES =
 

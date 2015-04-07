@@ -13,7 +13,7 @@ function main()
     # processes are not having a pid file, so get it through 'ps' and
     # handle these processes
     gsyncpid=`ps aux | grep gluster | grep gsync | awk '{print $2}'`;
-    test -n $gsyncpid && kill -TERM $gsyncpid;
+    test -n "$gsyncpid" && kill -TERM $gsyncpid;
 
     sleep 5;
 
@@ -27,7 +27,7 @@ function main()
 
     # handle 'KILL' of geo-replication
     gsyncpid=`ps aux | grep gluster | grep gsync | awk '{print $2}'`;
-    test -n $gsyncpid && kill -KILL $gsyncpid;
+    test -n "$gsyncpid" && kill -KILL $gsyncpid;
 }
 
 main "$@";

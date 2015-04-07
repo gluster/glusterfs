@@ -8,6 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
+#include "gfdb_sqlite3.h"
 #include "ctr-helper.h"
 
 

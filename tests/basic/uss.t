@@ -23,6 +23,10 @@ function lookup()
     fi
 }
 
+count_snaps () {
+	ls $1/.snaps | wc -l
+}
+
 cleanup;
 TESTS_EXPECTED_IN_LOOP=10
 
@@ -75,7 +79,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 # test 15
-TEST ls $M0/.snaps;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "4" count_snaps $M0
 
 NUM_SNAPS=$(ls $M0/.snaps | wc -l);
 

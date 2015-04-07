@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <sys/uio.h>
 
+#include "gfdb_sqlite3.h"
 #include "ctr-helper.h"
 
 /****************************WRITEV********************************************/

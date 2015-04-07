@@ -27,9 +27,11 @@
 
 #define DEFAULT_PROMOTE_FREQ_SEC 120
 #define DEFAULT_DEMOTE_FREQ_SEC  120
+#define DEFAULT_WRITE_FREQ_SEC 120
+#define DEFAULT_READ_FREQ_SEC 120
 
 /*
- * Size of timer wheel. We would not promote or demote lesd
+ * Size of timer wheel. We would not promote or demote less
  * frequently than this number.
  */
 #define TIMER_SECS 3600
@@ -38,11 +40,11 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
-#define DEMOTION_QFILE "/var/run/gluster/demotequeryfile"
-#define PROMOTION_QFILE "/var/run/gluster/promotequeryfile"
+#define PROMOTION_QFILE "promotequeryfile"
+#define DEMOTION_QFILE "demotequeryfile"
 
 #define GET_QFILE_PATH(is_promotion)\
-        (is_promotion) ? PROMOTION_QFILE : DEMOTION_QFILE
+        (is_promotion) ? promotion_qfile : demotion_qfile
 
 typedef struct _query_cbk_args {
         xlator_t *this;

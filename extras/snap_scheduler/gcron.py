@@ -50,18 +50,20 @@ def initLogger(script_name):
     log.addHandler(fh)
 
 
-def takeSnap(volname=""):
+def takeSnap(volname="", snapname=""):
     success = True
     if volname == "":
         log.debug("No volname given")
         return False
+    if snapname == "":
+        log.debug("No snapname given")
+        return False
 
-    timeStr = time.strftime("%Y%m%d%H%M%S")
     cli = ["gluster",
            "snapshot",
            "create",
-           "%s-snapshot-%s" % (volname, timeStr),
-           "%s" % (volname)]
+           snapname,
+           volname]
     log.debug("Running command '%s'", " ".join(cli))
 
     p = subprocess.Popen(cli, stdout=subprocess.PIPE,
@@ -93,7 +95,7 @@ def doJob(name, lockFile, jobFunc, volname):
             log.debug("%s last modified at %s", lockFile, time.ctime(mtime))
             if mtime < start_time:
                 log.debug("Processing job %s", name)
-                if jobFunc(volname):
+                if jobFunc(volname, name):
                     log.info("Job %s succeeded", name)
                 else:
                     log.error("Job %s failed", name)
@@ -134,13 +136,15 @@ def main():
         return
 
     volname = sys.argv[1]
-    locking_file = os.path.join(LOCK_FILE_DIR, sys.argv[2])
+    jobname = sys.argv[2]
+    locking_file = os.path.join(LOCK_FILE_DIR, jobname)
     log.debug("locking_file = %s", locking_file)
     log.debug("volname = %s", volname)
+    log.debug("jobname = %s", jobname)
 
     start_time = int(time.time())
 
-    doJob("Snapshot-" + volname, locking_file, takeSnap, volname)
+    doJob("Scheduled-" + jobname + "-" + volname, locking_file, takeSnap, volname)
 
 
 if __name__ == "__main__":
