@@ -223,6 +223,7 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         int32_t               op_errno  = 0;
         struct posix_private *priv      = NULL;
         char                 *real_path = NULL;
+        dict_t               *xattr_rsp = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -246,12 +247,17 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                         strerror (op_errno));
                 goto out;
         }
+        if (xdata)
+                xattr_rsp = posix_lookup_xattr_fill (this, real_path, loc,
+                                                     xdata, &buf);
 
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID();
-        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf, NULL);
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, &buf, xattr_rsp);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
 
         return 0;
 }
