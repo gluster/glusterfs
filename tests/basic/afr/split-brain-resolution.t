@@ -41,7 +41,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT 4 afr_get_pending_heal_count $V0
 
 TEST ! cat $M0/data-split-brain.txt
-TEST ! getxattr -n user.test $M0/metadata-split-brain.txt
+TEST ! getfattr -n user.test $M0/metadata-split-brain.txt
 
 #Inspect file in data-split-brain
 EXPECT "data-split-brain:yes metadata-split-brain:no Choices:patchy-client-0,patchy-client-1" get_split_brain_status $M0/data-split-brain.txt
@@ -67,7 +67,7 @@ EXPECT "brick1" get_text_xattr user.test $M0/metadata-split-brain.txt
 #Check that setting split-brain-choice to "none" results in EIO again
 TEST setfattr -n replica.split-brain-choice -v none $M0/metadata-split-brain.txt
 TEST setfattr -n replica.split-brain-choice -v none $M0/data-split-brain.txt
-TEST ! getxattr -n user.test $M0/metadata-split-brain.txt
+TEST ! getfattr -n user.test $M0/metadata-split-brain.txt
 TEST ! cat $M0/data-split-brain.txt
 
 #Negative test cases should fail
