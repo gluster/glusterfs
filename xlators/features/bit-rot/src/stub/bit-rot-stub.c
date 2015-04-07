@@ -407,10 +407,15 @@ br_stub_fd_versioning (xlator_t *this, call_frame_t *frame,
         dict_t          *xdata = NULL;
         br_stub_local_t *local = NULL;
 
+        xdata = dict_new ();
+        if (!xdata)
+                goto done;
+
+        ret = dict_set_int32 (xdata, GLUSTERFS_INTERNAL_FOP_KEY, 1);
+        if (ret)
+                goto dealloc_xdata;
+
         if (durable) {
-                xdata = dict_new ();
-                if (!xdata)
-                        goto done;
                 ret = dict_set_int32 (xdata, GLUSTERFS_DURABLE_OP, 0);
                 if (ret)
                         goto dealloc_xdata;
@@ -437,8 +442,7 @@ br_stub_fd_versioning (xlator_t *this, call_frame_t *frame,
         ret = 0;
 
  dealloc_xdata:
-        if (durable)
-                dict_unref (xdata);
+        dict_unref (xdata);
  done:
         return ret;
 }
