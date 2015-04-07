@@ -125,7 +125,7 @@ gf_log_get_loglevel (void)
         if (ctx)
                 return ctx->log.loglevel;
         else
-                /* return global defaluts (see gf_log_globals_init) */
+                /* return global defaults (see gf_log_globals_init) */
                 return GF_LOG_INFO;
 }
 
@@ -689,6 +689,10 @@ gf_log_init (void *data, const char *file, const char *ident)
 
         ctx = data;
 
+        if (ctx == NULL) {
+                fprintf (stderr, "ERROR: ctx is NULL\n");
+                return -1;
+        }
         if (ident) {
                 ctx->log.ident = gf_strdup (ident);
         }
@@ -797,6 +801,9 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
 
         this = THIS;
         ctx = this->ctx;
+
+        if (!ctx)
+                goto out;
 
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
@@ -1517,6 +1524,9 @@ gf_glusterlog_log_repetitions (glusterfs_ctx_t *ctx, const char *domain,
         char            *footer              = NULL;
         char            *msg                 = NULL;
 
+        if (!ctx)
+                goto err;
+
         gf_log_rotate (ctx);
 
         gf_time_fmt (timestr_latest, sizeof timestr_latest, latest.tv_sec,
@@ -1776,6 +1786,9 @@ __gf_log_inject_timer_event (glusterfs_ctx_t *ctx)
         int              ret      = -1;
         struct timespec  timeout  = {0,};
 
+        if (!ctx)
+                goto out;
+
         if (ctx->log.log_flush_timer) {
                 gf_timer_call_cancel (ctx, ctx->log.log_flush_timer);
                 ctx->log.log_flush_timer = NULL;
@@ -1852,6 +1865,9 @@ _gf_msg_internal (const char *domain, const char *file, const char *function,
 
         this = THIS;
         ctx = this->ctx;
+
+        if (!ctx)
+                goto out;
 
         GET_FILE_NAME_TO_LOG (file, basename);
 
@@ -2112,6 +2128,9 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         this = THIS;
         ctx = this->ctx;
 
+        if (!ctx)
+                goto out;
+
         if (ctx->log.gf_log_xl_log_set) {
                 if (this->loglevel && (level > this->loglevel))
                         goto out;
@@ -2322,6 +2341,9 @@ gf_cmd_log_init (const char *filename)
         this = THIS;
         ctx  = this->ctx;
 
+        if (!ctx)
+                return -1;
+
         if (!filename){
                 gf_log (this->name, GF_LOG_CRITICAL, "gf_cmd_log_init: no "
                         "filename specified\n");
@@ -2373,6 +2395,10 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
         glusterfs_ctx_t *ctx = NULL;
 
         ctx = THIS->ctx;
+
+        if (!ctx)
+                return -1;
+
         if (!ctx->log.cmdlogfile)
                 return -1;
 
