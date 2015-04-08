@@ -60,11 +60,13 @@
 /**
  * ... used by libgfchangelog.
  */
-#define CHANGELOG_GET_ENCODING(fd, buffer, len, enc, enc_len) do {      \
+#define CHANGELOG_GET_HEADER_INFO(fd, buffer, len, enc, maj, min, elen) do { \
                 FILE *fp;                                               \
-                int fd_dup, maj, min;                                   \
+                int fd_dup;                                             \
                                                                         \
                 enc = -1;                                               \
+                maj = -1;                                               \
+                min = -1;                                               \
                 fd_dup = dup (fd);                                      \
                                                                         \
                 if (fd_dup != -1) {                                     \
