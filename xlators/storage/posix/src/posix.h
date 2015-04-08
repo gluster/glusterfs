@@ -181,7 +181,8 @@ typedef struct {
         struct iatt *stbuf;
         loc_t       *loc;
         inode_t     *inode; /* for all do_xattrop() key handling */
-        int          fd;
+        fd_t        *fd;
+        int          fdnum;
         int          flags;
         int32_t     op_errno;
 } posix_xattr_filler_t;
@@ -201,8 +202,8 @@ int posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
                  struct iatt *iatt);
 int posix_pstat (xlator_t *this, uuid_t gfid, const char *real_path,
                  struct iatt *iatt);
-dict_t *posix_lookup_xattr_fill (xlator_t *this, const char *path,
-                                 loc_t *loc, dict_t *xattr, struct iatt *buf);
+dict_t *posix_xattr_fill (xlator_t *this, const char *path, loc_t *loc,
+                          fd_t *fd, int fdnum, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path, char *key,
                        data_t *value, int flags);
 int posix_fhandle_pair (xlator_t *this, int fd, char *key, data_t *value,

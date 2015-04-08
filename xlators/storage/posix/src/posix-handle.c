@@ -89,8 +89,8 @@ posix_make_ancestral_node (const char *priv_base_path, char *path, int pathsize,
                 loc.inode = inode_ref (inode);
                 gf_uuid_copy (loc.gfid, inode->gfid);
 
-                entry->dict = posix_lookup_xattr_fill (THIS, real_path, &loc,
-                                                       xdata, iabuf);
+                entry->dict = posix_xattr_fill (THIS, real_path, &loc, NULL, -1,
+                                                xdata, iabuf);
                 loc_wipe (&loc);
         }
 
