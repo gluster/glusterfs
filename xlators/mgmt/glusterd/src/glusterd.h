@@ -41,7 +41,6 @@
 #include "syncop.h"
 #include "store.h"
 #include "glusterd-rcu.h"
-#include "timespec.h"
 
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_NAME                   "glusterd"
