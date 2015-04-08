@@ -48,7 +48,7 @@ static crypt_local_t *crypt_alloc_local(call_frame_t *frame, xlator_t *this,
 {
 	crypt_local_t *local = NULL;
 
-	local = mem_get0(this->local_pool);
+	local = GF_CALLOC (1, sizeof (*local), gf_crypt_mt_local);
 	if (!local) {
 		gf_log(this->name, GF_LOG_ERROR, "out of memory");
 		return NULL;
