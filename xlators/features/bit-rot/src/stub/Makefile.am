@@ -6,7 +6,8 @@ bitrot_stub_la_LDFLAGS = -module -avoid-version
 bitrot_stub_la_SOURCES = bit-rot-stub.c
 bitrot_stub_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-noinst_HEADERS = bit-rot-stub.h bit-rot-common.h bit-rot-stub-mem-types.h
+noinst_HEADERS = bit-rot-stub.h bit-rot-common.h bit-rot-stub-mem-types.h \
+                 bit-rot-object-version.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src
 
