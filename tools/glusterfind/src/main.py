@@ -474,9 +474,15 @@ def mode_list(session_dir, args):
         sys.stdout.write("-"*75)
         sys.stdout.write("\n")
     for session, volname, last_processed in output:
+        sess_time = 'Session Corrupted'
+        if last_processed:
+            try:
+                sess_time = human_time(last_processed)
+            except TypeError:
+                sess_time = 'Session Corrupted'
         sys.stdout.write("%s %s %s\n" % (session.ljust(25),
                                          volname.ljust(25),
-                                         human_time(last_processed).ljust(25)))
+                                         sess_time.ljust(25)))
 
     if not output and (args.session or args.volume):
         fail("Invalid Session", logger=logger)
