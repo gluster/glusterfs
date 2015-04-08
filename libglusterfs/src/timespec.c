@@ -63,14 +63,3 @@ void timespec_adjust_delta (struct timespec *ts, struct timespec delta)
         ts->tv_sec += ((ts->tv_nsec + delta.tv_nsec) / 1000000000);
         ts->tv_sec += delta.tv_sec;
 }
-
-/* Returns <0 if ts1 < ts2
- * 0 if ts1 == ts2
- * >0 if ts1 > ts2
- */
-int
-timespec_cmp (struct timespec ts1, struct timespec ts2)
-{
-        return ((ts1.tv_sec == ts2.tv_sec) ? (ts1.tv_nsec - ts2.tv_nsec) :
-                (ts1.tv_sec - ts2.tv_sec));
-}
