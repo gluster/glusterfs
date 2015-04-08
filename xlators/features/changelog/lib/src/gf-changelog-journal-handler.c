@@ -22,10 +22,16 @@
 
 extern int byebye;
 
+enum changelog_versions {
+    VERSION_1_1 = 0,
+    VERSION_1_2 = 1
+};
+
 /**
  * number of gfid records after fop number
  */
-int nr_gfids[] = {
+int nr_gfids[2][GF_FOP_MAXVALUE] = {
+    {
         [GF_FOP_MKNOD]   = 1,
         [GF_FOP_MKDIR]   = 1,
         [GF_FOP_UNLINK]  = 1,
@@ -34,9 +40,21 @@ int nr_gfids[] = {
         [GF_FOP_RENAME]  = 2,
         [GF_FOP_LINK]    = 1,
         [GF_FOP_CREATE]  = 1,
+    },
+    {
+        [GF_FOP_MKNOD]   = 1,
+        [GF_FOP_MKDIR]   = 1,
+        [GF_FOP_UNLINK]  = 2,
+        [GF_FOP_RMDIR]   = 2,
+        [GF_FOP_SYMLINK] = 1,
+        [GF_FOP_RENAME]  = 2,
+        [GF_FOP_LINK]    = 1,
+        [GF_FOP_CREATE]  = 1,
+    }
 };
 
-int nr_extra_recs[] = {
+int nr_extra_recs[2][GF_FOP_MAXVALUE] = {
+    {
         [GF_FOP_MKNOD]   = 3,
         [GF_FOP_MKDIR]   = 3,
         [GF_FOP_UNLINK]  = 0,
@@ -45,6 +63,17 @@ int nr_extra_recs[] = {
         [GF_FOP_RENAME]  = 0,
         [GF_FOP_LINK]    = 0,
         [GF_FOP_CREATE]  = 3,
+    },
+    {
+        [GF_FOP_MKNOD]   = 3,
+        [GF_FOP_MKDIR]   = 3,
+        [GF_FOP_UNLINK]  = 0,
+        [GF_FOP_RMDIR]   = 0,
+        [GF_FOP_SYMLINK] = 0,
+        [GF_FOP_RENAME]  = 0,
+        [GF_FOP_LINK]    = 0,
+        [GF_FOP_CREATE]  = 3,
+    }
 };
 
 static char *
@@ -116,7 +145,8 @@ static int
 gf_changelog_parse_binary (xlator_t *this,
                            gf_changelog_journal_t *jnl,
                            int from_fd, int to_fd,
-                           size_t start_offset, struct stat *stbuf)
+                           size_t start_offset, struct stat *stbuf,
+                           int version_idx)
 
 {
         int     ret              = -1;
@@ -222,7 +252,8 @@ static int
 gf_changelog_parse_ascii (xlator_t *this,
                           gf_changelog_journal_t *jnl,
                           int from_fd, int to_fd,
-                          size_t start_offset, struct stat *stbuf)
+                          size_t start_offset, struct stat *stbuf,
+                          int version_idx)
 {
         int           ng            = 0;
         int           ret           = -1;
@@ -324,7 +355,7 @@ gf_changelog_parse_ascii (xlator_t *this,
                         len = strlen (fopname);
                         GF_CHANGELOG_FILL_BUFFER (fopname, ascii, off, len);
 
-                        ng = nr_extra_recs[fop];
+                        ng = nr_extra_recs[version_idx][fop];
                         for (; ng > 0; ng--) {
                                 MOVER_MOVE (mover, nleft, 1);
                                 len = strlen (mover);
@@ -336,10 +367,15 @@ gf_changelog_parse_ascii (xlator_t *this,
                         }
 
                         /* pargfid + bname */
-                        ng = nr_gfids[fop];
+                        ng = nr_gfids[version_idx][fop];
                         while (ng-- > 0) {
                                 MOVER_MOVE (mover, nleft, 1);
                                 len = strlen (mover);
+                                if (!len) {
+                                        MOVER_MOVE (mover, nleft, 1);
+                                        continue;
+                                }
+
                                 GF_CHANGELOG_FILL_BUFFER (" ", ascii, off, 1);
 
                                 PARSE_GFID (mover, ptr, len,
@@ -420,11 +456,21 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
 {
         int    ret        = -1;
         int    encoding   = -1;
+        int major_version = -1;
+        int minor_version = -1;
+        int version_idx   = -1;
         size_t elen       = 0;
         char buffer[1024] = {0,};
 
-        CHANGELOG_GET_ENCODING (from_fd, buffer, 1024, encoding, elen);
+        CHANGELOG_GET_HEADER_INFO (from_fd, buffer, 1024, encoding,
+                                   major_version, minor_version, elen);
         if (encoding == -1) /* unknown encoding */
+                goto out;
+
+        if (major_version == -1) /* unknown major version */
+                goto out;
+
+        if (minor_version == -1) /* unknown minor version */
                 goto out;
 
         if (!CHANGELOG_VALID_ENCODING (encoding))
@@ -434,6 +480,15 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
                 *zerob = 1;
                 goto out;
         }
+
+        if (major_version == 1 && minor_version == 1) {
+                version_idx = VERSION_1_1;
+        } else if (major_version == 1 && minor_version == 2) {
+                version_idx = VERSION_1_2;
+        }
+
+        if (version_idx == -1) /* unknown version number */
+                goto out;
 
         /**
          * start processing after the header
@@ -447,12 +502,14 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
                  * (ie. part of the changelog translator).
                  */
                 ret = gf_changelog_parse_binary (this, jnl, from_fd,
-                                                 to_fd, elen, stbuf);
+                                                 to_fd, elen, stbuf,
+                                                 version_idx);
                 break;
 
         case CHANGELOG_ENCODE_ASCII:
                 ret = gf_changelog_parse_ascii (this, jnl, from_fd,
-                                                to_fd, elen, stbuf);
+                                                to_fd, elen, stbuf,
+                                                version_idx);
                 break;
         default:
                 ret = gf_changelog_copy (this, from_fd, to_fd);
