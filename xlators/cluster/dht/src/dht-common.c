@@ -1971,7 +1971,7 @@ out:
          * from each of the subvolume. See dht_iatt_merge for reference.
          */
 
-        if (!op_ret && local->loc.parent) {
+        if (!op_ret && local && local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
