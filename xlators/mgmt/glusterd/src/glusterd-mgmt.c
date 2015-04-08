@@ -385,7 +385,7 @@ int
 glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
                                     char **op_errstr,
                                     gf_boolean_t  *is_acquired,
-                                    struct timespec xaction_start_ts)
+                                    uint64_t txn_generation)
 {
         char                *volname    = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
@@ -425,7 +425,7 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, xaction_start_ts) > 0)
+                if (peerinfo->generation > txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -654,7 +654,7 @@ out:
 int
 glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
                                char **op_errstr,
-                               struct timespec xaction_start_ts)
+                               uint64_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -725,7 +725,7 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, xaction_start_ts) > 0)
+                if (peerinfo->generation > txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -906,7 +906,7 @@ out:
 
 int
 glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
-                           struct timespec xaction_start_ts)
+                           uint64_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -968,7 +968,7 @@ glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, xaction_start_ts) > 0)
+                if (peerinfo->generation > txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1144,7 +1144,7 @@ out:
 
 int
 glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
-                         char **op_errstr, struct timespec xaction_start_ts)
+                         char **op_errstr, uint64_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1216,7 +1216,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, xaction_start_ts) > 0)
+                if (peerinfo->generation > txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1361,7 +1361,7 @@ out:
 int
 glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                 dict_t *req_dict, char **op_errstr,
-                                struct timespec xaction_start_ts)
+                                uint64_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1427,7 +1427,7 @@ glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, xaction_start_ts) > 0)
+                if (peerinfo->generation > txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1569,7 +1569,7 @@ int
 glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
                                      int32_t op_ret, char **op_errstr,
                                      gf_boolean_t  is_acquired,
-                                     struct timespec xaction_start_ts)
+                                     uint64_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1602,7 +1602,7 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, xaction_start_ts) > 0)
+                if (peerinfo->generation > txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1654,7 +1654,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
-        struct timespec             xaction_start_ts = {0,};
+        uint64_t                    txn_generation   = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1663,8 +1663,9 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         conf = this->private;
         GF_ASSERT (conf);
 
-        /* Save the transaction start time */
-        timespec_now (&xaction_start_ts);
+        /* Save the peer list generation */
+        txn_generation = rcu_dereference (conf->generation);
+
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
@@ -1704,8 +1705,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* LOCKDOWN PHASE - Acquire mgmt_v3 locks */
         ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
-                                                  &is_acquired,
-                                                  xaction_start_ts);
+                                                  &is_acquired, txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "mgmt_v3 lockdown failed.");
                 goto out;
@@ -1723,7 +1723,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* PRE-COMMIT VALIDATE PHASE */
         ret = glusterd_mgmt_v3_pre_validate (op, req_dict, &op_errstr,
-                                             xaction_start_ts);
+                                             txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Pre Validation Failed");
                 goto out;
@@ -1731,7 +1731,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* COMMIT OP PHASE */
         ret = glusterd_mgmt_v3_commit (op, dict, req_dict, &op_errstr,
-                                       xaction_start_ts);
+                                       txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Commit Op Failed");
                 goto out;
@@ -1743,7 +1743,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
            sending 0 (op_ret as 0).
         */
         ret = glusterd_mgmt_v3_post_validate (op, 0, dict, req_dict, &op_errstr,
-                                              xaction_start_ts);
+                                              txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Post Validation Failed");
                 goto out;
@@ -1755,7 +1755,7 @@ out:
         /* UNLOCK PHASE FOR PEERS*/
         (void) glusterd_mgmt_v3_release_peer_locks (op, dict, op_ret,
                                                     &op_errstr, is_acquired,
-                                                    xaction_start_ts);
+                                                    txn_generation);
 
         /* LOCAL VOLUME(S) UNLOCK */
         if (is_acquired) {
@@ -1862,7 +1862,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
-        struct timespec             xaction_start_ts = {0,};
+        uint64_t                    txn_generation   = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1871,8 +1871,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         conf = this->private;
         GF_ASSERT (conf);
 
-        /* Save the transaction start time */
-        timespec_now (&xaction_start_ts);
+        /* Save the peer list generation */
+        txn_generation = rcu_dereference (conf->generation);
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
@@ -1912,8 +1912,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* LOCKDOWN PHASE - Acquire mgmt_v3 locks */
         ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
-                                                  &is_acquired,
-                                                  xaction_start_ts);
+                                                  &is_acquired, txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "mgmt_v3 lockdown failed.");
                 goto out;
@@ -1931,7 +1930,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* PRE-COMMIT VALIDATE PHASE */
         ret = glusterd_mgmt_v3_pre_validate (op, req_dict, &op_errstr,
-                                             xaction_start_ts);
+                                             txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Pre Validation Failed");
                 goto out;
@@ -1956,7 +1955,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         ret = glusterd_mgmt_v3_brick_op (op, req_dict, &op_errstr,
-                                         xaction_start_ts);
+                                         txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
                 goto unbarrier;
@@ -1987,7 +1986,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         ret = glusterd_mgmt_v3_commit (op, dict, req_dict, &op_errstr,
-                                       xaction_start_ts);
+                                       txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Commit Op Failed");
                 /* If the main op fails, we should save the error string.
@@ -2013,7 +2012,7 @@ unbarrier:
         }
 
         ret = glusterd_mgmt_v3_brick_op (op, req_dict, &op_errstr,
-                                         xaction_start_ts);
+                                         txn_generation);
 
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Brick Ops Failed");
@@ -2041,8 +2040,7 @@ out:
 
         /* POST-COMMIT VALIDATE PHASE */
         ret = glusterd_mgmt_v3_post_validate (op, op_ret, dict, req_dict,
-                                              &op_errstr,
-                                              xaction_start_ts);
+                                              &op_errstr, txn_generation);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Post Validation Failed");
                 op_ret = -1;
@@ -2051,7 +2049,7 @@ out:
         /* UNLOCK PHASE FOR PEERS*/
         (void) glusterd_mgmt_v3_release_peer_locks (op, dict, op_ret,
                                                     &op_errstr, is_acquired,
-                                                    xaction_start_ts);
+                                                    txn_generation);
 
         /* If the commit op (snapshot taking) failed, then the error is stored
            in cli_errstr and unbarrier is called. Suppose, if unbarrier also

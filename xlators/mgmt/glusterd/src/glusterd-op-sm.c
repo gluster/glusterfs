@@ -119,12 +119,12 @@ glusterd_txn_opinfo_dict_fini ()
 
 void
 glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
-                          glusterd_op_sm_state_info_t *state,
-                          glusterd_op_t *op,
-                          dict_t *op_ctx,
-                          rpcsvc_request_t *req)
+                          glusterd_op_sm_state_info_t *state, glusterd_op_t *op,
+                          dict_t *op_ctx, rpcsvc_request_t *req,
+                          glusterd_conf_t *conf)
 {
         GF_ASSERT (opinfo);
+        GF_ASSERT (conf);
 
         if (state)
                 opinfo->state = *state;
@@ -140,7 +140,7 @@ glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
         if (req)
                 opinfo->req = req;
 
-        timespec_now (&opinfo->start_ts);
+        opinfo->txn_generation = rcu_dereference (conf->generation);
 
         return;
 }
@@ -2923,7 +2923,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                if (peerinfo->generation > opinfo.txn_generation)
                         continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -3020,7 +3020,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                if (peerinfo->generation > opinfo.txn_generation)
                         continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt ||
@@ -3578,7 +3578,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                if (peerinfo->generation > opinfo.txn_generation)
                         continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt)
@@ -4234,7 +4234,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts, opinfo.start_ts) > 0)
+                if (peerinfo->generation > opinfo.txn_generation)
                         continue;
 
                 if (!peerinfo->connected || !peerinfo->mgmt)

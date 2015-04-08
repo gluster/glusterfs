@@ -1087,8 +1087,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts,
-                                  txn_opinfo->start_ts) > 0)
+                if (peerinfo->generation > txn_opinfo->txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1218,8 +1217,7 @@ stage_done:
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts,
-                                  txn_opinfo->start_ts) > 0)
+                if (peerinfo->generation > txn_opinfo->txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1345,8 +1343,7 @@ commit_done:
                 /* Only send requests to peers who were available before the
                  * transaction started
                  */
-                if (timespec_cmp (peerinfo->create_ts,
-                                  txn_opinfo->start_ts) > 0)
+                if (peerinfo->generation > txn_opinfo->txn_generation)
                         continue;
 
                 if (!peerinfo->connected)
@@ -1422,8 +1419,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                         /* Only send requests to peers who were available before
                          * the transaction started
                          */
-                        if (timespec_cmp (peerinfo->create_ts,
-                                          txn_opinfo->start_ts) > 0)
+                        if (peerinfo->generation > txn_opinfo->txn_generation)
                                 continue;
 
                         if (!peerinfo->connected)
@@ -1448,8 +1444,8 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                                 /* Only send requests to peers who were
                                  * available before the transaction started
                                  */
-                                if (timespec_cmp (peerinfo->create_ts,
-                                                  txn_opinfo->start_ts) > 0)
+                                if (peerinfo->generation >
+                                    txn_opinfo->txn_generation)
                                         continue;
 
                                 if (!peerinfo->connected)
@@ -1646,7 +1642,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         }
 
         /* Save opinfo for this transaction with the transaction id */
-        glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL);
+        glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL, conf);
         ret = glusterd_set_txn_opinfo (txn_id, &txn_opinfo);
         if (ret)
                 gf_log (this->name, GF_LOG_ERROR,
