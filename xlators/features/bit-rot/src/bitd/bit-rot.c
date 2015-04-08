@@ -139,8 +139,14 @@ br_prepare_signature (const unsigned char *sign,
         if (!signature)
                 return NULL;
 
+        /* object version */
         signature->signedversion = object->signedversion;
+
+        /* signature length & type */
+        signature->signaturelen = hashlen;
         signature->signaturetype = hashtype;
+
+        /* signature itself */
         memcpy (signature->signature, (char *)sign, hashlen);
         signature->signature[hashlen+1] = '\0';
 
@@ -167,7 +173,7 @@ bitd_is_bad_file (xlator_t *this, br_child_t *child, loc_t *loc, fd_t *fd)
                                        "trusted.glusterfs.bad-file", NULL);
 
         if (!ret) {
-                gf_log (this->name, GF_LOG_ERROR, "[GFID: %s] is marked "
+                gf_log (this->name, GF_LOG_DEBUG, "[GFID: %s] is marked "
                         "corrupted", uuid_utoa (inode->gfid));
                 bad_file = _gf_true;
         }
@@ -918,8 +924,11 @@ bitd_oneshot_crawl (xlator_t *subvol,
          * if there are any fds present for that inode) and handle properly.
          */
 
-        if (bitd_is_bad_file (this, child, &loc, NULL))
+        if (bitd_is_bad_file (this, child, &loc, NULL)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Entry [%s] is marked corrupted.. skipping.", loc.path);
                 goto unref_inode;
+        }
 
         ret = syncop_getxattr (child->xl, &loc, &xattr,
                                GLUSTERFS_GET_OBJECT_SIGNATURE, NULL);

@@ -155,29 +155,6 @@ br_stub_dealloc_local (br_stub_local_t *ptr)
 }
 
 static inline int
-br_stub_prepare_default_request (xlator_t *this, dict_t *dict,
-                                 br_version_t *obuf, br_signature_t *sbuf)
-{
-        int32_t ret = 0;
-        size_t size = 0;
-        br_stub_private_t *priv = NULL;
-
-        priv = this->private;
-
-        /** Prepare ongoing version */
-        br_set_default_ongoingversion (obuf, priv->boot);
-        ret = dict_set_static_bin (dict, BITROT_CURRENT_VERSION_KEY,
-                                   (void *)obuf, sizeof (br_version_t));
-        if (ret)
-                return -1;
-
-        /** Prepare signature version */
-        br_set_default_signature (sbuf, &size);
-        return dict_set_static_bin (dict, BITROT_SIGNING_VERSION_KEY,
-                                    (void *)sbuf, size);
-}
-
-static inline int
 br_stub_prepare_version_request (xlator_t *this, dict_t *dict,
                                 br_version_t *obuf, unsigned long oversion)
 {
@@ -473,19 +450,19 @@ br_stub_perform_fullversioning (xlator_t *this, call_frame_t *frame,
         int32_t         ret      = -1;
         dict_t         *dict     = NULL;
         br_version_t   *obuf     = NULL;
-        br_signature_t *sbuf     = NULL;
         int             op_errno = 0;
 
         op_errno = ENOMEM;
         dict = dict_new ();
         if (!dict)
                 goto done;
-        ret = br_stub_alloc_versions (&obuf, &sbuf, 0);
+        ret = br_stub_alloc_versions (&obuf, NULL, 0);
         if (ret)
                 goto dealloc_dict;
 
         op_errno = EINVAL;
-        ret = br_stub_prepare_default_request (this, dict, obuf, sbuf);
+        ret = br_stub_prepare_version_request (this, dict, obuf,
+                                               BITROT_DEFAULT_CURRENT_VERSION);
         if (ret)
                 goto dealloc_versions;
 
@@ -589,7 +566,7 @@ br_stub_prepare_signature (xlator_t *this, dict_t *dict,
         if (!br_is_signature_type_valid (sign->signaturetype))
                 goto error_return;
 
-        signaturelen = strlen (sign->signature);
+        signaturelen = sign->signaturelen;
         ret = br_stub_alloc_versions (NULL, &sbuf, signaturelen);
         if (ret)
                 goto error_return;
@@ -680,8 +657,8 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
         int32_t              ret          = 0;
-        ssize_t              totallen     = 0;
-        ssize_t              signaturelen = 0;
+        size_t               totallen     = 0;
+        size_t               signaturelen = 0;
         br_version_t        *obuf         = NULL;
         br_signature_t      *sbuf         = NULL;
         br_isignature_out_t *sign         = NULL;
@@ -693,18 +670,32 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
 
         op_ret   = -1;
-        op_errno = EINVAL;
-
         status = br_version_xattr_state (xattr, &obuf, &sbuf);
-        if (status == BR_VXATTR_STATUS_PARTIAL)
+
+        op_errno = EINVAL;
+        if (status == BR_VXATTR_STATUS_INVALID)
                 goto delkeys;
 
         op_errno = ENODATA;
-        if (status == BR_VXATTR_STATUS_MISSING)
+        if ((status == BR_VXATTR_STATUS_MISSING)
+            || (status == BR_VXATTR_STATUS_UNSIGNED))
                 goto delkeys;
 
-        signaturelen = strlen (sbuf->signature);
-        totallen = signaturelen + sizeof (br_isignature_out_t);
+        /**
+         * okay.. we have enough information to satisfy the request,
+         * namely: version and signing extended attribute. what's
+         * pending is the signature length -- that's figured out
+         * indirectly via the size of the _whole_ xattr and the
+         * on-disk signing xattr header size.
+         */
+        op_errno = EINVAL;
+        ret = dict_get_uint32 (xattr, BITROT_SIGNING_XATTR_SIZE_KEY,
+                               (uint32_t *)&signaturelen);
+        if (ret)
+                goto delkeys;
+
+        signaturelen -= sizeof (br_signature_t);
+        totallen = sizeof (br_isignature_out_t) + signaturelen;
 
         op_errno = ENOMEM;
         sign = GF_CALLOC (1, totallen, gf_br_stub_mt_signature_t);
@@ -714,10 +705,12 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sign->time[0] = obuf->timebuf[0];
         sign->time[1] = obuf->timebuf[1];
 
-        /* Object's dirty state */
+        /* Object's dirty state & current signed version */
+        sign->version = sbuf->signedversion;
         sign->stale = (obuf->ongoingversion != sbuf->signedversion) ? 1 : 0;
 
         /* Object's signature */
+        sign->signaturelen  = signaturelen;
         sign->signaturetype = sbuf->signaturetype;
         (void) memcpy (sign->signature, sbuf->signature, signaturelen);
 
@@ -790,8 +783,10 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
         }
 
-        if (br_stub_is_internal_xattr (name))
-                goto wind;
+        if (br_stub_is_internal_xattr (name)) {
+                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+                return 0;
+        }
 
         /**
          * this special extended attribute is allowed only on root
@@ -835,8 +830,10 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
         }
 
-        if (br_stub_is_internal_xattr (name))
-                goto wind;
+        if (br_stub_is_internal_xattr (name)) {
+                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
+                return 0;
+        }
 
         /**
          * this special extended attribute is allowed only on root
@@ -1016,16 +1013,17 @@ br_stub_lookup_version (xlator_t *this,
         status = br_version_xattr_state (xattr, &obuf, &sbuf);
 
         /**
-         * stub does not know how to handle partial presence of version
-         * extended attributes, therefore, bail out in such cases.
+         * stub does not know how to handle presence of signature but not
+         * the object version, therefore, in such cases, bail out..
          */
-        if (status == BR_VXATTR_STATUS_PARTIAL) {
-                gf_log (this->name, GF_LOG_ERROR, "Partial version xattrs!.. "
-                        "bailing out [GFID: %s]", uuid_utoa (gfid));
+        if (status == BR_VXATTR_STATUS_INVALID) {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid versioning xattrs. "
+                        "Bailing out [GFID: %s]", uuid_utoa (gfid));
                 return -1;
         }
 
-        version = (status == BR_VXATTR_STATUS_FULL)
+        version = ((status == BR_VXATTR_STATUS_FULL)
+                   || (status == BR_VXATTR_STATUS_UNSIGNED))
                         ? obuf->ongoingversion : BITROT_DEFAULT_CURRENT_VERSION;
         return br_stub_init_inode_versions (this, NULL,
                                             inode, version, _gf_true);
@@ -1054,18 +1052,17 @@ br_stub_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!IA_ISREG (entry->d_stat.ia_type))
                         continue;
 
-                if (entry->dict) {
-                        br_stub_remove_vxattrs (entry->dict);
-                }
-
                 ret = br_stub_get_inode_ctx (this, entry->inode, &ctxaddr);
                 if (ret < 0)
                         ctxaddr = 0;
-                if (ctxaddr) /* already has the context */
+                if (ctxaddr) { /* already has the context */
+                        br_stub_remove_vxattrs (entry->dict);
                         continue;
+                }
 
                 ret = br_stub_lookup_version
                         (this, entry->inode->gfid, entry->inode, entry->dict);
+                br_stub_remove_vxattrs (entry->dict);
                 if (ret) {
                         /**
                          * there's no per-file granularity support in case of
@@ -1146,14 +1143,8 @@ br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
                 goto unwind;
         if (!IA_ISREG (stbuf->ia_type))
                 goto unwind;
-
-        /**
-         * perform this before checking if we requested xattrs as this
-         * can happen during revalidate.
-         */
-        br_stub_remove_vxattrs (xattr);
         if (cookie != (void *) BR_STUB_REQUEST_COOKIE)
-                goto unwind;
+                goto delkey;
 
         ret = br_stub_lookup_version (this, stbuf->ia_gfid, inode, xattr);
         if (ret < 0) {
@@ -1161,6 +1152,8 @@ br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
                 op_errno = EINVAL;
         }
 
+ delkey:
+        br_stub_remove_vxattrs (xattr);
  unwind:
         STACK_UNWIND_STRICT (lookup, frame,
                              op_ret, op_errno, inode, stbuf, xattr, postparent);
@@ -1198,6 +1191,11 @@ br_stub_lookup (call_frame_t *frame,
 
         xref = _gf_true;
 
+        /**
+         * Requesting both xattrs provides a way of sanity checking the
+         * object. Anomaly checking is done in cbk by examining absence
+         * of either or both xattrs.
+         */
         op_errno = EINVAL;
         ret = dict_set_uint32 (xdata, BITROT_CURRENT_VERSION_KEY, 0);
         if (ret)
@@ -1296,7 +1294,6 @@ br_stub_send_ipc_fop (xlator_t *this,
         op = GF_IPC_TARGET_CHANGELOG;
         STACK_WIND (frame, br_stub_noop, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->ipc, op, xdata);
-        return;
 
  dealloc_dict:
         dict_unref (xdata);

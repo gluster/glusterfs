@@ -1857,71 +1857,144 @@ posix_fsyncer (void *d)
 }
 
 /**
- * fetch on-disk ongoing version and object signature extended
- * attribute.
+ * TODO: move fd/inode interfaces into a single routine..
+ */
+static int32_t
+posix_fetch_signature_xattr (char *real_path,
+                             const char *key, dict_t *xattr, size_t *xsize)
+{
+        int32_t ret = 0;
+        char    *memptr    = NULL;
+        ssize_t  xattrsize = 0;
+
+        xattrsize = sys_lgetxattr (real_path, key, NULL, 0);
+        if ((xattrsize == -1) && ((errno == ENOATTR) || (errno == ENODATA)))
+                return 0;
+        if (xattrsize == -1)
+                goto error_return;
+
+        memptr = GF_CALLOC (xattrsize + 1, sizeof (char), gf_posix_mt_char);
+        if (!memptr)
+                goto error_return;
+        ret = sys_lgetxattr (real_path, key, memptr, xattrsize);
+        if (ret == -1)
+                goto freemem;
+
+        ret = dict_set_dynptr (xattr, (char *)key, memptr, xattrsize);
+        if (ret)
+                goto freemem;
+
+        if (xsize)
+                *xsize = xattrsize;
+
+        return 0;
+
+ freemem:
+        GF_FREE (memptr);
+ error_return:
+        return -1;
+}
+
+static int32_t
+posix_fd_fetch_signature_xattr (int fd,
+                                const char *key, dict_t *xattr, size_t *xsize)
+{
+        int32_t ret = 0;
+        char    *memptr    = NULL;
+        ssize_t  xattrsize = 0;
+
+        xattrsize = sys_fgetxattr (fd, key, NULL, 0);
+        if ((xattrsize == -1) && ((errno == ENOATTR) || (errno == ENODATA)))
+                return 0;
+        if (xattrsize == -1)
+                goto error_return;
+
+        memptr = GF_CALLOC (xattrsize + 1, sizeof (char), gf_posix_mt_char);
+        if (!memptr)
+                goto error_return;
+        ret = sys_fgetxattr (fd, key, memptr, xattrsize);
+        if (ret == -1)
+                goto freemem;
+
+        ret = dict_set_dynptr (xattr, (char *)key, memptr, xattrsize);
+        if (ret)
+                goto freemem;
+
+        if (xsize)
+                *xsize = xattrsize;
+
+        return 0;
+
+ freemem:
+        GF_FREE (memptr);
+ error_return:
+        return -1;
+}
+
+/**
+ * Fetch on-disk ongoing version and object signature extended attribute.
+ * Be generous to absence of xattrs (just *absence*, other errors are
+ * propagated up to the invoker), higher layer (br-stub) takes care of
+ * interpreting the xattrs for anomalies.
  */
 int32_t
 posix_get_objectsignature (char *real_path, dict_t *xattr)
 {
-        int32_t  op_ret    = 0;
-        char    *memptr    = NULL;
-        ssize_t  xattrsize = 0;
-        ssize_t  allocsize = 0;
+        int32_t ret = 0;
+        size_t signsize = 0;
 
-        op_ret = -EINVAL;
-        xattrsize = sys_lgetxattr (real_path,
-                                   BITROT_CURRENT_VERSION_KEY, NULL, 0);
-        if (xattrsize == -1)
-                goto error_return;
-        allocsize += xattrsize;
-
-        xattrsize = sys_lgetxattr (real_path,
-                                   BITROT_SIGNING_VERSION_KEY, NULL, 0);
-        if (xattrsize == -1)
-                goto error_return;
-        allocsize += xattrsize;
-
-        op_ret = -ENOMEM;
-        /* bulk alloc */
-        memptr = GF_CALLOC (allocsize + 2, sizeof (char), gf_posix_mt_char);
-        if (!memptr)
+        ret = posix_fetch_signature_xattr
+                (real_path, BITROT_CURRENT_VERSION_KEY, xattr, NULL);
+        if (ret)
                 goto error_return;
 
-        op_ret = sys_lgetxattr (real_path, BITROT_CURRENT_VERSION_KEY,
-                                memptr, allocsize - xattrsize);
-        if (op_ret == -1) {
-                op_ret = -errno;
-                goto dealloc_mem;
-        }
+        ret = posix_fetch_signature_xattr
+                (real_path, BITROT_SIGNING_VERSION_KEY, xattr, &signsize);
+        if (ret)
+                goto delkey1;
 
-        xattrsize = op_ret; /* save for correct _in_ memory pointing */
+        ret = dict_set_uint32
+                  (xattr, BITROT_SIGNING_XATTR_SIZE_KEY, (uint32_t) signsize);
+        if (ret)
+                goto delkey2;
 
-        op_ret = sys_lgetxattr (real_path, BITROT_SIGNING_VERSION_KEY,
-                                (memptr + op_ret + 1), allocsize - op_ret);
-        if (op_ret == -1) {
-                op_ret = -errno;
-                goto dealloc_mem;
-        }
+        return 0;
 
-        /* this is a dynamic set */
-        op_ret = dict_set_dynptr (xattr, BITROT_CURRENT_VERSION_KEY,
-                                  memptr, allocsize);
-        if (op_ret < 0)
-                goto dealloc_mem;
-
-        /* rest all should be static */
-        op_ret = dict_set_static_ptr (xattr, BITROT_SIGNING_VERSION_KEY,
-                                      memptr + xattrsize + 1);
-        if (op_ret < 0)
-                goto delkey;
-
-        return allocsize;
-
- delkey:
+ delkey2:
+        dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
+ delkey1:
         dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
- dealloc_mem:
-        GF_FREE (memptr);
  error_return:
-        return op_ret;
+        return -EINVAL;
+}
 
+int32_t
+posix_fdget_objectsignature (int fd, dict_t *xattr)
+{
+        int32_t ret = 0;
+        size_t signsize = 0;
+
+        ret = posix_fd_fetch_signature_xattr
+                (fd, BITROT_CURRENT_VERSION_KEY, xattr, NULL);
+        if (ret)
+                goto error_return;
+
+        ret = posix_fd_fetch_signature_xattr
+                (fd, BITROT_SIGNING_VERSION_KEY, xattr, &signsize);
+        if (ret)
+                goto delkey1;
+
+        ret = dict_set_uint32
+                  (xattr, BITROT_SIGNING_XATTR_SIZE_KEY, (uint32_t) signsize);
+        if (ret)
+                goto delkey2;
+
+        return 0;
+
+ delkey2:
+        dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
+ delkey1:
+        dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
+ error_return:
+        return -EINVAL;
 }

@@ -24,23 +24,26 @@
 #include "bit-rot-scrub.h"
 #include <pthread.h>
 
+/**
+ * fetch signature extended attribute from an object's fd.
+ * NOTE: On success @xattr is not unref'd as @sign points
+ * to the dictionary value.
+ */
 static inline int32_t
-bitd_fetch_signature (xlator_t *this,
-                      br_child_t *child, fd_t *fd, br_isignature_out_t *sign)
+bitd_fetch_signature (xlator_t *this, br_child_t *child,
+                      fd_t *fd, dict_t **xattr, br_isignature_out_t **sign)
 {
-        int32_t ret = -1;
-        dict_t *xattr = NULL;
-        br_isignature_out_t *sigptr = NULL;
+       int32_t ret = -1;
 
-        ret = syncop_fgetxattr (child->xl, fd, &xattr,
+        ret = syncop_fgetxattr (child->xl, fd, xattr,
                                GLUSTERFS_GET_OBJECT_SIGNATURE, NULL);
         if (ret < 0) {
-                br_log_object (this, "getxattr", fd->inode->gfid, -ret);
+                br_log_object (this, "fgetxattr", fd->inode->gfid, -ret);
                 goto out;
         }
 
-        ret = dict_get_ptr (xattr, GLUSTERFS_GET_OBJECT_SIGNATURE,
-                            (void **)&sigptr);
+        ret = dict_get_ptr
+                (*xattr, GLUSTERFS_GET_OBJECT_SIGNATURE, (void **) sign);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to extract signature info [GFID: %s]",
@@ -48,8 +51,64 @@ bitd_fetch_signature (xlator_t *this,
                 goto unref_dict;
         }
 
-        ret = 0;
-        (void) memcpy (sign, sigptr, sizeof (br_isignature_out_t));
+        return 0;
+
+ unref_dict:
+        dict_unref (*xattr);
+ out:
+        return -1;
+
+}
+
+/**
+ * POST COMPUTE CHECK
+ *
+ * Checks to be performed before verifying calculated signature
+ * Object is skipped if:
+ *  - has stale signature
+ *  - mismatches versions caches in pre-compute check
+ */
+
+int32_t
+bitd_scrub_post_compute_check (xlator_t *this,
+                               br_child_t *child,
+                               fd_t *fd, unsigned long version,
+                               br_isignature_out_t **signature)
+{
+        int32_t              ret     = 0;
+        size_t               signlen = 0;
+        dict_t              *xattr   = NULL;
+        br_isignature_out_t *signptr = NULL;
+
+        ret = bitd_fetch_signature (this, child, fd, &xattr, &signptr);
+        if (ret < 0)
+                goto out;
+
+        /**
+         * Either the object got dirtied during the time the signature was
+         * calculated OR the version we saved during pre-compute check does
+         * not match now, implying that the object got dirtied and signed in
+         * between scrubs pre & post compute checks (checksum window).
+         *
+         * The log entry looks pretty ugly, but helps in debugging..
+         */
+        if (signptr->stale || (signptr->version != version)) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "<STAGE: POST> Object [GFID: %s] either has a stale "
+                        "signature OR underwent signing during checksumming "
+                        "{Stale: %d | Version: %lu,%lu}",
+                        uuid_utoa (fd->inode->gfid), (signptr->stale) ? 1 : 0,
+                        version, signptr->version);
+                ret = -1;
+                goto unref_dict;
+        }
+
+        signlen = signptr->signaturelen;
+        *signature = GF_CALLOC (1, sizeof (br_isignature_out_t) + signlen,
+                                gf_common_mt_char);
+
+        (void) memcpy (*signature, signptr,
+                       sizeof (br_isignature_out_t) + signlen);
 
  unref_dict:
         dict_unref (xattr);
@@ -59,56 +118,74 @@ bitd_fetch_signature (xlator_t *this,
 }
 
 static inline int32_t
-bitd_scrub_post_compute_check (xlator_t *this,
-                               br_child_t *child,
-                               br_isignature_out_t *sign, fd_t *fd)
+bitd_signature_staleness (xlator_t *this,
+                          br_child_t *child, fd_t *fd,
+                          int *stale, unsigned long *version)
 {
-        int32_t ret = 0;
+        int32_t ret = -1;
+        dict_t *xattr = NULL;
+        br_isignature_out_t *signptr = NULL;
 
-        ret = bitd_fetch_signature (this, child, fd, sign);
-        if (ret)
+        ret = bitd_fetch_signature (this, child, fd, &xattr, &signptr);
+        if (ret < 0)
                 goto out;
-        if (sign->stale)
-                ret = -1;
+
+        /**
+         * save verison for validation in post compute stage
+         * c.f. bitd_scrub_post_compute_check()
+         */
+        *stale = signptr->stale ? 1 : 0;
+        *version = signptr->version;
+
+        dict_unref (xattr);
 
  out:
         return ret;
-
 }
 
-static inline int32_t
-bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child, fd_t *fd)
+/**
+ * PRE COMPUTE CHECK
+ *
+ * Checks to be performed before initiating object signature calculation.
+ * An object is skipped if:
+ *  - it's already marked corrupted
+ *  - has stale signature
+ */
+int32_t
+bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
+                              fd_t *fd, unsigned long *version)
 {
-        int32_t ret = -1;
-        br_isignature_out_t sign = {0,};
+        int     stale = 0;
+        int32_t ret   = -1;
 
-        /* if the object is already marked bad, don't bother checking */
-        if (bitd_is_bad_file (this, child, NULL, fd))
-                goto out;
-
-        /* else, check for signature staleness */
-        ret = bitd_fetch_signature (this, child, fd, &sign);
-        if (ret)
-                goto out;
-        if (sign.stale) {
-                ret = -1;
+        if (bitd_is_bad_file (this, child, NULL, fd)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Object [GFID: %s] is marked corrupted, skipping..",
+                        uuid_utoa (fd->inode->gfid));
                 goto out;
         }
 
-        ret = 0;
+        ret = bitd_signature_staleness (this, child, fd, &stale, version);
+        if (!ret && stale) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "<STAGE: PRE> Object [GFID: %s] has stale signature",
+                        uuid_utoa (fd->inode->gfid));
+                ret = -1;
+        }
 
  out:
         return ret;
 }
 
-static inline int
+/* static inline int */
+int
 bitd_compare_ckum (xlator_t *this,
                    br_isignature_out_t *sign,
                    unsigned char *md, inode_t *linked_inode,
                    gf_dirent_t *entry, fd_t *fd, br_child_t *child)
 {
         int   ret = -1;
-        dict_t xattr = {0,};
+        dict_t *xattr = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
         GF_VALIDATE_OR_GOTO (this->name, sign, out);
@@ -118,52 +195,70 @@ bitd_compare_ckum (xlator_t *this,
         GF_VALIDATE_OR_GOTO (this->name, md, out);
         GF_VALIDATE_OR_GOTO (this->name, entry, out);
 
-        if (strncmp (sign->signature, (char *)md, strlen (sign->signature))) {
-                gf_log (this->name, GF_LOG_WARNING, "checksums does not match "
-                        "for the entry %s (gfid: %s)", entry->d_name,
-                        uuid_utoa (linked_inode->gfid));
-                ret = dict_set_int32 (&xattr, "trusted.glusterfs.bad-file",
-                                      _gf_true);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "dict-set for "
-                                "bad-file (entry: %s, gfid: %s) failed",
-                                entry->d_name, uuid_utoa (linked_inode->gfid));
-                        goto out;
-                }
-
-                ret = syncop_fsetxattr (child->xl, fd, &xattr, 0);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "setxattr to mark "
-                                "the file %s (gfid: %s) as bad failed",
-                                entry->d_name, uuid_utoa (linked_inode->gfid));
-                        goto out;
-                }
+        if (strncmp
+            (sign->signature, (char *) md, strlen (sign->signature)) == 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Entry %s [GFID: %s] matches calculated checksum",
+                        entry->d_name, uuid_utoa (linked_inode->gfid));
+                return 0;
         }
 
-out:
+        gf_log (this->name, GF_LOG_WARNING,
+                "Object checksumsum mismatch: %s [GFID: %s]",
+                entry->d_name, uuid_utoa (linked_inode->gfid));
+
+        /* Perform bad-file marking */
+        xattr = dict_new ();
+        if (!xattr) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (xattr, "trusted.glusterfs.bad-file", _gf_true);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error setting bad-file marker for %s [GFID: %s]",
+                        entry->d_name, uuid_utoa (linked_inode->gfid));
+                goto dictfree;
+        }
+
+        gf_log (this->name, GF_LOG_INFO, "Marking %s [GFID: %s] as corrupted..",
+                entry->d_name, uuid_utoa (linked_inode->gfid));
+        ret = syncop_fsetxattr (child->xl, fd, xattr, 0);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error marking object %s [GFID: %s] as corrupted",
+                        entry->d_name, uuid_utoa (linked_inode->gfid));
+
+ dictfree:
+        dict_unref (xattr);
+ out:
         return ret;
 }
 
 /**
- * This is the scrubber. As of now there's a mix of fd and inode
- * operations. Better to move them to fd based to be clean and
- * avoid code cluttering.
+ * "The Scrubber"
+ *
+ * Perform signature validation for a given object with the assumption
+ * that the signature is SHA256 (because signer as of now _always_
+ * signs with SHA256).
  */
 int
 bitd_start_scrub (xlator_t *subvol,
                   gf_dirent_t *entry, loc_t *parent, void *data)
 {
-        int32_t              ret          = -1;
-        fd_t                *fd           = NULL;
-        loc_t                loc          = {0, };
-        struct iatt          iatt         = {0, };
-        struct iatt          parent_buf   = {0, };
-        pid_t                pid          = 0;
-        br_child_t          *child        = NULL;
-        xlator_t            *this         = NULL;
-        unsigned char       *md           = NULL;
-        inode_t             *linked_inode = NULL;
-        br_isignature_out_t  sign         = {0,};
+        int32_t              ret           = -1;
+        fd_t                *fd            = NULL;
+        loc_t                loc           = {0, };
+        struct iatt          iatt          = {0, };
+        struct iatt          parent_buf    = {0, };
+        pid_t                pid           = 0;
+        br_child_t          *child         = NULL;
+        xlator_t            *this          = NULL;
+        unsigned char       *md            = NULL;
+        inode_t             *linked_inode  = NULL;
+        br_isignature_out_t *sign          = NULL;
+        unsigned long        signedversion = 0;
 
         GF_VALIDATE_OR_GOTO ("bit-rot", subvol, out);
         GF_VALIDATE_OR_GOTO ("bit-rot", data, out);
@@ -188,6 +283,9 @@ bitd_start_scrub (xlator_t *subvol,
         linked_inode = inode_link (loc.inode, parent->inode, loc.name, &iatt);
         if (linked_inode)
                 inode_lookup (linked_inode);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Scrubbing object %s [GFID: %s]",
+                entry->d_name, uuid_utoa (linked_inode->gfid));
 
         if (iatt.ia_type != IA_IFREG) {
                 gf_log (this->name, GF_LOG_DEBUG, "%s is not a regular "
@@ -221,7 +319,7 @@ bitd_start_scrub (xlator_t *subvol,
          *  - presence of bad object
          *  - signature staleness
          */
-        ret = bitd_scrub_pre_compute_check (this, child, fd);
+        ret = bitd_scrub_pre_compute_check (this, child, fd, &signedversion);
         if (ret)
                 goto unrefd; /* skip this object */
 
@@ -243,12 +341,15 @@ bitd_start_scrub (xlator_t *subvol,
          * perform post compute checks as an object's signature may have
          * become stale while scrubber calculated checksum.
          */
-        ret = bitd_scrub_post_compute_check (this, child, &sign, fd);
+        ret = bitd_scrub_post_compute_check (this, child,
+                                             fd, signedversion, &sign);
         if (ret)
                 goto free_md;
 
-        ret = bitd_compare_ckum (this, &sign, md,
+        ret = bitd_compare_ckum (this, sign, md,
                                  linked_inode, entry, fd, child);
+
+        GF_FREE (sign); /* alloced on post-compute */
 
         /** fd_unref() takes care of closing fd.. like syncop_close() */
 
@@ -263,8 +364,8 @@ bitd_start_scrub (xlator_t *subvol,
         return ret;
 }
 
-#define BR_SCRUB_THROTTLE_COUNT 10
-#define BR_SCRUB_THROTTLE_ZZZ   100
+#define BR_SCRUB_THROTTLE_COUNT 30
+#define BR_SCRUB_THROTTLE_ZZZ   60
 void *
 br_scrubber (void *arg)
 {
@@ -284,7 +385,7 @@ br_scrubber (void *arg)
                             GF_CLIENT_PID_SCRUB, child, bitd_start_scrub,
                             BR_SCRUB_THROTTLE_COUNT, BR_SCRUB_THROTTLE_ZZZ);
 
-                sleep (BR_SCRUB_THROTTLE_ZZZ * BR_SCRUB_THROTTLE_COUNT);
+                sleep (BR_SCRUB_THROTTLE_ZZZ);
         }
 
         return NULL;

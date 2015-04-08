@@ -17,33 +17,20 @@
 #endif
 
 #include "glusterfs.h"
-
-/**
- * on-disk formats for ongoing version and object signature.
- */
-typedef struct br_version {
-        unsigned long ongoingversion;
-        uint32_t timebuf[2];
-} br_version_t;
-
-typedef struct br_signature {
-        int8_t signaturetype;
-
-        unsigned long signedversion;
-
-        char signature[0];
-} br_signature_t;
+#include "bit-rot-object-version.h"
 
 #define BR_VXATTR_VERSION   (1 << 0)
 #define BR_VXATTR_SIGNATURE (1 << 1)
 
+#define BR_VXATTR_SIGN_MISSING (BR_VXATTR_SIGNATURE)
 #define BR_VXATTR_ALL_MISSING                           \
         (BR_VXATTR_VERSION | BR_VXATTR_SIGNATURE)
 
 typedef enum br_vxattr_state {
-        BR_VXATTR_STATUS_MISSING = 0,
-        BR_VXATTR_STATUS_PARTIAL = 1,
-        BR_VXATTR_STATUS_FULL    = 2,
+        BR_VXATTR_STATUS_FULL     = 0,
+        BR_VXATTR_STATUS_MISSING  = 1,
+        BR_VXATTR_STATUS_UNSIGNED = 2,
+        BR_VXATTR_STATUS_INVALID  = 3,
 } br_vxattr_status_t;
 
 static inline br_vxattr_status_t
@@ -66,11 +53,14 @@ br_version_xattr_state (dict_t *xattr,
         case 0:
                 status = BR_VXATTR_STATUS_FULL;
                 break;
+        case BR_VXATTR_SIGN_MISSING:
+                status = BR_VXATTR_STATUS_UNSIGNED;
+                break;
         case BR_VXATTR_ALL_MISSING:
                 status = BR_VXATTR_STATUS_MISSING;
                 break;
         default:
-                status = BR_VXATTR_STATUS_PARTIAL;
+                status = BR_VXATTR_STATUS_INVALID;
         }
 
         return status;
@@ -86,6 +76,7 @@ typedef struct br_isignature_in {
         unsigned long signedversion;     /* version against which the
                                             object was signed         */
 
+        size_t signaturelen;             /* signature length          */
         char signature[0];               /* object signature          */
 } br_isignature_t;
 
@@ -96,11 +87,14 @@ typedef struct br_isignature_in {
 typedef struct br_isignature_out {
         char stale;                      /* stale signature?          */
 
+        unsigned long version;           /* current signed version    */
+
         uint32_t time[2];                /* time when the object
                                             got dirtied               */
 
         int8_t signaturetype;            /* hash type                 */
-        char signature[0];               /* signature (hash)          */
+        size_t signaturelen;             /* signature length          */
+        char   signature[0];             /* signature (hash)          */
 } br_isignature_out_t;
 
 typedef struct br_stub_init {
