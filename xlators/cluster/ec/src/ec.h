@@ -47,5 +47,6 @@ struct _ec
     struct mem_pool * lock_pool;
     ec_self_heald_t   shd;
     char              vol_uuid[UUID_SIZE + 1];
+    dict_t           *leaf_to_subvolid;
 };
 #endif /* __EC_H__ */

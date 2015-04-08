@@ -296,6 +296,30 @@ out:
     }
 }
 
+/* Returns -1 if client_id is invalid else index of child subvol in xl_list */
+int
+ec_deitransform (xlator_t *this, off_t offset)
+{
+        int  idx       = -1;
+        int  client_id = -1;
+        ec_t *ec       = this->private;
+        char id[32]    = {0};
+
+        client_id = gf_deitransform (this, offset);
+        sprintf (id, "%d", client_id);
+        if (dict_get_int32 (ec->leaf_to_subvolid, id, &idx)) {
+                idx = -1;
+                goto out;
+        }
+
+out:
+        if (idx < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Invalid index %d in readdirp request", client_id);
+        }
+        return idx;
+}
+
 /* FOP: readdir */
 
 void ec_adjust_readdir(ec_t * ec, int32_t idx, gf_dirent_t * entries)
@@ -412,17 +436,11 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
             if (fop->offset != 0)
             {
                 int32_t idx = -1;
-                ec_t    *ec = fop->xl->private;
 
-                idx = gf_deitransform(fop->xl, fop->offset);
+                idx = ec_deitransform (fop->xl, fop->offset);
 
-                if ((idx < 0) || (idx >= ec->nodes)) {
-
-                        gf_log(fop->xl->name, GF_LOG_ERROR,
-                               "Invalid index %d in readdirp request", idx);
-
+                if (idx < 0) {
                         fop->error = EIO;
-
                         return EC_STATE_REPORT;
                 }
                 fop->mask &= 1ULL << idx;

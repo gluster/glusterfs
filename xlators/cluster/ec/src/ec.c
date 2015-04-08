@@ -115,6 +115,35 @@ int32_t ec_prepare_childs(xlator_t * this)
     return 0;
 }
 
+/* This function transforms the subvol to subvol-id*/
+static int
+_subvol_to_subvolid (dict_t *this, char *key, data_t *value, void *data)
+{
+        ec_t *ec = data;
+        xlator_t *subvol = NULL;
+        int      i = 0;
+        int     ret = -1;
+
+        subvol = data_to_ptr (value);
+        for (i = 0; i < ec->nodes; i++) {
+                if (ec->xl_list[i] == subvol) {
+                        ret = dict_set_int32 (this, key, i);
+                        /* -1 stops dict_foreach and returns -1*/
+                        if (ret < 0)
+                                ret = -1;
+                        goto out;
+                }
+        }
+out:
+        return ret;
+}
+
+int
+ec_subvol_to_subvol_id_transform (ec_t *ec, dict_t *leaf_to_subvolid)
+{
+        return dict_foreach (leaf_to_subvolid, _subvol_to_subvolid, ec);
+}
+
 void __ec_destroy_private(xlator_t * this)
 {
     ec_t * ec = this->private;
@@ -165,6 +194,8 @@ void __ec_destroy_private(xlator_t * this)
 
         LOCK_DESTROY(&ec->lock);
 
+        if (ec->leaf_to_subvolid)
+                dict_unref (ec->leaf_to_subvolid);
         GF_FREE(ec);
     }
 }
@@ -479,6 +510,21 @@ init (xlator_t *this)
     if (ec->shd.iamshd)
             ec_selfheal_daemon_init (this);
     gf_log(this->name, GF_LOG_DEBUG, "Disperse translator initialized.");
+
+    ec->leaf_to_subvolid = dict_new ();
+    if (!ec->leaf_to_subvolid)
+            goto failed;
+    if (glusterfs_reachable_leaves (this, ec->leaf_to_subvolid)) {
+            gf_log (this->name, GF_LOG_ERROR, "Failed to build subvol "
+                    "dictionary");
+            goto failed;
+    }
+
+    if (ec_subvol_to_subvol_id_transform (ec, ec->leaf_to_subvolid) < 0) {
+            gf_log (this->name, GF_LOG_ERROR, "Failed to build subvol-id "
+                    "dictionary");
+            goto failed;
+    }
 
     return 0;
 
