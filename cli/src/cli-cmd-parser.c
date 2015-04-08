@@ -1441,7 +1441,7 @@ out:
 
 int32_t
 cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
-                                dict_t **options)
+                                dict_t **options, int *ret_type)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
@@ -1559,6 +1559,9 @@ parse_bricks:
         *options = dict;
 
 out:
+        if (ret_type)
+                *ret_type = type;
+
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse add-brick CLI");
                 if (dict)

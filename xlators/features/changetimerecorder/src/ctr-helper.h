@@ -62,17 +62,12 @@ typedef struct gf_ctr_private {
  * is_internal_fop in gf_ctr_local will tell us if this is a internal fop and
  * take special/no action. We dont record change/acces times or increement heat
  * counter for internal fops from rebalancer.
- * NOTE: This piece is broken with the addition of frequency counters.
- * Any rebalancer or tiering will cause the files to get the files heated.
- * We would require seperate identifiers for tiering FOPS.
- * The QE have noted this issue and will raise a bug as this patch gets merged.
- * We will fix this as a bug fix.
- *
  * */
 typedef struct gf_ctr_local {
         gfdb_db_record_t        gfdb_db_record;
         ia_type_t               ia_inode_type;
         gf_boolean_t            is_internal_fop;
+        gf_client_pid_t          client_pid;
 } gf_ctr_local_t;
 /*
  * Easy access of gfdb_db_record of ctr_local
@@ -163,6 +158,7 @@ typedef struct gf_ctr_inode_context {
         gf_ctr_link_context_t   *old_link_cx;
         gfdb_fop_type_t         fop_type;
         gfdb_fop_path_t         fop_path;
+        gf_boolean_t            is_internal_fop;
 } gf_ctr_inode_context_t;
 
 
@@ -250,6 +246,18 @@ do {\
         (frame->root->pid == GF_CLIENT_PID_DEFRAG)
 
 /*
+ * If its a tiering rebalancer fop
+ * */
+#define TIER_REBALANCE_FOP(frame)\
+        (frame->root->pid == GF_CLIENT_PID_TIER_DEFRAG)
+
+/*
+ * If its a AFR SELF HEAL
+ * */
+ #define AFR_SELF_HEAL_FOP(frame)\
+        (frame->root->pid == GF_CLIENT_PID_AFR_SELF_HEALD)
+
+/*
  * if a rebalancer fop goto
  * */
 #define CTR_IF_REBALANCE_FOP_THEN_GOTO(frame, label)\
@@ -262,18 +270,22 @@ do {\
  * Internal fop
  *
  * */
-#define CTR_IS_INTERNAL_FOP(frame, priv)\
-        (REBALANCE_FOP(frame) && (!priv->ctr_hot_brick))
+#define CTR_IS_INTERNAL_FOP(frame, dict)\
+        (AFR_SELF_HEAL_FOP (frame) \
+        || REBALANCE_FOP (frame) \
+        || TIER_REBALANCE_FOP (frame) \
+        || (dict && \
+        dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY)))
 
 /**
  * ignore internal fops for all clients except AFR self-heal daemon
  */
 #define CTR_IF_INTERNAL_FOP_THEN_GOTO(frame, dict, label)\
 do {\
-                if ((frame->root->pid != GF_CLIENT_PID_AFR_SELF_HEALD)  \
-                    && dict                                             \
-                    && dict_get (dict, GLUSTERFS_INTERNAL_FOP_KEY))     \
-                        goto label;                                     \
+        GF_ASSERT(frame);\
+        GF_ASSERT(frame->root);\
+        if (CTR_IS_INTERNAL_FOP(frame, dict)) \
+                        goto label; \
 } while (0)
 
 
@@ -290,14 +302,15 @@ do {\
                 goto label;\
  } while (0)
 
-
 int
-fill_db_record_for_unwind(gf_ctr_local_t        *ctr_local,
+fill_db_record_for_unwind (xlator_t              *this,
+                          gf_ctr_local_t        *ctr_local,
                           gfdb_fop_type_t       fop_type,
                           gfdb_fop_path_t       fop_path);
 
 int
-fill_db_record_for_wind(gf_ctr_local_t          *ctr_local,
+fill_db_record_for_wind (xlator_t                *this,
+                        gf_ctr_local_t          *ctr_local,
                         gf_ctr_inode_context_t  *ctr_inode_cx);
 
 /*******************************************************************************
@@ -317,6 +330,7 @@ ctr_insert_wind (call_frame_t                    *frame,
         gf_ctr_local_t *ctr_local       = NULL;
 
         GF_ASSERT(frame);
+        GF_ASSERT(frame->root);
         GF_ASSERT(this);
         IS_CTR_INODE_CX_SANE(ctr_inode_cx);
 
@@ -335,16 +349,32 @@ ctr_insert_wind (call_frame_t                    *frame,
                         goto out;
                 };
                 ctr_local = frame->local;
+                ctr_local->client_pid = frame->root->pid;
+                ctr_local->is_internal_fop = ctr_inode_cx->is_internal_fop;
 
-                /*Broken please refer gf_ctr_local_t documentation*/
-                ctr_local->is_internal_fop = CTR_IS_INTERNAL_FOP(frame, _priv);
-
-                /*Broken please refer gf_ctr_local_t documentation*/
+                /* Decide whether to record counters or not */
                 CTR_DB_REC(ctr_local).do_record_counters =
-                                                _priv->ctr_record_counter;
+                                                _priv->ctr_record_counter &&
+                                                !(ctr_local->is_internal_fop);
+
+                /* Decide whether to record times or not
+                 * For non internal FOPS record times as usual*/
+                if (!ctr_local->is_internal_fop) {
+                        CTR_DB_REC(ctr_local).do_record_times =
+                                                (_priv->ctr_record_wind
+                                                || _priv->ctr_record_unwind);
+                }
+                /* when its a internal FOPS*/
+                else {
+                        /* Record times only for create
+                         * i.e when the inode is created */
+                        CTR_DB_REC(ctr_local).do_record_times =
+                                (isdentrycreatefop(ctr_inode_cx->fop_type)) ?
+                                        _gf_true : _gf_false;
+                }
 
                 /*Fill the db record for insertion*/
-                ret = fill_db_record_for_wind (ctr_local, ctr_inode_cx);
+                ret = fill_db_record_for_wind (this, ctr_local, ctr_inode_cx);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "WIND: Error filling  ctr local");
@@ -364,6 +394,7 @@ out:
 
         if (ret) {
                 free_ctr_local (ctr_local);
+                frame->local = NULL;
         }
 
         return ret;
@@ -406,7 +437,8 @@ ctr_insert_unwind (call_frame_t          *frame,
                 CTR_DB_REC(ctr_local).do_record_uwind_time =
                                                 _priv->ctr_record_unwind;
 
-                ret = fill_db_record_for_unwind(ctr_local, fop_type, fop_path);
+                ret = fill_db_record_for_unwind(this, ctr_local, fop_type,
+                                               fop_path);
                 if (ret == -1) {
                         gf_log(this->name, GF_LOG_ERROR, "UNWIND: Error"
                                 "filling ctr local");

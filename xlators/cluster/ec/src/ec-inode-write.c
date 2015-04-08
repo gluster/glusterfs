@@ -82,125 +82,119 @@ void ec_wind_removexattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       &fop->loc[0], fop->str[0], fop->xdata);
 }
 
-int32_t ec_manager_removexattr(ec_fop_data_t * fop, int32_t state)
+void
+ec_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
+              int32_t op_errno, dict_t *xdata)
+{
+        ec_fop_data_t *fop = cookie;
+        switch (fop->id) {
+        case GF_FOP_SETXATTR:
+                if (fop->cbks.setxattr) {
+                        fop->cbks.setxattr (frame, cookie, this, op_ret,
+                                            op_errno, xdata);
+                }
+                break;
+        case GF_FOP_REMOVEXATTR:
+                if (fop->cbks.removexattr) {
+                        fop->cbks.removexattr (frame, cookie, this, op_ret,
+                                               op_errno, xdata);
+                }
+                break;
+        case GF_FOP_FSETXATTR:
+                if (fop->cbks.fsetxattr) {
+                        fop->cbks.fsetxattr (frame, cookie, this, op_ret,
+                                             op_errno, xdata);
+                }
+                break;
+        case GF_FOP_FREMOVEXATTR:
+                if (fop->cbks.fremovexattr) {
+                        fop->cbks.fremovexattr (frame, cookie, this, op_ret,
+                                                op_errno, xdata);
+                }
+                break;
+        }
+}
+
+int32_t
+ec_manager_xattr (ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
 
-    switch (state)
-    {
+        switch (state) {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            if (fop->fd == NULL)
-            {
-                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
-            }
-            else
-            {
-                ec_lock_prepare_fd(fop, fop->fd, 1);
-            }
-            ec_lock(fop);
+                if (fop->fd == NULL)
+                    ec_lock_prepare_inode(fop, &fop->loc[0], 1);
+                else
+                    ec_lock_prepare_fd(fop, fop->fd, 1);
 
-            return EC_STATE_DISPATCH;
+                ec_lock(fop);
+
+                return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
-            ec_dispatch_all(fop);
+                ec_dispatch_all(fop);
 
-            return EC_STATE_PREPARE_ANSWER;
+                return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
-            }
+                cbk = fop->answer;
+                if (cbk) {
+                        if (!ec_dict_combine (cbk, EC_COMBINE_XDATA)) {
+                                if (cbk->op_ret >= 0) {
+                                    cbk->op_ret = -1;
+                                    cbk->op_errno = EIO;
+                                }
+                        }
 
-            return EC_STATE_REPORT;
+                        if (cbk->op_ret < 0)
+                            ec_fop_set_error(fop, cbk->op_errno);
+                } else {
+                    ec_fop_set_error(fop, EIO);
+                }
+
+                return EC_STATE_REPORT;
 
         case EC_STATE_REPORT:
-            cbk = fop->answer;
+                cbk = fop->answer;
 
-            GF_ASSERT(cbk != NULL);
+                GF_ASSERT(cbk != NULL);
 
-            if (fop->id == GF_FOP_REMOVEXATTR)
-            {
-                if (fop->cbks.removexattr != NULL)
-                {
-                    fop->cbks.removexattr(fop->req_frame, fop, fop->xl,
-                                          cbk->op_ret, cbk->op_errno,
-                                          cbk->xdata);
-                }
-            }
-            else
-            {
-                if (fop->cbks.fremovexattr != NULL)
-                {
-                    fop->cbks.fremovexattr(fop->req_frame, fop, fop->xl,
-                                           cbk->op_ret, cbk->op_errno,
-                                           cbk->xdata);
-                }
-            }
+                ec_xattr_cbk (fop->req_frame, fop, fop->xl, cbk->op_ret,
+                              cbk->op_errno, cbk->xdata);
 
-            return EC_STATE_LOCK_REUSE;
+                    return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
-            GF_ASSERT(fop->error != 0);
+                GF_ASSERT(fop->error != 0);
 
-            if (fop->id == GF_FOP_REMOVEXATTR)
-            {
-                if (fop->cbks.removexattr != NULL)
-                {
-                    fop->cbks.removexattr(fop->req_frame, fop, fop->xl, -1,
-                                          fop->error, NULL);
-                }
-            }
-            else
-            {
-                if (fop->cbks.fremovexattr != NULL)
-                {
-                    fop->cbks.fremovexattr(fop->req_frame, fop, fop->xl, -1,
-                                           fop->error, NULL);
-                }
-            }
+                ec_xattr_cbk (fop->req_frame, fop, fop->xl, -1, fop->error,
+                              NULL);
 
-            return EC_STATE_LOCK_REUSE;
+                return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_LOCK_REUSE:
         case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop);
+                ec_lock_reuse(fop);
 
-            return EC_STATE_UNLOCK;
+                return EC_STATE_UNLOCK;
 
         case -EC_STATE_UNLOCK:
         case EC_STATE_UNLOCK:
-            ec_unlock(fop);
+                ec_unlock(fop);
 
-            return EC_STATE_END;
+                return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+                gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
+                       state, ec_fop_name(fop->id));
 
-            return EC_STATE_END;
-    }
+                return EC_STATE_END;
+        }
 }
 
 void
@@ -220,7 +214,7 @@ ec_removexattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_REMOVEXATTR,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
-                               ec_wind_removexattr, ec_manager_removexattr,
+                               ec_wind_removexattr, ec_manager_xattr,
                                callback, data);
     if (fop == NULL)
     {
@@ -304,7 +298,7 @@ ec_fremovexattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_FREMOVEXATTR,
                                EC_FLAG_UPDATE_FD_INODE, target, minimum,
-                               ec_wind_fremovexattr, ec_manager_removexattr,
+                               ec_wind_fremovexattr, ec_manager_xattr,
                                callback, data);
     if (fop == NULL)
     {
@@ -682,126 +676,6 @@ void ec_wind_setxattr(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       &fop->loc[0], fop->dict, fop->int32, fop->xdata);
 }
 
-int32_t ec_manager_setxattr(ec_fop_data_t * fop, int32_t state)
-{
-    ec_cbk_data_t * cbk;
-
-    switch (state)
-    {
-        case EC_STATE_INIT:
-        case EC_STATE_LOCK:
-            if (fop->fd == NULL)
-            {
-                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
-            }
-            else
-            {
-                ec_lock_prepare_fd(fop, fop->fd, 1);
-            }
-            ec_lock(fop);
-
-            return EC_STATE_DISPATCH;
-
-        case EC_STATE_DISPATCH:
-            ec_dispatch_all(fop);
-
-            return EC_STATE_PREPARE_ANSWER;
-
-        case EC_STATE_PREPARE_ANSWER:
-            cbk = fop->answer;
-            if (cbk != NULL)
-            {
-                if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
-                {
-                    if (cbk->op_ret >= 0)
-                    {
-                        cbk->op_ret = -1;
-                        cbk->op_errno = EIO;
-                    }
-                }
-                if (cbk->op_ret < 0)
-                {
-                    ec_fop_set_error(fop, cbk->op_errno);
-                }
-            }
-            else
-            {
-                ec_fop_set_error(fop, EIO);
-            }
-
-            return EC_STATE_REPORT;
-
-        case EC_STATE_REPORT:
-            cbk = fop->answer;
-
-            GF_ASSERT(cbk != NULL);
-
-            if (fop->id == GF_FOP_SETXATTR)
-            {
-                if (fop->cbks.setxattr != NULL)
-                {
-                    fop->cbks.setxattr(fop->req_frame, fop, fop->xl,
-                                       cbk->op_ret, cbk->op_errno, cbk->xdata);
-                }
-            }
-            else
-            {
-                if (fop->cbks.fsetxattr != NULL)
-                {
-                    fop->cbks.fsetxattr(fop->req_frame, fop, fop->xl,
-                                        cbk->op_ret, cbk->op_errno,
-                                        cbk->xdata);
-                }
-            }
-
-            return EC_STATE_LOCK_REUSE;
-
-        case -EC_STATE_INIT:
-        case -EC_STATE_LOCK:
-        case -EC_STATE_DISPATCH:
-        case -EC_STATE_PREPARE_ANSWER:
-        case -EC_STATE_REPORT:
-            GF_ASSERT(fop->error != 0);
-
-            if (fop->id == GF_FOP_SETXATTR)
-            {
-                if (fop->cbks.setxattr != NULL)
-                {
-                    fop->cbks.setxattr(fop->req_frame, fop, fop->xl, -1,
-                                       fop->error, NULL);
-                }
-            }
-            else
-            {
-                if (fop->cbks.fsetxattr != NULL)
-                {
-                    fop->cbks.fsetxattr(fop->req_frame, fop, fop->xl, -1,
-                                        fop->error, NULL);
-                }
-            }
-
-            return EC_STATE_LOCK_REUSE;
-
-        case -EC_STATE_LOCK_REUSE:
-        case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UNLOCK:
-        case EC_STATE_UNLOCK:
-            ec_unlock(fop);
-
-            return EC_STATE_END;
-
-        default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
-
-            return EC_STATE_END;
-    }
-}
-
 void
 ec_setxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
              int32_t minimum, fop_setxattr_cbk_t func, void *data,
@@ -819,7 +693,7 @@ ec_setxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_SETXATTR,
                                EC_FLAG_UPDATE_LOC_INODE, target, minimum,
-                               ec_wind_setxattr, ec_manager_setxattr, callback,
+                               ec_wind_setxattr, ec_manager_xattr, callback,
                                data);
     if (fop == NULL)
     {
@@ -944,7 +818,7 @@ ec_fsetxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
 
     fop = ec_fop_data_allocate(frame, this, GF_FOP_FSETXATTR,
                                EC_FLAG_UPDATE_FD_INODE, target, minimum,
-                               ec_wind_fsetxattr, ec_manager_setxattr,
+                               ec_wind_fsetxattr, ec_manager_xattr,
                                callback, data);
     if (fop == NULL)
     {

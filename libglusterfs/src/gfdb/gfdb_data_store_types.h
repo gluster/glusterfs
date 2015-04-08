@@ -292,7 +292,11 @@ typedef struct gfdb_db_record {
         /* but for dentry fops we update the LINK_UPDATE, so an extra       */
         /* flag is provided to ignore the recording of the unwind time.     */
         gf_boolean_t                    do_record_uwind_time;
+        /* Global flag to record or not record counters */
         gf_boolean_t                    do_record_counters;
+        /* Global flag to Record/Not Record wind or wind time.
+         * This flag will overrule do_record_uwind_time*/
+        gf_boolean_t                    do_record_times;
 } gfdb_db_record_t;
 
 
