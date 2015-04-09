@@ -21,6 +21,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "call-stub.h"
+#include "bit-rot-stub-mem-types.h"
 
 #include "bit-rot-common.h"
 
@@ -32,17 +33,18 @@ typedef struct br_stub_inode_ctx {
                                                       a writeback to disk? */
         unsigned long currentversion;           /* ongoing version */
 
-        struct release {
-                int32_t ordflags;
-                unsigned long opencount;        /* number of open()s before
-                                                   final release() */
-                unsigned long releasecount;     /* number of release()s */
-        } releasectx;
-#define BR_STUB_REQUIRE_RELEASE_CBK 0x0E0EA0E
+        int            info_sign;
+        struct list_head fd_list; /* list of open fds or fds participating in
+                                     write operations */
 } br_stub_inode_ctx_t;
 
+typedef struct br_stub_fd {
+        fd_t *fd;
+        struct list_head list;
+} br_stub_fd_t;
 
 #define I_DIRTY  (1<<0)        /* inode needs writeback */
+#define I_MODIFIED (1<<1)
 #define WRITEBACK_DURABLE 1    /* writeback is durable */
 
 /**
@@ -60,12 +62,10 @@ typedef struct br_stub_local {
                         uuid_t         gfid;
                         inode_t       *inode;
                         unsigned long  version;
-                        gf_boolean_t   markdirty;
                 } context;
         } u;
 } br_stub_local_t;
 
-#define BR_STUB_FULL_VERSIONING (1<<0)
 #define BR_STUB_INCREMENTAL_VERSIONING (1<<1)
 
 typedef struct br_stub_private {
@@ -96,16 +96,131 @@ __br_stub_is_inode_dirty (br_stub_inode_ctx_t *ctx)
         return (ctx->need_writeback & I_DIRTY);
 }
 
+/* inode mofification markers */
+static inline void
+__br_stub_set_inode_modified (br_stub_inode_ctx_t *ctx)
+{
+        ctx->need_writeback |= I_MODIFIED;
+}
+
+static inline void
+__br_stub_unset_inode_modified (br_stub_inode_ctx_t *ctx)
+{
+        ctx->need_writeback &= ~I_MODIFIED;
+}
+
 static inline int
-br_stub_require_release_call (xlator_t *this, fd_t *fd)
+__br_stub_is_inode_modified (br_stub_inode_ctx_t *ctx)
+{
+        return (ctx->need_writeback & I_MODIFIED);
+}
+
+br_stub_fd_t *
+br_stub_fd_new (void)
+{
+        br_stub_fd_t    *br_stub_fd = NULL;
+
+        br_stub_fd = GF_CALLOC (1, sizeof (*br_stub_fd),
+                                gf_br_stub_mt_br_stub_fd_t);
+
+        return br_stub_fd;
+}
+
+int
+__br_stub_fd_ctx_set (xlator_t *this, fd_t *fd, br_stub_fd_t *br_stub_fd)
+{
+        uint64_t    value = 0;
+        int         ret   = -1;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, br_stub_fd, out);
+
+        value = (uint64_t)(long) br_stub_fd;
+
+        ret = __fd_ctx_set (fd, this, value);
+
+out:
+        return ret;
+}
+
+br_stub_fd_t *
+__br_stub_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        br_stub_fd_t *br_stub_fd = NULL;
+        uint64_t  value  = 0;
+        int       ret    = -1;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        ret = __fd_ctx_get (fd, this, &value);
+        if (ret)
+                return NULL;
+
+        br_stub_fd = (br_stub_fd_t *) ((long) value);
+
+out:
+        return br_stub_fd;
+}
+
+br_stub_fd_t *
+br_stub_fd_ctx_get (xlator_t *this, fd_t *fd)
+{
+        br_stub_fd_t *br_stub_fd = NULL;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        LOCK (&fd->lock);
+        {
+                br_stub_fd = __br_stub_fd_ctx_get (this, fd);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return br_stub_fd;
+}
+
+int32_t
+br_stub_fd_ctx_set (xlator_t *this, fd_t *fd, br_stub_fd_t *br_stub_fd)
+{
+        int32_t    ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, br_stub_fd, out);
+
+        LOCK (&fd->lock);
+        {
+                ret = __br_stub_fd_ctx_set (this, fd, br_stub_fd);
+        }
+        UNLOCK (&fd->lock);
+
+out:
+        return ret;
+}
+
+static inline int
+br_stub_require_release_call (xlator_t *this, fd_t *fd, br_stub_fd_t **fd_ctx)
 {
         int32_t ret = 0;
+        br_stub_fd_t *br_stub_fd = NULL;
 
-        ret = fd_ctx_set (fd, this,
-                          (uint64_t)(long)BR_STUB_REQUIRE_RELEASE_CBK);
+        br_stub_fd = br_stub_fd_new ();
+        if (!br_stub_fd)
+                return -1;
+
+        br_stub_fd->fd = fd;
+        INIT_LIST_HEAD (&br_stub_fd->list);
+
+        ret = br_stub_fd_ctx_set (this, fd, br_stub_fd);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
                         "could not set fd context (for release callback");
+        else
+                *fd_ctx = br_stub_fd;
+
         return ret;
 }
 
@@ -122,7 +237,15 @@ static inline int
 br_stub_get_inode_ctx (xlator_t *this,
                        inode_t *inode, uint64_t *ctx)
 {
-        return inode_ctx_get (inode, this, ctx);
+        int ret = -1;
+
+        LOCK (&inode->lock);
+        {
+                ret = __br_stub_get_inode_ctx (this, inode, ctx);
+        }
+        UNLOCK (&inode->lock);
+
+        return ret;
 }
 
 static inline int
@@ -144,55 +267,31 @@ __br_stub_writeback_version (br_stub_inode_ctx_t *ctx)
 static inline void
 __br_stub_set_ongoing_version (br_stub_inode_ctx_t *ctx, unsigned long version)
 {
-        ctx->currentversion = version;
-}
-
-static inline void
-__br_stub_reset_release_counters (br_stub_inode_ctx_t *ctx)
-{
-        ctx->releasectx.ordflags = 0;
-        ctx->releasectx.opencount = 0;
-        ctx->releasectx.releasecount = 0;
-}
-
-static inline void
-__br_stub_track_release (br_stub_inode_ctx_t *ctx)
-{
-        ++ctx->releasectx.releasecount;
-}
-
-static inline void
-___br_stub_track_open (br_stub_inode_ctx_t *ctx)
-{
-        ++ctx->releasectx.opencount;
-}
-
-static inline void
-___br_stub_track_open_flags (fd_t *fd, br_stub_inode_ctx_t *ctx)
-{
-        ctx->releasectx.ordflags |= fd->flags;
-}
-
-static inline void
-__br_stub_track_openfd (fd_t *fd, br_stub_inode_ctx_t *ctx)
-{
-        ___br_stub_track_open (ctx);
-        ___br_stub_track_open_flags (fd, ctx);
+        if (ctx->currentversion < version)
+                ctx->currentversion = version;
+        else
+                gf_log ("bit-rot-stub", GF_LOG_WARNING, "current version: %lu"
+                        "new version: %lu", ctx->currentversion, version);
 }
 
 static inline int
 __br_stub_can_trigger_release (inode_t *inode,
-                               br_stub_inode_ctx_t *ctx,
-                               unsigned long *version, int32_t *flags)
+                               br_stub_inode_ctx_t *ctx, unsigned long *version)
 {
-        if (list_empty (&inode->fd_list)
-            && (ctx->releasectx.releasecount == ctx->releasectx.opencount)) {
-                if (flags)
-                        *flags = htonl (ctx->releasectx.ordflags);
+        /**
+         * If the inode is modified, then it has to be dirty. An inode is
+         * marked dirty once version is increased. Its marked as modified
+         * when the modification call (write/truncate) which triggered
+         * the versioning is successful.
+         */
+        if (__br_stub_is_inode_modified (ctx)
+            && list_empty (&ctx->fd_list)
+            && (ctx->info_sign != BR_SIGN_REOPEN_WAIT)) {
+
+                GF_ASSERT (__br_stub_is_inode_dirty (ctx) == 0);
+
                 if (version)
                         *version = htonl (ctx->currentversion);
-
-                __br_stub_reset_release_counters (ctx);
                 return 1;
         }
 
@@ -261,11 +360,16 @@ static inline void
 br_stub_remove_vxattrs (dict_t *xattr)
 {
         if (xattr) {
-                dict_del (xattr, BITROT_OBJECT_BAD_KEY);
                 dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
                 dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
                 dict_del (xattr, BITROT_SIGNING_XATTR_SIZE_KEY);
         }
 }
 
+int32_t
+br_stub_add_fd_to_inode (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx);
+
+br_sign_state_t
+__br_stub_inode_sign_state (br_stub_inode_ctx_t *ctx, glusterfs_fop_t fop,
+                            fd_t *fd);
 #endif /* __BIT_ROT_STUB_H__ */
