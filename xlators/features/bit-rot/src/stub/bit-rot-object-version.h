@@ -19,7 +19,7 @@ typedef struct br_version {
         uint32_t timebuf[2];
 } br_version_t;
 
-typedef struct br_signature {
+typedef struct __attribute__ ((__packed__)) br_signature {
         int8_t signaturetype;
 
         unsigned long signedversion;
