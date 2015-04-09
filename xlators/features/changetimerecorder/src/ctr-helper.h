@@ -37,6 +37,7 @@ typedef struct gf_ctr_private {
         gf_boolean_t                    ctr_record_wind;
         gf_boolean_t                    ctr_record_unwind;
         gf_boolean_t                    ctr_record_counter;
+        gf_boolean_t                    ctr_link_consistency;
         gfdb_db_type_t                  gfdb_db_type;
         gfdb_sync_type_t                gfdb_sync_type;
         gfdb_conn_node_t                *_db_conn;
@@ -380,6 +381,7 @@ ctr_insert_wind (call_frame_t                    *frame,
                                 "WIND: Error filling  ctr local");
                         goto out;
                 }
+
                 /*Insert the db record*/
                 ret = insert_record (_priv->_db_conn,
                                         &ctr_local->gfdb_db_record);

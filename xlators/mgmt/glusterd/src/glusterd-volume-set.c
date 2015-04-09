@@ -1730,8 +1730,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "record-counters",
           .op_version  = GD_OP_VERSION_3_7_0
         },
+        { .key         = "features.ctr_link_consistency",
+          .voltype     = "features/changetimerecorder",
+          .value       = "off",
+          .option      = "ctr_link_consistency",
+          .op_version  = GD_OP_VERSION_3_7_0
+        },
 #endif /* USE_GFDB */
-
         { .key         = "locks.trace",
           .voltype     = "features/locks",
           .type        = NO_DOC,

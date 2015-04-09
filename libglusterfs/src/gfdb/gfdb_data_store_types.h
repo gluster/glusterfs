@@ -288,6 +288,12 @@ typedef struct gfdb_db_record {
         gfdb_time_t                     gfdb_unwind_change_time;
         /* For crash consistancy while inserting/updating hard links */
         gf_boolean_t                    islinkupdate;
+        /* For link consistency we do a double update i.e mark the link
+         * during the wind and during the unwind we update/delete the link.
+         * This has a performance hit. We give a choice here whether we need
+         * link consistency to be spoton or not using link_consistency flag.
+         * This will have only one link update */
+         gf_boolean_t                   link_consistency;
         /* For dentry fops we can choose to ignore recording of unwind time */
         /* For inode fops "record_exit" volume option does the trick,       */
         /* but for dentry fops we update the LINK_UPDATE, so an extra       */

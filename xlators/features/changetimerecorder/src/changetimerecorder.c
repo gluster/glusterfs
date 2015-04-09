@@ -958,6 +958,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("record-counters", _priv->ctr_record_counter, options,
                           bool, out);
 
+        GF_OPTION_RECONF ("ctr_link_consistency", _priv->ctr_link_consistency,
+                        options, bool, out);
+
         GF_OPTION_RECONF ("record-exit", _priv->ctr_record_unwind, options,
                           bool, out);
 
@@ -1150,6 +1153,11 @@ struct volume_options options[] = {
           .default_value = "off"
         },
         { .key  = {"record-counters"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .value = {"on", "off"},
+          .default_value = "off"
+        },
+        { .key  = {"ctr_link_consistency"},
           .type = GF_OPTION_TYPE_BOOL,
           .value = {"on", "off"},
           .default_value = "off"
