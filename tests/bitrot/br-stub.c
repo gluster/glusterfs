@@ -31,8 +31,10 @@ brstub_validate_version (char *bpath, unsigned long version)
         if (ret < 0)
                 goto err;
 
-        if (xv->ongoingversion != version)
+        if (xv->ongoingversion != version) {
                 match = -1;
+                fprintf (stderr, "ongoingversion: %lu\n", xv->ongoingversion);
+        }
         free (xv);
 
         return match;
@@ -42,11 +44,12 @@ brstub_validate_version (char *bpath, unsigned long version)
 }
 
 int
-brstub_open_validation (char *filp, char *bpath, unsigned long startversion)
+brstub_write_validation (char *filp, char *bpath, unsigned long startversion)
 {
         int fd1 = 0;
         int fd2 = 0;
         int ret = 0;
+        char *string = "string\n";
 
         /* read only check */
         fd1 = open (filp, O_RDONLY);
@@ -55,18 +58,37 @@ brstub_open_validation (char *filp, char *bpath, unsigned long startversion)
         close (fd1);
 
         ret = brstub_validate_version (bpath, startversion);
-        if (ret < 0)
+        if (ret == 0)
                 goto err;
-
         /* single open (write/) check */
         fd1 = open (filp, O_RDWR);
         if (fd1 < 0)
                 goto err;
-        close (fd1);
 
+        ret = write (fd1, string, strlen (string));
+        if (ret <= 0)
+                goto err;
+        /**
+         * Fsync is done so that the write call has properly reached the
+         * disk. For fuse mounts write-behind xlator would have held the
+         * writes with itself and for nfs, client would have held the
+         * write in its cache. So write fop would not have triggered the
+         * versioning as it would have not reached the bit-rot-stub.
+         */
+        fsync (fd1);
         startversion++;
         ret = brstub_validate_version (bpath, startversion);
+        if (ret < 0)
+                goto err;
+        ret = write (fd1, string, strlen (string));
+        if (ret <= 0)
+                goto err;
 
+        ret = brstub_validate_version (bpath, startversion);
+        if (ret < 0)
+                goto err;
+
+        close (fd1);
         /* multi open (write/) check */
         fd1 = open (filp, O_RDWR);
         if (fd1 < 0)
@@ -74,13 +96,20 @@ brstub_open_validation (char *filp, char *bpath, unsigned long startversion)
         fd2 = open (filp, O_WRONLY);
         if (fd1 < 0)
                 goto err;
+
+        ret = write (fd1, string, strlen (string));
+        if (ret <= 0)
+                goto err;
+
+        ret = write (fd1, string, strlen (string));
+        if (ret <= 0)
+                goto err;
         close (fd1);
         close (fd2);
 
         /**
-         * incremented once per open()/open().../close()/close() sequence
+         * incremented once per write()/write().../close()/close() sequence
          */
-        startversion++;
         ret = brstub_validate_version (bpath, startversion);
         if (ret < 0)
                 goto err;
@@ -106,11 +135,11 @@ brstub_new_object_validate (char *filp, char *brick)
 
         printf ("Validating initial version..\n");
         ret = brstub_validate_version (bpath, 1);
-        if (ret < 0)
+        if (ret == 0)
                 goto err;
 
         printf ("Validating version on modifications..\n");
-        ret = brstub_open_validation (filp, bpath, 1);
+        ret = brstub_write_validation (filp, bpath, 1);
         if (ret < 0)
                 goto err;
 

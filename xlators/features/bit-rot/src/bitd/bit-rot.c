@@ -171,11 +171,11 @@ bitd_is_bad_file (xlator_t *this, br_child_t *child, loc_t *loc, fd_t *fd)
 
         if (fd)
                 ret = syncop_fgetxattr (child->xl, fd, &xattr,
-                                        BITROT_OBJECT_BAD_KEY, NULL,
+                                        "trusted.glusterfs.bad-file", NULL,
                                         NULL);
         else if (loc)
                 ret = syncop_getxattr (child->xl, loc, &xattr,
-                                       BITROT_OBJECT_BAD_KEY, NULL,
+                                       "trusted.glusterfs.bad-file", NULL,
                                        NULL);
 
         if (!ret) {
@@ -484,6 +484,98 @@ br_log_object_path (xlator_t *this, char *op,
                 op, path, strerror (op_errno));
 }
 
+static void
+br_send_dummy_write (xlator_t *this, fd_t *fd, br_child_t *child,
+                     dict_t *xdata)
+{
+        struct iovec   iov    = {0, };
+        struct iobref *iobref = NULL;
+        struct iobuf  *iobuf  = NULL;
+        char          *msg    = NULL;
+        size_t         size   = 0;
+        int32_t        ret    = -1;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (this->name, child, out);
+
+        msg = gf_strdup ("GLUSTERFS");
+        if (!msg)
+                goto out;
+
+        size = strlen (msg);
+
+        iov.iov_base = msg;
+        iov.iov_len = size;
+
+        iobref = iobref_new ();
+        if (!iobref)
+                goto free_msg;
+
+        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
+        if (!iobuf)
+                goto free_iobref;
+
+        iobref_add (iobref, iobuf);
+
+        iov_unload (iobuf_ptr (iobuf), &iov, 1);  /* FIXME!!! */
+
+        iov.iov_base = iobuf_ptr (iobuf);
+        iov.iov_len = size;
+
+        ret = syncop_writev (child->xl, fd, &iov, 1, 0, iobref, 0, xdata, NULL);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "dummy write failed (%s)", strerror (errno));
+                goto free_iobuf;
+        }
+
+        /* iobref_unbref() takes care of iobuf unref */
+        ret = 0;
+
+ free_iobuf:
+        iobuf_unref (iobuf);
+ free_iobref:
+        iobref_unref (iobref);
+ free_msg:
+        GF_FREE (msg);
+ out:
+        return;
+}
+
+static void
+br_object_handle_reopen (xlator_t *this,
+                         br_object_t *object, inode_t *linked_inode)
+{
+        int32_t  ret  = -1;
+        dict_t  *dict = NULL;
+        loc_t    loc  = {0, };
+
+        /**
+         * Here dict is purposefully not checked for NULL, because at any cost
+         * sending a re-open should not be missed. This re-open is an indication
+         * for the stub to properly mark inode's status.
+         */
+        dict = dict_new ();
+        if (dict) {
+                /* TODO: Make it a #define */
+                ret = dict_set_int32 (dict, "br-fd-reopen", 1);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Object reopen would trigger versioning.");
+        }
+
+        loc.inode = inode_ref (linked_inode);
+        gf_uuid_copy (loc.gfid, linked_inode->gfid);
+
+        br_trigger_sign (this, object->child, linked_inode, &loc, dict);
+
+        if (dict)
+                dict_unref (dict);
+        loc_wipe (&loc);
+}
+
 /**
  * Sign a given object. This routine runs full throttle. There needs to be
  * some form of priority scheduling and/or read burstness to avoid starving
@@ -497,6 +589,7 @@ static inline int32_t br_sign_object (br_object_t *object)
         fd_t           *fd            = NULL;
         struct iatt     iatt          = {0, };
         pid_t           pid           = GF_CLIENT_PID_BITD;
+        br_sign_state_t sign_info     = BR_SIGN_NORMAL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot", object, out);
 
@@ -513,6 +606,20 @@ static inline int32_t br_sign_object (br_object_t *object)
         if (ret) {
                 br_log_object (this, "lookup", object->gfid, -ret);
                 goto out;
+        }
+
+        /* sanity check */
+        sign_info = ntohl (object->sign_info);
+        GF_ASSERT (sign_info != BR_SIGN_NORMAL);
+
+        /**
+         * For fd's that have notified for reopening, we send an explicit
+         * open() followed by a dummy write() call. This triggers the
+         * actual signing of the object.
+         */
+        if (sign_info == BR_SIGN_REOPEN_WAIT) {
+                br_object_handle_reopen (this, object, linked_inode);
+                goto unref_inode;
         }
 
         ret = br_object_open (this, object, linked_inode, &fd);
@@ -648,6 +755,7 @@ br_initialize_object (xlator_t *this, br_child_t *child, changelog_event_t *ev)
 
         /* NOTE: it's BE, but no worry */
         object->signedversion = ev->u.releasebr.version;
+        object->sign_info = ev->u.releasebr.sign_info;
 
 out:
         return object;
@@ -693,7 +801,6 @@ br_brick_callback (void *xl, char *brick,
         xlator_t                *this   = NULL;
         br_object_t             *object = NULL;
         br_child_t              *child  = NULL;
-        int32_t                  flags  = 0;
         struct gf_tw_timer_list *timer  = NULL;
 
         this = xl;
@@ -709,14 +816,6 @@ br_brick_callback (void *xl, char *brick,
 
         gf_log (this->name, GF_LOG_DEBUG,
                 "RELEASE EVENT [GFID %s]", uuid_utoa (gfid));
-
-        flags = (int32_t)ntohl (ev->u.releasebr.flags);
-        if (flags == O_RDONLY) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Read only fd [GFID: %s], ignoring signing..",
-                        uuid_utoa (gfid));
-                goto out;
-        }
 
         child = br_get_child_from_brick_path (this, brick);
         if (!child) {
@@ -804,12 +903,15 @@ out:
         return need_sign;
 }
 
-static inline void
+void
 br_trigger_sign (xlator_t *this, br_child_t *child, inode_t *linked_inode,
-                 loc_t *loc)
+                 loc_t *loc, dict_t *xdata)
 {
         fd_t      *fd = NULL;
         int32_t    ret = -1;
+        pid_t      pid = GF_CLIENT_PID_BITD;
+
+        syncopctx_setfspid (&pid);
 
         fd = fd_create (linked_inode, 0);
         if (!fd) {
@@ -828,8 +930,10 @@ br_trigger_sign (xlator_t *this, br_child_t *child, inode_t *linked_inode,
 		fd_bind (fd);
 	}
 
-        if (fd)
+        if (fd) {
+                br_send_dummy_write (this, fd, child, xdata);
                 syncop_close (fd);
+        }
 
 out:
         return;
@@ -972,7 +1076,7 @@ bitd_oneshot_crawl (xlator_t *subvol,
         gf_log (this->name, GF_LOG_INFO,
                 "Triggering signing for %s [GFID: %s | Brick: %s]",
                 loc.path, uuid_utoa (linked_inode->gfid), child->brick_path);
-        br_trigger_sign (this, child, linked_inode, &loc);
+        br_trigger_sign (this, child, linked_inode, &loc, NULL);
 
         ret = 0;
 
@@ -1600,7 +1704,9 @@ struct xlator_cbks cbks;
 struct volume_options options[] = {
         { .key = {"expiry-time"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "120",
+          /* Let the default timer be half the value of the wait time for
+           * sining (which is 120 as of now) */
+          .default_value = "60",
           .description = "default time duration for which an object waits "
                          "before it is signed",
         },

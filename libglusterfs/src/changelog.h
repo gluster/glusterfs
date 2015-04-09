@@ -42,9 +42,9 @@ struct ev_release {
 };
 
 struct ev_release_br {
-        int32_t flags;
         unsigned long version;
         unsigned char gfid[16];
+        int32_t sign_info;
 };
 
 struct ev_changelog {

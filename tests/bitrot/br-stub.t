@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../nfs.rc
 
 STUB_SOURCE=$(dirname $0)/br-stub.c
 STUB_EXEC=$(dirname $0)/br-stub
@@ -17,9 +18,9 @@ EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 EXPECT '2' brick_count $V0
 
-## Turn off open-behind (stub does not work with anonfd yet..)
-TEST $CLI volume set $V0 performance.open-behind off
-EXPECT 'off' volinfo_field $V0 'performance.open-behind'
+## Turn off write-behind (write-behind clubs writes together)
+TEST $CLI volume set $V0 performance.write-behind off
+#EXPECT 'off' volinfo_field $V0 'performance.open-behind'
 
 ## Start the volume
 TEST $CLI volume start $V0;
@@ -27,6 +28,7 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
+TEST mount_nfs $H0:/$V0 $N0 nolock;
 
 ## Build stub C source
 build_tester $STUB_SOURCE -o $STUB_EXEC -I$(dirname $0)/../../xlators/features/bit-rot/src/stub
@@ -34,11 +36,20 @@ TEST [ -e $STUB_EXEC ]
 
 ## create & check version
 fname="$M0/filezero"
-touch $fname
+touch $fname;
 backpath=$(get_backend_paths $fname)
+
 TEST $STUB_EXEC $fname $(dirname $backpath)
 
-## cleanups..
+rm -f $fname;
+
+## test nfs
+fname="$N0/filezero"
+touch $fname; # backpath remains same..
+
+TEST $STUB_EXEC $fname $(dirname $backpath)
+
+##cleanups..
 rm -f $STUB_EXEC
 
 cleanup;
