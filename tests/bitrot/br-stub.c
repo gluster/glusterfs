@@ -27,7 +27,7 @@ brstub_validate_version (char *bpath, unsigned long version)
         if (!xv)
                 goto err;
 
-        ret = getxattr (bpath, "trusted.glusterfs.bit-rot.version", xv, xsize);
+        ret = getxattr (bpath, "trusted.bit-rot.version", xv, xsize);
         if (ret < 0)
                 goto err;
 

@@ -169,11 +169,11 @@ bitd_is_bad_file (xlator_t *this, br_child_t *child, loc_t *loc, fd_t *fd)
 
         if (fd)
                 ret = syncop_fgetxattr (child->xl, fd, &xattr,
-                                        "trusted.glusterfs.bad-file", NULL,
+                                        BITROT_OBJECT_BAD_KEY, NULL,
                                         NULL);
         else if (loc)
                 ret = syncop_getxattr (child->xl, loc, &xattr,
-                                       "trusted.glusterfs.bad-file", NULL,
+                                       BITROT_OBJECT_BAD_KEY, NULL,
                                        NULL);
 
         if (!ret) {
