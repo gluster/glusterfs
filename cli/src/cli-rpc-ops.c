@@ -7007,7 +7007,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if ((cmd & GF_CLI_STATUS_NFS) || (cmd & GF_CLI_STATUS_SHD) ||
-            (cmd & GF_CLI_STATUS_QUOTAD) || (cmd & GF_CLI_STATUS_SNAPD))
+            (cmd & GF_CLI_STATUS_QUOTAD) || (cmd & GF_CLI_STATUS_SNAPD) ||
+            (cmd & GF_CLI_STATUS_BITD) || (cmd & GF_CLI_STATUS_SCRUB))
                 notbrick = _gf_true;
 
         if (global_state->mode & GLUSTER_MODE_XML) {
@@ -7131,7 +7132,9 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                 if (!strcmp (hostname, "NFS Server") ||
                     !strcmp (hostname, "Self-heal Daemon") ||
                     !strcmp (hostname, "Quota Daemon") ||
-                    !strcmp (hostname, "Snapshot Daemon"))
+                    !strcmp (hostname, "Snapshot Daemon") ||
+                    !strcmp (hostname, "Scrubber Daemon") ||
+                    !strcmp (hostname, "Bitrot Daemon"))
                         snprintf (status.brick, PATH_MAX + 255, "%s on %s",
                                   hostname, path);
                 else {

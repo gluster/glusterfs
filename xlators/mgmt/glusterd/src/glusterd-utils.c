@@ -4020,6 +4020,10 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                 svc = &(priv->nfs_svc);
         else if (strcmp(server, priv->quotad_svc.name) == 0)
                 svc = &(priv->quotad_svc);
+        else if (strcmp(server, priv->bitd_svc.name) == 0)
+                svc = &(priv->bitd_svc);
+        else if (strcmp(server, priv->scrub_svc.name) == 0)
+                svc = &(priv->scrub_svc);
 
         //Consider service to be running only when glusterd sees it Online
         if (svc->online)
@@ -4041,6 +4045,10 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                 ret = dict_set_str (dict, key, "Self-heal Daemon");
         else if (!strcmp (server, priv->quotad_svc.name))
                 ret = dict_set_str (dict, key, "Quota Daemon");
+        else if (!strcmp (server, priv->bitd_svc.name))
+                ret = dict_set_str (dict, key, "Bitrot Daemon");
+        else if (!strcmp (server, priv->scrub_svc.name))
+                ret = dict_set_str (dict, key, "Scrubber Daemon");
         if (ret)
                 goto out;
 
