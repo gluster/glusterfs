@@ -23,14 +23,14 @@ from errno import EEXIST
 SCRIPT_NAME = "snap_scheduler"
 scheduler_enabled = False
 log = logging.getLogger(SCRIPT_NAME)
-SHARED_STORAGE_DIR="/var/run/gluster/snaps/shared_storage/"
-GCRON_DISABLED = SHARED_STORAGE_DIR+"gcron_disabled"
-GCRON_ENABLED = SHARED_STORAGE_DIR+"gcron_enabled"
-GCRON_TASKS = SHARED_STORAGE_DIR+"glusterfs_snap_cron_tasks"
+SHARED_STORAGE_DIR="/var/run/gluster/shared_storage"
+GCRON_DISABLED = SHARED_STORAGE_DIR+"/snaps/gcron_disabled"
+GCRON_ENABLED = SHARED_STORAGE_DIR+"/snaps/gcron_enabled"
+GCRON_TASKS = SHARED_STORAGE_DIR+"/snaps/glusterfs_snap_cron_tasks"
 GCRON_CROND_TASK = "/etc/cron.d/glusterfs_snap_cron_tasks"
-LOCK_FILE_DIR = SHARED_STORAGE_DIR+"lock_files/"
+LOCK_FILE_DIR = SHARED_STORAGE_DIR+"/snaps/lock_files/"
 LOCK_FILE = LOCK_FILE_DIR+"lock_file"
-TMP_FILE = SHARED_STORAGE_DIR+"tmp_file"
+TMP_FILE = SHARED_STORAGE_DIR+"/snaps/tmp_file"
 GCRON_UPDATE_TASK = "/etc/cron.d/gcron_update_task"
 tasks = {}
 longest_field = 12
@@ -525,6 +525,19 @@ def main():
     if not os.path.ismount(SHARED_STORAGE_DIR):
         output("Failed: Shared storage is not mounted at "+SHARED_STORAGE_DIR)
         return ret
+
+    if not os.path.exists(SHARED_STORAGE_DIR+"/snaps/"):
+        try:
+            os.makedirs(SHARED_STORAGE_DIR+"/snaps/")
+        except IOError as (errno, strerror):
+            if errno != EEXIST:
+                log.error("Failed to create %s : %s", SHARED_STORAGE_DIR+"/snaps/", strerror)
+                output("Failed to create %s. Error: %s"
+                       % (SHARED_STORAGE_DIR+"/snaps/", strerror))
+
+    if not os.path.exists(GCRON_ENABLED):
+        f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK, 0644)
+        os.close(f)
 
     if not os.path.exists(LOCK_FILE_DIR):
         try:
