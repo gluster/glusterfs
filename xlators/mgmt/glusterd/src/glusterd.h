@@ -447,6 +447,8 @@ typedef enum gd_node_type_ {
         GD_NODE_NFS,
         GD_NODE_QUOTAD,
         GD_NODE_SNAPD,
+        GD_NODE_BITD,
+        GD_NODE_SCRUB,
 } gd_node_type;
 
 typedef enum missed_snap_stat {

@@ -1399,6 +1399,22 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                                   "quota enabled", volname);
                         goto out;
                 }
+        } else if ((cmd & GF_CLI_STATUS_BITD) != 0) {
+                if (!glusterd_is_bitrot_enabled (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s does not have "
+                                  "bitrot enabled", volname);
+                        goto out;
+                }
+        } else if ((cmd & GF_CLI_STATUS_SCRUB) != 0) {
+                if (!glusterd_is_bitrot_enabled (volinfo)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Volume %s does not have "
+                                  "bitrot enabled. Scrubber will be enabled "
+                                  "automatically if bitrot is enabled",
+                                  volname);
+                        goto out;
+                }
         } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
                 if (!glusterd_is_snapd_enabled (volinfo)) {
                         ret = -1;
@@ -2776,6 +2792,20 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 other_count++;
                 node_count++;
+        } else if ((cmd & GF_CLI_STATUS_BITD) != 0) {
+                ret = glusterd_add_node_to_dict (priv->bitd_svc.name,
+                                                 rsp_dict, 0, vol_opts);
+                if (ret)
+                        goto out;
+                other_count++;
+                node_count++;
+        } else if ((cmd & GF_CLI_STATUS_SCRUB) != 0) {
+                ret = glusterd_add_node_to_dict (priv->scrub_svc.name,
+                                                 rsp_dict, 0, vol_opts);
+                if (ret)
+                        goto out;
+                other_count++;
+                node_count++;
         } else if ((cmd & GF_CLI_STATUS_SNAPD) != 0) {
                 ret = glusterd_add_node_to_dict ("snapd", rsp_dict, 0,
                                                  vol_opts);
@@ -2874,6 +2904,34 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         if (glusterd_is_volume_quota_enabled (volinfo)) {
                                 ret = glusterd_add_node_to_dict
                                                         (priv->quotad_svc.name,
+                                                         rsp_dict,
+                                                         other_index,
+                                                         vol_opts);
+                                if (ret)
+                                        goto out;
+                                other_count++;
+                                node_count++;
+                                other_index++;
+                        }
+
+                        if (glusterd_is_bitrot_enabled (volinfo)) {
+                                ret = glusterd_add_node_to_dict
+                                                        (priv->bitd_svc.name,
+                                                         rsp_dict,
+                                                         other_index,
+                                                         vol_opts);
+                                if (ret)
+                                        goto out;
+                                other_count++;
+                                node_count++;
+                                other_index++;
+                        }
+
+                        /* For handling scrub status. Scrub daemon will be
+                         * running automatically when bitrot is enable*/
+                        if (glusterd_is_bitrot_enabled (volinfo)) {
+                                ret = glusterd_add_node_to_dict
+                                                        (priv->scrub_svc.name,
                                                          rsp_dict,
                                                          other_index,
                                                          vol_opts);
@@ -5998,6 +6056,8 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         case GF_CLI_STATUS_SHD:
         case GF_CLI_STATUS_QUOTAD:
         case GF_CLI_STATUS_SNAPD:
+        case GF_CLI_STATUS_BITD:
+        case GF_CLI_STATUS_SCRUB:
                 break;
         default:
                 goto out;
@@ -6094,6 +6154,44 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
                 }
                 pending_node->node = &(priv->quotad_svc);
                 pending_node->type = GD_NODE_QUOTAD;
+                pending_node->index = 0;
+                cds_list_add_tail (&pending_node->list, selected);
+
+                ret = 0;
+        } else if ((cmd & GF_CLI_STATUS_BITD) != 0) {
+                if (!priv->bitd_svc.online) {
+                        gf_log (this->name, GF_LOG_ERROR, "Bitrot is not "
+                                "running");
+                        ret = -1;
+                        goto out;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                }
+                pending_node->node = &(priv->bitd_svc);
+                pending_node->type = GD_NODE_BITD;
+                pending_node->index = 0;
+                cds_list_add_tail (&pending_node->list, selected);
+
+                ret = 0;
+        } else if ((cmd & GF_CLI_STATUS_SCRUB) != 0) {
+                if (!priv->scrub_svc.online) {
+                        gf_log (this->name, GF_LOG_ERROR, "Scrubber is not "
+                                "running");
+                        ret = -1;
+                        goto out;
+                }
+                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                          gf_gld_mt_pending_node_t);
+                if (!pending_node) {
+                        ret = -1;
+                        goto out;
+                }
+                pending_node->node = &(priv->scrub_svc);
+                pending_node->type = GD_NODE_SCRUB;
                 pending_node->index = 0;
                 cds_list_add_tail (&pending_node->list, selected);
 

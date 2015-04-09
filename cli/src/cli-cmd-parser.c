@@ -2940,6 +2940,10 @@ cli_cmd_volume_status_parse (const char **words, int wordcount,
                                         cmd |= GF_CLI_STATUS_QUOTAD;
                                 } else if (!strcmp (words[3], "snapd")) {
                                         cmd |= GF_CLI_STATUS_SNAPD;
+                                } else if (!strcmp (words[3], "bitd")) {
+                                        cmd |= GF_CLI_STATUS_BITD;
+                                } else if (!strcmp (words[3], "scrub")) {
+                                        cmd |= GF_CLI_STATUS_SCRUB;
                                 } else {
                                         cmd = GF_CLI_STATUS_BRICK;
                                         ret = dict_set_str (dict, "brick",
