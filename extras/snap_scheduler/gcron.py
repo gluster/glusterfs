@@ -19,9 +19,9 @@ import logging.handlers
 import fcntl
 
 
-GCRON_TASKS = "/var/run/gluster/snaps/shared_storage/glusterfs_snap_cron_tasks"
+GCRON_TASKS = "/var/run/gluster/shared_storage/snaps/glusterfs_snap_cron_tasks"
 GCRON_CROND_TASK = "/etc/cron.d/glusterfs_snap_cron_tasks"
-LOCK_FILE_DIR = "/var/run/gluster/snaps/shared_storage/lock_files/"
+LOCK_FILE_DIR = "/var/run/gluster/shared_storage/snaps/lock_files/"
 log = logging.getLogger("gcron-logger")
 start_time = 0.0
 
