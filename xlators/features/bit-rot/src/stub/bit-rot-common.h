@@ -33,6 +33,13 @@ typedef enum br_vxattr_state {
         BR_VXATTR_STATUS_INVALID  = 3,
 } br_vxattr_status_t;
 
+typedef enum br_sign_state {
+        BR_SIGN_INVALID     = -1,
+        BR_SIGN_NORMAL      = 0,
+        BR_SIGN_REOPEN_WAIT = 1,
+        BR_SIGN_QUICK       = 2,
+} br_sign_state_t;
+
 static inline br_vxattr_status_t
 br_version_xattr_state (dict_t *xattr,
                         br_version_t **obuf, br_signature_t **sbuf)
