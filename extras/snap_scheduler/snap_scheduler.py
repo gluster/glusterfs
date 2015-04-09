@@ -372,16 +372,17 @@ def initialise_scheduler():
 def syntax_checker(args):
     ret = False
 
-    if (len(args.jobname.split()) != 1):
-        output("Invalid Jobname. Jobname should not be empty and should not contain \" \" character.")
-        return ret
+    if hasattr(args, 'jobname'):
+        if (len(args.jobname.split()) != 1):
+            output("Invalid Jobname. Jobname should not be empty and should not contain \" \" character.")
+            return ret
+        args.jobname=args.jobname.strip()
 
-    if (len(args.volname.split()) != 1):
-        output("Invalid Volname. Volname should not be empty and should not contain \" \" character.")
-        return ret
-
-    args.jobname=args.jobname.strip()
-    args.volname=args.volname.strip()
+    if hasattr(args, 'volname'):
+        if (len(args.volname.split()) != 1):
+            output("Invalid Volname. Volname should not be empty and should not contain \" \" character.")
+            return ret
+        args.volname=args.volname.strip()
 
     ret = True
     return ret
