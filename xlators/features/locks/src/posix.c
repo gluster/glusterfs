@@ -550,7 +550,7 @@ fetch_pathinfo (xlator_t *this, inode_t *inode, int32_t *op_errno,
         loc.inode = inode_ref (inode);
 
         ret = syncop_getxattr (FIRST_CHILD(this), &loc, &dict,
-                               GF_XATTR_PATHINFO_KEY, NULL);
+                               GF_XATTR_PATHINFO_KEY, NULL, NULL);
         if (ret < 0) {
                 *op_errno = -ret;
                 ret = -1;

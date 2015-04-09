@@ -36,7 +36,7 @@ bitd_fetch_signature (xlator_t *this, br_child_t *child,
        int32_t ret = -1;
 
         ret = syncop_fgetxattr (child->xl, fd, xattr,
-                               GLUSTERFS_GET_OBJECT_SIGNATURE, NULL);
+                               GLUSTERFS_GET_OBJECT_SIGNATURE, NULL, NULL);
         if (ret < 0) {
                 br_log_object (this, "fgetxattr", fd->inode->gfid, -ret);
                 goto out;
@@ -224,7 +224,7 @@ bitd_compare_ckum (xlator_t *this,
 
         gf_log (this->name, GF_LOG_INFO, "Marking %s [GFID: %s] as corrupted..",
                 entry->d_name, uuid_utoa (linked_inode->gfid));
-        ret = syncop_fsetxattr (child->xl, fd, xattr, 0);
+        ret = syncop_fsetxattr (child->xl, fd, xattr, 0, NULL, NULL);
         if (ret)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Error marking object %s [GFID: %s] as corrupted",
@@ -274,7 +274,7 @@ bitd_start_scrub (xlator_t *subvol,
 
         syncopctx_setfspid (&pid);
 
-        ret = syncop_lookup (child->xl, &loc, NULL, &iatt, NULL, &parent_buf);
+        ret = syncop_lookup (child->xl, &loc, &iatt, &parent_buf, NULL, NULL);
         if (ret) {
                 br_log_object_path (this, "lookup", loc.path, -ret);
                 goto out;
@@ -304,7 +304,7 @@ bitd_start_scrub (xlator_t *subvol,
                 goto unref_inode;
         }
 
-        ret = syncop_open (child->xl, &loc, O_RDWR, fd);
+        ret = syncop_open (child->xl, &loc, O_RDWR, fd, NULL, NULL);
         if (ret) {
                 br_log_object (this, "open", linked_inode->gfid, -ret);
                 ret = -1;

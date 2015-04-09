@@ -146,7 +146,7 @@ ec_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
                 goto out;
         gf_uuid_copy (loc.gfid, gfid);
 
-        ret = syncop_lookup (subvol, &loc, NULL, &iatt, NULL, NULL);
+        ret = syncop_lookup (subvol, &loc, &iatt, NULL, NULL, NULL);
         if (ret < 0)
                 goto out;
 
@@ -172,7 +172,7 @@ ec_shd_index_inode (xlator_t *this, xlator_t *subvol)
         gf_uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
         ret = syncop_getxattr (subvol, &rootloc, &xattr,
-                               GF_XATTROP_INDEX_GFID, NULL);
+                               GF_XATTROP_INDEX_GFID, NULL, NULL);
         if (ret || !xattr) {
                 errno = -ret;
                 goto out;
@@ -205,7 +205,7 @@ ec_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
         loc.parent = inode_ref (inode);
         loc.name = name;
 
-        ret = syncop_unlink (subvol, &loc);
+        ret = syncop_unlink (subvol, &loc, NULL, NULL);
 
         loc_wipe (&loc);
         return ret;
@@ -214,7 +214,8 @@ ec_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
 int
 ec_shd_selfheal (struct subvol_healer *healer, int child, loc_t *loc)
 {
-        return syncop_getxattr (healer->this, loc, NULL, EC_XATTR_HEAL, NULL);
+        return syncop_getxattr (healer->this, loc, NULL, EC_XATTR_HEAL, NULL,
+                                NULL);
 }
 
 

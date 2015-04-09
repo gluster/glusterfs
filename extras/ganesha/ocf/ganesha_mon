@@ -96,8 +96,9 @@ ganesha_mon_monitor()
 {
 	local short_host=$(hostname -s)
 
-	if [ -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
-		# logger "ganesha_mon_monitor(), attrd_updater -n ganesha-active -v 1"
+	if [ -e /var/run/ganesha.nfsd.pid -a \
+	     -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
+		# logger "note: ganesha_mon_monitor() pcs resource delete ${short_host}-dead_ip-1"
 		pcs resource delete ${short_host}-dead_ip-1
 		# if [ $? -ne 0 ]; then
 		# 	logger "warning: pcs resource delete ${short_host}-dead_ip-1"
@@ -111,8 +112,7 @@ ganesha_mon_monitor()
 		fi
 
 	else
-		# logger "ganesha_mon_monitor(), attrd_updater --D -n ganesha-active"
-
+		# logger "note: ganesha_mon_montor(), pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy"
 		pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy
 		if [ $? -ne 0 ]; then
 			logger "warning: pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy failed"

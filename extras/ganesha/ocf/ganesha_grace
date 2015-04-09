@@ -94,7 +94,8 @@ ganesha_grace_start()
 	# of the ganesha.nfsds have died, triggering a floating IP
 	# address to move. Resource constraint location rules ensure
 	# that this is invoked before the floating IP is moved.
-	if [ -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
+	if [ -e /var/run/ganesha.nfsd.pid -a \
+	     -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
 		# my ganesha.nfsd is still running
 		# find out which one died?
 

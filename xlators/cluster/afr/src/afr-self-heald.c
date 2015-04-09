@@ -173,7 +173,7 @@ afr_shd_inode_find (xlator_t *this, xlator_t *subvol, uuid_t gfid)
 		goto out;
 	gf_uuid_copy (loc.gfid, gfid);
 
-	ret = syncop_lookup (subvol, &loc, NULL, &iatt, NULL, NULL);
+	ret = syncop_lookup (subvol, &loc, &iatt, NULL, NULL, NULL);
 	if (ret < 0)
 		goto out;
 
@@ -199,7 +199,7 @@ afr_shd_index_inode (xlator_t *this, xlator_t *subvol)
 	gf_uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
 	ret = syncop_getxattr (subvol, &rootloc, &xattr,
-			       GF_XATTROP_INDEX_GFID, NULL);
+			       GF_XATTROP_INDEX_GFID, NULL, NULL);
 	if (ret || !xattr) {
 		errno = -ret;
 		goto out;
@@ -232,7 +232,7 @@ afr_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
 	loc.parent = inode_ref (inode);
 	loc.name = name;
 
-	ret = syncop_unlink (subvol, &loc);
+	ret = syncop_unlink (subvol, &loc, NULL, NULL);
 
 	loc_wipe (&loc);
 	return ret;
@@ -1038,7 +1038,7 @@ afr_shd_get_index_count (xlator_t *this, int i, uint64_t *count)
 	gf_uuid_copy (rootloc.gfid, rootloc.inode->gfid);
 
 	ret = syncop_getxattr (subvol, &rootloc, &xattr,
-			       GF_XATTROP_INDEX_COUNT, NULL);
+			       GF_XATTROP_INDEX_COUNT, NULL, NULL);
 	if (ret < 0)
 		goto out;
 

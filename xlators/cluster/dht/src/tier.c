@@ -84,7 +84,8 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, defrag, out);
 
-        if (syncop_getxattr (this, loc, &dict, GF_XATTR_NODE_UUID_KEY, NULL)) {
+        if (syncop_getxattr (this, loc, &dict, GF_XATTR_NODE_UUID_KEY,
+                             NULL, NULL)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
                         "Unable to get NODE_UUID_KEY %s %s\n",
                         loc->name, loc->path);
@@ -252,7 +253,7 @@ tier_migrate_using_query_file (void *_args)
                                 goto error;
                         }
 
-                        ret = syncop_lookup (this, &p_loc, NULL, &par_stbuf,
+                        ret = syncop_lookup (this, &p_loc, &par_stbuf, NULL,
                                              NULL, NULL);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -291,7 +292,7 @@ tier_migrate_using_query_file (void *_args)
 
                         gf_uuid_copy (loc.parent->gfid, link_info->pargfid);
 
-                        ret = syncop_lookup (this, &loc, NULL, &current,
+                        ret = syncop_lookup (this, &loc, &current, NULL,
                                              NULL, NULL);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -335,7 +336,8 @@ tier_migrate_using_query_file (void *_args)
                                 goto error;
                         }
 
-                        ret = syncop_setxattr (this, &loc, migrate_data, 0);
+                        ret = syncop_setxattr (this, &loc, migrate_data, 0,
+                                               NULL, NULL);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR, "ERROR %d in "

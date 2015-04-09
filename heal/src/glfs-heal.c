@@ -59,7 +59,7 @@ glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
         struct iatt   parent = {0};
 
         ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTROP_INDEX_GFID,
-                               NULL);
+                               NULL, NULL);
         if (ret < 0) {
                 *op_errno = -ret;
                 goto out;
@@ -74,8 +74,7 @@ glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
         gf_uuid_copy (dirloc->gfid, index_gfid);
         dirloc->path = "";
         dirloc->inode = inode_new (rootloc->inode->table);
-        ret = syncop_lookup (xl, dirloc, NULL,
-                             &iattr, NULL, &parent);
+        ret = syncop_lookup (xl, dirloc, &iattr, &parent, NULL, NULL);
         dirloc->path = NULL;
         if (ret < 0) {
                 *op_errno = -ret;
@@ -129,7 +128,7 @@ glfsh_index_purge (xlator_t *subvol, inode_t *inode, char *name)
         loc.parent = inode_ref (inode);
         loc.name = name;
 
-        ret = syncop_unlink (subvol, &loc);
+        ret = syncop_unlink (subvol, &loc, NULL, NULL);
 
         loc_wipe (&loc);
         return ret;
@@ -244,7 +243,8 @@ glfsh_process_entries (xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
 
                 gf_uuid_parse (entry->d_name, gfid);
                 gf_uuid_copy (loc.gfid, gfid);
-                ret = syncop_getxattr (this, &loc, &dict, GF_HEAL_INFO, NULL);
+                ret = syncop_getxattr (this, &loc, &dict, GF_HEAL_INFO, NULL,
+                                       NULL);
                 if (ret)
                         continue;
 
@@ -286,7 +286,8 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 return ret;
 
         while (1) {
-                ret = syncop_readdir (readdir_xl, fd, 131072, offset, &entries);
+                ret = syncop_readdir (readdir_xl, fd, 131072, offset, &entries,
+                                      NULL, NULL);
                 if (ret <= 0)
                         break;
                 ret = 0;
@@ -347,7 +348,7 @@ glfsh_print_brick (xlator_t *xl, loc_t *rootloc)
         char    *brick_end = NULL;
 
         ret = syncop_getxattr (xl, rootloc, &xattr, GF_XATTR_PATHINFO_KEY,
-                               NULL);
+                               NULL, NULL);
         if (ret < 0)
                 goto out;
 
@@ -555,7 +556,7 @@ glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 gf_uuid_parse (path, loc.gfid);
                 loc.path = gf_strdup (uuid_utoa (loc.gfid));
                 loc.inode = inode_new (rootloc->inode->table);
-                ret = syncop_lookup (xl, &loc, xattr_req, 0, &xattr_rsp, 0);
+                ret = syncop_lookup (xl, &loc, 0, 0, xattr_req, &xattr_rsp);
                 if (ret) {
                         op_errno = -ret;
                         printf ("Lookup failed on %s:%s.\n", file,
@@ -580,7 +581,7 @@ retry:
         }
 
         ret = syncop_getxattr (xl, &loc, &xattr_rsp, GF_AFR_HEAL_SBRAIN,
-                               xattr_req);
+                               xattr_req, NULL);
         if (ret) {
                 op_errno = -ret;
                 printf ("Healing %s failed:%s.\n", file, strerror(op_errno));
