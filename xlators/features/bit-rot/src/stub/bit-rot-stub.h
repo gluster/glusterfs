@@ -261,6 +261,7 @@ static inline void
 br_stub_remove_vxattrs (dict_t *xattr)
 {
         if (xattr) {
+                dict_del (xattr, BITROT_OBJECT_BAD_KEY);
                 dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
                 dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
                 dict_del (xattr, BITROT_SIGNING_XATTR_SIZE_KEY);
