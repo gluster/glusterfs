@@ -10,6 +10,8 @@
 
 #include "gfdb_sqlite3_helper.h"
 
+#define GFDB_SQL_STMT_SIZE 256
+
 /*****************************************************************************
  *
  *                 Helper function to execute actual sql queries
@@ -297,15 +299,19 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
                    char                 *gfid,
                    char                 *pargfid,
                    char                 *basename,
-                   char                 *basepath)
+                   char                 *basepath,
+                   gf_boolean_t         link_consistency)
 {
         int ret = -1;
         sqlite3_stmt *insert_stmt = NULL;
-        char *insert_str = "INSERT INTO "
+        char insert_str[GFDB_SQL_STMT_SIZE] = "";
+
+        sprintf (insert_str, "INSERT INTO "
                            GF_FILE_LINK_TABLE
                            " (GF_ID, GF_PID, FNAME, FPATH,"
                            " W_DEL_FLAG, LINK_UPDATE) "
-                           " VALUES (?, ?, ?, ?, 0, 1);";
+                           " VALUES (?, ?, ?, ?, 0, %d);",
+                           link_consistency);
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, gfid, out);
@@ -389,15 +395,19 @@ gf_sql_update_link (gf_sql_connection_t  *sql_conn,
                    char                 *basename,
                    char                 *basepath,
                    char                 *old_pargfid,
-                   char                 *old_basename)
+                   char                 *old_basename,
+                   gf_boolean_t         link_consistency)
 {
         int ret = -1;
         sqlite3_stmt *insert_stmt = NULL;
-        char *insert_str =  "INSERT INTO "
+        char insert_str[GFDB_SQL_STMT_SIZE] = "";
+
+        sprintf (insert_str, "INSERT INTO "
                             GF_FILE_LINK_TABLE
                             " (GF_ID, GF_PID, FNAME, FPATH,"
                             " W_DEL_FLAG, LINK_UPDATE) "
-                            " VALUES (? , ?, ?, ?, 0, 1);";
+                            " VALUES (? , ?, ?, ?, 0, %d);",
+                            link_consistency);
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO (GFDB_STR_SQLITE3, gfid, out);
@@ -746,13 +756,15 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                         ret = gf_sql_insert_link(sql_conn,
                                         gfid_str, pargfid_str,
                                         gfdb_db_record->file_name,
-                                        gfdb_db_record->file_path);
+                                        gfdb_db_record->file_path,
+                                        gfdb_db_record->link_consistency);
                         if (ret) {
                                 gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
                                 "Failed inserting link in DB");
                                 goto out;
                         }
-                        gfdb_db_record->islinkupdate = _gf_true;
+                        gfdb_db_record->islinkupdate = gfdb_db_record->
+                                                        link_consistency;
 
                         /*
                          * Only for create/mknod insert wind time
@@ -783,26 +795,31 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                                 gfdb_db_record->file_name,
                                                 gfdb_db_record->file_path,
                                                 old_pargfid_str,
-                                                gfdb_db_record->old_file_name);
+                                                gfdb_db_record->old_file_name,
+                                                gfdb_db_record->
+                                                        link_consistency);
                                 if (ret) {
                                         gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
                                                 "Failed updating link");
                                         goto out;
                                 }
-                                gfdb_db_record->islinkupdate = _gf_true;
+                                gfdb_db_record->islinkupdate = gfdb_db_record->
+                                                        link_consistency;
                         }
                         /*link*/
                         else {
                                 ret = gf_sql_insert_link (sql_conn,
                                         gfid_str, pargfid_str,
                                         gfdb_db_record->file_name,
-                                        gfdb_db_record->file_path);
+                                        gfdb_db_record->file_path,
+                                        gfdb_db_record->link_consistency);
                                 if (ret) {
                                         gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
                                         "Failed inserting link in DB");
                                         goto out;
                                 }
-                                gfdb_db_record->islinkupdate = _gf_true;
+                                gfdb_db_record->islinkupdate = gfdb_db_record->
+                                                        link_consistency;
                         }
                 }
         }
@@ -901,7 +918,6 @@ gf_sql_update_delete_wind (gf_sql_connection_t  *sql_conn,
                           gfdb_db_record_t     *gfdb_db_record)
 {
         int ret = -1;
-        gfdb_time_t *modtime    = NULL;
         char *gfid_str          = NULL;
         char *pargfid_str       = NULL;
 
@@ -922,27 +938,15 @@ gf_sql_update_delete_wind (gf_sql_connection_t  *sql_conn,
                         goto out;
         }
 
-        if (gfdb_db_record->do_record_times) {
-                /*Update the wind write times*/
-                modtime = &gfdb_db_record->gfdb_wind_change_time;
-                ret = gf_update_time (sql_conn, gfid_str, modtime,
-                        gfdb_db_record->do_record_counters,
-                        _gf_true,
-                        isreadfop (gfdb_db_record->gfdb_fop_type));
-                if (ret) {
-                        gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
-                                "Failed update wind time in DB");
-                        goto out;
-                }
-        }
-
-        ret = gf_sql_update_link_flags (sql_conn, gfid_str, pargfid_str,
+        if (gfdb_db_record->link_consistency) {
+                ret = gf_sql_update_link_flags (sql_conn, gfid_str, pargfid_str,
                                         gfdb_db_record->file_name, 1,
                                         _gf_false);
-        if (ret) {
-                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
-                        "Failed updating link flags in wind");
-                goto out;
+                if (ret) {
+                        gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
+                                "Failed updating link flags in wind");
+                        goto out;
+                }
         }
 
         ret = 0;
@@ -985,6 +989,25 @@ gf_sql_delete_unwind (gf_sql_connection_t  *sql_conn,
                         goto out;
                 }
 
+                /* Special performance case:
+                 * Updating wind time in unwind for delete. This is done here
+                 * as in the wind path we will not know whether its the last
+                 * link or not. For a last link there is not use to update any
+                 * wind or unwind time!*/
+                if (gfdb_db_record->do_record_times) {
+                        /*Update the wind write times*/
+                        modtime = &gfdb_db_record->gfdb_wind_change_time;
+                        ret = gf_update_time (sql_conn, gfid_str, modtime,
+                                gfdb_db_record->do_record_counters,
+                                _gf_true,
+                                isreadfop (gfdb_db_record->gfdb_fop_type));
+                        if (ret) {
+                                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
+                                        "Failed update wind time in DB");
+                                goto out;
+                        }
+                }
+
                 modtime = &gfdb_db_record->gfdb_unwind_change_time;
 
                 ret = gf_sql_delete_link(sql_conn, gfid_str, pargfid_str,
@@ -1007,6 +1030,10 @@ gf_sql_delete_unwind (gf_sql_connection_t  *sql_conn,
                                 goto out;
                         }
                 }
+        } else {
+                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
+                        "Invalid unlink option");
+                goto out;
         }
         ret = 0;
 out:
