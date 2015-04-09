@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2015 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -123,8 +123,9 @@
 #define BITROT_DEFAULT_SIGNING_VERSION  (unsigned long)0
 
 /* on-disk object signature keys */
-#define BITROT_CURRENT_VERSION_KEY  "trusted.glusterfs.bit-rot.version"
-#define BITROT_SIGNING_VERSION_KEY  "trusted.glusterfs.bit-rot.signature"
+#define BITROT_OBJECT_BAD_KEY       "trusted.bit-rot.bad-file"
+#define BITROT_CURRENT_VERSION_KEY  "trusted.bit-rot.version"
+#define BITROT_SIGNING_VERSION_KEY  "trusted.bit-rot.signature"
 
 /* on-disk size of signing xattr (not the signature itself) */
 #define BITROT_SIGNING_XATTR_SIZE_KEY  "trusted.glusterfs.bit-rot.size"

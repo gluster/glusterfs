@@ -214,7 +214,7 @@ bitd_compare_ckum (xlator_t *this,
                 goto out;
         }
 
-        ret = dict_set_int32 (xattr, "trusted.glusterfs.bad-file", _gf_true);
+        ret = dict_set_int32 (xattr, BITROT_OBJECT_BAD_KEY, _gf_true);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Error setting bad-file marker for %s [GFID: %s | "
