@@ -1689,6 +1689,10 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
         if (ret)
                 goto out;
 
+        ret = xlator_set_option (xl, "ctr_link_consistency", "off");
+        if (ret)
+                goto out;
+
         ret = xlator_set_option (xl, "record-entry", "on");
         if (ret)
                 goto out;

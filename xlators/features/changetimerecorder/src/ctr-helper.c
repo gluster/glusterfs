@@ -97,6 +97,7 @@ fill_db_record_for_wind (xlator_t               *this,
         ctr_wtime = &CTR_DB_REC(ctr_local).gfdb_wind_change_time;
         CTR_DB_REC(ctr_local).gfdb_fop_path = ctr_inode_cx->fop_path;
         CTR_DB_REC(ctr_local).gfdb_fop_type = ctr_inode_cx->fop_type;
+        CTR_DB_REC(ctr_local).link_consistency = _priv->ctr_link_consistency;
 
         ret = gettimeofday (ctr_wtime, NULL);
         if (ret) {
@@ -264,6 +265,10 @@ int extract_ctr_options (xlator_t *this, gf_ctr_private_t *_priv) {
         /*Extract flag for record on counters*/
         GF_OPTION_INIT ("record-counters", _priv->ctr_record_counter, bool,
                         out);
+
+        /*Extract flag for link consistency*/
+        GF_OPTION_INIT ("ctr_link_consistency", _priv->ctr_link_consistency,
+                        bool, out);
 
         /*Extract flag for hot tier brick*/
         GF_OPTION_INIT ("hot-brick", _priv->ctr_hot_brick, bool, out);
