@@ -287,6 +287,10 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
         if (gf_uuid_is_null (u))\
                 GF_ASSERT (!"uuid null");
 
+#define GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, op_errno)                 \
+        (((frame->root->pid == GF_CLIENT_PID_GSYNCD) &&                 \
+          (op_errno == EEXIST || op_errno == ENOENT))?0:1)              \
+
 union gf_sock_union {
         struct sockaddr_storage storage;
         struct sockaddr_in6 sin6;
