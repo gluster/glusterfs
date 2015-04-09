@@ -384,6 +384,18 @@ def syntax_checker(args):
             return ret
         args.volname=args.volname.strip()
 
+    if hasattr(args, 'schedule'):
+        if (len(args.schedule.split()) != 5):
+            output("Invalid Schedule. Please refer to the following for adding a valid cron schedule")
+            print ("* * * * *")
+            print ("| | | | |")
+            print ("| | | | +---- Day of the Week   (range: 1-7, 1 standing for Monday)")
+            print ("| | | +------ Month of the Year (range: 1-12)")
+            print ("| | +-------- Day of the Month  (range: 1-31)")
+            print ("| +---------- Hour              (range: 0-23)")
+            print ("+------------ Minute            (range: 0-59)")
+            return ret
+
     ret = True
     return ret
 
