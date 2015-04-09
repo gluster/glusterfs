@@ -327,9 +327,9 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_GET_SIZE_AND_VERSION;
 
         case EC_STATE_GET_SIZE_AND_VERSION:
-            ec_get_size_version(fop);
+	    ec_get_size_version(fop);
 
-            return EC_STATE_DISPATCH;
+	    return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
             ec_flush_size_version(fop);

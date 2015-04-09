@@ -1083,6 +1083,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 {
     ec_fop_data_t *fop = cookie, *parent;
     ec_lock_t *lock = NULL;
+    uint64_t size = 0;
+    uint64_t version = 0;
 
     if (op_ret >= 0) {
         parent = fop->parent;
@@ -1094,24 +1096,29 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         }
 
         lock = parent->locks[0].lock;
-        lock->is_dirty = _gf_true;
+	lock->is_dirty = _gf_true;
 
-        if (!ec_config_check(fop, dict)) {
-            return 0;
+	if (lock->loc.inode->ia_type == IA_IFREG) {
+            if (!ec_config_check(fop, dict) ||
+                (ec_dict_del_number(dict, EC_XATTR_SIZE, &size) != 0)) {
+                ec_fop_set_error(fop, EIO);
+                return 0;
+            }
+        }
+
+        if (ec_dict_del_number(dict, EC_XATTR_VERSION, &version) != 0) {
+             ec_fop_set_error(fop, EIO);
+             return 0;
         }
 
         LOCK(&lock->loc.inode->lock);
 
-        if ((ec_dict_del_number(dict, EC_XATTR_VERSION, &lock->version) != 0) ||
-            (ec_dict_del_number(dict, EC_XATTR_SIZE, &lock->size) != 0)) {
-            UNLOCK(&lock->loc.inode->lock);
-
-            ec_fop_set_error(fop, EIO);
-
-            return 0;
+        if (lock->loc.inode->ia_type == IA_IFREG) {
+            lock->size = size;
+            fop->parent->pre_size = fop->parent->post_size = size;
+            fop->parent->have_size = lock->have_size = 1;
         }
-
-        lock->have_size = 1;
+        lock->version = version;
 
         UNLOCK(&lock->loc.inode->lock);
 
@@ -1119,9 +1126,6 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         /*As of now only data healing marks bricks as healing*/
         if (ec_is_data_fop (fop->parent->id))
                 fop->parent->healing |= fop->healing;
-
-        fop->parent->pre_size = fop->parent->post_size = lock->size;
-        fop->parent->have_size = 1;
     } else {
         gf_log(this->name, GF_LOG_WARNING,
                "Failed to get size and version (error %d: %s)", op_errno,
@@ -1154,6 +1158,11 @@ void ec_get_size_version(ec_fop_data_t * fop)
 
         return;
     }
+    uid = fop->frame->root->uid;
+    gid = fop->frame->root->gid;
+
+    fop->frame->root->uid = 0;
+    fop->frame->root->gid = 0;
 
     memset(&loc, 0, sizeof(loc));
 
@@ -1162,19 +1171,13 @@ void ec_get_size_version(ec_fop_data_t * fop)
     {
         goto out;
     }
-    if ((dict_set_uint64(xdata, EC_XATTR_VERSION, 0) != 0) ||
-        (dict_set_uint64(xdata, EC_XATTR_SIZE, 0) != 0) ||
-        (dict_set_uint64(xdata, EC_XATTR_CONFIG, 0) != 0) ||
-        (dict_set_uint64(xdata, EC_XATTR_DIRTY, 0) != 0))
+    if ((ec_dict_set_number(xdata, EC_XATTR_VERSION, 0) != 0) ||
+        (ec_dict_set_number(xdata, EC_XATTR_SIZE, 0) != 0) ||
+        (ec_dict_set_number(xdata, EC_XATTR_CONFIG, 0) != 0) ||
+        (ec_dict_set_number(xdata, EC_XATTR_DIRTY, 0) != 0))
     {
         goto out;
     }
-
-    uid = fop->frame->root->uid;
-    gid = fop->frame->root->gid;
-
-    fop->frame->root->uid = 0;
-    fop->frame->root->gid = 0;
 
     error = EIO;
 
@@ -1192,28 +1195,31 @@ void ec_get_size_version(ec_fop_data_t * fop)
                 loc.parent = NULL;
             }
             GF_FREE((char *)loc.path);
-            loc.path = NULL;
-            loc.name = NULL;
+	    loc.path = NULL;
+	    loc.name = NULL;
         }
-    } else if (ec_loc_from_fd(fop->xl, &loc, fop->fd) != 0) {
-        goto out;
+	/* For normal fops, ec_lookup() must succeed on at least EC_MINIMUM_MIN
+	 * bricks, however when this is called as part of a self-heal operation
+	 * the mask of target bricks (fop->mask) could contain less than
+	 * EC_MINIMUM_MIN bricks, causing the lookup to always fail. Thus we
+	 * always use the same minimum used for the main fop.
+	 */
+	 ec_lookup(fop->frame, fop->xl, fop->mask, fop->minimum,
+                      ec_get_size_version_set, NULL, &loc, xdata);
+    } else {
+        if (ec_loc_from_fd(fop->xl, &loc, fop->fd) != 0) {
+	    goto out;
+        }
+        ec_fxattrop(fop->frame, fop->xl, fop->mask, fop->minimum,
+                ec_prepare_update_cbk, NULL, fop->fd,
+                GF_XATTROP_ADD_ARRAY64, xdata, NULL);
     }
-
-    /* For normal fops, ec_lookup() must succeed on at least EC_MINIMUM_MIN
-     * bricks, however when this is called as part of a self-heal operation
-     * the mask of target bricks (fop->mask) could contain less than
-     * EC_MINIMUM_MIN bricks, causing the lookup to always fail. Thus we
-     * always use the same minimum used for the main fop.
-     */
-    ec_lookup(fop->frame, fop->xl, fop->mask, fop->minimum,
-              ec_get_size_version_set, NULL, &loc, xdata);
-
-    fop->frame->root->uid = uid;
-    fop->frame->root->gid = gid;
-
     error = 0;
 
 out:
+    fop->frame->root->uid = uid;
+    fop->frame->root->gid = gid;
+
     loc_wipe(&loc);
 
     if (xdata != NULL)
@@ -1248,6 +1254,11 @@ void ec_prepare_update(ec_fop_data_t *fop)
 
         return;
     }
+    uid = fop->frame->root->uid;
+    gid = fop->frame->root->gid;
+
+    fop->frame->root->uid = 0;
+    fop->frame->root->gid = 0;
 
     memset(&loc, 0, sizeof(loc));
 
@@ -1259,14 +1270,8 @@ void ec_prepare_update(ec_fop_data_t *fop)
         (ec_dict_set_number(xdata, EC_XATTR_SIZE, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_CONFIG, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_DIRTY, 1) != 0)) {
-        goto out;
+            goto out;
     }
-
-    uid = fop->frame->root->uid;
-    gid = fop->frame->root->gid;
-
-    fop->frame->root->uid = 0;
-    fop->frame->root->gid = 0;
 
     error = EIO;
 
@@ -1284,12 +1289,13 @@ void ec_prepare_update(ec_fop_data_t *fop)
                    GF_XATTROP_ADD_ARRAY64, xdata, NULL);
     }
 
-    fop->frame->root->uid = uid;
-    fop->frame->root->gid = gid;
-
     error = 0;
 
 out:
+
+    fop->frame->root->uid = uid;
+    fop->frame->root->gid = gid;
+
     loc_wipe(&loc);
 
     if (xdata != NULL) {
