@@ -405,26 +405,6 @@ def distribute(*resources):
 
 
 def monitor(*resources):
-    # Mount geo-rep management volume
-    if gconf.meta_volume:
-        mgmt_mnt = os.path.join(gconf.working_dir, gconf.meta_volume)
-        if not os.path.exists(mgmt_mnt):
-            try:
-                os.makedirs(mgmt_mnt)
-            except OSError:
-                ex = sys.exc_info()[1]
-                if ex.errno == EEXIST:
-                    pass
-                else:
-                    raise
-
-        if not os.path.ismount(mgmt_mnt):
-            po = Popen(["mount", "-t", "glusterfs", "localhost:%s"
-                        % gconf.meta_volume, mgmt_mnt], stdout=PIPE,
-                       stderr=PIPE)
-            po.wait()
-            po.terminate_geterr()
-
     # Check if gsyncd restarted in pause state. If
     # yes, send SIGSTOP to negative of monitor pid
     # to go back to pause state.

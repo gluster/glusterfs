@@ -454,9 +454,23 @@ class GMasterCommon(object):
         """Take management volume lock """
         bname = str(gconf.volume_id) + "_subvol_" + str(gconf.subvol_num) \
             + ".lock"
-        path = os.path.join(gconf.working_dir, gconf.meta_volume, bname)
+        mgmt_lock_dir = os.path.join(gconf.meta_volume_mnt, "geo-rep")
+        path = os.path.join(mgmt_lock_dir, bname)
         logging.debug("lock_file_path: %s" % path)
-        fd = os.open(path, os.O_CREAT | os.O_RDWR)
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_RDWR)
+        except OSError:
+            ex = sys.exc_info()[1]
+            if ex.errno == ENOENT:
+                logging.info("Creating geo-rep directory in meta volume...")
+                try:
+                    os.makedirs(mgmt_lock_dir)
+                except OSError:
+                    ex = sys.exc_info()[1]
+                    if ex.errno == EEXIST:
+                        pass
+                    else:
+                        raise
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except:
@@ -472,16 +486,12 @@ class GMasterCommon(object):
 
 
     def should_crawl(self):
-        if not gconf.meta_volume:
+        if not gconf.use_meta_volume:
             return gconf.glusterd_uuid in self.master.server.node_uuid()
 
-        mgmt_mnt = os.path.join(gconf.working_dir, gconf.meta_volume)
-        if not os.path.ismount(mgmt_mnt):
-            po = Popen(["mount", "-t", "glusterfs", "localhost:%s"
-                        % gconf.meta_volume, mgmt_mnt], stdout=PIPE,
-                       stderr=PIPE)
-            po.wait()
-            po.terminate_geterr()
+        if not os.path.ismount(gconf.meta_volume_mnt):
+            logging.error("Meta-volume is not mounted. Worker Exiting...")
+            sys.exit(1)
         return self.mgmt_lock()
 
 

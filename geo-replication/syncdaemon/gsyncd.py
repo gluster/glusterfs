@@ -258,8 +258,9 @@ def main_i():
                   type=int, default=1)
     op.add_option('--changelog-archive-format', metavar='N',
                   type=str, default="%Y%m")
-    op.add_option('--meta-volume', metavar='N',
-                  type=str, default="")
+    op.add_option('--use-meta-volume', default=False, action='store_true')
+    op.add_option('--meta-volume-mnt', metavar='N',
+                  type=str, default="/var/run/gluster/shared_storage")
     op.add_option(
         '--turns', metavar='N', type=int, default=0, help=SUPPRESS_HELP)
     op.add_option('--allow-network', metavar='IPS', default='')
