@@ -1,9 +1,11 @@
 #/bin/bash
 
 declare -i EXPORT_ID
-GANESHA_DIR=$1
-OPTION=$1
-VOL=$2
+GANESHA_DIR=${1%/}
+OPTION=$2
+VOL=$3
+
+CONF=$(cat /etc/sysconfig/ganesha | grep "CONFFILE" | cut -f 2 -d "=")
 
 function check_cmd_status()
 {
@@ -38,24 +40,23 @@ function dynamic_export_add()
         sed -i s/Export_Id.*/"Export_Id= $EXPORT_ID ;"/ \
 $GANESHA_DIR/exports/export.$VOL.conf
         check_cmd_status `echo $?`
-        dbus-send --print-reply --system \
+        dbus-send  --system \
 --dest=org.ganesha.nfsd  /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.AddExport  string:$GANESHA_DIR/exports/export.$VOL.conf \
 string:"EXPORT(Path=/$VOL)"
-
 }
 
 #This function removes an export dynamically(uses the export_id of the export)
 function dynamic_export_remove()
 {
         removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
-grep Export_Id | cut -d " " -f3`
-        echo $removed_id
+grep Export_Id | cut -d " " -f8`
         check_cmd_status `echo $?`
         dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
         check_cmd_status `echo $?`
+        sed -i /$VOL.conf/d $CONF
         rm -rf $GANESHA_DIR/exports/export.$VOL.conf
 
 }
@@ -63,12 +64,10 @@ org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id
 if [ "$OPTION" = "on" ];
 then
         dynamic_export_add $@
-        check_cmd_status `echo $?`
 fi
 
 if [ "$OPTION" = "off" ];
 then
         dynamic_export_remove $@
-        check_cmd_status `echo $?`
 fi
 
