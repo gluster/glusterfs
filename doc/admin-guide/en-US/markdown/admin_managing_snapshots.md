@@ -62,15 +62,32 @@ Snapshot Management
 **Snapshot creation**
 
 Syntax :
-*gluster snapshot create <snapname\> <volname\(s\)\> \[description <description\>\] \[force\]*
+*gluster snapshot create <snapname\> <volname\> \[no-timestamp] \[description <description\>\] \[force\]*
 
 Details :
 Creates a snapshot of a GlusterFS volume. User can provide a snap-name and a
 description to identify the snap. The description cannot be more than 1024
 characters.
+Snapshot will be created by appending timestamp with user provided snap name.
+User can override this behaviour by giving no-timestamp flag.
 
 NOTE : To be able to take a snapshot, volume should be present and it
 should be in started state.
+
+-----------------------------------------------------------------------------
+
+**Snapshot clone**
+
+Syntax :
+*gluster snapshot clone <clonename\> <snapname\>*
+
+Details :
+Creates a clone of a snapshot. Upon successful completion, a new GlusterFS
+volume will be created from snapshot. The clone will be a space efficient clone,
+i.e, the snapshot and the clone will share the backend disk.
+
+NOTE : To be able to take a clone from snapshot, snapshot should be present
+and it should be in activated state.
 
 -----------------------------------------------------------------------------
 
