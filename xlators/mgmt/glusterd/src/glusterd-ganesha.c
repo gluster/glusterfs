@@ -194,6 +194,7 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
         int32_t                                  dict_count = 0;
         dict_t                                  *vol_opts = NULL;
         int count                                = 0;
+        char *dup                                = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -214,6 +215,12 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
         if (ret) {
                gf_log (this->name, GF_LOG_ERROR,
                         "Couldn't get value in global option set");
+                goto out;
+        }
+
+        dup = gf_strdup (value);
+        if (!dup) {
+                ret = -1;
                 goto out;
         }
 
@@ -422,7 +429,7 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
                 if (ret)
                         gf_asprintf(op_errstr, "Dynamic export"
                                     " addition/deletion failed."
-                                    "Please see log file for details");
+                                    " Please see log file for details");
         }
 out:
         return ret;
@@ -436,7 +443,7 @@ tear_down_cluster(void)
 
         if (is_ganesha_host()) {
                 runinit (&runner);
-                runner_add_args (&runner, "sh", CONFDIR,
+                runner_add_args (&runner, "sh",
                                 GANESHA_PREFIX"/ganesha-ha.sh", "teardown",
                                 CONFDIR, NULL);
                 ret = runner_run(&runner);
@@ -470,7 +477,7 @@ stop_ganesha (char **op_errstr)
         ret = tear_down_cluster();
         if (ret == -1) {
                 gf_asprintf (op_errstr, "Cleanup of NFS-Ganesha"
-                             "HA config failed.");
+                             " HA config failed.");
                 goto out;
         }
 
@@ -527,7 +534,7 @@ start_ganesha (char **op_errstr)
                 ret = setup_cluster();
                 if (ret == -1) {
                         gf_asprintf (op_errstr, "Failed to set up HA "
-                                     "config for NFS-Ganesha."
+                                     "config for NFS-Ganesha. "
                                      "Please check the log file for details");
                         goto out;
                 }
