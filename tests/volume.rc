@@ -512,7 +512,6 @@ function cleanup_georep {
     $CLI volume geo-rep $GMV0 $H0::$GSV0 delete
 }
 
-
 function num_graphs
 {
     local mountpoint=$1
