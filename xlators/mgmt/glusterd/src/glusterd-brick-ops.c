@@ -467,6 +467,11 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                 }
 
                 ret = dict_get_int32 (dict, "type", &type);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to get type from dictionary");
+                        goto out;
+                }
 
                 goto brick_val;
         }
@@ -547,9 +552,11 @@ brick_val:
 
         if (type != volinfo->type) {
                 ret = dict_set_int32 (dict, "type", type);
-                if (ret)
+                if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to set the new type in dict");
+                        goto out;
+                }
         }
 
         ret = glusterd_op_begin_synctask (req, GD_OP_ADD_BRICK, dict);

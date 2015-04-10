@@ -3397,12 +3397,22 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
 
         hxl = first_of(graph);
 
-        volinfo->type           = GF_CLUSTER_TYPE_TIER;
+        volinfo->type  =  GF_CLUSTER_TYPE_TIER;
+
         xl = volgen_graph_add_nolink (graph, "cluster/tier", "%s",
                                       "tier-dht", 0);
+        if (!xl)
+                goto out;
+
         gf_asprintf(&rule, "%s-hot-dht", st_volname);
-        xlator_set_option(xl, "rule", rule);
-        xlator_set_option(xl, "xattr-name", "trusted.tier-gfid");
+
+        ret = xlator_set_option(xl, "rule", rule);
+        if (ret)
+                goto out;
+
+        ret = xlator_set_option(xl, "xattr-name", "trusted.tier-gfid");
+        if (ret)
+                goto out;
 
         ret = volgen_xlator_link (xl, cxl);
         ret = volgen_xlator_link (xl, hxl);
