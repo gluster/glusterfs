@@ -1109,8 +1109,38 @@ glusterd_stop_uds_listener (xlator_t *this)
         }
         unlink (sockfile);
 
-        GF_FREE (conf->uds_rpc);
-        conf->uds_rpc = NULL;
+        return;
+}
+
+
+void
+glusterd_stop_listener (xlator_t *this)
+{
+        glusterd_conf_t         *conf = NULL;
+        rpcsvc_listener_t       *listener = NULL;
+        rpcsvc_listener_t       *next = NULL;
+        int                      i = 0;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "%s function called ", __func__);
+
+        for (i = 0; i < gd_inet_programs_count; i++) {
+              rpcsvc_program_unregister (conf->rpc, gd_inet_programs[i]);
+        }
+
+        list_for_each_entry_safe (listener, next, &conf->rpc->listeners, list) {
+                rpcsvc_listener_destroy (listener);
+        }
+
+        (void) rpcsvc_unregister_notify (conf->rpc,
+                                         glusterd_rpcsvc_notify,
+                                         this);
+
+out:
 
         return;
 }
@@ -1739,8 +1769,19 @@ fini (xlator_t *this)
 
         conf = this->private;
 
-        glusterd_stop_uds_listener (this);
+        glusterd_stop_uds_listener (this); /*stop unix socket rpc*/
+        glusterd_stop_listener (this);     /*stop tcp/ip socket rpc*/
 
+#if 0
+       /* Running threads might be using these resourses, we have to cancel/stop
+        * running threads before deallocating the memeory, but we don't have
+        * control over the running threads to do pthread_cancel().
+        * So memeory freeing handover to kernel.
+        */
+        /*TODO: cancel/stop the running threads*/
+
+        GF_FREE (conf->uds_rpc);
+        GF_FREE (conf->rpc);
         FREE (conf->pmap);
         if (conf->handle)
                 gf_store_handle_destroy (conf->handle);
@@ -1750,6 +1791,7 @@ fini (xlator_t *this)
         GF_FREE (conf);
 
         this->private = NULL;
+#endif
 out:
         return;
 }
