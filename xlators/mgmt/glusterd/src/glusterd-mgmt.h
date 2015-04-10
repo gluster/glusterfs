@@ -16,8 +16,8 @@
 #endif
 
 void gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
-                                char *op_errstr, int op_code,
-                                glusterd_peerinfo_t *peerinfo, u_char *uuid);
+                                char *op_errstr, int op_code, uuid_t peerid,
+                                u_char *uuid);
 
 int32_t
 gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,

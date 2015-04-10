@@ -28,8 +28,8 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
 void
 gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
-                           char *op_errstr, int op_code,
-                           glusterd_peerinfo_t *peerinfo, u_char *uuid)
+                           char *op_errstr, int op_code, uuid_t peerid,
+                           u_char *uuid)
 {
         char      *peer_str          = NULL;
         char       err_str[PATH_MAX] = "Please check log file for details.";
@@ -39,6 +39,7 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
         int        is_operrstr_blk   = 0;
         char       *err_string       = NULL;
         char       *cli_err_str      = NULL;
+        glusterd_peerinfo_t *peerinfo = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -49,10 +50,14 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                 args->op_ret = op_ret;
                 args->op_errno = op_errno;
 
+                rcu_read_lock ();
+                peerinfo = glusterd_peerinfo_find (peerid, NULL);
                 if (peerinfo)
-                        peer_str = peerinfo->hostname;
+                        peer_str = gf_strdup (peerinfo->hostname);
                 else
-                        peer_str = uuid_utoa (uuid);
+                        peer_str = gf_strdup (uuid_utoa (uuid));
+
+                rcu_read_unlock ();
 
                 is_operrstr_blk = (op_errstr && strcmp (op_errstr, ""));
                 err_string     = (is_operrstr_blk) ? op_errstr : err_str;
@@ -128,6 +133,8 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                 gf_log (this->name, GF_LOG_ERROR, "%s", op_err);
                 args->errstr = gf_strdup (err_str);
         }
+
+        GF_FREE (peer_str);
 
         return;
 }
@@ -285,6 +292,7 @@ gd_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_ret        = -1;
         int32_t                     op_errno      = -1;
         xlator_t                   *this          = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -301,7 +309,7 @@ gd_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         */
         frame  = myframe;
         args   = frame->local;
-        peerinfo = frame->cookie;
+        peerid = frame->cookie;
         frame->local = NULL;
         frame->cookie = NULL;
 
@@ -325,8 +333,7 @@ gd_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
-                                   GLUSTERD_MGMT_V3_LOCK,
-                                   peerinfo, rsp.uuid);
+                                   GLUSTERD_MGMT_V3_LOCK, *peerid, rsp.uuid);
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
         STACK_DESTROY (frame->root);
@@ -352,6 +359,7 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         glusterd_conf_t         *conf = THIS->private;
         int32_t                  ret  = -1;
         xlator_t                *this = NULL;
+        uuid_t                  peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -367,9 +375,12 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         synclock_unlock (&conf->big_lock);
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
                                         gd_mgmt_v3_lock_cbk,
@@ -525,6 +536,7 @@ gd_mgmt_v3_pre_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_errno      = -1;
         dict_t                     *rsp_dict      = NULL;
         xlator_t                   *this          = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -533,7 +545,7 @@ gd_mgmt_v3_pre_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         frame  = myframe;
         args   = frame->local;
-        peerinfo = frame->cookie;
+        peerid = frame->cookie;
         frame->local = NULL;
         frame->cookie = NULL;
 
@@ -594,7 +606,7 @@ out:
 
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                   GLUSTERD_MGMT_V3_PRE_VALIDATE,
-                                  peerinfo, rsp.uuid);
+                                  *peerid, rsp.uuid);
 
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
@@ -622,6 +634,7 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_pre_val_req  req   = {{0},};
         glusterd_conf_t         *conf  = THIS->private;
         xlator_t                *this  = NULL;
+        uuid_t                  peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -637,9 +650,12 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         synclock_unlock (&conf->big_lock);
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_PRE_VALIDATE,
                                         gd_mgmt_v3_pre_validate_cbk,
@@ -807,6 +823,7 @@ gd_mgmt_v3_brick_op_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_ret        = -1;
         int32_t                     op_errno      = -1;
         xlator_t                   *this          = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -815,7 +832,7 @@ gd_mgmt_v3_brick_op_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         frame  = myframe;
         args   = frame->local;
-        peerinfo = frame->cookie;
+        peerid = frame->cookie;
         frame->local = NULL;
         frame->cookie = NULL;
 
@@ -843,8 +860,8 @@ gd_mgmt_v3_brick_op_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
-                                   GLUSTERD_MGMT_V3_BRICK_OP,
-                                   peerinfo, rsp.uuid);
+                                   GLUSTERD_MGMT_V3_BRICK_OP, *peerid,
+                                   rsp.uuid);
 
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
@@ -875,6 +892,7 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_brick_op_req  req  = {{0},};
         glusterd_conf_t          *conf = THIS->private;
         xlator_t                 *this = NULL;
+        uuid_t                    peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -890,9 +908,12 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         synclock_unlock (&conf->big_lock);
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_BRICK_OP,
                                         gd_mgmt_v3_brick_op_cbk,
@@ -1019,6 +1040,7 @@ gd_mgmt_v3_commit_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_errno      = -1;
         dict_t                     *rsp_dict      = NULL;
         xlator_t                   *this          = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1027,7 +1049,7 @@ gd_mgmt_v3_commit_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         frame  = myframe;
         args   = frame->local;
-        peerinfo = frame->cookie;
+        peerid = frame->cookie;
         frame->local = NULL;
         frame->cookie = NULL;
 
@@ -1087,8 +1109,8 @@ out:
                 dict_unref (rsp_dict);
 
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
-                                  GLUSTERD_MGMT_V3_COMMIT,
-                                  peerinfo, rsp.uuid);
+                                  GLUSTERD_MGMT_V3_COMMIT, *peerid, rsp.uuid);
+
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -1113,6 +1135,7 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_commit_req   req  = {{0},};
         glusterd_conf_t         *conf = THIS->private;
         xlator_t                *this = NULL;
+        uuid_t                  peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1128,9 +1151,12 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         synclock_unlock (&conf->big_lock);
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_COMMIT,
                                         gd_mgmt_v3_commit_cbk,
@@ -1266,6 +1292,7 @@ gd_mgmt_v3_post_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_ret        = -1;
         int32_t                     op_errno      = -1;
         xlator_t                   *this          = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1274,7 +1301,7 @@ gd_mgmt_v3_post_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         frame  = myframe;
         args   = frame->local;
-        peerinfo = frame->cookie;
+        peerid = frame->cookie;
         frame->local = NULL;
         frame->cookie = NULL;
 
@@ -1298,13 +1325,14 @@ gd_mgmt_v3_post_validate_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
-                                  GLUSTERD_MGMT_V3_POST_VALIDATE,
-                                  peerinfo, rsp.uuid);
+                                  GLUSTERD_MGMT_V3_POST_VALIDATE, *peerid,
+                                  rsp.uuid);
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
 
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
+
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -1328,6 +1356,7 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         gd1_mgmt_v3_post_val_req  req  = {{0},};
         glusterd_conf_t          *conf = THIS->private;
         xlator_t                 *this = NULL;
+        uuid_t                   peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1344,9 +1373,12 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
         req.op_ret = op_ret;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         synclock_unlock (&conf->big_lock);
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE,
                                         gd_mgmt_v3_post_validate_cbk,
@@ -1477,6 +1509,7 @@ gd_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_ret        = -1;
         int32_t                     op_errno      = -1;
         xlator_t                   *this          = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1485,7 +1518,7 @@ gd_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         frame  = myframe;
         args   = frame->local;
-        peerinfo = frame->cookie;
+        peerid = frame->cookie;
         frame->local = NULL;
         frame->cookie = NULL;
 
@@ -1509,10 +1542,10 @@ gd_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
-                                  GLUSTERD_MGMT_V3_UNLOCK,
-                                  peerinfo, rsp.uuid);
+                                  GLUSTERD_MGMT_V3_UNLOCK, *peerid, rsp.uuid);
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
+
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -1536,6 +1569,7 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_unlock_req   req  = {{0},};
         glusterd_conf_t         *conf = THIS->private;
         xlator_t                *this = NULL;
+        uuid_t                  peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1551,9 +1585,12 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         synclock_unlock (&conf->big_lock);
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerinfo,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_UNLOCK,
                                         gd_mgmt_v3_unlock_cbk,
