@@ -1102,12 +1102,12 @@ syncop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         args->op_ret   = op_ret;
         args->op_errno = op_errno;
+        if (xdata)
+                args->xdata  = dict_ref (xdata);
 
         if (op_ret == 0) {
                 args->iatt1  = *iatt;
                 args->iatt2  = *parent;
-                if (xdata)
-                        args->xdata  = dict_ref (xdata);
         }
 
         __wake (args);
