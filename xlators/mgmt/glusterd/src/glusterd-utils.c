@@ -560,6 +560,7 @@ glusterd_volinfo_dup (glusterd_volinfo_t *volinfo,
         new_volinfo->transport_type = volinfo->transport_type;
         new_volinfo->brick_count = volinfo->brick_count;
         new_volinfo->tier_info = volinfo->tier_info;
+        new_volinfo->quota_conf_version = volinfo->quota_conf_version;
 
         dict_copy (volinfo->dict, new_volinfo->dict);
         dict_copy (volinfo->gsync_slaves, new_volinfo->gsync_slaves);
@@ -2743,7 +2744,8 @@ glusterd_spawn_daemons (void *opaque)
 
 int32_t
 glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
-                                    glusterd_volinfo_t *volinfo)
+                                    glusterd_volinfo_t *volinfo,
+                                    char *prefix)
 {
         char                    key[512] = {0,};
         int32_t                 ret = -1;
@@ -2755,7 +2757,7 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
         GF_ASSERT (volinfo);
 
         memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "volume%d.opt-count", count);
+        snprintf (key, sizeof (key), "%s%d.opt-count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &opt_count);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Volume option count not "
@@ -2763,7 +2765,7 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
                 goto out;
         }
 
-        snprintf (volume_prefix, sizeof (volume_prefix), "volume%d", count);
+        snprintf (volume_prefix, sizeof (volume_prefix), "%s%d", prefix, count);
         ret = import_prdict_dict (peer_data, volinfo->dict, "key", "value",
                                   opt_count, volume_prefix);
         if (ret) {
@@ -2773,7 +2775,7 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
         }
 
         memset (key, 0, sizeof (key));
-        snprintf (key, sizeof (key), "volume%d.gsync-count", count);
+        snprintf (key, sizeof (key), "%s%d.gsync-count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &opt_count);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Gsync count not "
@@ -3365,7 +3367,7 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         }
 
         ret = glusterd_import_friend_volume_opts (peer_data, count,
-                                                  new_volinfo);
+                                                  new_volinfo, prefix);
         if (ret)
                 goto out;
 

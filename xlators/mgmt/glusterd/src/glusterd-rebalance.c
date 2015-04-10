@@ -526,19 +526,48 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, __glusterd_handle_defrag_volume);
 }
 
+static int
+glusterd_brick_validation  (dict_t *dict, char *key, data_t *value,
+                            void *data)
+{
+        int32_t                   ret              = -1;
+        xlator_t                 *this             = NULL;
+        glusterd_volinfo_t       *volinfo          = data;
+        glusterd_brickinfo_t     *brickinfo        = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = glusterd_volume_brickinfo_get_by_brick (value->data, volinfo,
+                                                      &brickinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Incorrect brick %s for "
+                        "volume %s", value->data, volinfo->volname);
+                return ret;
+        }
+
+        if (!brickinfo->decommissioned) {
+                gf_log (this->name, GF_LOG_ERROR, "Incorrect brick %s for "
+                        "volume %s", value->data, volinfo->volname);
+                ret = -1;
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
 {
-        char                    *volname = NULL;
-        char                    *cmd_str = NULL;
-        int                     ret = 0;
-        int32_t                 cmd = 0;
-        char                    msg[2048] = {0};
-        glusterd_volinfo_t      *volinfo = NULL;
+        char                    *volname     = NULL;
+        char                    *cmd_str     = NULL;
+        int                     ret          = 0;
+        int32_t                 cmd          = 0;
+        char                    msg[2048]    = {0};
+        glusterd_volinfo_t      *volinfo     = NULL;
         char                    *task_id_str = NULL;
-        dict_t                  *op_ctx = NULL;
-        xlator_t                *this = 0;
+        dict_t                  *op_ctx      = NULL;
+        xlator_t                *this        = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -630,17 +659,31 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                      ret = -1;
                      goto out;
                 }
-                if ((strstr(cmd_str,"rebalance") != NULL) &&
-                         (volinfo->rebal.op != GD_OP_REBALANCE)){
-                        snprintf (msg,sizeof(msg),"Rebalance not started.");
+                if ((strstr(cmd_str, "rebalance") != NULL) &&
+                    (volinfo->rebal.op != GD_OP_REBALANCE)) {
+                        snprintf (msg, sizeof(msg), "Rebalance not started.");
                         ret = -1;
                         goto out;
                 }
-                if ((strstr(cmd_str,"remove-brick")!= NULL) &&
-                          (volinfo->rebal.op != GD_OP_REMOVE_BRICK)){
-                        snprintf (msg,sizeof(msg),"remove-brick not started.");
-                        ret = -1;
-                        goto out;
+                if (strstr(cmd_str, "remove-brick") != NULL) {
+                        if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
+                                snprintf (msg, sizeof(msg), "remove-brick not "
+                                          "started.");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        /* For remove-brick status/stop command check whether
+                         * given input brick is part of volume or not.*/
+
+                        ret = dict_foreach_fnmatch (dict, "brick*",
+                                                    glusterd_brick_validation,
+                                                    volinfo);
+                        if (ret == -1) {
+                                snprintf (msg, sizeof (msg), "Incorrect brick"
+                                          " for volume %s", volinfo->volname);
+                                goto out;
+                        }
                 }
                 break;
         default:
@@ -654,7 +697,6 @@ out:
 
         return ret;
 }
-
 
 int
 glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)

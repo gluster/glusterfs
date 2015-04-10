@@ -453,6 +453,9 @@ def mode_list(session_dir, args):
                                          volname.ljust(25),
                                          human_time(last_processed).ljust(25)))
 
+    if not output and (args.session or args.volume):
+        fail("Invalid Session", logger=logger)
+
 
 def main():
     args = _get_args()
