@@ -664,3 +664,6 @@ started writing my first for-real translators, and probably even a bit more. I
 hope you've enjoyed this series, or at least found it useful, and if you have
 any suggestions for other topics I should cover please let me know (via
 comments or email, IRC or Twitter).
+
+Also Refer:
+http://www.gluster.org/community/documentation/index.php/Translators
