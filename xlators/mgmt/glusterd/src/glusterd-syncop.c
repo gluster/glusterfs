@@ -1723,7 +1723,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         }
 
         /* Save opinfo for this transaction with the transaction id */
-        glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL, conf);
+        glusterd_txn_opinfo_init (&txn_opinfo, NULL, &op, NULL, NULL);
         ret = glusterd_set_txn_opinfo (txn_id, &txn_opinfo);
         if (ret)
                 gf_log (this->name, GF_LOG_ERROR,

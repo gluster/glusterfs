@@ -120,10 +120,13 @@ glusterd_txn_opinfo_dict_fini ()
 void
 glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
                           glusterd_op_sm_state_info_t *state, glusterd_op_t *op,
-                          dict_t *op_ctx, rpcsvc_request_t *req,
-                          glusterd_conf_t *conf)
+                          dict_t *op_ctx, rpcsvc_request_t *req)
 {
+        glusterd_conf_t *conf = NULL;
+
         GF_ASSERT (opinfo);
+
+        conf = THIS->private;
         GF_ASSERT (conf);
 
         if (state)
@@ -140,7 +143,8 @@ glusterd_txn_opinfo_init (glusterd_op_info_t  *opinfo,
         if (req)
                 opinfo->req = req;
 
-        opinfo->txn_generation = rcu_dereference (conf->generation);
+        opinfo->txn_generation = conf->generation;
+        cmm_smp_rmb ();
 
         return;
 }
@@ -2971,6 +2975,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
 
                                 ret = proc->fn (NULL, this, dict);
                                 if (ret) {
+                                        rcu_read_unlock ();
                                         gf_log (this->name, GF_LOG_WARNING,
                                                 "Failed to send mgmt_v3 lock "
                                                 "request for operation "

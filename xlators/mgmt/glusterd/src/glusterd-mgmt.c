@@ -1718,7 +1718,12 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (conf);
 
         /* Save the peer list generation */
-        txn_generation = rcu_dereference (conf->generation);
+        txn_generation = conf->generation;
+        cmm_smp_rmb ();
+        /* This read memory barrier makes sure that this assignment happens here
+         * only and is not reordered and optimized by either the compiler or the
+         * processor.
+         */
 
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
@@ -1926,7 +1931,12 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (conf);
 
         /* Save the peer list generation */
-        txn_generation = rcu_dereference (conf->generation);
+        txn_generation = conf->generation;
+        cmm_smp_rmb ();
+        /* This read memory barrier makes sure that this assignment happens here
+         * only and is not reordered and optimized by either the compiler or the
+         * processor.
+         */
 
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node

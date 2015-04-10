@@ -636,7 +636,7 @@ local_locking_done:
         }
 
         /* Save opinfo for this transaction with the transaction id */
-        glusterd_txn_opinfo_init (&txn_op_info, NULL, &op, ctx, req, priv);
+        glusterd_txn_opinfo_init (&txn_op_info, NULL, &op, ctx, req);
 
         ret = glusterd_set_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
@@ -740,7 +740,7 @@ __glusterd_handle_cluster_lock (rpcsvc_request_t *req)
                 goto out;
         }
 
-        glusterd_txn_opinfo_init (&txn_op_info, NULL, &op, op_ctx, req, priv);
+        glusterd_txn_opinfo_init (&txn_op_info, NULL, &op, op_ctx, req);
 
         ret = glusterd_set_txn_opinfo (txn_id, &txn_op_info);
         if (ret) {
@@ -883,7 +883,7 @@ __glusterd_handle_stage_op (rpcsvc_request_t *req)
 
                 state.state = GD_OP_STATE_LOCKED;
                 glusterd_txn_opinfo_init (&txn_op_info, &state, &op_req.op,
-                                          req_ctx->dict, req, priv);
+                                          req_ctx->dict, req);
 
                 ret = glusterd_set_txn_opinfo (txn_id, &txn_op_info);
                 if (ret) {
