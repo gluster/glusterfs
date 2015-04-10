@@ -51,6 +51,11 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 
+#If the file system of bricks is XFS and speculative preallocation is on,
+#dropping cahce should be done to free speculatively pre-allocated blocks
+#by XFS.
+( cd $M0 ; umount $M0  ) # fail but drops kernel cache
+
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
 bigger2big_md5sum_0=$(md5sum $B0/${V0}0/bigger2big | awk '{print $1}')
@@ -115,6 +120,11 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST gluster volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
+
+#If the file system of bricks is XFS and speculative preallocation is on,
+#dropping cahce should be done to free speculatively pre-allocated blocks
+#by XFS.
+( cd $M0 ; umount $M0  ) # fail but drops kernel cache
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
