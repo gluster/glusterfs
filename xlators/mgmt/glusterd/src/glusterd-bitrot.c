@@ -208,7 +208,12 @@ glusterd_bitrot_scrub (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        option = gf_strdup (scrub_value);
+        if (!strcmp (scrub_value, "resume")) {
+                option = gf_strdup ("Active");
+        } else {
+                option = gf_strdup (scrub_value);
+        }
+
         ret = dict_set_dynstr (volinfo->dict, key, option);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
@@ -253,6 +258,15 @@ glusterd_bitrot_enable (glusterd_volinfo_t *volinfo, char **op_errstr)
                 goto out;
         }
 
+        /*Once bitrot is enable scrubber should be in Active state*/
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, "features.scrub",
+                                          "Active");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set option "
+                        "features.scrub value");
+                goto out;
+        }
+
         ret = 0;
 out:
         if (ret && op_errstr && !*op_errstr)
@@ -277,6 +291,15 @@ glusterd_bitrot_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
                                           "off");
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                goto out;
+        }
+
+        /*Once bitrot disabled scrubber should be Inactive state*/
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, "features.scrub",
+                                          "Inactive");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
+                        "features.scrub value");
                 goto out;
         }
 
