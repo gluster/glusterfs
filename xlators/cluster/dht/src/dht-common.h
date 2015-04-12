@@ -293,6 +293,20 @@ struct gf_defrag_pattern_list {
         gf_defrag_pattern_list_t  *next;
 };
 
+struct dht_container {
+        union {
+                struct list_head             list;
+                struct {
+                        struct _gf_dirent_t *next;
+                        struct _gf_dirent_t *prev;
+                };
+        };
+        gf_dirent_t     *df_entry;
+        xlator_t        *this;
+        loc_t           *parent_loc;
+        dict_t          *migrate_data;
+};
+
 struct gf_defrag_info_ {
         uint64_t                     total_files;
         uint64_t                     total_data;
@@ -320,6 +334,19 @@ struct gf_defrag_info_ {
         uint64_t                     total_files_demoted;
         int                          write_freq_threshold;
         int                          read_freq_threshold;
+
+        pthread_cond_t               parallel_migration_cond;
+        pthread_mutex_t              dfq_mutex;
+        pthread_cond_t               rebalance_crawler_alarm;
+        int32_t                      q_entry_count;
+        int32_t                      global_error;
+        struct  dht_container       *queue;
+        int32_t                      crawl_done;
+        int32_t                      abort;
+        int32_t                      wakeup_crawler;
+
+        /* Hard link handle requirement */
+        synclock_t                   link_lock;
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -397,9 +424,19 @@ struct dht_conf {
         dht_methods_t  *methods;
 
         struct mem_pool *lock_pool;
+
+        /*local subvol storage for rebalance*/
+        xlator_t       **local_subvols;
+        int32_t          local_subvols_cnt;
 };
 typedef struct dht_conf dht_conf_t;
 
+struct dht_dfoffset_ctx {
+        xlator_t       *this;
+        off_t           offset;
+        int32_t         readdir_done;
+};
+typedef struct dht_dfoffset_ctx dht_dfoffset_ctx_t;
 
 struct dht_disk_layout {
         uint32_t           cnt;
@@ -422,6 +459,14 @@ typedef enum {
         GF_DHT_EQUAL_DISTRIBUTION,
         GF_DHT_WEIGHTED_DISTRIBUTION
 } dht_distribution_type_t;
+
+struct dir_dfmeta {
+        gf_dirent_t             *equeue;
+        dht_dfoffset_ctx_t      *offset_var;
+        struct list_head        **head;
+        struct list_head        **iterator;
+        int                     *fetch_entries;
+};
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
@@ -608,6 +653,8 @@ int dht_start_rebalance_task (xlator_t *this, call_frame_t *frame);
 int dht_rebalance_in_progress_check (xlator_t *this, call_frame_t *frame);
 int dht_rebalance_complete_check (xlator_t *this, call_frame_t *frame);
 
+int
+dht_init_local_subvolumes (xlator_t *this, dht_conf_t *conf);
 
 /* FOPS */
 int32_t dht_lookup (call_frame_t *frame,

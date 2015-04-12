@@ -2534,6 +2534,87 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
  out:
         return ret;
 }
+int
+dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int op_ret, int op_errno, dict_t *xattr,
+                           dict_t *xdata)
+{
+        dht_local_t  *local         = NULL;
+        dht_conf_t   *conf          = NULL;
+        call_frame_t *prev          = NULL;
+        int           this_call_cnt = 0;
+        int           ret           = 0;
+        char         *uuid_str      = NULL;
+        uuid_t        node_uuid     = {0,};
+
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (frame->local, out);
+
+        local = frame->local;
+        prev = cookie;
+        conf = this->private;
+
+        LOCK (&frame->lock);
+        {
+                this_call_cnt = --local->call_cnt;
+                if (op_ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "getxattr err (%s) for dir",
+                                strerror (op_errno));
+                        local->op_ret = -1;
+                        local->op_errno = op_errno;
+                        goto unlock;
+                }
+
+                ret = dict_get_str (xattr, local->xsel, &uuid_str);
+
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "get %s", local->xsel);
+                        local->op_ret = -1;
+                        local->op_errno = EINVAL;
+                        goto unlock;
+                }
+
+                if (gf_uuid_parse (uuid_str, node_uuid)) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to parse uuid"
+                                " failed for %s", prev->this->name);
+                        local->op_ret = -1;
+                        local->op_errno = EINVAL;
+                        goto unlock;
+                }
+
+                if (gf_uuid_compare (node_uuid, conf->defrag->node_uuid)) {
+                        gf_log (this->name, GF_LOG_DEBUG, "subvol %s does not"
+                                "belong to this node", prev->this->name);
+                } else {
+                        conf->local_subvols[(conf->local_subvols_cnt)++]
+                                                           = prev->this;
+                        gf_log (this->name, GF_LOG_DEBUG, "subvol %s belongs to"
+                                " this node", prev->this->name);
+                }
+        }
+
+        local->op_ret = 0;
+ unlock:
+        UNLOCK (&frame->lock);
+
+        if (!is_last_call (this_call_cnt))
+                goto out;
+
+        if (local->op_ret == -1) {
+                goto unwind;
+        }
+
+        DHT_STACK_UNWIND (getxattr, frame, 0, 0, NULL, NULL);
+        goto out;
+
+ unwind:
+        DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, NULL);
+ out:
+        return 0;
+}
 
 int
 dht_vgetxattr_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2892,7 +2973,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         int           op_errno      = -1;
         int           i             = 0;
         int           cnt           = 0;
-
+        char         *node_uuid_key = NULL;
+        int           ret           = -1;
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (loc, err);
@@ -2933,6 +3015,28 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 		return 0;
 	}
 
+        if (key && DHT_IS_DIR(layout) &&
+           (!strcmp (key, GF_REBAL_FIND_LOCAL_SUBVOL))) {
+                ret = gf_asprintf
+                           (&node_uuid_key, "%s", GF_XATTR_NODE_UUID_KEY);
+                if (ret == -1 || !node_uuid_key) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to copy key");
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+                (void) strncpy (local->xsel, node_uuid_key, 256);
+                cnt = local->call_cnt = conf->subvolume_cnt;
+                for (i = 0; i < cnt; i++) {
+                        STACK_WIND (frame, dht_find_local_subvol_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->getxattr,
+                                    loc, node_uuid_key, xdata);
+                }
+                if (node_uuid_key)
+                        GF_FREE (node_uuid_key);
+                return 0;
+        }
+
         /* for file use cached subvolume (obviously!): see if {}
          * below
          * for directory:
@@ -2942,6 +3046,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
          * NOTE: Don't trust inode here, as that may not be valid
          *       (until inode_link() happens)
          */
+
         if (key && DHT_IS_DIR(layout) &&
             (XATTR_IS_PATHINFO (key)
              || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0))) {
@@ -3831,13 +3936,24 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 goto err;
         }
 
-        local->call_cnt = conf->subvolume_cnt;
+        if (!(conf->local_subvols_cnt) || !conf->defrag) {
+                local->call_cnt = conf->subvolume_cnt;
 
-        for (i = 0; i < conf->subvolume_cnt; i++) {
-                STACK_WIND (frame, dht_fd_cbk,
-                            conf->subvolumes[i],
-                            conf->subvolumes[i]->fops->opendir,
-                            loc, fd, xdata);
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        STACK_WIND (frame, dht_fd_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->opendir,
+                                    loc, fd, xdata);
+
+                }
+        } else {
+                local->call_cnt = conf->local_subvols_cnt;
+                for (i = 0; i < conf->local_subvols_cnt; i++) {
+                        STACK_WIND (frame, dht_fd_cbk,
+                                    conf->local_subvols[i],
+                                    conf->local_subvols[i]->fops->opendir,
+                                    loc, fd, xdata);
+                }
         }
 
         return 0;
