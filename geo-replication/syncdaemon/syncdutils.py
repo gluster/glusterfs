@@ -466,9 +466,8 @@ def selfkill(sig=SIGTERM):
     os.kill(os.getpid(), sig)
 
 
-def errno_wrap(call, arg=[], errnos=[], retry_errnos=[ESTALE]):
+def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
     """ wrapper around calls resilient to errnos.
-    retry in case of ESTALE by default.
     """
     nr_tries = 0
     while True:
@@ -483,7 +482,8 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[ESTALE]):
             nr_tries += 1
             if nr_tries == GF_OP_RETRIES:
                 # probably a screwed state, cannot do much...
-                logging.warn('reached maximum retries (%s)...' % repr(arg))
+                logging.warn('reached maximum retries (%s)...%s' %
+                             (repr(arg), ex))
                 return ex.errno
             time.sleep(0.250)  # retry the call
 

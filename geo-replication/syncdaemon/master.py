@@ -244,7 +244,6 @@ class TarSSHEngine(object):
     """
 
     def a_syncdata(self, files):
-        self.unlinked_gfids = []
         logging.debug('files: %s' % (files))
         self.current_files_skipped_count = 0
         del self.skipped_gfid_list[:]
@@ -283,7 +282,6 @@ class RsyncEngine(object):
     """Sync engine that uses rsync(1) for data transfers"""
 
     def a_syncdata(self, files):
-        self.unlinked_gfids = []
         logging.debug('files: %s' % (files))
         self.current_files_skipped_count = 0
         del self.skipped_gfid_list[:]
@@ -930,6 +928,7 @@ class GMasterChangelogMixin(GMasterCommon):
     def process(self, changes, done=1):
         tries = 0
         retry = False
+        self.unlinked_gfids = []
 
         while True:
             self.skipped_gfid_list = []
