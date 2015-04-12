@@ -589,6 +589,23 @@ dht_init (xlator_t *this)
                 defrag->cmd = cmd;
 
                 defrag->stats = _gf_false;
+
+                defrag->queue = NULL;
+
+                defrag->crawl_done = 0;
+
+                defrag->global_error = 0;
+
+                defrag->q_entry_count = 0;
+
+                defrag->wakeup_crawler = 0;
+
+                synclock_init (&defrag->link_lock, SYNC_LOCK_DEFAULT);
+                pthread_mutex_init (&defrag->dfq_mutex, 0);
+                pthread_cond_init  (&defrag->parallel_migration_cond, 0);
+                pthread_cond_init  (&defrag->rebalance_crawler_alarm, 0);
+                defrag->global_error = 0;
+
         }
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
@@ -649,6 +666,15 @@ dht_init (xlator_t *this)
         ret = dht_init_subvolumes (this, conf);
         if (ret == -1) {
                 goto err;
+        }
+
+        if (cmd) {
+                ret = dht_init_local_subvolumes (this, conf);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "dht_init_local_subvolumes failed");
+                        goto err;
+                }
         }
 
         if (dict_get_str (this->options, "decommissioned-bricks", &temp_str) == 0) {
