@@ -44,7 +44,7 @@ my $configuration_file = ".checkpatch.conf";
 my $max_line_length = 80;
 my $ignore_perl_version = 0;
 my $minimum_perl_version = 5.10.0;
-my $jenkins_url = $ENV{JENKINS_URL};
+my $gerrit_url = $ENV{GERRIT_URL};
 
 sub help {
     my ($exitcode) = @_;
@@ -57,7 +57,7 @@ Options:
   -q, --quiet                quiet
   --patch                    treat FILE as patchfile (default)
   --emacs                    emacs compile window format
-  --jenkins-url=STRING       provide URL patch was reviewed on
+  --gerrit-url=STRING        URL the patch was reviewed at
   --terse                    one line per report
   -f, --file                 treat FILE as regular source file
   --subjective, --strict     enable more subjective tests
@@ -121,7 +121,7 @@ GetOptions(
     'q|quiet+'  => \$quiet,
     'patch!'    => \$chk_patch,
     'emacs!'    => \$emacs,
-    'jenkins-url=s' => \$jenkins_url,
+    'gerrit-url=s' => \$gerrit_url,
     'terse!'    => \$terse,
     'f|file!'   => \$file,
     'subjective!'       => \$check,
@@ -1951,11 +1951,11 @@ sub process {
                 }
             }
 
-            # Check if email is really Jenkins URL
+            # Check if email is really Gerrit URL
             if ($email =~ /^($url_tags)(.*)/) {
                 my $uri = $1;
                 my $url = $2;
-                if ($uri && $url !~ /$jenkins_url/) {
+                if ($uri && $url !~ /$gerrit_url/) {
                     ERROR("BAD_URL",
                           "Unrecognized url address: '$email'\n" . $herecurr);
                 }
