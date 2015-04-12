@@ -731,7 +731,28 @@ err:
         return -1;
 }
 
+int
+dht_init_local_subvolumes (xlator_t *this, dht_conf_t *conf)
+{
+        xlator_list_t *subvols = NULL;
+        int            cnt = 0;
 
+        if (!conf)
+                return -1;
+
+        for (subvols = this->children; subvols; subvols = subvols->next)
+                cnt++;
+
+        conf->local_subvols = GF_CALLOC (cnt, sizeof (xlator_t *),
+                                        gf_dht_mt_xlator_t);
+        if (!conf->local_subvols) {
+                return -1;
+        }
+
+        conf->local_subvols_cnt = 0;
+
+        return 0;
+}
 
 int
 dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
@@ -751,6 +772,8 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
                 return -1;
         }
         conf->subvolume_cnt = cnt;
+
+        conf->local_subvols_cnt = 0;
 
         dht_set_subvol_range(this);
 
