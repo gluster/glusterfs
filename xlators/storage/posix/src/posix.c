@@ -156,8 +156,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         if (xdata && (op_ret == 0)) {
-                xattr = posix_lookup_xattr_fill (this, real_path, loc,
-                                                 xdata, &buf);
+                xattr = posix_xattr_fill (this, real_path, loc, NULL, -1, xdata,
+                                          &buf);
         }
 
         if (priv->update_pgfid_nlinks) {
@@ -248,8 +248,8 @@ posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto out;
         }
         if (xdata)
-                xattr_rsp = posix_lookup_xattr_fill (this, real_path, loc,
-                                                     xdata, &buf);
+                xattr_rsp = posix_xattr_fill (this, real_path, loc, NULL, -1,
+                                              xdata, &buf);
 
         op_ret = 0;
 
@@ -3433,10 +3433,8 @@ posix_links_in_same_directory (char *dirpath, int count, inode_t *leaf_inode,
                         gf_entry = gf_dirent_for_name (entry->d_name);
                         gf_entry->inode = inode_ref (leaf_inode);
                         gf_entry->dict
-                                = posix_lookup_xattr_fill (this,
-                                                           temppath,
-                                                           &loc, xdata,
-                                                           NULL);
+                                = posix_xattr_fill (this, temppath, &loc, NULL,
+                                                    -1, xdata, NULL);
                         list_add_tail (&gf_entry->list, &head->list);
                         loc_wipe (&loc);
                 }
@@ -4301,7 +4299,7 @@ _handle_fsetxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
 
         filler = tmp;
 
-        return posix_fhandle_pair (filler->this, filler->fd, k, v,
+        return posix_fhandle_pair (filler->this, filler->fdnum, k, v,
                                    filler->flags);
 }
 
@@ -4337,7 +4335,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         dict_del (dict, GFID_XATTR_KEY);
         dict_del (dict, GF_XATTR_VOL_ID_KEY);
 
-        filler.fd = _fd;
+        filler.fdnum = _fd;
         filler.this = this;
 #ifdef GF_DARWIN_HOST_OS
         filler.flags = map_xattr_flags(flags);
@@ -4653,7 +4651,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                         size = sys_lgetxattr (filler->real_path, k,
                                               (char *)array, v->len);
                 } else {
-                        size = sys_fgetxattr (filler->fd, k, (char *)array,
+                        size = sys_fgetxattr (filler->fdnum, k, (char *)array,
                                               v->len);
                 }
 
@@ -4676,9 +4674,10 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                                                 k, strerror (op_errno));
                                 else
                                         gf_log (this->name, GF_LOG_ERROR,
-                                                "fgetxattr failed on fd=%d while doing "
-                                                "xattrop: Key:%s (%s)",
-                                                filler->fd,
+                                                "fgetxattr failed on gfid=%s "
+                                                "while doing xattrop: "
+                                                "Key:%s (%s)",
+                                                uuid_utoa (filler->fd->inode->gfid),
                                                 k, strerror (op_errno));
                         }
 
@@ -4712,7 +4711,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                         size = sys_lsetxattr (filler->real_path, k, array,
                                               v->len, 0);
                 } else {
-                        size = sys_fsetxattr (filler->fd, k, (char *)array,
+                        size = sys_fsetxattr (filler->fdnum, k, (char *)array,
                                               v->len, 0);
                 }
         }
@@ -4731,8 +4730,9 @@ unlock:
                                 k, strerror (op_errno));
                 else
                         gf_log (this->name, GF_LOG_ERROR,
-                                "fsetxattr failed on fd=%d while doing xattrop: "
-                                "key=%s (%s)", filler->fd,
+                                "fsetxattr failed on gfid=%s while doing xattrop: "
+                                "key=%s (%s)",
+                                uuid_utoa (filler->fd->inode->gfid),
                                 k, strerror (op_errno));
 
                 op_ret = -1;
@@ -4748,8 +4748,9 @@ unlock:
                                         k, strerror (-size));
                         else
                                 gf_log (this->name, GF_LOG_DEBUG,
-                                        "dict_set_bin failed (fd=%d): "
-                                        "key=%s (%s)", filler->fd,
+                                        "dict_set_bin failed (gfid=%s): "
+                                        "key=%s (%s)",
+                                        uuid_utoa (filler->fd->inode->gfid),
                                         k, strerror (-size));
 
                         op_ret = -1;
@@ -4812,7 +4813,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         }
 
         filler.this = this;
-        filler.fd = _fd;
+        filler.fdnum = _fd;
         filler.real_path = real_path;
         filler.flags = (int)optype;
         filler.inode = inode;
@@ -4967,6 +4968,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno = 0;
         struct iatt           buf      = {0,};
         struct posix_fd      *pfd      = NULL;
+        dict_t               *xattr_rsp = NULL;
         int                   ret      = -1;
         struct posix_private *priv     = NULL;
 
@@ -4998,12 +5000,18 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (xdata)
+                xattr_rsp = posix_xattr_fill (this, NULL, NULL, fd, _fd, xdata,
+                                              &buf);
+
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf, NULL);
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, &buf, xattr_rsp);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
         return 0;
 }
 
@@ -5277,8 +5285,8 @@ posix_entry_xattr_fill (xlator_t *this, inode_t *inode,
 
                 return NULL;
         }
-        return posix_lookup_xattr_fill (this, entry_path,
-                                        &tmp_loc, dict, stbuf);
+        return posix_xattr_fill (this, entry_path, &tmp_loc, NULL, -1, dict,
+                                 stbuf);
 
 }
 

@@ -102,6 +102,9 @@ _is_in_array (char **str_array, char *str)
 {
         int i = 0;
 
+        if (!str)
+                return _gf_false;
+
         for (i = 0; str_array[i]; i++) {
                 if (strcmp (str, str_array[i]) == 0)
                         return _gf_true;
@@ -110,23 +113,9 @@ _is_in_array (char **str_array, char *str)
 }
 
 static gf_boolean_t
-posix_xattr_ignorable (char *key, posix_xattr_filler_t *filler)
+posix_xattr_ignorable (char *key)
 {
-        gf_boolean_t ignore = _gf_false;
-
-        GF_ASSERT (key);
-        if (!key)
-                goto out;
-
-        ignore = _is_in_array (posix_ignore_xattrs, key);
-        if (ignore)
-                goto out;
-
-        if ((!strcmp (key, GF_CONTENT_KEY))
-            && (!IA_ISREG (filler->stbuf->ia_type)))
-                ignore = _gf_true;
-out:
-        return ignore;
+        return _is_in_array (posix_ignore_xattrs, key);
 }
 
 static int
@@ -136,31 +125,48 @@ _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
         int      ret        = 0;
         char    *value      = NULL;
 
-        xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
+        if (filler->real_path)
+                xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
+        else
+                xattr_size = sys_fgetxattr (filler->fdnum, key, NULL, 0);
 
         if (xattr_size != -1) {
-                value = GF_CALLOC (1, xattr_size + 1,
-                                   gf_posix_mt_char);
+                value = GF_CALLOC (1, xattr_size + 1, gf_posix_mt_char);
                 if (!value)
                         goto out;
 
-                xattr_size = sys_lgetxattr (filler->real_path, key, value,
-                                            xattr_size);
+                if (filler->real_path)
+                        xattr_size = sys_lgetxattr (filler->real_path, key,
+                                                    value, xattr_size);
+                else
+                        xattr_size = sys_fgetxattr (filler->fdnum, key, value,
+                                                    xattr_size);
                 if (xattr_size == -1) {
-                        gf_log (filler->this->name, GF_LOG_WARNING,
-                                "getxattr failed. path: %s, key: %s",
-                                filler->real_path, key);
+                        if (filler->real_path)
+                                gf_log (filler->this->name, GF_LOG_WARNING,
+                                        "getxattr failed. path: %s, key: %s",
+                                        filler->real_path, key);
+                        else
+                                gf_log (filler->this->name, GF_LOG_WARNING,
+                                        "getxattr failed. gfid: %s, key: %s",
+                                        uuid_utoa (filler->fd->inode->gfid),
+                                        key);
                         GF_FREE (value);
                         goto out;
                 }
 
                 value[xattr_size] = '\0';
-                ret = dict_set_bin (filler->xattr, key,
-                                    value, xattr_size);
+                ret = dict_set_bin (filler->xattr, key, value, xattr_size);
                 if (ret < 0) {
-                        gf_log (filler->this->name, GF_LOG_DEBUG,
-                                "dict set failed. path: %s, key: %s",
-                                filler->real_path, key);
+                        if (filler->real_path)
+                                gf_log (filler->this->name, GF_LOG_DEBUG,
+                                        "dict set failed. path: %s, key: %s",
+                                        filler->real_path, key);
+                        else
+                                gf_log (filler->this->name, GF_LOG_DEBUG,
+                                        "dict set failed. gfid: %s, key: %s",
+                                        uuid_utoa (filler->fd->inode->gfid),
+                                        key);
                         GF_FREE (value);
                         goto out;
                 }
@@ -179,7 +185,10 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
         int      ret  = -1;
         char    *list = NULL, key[4096] = {0, };
 
-        size = sys_llistxattr (filler->real_path, NULL, 0);
+        if (filler->real_path)
+                size = sys_llistxattr (filler->real_path, NULL, 0);
+        else
+                size = sys_flistxattr (filler->fdnum, NULL, 0);
         if (size == -1) {
                 if ((errno == ENOTSUP) || (errno == ENOSYS)) {
                         GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
@@ -187,14 +196,17 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
                                              "Extended attributes not "
                                              "supported (try remounting brick"
                                              " with 'user_xattr' flag)");
-
                 } else {
-                        gf_log (THIS->name, GF_LOG_WARNING,
-                                "listxattr failed on %s: %s",
-                                filler->real_path, strerror (errno));
-
+                        if (filler->real_path)
+                                gf_log (THIS->name, GF_LOG_WARNING,
+                                        "listxattr failed on %s: %s",
+                                        filler->real_path, strerror (errno));
+                        else
+                                gf_log (THIS->name, GF_LOG_WARNING,
+                                        "listxattr failed on %s: %s",
+                                        uuid_utoa (filler->fd->inode->gfid),
+                                        strerror (errno));
                 }
-
                 goto out;
         }
 
@@ -208,7 +220,10 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
                 goto out;
         }
 
-        size = sys_llistxattr (filler->real_path, list, size);
+        if (filler->real_path)
+                size = sys_llistxattr (filler->real_path, list, size);
+        else
+                size = sys_flistxattr (filler->fdnum, list, size);
         if (size <= 0) {
                 ret = size;
                 goto out;
@@ -257,10 +272,39 @@ _posix_get_marker_quota_contributions (posix_xattr_filler_t *filler, char *key)
         return ret;
 }
 
+static inode_t *
+_get_filler_inode (posix_xattr_filler_t *filler)
+{
+        if (filler->fd)
+                return filler->fd->inode;
+        else if (filler->loc && filler->loc->inode)
+                return filler->loc->inode;
+        else
+                return NULL;
+}
+
 static int
-_posix_xattr_get_set (dict_t *xattr_req,
-                      char *key,
-                      data_t *data,
+_posix_filler_get_openfd_count (posix_xattr_filler_t *filler, char *key)
+{
+        inode_t  *inode            = NULL;
+        int      ret               = -1;
+
+        inode = _get_filler_inode (filler);
+        if (!inode || gf_uuid_is_null (inode->gfid))
+                        goto out;
+
+        ret = dict_set_uint32 (filler->xattr, key, inode->fd_count);
+        if (ret < 0) {
+                gf_log (filler->this->name, GF_LOG_WARNING,
+                        "Failed to set dictionary value for %s", key);
+                goto out;
+        }
+out:
+        return ret;
+}
+
+static int
+_posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                       void *xattrargs)
 {
         posix_xattr_filler_t *filler = xattrargs;
@@ -271,11 +315,13 @@ _posix_xattr_get_set (dict_t *xattr_req,
         ssize_t  req_size  = 0;
 
 
-        if (posix_xattr_ignorable (key, filler))
+        if (posix_xattr_ignorable (key))
                 goto out;
         /* should size be put into the data_t ? */
         if (!strcmp (key, GF_CONTENT_KEY)
             && IA_ISREG (filler->stbuf->ia_type)) {
+                if (!filler->real_path)
+                        goto out;
 
                 /* file content request */
                 req_size = data_to_uint64 (data);
@@ -338,16 +384,14 @@ _posix_xattr_get_set (dict_t *xattr_req,
                         GF_FREE (databuf);
                 }
         } else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
-                loc = filler->loc;
-                if (loc) {
-                        ret = dict_set_uint32 (filler->xattr, key,
-                                               loc->inode->fd_count);
-                        if (ret < 0)
-                                gf_log (filler->this->name, GF_LOG_WARNING,
-                                        "Failed to set dictionary value for %s",
-                                        key);
-                }
+                ret = _posix_filler_get_openfd_count (filler, key);
         } else if (!strcmp (key, GET_ANCESTRY_PATH_KEY)) {
+                /* As of now, the only consumers of POSIX_ANCESTRY_PATH attempt
+                 * fetching it via path-based fops. Hence, leaving it as it is
+                 * for now.
+                 */
+                if (!filler->real_path)
+                        goto out;
                 char *path = NULL;
                 ret = posix_get_ancestry (filler->this, filler->loc->inode,
                                           NULL, &path, POSIX_ANCESTRY_PATH,
@@ -588,7 +632,7 @@ out:
 }
 
 static void
-_handle_list_xattr (dict_t *xattr_req, const char *real_path,
+_handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                     posix_xattr_filler_t *filler)
 {
         int                   ret                   = -1;
@@ -598,10 +642,14 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path,
         ssize_t               remaining_size        = 0;
         char                  *key                  = NULL;
 
-        if (!real_path)
+        if ((!real_path) && (fdnum < 0))
                 goto out;
 
-        size = sys_llistxattr (real_path, NULL, 0);
+        if (real_path)
+                size = sys_llistxattr (real_path, NULL, 0);
+        else
+                size = sys_flistxattr (fdnum, NULL, 0);
+
         if (size <= 0)
                 goto out;
 
@@ -609,7 +657,11 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path,
         if (!list)
                 goto out;
 
-        remaining_size = sys_llistxattr (real_path, list, size);
+        if (real_path)
+                remaining_size = sys_llistxattr (real_path, list, size);
+        else
+                remaining_size = sys_flistxattr (fdnum, list, size);
+
         if (remaining_size <= 0)
                 goto out;
 
@@ -637,8 +689,8 @@ out:
 }
 
 dict_t *
-posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
-                         dict_t *xattr_req, struct iatt *buf)
+posix_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc, fd_t *fd,
+                  int fdnum, dict_t *xattr_req, struct iatt *buf)
 {
         dict_t     *xattr             = NULL;
         posix_xattr_filler_t filler   = {0, };
@@ -659,10 +711,12 @@ posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
         filler.xattr     = xattr;
         filler.stbuf     = buf;
         filler.loc       = loc;
+        filler.fd        = fd;
+        filler.fdnum    = fdnum;
 
         dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
         if (list)
-                _handle_list_xattr (xattr_req, real_path, &filler);
+                _handle_list_xattr (xattr_req, real_path, fdnum, &filler);
 
 out:
         return xattr;
