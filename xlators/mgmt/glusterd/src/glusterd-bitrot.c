@@ -507,12 +507,15 @@ out:
 int
 glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
-        int                  ret             = 0;
-        char                *volname         = NULL;
-        int                  type            = 0;
-        xlator_t            *this            = NULL;
-        glusterd_conf_t     *priv            = NULL;
-        glusterd_volinfo_t  *volinfo         = NULL;
+        int                  ret                      = 0;
+        char                *volname                  = NULL;
+        char                *scrub_cmd                = NULL;
+        char                *scrub_cmd_from_dict      = NULL;
+        char                 msg[2048]                = {0,};
+        int                  type                     = 0;
+        xlator_t            *this                     = NULL;
+        glusterd_conf_t     *priv                     = NULL;
+        glusterd_volinfo_t  *volinfo                  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -558,6 +561,37 @@ glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 gf_asprintf (op_errstr, "Bitrot is not enabled on volume %s",
                              volname);
                 goto out;
+        }
+
+        if ((GF_BITROT_OPTION_TYPE_SCRUB == type)) {
+                ret = dict_get_str (volinfo->dict, "features.scrub",
+                                    &scrub_cmd_from_dict);
+                if (!ret) {
+                        ret = dict_get_str (dict, "scrub-value", &scrub_cmd);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Unable to "
+                                        "get scrub-value");
+                                *op_errstr = gf_strdup ("Staging failed for "
+                                                        "bitrot operation. "
+                                                        "Please check log file"
+                                                        " for more details.");
+                                goto out;
+                        }
+                        /* If scrubber is resume then value of scrubber will be
+                         * "Active" in the dictionary. */
+                        if (!strcmp (scrub_cmd_from_dict, scrub_cmd) ||
+                            (!strncmp ("Active", scrub_cmd_from_dict,
+                                       strlen("Active")) && !strncmp ("resume",
+                                       scrub_cmd, strlen("resume")))) {
+                                snprintf (msg, sizeof (msg), "Scrub is already"
+                                          " %sd for volume %s", scrub_cmd,
+                                          volinfo->volname);
+                                *op_errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
+                }
+                ret = 0;
         }
 
  out:
