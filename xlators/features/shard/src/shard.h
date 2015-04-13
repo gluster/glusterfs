@@ -130,6 +130,10 @@ typedef struct {
 
 typedef int32_t (*shard_post_fop_handler_t) (call_frame_t *frame,
                                              xlator_t *this);
+typedef int32_t (*shard_post_resolve_fop_handler_t) (call_frame_t *frame,
+                                                     xlator_t *this);
+typedef int32_t (*shard_post_lookup_shards_fop_handler_t) (call_frame_t *frame,
+                                                           xlator_t *this);
 
 typedef struct shard_local {
         int op_ret;
@@ -152,11 +156,13 @@ typedef struct shard_local {
         dict_t *xattr_req;
         dict_t *xattr_rsp;
         inode_t **inode_list;
+        glusterfs_fop_t fop;
         struct iatt prebuf;
         struct iatt postbuf;
         struct iovec *vector;
         struct iobref *iobref;
         shard_post_fop_handler_t handler;
+        shard_post_lookup_shards_fop_handler_t pls_fop_handler;
         struct {
                 int lock_count;
                 fop_inodelk_cbk_t inodelk_cbk;
