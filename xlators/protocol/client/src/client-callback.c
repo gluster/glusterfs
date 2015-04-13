@@ -49,7 +49,7 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         struct gf_upcall upcall_data                = {0,};
         uuid_t           gfid;
         struct gf_upcall_cache_invalidation ca_data = {0,};
-        gfs3_cbk_cache_invalidation_req     ca_req  = {{0,},};
+        gfs3_cbk_cache_invalidation_req     ca_req  = {0,};
 
         gf_log (THIS->name, GF_LOG_TRACE, "Upcall callback is called");
 
@@ -69,9 +69,8 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         upcall_data.data = &ca_data;
         gf_proto_cache_invalidation_to_upcall (&ca_req, &upcall_data);
 
-        memcpy (gfid, ca_req.gfid, 16);
         gf_log (THIS->name, GF_LOG_TRACE, "Upcall gfid = %s, ret = %d",
-                uuid_utoa (gfid), ret);
+                ca_req.gfid, ret);
 
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);
 

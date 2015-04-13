@@ -273,6 +273,7 @@ gf_proto_cache_invalidation_from_upcall (gfs3_cbk_cache_invalidation_req *gf_c_r
 {
         struct gf_upcall_cache_invalidation *gf_c_data = NULL;
         int    is_cache_inval                          = 0;
+        int    ret                                     = -1;
 
         GF_VALIDATE_OR_GOTO(THIS->name, gf_c_req, out);
         GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
@@ -284,7 +285,7 @@ gf_proto_cache_invalidation_from_upcall (gfs3_cbk_cache_invalidation_req *gf_c_r
         gf_c_data = (struct gf_upcall_cache_invalidation *)gf_up_data->data;
         GF_VALIDATE_OR_GOTO(THIS->name, gf_c_data, out);
 
-        memcpy (gf_c_req->gfid, gf_up_data->gfid, 16);
+        gf_c_req->gfid = uuid_utoa (gf_up_data->gfid);
         gf_c_req->event_type       = gf_up_data->event_type;
         gf_c_req->flags            = gf_c_data->flags;
         gf_c_req->expire_time_attr = gf_c_data->expire_time_attr;
@@ -298,6 +299,7 @@ gf_proto_cache_invalidation_to_upcall (gfs3_cbk_cache_invalidation_req *gf_c_req
                                        struct gf_upcall *gf_up_data)
 {
         struct gf_upcall_cache_invalidation *gf_c_data = NULL;
+        int    ret                                     = -1;
 
         GF_VALIDATE_OR_GOTO(THIS->name, gf_c_req, out);
         GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
@@ -305,8 +307,15 @@ gf_proto_cache_invalidation_to_upcall (gfs3_cbk_cache_invalidation_req *gf_c_req
         gf_c_data = (struct gf_upcall_cache_invalidation *)gf_up_data->data;
         GF_VALIDATE_OR_GOTO(THIS->name, gf_c_data, out);
 
-        memcpy (gf_up_data->gfid, gf_c_req->gfid, 16);
-        gf_up_data->event_type       = gf_c_req->event_type;
+        ret = gf_uuid_parse (gf_c_req->gfid, gf_up_data->gfid);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING, "gf_uuid_parse(%s) failed",
+                        gf_c_req->gfid);
+                gf_up_data->event_type = GF_UPCALL_EVENT_NULL;
+                return;
+        }
+
+        gf_up_data->event_type      = gf_c_req->event_type;
 
         gf_c_data->flags            = gf_c_req->flags;
         gf_c_data->expire_time_attr = gf_c_req->expire_time_attr;
