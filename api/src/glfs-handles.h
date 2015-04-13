@@ -61,20 +61,20 @@
 #define GFAPI_HANDLE_LENGTH 16
 
 /* These flags should be in sync to the ones defined in upcall.h */
-#define UP_NLINK   0x00000001   /* update nlink */
-#define UP_MODE    0x00000002   /* update mode and ctime */
-#define UP_OWN     0x00000004   /* update mode,uid,gid and ctime */
-#define UP_SIZE    0x00000008   /* update fsize */
-#define UP_TIMES   0x00000010   /* update all times */
-#define UP_ATIME   0x00000020   /* update atime only */
-#define UP_PERM    0x00000040   /* update fields needed for
-                                   permission checking */
-#define UP_RENAME  0x00000080   /* this is a rename op -
-                                   delete the cache entry */
+#define GFAPI_UP_NLINK   0x00000001   /* update nlink */
+#define GFAPI_UP_MODE    0x00000002   /* update mode and ctime */
+#define GFAPI_UP_OWN     0x00000004   /* update mode,uid,gid and ctime */
+#define GFAPI_UP_SIZE    0x00000008   /* update fsize */
+#define GFAPI_UP_TIMES   0x00000010   /* update all times */
+#define GFAPI_UP_ATIME   0x00000020   /* update atime only */
+#define GFAPI_UP_PERM    0x00000040   /* update fields needed for
+                                         permission checking */
+#define GFAPI_UP_RENAME  0x00000080   /* this is a rename op -
+                                         delete the cache entry */
 
-#define INODE_UPDATE_FLAGS (UP_NLINK | UP_MODE | \
-                            UP_OWN | UP_SIZE | \
-                            UP_TIMES | UP_ATIME)
+#define GFAPI_INODE_UPDATE_FLAGS (GFAPI_UP_NLINK | GFAPI_UP_MODE | \
+                                  GFAPI_UP_OWN | GFAPI_UP_SIZE | \
+                                  GFAPI_UP_TIMES | GFAPI_UP_ATIME)
 
 /* Portability non glibc c++ build systems */
 #ifndef __THROW
@@ -121,10 +121,9 @@ struct callback_arg {
 };
 
 /* reason list in callback_arg */
-enum callback_type {
-        CBK_EVENT_NULL,
-        INODE_INVALIDATE,
-        INODE_UPDATE,
+enum gfapi_callback_type {
+        GFAPI_CBK_EVENT_NULL,
+        GFAPI_INODE_INVALIDATE, /* invalidate cache entry */
 };
 
 /* Handle based operations */

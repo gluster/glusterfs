@@ -1706,16 +1706,10 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 
                 switch (u_list->event_type) {
                 case CACHE_INVALIDATION:
-                        if (u_list->flags & (~(INODE_UPDATE_FLAGS))) {
-                                /* Invalidate CACHE */
-                                reason = INODE_INVALIDATE;
-                                gf_log (subvol->name, GF_LOG_DEBUG,
-                                        "Reason - INODE_INVALIDATION");
-                        } else {
-                                reason = INODE_UPDATE;
-                                gf_log (subvol->name, GF_LOG_DEBUG,
-                                        "Reason - INODE_UPDATE");
-                        }
+                        /* XXX: Need to revisit this to support
+                         * GFAPI_INODE_UPDATE if required.
+                         */
+                        reason = GFAPI_INODE_INVALIDATE;
                         break;
                 default:
                         break;
