@@ -4535,6 +4535,12 @@ glusterd_restart_gsyncds (glusterd_conf_t *conf)
         return ret;
 }
 
+int
+glusterd_calc_dist_leaf_count (int rcount, int scount)
+{
+        return (rcount ? rcount : 1) * (scount ? scount : 1);
+}
+
 inline int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
 {
@@ -4544,7 +4550,7 @@ glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
     if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)
         return volinfo->disperse_count;
 
-    return (rcount ? rcount : 1) * (scount ? scount : 1);
+    return glusterd_calc_dist_leaf_count (rcount, scount);
 }
 
 int
@@ -5258,6 +5264,10 @@ out:
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
 {
+        /* Defrag is never enabled for tiered volumes. */
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                return 0;
+
         return (volinfo->rebal.defrag != NULL);
 }
 

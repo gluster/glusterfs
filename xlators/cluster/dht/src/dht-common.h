@@ -266,6 +266,9 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_START_FORCE = 1 + 4,
         GF_DEFRAG_CMD_START_TIER = 1 + 5,
         GF_DEFRAG_CMD_STATUS_TIER = 1 + 6,
+	GF_DEFRAG_CMD_START_DETACH_TIER = 1 + 7,
+	GF_DEFRAG_CMD_STOP_DETACH_TIER = 1 + 8,
+
 };
 typedef enum gf_defrag_type gf_defrag_type;
 
@@ -836,6 +839,9 @@ int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
+
+int
+gf_defrag_start_detach_tier (gf_defrag_info_t *defrag);
 
 int
 gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,

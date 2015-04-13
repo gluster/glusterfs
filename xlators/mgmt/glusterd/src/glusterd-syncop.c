@@ -1542,6 +1542,7 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         rpc_clnt_t              *rpc = NULL;
         dict_t                  *rsp_dict = NULL;
         glusterd_conf_t         *conf = NULL;
+        int32_t                 cmd = GF_OP_CMD_NONE;
 
         this = THIS;
         conf = this->private;
@@ -1585,8 +1586,24 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                                 "due to rpc failure.");
                         goto out;
                 }
+
+                /* Redirect operation to be detach tier via rebalance flow. */
+                ret = dict_get_int32 (req_dict, "command", &cmd);
+                if (!ret) {
+                        if (cmd == GF_OP_CMD_DETACH_START) {
+                                op = GD_OP_REBALANCE;
+                                ret = dict_set_int32 (req_dict, "rebalance-command",
+                                                      GF_DEFRAG_CMD_START_DETACH_TIER);
+                                if (ret)
+                                        goto out;
+                        }
+                }
                 ret = gd_syncop_mgmt_brick_op (rpc, pending_node, op, req_dict,
                                                op_ctx, op_errstr);
+                if (cmd == GF_OP_CMD_DETACH_START) {
+                        op = GD_OP_REMOVE_BRICK;
+                        dict_del (req_dict, "rebalance-command");
+                }
                 if (ret)
                         goto out;
 

@@ -2795,10 +2795,10 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         volinfo->tier_info.cold_disperse_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_COUNT,
                                      strlen (key))) {
-                        volinfo->tier_info.cold_brick_count = atoi (value);
+                        volinfo->tier_info.hot_brick_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_REPLICA_COUNT,
                                      strlen (key))) {
-                        volinfo->tier_info.cold_replica_count = atoi (value);
+                        volinfo->tier_info.hot_replica_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_TYPE,
                                      strlen (key))) {
                         volinfo->tier_info.hot_type = atoi (value);
@@ -2890,7 +2890,10 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                         break;
 
                         case GF_CLUSTER_TYPE_TIER:
-                        break;
+                                volinfo->tier_info.cold_dist_leaf_count =
+                                        glusterd_calc_dist_leaf_count (
+                                                volinfo->tier_info.cold_replica_count, 1);
+                                break;
 
                         default:
                                 GF_ASSERT (0);

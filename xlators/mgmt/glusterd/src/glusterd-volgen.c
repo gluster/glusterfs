@@ -3025,6 +3025,11 @@ volgen_graph_build_dht_cluster (volgen_graph_t *graph,
         if (clusters < 0)
                 goto out;
 
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = 0;
+                goto out;
+        }
+
         dht = first_of (graph);
         ret = _graph_get_decommissioned_children (dht, volinfo,
                                                   &decommissioned_children);
@@ -3271,6 +3276,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         int                st_type = 0;
         char               st_volname[GD_VOLUME_NAME_MAX];
         int                dist_count = 0;
+        char              *decommissioned_children = NULL;
 
         st_brick_count     = volinfo->brick_count;
         st_replica_count   = volinfo->replica_count;
@@ -3337,6 +3343,17 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         ret = volgen_xlator_link (xl, hxl);
 
         st_type = GF_CLUSTER_TYPE_TIER;
+
+        ret = _graph_get_decommissioned_children (xl, volinfo,
+                                                  &decommissioned_children);
+        if (ret)
+                goto out;
+        if (decommissioned_children) {
+                ret = xlator_set_option (xl, "decommissioned-bricks",
+                                         decommissioned_children);
+                if (ret)
+                        goto out;
+        }
 
  out:
         volinfo->brick_count     = st_brick_count;

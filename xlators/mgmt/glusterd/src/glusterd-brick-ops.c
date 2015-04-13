@@ -1604,6 +1604,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 ret = 0;
                 goto out;
 
+        case GF_OP_CMD_DETACH_START:
         case GF_OP_CMD_START:
         {
                 if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
@@ -1736,7 +1737,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
                 break;
 
-        case GF_OP_CMD_DETACH:
+        case GF_OP_CMD_DETACH_COMMIT:
+        case GF_OP_CMD_DETACH_COMMIT_FORCE:
         case GF_OP_CMD_COMMIT_FORCE:
                 break;
         }
@@ -1961,7 +1963,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         xlator_t                *this          = NULL;
         dict_t                  *bricks_dict   = NULL;
         char                    *brick_tmpstr  = NULL;
-
+        int                      start_remove  = 0;
         this = THIS;
         GF_ASSERT (this);
 
@@ -1985,10 +1987,15 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         }
         cmd = flag;
 
+        if ((GF_OP_CMD_START == cmd) ||
+            (GF_OP_CMD_DETACH_START == cmd))
+                start_remove = 1;
+
         /* Set task-id, if available, in ctx dict for operations other than
          * start
          */
-        if (is_origin_glusterd (dict) && (cmd != GF_OP_CMD_START)) {
+
+        if (is_origin_glusterd (dict) && (!start_remove)) {
                 if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
                         ret = glusterd_copy_uuid_to_dict
                                 (volinfo->rebal.rebalance_id, dict,
@@ -2003,7 +2010,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
 
         /* Clear task-id, rebal.op and stored bricks on commmitting/stopping
          * remove-brick */
-        if ((cmd != GF_OP_CMD_START) || (cmd != GF_OP_CMD_STATUS)) {
+        if ((!start_remove) && (cmd != GF_OP_CMD_STATUS)) {
                 gf_uuid_clear (volinfo->rebal.rebalance_id);
                 volinfo->rebal.op = GD_OP_NONE;
                 dict_unref (volinfo->rebal.dict);
@@ -2047,6 +2054,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        case GF_OP_CMD_DETACH_START:
         case GF_OP_CMD_START:
                 /* Reset defrag status to 'NOT STARTED' whenever a
                  * remove-brick/rebalance command is issued to remove
@@ -2069,7 +2077,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 force = 1;
                 break;
 
-        case GF_OP_CMD_DETACH:
+        case GF_OP_CMD_DETACH_COMMIT:
+        case GF_OP_CMD_DETACH_COMMIT_FORCE:
                 glusterd_op_perform_detach_tier (volinfo);
                 /* fall through */
 
@@ -2105,7 +2114,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
          * remove-brick. Right now this is required for displaying the task
          * parameters with task status in volume status.
          */
-        if (GF_OP_CMD_START == cmd) {
+        if (start_remove) {
                 bricks_dict = dict_new ();
                 if (!bricks_dict) {
                         ret = -1;
@@ -2118,6 +2127,10 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
         }
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                count = glusterd_set_detach_bricks(dict, volinfo);
+
         while ( i <= count) {
                 snprintf (key, 256, "brick%d", i);
                 ret = dict_get_str (dict, key, &brick);
@@ -2127,7 +2140,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                if (GF_OP_CMD_START == cmd) {
+                if (start_remove) {
                         brick_tmpstr = gf_strdup (brick);
                         if (!brick_tmpstr) {
                                 ret = -1;
@@ -2150,7 +2163,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         goto out;
                 i++;
         }
-        if (GF_OP_CMD_START == cmd)
+        if (start_remove)
                 volinfo->rebal.dict = dict_ref (bricks_dict);
 
         volinfo->subvol_count = (volinfo->brick_count /
@@ -2170,7 +2183,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                  * volumes undergoing a detach operation, they should not
                  * be modified here.
                  */
-                if ((replica_count == 1) && (cmd != GF_OP_CMD_DETACH)) {
+                if ((replica_count == 1) && (cmd != GF_OP_CMD_DETACH_COMMIT) &&
+                    (cmd != GF_OP_CMD_DETACH_COMMIT_FORCE)) {
                         if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) {
                                 volinfo->type = GF_CLUSTER_TYPE_NONE;
                                 /* backward compatibility */
@@ -2195,8 +2209,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        if (GF_OP_CMD_START == cmd &&
-                        volinfo->status == GLUSTERD_STATUS_STARTED) {
+        if (start_remove &&
+            volinfo->status == GLUSTERD_STATUS_STARTED) {
                 ret = glusterd_svcs_reconfigure (volinfo);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING,

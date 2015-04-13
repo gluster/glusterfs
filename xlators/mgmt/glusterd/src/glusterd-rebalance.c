@@ -215,6 +215,10 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         GF_ASSERT (volinfo);
         GF_ASSERT (op_errstr);
 
+        if ((cmd == GF_OP_CMD_DETACH_START) &&
+            (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED))
+                return 0;
+
         ret = glusterd_defrag_start_validate (volinfo, op_errstr, len, op);
         if (ret)
                 goto out;
@@ -495,6 +499,7 @@ __glusterd_handle_defrag_volume (rpcsvc_request_t *req)
 
         if ((cmd == GF_DEFRAG_CMD_STATUS) ||
             (cmd == GF_DEFRAG_CMD_STATUS_TIER) ||
+            (cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER) ||
               (cmd == GF_DEFRAG_CMD_STOP)) {
                 ret = glusterd_op_begin (req, GD_OP_DEFRAG_BRICK_VOLUME,
                                          dict, msg, sizeof (msg));
@@ -844,6 +849,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 ret = 0;
                 break;
 
+        case GF_DEFRAG_CMD_START_DETACH_TIER:
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STATUS_TIER:
                 break;

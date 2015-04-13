@@ -36,7 +36,7 @@ function file_on_fast_tier {
 
 function confirm_tier_removed {
     $CLI system getspec $V0 | grep $1
-    if [ $? == 0 ] ; then
+    if [ $? == 0 ]; then
         echo "1"
     else
         echo "0"
@@ -52,6 +52,11 @@ function confirm_vol_stopped {
     fi
 }
 
+LAST_BRICK=1
+CACHE_BRICK=2
+DEMOTE_TIMEOUT=12
+PROMOTE_TIMEOUT=5
+MIGRATION_TIMEOUT=10
 cleanup
 
 
@@ -108,21 +113,18 @@ sleep 5
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data2.txt
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data3.txt
 
-# Test rebalance commands
-TEST $CLI volume rebalance $V0 tier status
-TEST $CLI volume rebalance $V0 stop
-
 # stop gluster, when it comes back info file should have tiered volume
 killall glusterd
 TEST glusterd
 
-# TODO: Remove force. Gracefully migrate data off hot tier.
-# Rebalance+promotion/demotion is under construction.
+# Test rebalance commands
+TEST $CLI volume rebalance $V0 tier status
 
-TEST $CLI volume detach-tier $V0
+TEST $CLI volume detach-tier $V0 start
 
-# temporarily comment out
-#TEST ! [ -e $M0/d1/data.txt ]
+TEST $CLI volume detach-tier $V0 commit
+
+EXPECT "0" file_on_slow_tier d1/data.txt
 
 EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK_FIRST}
 

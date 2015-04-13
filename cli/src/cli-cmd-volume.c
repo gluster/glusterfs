@@ -915,26 +915,16 @@ cli_cmd_volume_detach_tier_cbk (struct cli_state *state,
         const char *question = "Removing tier can result in data loss. "
                                "Do you want to Continue?";
 
-        if (wordcount != 3)
-                goto out;
-
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
-        options = dict_new ();
-        if (!options)
+        ret = cli_cmd_volume_detach_tier_parse(words, wordcount, &options);
+
+        if (ret)
                 goto out;
 
         ret = dict_set_int32 (options, "force", 1);
-        if (ret)
-                goto out;
-
-        ret = dict_set_int32 (options, "command", GF_OP_CMD_DETACH);
-        if (ret)
-                goto out;
-
-        ret = dict_set_str (options, "volname", (char *)words[2]);
         if (ret)
                 goto out;
 
@@ -2563,7 +2553,8 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_attach_tier_cbk,
           "attach tier to volume <VOLNAME>"},
 
-        { "volume detach-tier <VOLNAME>",
+        { "volume detach-tier <VOLNAME> "
+          " <start|stop|status|commit|[force]>",
           cli_cmd_volume_detach_tier_cbk,
           "detach tier from volume <VOLNAME>"},
 
