@@ -35,6 +35,7 @@
 #include "glfs.h"
 #include "mount3-auth.h"
 #include "hashfn.h"
+#include "nfs-messages.h"
 
 #include <errno.h>
 #include <sys/socket.h>
@@ -95,7 +96,8 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
 
         ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "mount state not found");
                 goto ret;
         }
 
@@ -105,7 +107,8 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
         /* TODO: use 'xdrproc_t' instead of 'sfunc' to get the xdr-size */
         iob = iobuf_get (ms->iobpool);
         if (!iob) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get iobuf");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobuf");
                 goto ret;
         }
 
@@ -115,27 +118,31 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
          */
         msglen = sfunc (outmsg, arg);
         if (msglen < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to encode message");
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_ENCODE_MSG_FAIL,
+                        "Failed to encode message");
                 goto ret;
         }
         outmsg.iov_len = msglen;
 
         iobref = iobref_new ();
         if (iobref == NULL) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get iobref");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to get iobref");
                 goto ret;
         }
 
         ret = iobref_add (iobref, iob);
         if (ret) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to add iob to iobref");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to add iob to iobref");
                 goto ret;
         }
 
         /* Then, submit the message for transmission. */
         ret = rpcsvc_submit_message (req, &outmsg, 1, NULL, 0, iobref);
         if (ret == -1) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Reply submission failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, errno, NFS_MSG_REP_SUBMIT_FAIL,
+                        "Reply submission failed");
                 goto ret;
         }
 
@@ -187,8 +194,7 @@ __mountdict_insert (struct mount3_state *ms, struct mountentry *me)
 
         medata = bin_to_data (me, sizeof (*me));
         dict_set (ms->mountdict, me->hashkey, medata);
-        gf_log (GF_MNT, GF_LOG_TRACE, "Inserted into mountdict: %s",
-                me->hashkey);
+        gf_msg_trace (GF_MNT, 0, "Inserted into mountdict: %s", me->hashkey);
 out:
         return;
 }
@@ -307,8 +313,8 @@ __mount_read_rmtab (gf_store_handle_t *sh, struct list_head *mountlist,
         GF_ASSERT (sh && mountlist);
 
         if (!gf_store_locked_local (sh)) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Not reading unlocked %s",
-                        sh->path);
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_READ_LOCKED,
+                        "Not reading unlocked %s", sh->path);
                 return -1;
         }
 
@@ -340,7 +346,8 @@ __mount_read_rmtab (gf_store_handle_t *sh, struct list_head *mountlist,
 dont_add:
                 me = GF_CALLOC (1, sizeof (*me), gf_nfs_mt_mountentry);
                 if (!me) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Out of memory");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Out of memory");
                         ret = -1;
                         goto out;
                 }
@@ -362,9 +369,10 @@ dont_add:
                 GF_FREE (value);
 
                 idx++;
-                gf_log (GF_MNT, GF_LOG_TRACE, "Read entries %s:%s", me->hostname, me->exname);
+                gf_msg_trace (GF_MNT, 0, "Read entries %s:%s",
+                              me->hostname, me->exname);
         }
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Read %d entries from '%s'", idx, sh->path);
+        gf_msg_debug (GF_MNT, 0, "Read %d entries from '%s'", idx, sh->path);
         GF_FREE (me);
 out:
         return ret;
@@ -382,14 +390,15 @@ __mount_rewrite_rmtab(struct mount3_state *ms, gf_store_handle_t *sh)
         unsigned int            idx = 0;
 
         if (!gf_store_locked_local (sh)) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Not modifying unlocked %s",
-                        sh->path);
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_MODIFY_LOCKED,
+                        "Not modifying unlocked %s", sh->path);
                 return;
         }
 
         fd = gf_store_mkstemp (sh);
         if (fd == -1) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to open %s", sh->path);
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Failed to open %s", sh->path);
                 return;
         }
 
@@ -407,16 +416,18 @@ __mount_rewrite_rmtab(struct mount3_state *ms, gf_store_handle_t *sh)
                 idx++;
         }
 
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Updated rmtab with %d entries", idx);
+        gf_msg_debug (GF_MNT, 0, "Updated rmtab with %d entries", idx);
 
         if (gf_store_rename_tmppath (sh))
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to overwrite rwtab %s",
-                        sh->path);
+                gf_msg (GF_MNT, GF_LOG_ERROR, errno,
+                        NFS_MSG_RWTAB_OVERWRITE_FAIL,
+                        "Failed to overwrite rwtab %s", sh->path);
 
         return;
 
 fail:
-        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to update %s", sh->path);
+        gf_msg (GF_MNT, GF_LOG_ERROR, errno, NFS_MSG_UPDATE_FAIL,
+                "Failed to update %s", sh->path);
         gf_store_unlink_tmppath (sh);
 }
 
@@ -455,8 +466,8 @@ mount_read_rmtab (struct mount3_state *ms)
                 return;
 
         if (gf_store_lock (sh)) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Failed to lock '%s'",
-                        nfs->rmtab);
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_LOCK_FAIL,
+                        "Failed to lock '%s'", nfs->rmtab);
                 goto out;
         }
 
@@ -500,22 +511,23 @@ mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab)
                 return;
 
         if (got_old_rmtab && gf_store_lock (sh)) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "Not rewriting '%s'",
-                        nfs->rmtab);
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_REWRITE_ERROR,
+                        "Not rewriting '%s'", nfs->rmtab);
                 goto free_sh;
         }
 
         if (new_rmtab) {
                 ret = gf_store_handle_new (new_rmtab, &nsh);
                 if (ret) {
-                        gf_log (GF_MNT, GF_LOG_WARNING, "Failed to open '%s'",
-                                new_rmtab);
+                        gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_OPEN_FAIL,
+                                "Failed to open '%s'", new_rmtab);
                         goto unlock_sh;
                 }
 
                 if (gf_store_lock (nsh)) {
-                        gf_log (GF_MNT, GF_LOG_WARNING, "Not rewriting '%s'",
-                                new_rmtab);
+                        gf_msg (GF_MNT, GF_LOG_WARNING, 0,
+                                NFS_MSG_REWRITE_ERROR,
+                                "Not rewriting '%s'", new_rmtab);
                         goto free_nsh;
                 }
         }
@@ -532,8 +544,9 @@ mount_rewrite_rmtab (struct mount3_state *ms, char *new_rmtab)
                 /* replace the nfs->rmtab reference to the new rmtab */
                 rmtab = gf_strdup(new_rmtab);
                 if (rmtab == NULL) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Out of memory, keeping "
-                                "%s as rmtab", nfs->rmtab);
+                        gf_msg (GF_MNT, GF_LOG_ERROR, errno, NFS_MSG_NO_MEMORY,
+                                "Out of memory, keeping %s as rmtab",
+                                nfs->rmtab);
                 } else {
                         GF_FREE (nfs->rmtab);
                         nfs->rmtab = rmtab;
@@ -619,8 +632,9 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         {
                 /* in case locking fails, we just don't write the rmtab */
                 if (update_rmtab && gf_store_lock (sh)) {
-                        gf_log (GF_MNT, GF_LOG_WARNING, "Failed to lock '%s'"
-                                ", changes will not be written", nfs->rmtab);
+                        gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_LOCK_FAIL,
+                                "Failed to lock '%s', changes will not be "
+                                "written", nfs->rmtab);
                 } else if (update_rmtab) {
                         __mount_read_rmtab (sh, &ms->mountlist, _gf_false);
                 }
@@ -697,8 +711,8 @@ __mnt3_build_mountid_from_path (const char *path, uuid_t mountid)
 
         hashed_path = SuperFastHash (path,  strlen (path));
         if (hashed_path == 1) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "failed to hash path: %s",
-                        path);
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_HASH_PATH_FAIL,
+                        "failed to hash path: %s", path);
                 goto out;
         }
 
@@ -722,8 +736,8 @@ __mnt3_get_mount_id (xlator_t *mntxl, uuid_t mountid)
 
         hashed_path = SuperFastHash (mntxl->name, strlen (mntxl->name));
         if (hashed_path == 1) {
-                gf_log (GF_MNT, GF_LOG_WARNING, "failed to hash xlator name: %s",
-                        mntxl->name);
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_HASH_XLATOR_FAIL,
+                        "failed to hash xlator name: %s", mntxl->name);
                 goto out;
         }
 
@@ -762,13 +776,17 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         mntxl = (xlator_t *)cookie;
         ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND,
+                        "mount state not found");
                 op_ret = -1;
                 op_errno = EINVAL;
         }
 
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "error=%s", strerror (op_errno));
+                gf_msg (GF_NFS, GF_LOG_ERROR, op_errno,
+                        NFS_MSG_LOOKUP_MNT_ERROR, "error=%s",
+                        strerror (op_errno));
                 status = mnt3svc_errno_to_mnterr (op_errno);
         }
         if (status != MNT3_OK)
@@ -776,7 +794,8 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
 
         path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
         if (!path) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Out of memory");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Out of memory");
                 goto xmit_res;
         }
 
@@ -794,8 +813,8 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
 
 xmit_res:
         nfs3_fh_to_str (&fh, fhstr, sizeof (fhstr));
-        gf_log (GF_MNT, GF_LOG_DEBUG, "MNT reply: fh %s, status: %d", fhstr,
-                status);
+        gf_msg_debug (GF_MNT, 0, "MNT reply: fh %s, status: %d", fhstr,
+                      status);
         if (op_ret == 0) {
                 svc = rpcsvc_request_service (req);
                 autharrlen = rpcsvc_auth_array (svc, mntxl->name, autharr,
@@ -873,7 +892,8 @@ mnt3svc_mount_inode (rpcsvc_request_t *req, struct mount3_state *ms,
 
         ret = nfs_inode_loc_fill (exportinode, &exportloc, NFS_RESOLVE_EXIST);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Loc fill failed for export inode"
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_INODE_LOC_FILL_ERROR,
+                        "Loc fill failed for export inode"
                         ": gfid %s, volume: %s",
                         uuid_utoa (exportinode->gfid), xl->name);
                 goto err;
@@ -912,7 +932,9 @@ mnt3svc_volume_mount (rpcsvc_request_t *req, struct mount3_state *ms,
         rootgfid[15] = 1;
         exportinode = inode_find (exp->vol->itable, rootgfid);
         if (!exportinode) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get root inode");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOENT,
+                        NFS_MSG_GET_ROOT_INODE_FAIL,
+                        "Failed to get root inode");
                 ret = -ENOENT;
                 goto err;
         }
@@ -1047,8 +1069,9 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         ret = nfs_entry_loc_fill (mres->exp->vol->itable, gfid, nextcomp,
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
-                        "inode: parent gfid %s, entry %s",
+                gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT,
+                        NFS_MSG_RESOLVE_INODE_FAIL, "Failed to resolve and "
+                        "create inode: parent gfid %s, entry %s",
                         uuid_utoa (gfid), nextcomp);
                 ret = -EFAULT;
                 goto err;
@@ -1058,8 +1081,8 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         if (IA_ISLNK (mres->resolveloc.inode->ia_type)) {
                 ret = nfs_readlink (mres->mstate->nfsx, mres->exp->vol, &nfu,
                                     &mres->resolveloc, mnt3_readlink_cbk, mres);
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Symlink found , need to resolve"
-                                              " into directory handle");
+                gf_msg_debug (GF_MNT, 0, "Symlink found , need to resolve"
+                              " into directory handle");
                 goto err;
         }
         ret = nfs_lookup (mres->mstate->nfsx, mres->exp->vol, &nfu,
@@ -1094,7 +1117,8 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ms = mres->mstate;
         mntxl = (xlator_t *)cookie;
         if (op_ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "path=%s (%s)",
+                gf_msg (GF_NFS, GF_LOG_ERROR, op_errno,
+                        NFS_MSG_RESOLVE_SUBDIR_FAIL, "path=%s (%s)",
                         mres->resolveloc.path, strerror (op_errno));
                 mntstat = mnt3svc_errno_to_mnterr (op_errno);
                 goto err;
@@ -1115,7 +1139,8 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 mres->exp->fullpath = GF_CALLOC (alloclen, sizeof (char),
                                                 gf_nfs_mt_char);
                 if (!mres->exp->fullpath) {
-                        gf_log (GF_MNT, GF_LOG_CRITICAL, "Allocation failed.");
+                        gf_msg (GF_MNT, GF_LOG_CRITICAL, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Allocation failed.");
                         goto err;
                 }
                 snprintf (mres->exp->fullpath, alloclen, "%s%s",
@@ -1129,16 +1154,16 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                       FALSE);
                 if (authcode != 0) {
                         mntstat = MNT3ERR_ACCES;
-                        gf_log (GF_MNT, GF_LOG_DEBUG,
-                                "Client mount not allowed");
+                        gf_msg_debug (GF_MNT, 0, "Client mount not allowed");
                         op_ret = -1;
                         goto err;
                 }
 
                 path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
                 if (!path) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation "
-                                "failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY,
+                                "Memory allocation failed");
                         goto err;
                 }
                 /* Build mountid from the authorized path and stick it in the
@@ -1160,8 +1185,7 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 err:
         if (op_ret == -1) {
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d",
-                        mntstat);
+                gf_msg_debug (GF_MNT, 0, "Mount reply status: %d", mntstat);
                 svc = rpcsvc_request_service (mres->req);
                 autharrlen = rpcsvc_auth_array (svc, mntxl->name, autharr,
                                                 10);
@@ -1238,10 +1262,11 @@ mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Resolving into absolute path */
         ret = gf_build_absolute_path (parent_path, relative_path, &absolute_path);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Cannot resolve symlink, path"
-                               "is out of boundary from current location %s"
-                               "and with relative path %s pointed by symlink",
-                                parent_path, relative_path);
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                        NFS_MSG_RESOLVE_SYMLINK_ERROR,
+                        "Cannot resolve symlink, path is out of boundary "
+                        "from current location %s and with relative path "
+                        "%s pointed by symlink", parent_path, relative_path);
 
                 goto mnterr;
         }
@@ -1262,9 +1287,9 @@ mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (strlen (mres->remainingdir) > 0)
                 strcat (real_loc, mres->remainingdir);
 
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Resolved path is : %s%s "
-                        "and actual mount path is %s",
-                        absolute_path, mres->remainingdir, real_loc);
+        gf_msg_debug (GF_MNT, 0, "Resolved path is : %s%s "
+                      "and actual mount path is %s",
+                      absolute_path, mres->remainingdir, real_loc);
 
         /* After the resolving the symlink , parsing should be done
          * for the populated mount path
@@ -1272,7 +1297,7 @@ mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = mnt3_parse_dir_exports (mres->req, mres->mstate, real_loc);
 
         if (ret) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_RESOLVE_ERROR,
                         "Resolved into an unknown path %s%s "
                         "from the current location of symlink %s",
                          absolute_path, mres->remainingdir, parent_path);
@@ -1290,7 +1315,7 @@ mnterr:
                 mntstat = mnt3svc_errno_to_mnterr (-ret);
                 mnt3svc_mnt_error_reply (mres->req, mntstat);
         } else
-                gf_log (GF_MNT, GF_LOG_CRITICAL,
+                gf_msg (GF_MNT, GF_LOG_CRITICAL, EINVAL, NFS_MSG_INVALID_ENTRY,
                         "mres == NULL, this should *never* happen");
         if (absolute_path)
                 GF_FREE (absolute_path);
@@ -1334,8 +1359,10 @@ __mnt3_resolve_subdir (mnt3_resolve_t *mres)
         ret = nfs_entry_loc_fill (mres->exp->vol->itable, rootgfid, firstcomp,
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
-                        "inode for volume root: %s", mres->exp->vol->name);
+                gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT,
+                        NFS_MSG_RESOLVE_INODE_FAIL, "Failed to resolve and "
+                        "create inode for volume root: %s",
+                        mres->exp->vol->name);
                 ret = -EFAULT;
                 goto err;
         }
@@ -1344,8 +1371,8 @@ __mnt3_resolve_subdir (mnt3_resolve_t *mres)
         if (IA_ISLNK (mres->resolveloc.inode->ia_type)) {
                 ret = nfs_readlink (mres->mstate->nfsx, mres->exp->vol, &nfu,
                                     &mres->resolveloc, mnt3_readlink_cbk, mres);
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Symlink found , need to resolve "
-                                              "into directory handle");
+                gf_msg_debug (GF_MNT, 0, "Symlink found , need to resolve "
+                              "into directory handle");
                 goto err;
         }
         ret = nfs_lookup (mres->mstate->nfsx, mres->exp->vol, &nfu,
@@ -1404,7 +1431,8 @@ mnt3_verify_auth (struct sockaddr_in *client_addr, struct mnt3_export *export)
         if ((NULL == client_addr) ||
             (NULL == export) ||
             (NULL == export->hostspec)) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Invalid argument");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Invalid argument");
                 return retvalue;
         }
 
@@ -1415,7 +1443,8 @@ mnt3_verify_auth (struct sockaddr_in *client_addr, struct mnt3_export *export)
          * TODO: IPv6 subnetwork i.e. AF_INET6.
          */
         if (client_addr->sin_family != AF_INET) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, EAFNOSUPPORT,
+                        NFS_MSG_UNSUPPORTED_VERSION,
                         "Only IPv4 is supported for subdir-auth");
                 return retvalue;
         }
@@ -1437,15 +1466,16 @@ mnt3_verify_auth (struct sockaddr_in *client_addr, struct mnt3_export *export)
                          * getaddrinfo() FAILED for the host IP addr. Continue
                          * to search other allowed hosts in the  hostspec list.
                          */
-                        gf_log (GF_MNT, GF_LOG_DEBUG,
-                                "getaddrinfo: %s\n", gai_strerror (ret));
+                        gf_msg_debug (GF_MNT, 0, "getaddrinfo: %s\n",
+                                      gai_strerror (ret));
                         host = host->next;
                         continue;
                 }
 
                 allowed_addr = (struct sockaddr_in *)(allowed_addrinfo->ai_addr);
                 if (NULL == allowed_addr) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Invalid structure");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                                NFS_MSG_INVALID_ENTRY, "Invalid structure");
                         break;
                 }
 
@@ -1487,15 +1517,17 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         if (NULL != exp->hostspec) {
                 ret = mnt3_verify_auth (sin, exp);
                 if (0 != ret) {
-                        gf_log (GF_MNT,GF_LOG_ERROR,
-                                        "AUTH verification failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, EACCES,
+                                NFS_MSG_AUTH_VERIFY_FAILED,
+                                "AUTH verification failed");
                         return ret;
                 }
         }
 
         mres = GF_CALLOC (1, sizeof (mnt3_resolve_t), gf_nfs_mt_mnt3_resolve);
         if (!mres) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 goto err;
         }
 
@@ -1513,7 +1545,7 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mres->parentfh = pfh;
         ret = __mnt3_resolve_subdir (mres);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                         "Failed to resolve export dir: %s", mres->exp->expname);
                 GF_FREE (mres);
         }
@@ -1539,7 +1571,7 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
 
         ret = mnt3_resolve_subdir (req, ms, exp, volume_subdir);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                         "Failed to resolve export dir: %s", exp->expname);
                 goto err;
         }
@@ -1592,13 +1624,13 @@ mnt3_mntpath_to_export (struct mount3_state *ms, const char *dirpath,
                 if (mnt3_match_dirpath_export (exp->expname, dirpath,
                                                export_parsing_match)) {
                         found = exp;
-                        gf_log (GF_MNT, GF_LOG_DEBUG, "Found export volume: "
-                                "%s", exp->vol->name);
+                        gf_msg_debug (GF_MNT, 0, "Found export volume: "
+                                      "%s", exp->vol->name);
                         goto foundexp;
                 }
         }
 
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Export not found");
+        gf_msg_debug (GF_MNT, 0, "Export not found");
 foundexp:
         UNLOCK (&ms->mountlock);
         return found;
@@ -1616,13 +1648,15 @@ mnt3_check_client_net_check (rpcsvc_t *svc, char *expvol,
 
         ret = rpcsvc_auth_check (svc, expvol, ipaddr);
         if (ret == RPCSVC_AUTH_REJECT) {
-                gf_log (GF_MNT, GF_LOG_INFO, "Peer %s  not allowed", ipaddr);
+                gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_PEER_NOT_ALLOWED,
+                        "Peer %s  not allowed", ipaddr);
                 goto err;
         }
 
         ret = rpcsvc_transport_privport_check (svc, expvol, port);
         if (ret == RPCSVC_AUTH_REJECT) {
-                gf_log (GF_MNT, GF_LOG_INFO, "Peer %s rejected. Unprivileged "
+                gf_msg (GF_MNT, GF_LOG_INFO, errno, NFS_MSG_PEER_NOT_ALLOWED,
+                        "Peer %s rejected. Unprivileged "
                         "port %d not allowed", ipaddr, port);
                 goto err;
         }
@@ -1655,9 +1689,9 @@ mnt3_check_client_net_tcp (rpcsvc_request_t *req, char *volname)
         ret = rpcsvc_transport_peeraddr (trans, peer, RPCSVC_PEER_STRLEN,
                                          &sock_union.storage, socksize);
         if (ret != 0) {
-                gf_log (GF_MNT, GF_LOG_WARNING,
-                                "Failed to get peer addr: %s",
-                                gai_strerror (ret));
+                gf_msg (GF_MNT, GF_LOG_WARNING, ENOENT,
+                        NFS_MSG_GET_PEER_ADDR_FAIL, "Failed to get peer "
+                        "addr: %s", gai_strerror (ret));
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
         }
@@ -1731,21 +1765,21 @@ mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
                 goto err;
 
         if (!nfs_subvolume_started (nfs, exp->vol)) {
-                gf_log (GF_MNT, GF_LOG_DEBUG,
-                        "Volume %s not started", exp->vol->name);
+                gf_msg_debug (GF_MNT, 0, "Volume %s not started",
+                              exp->vol->name);
                 goto err;
         }
 
         ret = mnt3_check_client_net_tcp (req, exp->vol->name);
         if (ret == RPCSVC_AUTH_REJECT) {
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
+                gf_msg_debug (GF_MNT, 0, "Client mount not allowed");
                 ret = -EACCES;
                 goto err;
         }
 
         ret = mnt3_resolve_subdir (req, ms, exp, subdir);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                         "Failed to resolve export dir: %s", subdir);
                 goto err;
         }
@@ -1767,12 +1801,13 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
 
         ms = (struct mount3_state *) rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "Mount state not present");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
 
-        gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
+        gf_msg_debug (GF_MNT, 0, "dirpath: %s", path);
         exp = mnt3_mntpath_to_export (ms, path, _gf_false);
         if (exp) {
                 ret = 0;
@@ -1842,7 +1877,8 @@ _mnt3_get_host_from_peer (const char *peer_addr)
 
         colon = strchr (peer_addr, ':');
         if (!colon) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Bad peer %s", peer_addr);
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_BAD_PEER,
+                        "Bad peer %s", peer_addr);
                 goto out;
         }
 
@@ -1850,7 +1886,8 @@ _mnt3_get_host_from_peer (const char *peer_addr)
         if (host_len < RPCSVC_PEER_STRLEN)
                 part = gf_strndup (peer_addr, host_len);
         else
-                gf_log (GF_MNT, GF_LOG_ERROR, "Peer too long %s", peer_addr);
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_PEER_TOO_LONG,
+                        "Peer too long %s", peer_addr);
 out:
         return part;
 }
@@ -1926,8 +1963,8 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
         /* Check if the filehandle is cached */
         fh_cached = mnt3_check_cached_fh (ms, fh, host_addr_ip, is_write_op);
         if (fh_cached) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Found cached FH for %s",
-                        host_addr_ip);
+                gf_msg_trace (GF_MNT, 0, "Found cached FH for %s",
+                              host_addr_ip);
                 auth_status_code = 0;
                 goto free_and_out;
         }
@@ -1961,13 +1998,15 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
         if (!fh && auth_status_code == 0) {
                 *authorized_export = gf_strdup (pathdup);
                 if (!*authorized_export)
-                        gf_log (GF_MNT, GF_LOG_CRITICAL,
+                        gf_msg (GF_MNT, GF_LOG_CRITICAL, ENOMEM,
+                                NFS_MSG_NO_MEMORY,
                                 "Allocation error when copying "
                                 "authorized path");
 
                 *authorized_host = gf_strdup (auth_host);
                 if (!*authorized_host)
-                        gf_log (GF_MNT, GF_LOG_CRITICAL,
+                        gf_msg (GF_MNT, GF_LOG_CRITICAL, ENOMEM,
+                                NFS_MSG_NO_MEMORY,
                                 "Allocation error when copying "
                                 "authorized host");
         }
@@ -2087,21 +2126,24 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         pvec.iov_len = MNTPATHLEN;
         ret = xdr_to_mountpath (pvec, req->msg[0]);
         if (ret == -1) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to decode args");
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Failed to decode args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND,
+                        "Mount state not present");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
         }
 
         nfs = (struct nfs_state *)ms->nfsx->private;
-        gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
+        gf_msg_debug (GF_MNT, 0, "dirpath: %s", path);
         ret = mnt3_find_export (req, path, &exp);
         if (ret < 0) {
                 mntstat = mnt3svc_errno_to_mnterr (-ret);
@@ -2123,8 +2165,8 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         }
 
         if (!nfs_subvolume_started (nfs, exp->vol)) {
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Volume %s not started",
-                        exp->vol->name);
+                gf_msg_debug (GF_MNT, 0, "Volume %s not started",
+                              exp->vol->name);
                 ret = -1;
                 mntstat = MNT3ERR_NOENT;
                 goto mnterr;
@@ -2133,7 +2175,7 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         ret = mnt3_check_client_net_tcp (req, exp->vol->name);
         if (ret == RPCSVC_AUTH_REJECT) {
                 mntstat = MNT3ERR_ACCES;
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
+                gf_msg_debug (GF_MNT, 0, "Client mount not allowed");
                 ret = -1;
                 goto mnterr;
         }
@@ -2145,7 +2187,7 @@ mnt3svc_mnt (rpcsvc_request_t *req)
                                               NULL, _gf_false);
         if (authcode != 0) {
                 mntstat = MNT3ERR_ACCES;
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
+                gf_msg_debug (GF_MNT, 0, "Client mount not allowed");
                 ret = -1;
                 goto mnterr;
         }
@@ -2171,7 +2213,8 @@ mnt3svc_null (rpcsvc_request_t *req)
         struct iovec    dummyvec = {0, };
 
         if (!req) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Got NULL request!");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
+                        "Got NULL request!");
                 return 0;
         }
         rpcsvc_submit_generic (req, &dummyvec, 1,  NULL, 0, NULL);
@@ -2196,13 +2239,13 @@ __build_mountlist (struct mount3_state *ms, int *count)
         mount_read_rmtab(ms);
 
         *count = 0;
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Building mount list:");
+        gf_msg_debug (GF_MNT, 0, "Building mount list:");
         list_for_each_entry (me, &ms->mountlist, mlist) {
                 namelen = strlen (me->exname);
                 mlist = GF_CALLOC (1, sizeof (*mlist), gf_nfs_mt_mountbody);
                 if (!mlist) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
-                                " failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
                         goto free_list;
                 }
                 if (!first)
@@ -2211,8 +2254,8 @@ __build_mountlist (struct mount3_state *ms, int *count)
                 mlist->ml_directory = GF_CALLOC (namelen + 2, sizeof (char),
                                                  gf_nfs_mt_char);
                 if (!mlist->ml_directory) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
-                                " failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
                         goto free_list;
                 }
 
@@ -2222,15 +2265,15 @@ __build_mountlist (struct mount3_state *ms, int *count)
                 mlist->ml_hostname = GF_CALLOC (namelen + 2, sizeof (char),
                                                 gf_nfs_mt_char);
                 if (!mlist->ml_hostname) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
-                                " failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
                         goto free_list;
                 }
 
                 strcat (mlist->ml_hostname, me->hostname);
 
-                gf_log (GF_MNT, GF_LOG_DEBUG, "mount entry: dir: %s, host: %s",
-                        mlist->ml_directory, mlist->ml_hostname);
+                gf_msg_debug (GF_MNT, 0, "mount entry: dir: %s, host: %s",
+                              mlist->ml_directory, mlist->ml_hostname);
                 if (prev) {
                         prev->ml_next = mlist;
                         prev = mlist;
@@ -2357,15 +2400,15 @@ mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
                  * the one we're looking for.
                  */
                 if (ret == -1)  {/* Not found in list. */
-                        gf_log (GF_MNT, GF_LOG_TRACE, "Export not found");
+                        gf_msg_trace (GF_MNT, 0, "Export not found");
                         goto out_unlock;
                 }
 
                 if (!me)
                         goto out_unlock;
 
-                gf_log (GF_MNT, GF_LOG_DEBUG, "Unmounting: dir %s, host: %s",
-                        me->exname, me->hostname);
+                gf_msg_debug (GF_MNT, 0, "Unmounting: dir %s, host: %s",
+                              me->exname, me->hostname);
 
                 list_del (&me->mlist);
                 GF_FREE (me);
@@ -2406,14 +2449,16 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         pvec.iov_len = MNTPATHLEN;
         ret = xdr_to_mountpath (pvec, req->msg[0]);
         if (ret == -1) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed decode args");
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_ARGS_DECODE_ERROR,
+                        "Failed decode args");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
         ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "Mount state not present");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
@@ -2421,8 +2466,9 @@ mnt3svc_umnt (rpcsvc_request_t *req)
 
         ret = rpcsvc_transport_peername (req->trans, hostname, MNTPATHLEN);
         if (ret != 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote name: %s",
-                        gai_strerror (ret));
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOENT,
+                        NFS_MSG_GET_REMOTE_NAME_FAIL,
+                        "Failed to get remote name: %s", gai_strerror (ret));
                 goto rpcerr;
         }
 
@@ -2430,8 +2476,8 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         if (colon) {
                 *colon= '\0';
         }
-        gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s, hostname: %s", dirpath,
-                hostname);
+        gf_msg_debug (GF_MNT, 0, "dirpath: %s, hostname: %s", dirpath,
+                      hostname);
         ret = mnt3svc_umount (ms, dirpath, hostname);
 
         if (ret == -1) {
@@ -2502,7 +2548,8 @@ mnt3svc_umntall (rpcsvc_request_t *req)
 
         ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "Mount state not present");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
@@ -2548,8 +2595,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 namelen = strlen (ent->expname) + 1;
                 elist = GF_CALLOC (1, sizeof (*elist), gf_nfs_mt_exportnode);
                 if (!elist) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
-                                " failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
                         goto free_list;
                 }
                  if (!first)
@@ -2557,8 +2604,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 elist->ex_dir = GF_CALLOC (namelen + 2, sizeof (char),
                                            gf_nfs_mt_char);
                 if (!elist->ex_dir) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
-                                " failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
                         goto free_list;
                 }
                 strcpy (elist->ex_dir, ent->expname);
@@ -2568,8 +2615,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 elist->ex_groups = GF_CALLOC (1, sizeof (struct groupnode),
                                               gf_nfs_mt_groupnode);
                 if (!elist->ex_groups) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
-                                " failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY, "Memory allocation failed");
                         goto free_list;
                 }
                 /*This check has to be done after checking
@@ -2616,7 +2663,8 @@ mnt3svc_export (rpcsvc_request_t *req)
 
         ms = (struct mount3_state *)rpcsvc_request_program_private (req);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_NOT_FOUND, "mount state not found");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
@@ -2696,7 +2744,8 @@ __mnt3udp_get_export_subdir_inode (struct svc_req *req, char *subdir,
                 struct sockaddr_in *sin = svc_getcaller (req->rq_xprt);
                 ret = mnt3_verify_auth (sin, exp);
                 if (ret) {
-                        gf_log (GF_MNT,GF_LOG_ERROR,
+                        gf_msg (GF_MNT, GF_LOG_ERROR, EACCES,
+                                NFS_MSG_AUTH_VERIFY_FAILED,
                                 "AUTH(nfs.export-dir) verification failed");
                         errno = EACCES;
                         return NULL;
@@ -2848,7 +2897,8 @@ nfs3_rootfh (struct svc_req *req, xlator_t *nfsx,
 
         default:
                 /* Never reachable */
-                gf_log (GF_MNT, GF_LOG_ERROR, "Unknown MOUNT3 type");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EFAULT, NFS_MSG_UNKNOWN_MNT_TYPE,
+                        "Unknown MOUNT3 type");
                 errno = EFAULT;
                 goto err;
         }
@@ -2949,7 +2999,8 @@ mnt3_export_fill_hostspec (struct host_auth_spec* hostspec, const char* hostip)
          */
         ipdupstr = gf_strdup (hostip);
         if (NULL == ipdupstr) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 goto err;
         }
 
@@ -2960,14 +3011,15 @@ mnt3_export_fill_hostspec (struct host_auth_spec* hostspec, const char* hostip)
         length = strlen (ip);
         if ((!valid_ipv4_address (ip, (int)length, _gf_false)) &&
             (!valid_host_name (ip, (int)length))) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
                         "Invalid hostname or IPv4 address: %s", ip);
                 goto err;
         }
 
         hostspec->host_addr = gf_strdup (ip);
         if (NULL == hostspec->host_addr) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 goto err;
         }
 
@@ -2991,8 +3043,9 @@ mnt3_export_fill_hostspec (struct host_auth_spec* hostspec, const char* hostip)
               prefixlen = strtol (token, &endptr, 10);
               if ((errno != 0) || (*endptr != '\0') ||
                   (prefixlen < 0) || (prefixlen > IPv4_ADDR_SIZE)) {
-                      gf_log (THIS->name, GF_LOG_WARNING,
-                              "Invalid IPv4 subnetwork mask");
+                        gf_msg (THIS->name, GF_LOG_WARNING, EINVAL,
+                                NFS_MSG_INVALID_ENTRY,
+                                "Invalid IPv4 subnetwork mask");
                       goto err;
               }
         }
@@ -3057,7 +3110,8 @@ mnt3_export_parse_auth_param (struct mnt3_export* exp, char* exportpath)
                         sizeof (*(exp->hostspec)),
                         gf_nfs_mt_auth_spec);
         if (NULL == exp->hostspec){
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 return -1;
         }
 
@@ -3071,8 +3125,9 @@ mnt3_export_parse_auth_param (struct mnt3_export* exp, char* exportpath)
         while (NULL != hostip){
                 ret = mnt3_export_fill_hostspec (host, hostip);
                 if (0 != ret) {
-                        gf_log(GF_MNT, GF_LOG_WARNING,
-                                        "Failed to parse hostspec: %s", hostip);
+                        gf_msg (GF_MNT, GF_LOG_WARNING, 0,
+                                NFS_MSG_PARSE_HOSTSPEC_FAIL,
+                                "Failed to parse hostspec: %s", hostip);
                         goto err;
                 }
 
@@ -3084,8 +3139,9 @@ mnt3_export_parse_auth_param (struct mnt3_export* exp, char* exportpath)
                 host->next = GF_CALLOC (1, sizeof (*(host)),
                                 gf_nfs_mt_auth_spec);
                 if (NULL == host->next){
-                        gf_log (GF_MNT,GF_LOG_ERROR,
-                                        "Memory allocation failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY,
+                                "Memory allocation failed");
                         goto err;
                 }
                 host = host->next;
@@ -3118,7 +3174,8 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
 
         exp = GF_CALLOC (1, sizeof (*exp), gf_nfs_mt_mnt3_export);
         if (!exp) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 return NULL;
         }
 
@@ -3129,8 +3186,9 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
                  * structure.
                  */
                 if (0 != mnt3_export_parse_auth_param (exp, exportpath)){
-                        gf_log (GF_MNT, GF_LOG_ERROR,
-                                                "Failed to parse auth param");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, 0,
+                                NFS_MSG_PARSE_AUTH_PARAM_FAIL,
+                                "Failed to parse auth param");
                         goto err;
                 }
         }
@@ -3144,24 +3202,25 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
 
         exp->expname = GF_CALLOC (alloclen, sizeof (char), gf_nfs_mt_char);
         if (!exp->expname) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 goto err;
         }
 
         if (exportpath) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Initing dir export: %s:%s",
-                        xl->name, exportpath);
+                gf_msg_trace (GF_MNT, 0, "Initing dir export: %s:%s",
+                              xl->name, exportpath);
                 exp->exptype = MNT3_EXPTYPE_DIR;
                 ret = snprintf (exp->expname, alloclen, "/%s%s", xl->name,
                                 exportpath);
         } else {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Initing volume export: %s",
-                        xl->name);
+                gf_msg_trace (GF_MNT, 0, "Initing volume export: %s",
+                              xl->name);
                 exp->exptype = MNT3_EXPTYPE_VOLUME;
                 ret = snprintf (exp->expname, alloclen, "/%s", xl->name);
         }
         if (ret < 0) {
-                gf_log (xl->name, GF_LOG_ERROR,
+                gf_msg (xl->name, GF_LOG_ERROR, ret, NFS_MSG_SET_EXP_FAIL,
                         "Failed to set the export name");
                 goto err;
         }
@@ -3204,7 +3263,8 @@ __mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
         while (token) {
                 newexp = mnt3_init_export_ent (ms, xlator, token, volumeid);
                 if (!newexp) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to init dir "
+                        gf_msg (GF_MNT, GF_LOG_ERROR, 0,
+                                NFS_MSG_INIT_DIR_EXP_FAIL, "Failed to init dir "
                                 "export: %s", token);
                         ret = -1;
                         goto err;
@@ -3238,7 +3298,8 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
 
         ret = snprintf (searchstr, 1024, "nfs3.%s.volume-id", xlator->name);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -3246,13 +3307,15 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
         if (dict_get (opts, searchstr)) {
                 ret = dict_get_str (opts, searchstr, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option"
-                                ": %s", searchstr);
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                                NFS_MSG_DICT_GET_FAILED, "Failed to read "
+                                "option: %s", searchstr);
                         ret = -1;
                         goto err;
                 }
         } else {
-                gf_log (GF_MNT, GF_LOG_ERROR, "DVM is on but volume-id not "
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_VOLID_MISSING,
+                        "DVM is on but volume-id not "
                         "given for volume: %s", xlator->name);
                 ret = -1;
                 goto err;
@@ -3261,8 +3324,9 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
         if (optstr) {
                 ret = gf_uuid_parse (optstr, volumeid);
                 if (ret < 0) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to parse volume "
-                                "UUID");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                                NFS_MSG_PARSE_VOL_UUID_FAIL, "Failed to parse "
+                                "volume UUID");
                         ret = -1;
                         goto err;
                 }
@@ -3271,7 +3335,8 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
 no_dvm:
         ret = snprintf (searchstr, 1024, "nfs3.%s.export-dir", xlator->name);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_SNPRINTF_FAIL,
+                        "snprintf failed");
                 ret = -1;
                 goto err;
         }
@@ -3279,8 +3344,9 @@ no_dvm:
         if (dict_get (opts, searchstr)) {
                 ret = dict_get_str (opts, searchstr, &optstr);
                 if (ret < 0) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option: "
-                                "%s", searchstr);
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                                NFS_MSG_DICT_GET_FAILED, "Failed to read "
+                                "option: %s", searchstr);
                         ret = -1;
                         goto err;
                 }
@@ -3288,8 +3354,9 @@ no_dvm:
                 ret = __mnt3_init_volume_direxports (ms, xlator, optstr,
                                                      volumeid);
                 if (ret == -1) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Dir export setup failed"
-                                " for volume: %s", xlator->name);
+                        gf_msg (GF_MNT, GF_LOG_ERROR, 0,
+                                NFS_MSG_DIR_EXP_SETUP_FAIL, "Dir export "
+                                "setup failed for volume: %s", xlator->name);
                         goto err;
                 }
         }
@@ -3329,24 +3396,24 @@ __mnt3_init_volume_export (struct mount3_state *ms, dict_t *opts)
 
         ret = dict_get_str (opts, "nfs3.export-volumes", &optstr);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option: "
-                        "nfs3.export-volumes");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_DICT_GET_FAILED,
+                        "Failed to read option: nfs3.export-volumes");
                 ret = -1;
                 goto err;
         }
 
         ret = gf_string2boolean (optstr, &boolt);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to convert"
-                        " string to boolean");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_STR2BOOL_FAIL,
+                        "Failed to convert string to boolean");
         }
 
 err:
         if (boolt == _gf_false) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Volume exports disabled");
+                gf_msg_trace (GF_MNT, 0, "Volume exports disabled");
                 ms->export_volumes = 0;
         } else {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Volume exports enabled");
+                gf_msg_trace (GF_MNT, 0, "Volume exports enabled");
                 ms->export_volumes = 1;
         }
 
@@ -3372,24 +3439,24 @@ __mnt3_init_dir_export (struct mount3_state *ms, dict_t *opts)
 
         ret = dict_get_str (opts, "nfs3.export-dirs", &optstr);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option: "
-                        "nfs3.export-dirs");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_DICT_GET_FAILED,
+                        "Failed to read option: nfs3.export-dirs");
                 ret = -1;
                 goto err;
         }
 
         ret = gf_string2boolean (optstr, &boolt);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to convert"
-                        " string to boolean");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_STR2BOOL_FAIL,
+                        "Failed to convert string to boolean");
          }
 
 err:
         if (boolt == _gf_false) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Dir exports disabled");
+                gf_msg_trace (GF_MNT, 0, "Dir exports disabled");
                 ms->export_dirs = 0;
         } else {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Dir exports enabled");
+                gf_msg_trace (GF_MNT, 0, "Dir exports enabled");
                 ms->export_dirs = 1;
         }
 
@@ -3410,11 +3477,13 @@ mnt3_init_options (struct mount3_state *ms, dict_t *options)
         __mnt3_init_dir_export (ms, options);
         volentry = ms->nfsx->children;
         while (volentry) {
-                gf_log (GF_MNT, GF_LOG_TRACE, "Initing options for: %s",
-                        volentry->xlator->name);
+                gf_msg_trace (GF_MNT, 0, "Initing options for: %s",
+                              volentry->xlator->name);
                 ret = __mnt3_init_volume (ms, options, volentry->xlator);
                 if (ret < 0) {
-                        gf_log (GF_MNT, GF_LOG_ERROR, "Volume init failed");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                                NFS_MSG_VOL_INIT_FAIL,
+                                "Volume init failed");
                         goto err;
                 }
 
@@ -3438,7 +3507,8 @@ mnt3_init_state (xlator_t *nfsx)
 
         ms = GF_CALLOC (1, sizeof (*ms), gf_nfs_mt_mount3_state);
         if (!ms) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed");
                 return NULL;
         }
 
@@ -3447,7 +3517,8 @@ mnt3_init_state (xlator_t *nfsx)
         INIT_LIST_HEAD (&ms->exportlist);
         ret = mnt3_init_options (ms, nfsx->options);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Options init failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_OPT_INIT_FAIL,
+                        "Options init failed");
                 return NULL;
         }
 
@@ -3470,8 +3541,8 @@ mount_init_state (xlator_t *nfsx)
         /*Maintaining global state for MOUNT1 and MOUNT3*/
         nfs->mstate =  mnt3_init_state (nfsx);
         if (!nfs->mstate) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocate"
-                        "mount state");
+                gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to allocate mount state");
                 goto out;
         }
         ret = 0;
@@ -3526,7 +3597,7 @@ __mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
         struct mnt3_auth_params  *auth_params      = NULL;
         int                       auth_status_code = 0;
 
-        gf_log (GF_MNT, GF_LOG_TRACE, "Checking if key %s is authorized.", key);
+        gf_msg_trace (GF_MNT, 0, "Checking if key %s is authorized.", key);
 
         auth_params = (struct mnt3_auth_params *)tmp;
 
@@ -3552,9 +3623,9 @@ __mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
         auth_status_code = mnt3_auth_host (auth_params, host_addr_ip, NULL,
                                            path, _gf_false, NULL);
         if (auth_status_code != 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
-                                "%s is no longer authorized for %s",
-                                host_addr_ip, path);
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_AUTH_ERROR,
+                        "%s is no longer authorized for %s",
+                        host_addr_ip, path);
                 mnt3svc_umount (auth_params->ms, path, host_addr_ip);
         }
         return 0;
@@ -3571,7 +3642,7 @@ __mnt3_mounted_exports_walk (dict_t *dict, char *key, data_t *val, void *tmp)
 void
 _mnt3_invalidate_old_mounts (struct mount3_state *ms)
 {
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Invalidating old mounts ...");
+        gf_msg_debug (GF_MNT, 0, "Invalidating old mounts ...");
         dict_foreach (ms->mountdict, __mnt3_mounted_exports_walk,
                       ms->auth_params);
 }
@@ -3653,28 +3724,30 @@ _mnt3_auth_param_refresh_thread (void *argv)
                 sleep (mstate->nfs->auth_refresh_time_secs);
 
                 if (_mnt3_has_file_changed (exp_file_path, &exp_time)) {
-                        gf_log (GF_MNT, GF_LOG_INFO, "File %s changed, "
-                                                     "updating exports,",
+                        gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_UPDATING_EXP,
+                                "File %s changed, updating exports,",
                                 exp_file_path);
 
                         ret = mnt3_auth_set_exports_auth (mstate->auth_params,
                                                           exp_file_path);
                         if (ret)
-                                gf_log (GF_MNT, GF_LOG_ERROR,
+                                gf_msg (GF_MNT, GF_LOG_ERROR, 0,
+                                        NFS_MSG_SET_EXP_AUTH_PARAM_FAIL,
                                         "Failed to set export auth params.");
                         else
                                 any_file_changed = _gf_true;
                 }
 
                 if (_mnt3_has_file_changed (ng_file_path, &ng_time)) {
-                        gf_log (GF_MNT, GF_LOG_INFO, "File %s changed,"
-                                                     "updating netgroups",
-                                ng_file_path);
+                        gf_msg (GF_MNT, GF_LOG_INFO, 0,
+                                NFS_MSG_UPDATING_NET_GRP, "File %s changed,"
+                                "updating netgroups", ng_file_path);
 
                         ret = mnt3_auth_set_netgroups_auth (mstate->auth_params,
                                                             ng_file_path);
                         if (ret)
-                                gf_log (GF_MNT, GF_LOG_ERROR,
+                                gf_msg (GF_MNT, GF_LOG_ERROR, 0,
+                                        NFS_MSG_SET_NET_GRP_FAIL,
                                         "Failed to set netgroup auth params.");
                         else
                                 any_file_changed = _gf_true;
@@ -3684,7 +3757,8 @@ _mnt3_auth_param_refresh_thread (void *argv)
                 if (!any_file_changed)
                         continue;
 
-                gf_log (GF_MNT, GF_LOG_INFO, "Purging auth cache.");
+                gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_PURGING_AUTH_CACHE,
+                        "Purging auth cache.");
                 auth_cache_purge (mstate->authcache);
 
                 /* Walk through mounts that are no longer authorized
@@ -3721,7 +3795,7 @@ _mnt3_init_auth_params (struct mount3_state *mstate)
 
         mstate->auth_params = mnt3_auth_params_init (mstate);
         if (!mstate->auth_params) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to init mount auth params.");
                 ret = -ENOMEM;
                 goto out;
@@ -3733,7 +3807,8 @@ _mnt3_init_auth_params (struct mount3_state *mstate)
 
         ret = mnt3_auth_set_exports_auth (mstate->auth_params, exp_file_path);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                        NFS_MSG_SET_EXP_AUTH_PARAM_FAIL,
                         "Failed to set export auth params.");
                 goto out;
         }
@@ -3744,7 +3819,8 @@ _mnt3_init_auth_params (struct mount3_state *mstate)
 
         ret = mnt3_auth_set_netgroups_auth (mstate->auth_params, ng_file_path);
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret,
+                        NFS_MSG_SET_EXP_AUTH_PARAM_FAIL,
                         "Failed to set netgroup auth params.");
                 goto out;
         }
@@ -3802,10 +3878,11 @@ mnt3svc_init (xlator_t *nfsx)
 
         nfs = (struct nfs_state *)nfsx->private;
 
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Initing Mount v3 state");
+        gf_msg_debug (GF_MNT, 0, "Initing Mount v3 state");
         mstate = (struct mount3_state *)nfs->mstate;
         if (!mstate) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Mount v3 state init failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_MNT_STATE_INIT_FAIL,
+                        "Mount v3 state init failed");
                 goto err;
         }
 
@@ -3813,7 +3890,7 @@ mnt3svc_init (xlator_t *nfsx)
 
         mstate->mountdict = dict_new ();
         if (!mstate->mountdict) {
-                gf_log (GF_MNT, GF_LOG_ERROR,
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to setup mount dict. Allocation error.");
                 goto err;
         }
@@ -3833,8 +3910,8 @@ mnt3svc_init (xlator_t *nfsx)
                 pthread_create (&mstate->auth_refresh_thread, NULL,
                                 _mnt3_auth_param_refresh_thread, mstate);
         } else
-                gf_log (GF_MNT, GF_LOG_WARNING, "Exports auth has been "
-                                                "disabled!");
+                gf_msg (GF_MNT, GF_LOG_WARNING, 0, NFS_MSG_EXP_AUTH_DISABLED,
+                        "Exports auth has been disabled!");
 
         mnt3prog.private = mstate;
         options = dict_new ();
@@ -3850,26 +3927,31 @@ mnt3svc_init (xlator_t *nfsx)
 
         ret = dict_set_str (options, "transport-type", "socket");
         if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
         if (nfs->allow_insecure) {
                 ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
                         goto err;
                 }
                 ret = dict_set_str (options, "rpc-auth.ports.insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
                         goto err;
                 }
         }
 
         ret= rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
+                gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                        NFS_MSG_LISTENERS_CREATE_FAIL,
+                        "Unable to create listeners");
                 dict_unref (options);
                 goto err;
         }
@@ -3918,10 +4000,12 @@ mnt1svc_init (xlator_t *nfsx)
 
         nfs = (struct nfs_state *)nfsx->private;
 
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Initing Mount v1 state");
+        gf_msg_debug (GF_MNT, GF_LOG_DEBUG, "Initing Mount v1 state");
         mstate = (struct mount3_state *)nfs->mstate;
         if (!mstate) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Mount v3 state init failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, EINVAL,
+                        NFS_MSG_MNT_STATE_INIT_FAIL,
+                        "Mount v3 state init failed");
                 goto err;
         }
 
@@ -3938,26 +4022,33 @@ mnt1svc_init (xlator_t *nfsx)
                 goto err;
         ret = dict_set_str (options, "transport-type", "socket");
         if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                gf_msg (GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_DICT_SET_FAILED,
+                        "dict_set_str error");
                 goto err;
         }
 
         if (nfs->allow_insecure) {
                 ret = dict_set_str (options, "rpc-auth-allow-insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED,
+                                "dict_set_str error");
                         goto err;
                 }
                 ret = dict_set_str (options, "rpc-auth.ports.insecure", "on");
                 if (ret == -1) {
-                        gf_log (GF_NFS, GF_LOG_ERROR, "dict_set_str error");
+                        gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                                NFS_MSG_DICT_SET_FAILED,
+                                "dict_set_str error");
                         goto err;
                 }
         }
 
         ret = rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Unable to create listeners");
+                gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                        NFS_MSG_LISTENERS_CREATE_FAIL,
+                        "Unable to create listeners");
                 dict_unref (options);
                 goto err;
         }
@@ -4001,7 +4092,8 @@ mount_reconfigure_state (xlator_t *nfsx, dict_t *options)
         UNLOCK (&ms->mountlock);
 
         if (ret < 0) {
-                gf_log (GF_MNT, GF_LOG_ERROR, "Options reconfigure failed");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RECONF_FAIL,
+                        "Options reconfigure failed");
                 return (-1);
         }
 

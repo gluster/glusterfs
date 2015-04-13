@@ -39,6 +39,7 @@
 #include "exports.h"
 #include "netgroups.h"
 #include "mem-pool.h"
+#include "nfs-messages.h"
 
 /**
  * mnt3_auth_params_init -- Initialize the mount3 authorization parameters
@@ -121,7 +122,8 @@ mnt3_auth_set_exports_auth (struct mnt3_auth_params *auth_params,
         /* Parse the exports file and set the auth parameter */
         ret = exp_file_parse (filename, &expfile, auth_params->ms);
         if (ret < 0) {
-                gf_log (GF_MNT_AUTH, GF_LOG_ERROR, "Failed to load & parse file"
+                gf_msg (GF_MNT_AUTH, GF_LOG_ERROR, 0, NFS_MSG_LOAD_PARSE_ERROR,
+                        "Failed to load & parse file"
                         " %s, see logs for more information", filename);
                 goto out;
         }
@@ -159,8 +161,9 @@ mnt3_auth_set_netgroups_auth (struct mnt3_auth_params *auth_params,
 
         ngfile = ng_file_parse (filename);
         if (!ngfile) {
-                gf_log (GF_MNT_AUTH, GF_LOG_ERROR, "Failed to load file"
-                        " %s, see logs for more information", filename);
+                gf_msg (GF_MNT_AUTH, GF_LOG_ERROR, 0, NFS_MSG_LOAD_PARSE_ERROR,
+                        "Failed to load file %s, see logs for more "
+                        "information", filename);
                 ret = -1;
                 goto out;
         }
@@ -348,8 +351,8 @@ __netgroup_dict_search (dict_t *dict, char *key, data_t *val, void *data)
                         /* If it was found, log the message, mark the search
                          * params dict as found and return.
                          */
-                        gf_log (GF_MNT_AUTH, GF_LOG_DEBUG,
-                                "key %s was hashed and found", key);
+                        gf_msg_debug (GF_MNT_AUTH, errno, "key %s was hashed "
+                                      "and found", key);
                         ngsa->found = _gf_true;
                         ngsa->found_entry = (struct netgroup_entry *)hdata->data;
                         goto out;
@@ -429,8 +432,8 @@ __export_dir_lookup_netgroup (dict_t *dict, char *key, data_t *val,
         /* We use ++key here because keys start with '@' for ngs */
         ngentry = ng_file_get_netgroup (nfile, (key + 1));
         if (!ngentry) {
-                gf_log (GF_MNT_AUTH, GF_LOG_DEBUG, "%s not found in %s",
-                        key, nfile->filename);
+                gf_msg_debug (GF_MNT_AUTH, 0, "%s not found in %s",
+                              key, nfile->filename);
                 goto out;
         }
 
