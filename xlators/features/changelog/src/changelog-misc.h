@@ -19,6 +19,7 @@
 #define HTIME_FILE_NAME "HTIME"
 #define CSNAP_FILE_NAME "CHANGELOG.SNAP"
 #define HTIME_KEY "trusted.glusterfs.htime"
+#define HTIME_CURRENT "trusted.glusterfs.current_htime"
 #define HTIME_INITIAL_VALUE "0:0"
 
 #define CHANGELOG_VERSION_MAJOR  1

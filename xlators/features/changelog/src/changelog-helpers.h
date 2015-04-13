@@ -432,7 +432,9 @@ int
 htime_update (xlator_t *this, changelog_priv_t *priv,
               unsigned long ts, char * buffer);
 int
-htime_open (xlator_t *this, changelog_priv_t * priv, unsigned long ts);
+htime_open (xlator_t *this, changelog_priv_t *priv, unsigned long ts);
+int
+htime_create (xlator_t *this, changelog_priv_t *priv, unsigned long ts);
 
 /* Geo-Rep snapshot dependency changes */
 void

@@ -422,17 +422,177 @@ changelog_rollover_changelog (xlator_t *this,
         return ret;
 }
 
-/* Returns 0 on successful creation of htime file
+int
+filter_cur_par_dirs (const struct dirent *entry)
+{
+        if (entry == NULL)
+                return 0;
+
+        if ((strcmp(entry->d_name, ".") == 0) ||
+            (strcmp(entry->d_name, "..") == 0))
+                return 0;
+        else
+                return 1;
+}
+
+/*
+ * find_current_htime:
+ *       It finds the latest htime file and sets the HTIME_CURRENT
+ *       xattr.
+ *       RETURN VALUE:
+ *           -1 : Error
+ *           ret: Number of directory entries;
+ */
+
+int
+find_current_htime (int ht_dir_fd, const char *ht_dir_path, char *ht_file_bname)
+{
+        struct dirent       **namelist = NULL;
+        int                   ret      = 0;
+        int                   cnt      = 0;
+        int                   i        = 0;
+        xlator_t             *this     = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        GF_ASSERT (ht_dir_path);
+
+        cnt = scandir (ht_dir_path, &namelist, filter_cur_par_dirs, alphasort);
+        if (cnt < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "scandir failed: %s", strerror (errno));
+        } else if (cnt > 0) {
+                strncpy (ht_file_bname, namelist[cnt - 1]->d_name, NAME_MAX);
+                ht_file_bname[NAME_MAX - 1] = 0;
+
+                if (sys_fsetxattr (ht_dir_fd, HTIME_CURRENT, ht_file_bname,
+                    strlen (ht_file_bname), 0)) {
+                        gf_log (this->name, GF_LOG_ERROR, "fsetxattr failed:"
+                                " HTIME_CURRENT: %s", strerror (errno));
+                        ret = -1;
+                        goto out;
+                }
+
+                if (fsync (ht_dir_fd) < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsync failed (reason: %s)", strerror (errno));
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+ out:
+        for (i = 0; i < cnt; i++)
+                free (namelist[i]);
+        free (namelist);
+
+        if (ret)
+                cnt = ret;
+
+        return cnt;
+}
+
+/* Returns 0 on successful open of htime file
  * returns -1 on failure or error
  */
 int
 htime_open (xlator_t *this,
-            changelog_priv_t * priv, unsigned long ts)
+              changelog_priv_t *priv, unsigned long ts)
 {
-        int fd                          = -1;
+        int ht_file_fd                  = -1;
+        int ht_dir_fd                   = -1;
+        int ret                         = 0;
+        int cnt                         = 0;
+        char ht_dir_path[PATH_MAX]      = {0,};
+        char ht_file_path[PATH_MAX]     = {0,};
+        char ht_file_bname[NAME_MAX]    = {0,};
+        char x_value[NAME_MAX]          = {0,};
+        int flags                       = 0;
+        unsigned long min_ts            = 0;
+        unsigned long max_ts            = 0;
+        unsigned long total             = 0;
+        ssize_t size                    = 0;
+
+        CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
+
+        /* Open htime directory to get HTIME_CURRENT */
+        ht_dir_fd = open (ht_dir_path, O_RDONLY);
+        if (ht_dir_fd == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "open failed: %s : %s",
+                        ht_dir_path, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        size = sys_fgetxattr (ht_dir_fd, HTIME_CURRENT, ht_file_bname,
+                             sizeof (ht_file_bname));
+        if (size < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Error extracting"
+                        " HTIME_CURRENT: %s.", strerror (errno));
+
+                /* If upgrade scenario, find the latest HTIME.TSTAMP file
+                 * and use the same. If error, create a new HTIME.TSTAMP
+                 * file.
+                 */
+                cnt = find_current_htime (ht_dir_fd, ht_dir_path,
+                                           ht_file_bname);
+                if (cnt <= 0)
+                        return htime_create (this, priv, ts);
+        }
+
+        gf_log (this->name, GF_LOG_INFO, "HTIME_CURRENT: %s", ht_file_bname);
+        (void) snprintf (ht_file_path, PATH_MAX, "%s/%s",
+                         ht_dir_path, ht_file_bname);
+
+        /* Open in append mode as existing htime file is used */
+        flags |= (O_RDWR | O_SYNC | O_APPEND);
+        ht_file_fd = open (ht_file_path, flags,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (ht_file_fd < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "unable to open htime file: %s"
+                        "(reason: %s)", ht_file_path, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        /* save this htime_fd in priv->htime_fd */
+        priv->htime_fd = ht_file_fd;
+
+        /* Initialize rollover-number in priv to current number */
+        size = sys_fgetxattr (ht_file_fd, HTIME_KEY, x_value, sizeof (x_value));
+        if (size < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "error extracting max"
+                        " timstamp from htime file %s (reason %s)",
+                        ht_file_path, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        sscanf (x_value, "%lu:%lu", &max_ts, &total);
+        gf_log (this->name, GF_LOG_INFO, "INIT CASE: MIN: %lu, MAX: %lu,"
+                " TOTAL CHANGELOGS: %lu", min_ts, max_ts, total);
+        priv->rollover_count = total + 1;
+
+out:
+        if (ht_dir_fd != -1)
+                close (ht_dir_fd);
+        return ret;
+}
+
+/* Returns 0 on successful creation of htime file
+ * returns -1 on failure or error
+ */
+int
+htime_create (xlator_t *this,
+              changelog_priv_t *priv, unsigned long ts)
+{
+        int ht_file_fd                  = -1;
+        int ht_dir_fd                   = -1;
         int ret                         = 0;
         char ht_dir_path[PATH_MAX]      = {0,};
         char ht_file_path[PATH_MAX]     = {0,};
+        char ht_file_bname[NAME_MAX]    = {0,};
         int flags                       = 0;
 
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
@@ -442,18 +602,17 @@ htime_open (xlator_t *this,
                         HTIME_FILE_NAME, ts);
 
         flags |= (O_CREAT | O_RDWR | O_SYNC);
-        fd = open (ht_file_path, flags,
+        ht_file_fd = open (ht_file_path, flags,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-        if (fd < 0) {
+        if (ht_file_fd < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "unable to open/create htime file: %s"
+                        "unable to create htime file: %s"
                         "(reason: %s)", ht_file_path, strerror (errno));
                 ret = -1;
                 goto out;
-
         }
 
-        if (sys_fsetxattr (fd, HTIME_KEY, HTIME_INITIAL_VALUE,
+        if (sys_fsetxattr (ht_file_fd, HTIME_KEY, HTIME_INITIAL_VALUE,
                        sizeof (HTIME_INITIAL_VALUE)-1,  0)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Htime xattr initialization failed");
@@ -461,12 +620,47 @@ htime_open (xlator_t *this,
                 goto out;
         }
 
+        ret = fsync (ht_file_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "fsync failed (reason: %s)",
+                        strerror (errno));
+                goto out;
+        }
+
+        /* Set xattr HTIME_CURRENT on htime directory to htime filename */
+        ht_dir_fd = open (ht_dir_path, O_RDONLY);
+        if (ht_dir_fd == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "open of %s failed: %s",
+                        ht_dir_path, strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        (void) snprintf (ht_file_bname, PATH_MAX, "%s.%lu",
+                         HTIME_FILE_NAME, ts);
+        if (sys_fsetxattr (ht_dir_fd, HTIME_CURRENT, ht_file_bname,
+            strlen (ht_file_bname), 0)) {
+                gf_log (this->name, GF_LOG_ERROR, "fsetxattr failed:"
+                        " HTIME_CURRENT: %s", strerror (errno));
+                ret = -1;
+                goto out;
+        }
+
+        ret = fsync (ht_dir_fd);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "fsync failed (reason: %s)",
+                        strerror (errno));
+                goto out;
+        }
+
         /* save this htime_fd in priv->htime_fd */
-        priv->htime_fd = fd;
+        priv->htime_fd = ht_file_fd;
         /* initialize rollover-number in priv to 1 */
         priv->rollover_count = 1;
 
 out:
+        if (ht_dir_fd != -1)
+                close (ht_dir_fd);
         return ret;
 }
 
