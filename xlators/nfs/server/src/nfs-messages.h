@@ -45,7 +45,7 @@
  */
 
 #define GLFS_NFS_BASE                   GLFS_MSGID_COMP_NFS
-#define GLFS_NFS_NUM_MESSAGES           201
+#define GLFS_NFS_NUM_MESSAGES           202
 #define GLFS_MSGID_END                  (GLFS_NFS_BASE + GLFS_NFS_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1653,6 +1653,15 @@
  * @recommendedaction
  *
  */
+
+#define NFS_MSG_ENABLE_THROTTLE_FAIL    (GLFS_NFS_BASE + 202)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
