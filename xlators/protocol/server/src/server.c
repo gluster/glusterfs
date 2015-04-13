@@ -1124,7 +1124,7 @@ server_process_event_upcall (xlator_t *this, void *data)
         void             *up_req      = NULL;
         rpc_transport_t  *xprt        = NULL;
         enum gf_cbk_procnum cbk_procnum          = GF_CBK_NULL;
-        gfs3_cbk_cache_invalidation_req gf_c_req = {{0,},};
+        gfs3_cbk_cache_invalidation_req gf_c_req = {0,};
         xdrproc_t        xdrproc;
 
         GF_VALIDATE_OR_GOTO(this->name, data, out);
