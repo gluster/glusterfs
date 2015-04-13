@@ -191,6 +191,7 @@ ec_value_ignore (char *key)
             (strcmp(key, GLUSTERFS_ENTRYLK_COUNT) == 0) ||
             (strncmp(key, GF_XATTR_CLRLK_CMD,
                      strlen (GF_XATTR_CLRLK_CMD)) == 0) ||
+            (strcmp(key, DHT_IATT_IN_XDATA_KEY) == 0) ||
             (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
             (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
             (fnmatch(GF_XATTR_MARKER_KEY ".*", key, 0) == 0) ||

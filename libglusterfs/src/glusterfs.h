@@ -230,8 +230,9 @@
 #define DHT_LINKFILE_STR "linkto"
 #define DHT_COMMITHASH_STR "commithash"
 
-#define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
-#define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
+#define DHT_SKIP_NON_LINKTO_UNLINK  "unlink-only-if-dht-linkto-file"
+#define DHT_SKIP_OPEN_FD_UNLINK     "dont-unlink-for-open-fd"
+#define DHT_IATT_IN_XDATA_KEY       "dht-get-iatt-in-xattr"
 
 /*CTR requires inode dentry link count from posix*/
 #define CTR_RESPONSE_LINK_COUNT_XDATA "ctr_response_link_count"
