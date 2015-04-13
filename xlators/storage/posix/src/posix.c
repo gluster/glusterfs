@@ -3239,6 +3239,31 @@ map_xattr_flags(int flags)
 }
 #endif
 
+static
+int32_t posix_set_iatt_in_dict (dict_t *dict, struct iatt *in_stbuf)
+{
+        int ret             = -1;
+        struct iatt *stbuf  = NULL;
+        int32_t len         = sizeof(struct iatt);
+
+        if (!dict || !in_stbuf)
+                return ret;
+
+        stbuf = GF_CALLOC (1, len, gf_common_mt_char);
+        if (!stbuf)
+                return ret;
+
+        memcpy (stbuf, in_stbuf, len);
+
+        ret = dict_set_bin (dict, DHT_IATT_IN_XDATA_KEY, stbuf, len);
+        if (ret)
+                GF_FREE (stbuf);
+
+        return ret;
+}
+
+
+
 int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
@@ -3246,7 +3271,9 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         int32_t       op_ret                  = -1;
         int32_t       op_errno                = 0;
         char *        real_path               = NULL;
-
+        struct iatt   stbuf                   = {0};
+        int32_t       ret                     = 0;
+        dict_t       *xattr                   = NULL;
         posix_xattr_filler_t filler = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
@@ -3265,6 +3292,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret = -1;
+
         dict_del (dict, GFID_XATTR_KEY);
         dict_del (dict, GF_XATTR_VOL_ID_KEY);
 
@@ -3280,12 +3308,31 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         if (op_ret < 0) {
                 op_errno = -op_ret;
                 op_ret = -1;
+                goto out;
         }
 
+/*
+ * FIXFIX: Send the stbuf info in the xdata for now
+ * This is used by DHT to redirect FOPs if the file is being migrated
+ * Ignore errors for now
+ */
+        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+                ret = posix_pstat(this, loc->gfid, real_path, &stbuf);
+                if (ret)
+                        goto out;
+
+                xattr = dict_new();
+                if (!xattr)
+                        goto out;
+                ret = posix_set_iatt_in_dict (xattr, &stbuf);
+        }
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xattr);
+
+        if (xattr)
+                dict_unref(xattr);
 
         return 0;
 }
@@ -4313,13 +4360,14 @@ int32_t
 posix_fsetxattr (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
 {
-        int32_t            op_ret       = -1;
-        int32_t            op_errno     = 0;
-        struct posix_fd *  pfd          = NULL;
-        int                _fd          = -1;
-        int                ret          = -1;
-
-        posix_xattr_filler_t filler = {0,};
+        int32_t            op_ret         = -1;
+        int32_t            op_errno       = 0;
+        struct posix_fd   *pfd            = NULL;
+        int                _fd            = -1;
+        int                ret            = -1;
+        struct  iatt       stbuf          = {0,};
+        dict_t            *xattr          = NULL;
+        posix_xattr_filler_t filler       = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -4366,10 +4414,28 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+                ret = posix_fdstat (this, pfd->fd, &stbuf);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fsetxattr (fstat) failed on fd=%p: %s",
+                                fd, strerror (op_errno));
+                        goto out;
+                }
+
+                xattr = dict_new ();
+                if (!xattr)
+                        goto out;
+                ret = posix_set_iatt_in_dict (xattr, &stbuf);
+        }
+
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, xattr);
+
+        if (xattr)
+                dict_unref (xattr);
 
         return 0;
 }
@@ -4429,7 +4495,10 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
 {
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
+        int32_t ret    = -1;
         char *  real_path = NULL;
+        struct iatt   stbuf         = {0};
+        dict_t  *xattr    = NULL;
         posix_xattr_filler_t filler = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
@@ -4485,12 +4554,26 @@ posix_removexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+                ret = posix_pstat(this, loc->gfid, real_path, &stbuf);
+                if (ret)
+                        goto out;
+                xattr = dict_new();
+                if (!xattr)
+                        goto out;
+
+                ret = posix_set_iatt_in_dict (xattr, &stbuf);
+        }
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, NULL);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xattr);
+
+        if (xattr)
+                dict_unref (xattr);
+
         return 0;
 }
 
@@ -4501,6 +4584,8 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
         struct posix_fd * pfd      = NULL;
+        struct iatt       stbuf    = {0,};
+        dict_t           *xattr    = NULL;
         int               _fd      = -1;
         int               ret      = -1;
 
@@ -4541,12 +4626,26 @@ posix_fremovexattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+                ret = posix_fdstat (this, pfd->fd, &stbuf);
+                if (ret)
+                        goto out;
+                xattr = dict_new();
+                if (!xattr)
+                        goto out;
+
+                ret = posix_set_iatt_in_dict (xattr, &stbuf);
+        }
         op_ret = 0;
 
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, NULL);
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xattr);
+
+        if (xattr)
+                dict_unref (xattr);
+
         return 0;
 }
 
