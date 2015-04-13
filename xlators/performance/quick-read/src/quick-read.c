@@ -587,9 +587,11 @@ unlock:
 		STACK_UNWIND_STRICT (readv, frame, op_ret, 0, &iov, 1,
 				     &buf, iobref, xdata);
 	}
-	iobuf_unref (iobuf);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
-	iobref_unref (iobref);
+        if (iobref)
+	        iobref_unref (iobref);
 
 	return op_ret;
 }
