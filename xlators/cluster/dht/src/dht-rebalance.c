@@ -2682,6 +2682,22 @@ gf_defrag_start_crawl (void *data)
                         goto out;
                 }
                 methods->migration_other(this, defrag);
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+                        migrate_data = dict_new ();
+                        if (!migrate_data) {
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_str (migrate_data,
+                                            GF_XATTR_FILE_MIGRATE_KEY,
+                                            "force");
+                        if (ret)
+                                goto out;
+
+                        ret = gf_defrag_fix_layout (this, defrag, &loc,
+                                                    fix_layout,
+                                                    migrate_data);
+                }
         }
         gf_log ("DHT", GF_LOG_INFO, "crawling file-system completed");
 out:
@@ -2897,6 +2913,14 @@ log:
 
 
 out:
+        return 0;
+}
+
+int
+gf_defrag_start_detach_tier (gf_defrag_info_t *defrag)
+{
+        defrag->cmd = GF_DEFRAG_CMD_START_DETACH_TIER;
+
         return 0;
 }
 

@@ -77,6 +77,11 @@ static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
 
+int
+glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
+                                         struct cds_list_head *selected);
+
+
 int32_t
 glusterd_txn_opinfo_dict_init ()
 {
@@ -5166,8 +5171,8 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
         int32_t                                 i = 1;
         char                                    key[256] = {0,};
         glusterd_pending_node_t                 *pending_node = NULL;
+        int32_t                                 command = 0;
         int32_t                                 force = 0;
-
 
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -5189,6 +5194,15 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
                 gf_log ("", GF_LOG_ERROR, "Unable to get count");
                 goto out;
         }
+
+        ret = dict_get_int32 (dict, "command", &command);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get command");
+                goto out;
+        }
+
+        if (command == GF_OP_CMD_DETACH_START)
+                return glusterd_bricks_select_rebalance_volume(dict, op_errstr, selected);
 
         ret = dict_get_int32 (dict, "force", &force);
         if (ret) {
@@ -5868,7 +5882,7 @@ out:
 
 }
 
-static int
+int
 glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
                                          struct cds_list_head *selected)
 {
@@ -5905,7 +5919,7 @@ glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
         } else {
                 pending_node->node = volinfo;
                 pending_node->type = GD_NODE_REBALANCE;
-                cds_list_add_tail (&pending_node->list, &opinfo.pending_bricks);
+                cds_list_add_tail (&pending_node->list, selected);
                 pending_node = NULL;
         }
 
