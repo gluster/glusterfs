@@ -1633,17 +1633,11 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                 goto out;
         }
         if (!fd_is_anonymous(fd)) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        P_MSG_READ_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_READ_FAILED,
                         "Failed to get fd context for a non-anonymous fd, "
-                        "file: %s, gfid: %s", real_path,
-                        uuid_utoa (fd->inode->gfid));
+                        "gfid: %s", uuid_utoa (fd->inode->gfid));
                 goto out;
         }
-
-        if (!fd_is_anonymous(fd))
-                /* anonymous fd */
-                goto out;
 
         MAKE_HANDLE_PATH (real_path, this, fd->inode->gfid, NULL);
         if (!real_path) {
@@ -1671,8 +1665,12 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                 _fd = dirfd (dir);
         }
 
+        /* Using fd->flags in case we choose to have anonymous
+         * fds with different flags some day. As of today it
+         * would be GF_ANON_FD_FLAGS and nothing else.
+         */
         if (fd->inode->ia_type == IA_IFREG) {
-                _fd = open (real_path, O_RDWR|O_LARGEFILE);
+                _fd = open (real_path, fd->flags);
                 if (_fd == -1) {
                         POSIX_GET_FILE_UNLINK_PATH (priv->base_path,
                                                     fd->inode->gfid,
