@@ -4634,7 +4634,9 @@ gf_rdma_listen (rpc_transport_t *this)
         int                  ret          = 0;
         gf_rdma_ctx_t       *rdma_ctx     = NULL;
         char                 service[NI_MAXSERV], host[NI_MAXHOST];
+#if defined(RDMA_OPTION_ID_REUSEADDR)
         int                  optval = 2;
+#endif
 
         priv = this->private;
         peer = &priv->peer;
