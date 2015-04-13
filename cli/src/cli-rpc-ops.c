@@ -9820,9 +9820,8 @@ gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 } else {
                         cli_err ("%s", msg);
                 }
-                ret = 0; /* setting ret to 0 ensures we do not end up displaying
-                            double error messages */
-                goto out;
+                ret = rsp.op_ret;
+                goto out_nolog;
         }
         dict = dict_new ();
 
@@ -9890,6 +9889,8 @@ out:
                 cli_out ("volume get option failed. Check the cli/glusterd log "
                          "file for more details");
         }
+
+out_nolog:
         if (dict)
                 dict_unref (dict);
         free (rsp.op_errstr);

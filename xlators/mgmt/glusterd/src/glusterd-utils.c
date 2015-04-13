@@ -9308,7 +9308,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
                 if (!all_opts && strcmp (vme->key, input_key))
                         continue;
-
                 key_found = _gf_true;
                 /* First look for the key in the vol_dict, if its not
                  * present then look for translator default value */
