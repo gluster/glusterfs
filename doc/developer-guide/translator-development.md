@@ -665,5 +665,19 @@ hope you've enjoyed this series, or at least found it useful, and if you have
 any suggestions for other topics I should cover please let me know (via
 comments or email, IRC or Twitter).
 
-Also Refer:
-http://www.gluster.org/community/documentation/index.php/Translators
+Other versions
+--------------
+
+Original author's site:
+
+ * [Translator 101 - Setting the Stage](http://pl.atyp.us/hekafs.org/index.php/2011/11/translator-101-class-1-setting-the-stage/)
+
+ * [Translator 101 - Init, Fini and Private Context](http://pl.atyp.us/hekafs.org/index.php/2011/11/translator-101-lesson-2-init-fini-and-private-context/)
+
+ * [Translator 101 - This Time for Real](http://pl.atyp.us/hekafs.org/index.php/2011/11/translator-101-lesson-3-this-time-for-real/)
+
+ * [Translator 101 - Debugging a Translator](http://pl.atyp.us/hekafs.org/index.php/2011/11/translator-101-lesson-4-debugging-a-translator/)
+
+Gluster community site:
+
+ * [Translators](http://www.gluster.org/community/documentation/index.php/Translators)
