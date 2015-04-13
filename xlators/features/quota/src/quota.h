@@ -226,6 +226,12 @@ struct quota_priv {
 };
 typedef struct quota_priv      quota_priv_t;
 
+void
+check_ancestory_2 (xlator_t *this, quota_local_t *local, inode_t *inode);
+
+int
+quota_build_ancestry (inode_t *inode, quota_ancestry_built_t ancestry_cbk,
+                      void *data);
 int
 quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        dict_t *xdata, fop_lookup_cbk_t cbk);
