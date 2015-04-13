@@ -309,8 +309,7 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
         fd_t *fdptr = NULL;
         fdentry_t *fde = NULL;
 
-        if (fd == -2)
-                /* anonymous fd */
+        if (fd == GF_ANON_FD_NO)
                 return;
 
         if (fdtable == NULL || fd < 0) {
@@ -774,6 +773,7 @@ __fd_anonymous (inode_t *inode)
                         return NULL;
 
                 fd->anonymous = _gf_true;
+                fd->flags = GF_ANON_FD_FLAGS;
 
                 __fd_bind (fd);
 
