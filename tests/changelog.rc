@@ -1,0 +1,4 @@
+
+function count_htime_files {
+    ls -l $B0/$V0"1"/.glusterfs/changelogs/htime/ | grep HTIME | wc -l
+}
