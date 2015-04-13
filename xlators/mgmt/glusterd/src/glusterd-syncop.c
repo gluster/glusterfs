@@ -463,9 +463,6 @@ gd_syncop_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 
         gf_uuid_copy (args->uuid, rsp.uuid);
 
-        /* Set peer as locked, so we unlock only the locked peers */
-        if (rsp.op_ret == 0)
-                peerinfo->locked = _gf_true;
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 out:
