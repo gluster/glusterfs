@@ -462,13 +462,13 @@ rpcsvc_add_op_to_cache (rpcsvc_drc_globals_t *drc, drc_cached_op_t *reply)
                 rpcsvc_vacate_drc_entries (drc);
 
         tmp_reply = (drc_cached_op_t **)rb_probe (client->rbtree, reply);
-        if (*tmp_reply != reply) {
+        if (!tmp_reply) {
+                /* mem alloc failed */
+                return -1;
+        } else if (*tmp_reply != reply) {
                 /* should never happen */
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,
                         "DRC failed to detect duplicates");
-                return -1;
-        } else if (*tmp_reply == NULL) {
-                /* mem alloc failed */
                 return -1;
         }
 

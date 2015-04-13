@@ -4130,7 +4130,7 @@ gf_cli_getspec (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         op_dict = dict_new ();
-        if (!dict) {
+        if (!op_dict) {
                 ret = -1;
                 goto out;
         }

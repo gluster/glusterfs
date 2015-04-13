@@ -33,7 +33,7 @@ typedef struct _dentry dentry_t;
 #include "list.h"
 #include "xlator.h"
 #include "iatt.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 #include "fd.h"
 
 struct _inode_table {

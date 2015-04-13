@@ -249,12 +249,15 @@ out:
 
 #define nfs3_check_fh_auth_status(cst, nfstat, is_write_op, erlabl)     \
         do {                                                            \
+                int auth_ret = 0;                                       \
+                int auth_errno = 0;                                     \
                 xlator_t *xlatorp = NULL;                               \
                 char buf[256], gfid[256];                               \
                 rpc_transport_t *trans = NULL;                          \
-                cst->resolve_ret = cst->resolve_errno =                 \
+                                                                        \
+                auth_ret = auth_errno =                                 \
                         nfs3_fh_auth_nfsop (cst, is_write_op);          \
-                if ((cst)->resolve_ret < 0) {                           \
+                if (auth_ret < 0) {                                     \
                         trans = rpcsvc_request_transport (cst->req);    \
                         xlatorp = nfs3_fh_to_xlator (cst->nfs3state,    \
                                                      &cst->resolvefh);  \
@@ -264,7 +267,7 @@ out:
                         xlatorp ? xlatorp->name : "ERR", gfid);         \
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Unable to resolve FH"\
                                 ": %s", buf);                           \
-                        nfstat = nfs3_errno_to_nfsstat3 (-cst->resolve_errno);\
+                        nfstat = nfs3_errno_to_nfsstat3 (-auth_errno);\
                         goto erlabl;                                    \
                 }                                                       \
         } while (0)                                                     \

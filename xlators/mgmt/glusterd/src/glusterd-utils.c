@@ -4308,7 +4308,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         continue;
                 if (start_svcs == _gf_false) {
                         start_svcs = _gf_true;
-                        glusterd_svcs_manager (NULL);
+                        glusterd_svcs_manager (volinfo);
                 }
                 gf_log (this->name, GF_LOG_DEBUG, "starting the volume %s",
                         volinfo->volname);
@@ -4324,7 +4324,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                 continue;
                         if (start_svcs == _gf_false) {
                                 start_svcs = _gf_true;
-                                glusterd_svcs_manager (NULL);
+                                glusterd_svcs_manager (volinfo);
                         }
                         start_svcs = _gf_true;
                         gf_log (this->name, GF_LOG_DEBUG, "starting the snap "

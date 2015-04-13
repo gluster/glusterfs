@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "common-utils.h"
+#include "compat-uuid.h"
 #include "gfdb_mem-types.h"
 #include "dict.h"
 

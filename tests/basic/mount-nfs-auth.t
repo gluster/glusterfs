@@ -48,7 +48,7 @@ function export_allow_this_host_l1 () {
 }
 
 function export_allow_wildcard () {
-        printf "$EXPORT_WILDCARD\n" >> ${NFSDIR}/exports
+        printf "$EXPORT_WILDCARD\n" > ${NFSDIR}/exports
 }
 
 function export_allow_this_host_ro () {
@@ -262,7 +262,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 ## Test wildcard hosts
 TEST export_allow_wildcard
 
-EXPECT "Y" check_mount_success $V0
+EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
 EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" small_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 

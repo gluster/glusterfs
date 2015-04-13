@@ -22,7 +22,7 @@
 #include <unistd.h>
 
 #include "compat.h"
-#include "uuid.h"
+#include "compat-uuid.h"
 
 typedef enum {
         IA_INVAL = 0,

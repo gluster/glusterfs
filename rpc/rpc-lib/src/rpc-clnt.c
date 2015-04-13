@@ -724,7 +724,7 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         }
 
 out:
-        clnt = rpc_clnt_unref (clnt);
+        rpc_clnt_unref (clnt);
         return ret;
 }
 
@@ -774,7 +774,7 @@ out:
                 mem_put (saved_frame);
         }
 
-        clnt = rpc_clnt_unref (clnt);
+        rpc_clnt_unref (clnt);
         return ret;
 }
 
@@ -1455,11 +1455,12 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
                 program->progver);
 
 out:
-        if (ret == -1) {
-                gf_log (clnt->conn.name, GF_LOG_ERROR,
-                        "Program registration failed:"
-                        " %s, Num: %d, Ver: %d", program->progname,
-                        program->prognum, program->progver);
+        if (ret == -1 && clnt) {
+                        gf_log (clnt->conn.name, GF_LOG_ERROR,
+                                        "Program registration failed:"
+                                        " %s, Num: %d, Ver: %d",
+                                        program->progname,
+                                        program->prognum, program->progver);
         }
 
         return ret;

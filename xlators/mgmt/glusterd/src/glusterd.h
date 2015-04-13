@@ -20,7 +20,7 @@
 #include <pthread.h>
 #include <libgen.h>
 
-#include "uuid.h"
+#include "compat-uuid.h"
 
 #include "rpc-clnt.h"
 #include "glusterfs.h"

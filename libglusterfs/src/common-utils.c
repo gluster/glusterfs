@@ -1450,13 +1450,17 @@ err:
 int
 gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
 {
-        double value = 0.0;
-        char *tail = NULL;
-        int old_errno = 0;
-        const char *s = NULL;
+        double        value      = 0.0;
+        uint64_t      int_value  = 0;
+        uint64_t      unit       = 0;
+        char         *tail       = NULL;
+        int           old_errno  = 0;
+        const char   *s          = NULL;
+        gf_boolean_t  fraction   = _gf_false;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                                  "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1469,9 +1473,16 @@ gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
                 break;
         }
 
+        if (strrchr (str, '.'))
+                fraction = _gf_true;
+
         old_errno = errno;
         errno = 0;
-        value = strtod (str, &tail);
+        if (fraction)
+                value = strtod (str, &tail);
+        else
+                int_value = strtoll (str, &tail, 10);
+
         if (str == tail)
                 errno = EINVAL;
 
@@ -1484,25 +1495,39 @@ gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
         if (tail[0] != '\0')
         {
                 if (strcasecmp (tail, GF_UNIT_KB_STRING) == 0)
-                        value *= GF_UNIT_KB;
+                        unit = GF_UNIT_KB;
                 else if (strcasecmp (tail, GF_UNIT_MB_STRING) == 0)
-                        value *= GF_UNIT_MB;
+                        unit = GF_UNIT_MB;
                 else if (strcasecmp (tail, GF_UNIT_GB_STRING) == 0)
-                        value *= GF_UNIT_GB;
+                        unit = GF_UNIT_GB;
                 else if (strcasecmp (tail, GF_UNIT_TB_STRING) == 0)
-                        value *= GF_UNIT_TB;
+                        unit = GF_UNIT_TB;
                 else if (strcasecmp (tail, GF_UNIT_PB_STRING) == 0)
-                        value *= GF_UNIT_PB;
+                        unit = GF_UNIT_PB;
                 else if (strcasecmp (tail, GF_UNIT_B_STRING) != 0)
                         return -1;
+
+                if (unit > 0) {
+                        if (fraction)
+                                value *= unit;
+                        else
+                                int_value *= unit;
+                }
         }
 
-        if ((max - value) < 0) {
-                errno = ERANGE;
-                return -1;
+        if (fraction) {
+                if ((max - value) < 0) {
+                        errno = ERANGE;
+                        return -1;
+                }
+                *n = (uint64_t) value;
+        } else {
+                if ((max - int_value) < 0) {
+                        errno = ERANGE;
+                        return -1;
+                }
+                *n = int_value;
         }
-
-        *n = (uint64_t) value;
 
         return 0;
 }
@@ -1527,6 +1552,17 @@ int
 gf_string2bytesize_uint64 (const char *str, uint64_t *n)
 {
         return gf_string2bytesize_range(str, n, UINT64_MAX);
+}
+
+int
+gf_string2bytesize_int64 (const char *str, int64_t *n)
+{
+        uint64_t u64 = 0;
+        int      ret = 0;
+
+        ret = gf_string2bytesize_range(str, &u64, INT64_MAX);
+        *n = (int64_t) u64;
+        return ret;
 }
 
 int
