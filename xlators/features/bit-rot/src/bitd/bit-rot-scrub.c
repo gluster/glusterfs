@@ -203,8 +203,8 @@ bitd_compare_ckum (xlator_t *this,
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_WARNING,
-                "Object checksumsum mismatch: %s [GFID: %s | Brick: %s]",
+        gf_log (this->name, GF_LOG_ALERT,
+                "Object checksum mismatch: %s [GFID: %s | Brick: %s]",
                 loc->path, uuid_utoa (linked_inode->gfid), child->brick_path);
 
         /* Perform bad-file marking */
