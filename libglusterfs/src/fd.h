@@ -20,6 +20,7 @@
 #include "common-utils.h"
 
 #define GF_ANON_FD_NO -2
+#define GF_ANON_FD_FLAGS (O_RDWR|O_LARGEFILE)
 
 struct _inode;
 struct _dict;
@@ -47,7 +48,9 @@ struct _fd {
 	struct _fd_ctx   *_ctx;
         int               xl_count; /* Number of xl referred in this fd */
         struct fd_lk_ctx *lk_ctx;
-        gf_boolean_t      anonymous; /* geo-rep anonymous fd */
+        gf_boolean_t      anonymous; /* fd which does not have counterpart open
+                                        fd on backend (server for client, posix
+                                        for server). */
 };
 typedef struct _fd fd_t;
 

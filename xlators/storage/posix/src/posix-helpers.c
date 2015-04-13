@@ -1566,10 +1566,6 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                 goto out;
         }
 
-        if (!fd_is_anonymous(fd))
-                /* anonymous fd */
-                goto out;
-
         MAKE_HANDLE_PATH (real_path, this, fd->inode->gfid, NULL);
         if (!real_path) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1577,6 +1573,14 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                         "Failed to create handle path (%s)",
                         uuid_utoa (fd->inode->gfid));
                 ret = -1;
+                goto out;
+        }
+
+        if (!fd_is_anonymous(fd)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to get fd context for a non-anonymous fd, "
+                        "file: %s, gfid: %s", real_path,
+                        uuid_utoa (fd->inode->gfid));
                 goto out;
         }
 
@@ -1596,8 +1600,12 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p)
                 _fd = dirfd (dir);
         }
 
+        /* Using fd->flags in case we choose to have anonymous
+         * fds with different flags some day. As of today it
+         * would be GF_ANON_FD_FLAGS and nothing else.
+         */
         if (fd->inode->ia_type == IA_IFREG) {
-                _fd = open (real_path, O_RDWR|O_LARGEFILE);
+                _fd = open (real_path, fd->flags);
                 if (_fd == -1) {
                         GF_FREE (pfd);
                         pfd = NULL;
