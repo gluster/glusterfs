@@ -1565,6 +1565,66 @@ out:
         return ret;
 }
 
+int32_t
+cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
+                                  dict_t **options)
+{
+        int      ret = -1;
+        char    *word = NULL;
+        dict_t  *dict = NULL;
+        int32_t  command = GF_OP_CMD_NONE;
+        int      force = 0;
+
+        if (!((wordcount == 4) || (wordcount == 5)))
+                goto out;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_str (dict, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        if (wordcount == 5) {
+                word = (char *)words[4];
+                if (!strcmp(word, "force"))
+                        force = 1;
+        }
+
+        word = (char *)words[3];
+
+        ret = -1;
+
+        if (!strcmp(word, "start")) {
+                command = GF_OP_CMD_DETACH_START;
+        } else if (!strcmp(word, "commit")) {
+                if (force)
+                        command = GF_OP_CMD_DETACH_COMMIT_FORCE;
+                else
+                        command = GF_OP_CMD_DETACH_COMMIT;
+        } else if (!strcmp(word, "stop"))
+                command = GF_DEFRAG_CMD_STOP_DETACH_TIER;
+        else if (!strcmp(word, "status"))
+                command = GF_DEFRAG_CMD_STATUS;
+        else
+                goto out;
+
+        ret = dict_set_int32 (dict, "command", command);
+        if (ret)
+                goto out;
+
+        *options = dict;
+        ret = 0;
+out:
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Unable to parse detach-tier CLI");
+                if (dict)
+                        dict_unref (dict);
+        }
+
+        return ret;
+}
 
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,

@@ -5,7 +5,9 @@
         GF_DEFRAG_CMD_START_LAYOUT_FIX,
         GF_DEFRAG_CMD_START_FORCE, /* used by remove-brick data migration */
         GF_DEFRAG_CMD_START_TIER,
-        GF_DEFRAG_CMD_STATUS_TIER
+        GF_DEFRAG_CMD_STATUS_TIER,
+        GF_DEFRAG_CMD_START_DETACH_TIER,
+        GF_DEFRAG_CMD_STOP_DETACH_TIER
 };
 
  enum gf_defrag_status_t {
@@ -57,7 +59,9 @@ enum gf_bitrot_type {
         GF_OP_CMD_STOP,
         GF_OP_CMD_STATUS,
         GF_OP_CMD_COMMIT_FORCE,
-        GF_OP_CMD_DETACH
+        GF_OP_CMD_DETACH_START,
+        GF_OP_CMD_DETACH_COMMIT,
+        GF_OP_CMD_DETACH_COMMIT_FORCE
 };
 
 enum gf_quota_type {
