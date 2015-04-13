@@ -23,6 +23,7 @@
 #include "nfs-common.h"
 #include "iatt.h"
 #include "common-utils.h"
+#include "nfs-messages.h"
 
 
 int
@@ -136,10 +137,9 @@ nfs3_log_fh (struct nfs3_fh *fh)
         if (!fh)
                 return;
 
-        gf_log ("nfs3-fh", GF_LOG_TRACE, "filehandle: exportid "
-                "0x%s, gfid 0x%s",
-                 uuid_utoa_r (fh->exportid, exportidstr),
-                 uuid_utoa_r (fh->gfid, gfidstr));
+        gf_msg_trace ("nfs3-fh", 0, "filehandle: exportid 0x%s, gfid 0x%s",
+                      uuid_utoa_r (fh->exportid, exportidstr),
+                      uuid_utoa_r (fh->gfid, gfidstr));
 }
 
 int

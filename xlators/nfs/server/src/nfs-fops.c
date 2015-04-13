@@ -27,6 +27,7 @@
 #include "nfs-common.h"
 #include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
+#include "nfs-messages.h"
 #include <libgen.h>
 #include <semaphore.h>
 
@@ -78,23 +79,23 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
 
 	/* No cached list found. */
         if (getpwuid_r(root->uid,&mypw,mystrs,sizeof(mystrs),&result) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, NFS_MSG_GETPWUID_FAIL,
                         "getpwuid_r(%u) failed", root->uid);
                 return;
         }
 
         if (!result) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, NFS_MSG_GETPWUID_FAIL,
                         "getpwuid_r(%u) found nothing", root->uid);
                 return;
         }
 
-        gf_log (this->name, GF_LOG_TRACE, "mapped %u => %s",
-                root->uid, result->pw_name);
+        gf_msg_trace (this->name, 0, "mapped %u => %s",
+                      root->uid, result->pw_name);
 
         ngroups = GF_MAX_AUX_GROUPS;
         if (getgrouplist(result->pw_name,root->gid,mygroups,&ngroups) == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, NFS_MSG_MAP_GRP_LIST_FAIL,
                         "could not map %s to group list", result->pw_name);
                 return;
         }
@@ -124,8 +125,8 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
 
 	/* Copy data to the frame. */
         for (i = 0; i < ngroups; ++i) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "%s is in group %u", result->pw_name, mygroups[i]);
+                gf_msg_trace (this->name, 0, "%s is in group %u",
+                              result->pw_name, mygroups[i]);
                 root->groups[i] = mygroups[i];
         }
         root->ngrps = ngroups;
@@ -228,10 +229,11 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
         if (nfu->ngrps != 1) {
                 frame->root->ngrps = nfu->ngrps - 1;
 
-                gf_log (GF_NFS, GF_LOG_TRACE,"uid: %d, gid %d, gids: %d",
-                        frame->root->uid, frame->root->gid, frame->root->ngrps);
+                gf_msg_trace (GF_NFS, 0, "uid: %d, gid %d, gids: %d",
+                              frame->root->uid, frame->root->gid,
+                              frame->root->ngrps);
                 for(y = 0, x = 1;  y < frame->root->ngrps; x++,y++) {
-                        gf_log (GF_NFS, GF_LOG_TRACE, "gid: %d", nfu->gids[x]);
+                        gf_msg_trace (GF_NFS, 0, "gid: %d", nfu->gids[x]);
                         frame->root->groups[y] = nfu->gids[x];
                 }
         }
@@ -251,7 +253,8 @@ err:
                 fram = nfs_create_frame (xla, (nfuser));                \
                 if (!fram) {                                                  \
                         retval = (-ENOMEM);                                   \
-                        gf_log (GF_NFS, GF_LOG_ERROR,"Frame creation failed");\
+                        gf_msg (GF_NFS, GF_LOG_ERROR, ENOMEM,                \
+                                NFS_MSG_NO_MEMORY, "Frame creation failed");\
                         goto errlabel;                                        \
                 }                                                             \
         } while (0)                                                           \
@@ -359,7 +362,9 @@ nfs_gfid_dict (inode_t *inode)
 
         dictgfid = dict_new ();
         if (!dictgfid) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to create gfid dict");
+                gf_msg (GF_NFS, GF_LOG_ERROR, errno,
+                        NFS_MSG_GFID_DICT_CREATE_FAIL,
+                        "Failed to create gfid dict");
                 GF_FREE (dyngfid);
                 return (NULL);
         }
@@ -445,7 +450,7 @@ nfs_fop_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         if ((!xl) || (!loc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Lookup: %s", loc->path);
+        gf_msg_trace (GF_NFS, 0, "Lookup: %s", loc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
@@ -491,7 +496,7 @@ nfs_fop_access (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         if ((!xl) || (!loc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Access: %s", loc->path);
+        gf_msg_trace (GF_NFS, 0, "Access: %s", loc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
@@ -538,7 +543,7 @@ nfs_fop_stat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         if ((!xl) || (!loc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Stat: %s", loc->path);
+        gf_msg_trace (GF_NFS, 0, "Stat: %s", loc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
@@ -585,7 +590,7 @@ nfs_fop_fstat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         if ((!nfsx) || (!xl) || (!fd) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "FStat");
+        gf_msg_trace (GF_NFS, 0, "FStat");
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_fd_ino (nfl, fd);
@@ -630,7 +635,7 @@ nfs_fop_opendir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!dirfd) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Opendir: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Opendir: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
@@ -720,7 +725,7 @@ nfs_fop_readdirp (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *dirfd,
         if ((!nfsx) || (!xl) || (!dirfd) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "readdir");
+        gf_msg_trace (GF_NFS, 0, "readdir");
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
@@ -767,7 +772,7 @@ nfs_fop_statfs (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Statfs: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Statfs: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
@@ -821,7 +826,7 @@ nfs_fop_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Create: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Create: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -872,7 +877,7 @@ nfs_fop_setattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Setattr: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Setattr: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -924,7 +929,7 @@ nfs_fop_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Mkdir: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Mkdir: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -976,7 +981,7 @@ nfs_fop_symlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, char *target,
         if ((!nfsx) || (!xl) || (!pathloc) || (!target) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Symlink: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Symlink: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -1025,7 +1030,7 @@ nfs_fop_readlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Readlink: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Readlink: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -1077,7 +1082,7 @@ nfs_fop_mknod (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Mknod: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Mknod: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -1126,7 +1131,7 @@ nfs_fop_rmdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Rmdir: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Rmdir: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -1175,7 +1180,7 @@ nfs_fop_unlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Unlink: %s", pathloc->path);
+        gf_msg_trace (GF_NFS, 0, "Unlink: %s", pathloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
@@ -1230,8 +1235,8 @@ nfs_fop_link (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
         if ((!nfsx) || (!xl) || (!oldloc) || (!newloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Link: %s -> %s", newloc->path,
-                oldloc->path);
+        gf_msg_trace (GF_NFS, 0, "Link: %s -> %s", newloc->path,
+                      oldloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, newloc);
@@ -1289,8 +1294,8 @@ nfs_fop_rename (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
         if ((!nfsx) || (!xl) || (!oldloc) || (!newloc) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Rename: %s -> %s", oldloc->path,
-                newloc->path);
+        gf_msg_trace (GF_NFS, 0, "Rename: %s -> %s", oldloc->path,
+                      newloc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, oldloc);
@@ -1336,7 +1341,7 @@ nfs_fop_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         if ((!nfsx) || (!xl) || (!loc) || (!fd) || (!nfu))
                 return ret;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Open: %s", loc->path);
+        gf_msg_trace (GF_NFS, 0, "Open: %s", loc->path);
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 

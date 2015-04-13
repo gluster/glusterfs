@@ -27,6 +27,7 @@
 #include "nfs-mem-types.h"
 #include "iatt.h"
 #include "common-utils.h"
+#include "nfs-messages.h"
 #include "mount3.h"
 #include <string.h>
 
@@ -683,7 +684,7 @@ nfs3_fill_entry3 (gf_dirent_t *entry, struct nfs3_fh *dfh)
         if (!ent)
                 return NULL;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s", entry->d_name);
+        gf_msg_trace (GF_NFS3, 0, "Entry: %s", entry->d_name);
 
         /* If the entry is . or .., we need to replace the physical ino and gen
          * with 1 and 0 respectively if the directory is root. This funging is
@@ -762,8 +763,8 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
          */
         entry->d_ino = nfs3_iatt_gfid_to_ino (&entry->d_stat);
         nfs3_funge_root_dotdot_dirent (entry, dirfh);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s, ino: %"PRIu64,
-                entry->d_name, entry->d_ino);
+        gf_msg_trace (GF_NFS3, 0, "Entry: %s, ino: %"PRIu64,
+                      entry->d_name, entry->d_ino);
         ent = GF_CALLOC (1, sizeof (*ent), gf_nfs_mt_entryp3);
         if (!ent)
                 return NULL;
@@ -1576,11 +1577,11 @@ nfs3_verify_dircookie (struct nfs3_state *nfs3, fd_t *dirfd, cookie3 cookie,
         if (cookie == 0)
                 return 0;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Verifying cookie: cverf: %"PRIu64
-                ", cookie: %"PRIu64, cverf, cookie);
+        gf_msg_trace (GF_NFS3, 0, "Verifying cookie: cverf: %"PRIu64
+                      ", cookie: %"PRIu64, cverf, cookie);
         /* The cookie bad, no way cverf will be zero with a non-zero cookie. */
         if ((cverf == 0) && (cookie != 0)) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Bad cookie requested");
+                gf_msg_trace (GF_NFS3, 0, "Bad cookie requested");
                 if (stat)
                         *stat = NFS3ERR_BAD_COOKIE;
                 goto err;
@@ -1602,7 +1603,7 @@ nfs3_verify_dircookie (struct nfs3_state *nfs3, fd_t *dirfd, cookie3 cookie,
                 goto err;
         }
 */
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Cookie verified");
+        gf_msg_trace (GF_NFS3, 0, "Cookie verified");
         if (stat)
                 *stat = NFS3_OK;
         ret = 0;
@@ -1632,8 +1633,7 @@ nfs3_log_common_call (uint32_t xid, char *op, struct nfs3_fh *fh)
                 return;
 
         nfs3_fh_to_str (fh, fhstr, sizeof (fhstr));
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, %s: args: %s", xid, op,
-                fhstr);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, %s: args: %s", xid, op, fhstr);
 }
 
 
@@ -1646,8 +1646,8 @@ nfs3_log_fh_entry_call (uint32_t xid, char *op, struct nfs3_fh *fh,
         if (THIS->ctx->log.loglevel < GF_LOG_DEBUG)
                 return;
         nfs3_fh_to_str (fh, fhstr, sizeof (fhstr));
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, %s: args: %s, name: %s", xid,
-                op, fhstr, name);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, %s: args: %s, name: %s", xid,
+                      op, fhstr, name);
 }
 
 
@@ -1662,9 +1662,9 @@ nfs3_log_rename_call (uint32_t xid, struct nfs3_fh *src, char *sname,
                 return;
         nfs3_fh_to_str (src, sfhstr, sizeof (sfhstr));
         nfs3_fh_to_str (dst, dfhstr, sizeof (dfhstr));
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, RENAME: args: Src: %s, "
-                "name: %s, Dst: %s, name: %s", xid, sfhstr, sname, dfhstr,
-                dname);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, RENAME: args: Src: %s, "
+                      "name: %s, Dst: %s, name: %s", xid, sfhstr, sname,
+                      dfhstr, dname);
 }
 
 
@@ -1689,8 +1689,8 @@ nfs3_log_create_call (uint32_t xid, struct nfs3_fh *fh, char *name,
         else
                 modestr = unchkd;
 
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, CREATE: args: %s, name: %s,"
-                " mode: %s", xid, fhstr, name, modestr);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, CREATE: args: %s, name: %s,"
+                      " mode: %s", xid, fhstr, name, modestr);
 }
 
 
@@ -1716,8 +1716,8 @@ nfs3_log_mknod_call (uint32_t xid, struct nfs3_fh *fh, char *name, int type)
         else
                 modestr = fifo;
 
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, MKNOD: args: %s, name: %s,"
-                " type: %s", xid, fhstr, name, modestr);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, MKNOD: args: %s, name: %s,"
+                      " type: %s", xid, fhstr, name, modestr);
 }
 
 
@@ -1730,8 +1730,8 @@ nfs3_log_symlink_call (uint32_t xid, struct nfs3_fh *fh, char *name, char *tgt)
         if (THIS->ctx->log.loglevel < GF_LOG_DEBUG)
                 return;
         nfs3_fh_to_str (fh, fhstr, sizeof (fhstr));
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, SYMLINK: args: %s, name: %s,"
-                " target: %s", xid, fhstr, name, tgt);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, SYMLINK: args: %s, name: %s,"
+                      " target: %s", xid, fhstr, name, tgt);
 }
 
 
@@ -1746,8 +1746,8 @@ nfs3_log_link_call (uint32_t xid, struct nfs3_fh *fh, char *name,
                 return;
         nfs3_fh_to_str (fh, dfhstr, sizeof (dfhstr));
         nfs3_fh_to_str (tgt, tfhstr, sizeof (tfhstr));
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, LINK: args: %s, name: %s,"
-                " target: %s", xid, dfhstr, name, tfhstr);
+        gf_msg_debug (GF_NFS3, 0, "XID: %x, LINK: args: %s, name: %s,"
+                      " target: %s", xid, dfhstr, name, tfhstr);
 }
 
 
@@ -1761,14 +1761,14 @@ nfs3_log_rw_call (uint32_t xid, char *op, struct nfs3_fh *fh, offset3 offt,
                 return;
         nfs3_fh_to_str (fh, fhstr, sizeof (fhstr));
         if (stablewrite == -1)
-                gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, %s: args: %s, offset:"
-                        " %"PRIu64",  count: %"PRIu32, xid, op, fhstr, offt,
-                        count);
+                gf_msg_debug (GF_NFS3, 0, "XID: %x, %s: args: %s, offset:"
+                              " %"PRIu64",  count: %"PRIu32, xid, op, fhstr,
+                              offt, count);
         else
-                gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, %s: args: %s, offset:"
-                        " %"PRIu64",  count: %"PRIu32", %s", xid, op, fhstr,
-                        offt, count,
-                        (stablewrite == UNSTABLE)?"UNSTABLE":"STABLE");
+                gf_msg_debug (GF_NFS3, 0, "XID: %x, %s: args: %s, offset:"
+                              " %"PRIu64",  count: %"PRIu32", %s", xid, op,
+                              fhstr, offt, count,
+                              (stablewrite == UNSTABLE)?"UNSTABLE":"STABLE");
 
 }
 
@@ -3395,7 +3395,11 @@ nfs3_log_common_res (uint32_t xid, int op, nfsstat3 stat, int pstat)
         if (THIS->ctx->log.loglevel < ll)
                 return;
         nfs3_stat_to_errstr (xid, nfs3op_strings[op].str, stat, pstat, errstr, sizeof (errstr));
-        gf_log (GF_NFS3, ll, "%s", errstr);
+                if (ll == GF_LOG_DEBUG)
+                        gf_msg_debug (GF_NFS3, 0, "%s", errstr);
+                else
+                        gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR, "%s", errstr);
+
 }
 
 void
@@ -3408,9 +3412,11 @@ nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath)
                 return;
 
         nfs3_stat_to_errstr (xid, "READLINK", stat, pstat, errstr, sizeof (errstr));
-        gf_log (GF_NFS3, ll, "%s, target: %s",
-                errstr, linkpath);
-
+        if (ll == GF_LOG_DEBUG)
+                gf_msg_debug (GF_NFS3, 0, "%s, target: %s", errstr, linkpath);
+        else
+                gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR, "%s, target: %s",
+                                errstr, linkpath);
 }
 
 void
@@ -3420,19 +3426,32 @@ nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
         char    errstr[1024];
         int     ll = GF_LOG_DEBUG;
 
-	ll = nfs3_loglevel (NFS3_READ, stat);
+        ll = nfs3_loglevel (NFS3_READ, stat);
         if (THIS->ctx->log.loglevel < ll)
                 return;
         nfs3_stat_to_errstr (xid, "READ", stat, pstat, errstr, sizeof (errstr));
         if (vec)
-                gf_log (GF_NFS3, ll, "%s, count: %"PRIu32", is_eof:"
-                        " %d, vector: count: %d, len: %zd", errstr, count,
-                        is_eof, veccount, vec->iov_len);
+                if (ll == GF_LOG_DEBUG)
+                        gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR,
+                                        "%s, count: %"PRIu32", is_eof:"
+                                        " %d, vector: count: %d, len: %zd", errstr,
+                                        count, is_eof, veccount, vec->iov_len);
+                else
+                        gf_msg_debug (GF_NFS3, 0,
+                                        "%s, count: %"PRIu32", is_eof:"
+                                        " %d, vector: count: %d, len: %zd", errstr,
+                                        count, is_eof, veccount, vec->iov_len);
         else
-                gf_log (GF_NFS3, ll, "%s, count: %"PRIu32", is_eof:"
-                        " %d", errstr, count, is_eof);
-}
+                if (ll == GF_LOG_DEBUG)
+                        gf_msg_debug (GF_NFS3, 0,
+                                        "%s, count: %"PRIu32", is_eof:"
+                                        " %d", errstr, count, is_eof);
+                else
+                        gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR,
+                                        "%s, count: %"PRIu32", is_eof:"
+                                        " %d", errstr, count, is_eof);
 
+}
 
 void
 nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
@@ -3442,14 +3461,20 @@ nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
         int     ll = nfs3_loglevel (NFS3_WRITE, stat);
 
         if (THIS->ctx->log.loglevel < ll)
-                 return;
+                return;
 
         nfs3_stat_to_errstr (xid, "WRITE", stat, pstat, errstr, sizeof (errstr));
-        gf_log (GF_NFS3, ll, "%s, count: %"PRIu32", %s,wverf: %"PRIu64
-                , errstr, count, (stable == UNSTABLE)?"UNSTABLE":"STABLE",
-                wverf);
+        if (ll == GF_LOG_DEBUG)
+                gf_msg_debug (GF_NFS3, 0,
+                                "%s, count: %"PRIu32", %s,wverf: %"PRIu64
+                                , errstr, count, (stable == UNSTABLE)?"UNSTABLE":"STABLE",
+                                wverf);
+        else
+                gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR,
+                                "%s, count: %"PRIu32", %s,wverf: %"PRIu64
+                                , errstr, count, (stable == UNSTABLE)?"UNSTABLE":"STABLE",
+                                wverf);
 }
-
 
 void
 nfs3_log_newfh_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
@@ -3464,9 +3489,12 @@ nfs3_log_newfh_res (uint32_t xid, int op, nfsstat3 stat, int pstat,
         nfs3_stat_to_errstr (xid, nfs3op_strings[op].str, stat, pstat, errstr, sizeof (errstr));
         nfs3_fh_to_str (newfh, fhstr, sizeof (fhstr));
 
-        gf_log (GF_NFS3, nfs3_loglevel (op, stat), "%s, %s", errstr, fhstr);
+        if (ll == GF_LOG_DEBUG)
+                gf_msg_debug (GF_NFS3, 0, "%s, %s", errstr, fhstr);
+        else
+                gf_msg (GF_NFS3, nfs3_loglevel (op, stat), errno, NFS_MSG_STAT_ERROR,
+                                "%s, %s", errstr, fhstr);
 }
-
 
 void
 nfs3_log_readdir_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
@@ -3478,39 +3506,56 @@ nfs3_log_readdir_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
         if (THIS->ctx->log.loglevel < ll)
                 return;
         nfs3_stat_to_errstr (xid, "READDIR", stat, pstat, errstr, sizeof (errstr));
-        gf_log (GF_NFS3, ll, "%s, count: %"PRIu32", cverf: %"PRIu64
-                ", is_eof: %d", errstr, count, cverf, is_eof);
+        if (ll == GF_LOG_DEBUG)
+                gf_msg_debug (GF_NFS3, 0,
+                                "%s, count: %"PRIu32", cverf: %"PRIu64
+                                ", is_eof: %d", errstr, count, cverf, is_eof);
+        else
+                gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR,
+                                "%s, count: %"PRIu32", cverf: %"PRIu64
+                                ", is_eof: %d", errstr, count, cverf, is_eof);
 }
-
 
 void
 nfs3_log_readdirp_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
                        count3 dircount, count3 maxcount, int is_eof)
 {
         char    errstr[1024];
-	int	ll = nfs3_loglevel (NFS3_READDIRP, stat);
+        int	ll = nfs3_loglevel (NFS3_READDIRP, stat);
 
         if (THIS->ctx->log.loglevel < ll)
                 return;
         nfs3_stat_to_errstr (xid, "READDIRPLUS", stat, pstat, errstr, sizeof (errstr));
-        gf_log (GF_NFS3, ll, "%s, dircount: %"PRIu32", maxcount: %"
-                PRIu32", cverf: %"PRIu64", is_eof: %d", errstr, dircount,
-                maxcount, cverf, is_eof);
-}
+        if (ll == GF_LOG_DEBUG)
+                gf_msg_debug (GF_NFS3, 0,
+                                "%s, dircount: %"PRIu32", maxcount: %"
+                                PRIu32", cverf: %"PRIu64", is_eof: %d", errstr, dircount,
+                                maxcount, cverf, is_eof);
+        else
+                gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR,
+                                "%s, dircount: %"PRIu32", maxcount: %"
+                                PRIu32", cverf: %"PRIu64", is_eof: %d", errstr, dircount,
+                                maxcount, cverf, is_eof);
 
+}
 
 void
 nfs3_log_commit_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t wverf)
 {
         char    errstr[1024];
-	int	ll = nfs3_loglevel (NFS3_COMMIT, stat);
+        int	ll = nfs3_loglevel (NFS3_COMMIT, stat);
 
         if (THIS->ctx->log.loglevel < ll)
                 return;
         nfs3_stat_to_errstr (xid, "COMMIT", stat, pstat, errstr, sizeof (errstr));
-        gf_log (GF_NFS3, ll, "%s, wverf: %"PRIu64, errstr, wverf);
-}
+        if (ll == GF_LOG_DEBUG)
+                gf_msg_debug (GF_NFS3, 0, "%s, wverf: %"PRIu64,
+                                errstr, wverf);
+        else
+                gf_msg (GF_NFS3, ll, errno, NFS_MSG_STAT_ERROR,
+                                "%s, wverf: %"PRIu64, errstr, wverf);
 
+}
 
 void
 nfs3_log_readdir_call (uint32_t xid, struct nfs3_fh *fh, count3 dircount,
@@ -3524,14 +3569,13 @@ nfs3_log_readdir_call (uint32_t xid, struct nfs3_fh *fh, count3 dircount,
         nfs3_fh_to_str (fh, fhstr, sizeof (fhstr));
 
         if (maxcount == 0)
-                gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, READDIR: args: %s,"
-                        " count: %d", xid, fhstr, (uint32_t)dircount);
+                gf_msg_debug (GF_NFS3, 0, "XID: %x, READDIR: args: %s,"
+                                " count: %d", xid, fhstr, (uint32_t)dircount);
         else
-                gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, READDIRPLUS: args: %s,"
-                        " dircount: %d, maxcount: %d", xid, fhstr,
-                        (uint32_t)dircount, (uint32_t)maxcount);
+                gf_msg_debug (GF_NFS3, 0, "XID: %x, READDIRPLUS: args: %s,"
+                                " dircount: %d, maxcount: %d", xid, fhstr,
+                                (uint32_t)dircount, (uint32_t)maxcount);
 }
-
 
 int
 nfs3_fh_resolve_inode_done (nfs3_call_state_t *cs, inode_t *inode)
@@ -3541,10 +3585,12 @@ nfs3_fh_resolve_inode_done (nfs3_call_state_t *cs, inode_t *inode)
         if ((!cs) || (!inode))
                 return ret;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH inode resolved");
+        gf_msg_trace (GF_NFS3, 0, "FH inode resolved");
         ret = nfs_inode_loc_fill (inode, &cs->resolvedloc, NFS_RESOLVE_EXIST);
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "inode loc fill failed");
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                                NFS_MSG_INODE_LOC_FILL_ERROR,
+                                "inode loc fill failed");
                 goto err;
         }
 
@@ -3553,7 +3599,6 @@ nfs3_fh_resolve_inode_done (nfs3_call_state_t *cs, inode_t *inode)
 err:
         return ret;
 }
-
 
 int32_t
 nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
@@ -3570,18 +3615,24 @@ nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_ERROR),
-                        "Lookup failed: %s: %s",
-                        cs->resolvedloc.path, strerror (op_errno));
+                if (op_errno == ENOENT) {
+                        gf_msg_trace (GF_NFS3, 0, "Lookup failed: %s: %s",
+                                        cs->resolvedloc.path,
+                                        strerror (op_errno));
+                } else {
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, op_errno,
+                                        NFS_MSG_LOOKUP_FAIL, "Lookup failed: %s: %s",
+                                        cs->resolvedloc.path, strerror (op_errno));
+                }
                 goto err;
         } else
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Entry looked up: %s",
-                        cs->resolvedloc.path);
+                gf_msg_trace (GF_NFS3, 0, "Entry looked up: %s",
+                                cs->resolvedloc.path);
 
-	memcpy (&cs->stbuf, buf, sizeof (*buf));
-	memcpy (&cs->postparent, postparent, sizeof (*postparent));
+       memcpy (&cs->stbuf, buf, sizeof (*buf));
+       memcpy (&cs->postparent, postparent, sizeof (*postparent));
         linked_inode = inode_link (inode, cs->resolvedloc.parent,
-                                   cs->resolvedloc.name, buf);
+                        cs->resolvedloc.name, buf);
         if (linked_inode) {
                 inode_lookup (linked_inode);
                 inode_unref (cs->resolvedloc.inode);
@@ -3591,7 +3642,6 @@ err:
         nfs3_call_resume (cs);
         return 0;
 }
-
 
 int32_t
 nfs3_fh_resolve_inode_lookup_cbk (call_frame_t *frame, void *cookie,
@@ -3608,15 +3658,21 @@ nfs3_fh_resolve_inode_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_ERROR),
-                        "Lookup failed: %s: %s",
-                        cs->resolvedloc.path, strerror (op_errno));
+                if (op_errno == ENOENT) {
+                        gf_msg_trace (GF_NFS3, 0, "Lookup failed: %s: %s",
+                                        cs->resolvedloc.path,
+                                        strerror (op_errno));
+                } else {
+                        gf_msg (GF_NFS3, GF_LOG_ERROR, op_errno,
+                                        NFS_MSG_LOOKUP_FAIL, "Lookup failed: %s: %s",
+                                        cs->resolvedloc.path, strerror (op_errno));
+                }
                 nfs3_call_resume (cs);
                 goto err;
         }
 
-	memcpy (&cs->stbuf, buf, sizeof(*buf));
-	memcpy (&cs->postparent, buf, sizeof(*postparent));
+        memcpy (&cs->stbuf, buf, sizeof(*buf));
+        memcpy (&cs->postparent, buf, sizeof(*postparent));
         linked_inode = inode_link (inode, cs->resolvedloc.parent,
                                    cs->resolvedloc.name, buf);
         if (linked_inode) {
@@ -3639,7 +3695,6 @@ err:
 }
 
 
-
 /* Needs no extra argument since it knows that the fh to be resolved is in
  * resolvefh and that it needs to start looking from the root.
  */
@@ -3652,14 +3707,16 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
         if (!cs)
                 return ret;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: gfid 0x%s",
-                uuid_utoa (cs->resolvefh.gfid));
+        gf_msg_trace (GF_NFS3, 0, "FH hard resolution for: gfid 0x%s",
+                      uuid_utoa (cs->resolvefh.gfid));
 	cs->hardresolved = 1;
         nfs_loc_wipe (&cs->resolvedloc);
         ret = nfs_gfid_loc_fill (cs->vol->itable, cs->resolvefh.gfid,
                                  &cs->resolvedloc, NFS_RESOLVE_CREATE);
         if (ret < 0) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to fill loc using gfid: "
+                gf_msg (GF_NFS3, GF_LOG_ERROR, -ret,
+                        NFS_MSG_INODE_LOC_FILL_ERROR,
+                        "Failed to fill loc using gfid: "
                         "%s", strerror (-ret));
                 goto out;
         }
@@ -3684,17 +3741,17 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 
         nfs_loc_wipe (&cs->resolvedloc);
         nfs_user_root_create (&nfu);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution: gfid: %s "
-                ", entry: %s", uuid_utoa (cs->resolvefh.gfid),
-                cs->resolventry);
+        gf_msg_trace (GF_NFS3, 0, "FH hard resolution: gfid: %s "
+                      ", entry: %s", uuid_utoa (cs->resolvefh.gfid),
+                      cs->resolventry);
 
         ret = nfs_entry_loc_fill (cs->vol->itable, cs->resolvefh.gfid,
                                   cs->resolventry, &cs->resolvedloc,
                                   NFS_RESOLVE_CREATE);
 
         if (ret == -2) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs lookup: %s",
-                        cs->resolvedloc.path);
+                gf_msg_trace (GF_NFS3, 0, "Entry needs lookup: %s",
+                              cs->resolvedloc.path);
 		/* If the NFS op is lookup, let the resume callback
 		 * handle the sending of the lookup fop. Similarly,
 		 * if the NFS op is create, let the create call
@@ -3713,8 +3770,8 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 		}
                 ret = 0;
         } else if (ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs parent lookup: %s",
-                        cs->resolvedloc.path);
+                gf_msg_trace (GF_NFS3, 0, "Entry needs parent lookup: %s",
+                              cs->resolvedloc.path);
                 ret = nfs3_fh_resolve_inode_hard (cs);
         } else if (ret == 0) {
                 cs->resolve_ret = 0;
@@ -3733,7 +3790,7 @@ nfs3_fh_resolve_inode (nfs3_call_state_t *cs)
         if (!cs)
                 return ret;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH needs inode resolution");
+        gf_msg_trace (GF_NFS3, 0, "FH needs inode resolution");
         gf_uuid_copy (cs->resolvedloc.gfid, cs->resolvefh.gfid);
         inode = inode_find (cs->vol->itable, cs->resolvefh.gfid);
         if (!inode)
@@ -3801,12 +3858,13 @@ nfs3_fh_resolve_root_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Root lookup failed: %s",
+                gf_msg (GF_NFS3, GF_LOG_ERROR, op_errno,
+                        NFS_MSG_LOOKUP_ROOT_FAIL, "Root lookup failed: %s",
                         strerror (op_errno));
                 goto err;
         } else
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Root looked up: %s",
-                        cs->resolvedloc.path);
+                gf_msg_trace (GF_NFS3, 0, "Root looked up: %s",
+                              cs->resolvedloc.path);
 
         nfs3_set_root_looked_up (cs->nfs3state, &cs->resolvefh);
 err:
@@ -3830,11 +3888,12 @@ nfs3_fh_resolve_root (nfs3_call_state_t *cs)
         }
 
         nfs_user_root_create (&nfu);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Root needs lookup");
+        gf_msg_trace (GF_NFS3, 0, "Root needs lookup");
         ret = nfs_root_loc_fill (cs->vol->itable, &cs->resolvedloc);
 	if (ret < 0) {
-		gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to lookup root from itable: %s",
-			strerror (-ret));
+		gf_msg (GF_NFS3, GF_LOG_ERROR, -ret, NFS_MSG_LOOKUP_ROOT_FAIL,
+                        "Failed to lookup root from itable: %s",
+                        strerror (-ret));
 		goto out;
 	}
 
@@ -3867,8 +3926,8 @@ __nfs3_fh_auth_get_peer (const rpcsvc_request_t *req, char *peer)
         ret = rpcsvc_transport_peeraddr (trans, peer, RPCSVC_PEER_STRLEN,
                                          &sastorage, sizeof (sastorage));
         if (ret != 0) {
-                gf_log (GF_NFS3, GF_LOG_WARNING, "Failed to get peer addr: %s",
-                        gai_strerror (ret));
+                gf_msg (GF_NFS3, GF_LOG_WARNING, 0, NFS_MSG_GET_PEER_ADDR_FAIL,
+                        "Failed to get peer addr: %s", gai_strerror (ret));
         }
         return ret;
 }
