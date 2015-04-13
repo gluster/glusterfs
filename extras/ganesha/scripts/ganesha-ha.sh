@@ -21,6 +21,8 @@
 HA_NUM_SERVERS=0
 HA_SERVERS=""
 HA_CONFDIR=""
+HA_SHARED_VOLUME="gluster_shared_storage"
+HA_VOL_MNT="/var/run/gluster/shared_storage"
 
 RHEL6_PCS_CNAME_OPTION="--name"
 
@@ -545,20 +547,20 @@ setup_state_volume()
     dname=${longname#$(hostname -s)}
 
     while [[ ${1} ]]; do
-        mkdir ${mnt}/${1}${dname}
-        mkdir ${mnt}/${1}${dname}/nfs
-        mkdir ${mnt}/${1}${dname}/nfs/ganesha
-        mkdir ${mnt}/${1}${dname}/nfs/statd
-        touch ${mnt}/${1}${dname}/nfs/state
-        mkdir ${mnt}/${1}${dname}/nfs/ganesha/v4recov
-        mkdir ${mnt}/${1}${dname}/nfs/ganesha/v4old
-        mkdir ${mnt}/${1}${dname}/nfs/statd/sm
-        mkdir ${mnt}/${1}${dname}/nfs/statd/sm.bak
-        mkdir ${mnt}/${1}${dname}/nfs/statd/state
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd
+        touch ${mnt}/nfs-ganesha/${1}${dname}/nfs/state
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/v4recov
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/v4old
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/sm
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/sm.bak
+        mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/state
         for server in ${HA_SERVERS} ; do
             if [ ${server} != ${1}${dname} ]; then
-                ln -s ${mnt}/${server}/nfs/ganesha ${mnt}/${1}${dname}/nfs/ganesha/${server}
-                ln -s ${mnt}/${server}/nfs/statd ${mnt}/${1}${dname}/nfs/statd/${server}
+                ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/${server}
+                ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/${server}
             fi
         done
         shift
@@ -592,7 +594,7 @@ main()
 
         if [ "X${HA_NUM_SERVERS}X" != "X1X" ]; then
 
-            # setup_state_volume ${HA_SERVERS}
+            setup_state_volume ${HA_SERVERS}
 
             setup_cluster ${HA_NAME} ${HA_NUM_SERVERS} "${HA_SERVERS}"
 
