@@ -171,6 +171,9 @@ quota_local_cleanup (xlator_t *this, quota_local_t *local)
         if (local->xdata)
                 dict_unref (local->xdata);
 
+        if (local->validate_xdata)
+                dict_unref (local->validate_xdata);
+
         if (local->stub)
                 call_stub_destroy (local->stub);
 
@@ -884,8 +887,7 @@ quota_validate (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 goto err;
         }
 
-        ret = quota_enforcer_lookup (frame, this, &local->validate_loc, xdata,
-                                     cbk_fn);
+        ret = quota_enforcer_lookup (frame, this, xdata, cbk_fn);
         if (ret < 0) {
                 ret = -ENOTCONN;
                 goto err;
