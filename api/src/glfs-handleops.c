@@ -1145,9 +1145,12 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         memcpy (loc.gfid, handle, GFAPI_HANDLE_LENGTH);
 
         newinode = inode_find (subvol->itable, loc.gfid);
-        if (newinode)
+        if (newinode) {
+                if (!stat) /* No need of lookup */
+                        goto found;
+
                 loc.inode = newinode;
-        else {
+        } else {
                 loc.inode = inode_new (subvol->itable);
                 if (!loc.inode) {
                         errno = ENOMEM;
@@ -1179,6 +1182,7 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         if (stat)
                 glfs_iatt_to_stat (fs, &iatt, stat);
 
+found:
         object = GF_CALLOC (1, sizeof(struct glfs_object),
                             glfs_mt_glfs_object_t);
         if (object == NULL) {
@@ -1693,7 +1697,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
         if (found) {
                 object = glfs_h_create_from_handle (fs, gfid,
                                                     GFAPI_HANDLE_LENGTH,
-                                                    &up_arg->buf);
+                                                    NULL);
 
                 if (!object) {
                         errno = ENOMEM;
