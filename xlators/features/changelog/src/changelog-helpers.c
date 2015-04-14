@@ -1735,3 +1735,88 @@ err:
                 inode_unref (parent);
         return -1;
 }
+
+/*
+ * resolve_pargfid_to_path:
+ *      It converts given pargfid to path by doing recursive readlinks at the
+ * backend. If bname is given, it suffixes bname to pargfid to form the
+ * complete path else it doesn't. It allocates memory for the path and is
+ * caller's responsibility to free the same. If bname is NULL and pargfid
+ * is ROOT, then it returns "."
+ */
+
+int
+resolve_pargfid_to_path (xlator_t *this, uuid_t pargfid,
+                         char **path, char *bname)
+{
+        char             *linkname                  = NULL;
+        char             *dir_handle                = NULL;
+        char             *pgfidstr                  = NULL;
+        char             *saveptr                   = NULL;
+        ssize_t           len                       = 0;
+        int               ret                       = 0;
+        uuid_t            tmp_gfid                  = {0, };
+        changelog_priv_t *priv                      = NULL;
+        char              gpath[PATH_MAX]           = {0,};
+        char              result[PATH_MAX]          = {0,};
+        char             *dir_name                  = NULL;
+        char              pre_dir_name[PATH_MAX]    = {0,};
+
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        if (!path || gf_uuid_is_null (pargfid)) {
+                ret = -1;
+                goto out;
+        }
+
+        if (__is_root_gfid (pargfid)) {
+                if (bname)
+                        *path = gf_strdup (bname);
+                else
+                        *path = gf_strdup (".");
+                return ret;
+        }
+
+        dir_handle = alloca (PATH_MAX);
+        linkname   = alloca (PATH_MAX);
+        (void) snprintf (gpath, PATH_MAX, "%s/.glusterfs/",
+                         priv->changelog_brick);
+
+        while (!(__is_root_gfid (pargfid))) {
+                snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
+                          pargfid[0], pargfid[1], uuid_utoa (pargfid));
+
+                len = readlink (dir_handle, linkname, PATH_MAX);
+                if (len < 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "could not read the "
+                                "link from the gfid handle %s (%s)", dir_handle,
+                                strerror (errno));
+                        ret = -1;
+                        goto out;
+                }
+
+                linkname[len] = '\0';
+
+                pgfidstr = strtok_r (linkname + strlen("../../00/00/"), "/",
+                                     &saveptr);
+                dir_name = strtok_r (NULL, "/", &saveptr);
+
+                strncpy (result, dir_name, PATH_MAX);
+                strncat (result, "/", 1);
+                strncat (result, pre_dir_name, PATH_MAX);
+                strncpy (pre_dir_name, result, PATH_MAX);
+
+                gf_uuid_parse (pgfidstr, tmp_gfid);
+                gf_uuid_copy (pargfid, tmp_gfid);
+        }
+
+        if (bname)
+                strncat (result, bname, PATH_MAX);
+
+        *path = gf_strdup (result);
+
+out:
+        return ret;
+}

@@ -306,6 +306,9 @@ struct changelog_priv {
         pthread_t *ev_dispatcher;
 
         changelog_clnt_t connections;
+
+        /* glusterfind dependency to capture paths on deleted entries*/
+        gf_boolean_t capture_del_path;
 };
 
 struct changelog_local {
@@ -349,6 +352,7 @@ typedef enum {
 struct changelog_entry_fields {
         uuid_t  cef_uuid;
         char   *cef_bname;
+        char   *cef_path;
 };
 
 typedef struct {
@@ -497,6 +501,8 @@ changelog_dispatch_event (xlator_t *, changelog_priv_t *, changelog_event_t *);
 changelog_inode_ctx_t *
 __changelog_inode_ctx_get (xlator_t *, inode_t *, unsigned long **,
                            unsigned long *, changelog_log_type);
+int
+resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
 
 /* macros */
 
@@ -564,6 +570,26 @@ __changelog_inode_ctx_get (xlator_t *, inode_t *, unsigned long **,
                 if (!co->co_entry.cef_bname)                            \
                         goto label;                                     \
                 xlen += (UUID_CANONICAL_FORM_LEN + strlen (bname));     \
+        } while (0)
+
+#define CHANGELOG_FILL_ENTRY_DIR_PATH(co, pargfid, bname, converter,        \
+                                      del_freefn, xlen, label, capture_del) \
+        do {                                                                \
+                co->co_convert = converter;                                 \
+                co->co_free = del_freefn;                                   \
+                co->co_type = CHANGELOG_OPT_REC_ENTRY;                      \
+                gf_uuid_copy (co->co_entry.cef_uuid, pargfid);              \
+                co->co_entry.cef_bname = gf_strdup(bname);                  \
+                if (!co->co_entry.cef_bname)                                \
+                        goto label;                                         \
+                xlen += (UUID_CANONICAL_FORM_LEN + strlen (bname));         \
+                if (!capture_del || resolve_pargfid_to_path (this, pargfid, \
+                    &(co->co_entry.cef_path), co->co_entry.cef_bname)) {    \
+                        co->co_entry.cef_path = gf_strdup ("\0");           \
+                        xlen += 1;                                          \
+                } else {                                                    \
+                        xlen += (strlen (co->co_entry.cef_path));           \
+                }                                                           \
         } while (0)
 
 #define CHANGELOG_INIT(this, local, inode, gfid, xrec)                  \
