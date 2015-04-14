@@ -956,8 +956,8 @@ fi
 
 %files ganesha
 %{_sysconfdir}/ganesha/*
-%{_libexecdir}/ganesha/*
-%{_prefix}/lib/ocf/resource.d/heartbeat/*
+%attr(0755,-,-) %{_libexecdir}/ganesha/*
+%attr(0755,-,-) %{_prefix}/lib/ocf/resource.d/heartbeat/*
 
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication

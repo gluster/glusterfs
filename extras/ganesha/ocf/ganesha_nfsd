@@ -51,21 +51,9 @@ resource agent for nfs-ganesha.
 <shortdesc lang="en">Manages the user-space nfs-ganesha NFS server</shortdesc>
 
 <parameters>
-<parameter name="ha_vol_name">
-<longdesc lang="en">HA State Volume Name</longdesc>
-<shortdesc lang="en">HA_State Volume Name</shortdesc>
-<content type="string" default="" />
-</parameter>
-
 <parameter name="ha_vol_mnt">
 <longdesc lang="en">HA State Volume Mount Point</longdesc>
 <shortdesc lang="en">HA_State Volume Mount Point</shortdesc>
-<content type="string" default="" />
-</parameter>
-
-<parameter name="ha_vol_server">
-<longdesc lang="en">HA State Volume Server</longdesc>
-<shortdesc lang="en">HA_State Volume Server</shortdesc>
 <content type="string" default="" />
 </parameter>
 </parameters>
@@ -106,34 +94,16 @@ ganesha_nfsd_start()
 
 ganesha_nfsd_stop()
 {
-	local mounted=""
-	local mntptinuse=""
-	local instance_host=""
-	local short_host=""
-	local resource_prefix=${OCF_RESOURCE_INSTANCE:0:9}
+	local short_host=$(hostname -s)
+	local long_host=""
 
-	if [ "X${resource_prefix}X" = "Xnfs_startX" ]; then
+	if [ "X${OCF_RESOURCE_INSTANCE:0:9}X" = "Xnfs_startX" ]; then
 
-		mounted=$(mount | grep $OCF_RESKEY_ha_vol_name)
-		mntptinuse=$(mount | grep -o $OCF_RESKEY_ha_vol_mnt)
-		short_host=$(hostname -s)
+		# if this is any nfs_start, go ahead. worst case we
+		# find the link already exists and do nothing
 		long_host=$(hostname)
 
-		if [[ ! ${mounted} ]]; then
-
-			if [ -d $OCF_RESKEY_ha_vol_mnt ]; then
-				if [[ ${mntptinuse} ]]; then
-					return $OCF_ERR_GENERIC
-				fi
-			else
-				mkdir ${mntpt}
-			fi
-
-			mount -t glusterfs $OCF_RESKEY_ha_vol_server:$OCF_RESKEY_ha_vol_name $OCF_RESKEY_ha_vol_mnt
-			if [ $? -ne 0 ]; then
-				logger "warning: mount -t glusterfs $OCF_RESKEY_ha_vol_server:$OCF_RESKEY_ha_vol_name $OCF_RESKEY_ha_vol_mnt failed"
-			fi
-
+		if [ -d /var/lib/nfs ]; then
 			mv /var/lib/nfs /var/lib/nfs.backup
 			ln -s $OCF_RESKEY_ha_vol_mnt/${long_host}/nfs /var/lib/nfs
 			if [ $? -ne 0 ]; then
@@ -141,20 +111,17 @@ ganesha_nfsd_stop()
 			fi
 
 		fi
-
-		service nfs-ganesha start
-		if [ $? -ne 0 ]; then
-			logger "warning: service nfs-ganesha start failed"
-		fi
 	else
-		umount $OCF_RESKEY_ha_vol_mnt
-		if [ $? -ne 0 ]; then
-			logger "warning: umount $OCF_RESKEY_ha_vol_mnt failed"
-		fi
 
-		service nfs-ganesha stop
-		if [ $? -ne 0 ]; then
-			logger "warning: service nfs-ganesha stop failed"
+		# if this is a clone resource or is specific to this node
+		# remove the symlink and restore /var/lib/nfs
+
+		if [ "X${OCF_RESOURCE_INSTANCE}X" = "Xnfs_stopX" ] ||
+		   [ "X${OCF_RESOURCE_INSTANCE}X" = "Xnfs_stop-${short_host}X" ]; then
+			if [ -L /var/lib/nfs -a -d /var/lib/nfs.backup ]; then
+				rm -f /var/lib/nfs
+				mv /var/lib/nfs.backup /var/lib/nfs
+			fi
 		fi
 	fi
 
