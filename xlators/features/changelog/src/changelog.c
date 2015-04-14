@@ -110,8 +110,15 @@ changelog_rmdir (call_frame_t *frame, xlator_t *this,
         CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
 
         co++;
-        CHANGELOG_FILL_ENTRY (co, loc->pargfid, loc->name,
-                              entry_fn, entry_free_fn, xtra_len, wind);
+        if (priv->capture_del_path) {
+                CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid, loc->name,
+                                               del_entry_fn, del_entry_free_fn,
+                                              xtra_len, wind, _gf_true);
+        } else {
+                CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid, loc->name,
+                                               del_entry_fn, del_entry_free_fn,
+                                              xtra_len, wind, _gf_false);
+        }
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
@@ -227,8 +234,15 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
         CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
 
         co++;
-        CHANGELOG_FILL_ENTRY (co, loc->pargfid, loc->name,
-                              entry_fn, entry_free_fn, xtra_len, wind);
+        if (priv->capture_del_path) {
+                CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid, loc->name,
+                                               del_entry_fn, del_entry_free_fn,
+                                              xtra_len, wind, _gf_true);
+        } else {
+                CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid, loc->name,
+                                               del_entry_fn, del_entry_free_fn,
+                                              xtra_len, wind, _gf_false);
+        }
 
         changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
@@ -2339,6 +2353,9 @@ reconfigure (xlator_t *this, dict_t *options)
                           timeout, options, time, out);
         changelog_assign_barrier_timeout (priv, timeout);
 
+        GF_OPTION_RECONF ("capture-del-path", priv->capture_del_path, options,
+                          bool, out);
+
         if (active_now || active_earlier) {
                 ret = changelog_fill_rollover_data (&cld, !active_now);
                 if (ret)
@@ -2443,6 +2460,8 @@ changelog_init_options (xlator_t *this, changelog_priv_t *priv)
                 goto dealloc_2;
 
         GF_OPTION_INIT ("changelog", priv->active, bool, dealloc_2);
+        GF_OPTION_INIT ("capture-del-path", priv->capture_del_path,
+                        bool, dealloc_2);
 
         GF_OPTION_INIT ("op-mode", tmp, str, dealloc_2);
         changelog_assign_opmode (priv, tmp);
@@ -2718,6 +2737,11 @@ struct volume_options options[] = {
                          "option was set to \"on\", unlink/rmdir/rename  "
                          "operations are no longer blocked and previously "
                          "blocked fops are allowed to go through"
+        },
+        {.key = {"capture-del-path"},
+         .type = GF_OPTION_TYPE_BOOL,
+         .default_value = "off",
+         .description = "enable/disable capturing paths of deleted entries"
         },
         {.key = {NULL}
         },

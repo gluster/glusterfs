@@ -39,6 +39,38 @@ entry_fn (void *data, char *buffer, gf_boolean_t encode)
 }
 
 size_t
+del_entry_fn (void *data, char *buffer, gf_boolean_t encode)
+{
+        char    *tmpbuf = NULL;
+        size_t  bufsz  = 0;
+        struct changelog_entry_fields *ce = NULL;
+
+        ce = (struct changelog_entry_fields *) data;
+
+        if (encode) {
+                tmpbuf = uuid_utoa (ce->cef_uuid);
+                CHANGELOG_FILL_BUFFER (buffer, bufsz, tmpbuf, strlen (tmpbuf));
+        } else {
+                CHANGELOG_FILL_BUFFER (buffer, bufsz,
+                                       ce->cef_uuid, sizeof (uuid_t));
+        }
+
+        CHANGELOG_FILL_BUFFER (buffer, bufsz, "/", 1);
+        CHANGELOG_FILL_BUFFER (buffer, bufsz,
+                               ce->cef_bname, strlen (ce->cef_bname));
+        CHANGELOG_FILL_BUFFER (buffer, bufsz, "\0", 1);
+
+        if (ce->cef_path[0] == '\0') {
+                CHANGELOG_FILL_BUFFER (buffer, bufsz, "\0", 1);
+        } else {
+                CHANGELOG_FILL_BUFFER (buffer, bufsz,
+                                       ce->cef_path, strlen (ce->cef_path));
+        }
+
+        return bufsz;
+}
+
+size_t
 fop_fn (void *data, char *buffer, gf_boolean_t encode)
 {
         char buf[10]          = {0,};
@@ -83,6 +115,18 @@ entry_free_fn (void *data)
                 return;
 
         GF_FREE (co->co_entry.cef_bname);
+}
+
+void
+del_entry_free_fn (void *data)
+{
+        changelog_opt_t *co = data;
+
+        if (!co)
+                return;
+
+        GF_FREE (co->co_entry.cef_bname);
+        GF_FREE (co->co_entry.cef_path);
 }
 
 /**
