@@ -215,6 +215,9 @@ ssize_t glfs_h_extract_handle (struct glfs_object *object,
 			       unsigned char *handle, int len) __THROW
         GFAPI_PUBLIC(glfs_h_extract_handle, 3.4.0);
 
+/* Given a handle, looks up the inode and creates glfs_object.
+ * In addition, if provided 'stat', copies the inode attributes
+ */
 struct glfs_object *glfs_h_create_from_handle (struct glfs *fs,
 					       unsigned char *handle, int len,
 					       struct stat *stat) __THROW
