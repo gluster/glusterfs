@@ -81,16 +81,8 @@ fop_lookup_cbk_stub (call_frame_t *frame, fop_lookup_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.lookup = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (inode)
-                stub->args_cbk.inode = inode_ref (inode);
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_lookup_cbk_store (&stub->args_cbk, op_ret, op_errno, inode,
+                               buf, xdata, postparent);
 out:
         return stub;
 }
@@ -130,12 +122,8 @@ fop_stat_cbk_stub (call_frame_t *frame, fop_stat_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.stat = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (op_ret == 0)
-                stub->args_cbk.stat = *buf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_stat_cbk_store (&stub->args_cbk, op_ret, op_errno, buf,
+                             xdata);
 out:
         return stub;
 }
@@ -176,12 +164,8 @@ fop_fstat_cbk_stub (call_frame_t *frame, fop_fstat_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fstat = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fstat_cbk_store (&stub->args_cbk, op_ret, op_errno, buf,
+                              xdata);
 out:
         return stub;
 }
@@ -222,14 +206,8 @@ fop_truncate_cbk_stub (call_frame_t *frame, fop_truncate_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.truncate = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (prebuf)
-                stub->args_cbk.prestat = *prebuf;
-        if (postbuf)
-                stub->args_cbk.poststat = *postbuf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_truncate_cbk_store (&stub->args_cbk, op_ret, op_errno,
+                                 prebuf, postbuf, xdata);
 out:
         return stub;
 }
@@ -271,14 +249,8 @@ fop_ftruncate_cbk_stub (call_frame_t *frame, fop_ftruncate_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.ftruncate = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (prebuf)
-                stub->args_cbk.prestat = *prebuf;
-        if (postbuf)
-                stub->args_cbk.poststat = *postbuf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_ftruncate_cbk_store (&stub->args_cbk, op_ret, op_errno,
+                                  prebuf, postbuf, xdata);
 
 out:
         return stub;
@@ -319,10 +291,7 @@ fop_access_cbk_stub (call_frame_t *frame, fop_access_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.access = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_access_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -363,14 +332,8 @@ fop_readlink_cbk_stub (call_frame_t *frame, fop_readlink_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.readlink = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (path)
-                stub->args_cbk.buf = gf_strdup (path);
-        if (stbuf)
-                stub->args_cbk.stat = *stbuf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_readlink_cbk_store (&stub->args_cbk, op_ret, op_errno, path,
+                                 stbuf, xdata);
 out:
         return stub;
 }
@@ -414,19 +377,8 @@ fop_mknod_cbk_stub (call_frame_t *frame, fop_mknod_cbk_t fn, int32_t op_ret,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.mknod = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (inode)
-                stub->args_cbk.inode = inode_ref (inode);
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
-
+        args_mknod_cbk_store (&stub->args_cbk, op_ret, op_errno, inode, buf,
+                             preparent, postparent, xdata);
 out:
         return stub;
 }
@@ -470,18 +422,8 @@ fop_mkdir_cbk_stub (call_frame_t *frame, fop_mkdir_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.mkdir = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (inode)
-                stub->args_cbk.inode = inode_ref (inode);
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_mkdir_cbk_store (&stub->args_cbk, op_ret, op_errno, inode,
+                              buf, preparent, postparent, xdata);
 out:
         return stub;
 }
@@ -523,14 +465,8 @@ fop_unlink_cbk_stub (call_frame_t *frame, fop_unlink_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.unlink = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_unlink_cbk_store (&stub->args_cbk, op_ret, op_errno, preparent,
+                               postparent, xdata);
 out:
         return stub;
 }
@@ -573,14 +509,8 @@ fop_rmdir_cbk_stub (call_frame_t *frame, fop_rmdir_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.rmdir = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_rmdir_cbk_store (&stub->args_cbk, op_ret, op_errno, preparent,
+                              postparent, xdata);
 out:
         return stub;
 }
@@ -625,18 +555,8 @@ fop_symlink_cbk_stub (call_frame_t *frame, fop_symlink_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.symlink = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (inode)
-                stub->args_cbk.inode = inode_ref (inode);
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_symlink_cbk_store (&stub->args_cbk, op_ret, op_errno, inode, buf,
+                                preparent, postparent, xdata);
 out:
         return stub;
 }
@@ -680,20 +600,9 @@ fop_rename_cbk_stub (call_frame_t *frame, fop_rename_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.rename = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (preoldparent)
-                stub->args_cbk.preparent = *preoldparent;
-        if (postoldparent)
-                stub->args_cbk.postparent = *postoldparent;
-        if (prenewparent)
-                stub->args_cbk.preparent2 = *prenewparent;
-        if (postnewparent)
-                stub->args_cbk.postparent2 = *postnewparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_rename_cbk_store (&stub->args_cbk, op_ret, op_errno, buf,
+                               preoldparent, postoldparent, prenewparent,
+                               postnewparent, xdata);
 out:
         return stub;
 }
@@ -738,18 +647,8 @@ fop_link_cbk_stub (call_frame_t *frame, fop_link_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.link = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (inode)
-                stub->args_cbk.inode = inode_ref (inode);
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_link_cbk_store (&stub->args_cbk, op_ret, op_errno,
+                             inode, buf, preparent, postparent, xdata);
 out:
         return stub;
 }
@@ -797,20 +696,8 @@ fop_create_cbk_stub (call_frame_t *frame, fop_create_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.create = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (fd)
-                stub->args_cbk.fd = fd_ref (fd);
-        if (inode)
-                stub->args_cbk.inode = inode_ref (inode);
-        if (buf)
-                stub->args_cbk.stat = *buf;
-        if (preparent)
-                stub->args_cbk.preparent = *preparent;
-        if (postparent)
-                stub->args_cbk.postparent = *postparent;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_create_cbk_store (&stub->args_cbk, op_ret, op_errno, fd, inode,
+                               buf, preparent, postparent, xdata);
 out:
         return stub;
 }
@@ -853,12 +740,7 @@ fop_open_cbk_stub (call_frame_t *frame, fop_open_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.open = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (fd)
-                stub->args_cbk.fd = fd_ref (fd);
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_open_cbk_store (&stub->args_cbk, op_ret, op_errno, fd, xdata);
 out:
         return stub;
 }
@@ -904,16 +786,8 @@ fop_readv_cbk_stub (call_frame_t *frame, fop_readv_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.readv = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (op_ret >= 0) {
-                stub->args_cbk.vector = iov_dup (vector, count);
-                stub->args_cbk.count = count;
-                stub->args_cbk.stat = *stbuf;
-                stub->args_cbk.iobref = iobref_ref (iobref);
-        }
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_readv_cbk_store (&stub->args_cbk, op_ret, op_errno, vector,
+                              count, stbuf, iobref, xdata);
 out:
         return stub;
 }
@@ -960,14 +834,8 @@ fop_writev_cbk_stub (call_frame_t *frame, fop_writev_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.writev = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (op_ret >= 0)
-                stub->args_cbk.poststat = *postbuf;
-        if (prebuf)
-                stub->args_cbk.prestat = *prebuf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_writev_cbk_store (&stub->args_cbk, op_ret, op_errno,
+                               prebuf, postbuf, xdata);
 out:
         return stub;
 }
@@ -1006,10 +874,7 @@ fop_flush_cbk_stub (call_frame_t *frame, fop_flush_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.flush = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_flush_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1050,14 +915,8 @@ fop_fsync_cbk_stub (call_frame_t *frame, fop_fsync_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fsync = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (prebuf)
-                stub->args_cbk.prestat = *prebuf;
-        if (postbuf)
-                stub->args_cbk.poststat = *postbuf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fsync_cbk_store (&stub->args_cbk, op_ret, op_errno,
+                              prebuf, postbuf, xdata);
 out:
         return stub;
 }
@@ -1099,13 +958,7 @@ fop_opendir_cbk_stub (call_frame_t *frame, fop_opendir_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.opendir = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (fd)
-                stub->args_cbk.fd = fd_ref (fd);
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_opendir_cbk_store (&stub->args_cbk, op_ret, op_errno, fd, xdata);
 out:
         return stub;
 }
@@ -1145,10 +998,7 @@ fop_fsyncdir_cbk_stub (call_frame_t *frame, fop_fsyncdir_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fsyncdir = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fsyncdir_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1188,12 +1038,7 @@ fop_statfs_cbk_stub (call_frame_t *frame, fop_statfs_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.statfs = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (op_ret == 0)
-                stub->args_cbk.statvfs = *buf;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_statfs_cbk_store (&stub->args_cbk, op_ret, op_errno, buf, xdata);
 out:
         return stub;
 }
@@ -1239,10 +1084,7 @@ fop_setxattr_cbk_stub (call_frame_t *frame,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.setxattr = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_setxattr_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1285,13 +1127,8 @@ fop_getxattr_cbk_stub (call_frame_t *frame, fop_getxattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.getxattr = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        /* TODO */
-        if (dict)
-                stub->args_cbk.xattr = dict_ref (dict);
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_getxattr_cbk_store (&stub->args_cbk, op_ret, op_errno, dict,
+                                 xdata);
 out:
         return stub;
 }
@@ -1334,10 +1171,7 @@ fop_fsetxattr_cbk_stub (call_frame_t *frame, fop_fsetxattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fsetxattr = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fsetxattr_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1380,13 +1214,8 @@ fop_fgetxattr_cbk_stub (call_frame_t *frame, fop_fgetxattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fgetxattr = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (dict)
-                stub->args_cbk.xattr = dict_ref (dict);
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fgetxattr_cbk_store (&stub->args_cbk, op_ret, op_errno, dict,
+                                  xdata);
 out:
         return stub;
 }
@@ -1427,10 +1256,7 @@ fop_removexattr_cbk_stub (call_frame_t *frame, fop_removexattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.removexattr = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_removexattr_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1471,10 +1297,7 @@ fop_fremovexattr_cbk_stub (call_frame_t *frame, fop_fremovexattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fremovexattr = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fremovexattr_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1518,12 +1341,7 @@ fop_lk_cbk_stub (call_frame_t *frame, fop_lk_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.lk = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (op_ret == 0)
-                stub->args_cbk.lock = *lock;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_lk_cbk_store (&stub->args_cbk, op_ret, op_errno, lock, xdata);
 out:
         return stub;
 }
@@ -1569,11 +1387,7 @@ fop_inodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.inodelk       = fn;
-        stub->args_cbk.op_ret   = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_inodelk_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1622,11 +1436,7 @@ fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.finodelk       = fn;
-        stub->args_cbk.op_ret   = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_finodelk_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1676,11 +1486,7 @@ fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.entrylk       = fn;
-        stub->args_cbk.op_ret   = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_entrylk_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1729,11 +1535,7 @@ fop_fentrylk_cbk_stub (call_frame_t *frame, fop_fentrylk_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fentrylk       = fn;
-        stub->args_cbk.op_ret   = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fentrylk_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -1745,7 +1547,6 @@ fop_readdirp_cbk_stub (call_frame_t *frame, fop_readdirp_cbk_t fn,
                        gf_dirent_t *entries, dict_t *xdata)
 {
         call_stub_t *stub = NULL;
-        gf_dirent_t *stub_entry = NULL, *entry = NULL;
 
         GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
@@ -1753,27 +1554,8 @@ fop_readdirp_cbk_stub (call_frame_t *frame, fop_readdirp_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.readdirp = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        GF_VALIDATE_OR_GOTO ("call-stub", entries, out);
-
-        if (op_ret > 0) {
-                list_for_each_entry (entry, &entries->list, list) {
-                        stub_entry = gf_dirent_for_name (entry->d_name);
-                        if (!stub_entry)
-                                goto out;
-                        stub_entry->d_off = entry->d_off;
-                        stub_entry->d_ino = entry->d_ino;
-                        stub_entry->d_stat = entry->d_stat;
-			if (entry->inode)
-				stub_entry->inode = inode_ref (entry->inode);
-                        list_add_tail (&stub_entry->list,
-                                       &stub->args_cbk.entries.list);
-                }
-        }
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_readdirp_cbk_store (&stub->args_cbk, op_ret, op_errno, entries,
+                                 xdata);
 out:
         return stub;
 }
@@ -1785,7 +1567,6 @@ fop_readdir_cbk_stub (call_frame_t *frame, fop_readdir_cbk_t fn,
                       gf_dirent_t *entries, dict_t *xdata)
 {
         call_stub_t *stub = NULL;
-        gf_dirent_t *stub_entry = NULL, *entry = NULL;
 
         GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
@@ -1793,25 +1574,8 @@ fop_readdir_cbk_stub (call_frame_t *frame, fop_readdir_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.readdir = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        GF_VALIDATE_OR_GOTO ("call-stub", entries, out);
-
-        if (op_ret > 0) {
-                list_for_each_entry (entry, &entries->list, list) {
-                        stub_entry = gf_dirent_for_name (entry->d_name);
-                        if (!stub_entry)
-                                goto out;
-                        stub_entry->d_off = entry->d_off;
-                        stub_entry->d_ino = entry->d_ino;
-
-                        list_add_tail (&stub_entry->list,
-                                       &stub->args_cbk.entries.list);
-                }
-        }
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_readdir_cbk_store (&stub->args_cbk, op_ret, op_errno, entries,
+                                xdata);
 out:
         return stub;
 }
@@ -1896,26 +1660,16 @@ fop_rchecksum_cbk_stub (call_frame_t *frame, fop_rchecksum_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.rchecksum = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (op_ret >= 0) {
-                stub->args_cbk.weak_checksum =
-                        weak_checksum;
-                stub->args_cbk.strong_checksum =
-                        memdup (strong_checksum, MD5_DIGEST_LENGTH);
-        }
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_rchecksum_cbk_store (&stub->args_cbk, op_ret, op_errno,
+                                  weak_checksum, strong_checksum, xdata);
 out:
         return stub;
 }
 
 
 call_stub_t *
-fop_xattrop_cbk_stub (call_frame_t *frame, fop_xattrop_cbk_t fn,
-                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+fop_xattrop_cbk_stub (call_frame_t *frame, fop_xattrop_cbk_t fn, int32_t op_ret,
+                      int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
         call_stub_t *stub = NULL;
 
@@ -1925,11 +1679,8 @@ fop_xattrop_cbk_stub (call_frame_t *frame, fop_xattrop_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.xattrop       = fn;
-        stub->args_cbk.op_ret   = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_xattrop_cbk_store (&stub->args_cbk, op_ret, op_errno, xattr,
+                                xdata);
 out:
         return stub;
 }
@@ -1947,13 +1698,8 @@ fop_fxattrop_cbk_stub (call_frame_t *frame, fop_fxattrop_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fxattrop = fn;
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-        if (xattr)
-                stub->args_cbk.xattr = dict_ref (xattr);
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_xattrop_cbk_store (&stub->args_cbk, op_ret, op_errno, xattr,
+                                xdata);
 out:
         return stub;
 }
@@ -2027,17 +1773,8 @@ fop_setattr_cbk_stub (call_frame_t *frame, fop_setattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.setattr = fn;
-
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (statpre)
-                stub->args_cbk.prestat = *statpre;
-        if (statpost)
-                stub->args_cbk.poststat = *statpost;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_setattr_cbk_store (&stub->args_cbk, op_ret, op_errno, statpre,
+                                statpost, xdata);
 out:
         return stub;
 }
@@ -2057,16 +1794,8 @@ fop_fsetattr_cbk_stub (call_frame_t *frame, fop_setattr_cbk_t fn,
         GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->fn_cbk.fsetattr = fn;
-
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (statpre)
-                stub->args_cbk.prestat = *statpre;
-        if (statpost)
-                stub->args_cbk.poststat = *statpost;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fsetattr_cbk_store (&stub->args_cbk, op_ret, op_errno, statpre,
+                                 statpost, xdata);
 out:
         return stub;
 }
@@ -2145,15 +1874,8 @@ fop_fallocate_cbk_stub(call_frame_t *frame, fop_fallocate_cbk_t fn,
 
         stub->fn_cbk.fallocate = fn;
 
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (statpre)
-                stub->args_cbk.prestat = *statpre;
-        if (statpost)
-                stub->args_cbk.poststat = *statpost;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_fallocate_cbk_store (&stub->args_cbk, op_ret, op_errno, statpre,
+                                  statpost, xdata);
 out:
         return stub;
 }
@@ -2201,15 +1923,8 @@ fop_discard_cbk_stub(call_frame_t *frame, fop_discard_cbk_t fn,
 
         stub->fn_cbk.discard = fn;
 
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (statpre)
-                stub->args_cbk.prestat = *statpre;
-        if (statpost)
-                stub->args_cbk.poststat = *statpost;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_discard_cbk_store (&stub->args_cbk, op_ret, op_errno, statpre,
+                                statpost, xdata);
 out:
         return stub;
 }
@@ -2256,15 +1971,8 @@ fop_zerofill_cbk_stub(call_frame_t *frame, fop_zerofill_cbk_t fn,
 
         stub->fn_cbk.zerofill = fn;
 
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (statpre)
-                stub->args_cbk.prestat = *statpre;
-        if (statpost)
-                stub->args_cbk.poststat = *statpost;
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_zerofill_cbk_store (&stub->args_cbk, op_ret, op_errno, statpre,
+                                 statpost, xdata);
 out:
         return stub;
 }
@@ -2310,11 +2018,7 @@ fop_ipc_cbk_stub (call_frame_t *frame, fop_ipc_cbk_t fn,
 
         stub->fn_cbk.ipc = fn;
 
-        stub->args_cbk.op_ret = op_ret;
-        stub->args_cbk.op_errno = op_errno;
-
-        if (xdata)
-                stub->args_cbk.xdata = dict_ref (xdata);
+        args_ipc_cbk_store (&stub->args_cbk, op_ret, op_errno, xdata);
 out:
         return stub;
 }
@@ -2833,29 +2537,7 @@ call_stub_wipe_args (call_stub_t *stub)
 static void
 call_stub_wipe_args_cbk (call_stub_t *stub)
 {
-	if (stub->args_cbk.inode)
-		inode_unref (stub->args_cbk.inode);
-
-	GF_FREE ((char *)stub->args_cbk.buf);
-
-	GF_FREE (stub->args_cbk.vector);
-
-	if (stub->args_cbk.iobref)
-		iobref_unref (stub->args_cbk.iobref);
-
-	if (stub->args_cbk.fd)
-		fd_unref (stub->args_cbk.fd);
-
-	if (stub->args_cbk.xattr)
-		dict_unref (stub->args_cbk.xattr);
-
-	GF_FREE (stub->args_cbk.strong_checksum);
-
-	if (stub->args_cbk.xdata)
-		dict_unref (stub->args_cbk.xdata);
-
-	if (!list_empty (&stub->args_cbk.entries.list))
-		gf_dirent_free (&stub->args_cbk.entries);
+        args_cbk_wipe (&stub->args_cbk);
 }
 
 

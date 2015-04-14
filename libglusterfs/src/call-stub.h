@@ -17,6 +17,7 @@
 #endif
 
 #include "xlator.h"
+#include "defaults.h"
 #include "stack.h"
 #include "list.h"
 
@@ -153,30 +154,7 @@ typedef struct {
 		dict_t *xdata;
 	} args;
 
-	struct {
-		int op_ret;
-		int op_errno;
-		inode_t *inode;
-		struct iatt stat;
-		struct iatt prestat;
-		struct iatt poststat;
-		struct iatt preparent;   // @preoldparent in rename_cbk
-		struct iatt postparent;  // @postoldparent in rename_cbk
-		struct iatt preparent2;  // @prenewparent in rename_cbk
-		struct iatt postparent2; // @postnewparent in rename_cbk
-		const char *buf;
-		struct iovec *vector;
-		int count;
-		struct iobref *iobref;
-		fd_t *fd;
-		struct statvfs statvfs;
-		dict_t *xattr;
-		struct gf_flock lock;
-		uint32_t weak_checksum;
-		uint8_t *strong_checksum;
-		dict_t *xdata;
-                gf_dirent_t entries;
-	} args_cbk;
+        default_args_cbk_t args_cbk;
 } call_stub_t;
 
 
