@@ -115,22 +115,26 @@ int
 quota_enforcer_lookup_cbk (struct rpc_req *req, struct iovec *iov,
                            int count, void *myframe)
 {
-        quota_local_t    *local      = NULL;
-        call_frame_t     *frame      = NULL;
-        int               ret        = 0;
-        gfs3_lookup_rsp   rsp        = {0,};
-        struct iatt       stbuf      = {0,};
-        struct iatt       postparent = {0,};
-        int               op_errno   = EINVAL;
-        dict_t           *xdata      = NULL;
-        inode_t          *inode      = NULL;
-        xlator_t         *this       = NULL;
+        quota_local_t    *local       = NULL;
+        call_frame_t     *frame       = NULL;
+        int               ret         = 0;
+        gfs3_lookup_rsp   rsp         = {0,};
+        struct iatt       stbuf       = {0,};
+        struct iatt       postparent  = {0,};
+        int               op_errno    = EINVAL;
+        dict_t           *xdata       = NULL;
+        inode_t          *inode       = NULL;
+        xlator_t         *this        = NULL;
+        quota_priv_t     *priv        = NULL;
+        struct timespec   retry_delay = {0,};
+        gf_timer_t       *timer       = NULL;
 
         this = THIS;
 
         frame = myframe;
         local = frame->local;
         inode = local->validate_loc.inode;
+        priv  = this->private;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -172,6 +176,48 @@ quota_enforcer_lookup_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         rsp.op_errno = op_errno;
+
+        /* We need to retry connecting to quotad on ENOTCONN error.
+         * Suppose if there are two volumes vol1 and vol2,
+         * and quota is enabled and limit is set on vol1.
+         * Now if IO is happening on vol1 and quota is enabled/disabled
+         * on vol2, quotad gets restarted and client will receive
+         * ENOTCONN in the IO path of vol1
+         */
+        if (rsp.op_ret == -1 && rsp.op_errno == ENOTCONN) {
+                if (local->quotad_conn_retry >= 12) {
+                        priv->quotad_conn_status = 1;
+                        gf_log (this->name, GF_LOG_WARNING, "failed to connect "
+                                "to quotad after retry count %d)",
+                                local->quotad_conn_retry);
+                } else {
+                        local->quotad_conn_retry++;
+                }
+
+                if (priv->quotad_conn_status == 0) {
+                        /* retry connecting after 5secs for 12 retries
+                         * (upto 60sec).
+                         */
+                        gf_log (this->name, GF_LOG_DEBUG, "retry connecting to "
+                                "quotad (retry count %d)",
+                                local->quotad_conn_retry);
+
+                        retry_delay.tv_sec = 5;
+                        retry_delay.tv_nsec = 0;
+                        timer = gf_timer_call_after (this->ctx, retry_delay,
+                                                     _quota_enforcer_lookup,
+                                                     (void *) frame);
+                        if (timer == NULL) {
+                                gf_log (this->name, GF_LOG_WARNING, "failed to "
+                                        "set quota_enforcer_lookup with timer");
+                        } else {
+                                goto clean;
+                        }
+                }
+        } else {
+                priv->quotad_conn_status = 0;
+        }
+
         if (rsp.op_ret == -1) {
                 /* any error other than ENOENT */
                 if (rsp.op_errno != ENOENT)
@@ -184,11 +230,15 @@ out:
                         gf_log (this->name, GF_LOG_TRACE,
                                 "not found on remote node");
 
+        } else if (local->quotad_conn_retry) {
+                gf_log (this->name, GF_LOG_DEBUG, "connected to quotad after "
+                        "retry count %d", local->quotad_conn_retry);
         }
 
         local->validate_cbk (frame, NULL, this, rsp.op_ret, rsp.op_errno, inode,
                              &stbuf, xdata, &postparent);
 
+clean:
         if (xdata)
                 dict_unref (xdata);
 
@@ -197,21 +247,22 @@ out:
         return 0;
 }
 
-int
-quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                       dict_t *xdata, fop_lookup_cbk_t validate_cbk)
+void
+_quota_enforcer_lookup (void *data)
 {
         quota_local_t          *local      = NULL;
         gfs3_lookup_req         req        = {{0,},};
         int                     ret        = 0;
         int                     op_errno   = ESTALE;
         quota_priv_t           *priv       = NULL;
+        call_frame_t           *frame      = NULL;
+        loc_t                  *loc        = NULL;
+        xlator_t               *this       = NULL;
 
-        if (!frame || !this || !loc)
-                goto unwind;
-
+        frame = data;
         local = frame->local;
-        local->validate_cbk = validate_cbk;
+        this  = local->this;
+        loc   = &local->validate_loc;
 
         priv = this->private;
 
@@ -223,8 +274,8 @@ quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         else
                 memcpy (req.gfid, loc->gfid, 16);
 
-        if (xdata) {
-                GF_PROTOCOL_DICT_SERIALIZE (this, xdata,
+        if (local->validate_xdata) {
+                GF_PROTOCOL_DICT_SERIALIZE (this, local->validate_xdata,
                                             (&req.xdata.xdata_val),
                                             req.xdata.xdata_len,
                                             op_errno, unwind);
@@ -248,12 +299,37 @@ quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         GF_FREE (req.xdata.xdata_val);
 
+        return;
+
+unwind:
+        local->validate_cbk (frame, NULL, this, -1, op_errno, NULL, NULL, NULL,
+                             NULL);
+
+        GF_FREE (req.xdata.xdata_val);
+
+        return;
+}
+
+int
+quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, dict_t *xdata,
+                       fop_lookup_cbk_t validate_cbk)
+{
+        quota_local_t          *local      = NULL;
+
+        if (!frame || !this)
+                goto unwind;
+
+        local = frame->local;
+        local->this = this;
+        local->validate_cbk = validate_cbk;
+        local->validate_xdata = dict_ref (xdata);
+
+        _quota_enforcer_lookup (frame);
+
         return 0;
 
 unwind:
-        validate_cbk (frame, NULL, this, -1, op_errno, NULL, NULL, NULL, NULL);
-
-        GF_FREE (req.xdata.xdata_val);
+        validate_cbk (frame, NULL, this, -1, ESTALE, NULL, NULL, NULL, NULL);
 
         return 0;
 }

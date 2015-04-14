@@ -209,6 +209,9 @@ struct quota_local {
         quota_ancestry_built_t  ancestry_cbk;
         void                   *ancestry_data;
         dict_t                 *xdata;
+        dict_t                 *validate_xdata;
+        int32_t                 quotad_conn_retry;
+        xlator_t               *this;
 };
 typedef struct quota_local      quota_local_t;
 
@@ -227,12 +230,17 @@ struct quota_priv {
         inode_table_t         *itable;
         char                  *volume_uuid;
         uint64_t               validation_count;
+        int32_t                quotad_conn_status;
 };
 typedef struct quota_priv      quota_priv_t;
 
 int
-quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                       dict_t *xdata, fop_lookup_cbk_t cbk);
+quota_enforcer_lookup (call_frame_t *frame, xlator_t *this, dict_t *xdata,
+                       fop_lookup_cbk_t cbk);
+
+void
+_quota_enforcer_lookup (void *data);
+
 struct rpc_clnt *
 quota_enforcer_init (xlator_t *this, dict_t *options);
 
