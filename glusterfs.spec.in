@@ -914,6 +914,8 @@ fi
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 # Glupy files are in the -extra-xlators package
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy*
+%exclude /usr/lib/python2.7/site-packages/gluster/glupy.py*
+
 # sample xlators not generally used or usable
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13*
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat*
@@ -955,7 +957,7 @@ fi
 # Glupy C shared library
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
 # Glupy Python files
-%{python_sitelib}/gluster/glupy.*
+%{python_sitelib}/gluster/glupy/*
 # Don't expect a .egg-info file on EL5
 %if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 %{python_sitelib}/glusterfs_glupy*.egg-info
