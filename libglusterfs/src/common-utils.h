@@ -719,4 +719,10 @@ glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *local);
 int
 gf_thread_cleanup_xint (pthread_t thread);
 
+ssize_t
+gf_nread (int fd, void *buf, size_t count);
+
+ssize_t
+gf_nwrite (int fd, const void *buf, size_t count);
+
 #endif /* _COMMON_UTILS_H */

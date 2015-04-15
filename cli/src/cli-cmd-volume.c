@@ -1094,28 +1094,20 @@ out:
         return ret;
 }
 
-#define QUOTA_CONF_HEADER                                                \
-        "GlusterFS Quota conf | version: v%d.%d\n"
-int
-cli_cmd_quota_conf_skip_header (int fd)
-{
-        char buf[PATH_MAX] = {0,};
-
-        snprintf (buf, sizeof(buf)-1, QUOTA_CONF_HEADER, 1, 1);
-        return gf_skip_header_section (fd, strlen (buf));
-}
-
 /* Checks if at least one limit has been set on the volume
  *
  * Returns true if at least one limit is set. Returns false otherwise.
  */
 gf_boolean_t
-_limits_set_on_volume (char *volname) {
-        gf_boolean_t    limits_set = _gf_false;
-        int             ret = -1;
+_limits_set_on_volume (char *volname, int type) {
+        gf_boolean_t    limits_set                = _gf_false;
+        int             ret                       = -1;
         char            quota_conf_file[PATH_MAX] = {0,};
-        int             fd = -1;
-        char            buf[16] = {0,};
+        int             fd                        = -1;
+        char            buf[16]                   = {0,};
+        float           version                   = 0.0f;
+        char            gfid_type_stored          = 0;
+        char            gfid_type                 = 0;
 
         /* TODO: fix hardcoding; Need to perform an RPC call to glusterd
          * to fetch working directory
@@ -1127,17 +1119,31 @@ _limits_set_on_volume (char *volname) {
         if (fd == -1)
                 goto out;
 
-        ret = cli_cmd_quota_conf_skip_header (fd);
+        ret = quota_conf_read_version (fd, &version);
         if (ret)
                 goto out;
 
-        /* Try to read atleast one gfid */
-        ret = read (fd, (void *)buf, 16);
-        if (ret == 16)
-                limits_set = _gf_true;
+        if (type == GF_QUOTA_OPTION_TYPE_LIST)
+                gfid_type = GF_QUOTA_CONF_TYPE_USAGE;
+        else
+                gfid_type = GF_QUOTA_CONF_TYPE_OBJECTS;
+
+        /* Try to read atleast one gfid  of type 'gfid_type' */
+        while (1) {
+                ret = quota_conf_read_gfid (fd, buf, &gfid_type_stored,
+                                            version);
+                if (ret <= 0)
+                        break;
+
+                if (gfid_type_stored == gfid_type) {
+                        limits_set = _gf_true;
+                        break;
+                }
+        }
 out:
         if (fd != -1)
                 close (fd);
+
         return limits_set;
 }
 
@@ -1196,6 +1202,8 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         gf_boolean_t             xml_err_flag   = _gf_false;
         char                     err_str[NAME_MAX] = {0,};
         int32_t                  type       = 0;
+        char                     gfid_type  = 0;
+        float                    version    = 0.0f;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -1231,9 +1239,11 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
         /* Check if at least one limit is set on volume. No need to check for
          * quota enabled as cli_get_soft_limit() handles that
          */
-        if (!_limits_set_on_volume (volname)) {
-                snprintf (err_str, sizeof (err_str), "No quota configured on "
-                          "volume %s", volname);
+        if (!_limits_set_on_volume (volname, type)) {
+                snprintf (err_str, sizeof (err_str), "No%s quota configured on"
+                          " volume %s",
+                          (type == GF_QUOTA_OPTION_TYPE_LIST) ? "" : " inode",
+                          volname);
                 if (global_state->mode & GLUSTER_MODE_XML) {
                         xml_err_flag = _gf_true;
                 } else {
@@ -1282,10 +1292,10 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
                 goto out;
          }
 
-        ret = cli_cmd_quota_conf_skip_header (fd);
-        if (ret) {
+        ret = quota_conf_read_version (fd, &version);
+        if (ret)
                 goto out;
-        }
+
         CLI_LOCAL_INIT (local, words, frame, xdata);
         proc = &cli_quotad_clnt.proctable[GF_AGGREGATOR_GETLIMIT];
 
@@ -1307,18 +1317,21 @@ cli_cmd_quota_handle_list_all (const char **words, dict_t *options)
                 goto out;
         }
         for (count = 0;; count++) {
-                ret = read (fd, (void*) buf, 16);
-                if (ret <= 0) {
-                        //Finished reading all entries in the conf file
+                ret = quota_conf_read_gfid (fd, buf, &gfid_type, version);
+                if (ret == 0) {
                         break;
-                }
-                if (ret < 16) {
-                        //This should never happen. We must have a multiple of
-                        //entry_sz bytes in our configuration file.
+                } else if (ret < 0) {
                         gf_log (THIS->name, GF_LOG_CRITICAL, "Quota "
                                 "configuration store may be corrupt.");
                         goto out;
                 }
+
+                if ((type == GF_QUOTA_OPTION_TYPE_LIST &&
+                     gfid_type == GF_QUOTA_CONF_TYPE_OBJECTS) ||
+                    (type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS &&
+                     gfid_type == GF_QUOTA_CONF_TYPE_USAGE))
+                        continue;
+
                 uuid_utoa_r (buf, gfid_str);
                 ret = dict_set_str (xdata, "gfid", gfid_str);
                 if (ret) {

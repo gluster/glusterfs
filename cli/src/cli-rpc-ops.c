@@ -2675,7 +2675,7 @@ print_quota_list_object_output (cli_local_t *local, char *path, int64_t avail,
                 goto out;
         }
 
-        cli_out ("%-40s %9"PRIu64" %9s %15"PRIu64" %10"PRIu64" %7"PRIu64
+        cli_out ("%-40s %9"PRIu64" %9s %10"PRIu64" %10"PRIu64" %11"PRIu64
                  " %15s %20s", path, limits->hl, sl_str,
                  used_space->file_count, used_space->dir_count,
                  avail, sl ? "Yes" : "No", hl ? "Yes" : "No");
@@ -2847,12 +2847,20 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
         if (!dict|| count <= 0)
                 goto out;
 
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get quota type");
+                goto out;
+        }
+
         /* Need to check if any quota limits are set on the volume before trying
          * to list them
          */
-        if (!_limits_set_on_volume (volname)) {
-                snprintf (err_str, sizeof (err_str), "No quota configured on "
-                          "volume %s", volname);
+        if (!_limits_set_on_volume (volname, type)) {
+                snprintf (err_str, sizeof (err_str), "No%s quota configured on "
+                          "volume %s",
+                          (type == GF_QUOTA_OPTION_TYPE_LIST) ? "" : " inode",
+                          volname);
                 if (global_state->mode & GLUSTER_MODE_XML) {
                         xml_err_flag = _gf_true;
                 } else {
@@ -2865,12 +2873,6 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
         /* Check if the mount is online before doing any listing */
         if (!_quota_aux_mount_online (volname)) {
                 ret = -1;
-                goto out;
-        }
-
-        ret = dict_get_int32 (dict, "type", &type);
-        if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "Failed to get quota type");
                 goto out;
         }
 

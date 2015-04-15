@@ -536,12 +536,6 @@ void
 glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo);
 
 int
-glusterd_store_quota_conf_skip_header (xlator_t *this, int fd);
-
-int
-glusterd_store_quota_conf_stamp_header (xlator_t *this, int fd);
-
-int
 glusterd_remove_auxiliary_mount (char *volname);
 
 gf_boolean_t

@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "byte-order.h"
 #include "quota-common-utils.h"
+#include "common-utils.h"
 
 int32_t
 quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta)
@@ -110,5 +111,158 @@ quota_dict_set_meta (dict_t *dict, char *key, const quota_meta_t *meta,
 
 out:
         return ret;
+}
+
+int32_t
+quota_conf_read_header (int fd, char *buf)
+{
+        int    header_len      = 0;
+        int    ret             = 0;
+
+        header_len = strlen (QUOTA_CONF_HEADER);
+
+        ret = gf_nread (fd, buf, header_len);
+        if (ret <= 0) {
+                goto out;
+        } else if (ret > 0 && ret != header_len) {
+                ret = -1;
+                goto out;
+        }
+
+        buf[header_len-1] = 0;
+
+out:
+        if (ret < 0)
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to read "
+                                  "header from a quota conf");
+
+        return ret;
+}
+
+int32_t
+quota_conf_read_version (int fd, float *version)
+{
+        int    ret             = 0;
+        char   buf[PATH_MAX]   = "";
+        char  *tail            = NULL;
+        float  value           = 0.0f;
+
+        ret = quota_conf_read_header (fd, buf);
+        if (ret == 0) {
+                /* quota.conf is empty */
+                value = GF_QUOTA_CONF_VERSION;
+                goto out;
+        } else if (ret < 0) {
+                goto out;
+        }
+
+        value = strtof ((buf + strlen(buf) - 3), &tail);
+        if (tail[0] != '\0') {
+                ret = -1;
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "invalid quota conf "
+                                  "version");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (ret >= 0)
+                *version = value;
+        else
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to read "
+                                  "version from a quota conf header");
+
+        return ret;
+}
+
+int32_t
+quota_conf_write_header (int fd)
+{
+        int    header_len    = 0;
+        int    ret           = 0;
+
+        header_len = strlen (QUOTA_CONF_HEADER);
+
+        ret = gf_nwrite (fd, QUOTA_CONF_HEADER, header_len);
+        if (ret != header_len) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (ret < 0)
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to write "
+                                  "header to a quota conf");
+
+        return ret;
+}
+
+int32_t
+quota_conf_write_gfid (int fd, void *buf, char type)
+{
+        int ret        = 0;
+
+        ret = gf_nwrite (fd, buf, 16);
+        if (ret != 16) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_nwrite (fd, &type, 1);
+        if (ret != 1) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (ret < 0)
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to write "
+                                  "gfid %s to a quota conf", uuid_utoa (buf));
+
+        return ret;
+}
+
+int32_t
+quota_conf_read_gfid (int fd, void *buf, char *type, float version)
+{
+        int           ret         = 0;
+
+        ret = gf_nread (fd, buf, 16);
+        if (ret <= 0)
+                goto out;
+
+        if (ret != 16) {
+                ret = -1;
+                goto out;
+        }
+
+        if (version >= 1.2f) {
+                ret = gf_nread (fd, type, 1);
+                if (ret != 1) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = 17;
+        } else {
+                *type = GF_QUOTA_CONF_TYPE_USAGE;
+        }
+
+out:
+        if (ret < 0)
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to read "
+                                  "gfid from a quota conf");
+
+        return ret;
+}
+
+int32_t
+quota_conf_skip_header (int fd)
+{
+        return gf_skip_header_section (fd, strlen (QUOTA_CONF_HEADER));
 }
 
