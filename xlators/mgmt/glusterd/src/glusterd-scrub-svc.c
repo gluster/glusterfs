@@ -74,7 +74,7 @@ glusterd_scrubsvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int          ret    = -EINVAL;
 
-        if (glusterd_all_volumes_with_bitrot_stopped ()) {
+        if (glusterd_should_i_stop_bitd ()) {
                 ret = svc->stop (svc, SIGTERM);
         } else {
                 ret = glusterd_scrubsvc_create_volfile ();
