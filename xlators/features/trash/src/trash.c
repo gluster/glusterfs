@@ -1559,6 +1559,10 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Creating vaild parent and pargfids for both files */
 
+        if (dir_entry == NULL) {
+                ret = EINVAL;
+                goto out;
+        }
         local->loc.parent = inode_ref (dir_entry->parent);
         gf_uuid_copy (local->loc.pargfid, dir_entry->parent->gfid);
 
@@ -1916,6 +1920,12 @@ reconfigure (xlator_t *this, dict_t *options)
                                 goto out;
                         }
                         frame = create_frame (this, this->ctx->pool);
+                        if (frame == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                                "failed to create frame");
+                                ret = ENOMEM;
+                                goto out;
+                        }
 
                         /* assign new location values to new_loc members */
                         gf_uuid_copy (new_loc.gfid, trash_gfid);
@@ -1960,8 +1970,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->rename,
                                     &old_loc, &new_loc, options);
-                        if (priv->oldtrash_dir)
-                                GF_FREE (priv->oldtrash_dir);
+                        GF_FREE (priv->oldtrash_dir);
 
                         priv->oldtrash_dir = gf_strdup(priv->newtrash_dir);
                         if (!priv->oldtrash_dir) {
@@ -2038,6 +2047,13 @@ notify (xlator_t *this, int event, void *data, ...)
         /* Check whether posix is up not */
         if (event == GF_EVENT_CHILD_UP) {
                 frame = create_frame(this, this->ctx->pool);
+                if (frame == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to create frame");
+                        ret = ENOMEM;
+                        goto out;
+                }
+
                 dict = dict_new ();
                 if (!dict) {
                         ret = ENOMEM;
@@ -2067,6 +2083,10 @@ notify (xlator_t *this, int event, void *data, ...)
                         loc_wipe (&loc);
                 }
 
+                if (priv->oldtrash_dir == NULL) {
+                        ret = EINVAL;
+                        goto out;
+                }
                 if (strcmp (priv->oldtrash_dir, priv->newtrash_dir) == 0) {
                         gf_log (this->name, GF_LOG_DEBUG, "Creating trash "
                                            "directory %s from notify",
@@ -2163,8 +2183,7 @@ notify (xlator_t *this, int event, void *data, ...)
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->rename,
                                     &old_loc, &loc, dict);
-                        if (priv->oldtrash_dir)
-                                GF_FREE (priv->oldtrash_dir);
+                        GF_FREE (priv->oldtrash_dir);
 
                         priv->oldtrash_dir = gf_strdup(priv->newtrash_dir);
                         if (!priv->oldtrash_dir) {
