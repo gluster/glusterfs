@@ -578,28 +578,33 @@ glusterd_update_quota_conf_version (glusterd_volinfo_t *volinfo)
  * and continue the search.
  */
 static gf_boolean_t
-glusterd_find_gfid_match (uuid_t gfid, unsigned char *buf, size_t bytes_read,
-                          int opcode, size_t *write_byte_count)
+glusterd_find_gfid_match (uuid_t gfid, char gfid_type, unsigned char *buf,
+                          size_t bytes_read, int opcode,
+                          size_t *write_byte_count)
 {
         int           gfid_index  = 0;
         int           shift_count = 0;
         unsigned char tmp_buf[17] = {0,};
+        char          type        = 0;
 
         while (gfid_index != bytes_read) {
                 memcpy ((void *)tmp_buf, (void *)&buf[gfid_index], 16);
-                if (!gf_uuid_compare (gfid, tmp_buf)) {
-                        if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE) {
-                                shift_count = bytes_read - (gfid_index + 16);
+                type = buf[gfid_index + 16];
+
+                if (!gf_uuid_compare (gfid, tmp_buf) && type == gfid_type) {
+                        if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE ||
+                            opcode == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
+                                shift_count = bytes_read - (gfid_index + 17);
                                 memmove ((void *)&buf[gfid_index],
-                                         (void *)&buf[gfid_index+16],
+                                         (void *)&buf[gfid_index + 17],
                                          shift_count);
-                                *write_byte_count = bytes_read - 16;
+                                *write_byte_count = bytes_read - 17;
                         } else {
                                 *write_byte_count = bytes_read;
                         }
                         return _gf_true;
                 } else {
-                        gfid_index+=16;
+                        gfid_index += 17;
                 }
         }
         if (gfid_index == bytes_read)
@@ -647,30 +652,17 @@ out:
 }
 
 int
-glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
-                             char *gfid_str, int opcode, char **op_errstr)
+glusterd_store_quota_conf_upgrade (glusterd_volinfo_t *volinfo)
 {
         int                ret                   = -1;
         int                fd                    = -1;
         int                conf_fd               = -1;
-        size_t             entry_sz              = 131072;
-        ssize_t            bytes_read            = 0;
-        size_t            bytes_to_write         = 0;
-        unsigned char      buf[131072]           = {0,};
-        uuid_t             gfid                  = {0,};
+        unsigned char      gfid[17]              = {0,};
         xlator_t          *this                  = NULL;
-        gf_boolean_t       found                 = _gf_false;
-        gf_boolean_t       modified              = _gf_false;
-        gf_boolean_t       is_file_empty         = _gf_false;
-        gf_boolean_t       is_first_read         = _gf_true;
-        glusterd_conf_t   *conf                  = NULL;
+        char               type                  = 0;
 
         this = THIS;
         GF_ASSERT (this);
-        conf = this->private;
-        GF_ASSERT (conf);
-
-        glusterd_store_create_quota_conf_sh_on_absence (volinfo);
 
         fd = gf_store_mkstemp (volinfo->quota_conf_shandle);
         if (fd < 0) {
@@ -684,17 +676,121 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 goto out;
         }
 
-        ret = glusterd_store_quota_conf_skip_header (this, conf_fd);
-        if (ret) {
+        ret = quota_conf_skip_header (conf_fd);
+        if (ret)
+                goto out;
+
+        ret = quota_conf_write_header (fd);
+        if (ret)
+                goto out;
+
+        while (1) {
+                ret = quota_conf_read_gfid (conf_fd, gfid, &type, 1.1);
+                if (ret == 0)
+                        break;
+                else if (ret < 0)
+                        goto out;
+
+                ret = quota_conf_write_gfid (fd, gfid,
+                                             GF_QUOTA_CONF_TYPE_USAGE);
+                if (ret < 0)
+                        goto out;
+        }
+
+out:
+        if (conf_fd != -1)
+                close (conf_fd);
+
+        if (ret && (fd > 0)) {
+                gf_store_unlink_tmppath (volinfo->quota_conf_shandle);
+        } else if (!ret) {
+                ret = gf_store_rename_tmppath (volinfo->quota_conf_shandle);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to rename "
+                                "quota conf file");
+                        return ret;
+                }
+
+                ret = glusterd_compute_cksum (volinfo, _gf_true);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "compute cksum for quota conf file");
+                        return ret;
+                }
+
+                ret = glusterd_store_save_quota_version_and_cksum (volinfo);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                "store quota version and cksum");
+        }
+
+        return ret;
+}
+
+int
+glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
+                             char *gfid_str, int opcode, char **op_errstr)
+{
+        int                ret                   = -1;
+        int                fd                    = -1;
+        int                conf_fd               = -1;
+        size_t             entry_sz              = 139264;
+        ssize_t            bytes_read            = 0;
+        size_t             bytes_to_write        = 0;
+        unsigned char      buf[131072]           = {0,};
+        uuid_t             gfid                  = {0,};
+        xlator_t          *this                  = NULL;
+        gf_boolean_t       found                 = _gf_false;
+        gf_boolean_t       modified              = _gf_false;
+        gf_boolean_t       is_file_empty         = _gf_false;
+        gf_boolean_t       is_first_read         = _gf_true;
+        glusterd_conf_t   *conf                  = NULL;
+        float              version               = 0.0f;
+        char               type                  = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        glusterd_store_create_quota_conf_sh_on_absence (volinfo);
+
+        conf_fd = open (volinfo->quota_conf_shandle->path, O_RDONLY);
+        if (conf_fd == -1) {
+                ret = -1;
                 goto out;
         }
 
-        ret = glusterd_store_quota_conf_stamp_header (this, fd);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to add header to tmp "
-                        "file.");
+        ret = quota_conf_read_version (conf_fd, &version);
+        if (ret)
+                goto out;
+
+        if (version < 1.2f) {
+                close (conf_fd);
+                ret = glusterd_store_quota_conf_upgrade(volinfo);
+                if (ret)
+                        goto out;
+
+                conf_fd = open (volinfo->quota_conf_shandle->path, O_RDONLY);
+                if (conf_fd == -1) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = quota_conf_skip_header (conf_fd);
+                if (ret)
+                        goto out;
+        }
+
+        fd = gf_store_mkstemp (volinfo->quota_conf_shandle);
+        if (fd < 0) {
+                ret = -1;
                 goto out;
         }
+
+        ret = quota_conf_write_header (fd);
+        if (ret)
+                goto out;
 
         /* Just create empty quota.conf file if create */
         if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode) {
@@ -708,6 +804,11 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 goto out;
         }
         gf_uuid_parse (gfid_str, gfid);
+
+        if (opcode > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS)
+                type = GF_QUOTA_CONF_TYPE_OBJECTS;
+        else
+                type = GF_QUOTA_CONF_TYPE_USAGE;
 
         for (;;) {
                 bytes_read = read (conf_fd, (void*)&buf, entry_sz);
@@ -724,14 +825,14 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                                 is_file_empty = _gf_true;
                         break;
                 }
-                if ((bytes_read % 16) != 0) {
+                if ((bytes_read % 17) != 0) {
                         gf_log (this->name, GF_LOG_ERROR, "quota.conf "
                                 "corrupted");
                         ret = -1;
                         goto out;
                 }
-                found = glusterd_find_gfid_match (gfid, buf, bytes_read, opcode,
-                                                  &bytes_to_write);
+                found = glusterd_find_gfid_match (gfid, type, buf, bytes_read,
+                                                  opcode, &bytes_to_write);
 
                 ret = write (fd, (void *) buf, bytes_to_write);
                 if (ret == -1) {
@@ -756,9 +857,23 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
 
         switch (opcode) {
         case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
+                if (!found) {
+                        ret = quota_conf_write_gfid (fd, gfid,
+                                                     GF_QUOTA_CONF_TYPE_USAGE);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "write into quota.conf failed. "
+                                        "Reason : %s",
+                                        strerror (errno));
+                                goto out;
+                        }
+                        modified = _gf_true;
+                }
+                break;
         case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
                 if (!found) {
-                        ret = write (fd, gfid, 16);
+                        ret = quota_conf_write_gfid (fd, gfid,
+                                                   GF_QUOTA_CONF_TYPE_OBJECTS);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "write into quota.conf failed. "

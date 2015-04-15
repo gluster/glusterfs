@@ -3939,3 +3939,48 @@ glusterfs_is_local_pathinfo (char *pathinfo, gf_boolean_t *is_local)
 out:
         return ret;
 }
+
+ssize_t
+gf_nread (int fd, void *buf, size_t count)
+{
+        ssize_t  ret           = 0;
+        ssize_t  read_bytes    = 0;
+
+        for (read_bytes = 0; read_bytes < count; read_bytes += ret) {
+                ret = read (fd, buf + read_bytes, count - read_bytes);
+                if (ret == 0) {
+                        break;
+                } else if (ret < 0) {
+                        if (errno == EINTR)
+                                ret = 0;
+                        else
+                                goto out;
+                }
+        }
+
+        ret = read_bytes;
+out:
+        return ret;
+}
+
+ssize_t
+gf_nwrite (int fd, const void *buf, size_t count)
+{
+        ssize_t  ret        = 0;
+        ssize_t  written    = 0;
+
+        for (written = 0; written != count; written += ret) {
+                ret = write (fd, buf + written, count - written);
+                if (ret < 0) {
+                        if (errno == EINTR)
+                                ret = 0;
+                        else
+                                goto out;
+                }
+        }
+
+        ret = written;
+out:
+        return ret;
+}
+

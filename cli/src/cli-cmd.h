@@ -113,7 +113,7 @@ cli_cmd_get_confirmation (struct cli_state *state, const char *question);
 int cli_cmd_sent_status_get (int *status);
 
 gf_boolean_t
-_limits_set_on_volume (char *volname);
+_limits_set_on_volume (char *volname, int type);
 
 gf_boolean_t
 _quota_aux_mount_online (char *volname);
