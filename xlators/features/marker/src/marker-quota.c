@@ -2125,9 +2125,13 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
                 *objects = _gf_true;
         }
 
-        if (!loc_is_root(loc) && !dict_get (rsp_dict, contri_key)) {
-                *result = _gf_false;
-                goto out;
+        if (!loc_is_root(loc)) {
+                ret = quota_dict_get_meta (rsp_dict, contri_key, &meta);
+                if (ret < 0) {
+                        ret = 0;
+                        *result = _gf_false;
+                        goto out;
+                }
         }
 
 out:
