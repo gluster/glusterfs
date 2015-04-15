@@ -1222,6 +1222,7 @@ exp_dir_get_netgroup (const struct export_dir *expdir, const char *netgroup)
         if (!dict_res) {
                 gf_msg_debug (GF_EXP, 0, "%s not found for %s",
                               netgroup, expdir->dir_name);
+                goto out;
         }
 
         lookup_res = (struct export_item *)dict_res->data;
