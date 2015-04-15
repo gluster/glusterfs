@@ -1110,6 +1110,6 @@ int32_t
 glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict);
 
 gf_boolean_t
-glusterd_all_volumes_with_bitrot_stopped ();
+glusterd_should_i_stop_bitd ();
 
 #endif
