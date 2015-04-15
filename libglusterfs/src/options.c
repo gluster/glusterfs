@@ -248,19 +248,20 @@ void
 set_error_str (char *errstr, size_t len, volume_option_t *opt, const char *key,
                const char *value)
 {
-        int i = 0;
-        char given_array[4096] = {0,};
+        int i   = 0;
+        int ret = 0;
+
+        ret = snprintf (errstr, len, "option %s %s: '%s' is not valid "
+                        "(possible options are ", key, value, value);
 
         for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) && opt->value[i];) {
-                strcat (given_array, opt->value[i]);
+                ret += snprintf (errstr + ret, len - ret, "%s", opt->value[i]);
                 if (((++i) < ZR_OPTION_MAX_ARRAY_SIZE) &&
                     (opt->value[i]))
-                        strcat (given_array, ", ");
+                        ret += snprintf (errstr + ret, len - ret, ", ");
                 else
-                        strcat (given_array, ".");
+                        ret += snprintf (errstr + ret, len - ret, ".)");
         }
-        snprintf (errstr, len, "option %s %s: '%s' is not valid "
-                  "(possible options are %s)", key, value, value, given_array);
         return;
 }
 
@@ -332,6 +333,7 @@ xlator_option_validate_str (xlator_t *xl, const char *key, const char *value,
 out:
         if (ret) {
                 set_error_str (errstr, sizeof (errstr), opt, key, value);
+
                 gf_msg (xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
                         errstr);
                 if (op_errstr)

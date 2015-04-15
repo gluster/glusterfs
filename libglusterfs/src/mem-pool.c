@@ -226,6 +226,7 @@ gf_vasprintf (char **string_ptr, const char *format, va_list arg)
         rv = vsnprintf (str, size, format, arg_save);
 
         *string_ptr = str;
+        va_end (arg_save);
         return (rv);
 }
 
