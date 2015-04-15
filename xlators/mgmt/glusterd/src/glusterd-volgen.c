@@ -4060,19 +4060,6 @@ out:
 }
 
 static int
-volgen_graph_build_replicate_clusters (volgen_graph_t *graph,
-                                       glusterd_volinfo_t *volinfo)
-{
-        char               *replicate_args[]   = {"cluster/replicate",
-                                                  "%s-replicate-%d"};
-
-        return volgen_link_bricks_from_list_tail (graph, volinfo, "cluster/replicate",
-                                            "%s-replicate-%d",
-                                            volinfo->brick_count,
-                                            volinfo->replica_count);
-}
-
-static int
 build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                     dict_t *set_dict)
 {
@@ -4086,8 +4073,7 @@ build_shd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         switch (volinfo->type) {
         case GF_CLUSTER_TYPE_REPLICATE:
         case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
-                clusters = volgen_graph_build_replicate_clusters (graph,
-                                                                  volinfo);
+                clusters = volgen_graph_build_afr_clusters (graph, volinfo);
                 break;
 
         case GF_CLUSTER_TYPE_DISPERSE:

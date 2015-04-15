@@ -993,6 +993,17 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         afr_entry_lockee_cleanup (&local->internal_lock);
 
         GF_FREE (local->transaction.pre_op);
+
+        GF_FREE (local->transaction.pre_op_sources);
+        if (local->transaction.pre_op_xdata) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->transaction.pre_op_xdata[i])
+                                continue;
+                        dict_unref (local->transaction.pre_op_xdata[i]);
+                }
+                GF_FREE (local->transaction.pre_op_xdata);
+        }
+
         GF_FREE (local->transaction.eager_lock);
         GF_FREE (local->transaction.fop_subvols);
         GF_FREE (local->transaction.failed_subvols);
@@ -4054,6 +4065,20 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
                                                gf_afr_mt_char);
         if (!local->transaction.pre_op)
                 goto out;
+
+        if (priv->arbiter_count == 1) {
+                local->transaction.pre_op_xdata =
+                        GF_CALLOC (sizeof (*local->transaction.pre_op_xdata),
+                                   priv->child_count, gf_afr_mt_dict_t);
+                if (!local->transaction.pre_op_xdata)
+                        goto out;
+
+                local->transaction.pre_op_sources =
+                        GF_CALLOC (sizeof (*local->transaction.pre_op_sources),
+                                   priv->child_count, gf_afr_mt_char);
+                if (!local->transaction.pre_op_sources)
+                        goto out;
+        }
 
         local->transaction.fop_subvols = GF_CALLOC (sizeof (*local->transaction.fop_subvols),
 						    priv->child_count,
