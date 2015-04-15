@@ -136,7 +136,7 @@ glusterd_svcs_manager (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = conf->bitd_svc.manager (&(conf->bitd_svc), volinfo,
+        ret = conf->bitd_svc.manager (&(conf->bitd_svc), NULL,
                                       PROC_START_NO_WAIT);
         if (ret == -EINVAL)
                 ret = 0;

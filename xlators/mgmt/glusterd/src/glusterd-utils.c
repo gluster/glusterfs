@@ -3853,9 +3853,6 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         int32_t          count     = 0;
         int              i         = 1;
         gf_boolean_t     update    = _gf_false;
-        gf_boolean_t     stale_nfs = _gf_false;
-        gf_boolean_t     stale_shd = _gf_false;
-        gf_boolean_t     stale_qd  = _gf_false;
         xlator_t        *this      = NULL;
         glusterd_conf_t *priv      = NULL;
 
@@ -3895,26 +3892,11 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         }
 
         if (update) {
-                if (glusterd_proc_is_running (&(priv->nfs_svc.proc)))
-                        stale_nfs = _gf_true;
-                if (glusterd_proc_is_running (&(priv->shd_svc.proc)))
-                        stale_shd = _gf_true;
-                if (glusterd_proc_is_running (&(priv->quotad_svc.proc)))
-                        stale_qd  = _gf_true;
                 ret = glusterd_import_friend_volumes (peer_data);
                 if (ret)
                         goto out;
-                if (_gf_false == glusterd_are_all_volumes_stopped ()) {
-                        ret = glusterd_svcs_manager (NULL);
-                } else {
-                        if (stale_nfs)
-                                priv->nfs_svc.stop (&(priv->nfs_svc), SIGKILL);
-                        if (stale_shd)
-                                priv->shd_svc.stop (&(priv->shd_svc), SIGTERM);
-                        if (stale_qd)
-                                priv->quotad_svc.stop (&(priv->quotad_svc),
-                                                       SIGTERM);
-                }
+
+                glusterd_svcs_manager (NULL);
         }
 
 out:

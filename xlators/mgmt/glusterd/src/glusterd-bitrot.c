@@ -312,11 +312,16 @@ out:
 }
 
 gf_boolean_t
-glusterd_all_volumes_with_bitrot_stopped ()
+glusterd_should_i_stop_bitd ()
 {
-        glusterd_conf_t *conf = THIS->private;
-        glusterd_volinfo_t *volinfo = NULL;
-        gf_boolean_t        stopped = _gf_true;
+        glusterd_conf_t       *conf       = THIS->private;
+        glusterd_volinfo_t    *volinfo    = NULL;
+        gf_boolean_t           stopped    = _gf_true;
+        glusterd_brickinfo_t  *brickinfo  = NULL;
+        xlator_t              *this       = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
 
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 if (!glusterd_is_bitrot_enabled (volinfo))
@@ -324,7 +329,15 @@ glusterd_all_volumes_with_bitrot_stopped ()
                 else if (volinfo->status != GLUSTERD_STATUS_STARTED)
                         continue;
                 else {
-                        stopped = _gf_false;
+                        cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                                 brick_list) {
+                                if (!glusterd_is_local_brick (this, volinfo,
+                                                              brickinfo))
+                                        continue;
+                                stopped = _gf_false;
+                                break;
+                        }
+
                         break;
                 }
         }
@@ -333,7 +346,7 @@ glusterd_all_volumes_with_bitrot_stopped ()
 }
 
 static int
-glusterd_manage_bitrot (int opcode, glusterd_volinfo_t *volinfo)
+glusterd_manage_bitrot (int opcode)
 {
         int              ret   = -1;
         xlator_t         *this = NULL;
@@ -349,7 +362,7 @@ glusterd_manage_bitrot (int opcode, glusterd_volinfo_t *volinfo)
         case GF_BITROT_OPTION_TYPE_ENABLE:
         case GF_BITROT_OPTION_TYPE_DISABLE:
                 ret = priv->bitd_svc.manager (&(priv->bitd_svc),
-                                                volinfo, PROC_START_NO_WAIT);
+                                                NULL, PROC_START_NO_WAIT);
                 if (ret)
                         break;
                 ret = priv->scrub_svc.manager (&(priv->scrub_svc), NULL,
@@ -445,7 +458,7 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_manage_bitrot (type, volinfo);
+        ret = glusterd_manage_bitrot (type);
         if (ret)
                 goto out;
 
