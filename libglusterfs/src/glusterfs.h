@@ -370,7 +370,6 @@ typedef enum {
         GF_XATTROP_AND_ARRAY
 } gf_xattrop_flags_t;
 
-
 typedef enum {
         GF_UPCALL_EVENT_NULL,
         GF_UPCALL_CACHE_INVALIDATION,

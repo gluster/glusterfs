@@ -1031,7 +1031,8 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 } else {
                         errno = 0;
                         limit = strtol (words[5], &end_ptr, 10);
-                        if (errno == ERANGE || errno == EINVAL || limit <= 0) {
+                        if (errno == ERANGE || errno == EINVAL || limit <= 0
+                                            || strcmp (end_ptr, "") != 0) {
                                 ret = -1;
                                 cli_err ("Please enter an interger value in "
                                          "the range 1 - %"PRId64, INT64_MAX);

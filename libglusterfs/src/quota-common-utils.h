@@ -13,6 +13,15 @@
 
 #include "iatt.h"
 
+#define GF_QUOTA_CONF_VERSION 1.2
+#define QUOTA_CONF_HEADER                           \
+        "GlusterFS Quota conf | version: v1.2\n"
+
+typedef enum {
+        GF_QUOTA_CONF_TYPE_USAGE = 1,
+        GF_QUOTA_CONF_TYPE_OBJECTS
+} gf_quota_conf_type_t;
+
 struct _quota_limits {
         int64_t hl;
         int64_t sl;
@@ -35,5 +44,23 @@ quota_dict_get_meta (dict_t *dict, char *key, quota_meta_t *meta);
 int32_t
 quota_dict_set_meta (dict_t *dict, char *key, const quota_meta_t *meta,
                      ia_type_t ia_type);
+
+int32_t
+quota_conf_read_header (int fd, char *buf);
+
+int32_t
+quota_conf_read_version (int fd, float *version);
+
+int32_t
+quota_conf_write_header (int fd);
+
+int32_t
+quota_conf_write_gfid (int fd, void *buf, char type);
+
+int32_t
+quota_conf_read_gfid (int fd, void *buf, char *type, float version);
+
+int32_t
+quota_conf_skip_header (int fd);
 
 #endif /* _QUOTA_COMMON_UTILS_H */

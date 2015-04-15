@@ -61,6 +61,7 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-bitd-svc.h"
+#include "quota-common-utils.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -2396,13 +2397,14 @@ int
 glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t* load,
                                      int vol_idx, char *prefix)
 {
-        int   fd                    = -1;
-        char  *gfid_str             = NULL;
-        unsigned char  buf[16]      = {0};
-        char  key[PATH_MAX]         = {0};
-        int   gfid_idx              = 0;
-        int   ret                   = -1;
-        xlator_t *this              = NULL;
+        int            fd                    = -1;
+        unsigned char  buf[16]               = {0};
+        char           key[PATH_MAX]         = {0};
+        int            gfid_idx              = 0;
+        int            ret                   = -1;
+        xlator_t      *this                  = NULL;
+        char           type                  = 0;
+        float          version               = 0.0f;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2418,40 +2420,31 @@ glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t* load,
                 goto out;
         }
 
-        ret = glusterd_store_quota_conf_skip_header (this, fd);
+        ret = quota_conf_read_version (fd, &version);
         if (ret)
                 goto out;
 
         for (gfid_idx=0; ; gfid_idx++) {
-
-                ret = read (fd, (void*)&buf, 16) ;
-                if (ret <= 0) {
-                        //Finished reading all entries in the conf file
+                ret = quota_conf_read_gfid (fd, buf, &type, version);
+                if (ret == 0) {
                         break;
-                }
-                if (ret != 16) {
-                        //This should never happen. We must have a multiple of
-                        //entry_sz bytes in our configuration file.
+                } else if (ret < 0) {
                         gf_log (this->name, GF_LOG_CRITICAL, "Quota "
                                 "configuration store may be corrupt.");
                         goto out;
                 }
 
-                gfid_str = gf_strdup (uuid_utoa (buf));
-                if (!gfid_str) {
-                        ret = -1;
-                        goto out;
-                }
-
                 snprintf (key, sizeof(key)-1, "%s%d.gfid%d", prefix,
                           vol_idx, gfid_idx);
-                key[sizeof(key)-1] = '\0';
-                ret = dict_set_dynstr (load, key, gfid_str);
-                if (ret) {
+                ret = dict_set_dynstr_with_alloc (load, key, uuid_utoa (buf));
+                if (ret)
                         goto out;
-                }
 
-                gfid_str = NULL;
+                snprintf (key, sizeof(key)-1, "%s%d.gfid-type%d", prefix,
+                          vol_idx, gfid_idx);
+                ret = dict_set_int8 (load, key, type);
+                if (ret)
+                        goto out;
         }
 
         snprintf (key, sizeof(key)-1, "%s%d.gfid-count", prefix, vol_idx);
@@ -2476,7 +2469,6 @@ glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t* load,
 out:
         if (fd != -1)
                 close (fd);
-        GF_FREE (gfid_str);
         return ret;
 }
 
@@ -2935,14 +2927,15 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
                             glusterd_volinfo_t *new_volinfo,
                             char *prefix)
 {
-        int     gfid_idx         = 0;
-        int     gfid_count       = 0;
-        int     ret              = -1;
-        int     fd               = -1;
-        char    key[PATH_MAX]    = {0};
-        char    *gfid_str        = NULL;
-        uuid_t   gfid            = {0,};
-        xlator_t *this           = NULL;
+        int       gfid_idx         = 0;
+        int       gfid_count       = 0;
+        int       ret              = -1;
+        int       fd               = -1;
+        char      key[PATH_MAX]    = {0};
+        char     *gfid_str         = NULL;
+        uuid_t    gfid             = {0,};
+        xlator_t *this             = NULL;
+        int8_t    gfid_type        = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2984,33 +2977,34 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
         if (ret)
                 goto out;
 
-        ret = glusterd_store_quota_conf_stamp_header (this, fd);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to add header to tmp "
-                        "file");
+        ret = quota_conf_write_header (fd);
+        if (ret)
                 goto out;
-        }
 
         gfid_idx = 0;
         for (gfid_idx = 0; gfid_idx < gfid_count; gfid_idx++) {
 
                 snprintf (key, sizeof (key)-1, "%s%d.gfid%d",
                           prefix, vol_idx, gfid_idx);
-                key[sizeof(key)-1] = '\0';
                 ret = dict_get_str (peer_data, key, &gfid_str);
                 if (ret)
                         goto out;
 
+                snprintf (key, sizeof (key)-1, "%s%d.gfid-type%d",
+                          prefix, vol_idx, gfid_idx);
+                ret = dict_get_int8 (peer_data, key, &gfid_type);
+                if (ret)
+                        gfid_type = GF_QUOTA_CONF_TYPE_USAGE;
+
                 gf_uuid_parse (gfid_str, gfid);
-                ret = write (fd, (void*)gfid, 16);
-                if (ret != 16) {
+                ret = quota_conf_write_gfid (fd, gfid, (char)gfid_type);
+                if (ret < 0) {
                         gf_log (this->name, GF_LOG_CRITICAL, "Unable to write "
                                 "gfid %s into quota.conf for %s", gfid_str,
                                 new_volinfo->volname);
                         ret = -1;
                         goto out;
                 }
-
         }
 
         ret = gf_store_rename_tmppath (new_volinfo->quota_conf_shandle);
@@ -8950,40 +8944,6 @@ glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo)
         volinfo->quota_conf_shandle = NULL;
         volinfo->quota_conf_version = 0;
 
-}
-
-#define QUOTA_CONF_HEADER                                                \
-        "GlusterFS Quota conf | version: v%d.%d\n"
-
-int
-glusterd_store_quota_conf_skip_header (xlator_t *this, int fd)
-{
-        char buf[PATH_MAX] = {0,};
-
-        snprintf (buf, sizeof(buf)-1, QUOTA_CONF_HEADER, 1, 1);
-        return gf_skip_header_section (fd, strlen (buf));
-}
-
-int
-glusterd_store_quota_conf_stamp_header (xlator_t *this, int fd)
-{
-        char buf[PATH_MAX]  = {0,};
-        int  buf_len        = 0;
-        ssize_t  ret        = -1;
-        ssize_t  written    = 0;
-
-        snprintf (buf, sizeof(buf)-1, QUOTA_CONF_HEADER, 1, 1);
-        buf_len = strlen (buf);
-        for (written = 0; written != buf_len; written += ret) {
-                ret = write (fd, buf + written, buf_len - written);
-                if (ret == -1) {
-                        goto out;
-                }
-        }
-
-        ret = 0;
-out:
-        return ret;
 }
 
 int
