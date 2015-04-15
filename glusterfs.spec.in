@@ -247,7 +247,7 @@ Summary:          GlusterFS api library
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
-Provides:         python-gluster = %{version}-%{release}
+#Provides:         python-gluster = %{version}-%{release}
 
 %description api
 GlusterFS is a distributed file-system capable of scaling to several
@@ -314,8 +314,8 @@ This package provides the development libraries and include files.
 %package extra-xlators
 Summary:          Extra Gluster filesystem Translators
 Group:            Applications/File
-# We need -api rpm for its __init__.py in Python site-packages area
-Requires:         %{name}-api = %{version}-%{release}
+# We need python-glusterfs rpm for gluster module's __init__.py in Python site-packages area
+Requires:         python-%{name} = %{version}-%{release}
 Requires:         python python-ctypes
 
 %description extra-xlators
@@ -414,6 +414,24 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
 This package provides the base GlusterFS libraries
+
+%package -n python-gluster
+Summary:          GlusterFS python library
+Group:            Development/Tools
+Requires:         python
+
+%description -n python-gluster
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package contains the python modules of GlusterFS and own gluster
+namespace.
+
 
 %if ( 0%{!?_without_rdma:1} )
 %package rdma
@@ -596,6 +614,8 @@ mkdir -p %{buildroot}%{_localstatedir}/log/glusterd
 mkdir -p %{buildroot}%{_localstatedir}/log/glusterfs
 mkdir -p %{buildroot}%{_localstatedir}/log/glusterfsd
 mkdir -p %{buildroot}%{_localstatedir}/run/gluster
+touch %{buildroot}%{python_sitelib}/gluster/__init__.py
+
 
 # Remove unwanted files from all the shared libraries
 find %{buildroot}%{_libdir} -name '*.a' -delete
@@ -903,8 +923,6 @@ fi
 
 %files api
 %exclude %{_libdir}/*.so
-# Shared Python-GlusterFS files
-%{python_sitelib}/gluster/__init__.*
 # libgfapi files
 %{_libdir}/libgfapi.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
@@ -992,6 +1010,11 @@ fi
 %exclude %{_libdir}/libgfapi.*
 # libgfdb is only needed server-side
 %exclude %{_libdir}/libgfdb.*
+
+%files -n python-gluster
+# introducing glusterfs module in site packages.
+# so that all other gluster submodules can reside in the same namespace.
+%{python_sitelib}/gluster/__init__.*
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
@@ -1098,6 +1121,9 @@ fi
 
 
 %changelog
+* Wed Apr 15 2015 Humble Chirammal <hchiramm@redhat.com>
+- Introducing python-gluster package to own gluster namespace in sitelib (#1211848)
+
 * Sat Mar 28 2015 Mohammed Rafi KC <rkavunga@redhat.com>
 - Add dependency for librdmacm version >= 1.0.15 (#1206744)
 
