@@ -6028,6 +6028,7 @@ glusterd_recreate_volfiles (glusterd_conf_t *conf)
         int                      op_ret = 0;
 
         GF_ASSERT (conf);
+
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 ret = generate_brick_volfiles (volinfo);
                 if (ret) {
