@@ -2727,6 +2727,11 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                         goto out;
                 }
                 value = get_new_data ();
+
+                if (!value) {
+                        ret = -1;
+                        goto out;
+                }
                 value->len  = vallen;
                 value->data = memdup (buf, vallen);
                 value->is_static = 0;

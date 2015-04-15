@@ -914,6 +914,8 @@ out:
 
         FREE (str2);
 
+        va_end (ap);
+
         return ret;
 }
 
@@ -2269,6 +2271,7 @@ err:
         FREE (str2);
 
 out:
+        va_end (ap);
         return (0);
 }
 
@@ -2318,7 +2321,9 @@ out:
         if (str2)
                 FREE (str2);
 
-         return ret;
+        va_end (ap);
+
+        return ret;
 }
 
 int
@@ -2469,6 +2474,8 @@ out:
         GF_FREE (str1);
 
         FREE (str2);
+
+        va_end (ap);
 
         return ret;
 }
