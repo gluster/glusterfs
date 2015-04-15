@@ -55,6 +55,8 @@ typedef int (*afr_changelog_resume_t) (call_frame_t *frame, xlator_t *this);
 typedef struct _afr_private {
         gf_lock_t lock;               /* to guard access to child_count, etc */
         unsigned int child_count;     /* total number of children   */
+        unsigned int arbiter_count;   /*subset of child_count.
+                                        Has to be 0 or 1.*/
 
         xlator_t **children;
 

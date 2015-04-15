@@ -1502,12 +1502,26 @@ brick_graph_add_arbiter (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                          dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
         xlator_t *xl = NULL;
+        glusterd_brickinfo_t  *next = NULL;
+        glusterd_brickinfo_t  *last = NULL;
         int ret = -1;
 
         if (volinfo->arbiter_count != 1)
                 return 0;
-        /*TODO: Parse brickinfo and add the arbiter xlator only if brick is the
-         * last brick (i.e. 3rd brick) of the replcia pair.*/
+
+        /* Find the last brick in the same group. */
+        last = brickinfo;
+        for (;;) {
+                next = list_next (last, &volinfo->bricks,
+                                  glusterd_brickinfo_t, brick_list);
+                if (!next || (next->group != brickinfo->group)) {
+                        break;
+                }
+                last = next;
+        }
+        if (last != brickinfo)
+                return 0;
+
         xl = volgen_graph_add (graph, "features/arbiter", volinfo->volname);
         if (!xl)
                 goto out;
@@ -1569,6 +1583,22 @@ brick_graph_add_bitrot_stub (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
 out:
         return ret;
+}
+
+void
+assign_brick_groups (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        uint16_t                group_num       = 0;
+        int                     in_group        = 0;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                brickinfo->group = group_num;
+                if (++in_group >= volinfo->replica_count) {
+                        in_group = 0;
+                        ++group_num;
+                }
+        }
 }
 
 static int
@@ -3087,6 +3117,43 @@ out:
 }
 
 static int
+volgen_graph_build_afr_clusters (volgen_graph_t *graph,
+                                 glusterd_volinfo_t *volinfo)
+{
+        int             i                    = 0;
+        int             ret                  = 0;
+        int             clusters             = 0;
+        char            *replicate_args[]    = {"cluster/replicate",
+                                                "%s-replicate-%d"};
+        xlator_t        *afr                 = NULL;
+        char            option[32]           = {0};
+
+        clusters = volgen_link_bricks_from_list_tail (graph, volinfo,
+                                                replicate_args[0],
+                                                replicate_args[1],
+                                                volinfo->brick_count,
+                                                volinfo->replica_count);
+        if (clusters < 0)
+                goto out;
+
+        if (!volinfo->arbiter_count)
+                goto out;
+
+        afr = first_of (graph);
+        sprintf(option, "%d", volinfo->arbiter_count);
+        for (i = 0; i < clusters; i++) {
+                ret = xlator_set_option (afr, "arbiter-count", option);
+                if (ret) {
+                        clusters = -1;
+                        goto out;
+                }
+                afr = afr->next;
+        }
+out:
+        return clusters;
+}
+
+static int
 volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                                     glusterd_volinfo_t *volinfo,
                                     gf_boolean_t is_quotad)
@@ -3116,13 +3183,7 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
         /* All other cases, it will have one or the other cluster type */
         switch (volinfo->type) {
         case GF_CLUSTER_TYPE_REPLICATE:
-                clusters = volgen_link_bricks_from_list_tail
-                        (graph, volinfo,
-                         replicate_args[0],
-                         replicate_args[1],
-                         volinfo->brick_count,
-                         volinfo->replica_count);
-
+                clusters = volgen_graph_build_afr_clusters (graph, volinfo);
                 if (clusters < 0)
                         goto out;
                 break;
@@ -3146,11 +3207,7 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
                 /* Replicate after the clients, then stripe */
                 if (volinfo->replica_count == 0)
                         goto out;
-                clusters = volgen_link_bricks_from_list_tail (graph, volinfo,
-                                                        replicate_args[0],
-                                                        replicate_args[1],
-                                                        volinfo->brick_count,
-                                                        volinfo->replica_count);
+                clusters = volgen_graph_build_afr_clusters (graph, volinfo);
                 if (clusters < 0)
                         goto out;
 
@@ -4473,6 +4530,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         if (ret == -1)
                 return -1;
 
+        assign_brick_groups (volinfo);
         get_vol_tstamp_file (tstamp_file, volinfo);
 
         if (ret) {

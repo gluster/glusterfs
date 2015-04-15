@@ -274,6 +274,8 @@ init (xlator_t *this)
 
         priv->read_child = -1;
 
+        GF_OPTION_INIT ("arbiter-count", priv->arbiter_count, uint32, out);
+
 	GF_OPTION_INIT ("afr-dirty-xattr", priv->afr_dirty, str, out);
 
 	GF_OPTION_INIT ("metadata-splitbrain-forced-heal",
@@ -793,6 +795,10 @@ struct volume_options options[] = {
                          "guarantee that all read operations on a file serve "
                          "attributes from the same subvol as long as it holds "
                          " a good copy of the file/dir.",
+        },
+        { .key = {"arbiter-count"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "subset of child_count. Has to be 0 or 1."
         },
         { .key  = {NULL} },
 };

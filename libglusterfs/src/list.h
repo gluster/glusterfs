@@ -256,4 +256,18 @@ static inline void list_replace_init(struct list_head *old,
 	     &pos->member != (head);                                    \
 	     pos = n, n = list_entry(n->member.prev, typeof(*n), member))
 
+/*
+ * This list implementation has some advantages, but one disadvantage: you
+ * can't use NULL to check whether you're at the head or tail.  Thus, the
+ * address of the head has to be an argument for these macros.
+ */
+
+#define list_next(ptr, head, type, member)      \
+        (((ptr)->member.next == head) ? NULL    \
+                                 : list_entry((ptr)->member.next, type, member))
+
+#define list_prev(ptr, head, type, member)      \
+        (((ptr)->member.prev == head) ? NULL    \
+                                 : list_entry((ptr)->member.prev, type, member))
+
 #endif /* _LLIST_H */

@@ -218,6 +218,9 @@ glusterd_check_voloption_flags (char *key, int32_t flags);
 gf_boolean_t
 glusterd_is_valid_volfpath (char *volname, char *brick);
 
+void
+assign_brick_groups (glusterd_volinfo_t *volinfo);
+
 int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo);
 

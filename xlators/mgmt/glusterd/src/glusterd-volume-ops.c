@@ -1996,6 +1996,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                  "replica count for volume %s", volname);
                         goto out;
                 }
+                ret = dict_get_int32 (dict, "arbiter-count",
+                                      &volinfo->arbiter_count);
         } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
                 ret = dict_get_int32 (dict, "stripe-count",
                                       &volinfo->stripe_count);
@@ -2019,6 +2021,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                 "replica count for volume %s", volname);
                         goto out;
                 }
+                ret = dict_get_int32 (dict, "arbiter-count",
+                                      &volinfo->arbiter_count);
         } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
                 ret = dict_get_int32 (dict, "disperse-count",
                                       &volinfo->disperse_count);
