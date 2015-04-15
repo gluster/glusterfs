@@ -525,6 +525,7 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         runner_t runner            = {0,};
         int ret                    = 0;
         xlator_t *this             = THIS;
+        mode_t orig_umask          = 0;
 
         priv = this->private;
         GF_ASSERT (priv);
@@ -624,7 +625,9 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
                 *op_errno = ENOMEM;
                 goto out;
         }
+        orig_umask = umask(S_IRWXG | S_IRWXO);
         ret = mkstemp (cookie);
+        umask(orig_umask);
         if (ret == -1) {
                 *op_errno = errno;
                 goto out;

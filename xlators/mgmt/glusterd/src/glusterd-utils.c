@@ -2086,6 +2086,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
         gf_boolean_t            unlink_sortfile         = _gf_false;
         glusterd_conf_t        *priv                    = NULL;
         xlator_t               *this                    = NULL;
+        mode_t                  orig_umask              = 0;
 
         GF_ASSERT (volinfo);
         this = THIS;
@@ -2106,7 +2107,9 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
                 snprintf (sort_filepath, sizeof (sort_filepath),
                           "/tmp/%s.XXXXXX", volinfo->volname);
 
+                orig_umask = umask(S_IRWXG | S_IRWXO);
                 sort_fd = mkstemp (sort_filepath);
+                umask(orig_umask);
                 if (sort_fd < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED, "Could not generate "
