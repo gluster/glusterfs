@@ -39,6 +39,8 @@
 #define AFR_DOM_COUNT_MAX    3
 #define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/
 
+#define ARBITER_BRICK_INDEX 2
+
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_read_txn_wind_t) (call_frame_t *frame, xlator_t *this, int subvol);
@@ -655,6 +657,10 @@ typedef struct _afr_local {
 		struct list_head  eager_locked;
 
                 unsigned char   *pre_op;
+
+                /* For arbiter configuration only. */
+                dict_t **pre_op_xdata;
+                unsigned char *pre_op_sources;
 
 		/* @fop_subvols: subvolumes on which FOP will be attempted */
                 unsigned char   *fop_subvols;

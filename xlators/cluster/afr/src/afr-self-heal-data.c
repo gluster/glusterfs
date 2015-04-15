@@ -684,6 +684,12 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		source = ret;
 
+                if (priv->arbiter_count == 1 && source == ARBITER_BRICK_INDEX &&
+                    AFR_COUNT (sources, priv->child_count) == 1) {
+                        did_sh = _gf_false;
+                        goto unlock;
+                }
+
 		ret = __afr_selfheal_truncate_sinks (frame, this, fd, healed_sinks,
 						     locked_replies,
 						     locked_replies[source].poststat.ia_size);
