@@ -434,14 +434,14 @@ upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
                         up_client_entry->client_uid);
 
         } else {
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "Cache invalidation notification NOT sent to %s",
+                        up_client_entry->client_uid);
+
                 if (t_expired > (2*timeout)) {
                         /* Cleanup the entry */
                         __upcall_cleanup_client_entry (up_client_entry);
                 }
-
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "Cache invalidation notification NOT sent to %s",
-                        up_client_entry->client_uid);
         }
 }
 
