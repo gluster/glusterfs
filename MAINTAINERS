@@ -133,6 +133,14 @@ M: Raghavendra Gowdappa <rgowdapp@redhat.com>
 S: Maintained
 F: xlators/features/quota/
 
+Tiering
+M: Dan Lambright <dlambrig@redhat.com>
+M: Joseph Fernandes <josferna@redhat.com>
+S: Maintained
+F: xlators/cluster/dht/src/tier.c
+F: xlators/features/changetimerecorder
+F: libglusterfs/src/gfdb
+W: http://www.gluster.org/community/documentation/index.php/Features/data-classification
 
 Other bits of code:
 -------------------
