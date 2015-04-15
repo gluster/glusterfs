@@ -16,6 +16,8 @@
 void
 afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this,
 			    int child_index);
+void
+afr_txn_arbitrate_fop_cbk (call_frame_t *frame, xlator_t *this);
 
 int
 afr_lock_server_count (afr_private_t *priv, afr_transaction_type type);

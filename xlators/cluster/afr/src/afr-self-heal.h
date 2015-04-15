@@ -141,6 +141,9 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                              afr_transaction_type type,
                              unsigned char *locked_on, unsigned char *sources,
                              unsigned char *sinks, uint64_t *witness);
+int
+afr_selfheal_fill_matrix (xlator_t *this, int **matrix, int subvol, int idx,
+                          dict_t *xdata);
 
 int
 afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
