@@ -2062,7 +2062,8 @@ gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent)
 	dirent->d_namlen = strlen (gf_dirent->d_name);
 #endif
 
-	strncpy (dirent->d_name, gf_dirent->d_name, GF_NAME_MAX + 1);
+	strncpy (dirent->d_name, gf_dirent->d_name, NAME_MAX);
+	dirent->d_name[NAME_MAX] = 0;
 }
 
 
