@@ -3431,6 +3431,21 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 if (local->rebalance.target_node) {
                         local->flags = forced_rebalance;
 
+                        /* Flag to suggest its a tiering migration
+                         * The reason for this dic key-value is that
+                         * promotions and demotions are multithreaded
+                         * so the original frame from gf_defrag_start()
+                         * is not carried. A new frame will be created when
+                         * we do syncop_setxattr(). This doesnot have the
+                         * frame->root->pid of the original frame. So we pass
+                         * this dic key-value when we do syncop_setxattr() to do
+                         * data migration and set the frame->root->pid to
+                         * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
+                         * calling dht_start_rebalance_task() */
+                        tmp = dict_get (xattr, "tiering.migration");
+                        if (tmp)
+                                frame->root->pid = GF_CLIENT_PID_TIER_DEFRAG;
+
                         ret = dht_start_rebalance_task (this, frame);
                         if (!ret)
                                 return 0;
