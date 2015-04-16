@@ -2911,6 +2911,8 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         uint64_t lookup = 0;
         uint64_t failures = 0;
         uint64_t skipped = 0;
+        uint64_t promoted = 0;
+        uint64_t demoted = 0;
         char     *status = "";
         double   elapsed = 0;
         struct timeval end = {0,};
@@ -2928,6 +2930,8 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         lookup = defrag->num_files_lookedup;
         failures = defrag->total_failures;
         skipped = defrag->skipped;
+        promoted = defrag->total_files_promoted;
+        demoted = defrag->total_files_demoted;
 
         gettimeofday (&end, NULL);
 
@@ -2935,6 +2939,16 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
 
         if (!dict)
                 goto log;
+
+        ret = dict_set_uint64 (dict, "promoted", promoted);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set promoted count");
+
+        ret = dict_set_uint64 (dict, "demoted", demoted);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set demoted count");
 
         ret = dict_set_uint64 (dict, "files", files);
         if (ret)
