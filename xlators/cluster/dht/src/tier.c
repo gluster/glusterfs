@@ -540,7 +540,7 @@ tier_process_brick_cbk (dict_t *brick_dict, char *key, data_t *value,
                 }
         ret = 0;
 out:
-        if (query_cbk_args->queryFILE) {
+        if (query_cbk_args && query_cbk_args->queryFILE) {
                 fclose (query_cbk_args->queryFILE);
                 query_cbk_args->queryFILE = NULL;
         }
