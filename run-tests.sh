@@ -219,7 +219,6 @@ function main()
         echo "Running all the regression test cases (new way)"
         #prove -rf --timer ${regression_testsdir}/tests;
         run_all
-	echo "result = $?"
     else
         run_tests "$@"
     fi
