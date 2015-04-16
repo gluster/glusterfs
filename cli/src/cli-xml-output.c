@@ -2687,8 +2687,10 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 /* For Distributed-(stripe,replicate,stipe-replicate,disperse)
                    types
                  */
-                if ((type > 0) && (dist_count < brick_count))
-                        type += 4;
+                if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
+                    (dist_count < brick_count))
+                       type = type + GF_CLUSTER_TYPE_MAX - 1;
+
                 ret = xmlTextWriterWriteFormatElement (local->writer,
                                                        (xmlChar *)"type",
                                                        "%d", type);
