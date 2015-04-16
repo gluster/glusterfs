@@ -410,7 +410,7 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
                 state->ctx->secure_mgmt = 1;
         }
 
-        if (state->argc >= GEO_REP_CMD_CONFIG_INDEX &&
+        if (state->argc > GEO_REP_CMD_CONFIG_INDEX &&
             strtail (state->argv[GEO_REP_CMD_INDEX], "geo") &&
             strtail (state->argv[GEO_REP_CMD_CONFIG_INDEX], "co"))
                 geo_rep_config = _gf_true;
