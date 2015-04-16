@@ -60,7 +60,7 @@ CLEANFILES =
 
 install-data-hook:
 if GF_INSTALL_GLUSTERD_WORKDIR
-	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)
+	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)
 	(stat $(DESTDIR)$(sysconfdir)/glusterd && \
 	    mv $(DESTDIR)$(sysconfdir)/glusterd $(DESTDIR)$(GLUSTERD_WORKDIR)) || true;
 	(ln -sf $(DESTDIR)$(GLUSTERD_WORKDIR) $(sysconfdir)/glusterd) || true;

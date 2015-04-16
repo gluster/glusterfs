@@ -7,4 +7,4 @@ bin_SCRIPTS = glusterfind
 CLEANFILES = $(bin_SCRIPTS)
 
 install-data-local:
-	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/glusterfind/.keys
+	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/glusterfind/.keys
