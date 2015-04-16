@@ -15,6 +15,11 @@
 
 #include "ec-data.h"
 
+typedef enum {
+        EC_DATA_TXN,
+        EC_METADATA_TXN
+} ec_txn_t;
+
 #define EC_CONFIG_VERSION 0
 
 #define EC_CONFIG_ALGORITHM 0
