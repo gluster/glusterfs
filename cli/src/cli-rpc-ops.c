@@ -1452,15 +1452,11 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
         int                ret          = -1;
         int                count        = 0;
         int                i            = 1;
+        uint64_t           promoted     = 0;
+        uint64_t           demoted      = 0;
         char               key[256]     = {0,};
-        gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
-        uint64_t           files        = 0;
-        uint64_t           size         = 0;
-        uint64_t           lookup       = 0;
         char               *node_name   = NULL;
-        uint64_t           failures     = 0;
-        uint64_t           skipped      = 0;
-        double             elapsed      = 0;
+        gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
         char               *status_str  = NULL;
         char               *size_str    = NULL;
 
@@ -1470,105 +1466,52 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 goto out;
         }
 
+        cli_out ("%-20s %-20s %-20s %-20s", "Node", "Promoted files",
+                 "Demoted files", "Status");
+        cli_out ("%-20s %-20s %-20s %-20s", "---------", "---------",
+                 "---------", "---------");
 
-        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "Node",
-                 "Rebalanced-files", "size", "scanned", "failures", "skipped",
-                 "status", "run time in secs");
-        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "---------",
-                 "-----------", "-----------", "-----------", "-----------",
-                 "-----------", "------------", "--------------");
         for (i = 1; i <= count; i++) {
                 /* Reset the variables to prevent carryover of values */
                 node_name = NULL;
-                files = 0;
-                size = 0;
-                lookup = 0;
-                skipped = 0;
-                status_str = NULL;
-                elapsed = 0;
+                promoted = 0;
+                demoted = 0;
 
-                /* Check if status is NOT_STARTED, and continue early */
                 memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
-                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_TRACE, "failed to get status");
-                        goto out;
-                }
-                if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
-                        continue;
-
-
                 snprintf (key, 256, "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
 
                 memset (key, 0, 256);
-                snprintf (key, 256, "files-%d", i);
-                ret = dict_get_uint64 (dict, key, &files);
+                snprintf (key, 256, "promoted-%d", i);
+                ret = dict_get_uint64 (dict, key, &promoted);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
-                                "failed to get file count");
+                                "failed to get promoted count");
 
                 memset (key, 0, 256);
-                snprintf (key, 256, "size-%d", i);
-                ret = dict_get_uint64 (dict, key, &size);
+                snprintf (key, 256, "demoted-%d", i);
+                ret = dict_get_uint64 (dict, key, &demoted);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
-                                "failed to get size of xfer");
+                                "failed to get demoted count");
 
                 memset (key, 0, 256);
-                snprintf (key, 256, "lookups-%d", i);
-                ret = dict_get_uint64 (dict, key, &lookup);
+                snprintf (key, 256, "status-%d", i);
+                ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
-                                "failed to get lookedup file count");
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "failures-%d", i);
-                ret = dict_get_uint64 (dict, key, &failures);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE,
-                                "failed to get failures count");
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "skipped-%d", i);
-                ret = dict_get_uint64 (dict, key, &skipped);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE,
-                                "failed to get skipped count");
-
-                /* For remove-brick include skipped count into failure count*/
-                if (task_type != GF_TASK_TYPE_REBALANCE) {
-                        failures += skipped;
-                        skipped = 0;
-                }
-
-                memset (key, 0, 256);
-                snprintf (key, 256, "run-time-%d", i);
-                ret = dict_get_double (dict, key, &elapsed);
-                if (ret)
-                        gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
+                                "failed to get status");
 
                 /* Check for array bound */
                 if (status_rcd >= GF_DEFRAG_STATUS_MAX)
                         status_rcd = GF_DEFRAG_STATUS_MAX;
 
                 status_str = cli_vol_task_status_str[status_rcd];
-                size_str = gf_uint64_2human_readable(size);
-                if (size_str) {
-                        cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
-                                 PRIu64" %13"PRIu64 " %20s %18.2f", node_name,
-                                 files, size_str, lookup, failures, skipped,
-                                 status_str, elapsed);
-                } else {
-                        cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"PRIu64
-                                 " %13"PRIu64" %13"PRIu64 " %20s %18.2f",
-                                 node_name, files, size, lookup, failures,
-                                 skipped, status_str, elapsed);
-                }
-                GF_FREE(size_str);
+                cli_out ("%-20s %-20"PRIu64" %-20"PRIu64" %-20s",
+                         node_name, promoted, demoted, status_str);
+
         }
 out:
         return ret;
