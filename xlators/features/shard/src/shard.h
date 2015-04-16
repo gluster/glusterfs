@@ -147,11 +147,14 @@ typedef struct shard_local {
         int count;
         uint32_t flags;
         uint64_t block_size;
+        uint64_t dst_block_size;
         off_t offset;
         size_t total_size;
         size_t written_size;
         loc_t loc;
         loc_t dot_shard_loc;
+        loc_t loc2;
+        loc_t tmp_loc;
         fd_t *fd;
         dict_t *xattr_req;
         dict_t *xattr_rsp;
@@ -159,6 +162,10 @@ typedef struct shard_local {
         glusterfs_fop_t fop;
         struct iatt prebuf;
         struct iatt postbuf;
+        struct iatt preoldparent;
+        struct iatt postoldparent;
+        struct iatt prenewparent;
+        struct iatt postnewparent;
         struct iovec *vector;
         struct iobref *iobref;
         shard_post_fop_handler_t handler;
