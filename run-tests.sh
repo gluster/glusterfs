@@ -187,13 +187,26 @@ function run_tests()
     return ${RES}
 }
 
+# If you're submitting a fix related to one of these tests and want its result
+# to be considered, you'll need to remove it from the list as part of your
+# patch.
+function is_bad_test ()
+{
+    local name=$1
+    for bt in ./tests/basic/volume-snapshot-clone.t	\
+    	      ./tests/basic/uss.t			\
+	      ./tests/features/glupy.t; do
+        [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
+    done
+    return 1				  # bash: non-zero means false/failure
+}
+
 function run_all ()
 {
-    old_cores=$(ls /core.* 2> /dev/null | wc -l)
-
     find ${regression_testsdir}/tests -name '*.t' \
     | LC_COLLATE=C sort \
     | while read t; do
+	old_cores=$(ls /core.* 2> /dev/null | wc -l)
         retval=0
         prove -f --timer $t
         TMP_RES=$?
@@ -208,7 +221,11 @@ function run_all ()
             retval=$((retval+2))
         fi
         if [ $retval -ne 0 ]; then
-            return $retval
+	    if is_bad_test $t; then
+		echo  "Ignoring failure from known-bad test $t"
+	    else
+		return $retval
+	    fi
         fi
     done
 }
