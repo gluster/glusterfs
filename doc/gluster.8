@@ -105,6 +105,19 @@ Display the status of peers.
 .TP
 \fB\ peer help \fR
 Display help for the peer command.
+.SS "Bitrot Commands"
+.TP
+\fB\ volume bitrot <VOLNAME> {enable|disable} \fR
+Enable/disable bitrot for volume <VOLNAME>
+.TP
+\fB\ volume bitrot <VOLNAME> scrub-throttle {lazy|normal|aggressive} \fR
+Scrub-throttle value is a measure of how fast or slow the scrubber scrubs the filesystem for volume <VOLNAME>
+.TP
+\fB\ volume bitrot <VOLNAME> scrub-frequency {daily|weekly|biweekly|monthly} \fR
+Scrub frequency for volume <VOLNAME>
+.TP
+\fB\ volume bitrot <VOLNAME> scrub {pause|resume} \fR
+Pause/Resume scrub. Upon resume, scrubber continues where it left off.
 .SS "Snapshot Commands"
 .PP
 .TP
