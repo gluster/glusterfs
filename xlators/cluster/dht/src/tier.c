@@ -219,6 +219,24 @@ tier_migrate_using_query_file (void *_args)
                         if (per_file_status) {
                                 goto per_file_out;
                         }
+
+                        /* Flag to suggest its a tiering migration
+                         * The reason for this dic key-value is that
+                         * promotions and demotions are multithreaded
+                         * so the original frame from gf_defrag_start()
+                         * is not carried. A new frame will be created when
+                         * we do syncop_setxattr(). This doesnot have the
+                         * frame->root->pid of the original frame. So we pass
+                         * this dic key-value when we do syncop_setxattr() to do
+                         * data migration and set the frame->root->pid to
+                         * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
+                         * calling dht_start_rebalance_task() */
+                        per_file_status = dict_set_str (migrate_data,
+                                                "tiering.migration", "yes");
+                        if (per_file_status) {
+                                goto per_file_out;
+                        }
+
                 }
                 per_link_status = 0;
                 /* Per link of file */
