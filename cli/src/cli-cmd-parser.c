@@ -4933,7 +4933,7 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                                                      "scrub-throttle",
                                                      "scrub-frequency",
                                                      "scrub", NULL};
-        char               *scrub_throt_values[]  = {"frozen", "lazy", "normal",
+        char               *scrub_throt_values[]  = {"lazy", "normal",
                                                      "aggressive", NULL};
         char               *scrub_freq_values[]   = {"daily", "weekly",
                                                      "biweekly", "monthly",
