@@ -745,7 +745,7 @@ xml_output:
                 // Distributed (stripe/replicate/stripe-replica) setups
                 if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
                     (dist_count < brick_count))
-                       vol_type = type + 5;
+                       vol_type = type + GF_CLUSTER_TYPE_MAX - 1;
 
                 cli_out ("Volume Name: %s", volname);
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);

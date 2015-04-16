@@ -29,7 +29,8 @@
         GF_CLUSTER_TYPE_REPLICATE,
         GF_CLUSTER_TYPE_STRIPE_REPLICATE,
         GF_CLUSTER_TYPE_DISPERSE,
-        GF_CLUSTER_TYPE_TIER
+        GF_CLUSTER_TYPE_TIER,
+        GF_CLUSTER_TYPE_MAX
 };
 
  enum gf1_cli_replace_op {
