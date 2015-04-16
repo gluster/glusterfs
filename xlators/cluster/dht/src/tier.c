@@ -365,6 +365,12 @@ tier_migrate_using_query_file (void *_args)
                                 per_link_status = -1;
                                 goto error;
                         }
+
+                        if (query_cbk_args->is_promotion)
+                                defrag->total_files_promoted++;
+                        else
+                                defrag->total_files_demoted++;
+
 error:
 
                         loc_wipe(&loc);

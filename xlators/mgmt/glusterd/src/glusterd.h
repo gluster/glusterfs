@@ -312,6 +312,8 @@ typedef struct tier_info_ {
         int                       hot_type;
         int                       hot_brick_count;
         int                       hot_replica_count;
+        int                       promoted;
+        int                       demoted;
 } gd_tier_info_t;
 
 struct glusterd_volinfo_ {

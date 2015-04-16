@@ -6553,6 +6553,8 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
         uint64_t                        skipped = 0;
         xlator_t                       *this = NULL;
         double                          run_time = 0;
+        uint64_t                        promoted = 0;
+        uint64_t                        demoted = 0;
 
         this = THIS;
 
@@ -6586,6 +6588,16 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 gf_log (this->name, GF_LOG_TRACE,
                         "failed to get skipped count");
 
+        ret = dict_get_uint64 (rsp_dict, "promoted", &promoted);
+        if (ret)
+                gf_log (this->name, GF_LOG_TRACE,
+                        "failed to get promoted count");
+
+        ret = dict_get_uint64 (rsp_dict, "demoted", &demoted);
+        if (ret)
+                gf_log (this->name, GF_LOG_TRACE,
+                        "failed to get demoted count");
+
         ret = dict_get_double (rsp_dict, "run-time", &run_time);
         if (ret)
                 gf_log (this->name, GF_LOG_TRACE,
@@ -6605,6 +6617,10 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 volinfo->rebal.skipped_files = skipped;
         if (run_time)
                 volinfo->rebal.rebalance_time = run_time;
+        if (promoted)
+                volinfo->tier_info.promoted = promoted;
+        if (demoted)
+                volinfo->tier_info.demoted = demoted;
 
         return ret;
 }
@@ -7678,6 +7694,31 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "demoted-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "demoted-%d", current_index);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set demoted count");
+                }
+        }
+        memset (key, 0, 256);
+        snprintf (key, 256, "promoted-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "promoted-%d", current_index);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_DEBUG,
+                                "failed to set promoted count");
+                }
+        }
+
         ret = 0;
 
 out:
@@ -8281,6 +8322,20 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         if (ret)
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to set run-time");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "promoted-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->tier_info.promoted);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set lookedup file count");
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "demoted-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->tier_info.demoted);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "failed to set lookedup file count");
 
 out:
         return ret;
