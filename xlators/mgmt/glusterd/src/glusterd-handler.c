@@ -5007,12 +5007,17 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
-                /* Peerinfo should be available at this point. Not finding it
-                 * means that something terrible has happened
+                /* Peerinfo should be available at this point if its a connect
+                 * event. Not finding it means that something terrible has
+                 * happened. For non-connect event we might end up having a null
+                 * peerinfo, so log at debug level.
                  */
-                gf_msg (THIS->name, GF_LOG_CRITICAL, ENOENT,
+                gf_msg (THIS->name, (RPC_CLNT_CONNECT == event) ?
+                        GF_LOG_CRITICAL : GF_LOG_DEBUG, ENOENT,
                         GD_MSG_PEER_NOT_FOUND, "Could not find peer "
-                        "%s(%s)", peerctx->peername, uuid_utoa (peerctx->peerid));
+                        "%s(%s)", peerctx->peername,
+                        uuid_utoa (peerctx->peerid));
+
                 ret = -1;
                 goto out;
         }
