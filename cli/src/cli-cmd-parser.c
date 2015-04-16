@@ -372,6 +372,9 @@ cli_validate_disperse_volume (char *word, gf1_cluster_type type,
                 cli_err ("replicated-dispersed volume is not "
                          "supported");
                 goto out;
+        default:
+                cli_err ("Invalid type given");
+                break;
         }
 out:
         return ret;
@@ -509,6 +512,9 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 cli_err ("replicated-dispersed volume is not "
                                          "supported");
                                 goto out;
+                        default:
+                                cli_err ("Invalid type given");
+                                goto out;
                         }
 
                         if (wordcount < (index+2)) {
@@ -570,6 +576,9 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         case GF_CLUSTER_TYPE_TIER:
                                 cli_err ("striped-tier volume is not "
                                          "supported");
+                                goto out;
+                        default:
+                                cli_err ("Invalid type given");
                                 goto out;
                         }
                         if (wordcount < (index + 2)) {
