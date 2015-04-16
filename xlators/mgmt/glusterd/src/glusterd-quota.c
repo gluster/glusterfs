@@ -57,13 +57,47 @@ const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
         [GF_QUOTA_OPTION_TYPE_DEFAULT_SOFT_LIMIT] = "default-soft-limit",
         [GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS]      = "limit-objects",
         [GF_QUOTA_OPTION_TYPE_LIST_OBJECTS]       = "list-objects",
-        [GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS]     = "remove-objetcs",
+        [GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS]     = "remove-objects",
         [GF_QUOTA_OPTION_TYPE_MAX]                = NULL
 };
 
 int
 glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                              char *gfid_str, int opcode, char **op_errstr);
+
+gf_boolean_t
+glusterd_is_quota_supported (int32_t type, char **op_errstr)
+{
+        xlator_t           *this        = NULL;
+        glusterd_conf_t    *conf        = NULL;
+        gf_boolean_t        supported   = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        if ((conf->op_version == GD_OP_VERSION_MIN) &&
+            (type > GF_QUOTA_OPTION_TYPE_VERSION))
+                goto out;
+
+        if ((conf->op_version < GD_OP_VERSION_3_7_0) &&
+            (type > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS))
+                goto out;
+
+        supported = _gf_true;
+
+out:
+        if (!supported && op_errstr != NULL && conf)
+                gf_asprintf (op_errstr, "Volume quota failed. The cluster is "
+                             "operating at version %d. Quota command"
+                             " %s is unavailable in this version.",
+                             conf->op_version, gd_quota_op_list[type]);
+
+        return supported;
+}
+
 int
 __glusterd_handle_quota (rpcsvc_request_t *req)
 {
@@ -121,18 +155,17 @@ __glusterd_handle_quota (rpcsvc_request_t *req)
                 snprintf (msg, sizeof (msg), "Unable to get type of command");
                 gf_log (this->name, GF_LOG_ERROR, "Unable to get type of cmd, "
                         "while handling quota command");
-               goto out;
+                goto out;
         }
 
-        if ((conf->op_version == GD_OP_VERSION_MIN) &&
-            (type > GF_QUOTA_OPTION_TYPE_VERSION)) {
-                snprintf (msg, sizeof (msg), "Cannot execute command. The "
-                         "cluster is operating at version %d. Quota command %s "
-                         "is unavailable in this version", conf->op_version,
-                         gd_quota_op_list[type]);
+        if (!glusterd_is_quota_supported (type, NULL)) {
+                snprintf (msg, sizeof (msg), "Volume quota failed. The cluster "
+                          "is operating at version %d. Quota command"
+                          " %s is unavailable in this version.",
+                          conf->op_version, gd_quota_op_list[type]);
                 ret = -1;
                 goto out;
-       }
+        }
 
         ret = glusterd_op_begin_synctask (req, GD_OP_QUOTA, dict);
 
@@ -1090,13 +1123,7 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (dict, "type", &type);
 
-        if ((priv->op_version == GD_OP_VERSION_MIN) &&
-            (type > GF_QUOTA_OPTION_TYPE_VERSION)) {
-                gf_asprintf (op_errstr, "Volume quota failed. The cluster is "
-                                        "operating at version %d. Quota command"
-                                        " %s is unavailable in this version.",
-                                        priv->op_version,
-                                        gd_quota_op_list[type]);
+        if (!glusterd_is_quota_supported (type, op_errstr)) {
                 ret = -1;
                 goto out;
         }
@@ -1421,13 +1448,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        if ((priv->op_version == GD_OP_VERSION_MIN) &&
-            (type > GF_QUOTA_OPTION_TYPE_VERSION)) {
-                gf_asprintf (op_errstr, "Volume quota failed. The cluster is "
-                                        "operating at version %d. Quota command"
-                                        " %s is unavailable in this version.",
-                                         priv->op_version,
-                                         gd_quota_op_list[type]);
+        if (!glusterd_is_quota_supported (type, op_errstr)) {
                 ret = -1;
                 goto out;
         }
