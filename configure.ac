@@ -897,15 +897,15 @@ AM_CONDITIONAL([GF_INSTALL_VAR_LIB_GLUSTERD], test ! -d ${localstatedir}/lib/glu
 
 dnl pkg-config versioning
 dnl
-dnl Once we released gluster-api.pc with version=4. Since then we undid the
-dnl library versioning and replaced it with symbol-versioning. The current
+dnl Once we released gluster-api.pc in 3.5 with version=6. Since then we undid
+dnl the library versioning and replaced it with symbol-versioning. The current
 dnl libgfapi.so has version 0, but the symbols have the version from the main
 dnl package at the time they were added.
 dnl
 dnl Because other packages (like samba) use the pkg-config version, we can not
 dnl drop it, or decrease the version easily. The simplest solution is to keep
-dnl the version=4 and add sub-digits for the actual package/symbol versions.
-GFAPI_VERSION="4."${PACKAGE_VERSION}
+dnl the version=6 and add sub-digits for the actual package/symbol versions.
+GFAPI_VERSION="6."${PACKAGE_VERSION}
 AC_SUBST(GFAPI_VERSION)
 
 AC_OUTPUT
