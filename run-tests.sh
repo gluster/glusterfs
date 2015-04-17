@@ -228,6 +228,7 @@ function main_and_retry()
 {
     RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
     main "$@" | tee ${RESFILE}
+    RET=$?
 
     FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
     if [ "x${FAILED}" != "x" ] ; then
@@ -239,9 +240,11 @@ function main_and_retry()
        echo "       *********************************"
        echo ""
        main ${FAILED}
+       RET=$?
     fi
 
     rm -f ${RESFILE}
+    return ${RET}
 }
 
 echo
