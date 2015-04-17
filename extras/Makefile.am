@@ -21,6 +21,6 @@ EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
 	command-completion/README
 
 install-data-local:
-	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
+	$(MKDIR_P) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
 	$(INSTALL_DATA) $(top_srcdir)/extras/group-virt.example \
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/virt
