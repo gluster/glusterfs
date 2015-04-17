@@ -2730,6 +2730,7 @@ glusterd_spawn_daemons (void *opaque)
         gf_boolean_t    start_bricks = !conf->restart_done;
         int             ret             = -1;
 
+        synclock_lock (&conf->big_lock);
         if (start_bricks) {
                 glusterd_restart_bricks (conf);
                 conf->restart_done = _gf_true;
@@ -9096,7 +9097,8 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
         this = THIS;
         priv = this->private;
 
-        synclock_lock (&priv->big_lock);
+        /* synclock_lock must be called from within synctask, @fn must call it before
+         * it starts with its work*/
         ret = synctask_new (this->ctx->env, fn, gd_default_synctask_cbk, NULL,
                             opaque);
         if (ret)
