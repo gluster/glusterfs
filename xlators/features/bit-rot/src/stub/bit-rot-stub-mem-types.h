@@ -22,6 +22,9 @@ enum br_mem_types {
         gf_br_mt_br_child_t,
         gf_br_mt_br_object_t,
         gf_br_mt_br_ob_n_wk_t,
+        gf_br_mt_br_tbf_t,
+        gf_br_mt_br_tbf_bucket_t,
+        gf_br_mt_br_tbf_throttle_t,
         gf_br_stub_mt_end
 };
 
