@@ -20,8 +20,13 @@
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-nfs-svc.h"
+#include "glusterd-volgen.h"
 #define MAXBUF 1024
 #define DELIM "=\""
+#define SHARED_STORAGE_MNT "/var/run/gluster/shared_storage/nfs-ganesha"
+
+int start_ganesha (char **op_errstr);
+
 
 typedef struct service_command {
         char *binary;
@@ -91,12 +96,31 @@ manage_service (char *action)
                 " not recognized.", action);
         return ret;
 }
+/* Check if ganesha.enable is set to 'on', that checks if
+ * a  particular volume is exported via NFS-Ganesha */
+gf_boolean_t
+glusterd_check_ganesha_export (glusterd_volinfo_t *volinfo) {
+
+        char *value              = NULL;
+        gf_boolean_t is_exported = _gf_false;
+        int ret                 = 0;
+
+        ret = glusterd_volinfo_get (volinfo, "ganesha.enable", &value);
+        if ((ret == 0) && value) {
+                if (strcmp (value, "on") == 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG, "ganesha.enable set"
+                                " to %s", value);
+                        is_exported = _gf_true;
+                }
+        }
+        return is_exported;
+}
+
 
 int
 glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
 {
         int                ret = 0;
-        gf_boolean_t       b   = _gf_false;
         xlator_t                *this = NULL;
 
         this = THIS;
@@ -104,24 +128,17 @@ glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        if ((strcmp (key, "ganesha.enable") == 0) ||
-           (strcmp (key, "features.ganesha") == 0)) {
-                ret = gf_string2boolean (value, &b);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to parse bool"
-                                "string");
-                        goto out;
-                }
+        if ((strcmp (key, "ganesha.enable") == 0)) {
                 if ((strcmp (value, "on")) && (strcmp (value, "off"))) {
-                        gf_log (this->name, GF_LOG_ERROR, "Invalid value"
-                                "for volume set command. Use on/off only");
+                        gf_asprintf (errstr, "Invalid value"
+                                " for volume set command. Use on/off only.");
                         ret = -1;
                         goto out;
                 }
                 ret = glusterd_handle_ganesha_op (dict, errstr, key, value);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Handling NFS-Ganesha op"
-                                "failed.");
+                        gf_log (this->name, GF_LOG_ERROR, "Handling NFS-Ganesha"
+                                " op failed.");
                 }
         }
 out:
@@ -134,9 +151,9 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         int                             ret                     = -1;
         char                            *volname                = NULL;
         int                             exists                  = 0;
-        char                            *key                    = NULL;
-        char                            *value                  = NULL;
-        char                            str[100]                = {0, } ;
+        gf_boolean_t                    value                   = _gf_false;
+        gf_boolean_t                    option                  = _gf_false;
+        char                            *str                    = NULL;
         int                             dict_count              = 0;
         int                             flags                   = 0;
         char                            errstr[2048]            = {0, } ;
@@ -150,27 +167,46 @@ glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr)
         priv = this->private;
         GF_ASSERT (priv);
 
-        ret = dict_get_str (dict, "key", &key);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                       "invalid key");
+        value = dict_get_str_boolean (dict, "value", _gf_false);
+        if (value == -1) {
+               gf_log (this->name, GF_LOG_ERROR,
+                        "value not present.");
+                goto out;
+        }
+        /* This dict_get will fail if the user had never set the key before */
+        /*Ignoring the ret value and proceeding */
+        ret = dict_get_str (priv->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL, &str);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "Global dict not present.");
+                ret = 0;
+                goto out;
+        }
+        /* Validity of the value is already checked */
+        ret = gf_string2boolean (str, &option);
+        /* Check if the feature is already enabled, fail in that case */
+        if (value == option) {
+                gf_asprintf (op_errstr, "nfs-ganesha is already %sd.", str);
+                ret = -1;
                 goto out;
         }
 
-        ret = dict_get_str (dict, "value", &value);
-        if (ret) {
-               gf_log (this->name, GF_LOG_ERROR,
-                        "invalid key,value pair in 'global vol set'");
-                goto out;
+        if (value) {
+                ret =  start_ganesha (op_errstr);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Could not start NFS-Ganesha");
+
+                }
         }
+
 out:
 
         if (ret) {
                 if (!(*op_errstr)) {
                         *op_errstr = gf_strdup ("Error, Validation Failed");
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "Error, Cannot Validate option :%s %s",
-                                key, value);
+                                "Error, Cannot Validate option :%s",
+                                GLUSTERD_STORE_KEY_GANESHA_GLOBAL);
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Error, Cannot Validate option");
@@ -194,7 +230,6 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
         int32_t                                  dict_count = 0;
         dict_t                                  *vol_opts = NULL;
         int count                                = 0;
-        char *dup                                = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -218,12 +253,6 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
                 goto out;
         }
 
-        dup = gf_strdup (value);
-        if (!dup) {
-                ret = -1;
-                goto out;
-        }
-
         ret = glusterd_handle_ganesha_op (dict, errstr, key, value);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -231,10 +260,12 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
                 ret = -1;
                 goto out;
         }
-        ret = dict_set_str(priv->opts, "features.ganesha", value);
+        ret = dict_set_dynstr_with_alloc (priv->opts,
+                                   GLUSTERD_STORE_KEY_GANESHA_GLOBAL,
+                                   value);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING, "Failed to set"
-                        " features.ganesha in dict.");
+                        " nfs-ganesha in dict.");
                 goto out;
         }
 
@@ -380,6 +411,7 @@ create_export_config (char *volname, char **op_errstr)
         return ret;
 }
 
+/* Exports and unexports a particular volume via NFS-Ganesha */
 int
 ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
 {
@@ -389,18 +421,28 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
         glusterd_volinfo_t      *volinfo = NULL;
         char                    *volname = NULL;
         xlator_t                *this    = NULL;
+        glusterd_conf_t         *priv    = NULL;
+        gf_boolean_t             option  = _gf_false;
         int                     i = 1;
 
         runinit (&runner);
         this =  THIS;
+        GF_ASSERT (this);
+        priv = this->private;
 
         GF_ASSERT (value);
         GF_ASSERT (dict);
+        GF_ASSERT (priv);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unable to get volume name");
+                goto out;
+        }
+        ret = gf_string2boolean (value, &option);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "invalid value.");
                 goto out;
         }
 
@@ -410,10 +452,42 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
                         FMTSTR_CHECK_VOL_EXISTS, volname);
                 goto out;
         }
-        /* Todo : check if global option is enabled, proceed only then */
+
+        ret = glusterd_check_ganesha_export (volinfo);
+        if (ret && option) {
+                gf_asprintf (op_errstr, "ganesha.enable "
+                             "is already 'on'.");
+                ret = -1;
+                goto out;
+
+        }  else if (!option && !ret) {
+                gf_asprintf (op_errstr, "ganesha.enable "
+                                    "is already 'off'.");
+                ret = -1;
+                goto out;
+        }
+
+        /* Check if global option is enabled, proceed only then */
+        ret = dict_get_str_boolean (priv->opts,
+                            GLUSTERD_STORE_KEY_GANESHA_GLOBAL, _gf_false);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to get "
+                        "global option dict.");
+                gf_asprintf (op_errstr, "The option "
+                             "nfs-ganesha should be "
+                             "enabled before setting ganesha.enable.");
+                goto out;
+        }
+        if (!ret) {
+                gf_asprintf (op_errstr, "The option "
+                             "nfs-ganesha should be "
+                             "enabled before setting ganesha.enable.");
+                ret = -1;
+                goto out;
+        }
 
         /* Create the export file only when ganesha.enable "on" is executed */
-         if (strcmp (value, "on") == 0) {
+         if (option) {
                 ret  =  create_export_config (volname, op_errstr);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to create"
@@ -468,11 +542,16 @@ setup_cluster(void)
 }
 
 
-int
-stop_ganesha (char **op_errstr)
+static int
+teardown (char **op_errstr)
 {
         runner_t                runner                     = {0,};
         int                     ret                        = 1;
+        glusterd_volinfo_t      *volinfo                   = NULL;
+        glusterd_conf_t         *priv                      = NULL;
+        dict_t                  *vol_opts                  = NULL;
+
+        priv = THIS->private;
 
         ret = tear_down_cluster();
         if (ret == -1) {
@@ -480,6 +559,37 @@ stop_ganesha (char **op_errstr)
                              " HA config failed.");
                 goto out;
         }
+        ret =  stop_ganesha (op_errstr);
+        if (ret) {
+                gf_asprintf (op_errstr, "Could not stop NFS-Ganesha.");
+                goto out;
+        }
+
+        runinit (&runner);
+        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+                                 "cleanup", CONFDIR,  NULL);
+        ret = runner_run (&runner);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG, "Could not clean up"
+                        " NFS-Ganesha related config");
+
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                vol_opts = volinfo->dict;
+                /* All the volumes exported via NFS-Ganesha will be
+                unexported, hence setting the appropriate key */
+                ret = dict_set_str (vol_opts, "ganesha.enable", "off");
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "Could not set ganesha.enable to off");
+        }
+out:
+        return ret;
+}
+
+int
+stop_ganesha (char **op_errstr) {
+
+        int ret = 0;
 
         if (check_host_list ()) {
                 ret = manage_service ("stop");
@@ -487,8 +597,8 @@ stop_ganesha (char **op_errstr)
                         gf_asprintf (op_errstr, "NFS-Ganesha service could not"
                                      "be stopped.");
         }
-out:
         return ret;
+
 }
 
 int
@@ -525,19 +635,34 @@ start_ganesha (char **op_errstr)
 
         if (check_host_list()) {
                 ret = manage_service ("start");
-                if (ret) {
+                if (ret)
                         gf_asprintf (op_errstr, "NFS-Ganesha failed to start."
                         "Please see log file for details");
-                        goto out;
-                }
+        }
 
+out:
+        return ret;
+}
+
+static int
+pre_setup (char **op_errstr)
+{
+        int    ret = 0;
+
+        ret = mkdir (SHARED_STORAGE_MNT, 0775);
+
+        if ((-1 == ret) && (EEXIST != errno)) {
+                gf_log ("THIS->name", GF_LOG_ERROR, "mkdir() failed on path %s,"
+                        "errno: %s", SHARED_STORAGE_MNT, strerror (errno));
+                goto out;
+        }
+
+        if (check_host_list()) {
                 ret = setup_cluster();
-                if (ret == -1) {
+                if (ret == -1)
                         gf_asprintf (op_errstr, "Failed to set up HA "
                                      "config for NFS-Ganesha. "
                                      "Please check the log file for details");
-                        goto out;
-                }
         }
 
 out:
@@ -552,35 +677,38 @@ glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
         int32_t                 ret          = -1;
         char                   *volname      = NULL;
         xlator_t               *this         = NULL;
+        gf_boolean_t           option        = _gf_false;
         static int             export_id     = 1;
         glusterd_volinfo_t     *volinfo      = NULL;
-        char *option                         = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        /* TODO: enable only if global option is set */
-        /* BUG ID : 1200265 */
 
         if (strcmp (key, "ganesha.enable") == 0) {
-                ret =  ganesha_manage_export(dict, value, op_errstr);
+                ret =  ganesha_manage_export (dict, value, op_errstr);
                 if (ret < 0)
                         goto out;
         }
 
-        if (strcmp (key, "features.ganesha") == 0) {
-                if (strcmp (value, "enable") == 0) {
-                        ret = start_ganesha(op_errstr);
+        /* It is possible that the key might not be set */
+        ret =  gf_string2boolean (value, &option);
+        if (ret == -1) {
+                gf_asprintf (op_errstr, "Invalid value in key-value pair.");
+                goto out;
+        }
+
+        if (strcmp (key, GLUSTERD_STORE_KEY_GANESHA_GLOBAL) == 0) {
+                if (option) {
+                        ret = pre_setup (op_errstr);
                         if (ret < 0)
                                 goto out;
-                }
-
-        else if (strcmp (value, "disable") == 0) {
-                ret = stop_ganesha (op_errstr);
-                if (ret < 0)
-                        goto out;
+                } else {
+                        ret = teardown (op_errstr);
+                        if (ret < 0)
+                                goto out;
                 }
         }
 

@@ -819,7 +819,7 @@ out:
 }
 
 /* Parsing global option for NFS-Ganesha config
- *  gluster features.ganesha enable/disable */
+ *  gluster nfs-ganesha enable/disable */
 
 int32_t
 cli_cmd_ganesha_parse (struct cli_state *state,
@@ -833,7 +833,7 @@ cli_cmd_ganesha_parse (struct cli_state *state,
         char    *value    =       NULL;
         int     i         =       0;
         char    *w        =       NULL;
-        char   *opwords[] =      { "enable", "disable" };
+        char   *opwords[] =      { "enable", "disable", NULL };
         const char      *question       =       NULL;
         gf_answer_t     answer          =       GF_ANSWER_NO;
 
@@ -853,7 +853,7 @@ cli_cmd_ganesha_parse (struct cli_state *state,
         value = (char *) words[1];
 
         if (!key || !value) {
-                cli_out ("Usage : features.ganesha <enable/disable>");
+                cli_out ("Usage : nfs-ganesha <enable/disable>");
                 ret = -1;
                 goto out;
         }
@@ -862,7 +862,7 @@ cli_cmd_ganesha_parse (struct cli_state *state,
         if (ret == -1)
                 goto out;
 
-        if (strcmp (key, "features.ganesha")) {
+        if (strcmp (key, "nfs-ganesha")) {
                 gf_asprintf (op_errstr, "Global option: error: ' %s '"
                           "is not a valid global option.", key);
                 ret = -1;
@@ -872,13 +872,13 @@ cli_cmd_ganesha_parse (struct cli_state *state,
         w = str_getunamb (value, opwords);
         if (!w) {
                 cli_out ("Invalid global option \n"
-                         "Usage : features.ganesha <enable/disable>");
+                         "Usage : nfs-ganesha <enable/disable>");
                 ret = -1;
                 goto out;
         }
 
         question = "Enabling NFS-Ganesha requires Gluster-NFS to be"
-                   "disabled across the trusted pool. Do you "
+                   " disabled across the trusted pool. Do you "
                    "still want to continue?";
 
         if (strcmp (value, "enable") == 0) {

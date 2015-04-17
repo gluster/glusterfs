@@ -998,6 +998,10 @@ int glusterd_check_ganesha_cmd (char *key, char *value,
                                 char **errstr, dict_t *dict);
 int glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr);
 int glusterd_op_set_ganesha (dict_t *dict, char **errstr);
+int ganesha_manage_export (dict_t *dict, char *value, char **op_errstr);
+gf_boolean_t glusterd_check_ganesha_export (glusterd_volinfo_t *volinfo);
+int stop_ganesha (char **op_errstr);
+int tear_down_cluster (void);
 int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_remove_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr,
