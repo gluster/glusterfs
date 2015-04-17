@@ -19,6 +19,7 @@
 #include "bit-rot-stub-mem-types.h"
 
 #include "bit-rot-common.h"
+#include "bit-rot-stub-messages.h"
 
 typedef int (br_stub_version_cbk) (call_frame_t *, void *,
                                    xlator_t *, int32_t, int32_t, dict_t *);
@@ -218,7 +219,8 @@ br_stub_require_release_call (xlator_t *this, fd_t *fd, br_stub_fd_t **fd_ctx)
 
         ret = br_stub_fd_ctx_set (this, fd, br_stub_fd);
         if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        BRS_MSG_SET_CONTEXT_FAILED,
                         "could not set fd context (for release callback");
         else
                 *fd_ctx = br_stub_fd;
@@ -272,7 +274,8 @@ __br_stub_set_ongoing_version (br_stub_inode_ctx_t *ctx, unsigned long version)
         if (ctx->currentversion < version)
                 ctx->currentversion = version;
         else
-                gf_log ("bit-rot-stub", GF_LOG_WARNING, "current version: %lu"
+                gf_msg ("bit-rot-stub", GF_LOG_WARNING, 0,
+                        BRS_MSG_CHANGE_VERSION_FAILED, "current version: %lu"
                         "new version: %lu", ctx->currentversion, version);
 }
 

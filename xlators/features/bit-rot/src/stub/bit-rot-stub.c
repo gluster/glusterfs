@@ -20,7 +20,7 @@
 
 #include "bit-rot-stub.h"
 #include "bit-rot-stub-mem-types.h"
-
+#include "bit-rot-stub-messages.h"
 #include "bit-rot-common.h"
 
 #define BR_STUB_REQUEST_COOKIE  0x1
@@ -46,8 +46,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_br_stub_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING, "Memory accounting"
-                        " init failed");
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRS_MSG_MEM_ACNT_FAILED,
+                        "Memory accounting init failed");
                 return ret;
         }
 
@@ -60,12 +60,13 @@ init (xlator_t *this)
         int32_t ret = 0;
         char *tmp = NULL;
         struct timeval tv = {0,};
-	br_stub_private_t *priv = NULL;
+        br_stub_private_t *priv = NULL;
 
-	if (!this->children) {
-		gf_log (this->name, GF_LOG_ERROR, "FATAL: no children");
-		goto error_return;
-	}
+        if (!this->children) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_NO_CHILD,
+                        "FATAL: no children");
+                goto error_return;
+        }
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_br_stub_mt_private_t);
         if (!priv)
@@ -94,7 +95,7 @@ init (xlator_t *this)
         if (ret != 0)
                 goto cleanup_lock;
 
-        gf_log (this->name, GF_LOG_DEBUG, "bit-rot stub loaded");
+        gf_msg_debug (this->name, 0, "bit-rot stub loaded");
 	this->private = priv;
 
         return 0;
@@ -122,7 +123,8 @@ fini (xlator_t *this)
 
         ret = gf_thread_cleanup_xint (priv->signth);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_CANCEL_SIGN_THREAD_FAILED,
                         "Could not cancel sign serializer thread");
                 goto out;
         }
@@ -335,8 +337,9 @@ br_stub_need_versioning (xlator_t *this,
 
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
-                        "context for the inode %s",
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to get the "
+                        "inode context for the inode %s",
                         uuid_utoa (fd->inode->gfid));
                 goto error_return;
         }
@@ -370,8 +373,9 @@ br_stub_anon_fd_ctx (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
         if (!br_stub_fd) {
                 ret = br_stub_add_fd_to_inode (this, fd, ctx);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                "add fd to the inode (gfid: %s)",
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRS_MSG_ADD_FD_TO_INODE, "failed to add fd to "
+                                "the inode (gfid: %s)",
                                 uuid_utoa (fd->inode->gfid));
                         goto out;
                 }
@@ -392,8 +396,9 @@ br_stub_versioning_prep (call_frame_t *frame,
 
         local = br_stub_alloc_local (this);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR, "local allocation failed "
-                        "(gfid: %s)", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, BRS_MSG_NO_MEMORY,
+                        "local allocation failed (gfid: %s)",
+                        uuid_utoa (fd->inode->gfid));
                 goto error_return;
         }
 
@@ -688,9 +693,10 @@ br_stub_compare_sign_version (xlator_t *this,
                 if (ctx->currentversion < sbuf->signedversion) {
                         invalid = _gf_true;
                 } else if (ctx->currentversion > sbuf->signedversion) {
-                        gf_log (this->name, GF_LOG_DEBUG, "\"Signing version\" "
-                                "(%lu) lower than \"Current version \" (%lu)",
-                                ctx->currentversion, sbuf->signedversion);
+                        gf_msg_debug (this->name, 0, "\"Signing version\" "
+                                      "(%lu) lower than \"Current version \" "
+                                      "(%lu)", ctx->currentversion,
+                                      sbuf->signedversion);
                         *fakesuccess = 1;
                 }
         }
@@ -698,9 +704,10 @@ br_stub_compare_sign_version (xlator_t *this,
 
         if (invalid) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Signing version exceeds current version [%lu > %lu]",
-                        sbuf->signedversion, ctx->currentversion);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        BRS_MSG_SIGN_VERSION_ERROR, "Signing version exceeds "
+                        "current version [%lu > %lu]", sbuf->signedversion,
+                        ctx->currentversion);
         }
 
  out:
@@ -870,9 +877,9 @@ br_stub_handle_object_reopen (call_frame_t *frame,
         stub = fop_fsetxattr_cbk_stub (frame, br_stub_fsetxattr_resume,
                                        0, 0, NULL);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
-                        "fsetxattr fop (gfid: %s), unwinding",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                        "failed to allocate stub for fsetxattr fop (gfid: %s),"
+                        " unwinding", uuid_utoa (fd->inode->gfid));
                 goto cleanup_local;
         }
 
@@ -998,8 +1005,9 @@ br_stub_is_object_stale (xlator_t *this, call_frame_t *frame, inode_t *inode,
 
         ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
-                        "context for %s", uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to get the "
+                        "inode context for %s", uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -1384,9 +1392,9 @@ br_stub_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                 offset, flags, iobref, xdata);
 
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
-                        "write fop (gfid: %s), unwinding",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                        "failed to allocate stub for write fop (gfid: %s), "
+                        "unwinding", uuid_utoa (fd->inode->gfid));
                 goto cleanup_local;
         }
 
@@ -1491,9 +1499,9 @@ br_stub_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         stub = fop_ftruncate_stub (frame, br_stub_ftruncate_resume, fd, offset,
                                    xdata);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
-                        "ftruncate fop (gfid: %s), unwinding",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                        "failed to allocate stub for ftruncate fop (gfid: %s),"
+                        " unwinding", uuid_utoa (fd->inode->gfid));
                 goto cleanup_local;
         }
 
@@ -1592,8 +1600,10 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         fd = fd_anonymous (loc->inode);
         if (!fd) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to create anonymous "
-                        "fd for the inode %s", uuid_utoa (loc->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_CREATE_ANONYMOUS_FD_FAILED, "failed to create "
+                        "anonymous fd for the inode %s",
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
@@ -1619,9 +1629,9 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         stub = fop_truncate_stub (frame, br_stub_truncate_resume, loc, offset,
                                   xdata);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
-                        "truncate fop (gfid: %s), unwinding",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                        "failed to allocate stub for truncate fop (gfid: %s), "
+                        "unwinding", uuid_utoa (fd->inode->gfid));
                 goto cleanup_local;
         }
 
@@ -1685,8 +1695,9 @@ br_stub_open (call_frame_t *frame, xlator_t *this,
 
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
-                        "context for the file %s (gfid: %s)", loc->path,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to get the "
+                        "inode context for the file %s (gfid: %s)", loc->path,
                         uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
@@ -1697,8 +1708,10 @@ br_stub_open (call_frame_t *frame, xlator_t *this,
 
         ret = br_stub_add_fd_to_inode (this, fd, ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed add fd to the list "
-                        "(gfid: %s)", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_ADD_FD_TO_LIST_FAILED,
+                        "failed add fd to the list (gfid: %s)",
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 
@@ -1730,7 +1743,8 @@ br_stub_add_fd_to_inode (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
 
         ret = br_stub_require_release_call (this, fd, &br_stub_fd);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to set the fd "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_SET_FD_CONTEXT_FAILED, "failed to set the fd "
                         "context for the file (gfid: %s)",
                         uuid_utoa (fd->inode->gfid));
                 goto out;
@@ -2118,7 +2132,7 @@ br_stub_send_ipc_fop (xlator_t *this, fd_t *fd, unsigned long releaseversion,
 
         xdata = dict_new ();
         if (!xdata) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, BRS_MSG_NO_MEMORY,
                         "dict allocation failed: cannot send IPC FOP "
                         "to changelog");
                 goto out;
@@ -2127,14 +2141,16 @@ br_stub_send_ipc_fop (xlator_t *this, fd_t *fd, unsigned long releaseversion,
         ret = dict_set_static_bin (xdata,
                                    "RELEASE-EVENT", &ev, CHANGELOG_EV_SIZE);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRS_MSG_SET_EVENT_FAILED,
                         "cannot set release event in dict");
                 goto dealloc_dict;
         }
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
-                gf_log (this->name, GF_LOG_WARNING, "create_frame() failure");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        BRS_MSG_CREATE_FRAME_FAILED,
+                        "create_frame() failure");
                 goto dealloc_dict;
         }
 
@@ -2240,10 +2256,10 @@ br_stub_release (xlator_t *this, fd_t *fd)
         UNLOCK (&inode->lock);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "releaseversion: %lu | flags: %d | signinfo: %d",
-                        (unsigned long) ntohl (releaseversion),
-                        flags, ntohl(signinfo));
+                gf_msg_debug (this->name, 0, "releaseversion: %lu | flags: %d "
+                              "| signinfo: %d",
+                              (unsigned long) ntohl (releaseversion), flags,
+                              ntohl(signinfo));
                 br_stub_send_ipc_fop (this, fd, releaseversion, signinfo);
         }
 
