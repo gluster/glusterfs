@@ -25,13 +25,18 @@
 #include "changelog.h"
 #include "timer-wheel.h"
 
+#include "bit-rot-tbf.h"
+
 #include "bit-rot-common.h"
 #include "bit-rot-stub-mem-types.h"
 
 #include <openssl/sha.h>
 
-/* TODO: make this configurable */
-#define BR_WORKERS 8
+/**
+ * TODO: make this configurable. As a best practice, set this to the
+ * number of processor cores.
+ */
+#define BR_WORKERS 4
 
 #define signature_size(hl) (sizeof (br_isignature_t) + hl + 1)
 
@@ -91,6 +96,8 @@ struct br_private {
                                              signing and the workers which sign
                                              the objects */
         int32_t expiry_time;              /* objects "wait" time */
+
+        br_tbf_t *tbf;                    /* token bucket filter */
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
 };

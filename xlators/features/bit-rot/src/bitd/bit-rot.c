@@ -27,6 +27,17 @@
 
 #include "tw.h"
 
+#define BR_HASH_CALC_READ_SIZE  (128 * 1024)
+
+br_tbf_opspec_t opthrottle[] = {
+        {
+                .op       = BR_TBF_OP_HASH,
+                .rate     = BR_HASH_CALC_READ_SIZE,
+                .maxlimit = (2 * BR_WORKERS * BR_HASH_CALC_READ_SIZE),
+        },
+        /** TODO: throttle getdents(), read() request(s) */
+};
+
 static int
 br_find_child_index (xlator_t *this, xlator_t *child)
 {
@@ -288,8 +299,10 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
                                off_t offset, size_t size, SHA256_CTX *sha256)
 {
         int32_t        ret    = -1;
+        br_tbf_t      *tbf    = NULL;
         struct iovec  *iovec  = NULL;
         struct iobref *iobref = NULL;
+        br_private_t  *priv   = NULL;
         int            count  = 0;
         int            i      = 0;
 
@@ -297,6 +310,12 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, out);
         GF_VALIDATE_OR_GOTO (this->name, child, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        priv = this->private;
+
+        GF_VALIDATE_OR_GOTO (this->name, priv->tbf, out);
+        tbf = priv->tbf;
 
         ret = syncop_readv (child->xl, fd,
                             size, offset, 0, &iovec, &count, &iobref, NULL,
@@ -313,9 +332,12 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
                 goto out;
 
         for (i = 0; i < count; i++) {
-                SHA256_Update (sha256,
-                               (const unsigned char *) (iovec[i].iov_base),
-                               iovec[i].iov_len);
+                TBF_THROTTLE_BEGIN (tbf, BR_TBF_OP_HASH, iovec[i].iov_len);
+                {
+                        SHA256_Update (sha256, (const unsigned char *)
+                                       (iovec[i].iov_base), iovec[i].iov_len);
+                }
+                TBF_THROTTLE_BEGIN (tbf, BR_TBF_OP_HASH, iovec[i].iov_len);
         }
 
  out:
@@ -334,7 +356,7 @@ br_calculate_obj_checksum (unsigned char *md,
 {
         int32_t   ret    = -1;
         off_t     offset = 0;
-        size_t    block  = 128 * 1024;  /* 128K block size */
+        size_t    block  = BR_HASH_CALC_READ_SIZE;
         xlator_t *this   = NULL;
 
         SHA256_CTX       sha256;
@@ -1358,6 +1380,16 @@ br_init_signer (xlator_t *this, br_private_t *priv)
 }
 
 int32_t
+br_init_rate_limiter (br_private_t *priv)
+{
+        br_tbf_opspec_t *spec = opthrottle;
+        priv->tbf = br_tbf_init (spec, sizeof (opthrottle)
+                                           / sizeof (br_tbf_opspec_t));
+
+        return priv->tbf ? 0 : -1;
+}
+
+int32_t
 init (xlator_t *this)
 {
         int            i    = 0;
@@ -1411,12 +1443,16 @@ init (xlator_t *this)
                 INIT_LIST_HEAD (&priv->children[i].list);
         INIT_LIST_HEAD (&priv->bricks);
 
+        ret = br_init_rate_limiter (priv);
+        if (ret)
+                goto cleanup_mutex;
+
 	this->private = priv;
 
         if (!priv->iamscrubber) {
                 ret = br_init_signer (this, priv);
                 if (ret)
-                        goto cleanup_mutex;
+                        goto cleanup_tbf;
         }
 
         ret = gf_thread_create (&priv->thread, NULL, br_handle_events, this);
@@ -1433,6 +1469,7 @@ init (xlator_t *this)
                 return 0;
         }
 
+ cleanup_tbf:
  cleanup_mutex:
         (void) pthread_cond_destroy (&priv->cond);
         (void) pthread_mutex_destroy (&priv->lock);
