@@ -18,6 +18,7 @@
 
 #include "bit-rot-scrub.h"
 #include <pthread.h>
+#include "bit-rot-bitd-messages.h"
 
 struct br_scrubbers {
         pthread_t scrubthread;
@@ -58,7 +59,7 @@ bitd_fetch_signature (xlator_t *this, br_child_t *child,
         ret = dict_get_ptr
                 (*xattr, GLUSTERFS_GET_OBJECT_SIGNATURE, (void **) sign);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_GET_SIGN_FAILED,
                         "failed to extract signature info [GFID: %s]",
                         uuid_utoa (fd->inode->gfid));
                 goto unref_dict;
@@ -106,12 +107,12 @@ bitd_scrub_post_compute_check (xlator_t *this,
          * The log entry looks pretty ugly, but helps in debugging..
          */
         if (signptr->stale || (signptr->version != version)) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "<STAGE: POST> Object [GFID: %s] either has a stale "
-                        "signature OR underwent signing during checksumming "
-                        "{Stale: %d | Version: %lu,%lu}",
-                        uuid_utoa (fd->inode->gfid), (signptr->stale) ? 1 : 0,
-                        version, signptr->version);
+                gf_msg_debug (this->name, 0, "<STAGE: POST> Object [GFID: %s] "
+                              "either has a stale signature OR underwent "
+                              "signing during checksumming {Stale: %d | "
+                              "Version: %lu,%lu}", uuid_utoa (fd->inode->gfid),
+                              (signptr->stale) ? 1 : 0, version,
+                              signptr->version);
                 ret = -1;
                 goto unref_dict;
         }
@@ -172,7 +173,7 @@ bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
         int32_t ret   = -1;
 
         if (bitd_is_bad_file (this, child, NULL, fd)) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRB_MSG_SKIP_OBJECT,
                         "Object [GFID: %s] is marked corrupted, skipping..",
                         uuid_utoa (fd->inode->gfid));
                 goto out;
@@ -180,9 +181,9 @@ bitd_scrub_pre_compute_check (xlator_t *this, br_child_t *child,
 
         ret = bitd_signature_staleness (this, child, fd, &stale, version);
         if (!ret && stale) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "<STAGE: PRE> Object [GFID: %s] has stale signature",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg_debug (this->name, 0, "<STAGE: PRE> Object [GFID: %s] "
+                              "has stale signature",
+                              uuid_utoa (fd->inode->gfid));
                 ret = -1;
         }
 
@@ -210,13 +211,14 @@ bitd_compare_ckum (xlator_t *this,
 
         if (strncmp
             (sign->signature, (char *) md, strlen (sign->signature)) == 0) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s [GFID: %s | Brick: %s] "
-                        "matches calculated checksum", loc->path,
-                        uuid_utoa (linked_inode->gfid), child->brick_path);
+                gf_msg_debug (this->name, 0, "%s [GFID: %s | Brick: %s] "
+                              "matches calculated checksum", loc->path,
+                              uuid_utoa (linked_inode->gfid),
+                              child->brick_path);
                 return 0;
         }
 
-        gf_log (this->name, GF_LOG_ALERT,
+        gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_CHECKSUM_MISMATCH,
                 "Object checksum mismatch: %s [GFID: %s | Brick: %s]",
                 loc->path, uuid_utoa (linked_inode->gfid), child->brick_path);
 
@@ -229,19 +231,19 @@ bitd_compare_ckum (xlator_t *this,
 
         ret = dict_set_int32 (xattr, BITROT_OBJECT_BAD_KEY, _gf_true);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_MARK_BAD_FILE,
                         "Error setting bad-file marker for %s [GFID: %s | "
                         "Brick: %s]", loc->path, uuid_utoa (linked_inode->gfid),
                         child->brick_path);
                 goto dictfree;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Marking %s [GFID: %s | Brick: %s] "
-                "as corrupted..", loc->path, uuid_utoa (linked_inode->gfid),
-                child->brick_path);
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_MARK_CORRUPTED, "Marking %s"
+                " [GFID: %s | Brick: %s] as corrupted..", loc->path,
+                uuid_utoa (linked_inode->gfid), child->brick_path);
         ret = syncop_fsetxattr (child->xl, fd, xattr, 0, NULL, NULL);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_MARK_BAD_FILE,
                         "Error marking object %s [GFID: %s] as corrupted",
                         loc->path, uuid_utoa (linked_inode->gfid));
 
@@ -303,12 +305,12 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
         if (linked_inode)
                 inode_lookup (linked_inode);
 
-        gf_log (this->name, GF_LOG_DEBUG, "Scrubbing object %s [GFID: %s]",
-                entry->d_name, uuid_utoa (linked_inode->gfid));
+        gf_msg_debug (this->name, 0, "Scrubbing object %s [GFID: %s]",
+                      entry->d_name, uuid_utoa (linked_inode->gfid));
 
         if (iatt.ia_type != IA_IFREG) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s is not a regular "
-                        "file", entry->d_name);
+                gf_msg_debug (this->name, 0, "%s is not a regular file",
+                              entry->d_name);
                 ret = 0;
                 goto unref_inode;
         }
@@ -318,8 +320,9 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
          */
         fd = fd_create (linked_inode, 0);
         if (!fd) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to create fd for "
-                        "inode %s", uuid_utoa (linked_inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_FD_CREATE_FAILED,
+                        "failed to create fd for inode %s",
+                        uuid_utoa (linked_inode->gfid));
                 goto unref_inode;
         }
 
@@ -350,8 +353,9 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
 
         ret = br_calculate_obj_checksum (md, child, fd, &iatt);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "error calculating hash "
-                        "for object [GFID: %s]", uuid_utoa (fd->inode->gfid));
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_CALC_ERROR,
+                        "error calculating hash for object [GFID: %s]",
+                        uuid_utoa (fd->inode->gfid));
                 ret = -1;
                 goto free_md;
         }
@@ -512,8 +516,15 @@ br_fsscanner_log_time (xlator_t *this, br_child_t *child, const char *sfx)
         gettimeofday (&tv, NULL);
         gf_time_fmt (timestr, sizeof (timestr), tv.tv_sec, gf_timefmt_FT);
 
-        gf_log (this->name, GF_LOG_INFO,
-                "Scrubbing \"%s\" %s at %s", child->brick_path, sfx, timestr);
+        if (strcasecmp (sfx, "started") == 0) {
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_START,
+                        "Scrubbing \"%s\" %s at %s", child->brick_path, sfx,
+                        timestr);
+        } else {
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_FINISH,
+                        "Scrubbing \"%s\" %s at %s", child->brick_path, sfx,
+                        timestr);
+        }
 }
 
 static void
@@ -670,8 +681,8 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child,
 
         gf_time_fmt (timestr, sizeof (timestr),
                      (fsscan->boot + timo), gf_timefmt_FT);
-        gf_log (this->name, GF_LOG_INFO, "Scrubbing for %s scheduled to "
-                "run at %s", child->brick_path, timestr);
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO, "Scrubbing for "
+                "%s scheduled to run at %s", child->brick_path, timestr);
 
         return 0;
 
@@ -706,11 +717,12 @@ br_fsscan_reschedule (xlator_t *this,
                 ret = gf_tw_mod_timer (priv->timer_wheel, fsscan->timer, timo);
 
         if (!ret && pendingcheck)
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_RUNNING,
                         "Scrubber for %s is currently running and would be "
                         "rescheduled after completion", child->brick_path);
         else
-                gf_log (this->name, GF_LOG_INFO, "Scrubbing for %s rescheduled "
+                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_RESCHEDULED,
+                        "Scrubbing for %s rescheduled "
                         "to run at %s", child->brick_path, timestr);
 
         return 0;
@@ -753,7 +765,7 @@ br_scrubber_calc_scale (xlator_t *this,
                               pow (M_E, BR_SCRUB_THREAD_SCALE_AGGRESSIVE);
                 break;
         default:
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_UNKNOWN_THROTTLE,
                         "Unknown throttle %d", throttle);
         }
 
@@ -928,7 +940,7 @@ br_scrubber_scale_up (xlator_t *this,
 
         diff = (int)(v2 - v1);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCALING_UP_SCRUBBER,
                 "Scaling up scrubbers [%d => %d]", v1, v2);
 
         for (i = 0; i < diff; i++) {
@@ -951,7 +963,7 @@ br_scrubber_scale_up (xlator_t *this,
                 goto error_return;
 
         if (i != diff) /* degraded scaling.. */
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRB_MSG_SCALE_UP_FAILED,
                         "Could not fully scale up to %d scrubber(s). Spawned "
                         "%d/%d [total scrubber(s): %d]", v2, i, diff, (v1 + i));
 
@@ -973,7 +985,7 @@ br_scrubber_scale_down (xlator_t *this,
 
         diff = (int)(v1 - v2);
 
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCALE_DOWN_SCRUBBER,
                 "Scaling down scrubbers [%d => %d]", v1, v2);
 
         for (i = 0 ; i < diff; i++) {
@@ -990,10 +1002,10 @@ br_scrubber_scale_down (xlator_t *this,
         }
 
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Could not fully scale down to %d scrubber(s). "
-                        "Terminated %d/%d [total scrubber(s): %d]",
-                        v1, i, diff, (v2 - i));
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        BRB_MSG_SCALE_DOWN_FAILED, "Could not fully scale down "
+                        "to %d scrubber(s). Terminated %d/%d [total "
+                        "scrubber(s): %d]", v1, i, diff, (v2 - i));
                 ret = 0;
         }
 
@@ -1157,8 +1169,9 @@ static void br_scrubber_log_option (xlator_t *this,
         if (scrubstall)
                 return; /* logged as pause */
 
-        gf_log (this->name, GF_LOG_INFO, "SCRUB TUNABLES:: [Frequency: %s, "
-                "Throttle: %s]", scrub_freq_str[fsscrub->frequency],
+        gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_TUNABLE, "SCRUB "
+                "TUNABLES:: [Frequency: %s, Throttle: %s]",
+                scrub_freq_str[fsscrub->frequency],
                 scrub_throttle_str[fsscrub->throttle]);
 }
 
