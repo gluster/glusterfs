@@ -6910,6 +6910,6 @@ int
 glusterd_op_sm_init ()
 {
         CDS_INIT_LIST_HEAD (&gd_op_sm_queue);
-        synclock_init (&gd_op_sm_lock);
+        synclock_init (&gd_op_sm_lock, SYNC_LOCK_DEFAULT);
         return 0;
 }

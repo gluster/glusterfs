@@ -114,12 +114,26 @@ struct syncenv {
 };
 
 
+typedef enum {
+        LOCK_NULL = 0,
+        LOCK_TASK,
+        LOCK_THREAD
+} lock_type_t;
+
+typedef enum {
+        SYNC_LOCK_DEFAULT = 0,
+        SYNC_LOCK_RECURSIVE,   /*it allows recursive locking*/
+} lock_attr_t;
+
 struct synclock {
-	pthread_mutex_t     guard; /* guard the remaining members, pair @cond */
-	pthread_cond_t      cond;  /* waiting non-synctasks */
-	struct list_head    waitq; /* waiting synctasks */
-	gf_boolean_t        lock;  /* _gf_true or _gf_false, lock status */
-	struct synctask    *owner; /* NULL if current owner is not a synctask */
+        pthread_mutex_t     guard; /* guard the remaining members, pair @cond */
+        pthread_cond_t      cond;  /* waiting non-synctasks */
+        struct list_head    waitq; /* waiting synctasks */
+        volatile int        lock;  /* true(non zero) or false(zero), lock status */
+        lock_attr_t         attr;
+        struct synctask    *owner; /* NULL if current owner is not a synctask */
+        pthread_t           owner_tid;
+        lock_type_t         type;
 };
 typedef struct synclock synclock_t;
 
@@ -336,7 +350,7 @@ syncop_create_frame (xlator_t *this)
 	return frame;
 }
 
-int synclock_init (synclock_t *lock);
+int synclock_init (synclock_t *lock, lock_attr_t attr);
 int synclock_destroy (synclock_t *lock);
 int synclock_lock (synclock_t *lock);
 int synclock_trylock (synclock_t *lock);
