@@ -827,16 +827,20 @@ syncenv_new (size_t stacksize, int procmin, int procmax)
 
 
 int
-synclock_init (synclock_t *lock)
+synclock_init (synclock_t *lock, lock_attr_t attr)
 {
-	if (!lock)
-		return -1;
+        if (!lock)
+               return -1;
 
-	pthread_cond_init (&lock->cond, 0);
-	lock->lock = 0;
-	INIT_LIST_HEAD (&lock->waitq);
+        pthread_cond_init (&lock->cond, 0);
+        lock->type = LOCK_NULL;
+        lock->owner = NULL;
+        lock->owner_tid = 0;
+        lock->lock = 0;
+        lock->attr = attr;
+        INIT_LIST_HEAD (&lock->waitq);
 
-	return pthread_mutex_init (&lock->guard, 0);
+        return pthread_mutex_init (&lock->guard, 0);
 }
 
 
@@ -854,32 +858,70 @@ synclock_destroy (synclock_t *lock)
 static int
 __synclock_lock (struct synclock *lock)
 {
-	struct synctask *task = NULL;
+        struct synctask *task = NULL;
 
-	if (!lock)
-		return -1;
+        if (!lock)
+                return -1;
 
-	task = synctask_get ();
+        task = synctask_get ();
 
-	while (lock->lock) {
-		if (task) {
-			/* called within a synctask */
-			list_add_tail (&task->waitq, &lock->waitq);
+        if (lock->lock && (lock->attr == SYNC_LOCK_RECURSIVE)) {
+                /*Recursive lock (if same owner requested for lock again then
+                 *increment lock count and return success).
+                 *Note:same number of unlocks required.
+                 */
+                switch (lock->type) {
+                case LOCK_TASK:
+                        if (task == lock->owner) {
+                                lock->lock++;
+                                gf_log ("", GF_LOG_TRACE, "Recursive lock called by "
+                                        "sync task.owner= %p,lock=%d", lock->owner, lock->lock);
+                                return 0;
+                        }
+                        break;
+                case LOCK_THREAD:
+                        if (pthread_self () == lock->owner_tid) {
+                                lock->lock++;
+                                gf_log ("", GF_LOG_TRACE, "Recursive lock called by "
+                                        "thread ,owner=%u lock=%d", (unsigned int) lock->owner_tid,
+                                         lock->lock);
+                                return 0;
+                        }
+                        break;
+                default:
+                        gf_log ("", GF_LOG_CRITICAL, "unknown lock type");
+                        break;
+                }
+        }
+
+
+        while (lock->lock) {
+                if (task) {
+                        /* called within a synctask */
+                        list_add_tail (&task->waitq, &lock->waitq);
                         pthread_mutex_unlock (&lock->guard);
                         synctask_yield (task);
                         /* task is removed from waitq in unlock,
                          * under lock->guard.*/
                         pthread_mutex_lock (&lock->guard);
-		} else {
-			/* called by a non-synctask */
-			pthread_cond_wait (&lock->cond, &lock->guard);
-		}
-	}
+                } else {
+                        /* called by a non-synctask */
+                        pthread_cond_wait (&lock->cond, &lock->guard);
+                }
+        }
 
-	lock->lock = _gf_true;
-	lock->owner = task;
+        if (task) {
+                lock->type = LOCK_TASK;
+                lock->owner = task;    /* for synctask*/
 
-	return 0;
+        } else {
+                lock->type = LOCK_THREAD;
+                lock->owner_tid = pthread_self (); /* for non-synctask */
+
+        }
+        lock->lock = 1;
+
+        return 0;
 }
 
 
@@ -925,37 +967,73 @@ unlock:
 static int
 __synclock_unlock (synclock_t *lock)
 {
-	struct synctask *task = NULL;
-	struct synctask *curr = NULL;
+        struct synctask *task = NULL;
+        struct synctask *curr = NULL;
 
-	if (!lock)
-		return -1;
+        if (!lock)
+               return -1;
 
-	curr = synctask_get ();
+        if (lock->lock == 0) {
+                gf_log ("", GF_LOG_CRITICAL, "Unlock called  before lock ");
+                return -1;
+        }
+        curr = synctask_get ();
+        /*unlock should be called by lock owner
+         *i.e this will not allow the lock in nonsync task and unlock
+         * in sync task and vice-versa
+         */
+        switch (lock->type) {
+        case LOCK_TASK:
+                if (curr == lock->owner) {
+                        lock->lock--;
+                        gf_log ("", GF_LOG_TRACE, "Unlock success %p, remaining"
+                                " locks=%d", lock->owner, lock->lock);
+                } else {
+                        gf_log ("", GF_LOG_WARNING, "Unlock called by %p, but"
+                               " lock held by %p", curr, lock->owner);
+                }
 
-	if (lock->owner != curr) {
-		/* warn ? */
-	}
+                break;
+        case LOCK_THREAD:
+                if (pthread_self () == lock->owner_tid) {
+                        lock->lock--;
+                        gf_log ("", GF_LOG_TRACE, "Unlock success %u, remaining"
+                                " locks=%d", (unsigned int)lock->owner_tid, lock->lock);
+                } else {
+                        gf_log ("", GF_LOG_WARNING, "Unlock called by %u, but"
+                                " lock held by %u", (unsigned int) pthread_self(),
+                                 (unsigned int) lock->owner_tid);
+                }
 
-	lock->lock = _gf_false;
+                break;
+        default:
+                break;
+        }
 
-	/* There could be both synctasks and non synctasks
-	   waiting (or none, or either). As a mid-approach
-	   between maintaining too many waiting counters
-	   at one extreme and a thundering herd on unlock
-	   at the other, call a cond_signal (which wakes
-	   one waiter) and first synctask waiter. So at
-	   most we have two threads waking up to grab the
-	   just released lock.
-	*/
-	pthread_cond_signal (&lock->cond);
-	if (!list_empty (&lock->waitq)) {
-		task = list_entry (lock->waitq.next, struct synctask, waitq);
+        if (lock->lock > 0) {
+                 return 0;
+        }
+        lock->type = LOCK_NULL;
+        lock->owner = NULL;
+        lock->owner_tid = 0;
+        lock->lock = 0;
+        /* There could be both synctasks and non synctasks
+           waiting (or none, or either). As a mid-approach
+           between maintaining too many waiting counters
+           at one extreme and a thundering herd on unlock
+           at the other, call a cond_signal (which wakes
+           one waiter) and first synctask waiter. So at
+           most we have two threads waking up to grab the
+           just released lock.
+        */
+        pthread_cond_signal (&lock->cond);
+        if (!list_empty (&lock->waitq)) {
+                task = list_entry (lock->waitq.next, struct synctask, waitq);
                 list_del_init (&task->waitq);
-		synctask_wake (task);
-	}
+                synctask_wake (task);
+        }
 
-	return 0;
+        return 0;
 }
 
 

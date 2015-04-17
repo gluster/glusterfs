@@ -378,14 +378,11 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
-
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
                                         gd_mgmt_v3_lock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_lock_req);
-        synclock_lock (&conf->big_lock);
 out:
         GF_FREE (req.dict.dict_val);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -653,14 +650,11 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
-
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_PRE_VALIDATE,
                                         gd_mgmt_v3_pre_validate_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_pre_val_req);
-        synclock_lock (&conf->big_lock);
 out:
         GF_FREE (req.dict.dict_val);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -911,14 +905,11 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
-
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_BRICK_OP,
                                         gd_mgmt_v3_brick_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_brick_op_req);
-        synclock_lock (&conf->big_lock);
 out:
         GF_FREE (req.dict.dict_val);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -1154,14 +1145,11 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
-
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_COMMIT,
                                         gd_mgmt_v3_commit_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_commit_req);
-        synclock_lock (&conf->big_lock);
 out:
         GF_FREE (req.dict.dict_val);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -1376,14 +1364,11 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
-
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE,
                                         gd_mgmt_v3_post_validate_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_post_val_req);
-        synclock_lock (&conf->big_lock);
 out:
         GF_FREE (req.dict.dict_val);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
@@ -1588,14 +1573,11 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
-
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_UNLOCK,
                                         gd_mgmt_v3_unlock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_v3_unlock_req);
-        synclock_lock (&conf->big_lock);
 out:
         GF_FREE (req.dict.dict_val);
         gf_log (this->name, GF_LOG_TRACE, "Returning %d", ret);
