@@ -1582,7 +1582,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
         if (weight_by_size && total_size) {
                 /* We know total_size is not zero. */
                 chunk = ((unsigned long) 0xffffffff) / total_size;
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "chunk size = 0xffffffff / %u = 0x%x",
                         total_size, chunk);
         }
@@ -1621,7 +1621,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 else {
                         curr_size = 1;
                 }
-                gf_log (this->name, GF_LOG_INFO,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "assigning range size 0x%x to %s", chunk * curr_size,
                         layout->list[i].xlator->name);
                 DHT_SET_LAYOUT_RANGE(layout, i, start, chunk * curr_size,
