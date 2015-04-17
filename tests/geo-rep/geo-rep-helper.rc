@@ -60,7 +60,7 @@ function geo_rep_arequal_status()
 
 	echo  "calculating and comparing arequal checksum between $GMV0 and \
 $GSV0 " >> $LOG_FILE
-	python $comp_arequal $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
+	$PYTHON $comp_arequal $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
 
 	local ret=$?
 	# There is a bug, where sometimes metadata checksum of directories
@@ -97,7 +97,7 @@ function geo_rep_filecount_status()
 
 	echo  "calculating and comparing files count  between $GMV0 and \
 $GSV0 " >> $LOG_FILE
-	python $comp_arequal -c "find" $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
+	$PYTHON $comp_arequal -c "find" $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
 
 	if [ $? -eq 0 ];then
 	    temp_status="completed"
@@ -130,7 +130,7 @@ function check_status_arequal()
 
     echo  "calculating and comparing gfids between $GMV0 and $GSV0 " \
 	>> $LOG_FILE
-    python  $comp_gfid $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
+    $PYTHON  $comp_gfid $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
 
     if [ $? != 0 ]; then
 	return 1
@@ -140,7 +140,7 @@ function check_status_arequal()
 
     echo  "calculating and comparing arequal checksum between $GMV0 and $GSV0 " \
 	>> $LOG_FILE
-    python $comp_arequal $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
+    $PYTHON $comp_arequal $H0::$GMV0 $H0::$GSV0 >> $LOG_FILE 2>&1
 
     local rett=$?
 
@@ -165,12 +165,12 @@ function create_data()
 
     if [ $DIR_STR == "MULTI" ];then
 
-	python $create_data -n $nf --multi -b 10 -d 10 --random --max=2K \
+	$PYTHON $create_data -n $nf --multi -b 10 -d 10 --random --max=2K \
 	    --min=1K -t $FILE_TYPE --fop=$fop $MNT_PNT >> $LOG_FILE 2>&1
 
     elif [ $DIR_STR == "SINGLE" ];then
 
-	python $create_data -n $ns --random --max=2K --min=1K -t $FILE_TYPE \
+	$PYTHON $create_data -n $ns --random --max=2K --min=1K -t $FILE_TYPE \
 	    --fop=$fop $MNT_PNT >> $LOG_FILE 2>&1
 
     else
