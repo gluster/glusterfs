@@ -1372,54 +1372,6 @@ out:
         return ret;
 }
 
-int cli_cmd_ganesha_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                         const char **words, int wordcount)
-
-{
-         int                     sent        =   0;
-         int                     parse_error =   0;
-         int                     ret         =  -1;
-         rpc_clnt_procedure_t    *proc       =  NULL;
-         call_frame_t            *frame      =  NULL;
-         dict_t                  *options    =  NULL;
-         cli_local_t             *local      =  NULL;
-         char                    *op_errstr  =  NULL;
-
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GANESHA];
-
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
-                goto out;
-
-        ret = cli_cmd_ganesha_parse (state, words, wordcount,
-                                     &options, &op_errstr);
-        if (ret) {
-                if (op_errstr) {
-                    cli_err ("%s", op_errstr);
-                    GF_FREE (op_errstr);
-                } else
-                    cli_usage_out (word->pattern);
-                parse_error = 1;
-                goto out;
-        }
-
-        CLI_LOCAL_INIT (local, words, frame, options);
-
-        if (proc->fn) {
-                ret = proc->fn (frame, THIS, options);
-        }
-
-out:
-        if (ret) {
-                cli_cmd_sent_status_get (&sent);
-                if ((sent == 0) && (parse_error == 0))
-                        cli_out ("Setting global option failed");
-        }
-
-        CLI_STACK_DESTROY (frame);
-        return ret;
-}
-
 int
 cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
                     const char **words, int wordcount)
@@ -2624,10 +2576,6 @@ struct cli_cmd volume_cmds[] = {
           "volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
           cli_cmd_quota_cbk,
           "quota translator specific operations"},
-
-        { "features.ganesha { enable| disable } ",
-           cli_cmd_ganesha_cbk,
-          "global ganesha operations" },
 
          { "volume top <VOLNAME> {open|read|write|opendir|readdir|clear} [nfs|brick <brick>] [list-cnt <value>] |\n"
            "volume top <VOLNAME> {read-perf|write-perf} [bs <size> count <count>] [brick <brick>] [list-cnt <value>]",

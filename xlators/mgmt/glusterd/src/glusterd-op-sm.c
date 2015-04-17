@@ -1658,6 +1658,8 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         gf_boolean_t    all             = _gf_false;
         char            *next_version   = NULL;
         gf_boolean_t    quorum_action   = _gf_false;
+        gf_boolean_t     option         = _gf_false;
+        char            *op_errstr      = NULL;
 
         conf = this->private;
         ret = dict_get_str (dict, "key", &key);
@@ -1684,6 +1686,18 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
 
         if (key_fixed)
                 key = key_fixed;
+        option = dict_get_str_boolean (conf->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL,
+                            _gf_false);
+        if (option) {
+                ret = tear_down_cluster();
+                if (ret == -1)
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "Could not tear down NFS-Ganesha cluster");
+                ret =  stop_ganesha (&op_errstr);
+                if (ret)
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "Could not stop NFS-Ganesha service");
+        }
 
         ret = -1;
         dup_opt = dict_new ();
@@ -1788,6 +1802,15 @@ glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
 
         if (glusterd_is_quorum_changed (volinfo->dict, key, NULL))
                 quorum_action = _gf_true;
+        ret = glusterd_check_ganesha_export (volinfo);
+        if (ret) {
+                ret = ganesha_manage_export (dict, "off", op_rspstr);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "Could not reset ganesha.enable key");
+                        ret = 0;
+                }
+        }
 
         ret = glusterd_options_reset (volinfo, key, &is_force);
         if (ret == -1) {

@@ -84,6 +84,8 @@ int cli_cmd_system_register (struct cli_state *state);
 
 int cli_cmd_snapshot_register (struct cli_state *state);
 
+int cli_cmd_global_register (struct cli_state *state);
+
 int cli_cmd_misc_register (struct cli_state *state);
 
 struct cli_cmd_word *cli_cmd_nextword (struct cli_cmd_word *word,
