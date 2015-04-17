@@ -234,6 +234,9 @@ cli_cmds_register (struct cli_state *state)
         ret = cli_cmd_snapshot_register (state);
         if (ret)
                 goto out;
+        ret = cli_cmd_global_register (state);
+        if (ret)
+                goto out;
 out:
         return ret;
 }
@@ -371,7 +374,8 @@ cli_cmd_submit (struct rpc_clnt* rpc, void *req, call_frame_t *frame,
         unsigned        timeout = 0;
 
         if ((GLUSTER_CLI_PROFILE_VOLUME == procnum) ||
-            (GLUSTER_CLI_HEAL_VOLUME == procnum))
+            (GLUSTER_CLI_HEAL_VOLUME == procnum) ||
+            (GLUSTER_CLI_GANESHA == procnum))
                 timeout = CLI_TEN_MINUTES_TIMEOUT;
         else
                 timeout = CLI_DEFAULT_CMD_TIMEOUT;
