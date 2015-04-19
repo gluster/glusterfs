@@ -1692,6 +1692,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_7_0,
         },
 
+#if USE_GFDB /* no GFDB means tiering is disabled */
         /* tier translator - global tunables */
         { .key         = "cluster.write-freq-threshold",
           .voltype     = "cluster/tier",
@@ -1729,6 +1730,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "record-counters",
           .op_version  = GD_OP_VERSION_3_7_0
         },
+#endif /* USE_GFDB */
+
         { .key         = "locks.trace",
           .voltype     = "features/locks",
           .type        = NO_DOC,

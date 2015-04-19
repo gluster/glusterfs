@@ -1599,6 +1599,7 @@ out:
         return ret;
 }
 
+#if USE_GFDB /* only add changetimerecorder when GFDB is enabled */
 static int
 brick_graph_add_changetimerecorder (volgen_graph_t *graph,
                                     glusterd_volinfo_t *volinfo,
@@ -1665,6 +1666,7 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
 out:
         return ret;
 }
+#endif /* USE_GFDB */
 
 static int
 brick_graph_add_acl (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
@@ -2169,7 +2171,9 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_acl, "acl"},
 	{brick_graph_add_bitrot_stub, "bitrot-stub"},
         {brick_graph_add_changelog, "changelog"},
+#if USE_GFDB /* changetimerecorder depends on gfdb */
         {brick_graph_add_changetimerecorder, "changetimerecorder"},
+#endif
         {brick_graph_add_bd, "bd"},
         {brick_graph_add_trash, "trash"},
         {brick_graph_add_arbiter, "arbiter"},
