@@ -678,7 +678,7 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
         char           *rv        = NULL;
         char           *rh        = NULL;
         char           localhost[256] = {0};
-        char           *db_path = "";
+        char           *db_path = NULL;
         char           *brickname = NULL;
         char            db_name[PATH_MAX] = "";
         int             ret = 0;
@@ -730,6 +730,8 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
                 ret = tier_get_bricklist(child->xlator, bricklist);
         }
 out:
+        GF_FREE (db_path);
+
         return ret;
 }
 
