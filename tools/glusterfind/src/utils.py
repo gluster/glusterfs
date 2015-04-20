@@ -9,14 +9,36 @@
 # cases as published by the Free Software Foundation.
 
 import sys
-import socket
 from subprocess import PIPE, Popen
-from errno import EPERM, EEXIST
+from errno import EEXIST, ENOENT
+import xml.etree.cElementTree as etree
 import logging
 import os
 from datetime import datetime
+import urllib
 
 ROOT_GFID = "00000000-0000-0000-0000-000000000001"
+DEFAULT_CHANGELOG_INTERVAL = 15
+
+ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
+cache_data = {}
+
+
+def cache_output(func):
+    def wrapper(*args, **kwargs):
+        global cache_data
+        if cache_data.get(func.func_name, None) is None:
+            cache_data[func.func_name] = func(*args, **kwargs)
+
+        return cache_data[func.func_name]
+    return wrapper
+
+
+def handle_rm_error(func, path, exc_info):
+    if exc_info[1].errno == ENOENT:
+        return
+
+    raise exc_info[1]
 
 
 def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
@@ -41,12 +63,16 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
                 callback_func(full_path)
 
 
-def output_write(f, path, prefix="."):
+def output_write(f, path, prefix=".", encode=False):
     if path == "":
         return
 
     if prefix != ".":
         path = os.path.join(prefix, path)
+
+    if encode:
+        path = urllib.quote_plus(path)
+
     f.write("%s\n" % path)
 
 
@@ -153,51 +179,41 @@ def symlink_gfid_to_path(brick, gfid):
     return out_path
 
 
-def is_host_local(host):
-    """
-    Find if a host is local or not.
-    Code copied from $GLUSTERFS/geo-replication/syncdaemon/syncdutils.py
-    """
-    locaddr = False
-    for ai in socket.getaddrinfo(host, None):
-        # cf. http://github.com/gluster/glusterfs/blob/ce111f47/xlators
-        # /mgmt/glusterd/src/glusterd-utils.c#L125
-        if ai[0] == socket.AF_INET:
-            if ai[-1][0].split(".")[0] == "127":
-                locaddr = True
-                break
-        elif ai[0] == socket.AF_INET6:
-            if ai[-1][0] == "::1":
-                locaddr = True
-                break
-        else:
-            continue
-        try:
-            # use ICMP socket to avoid net.ipv4.ip_nonlocal_bind issue,
-            # cf. https://bugzilla.redhat.com/show_bug.cgi?id=890587
-            s = socket.socket(ai[0], socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        except socket.error:
-            ex = sys.exc_info()[1]
-            if ex.errno != EPERM:
-                raise
-            f = None
-            try:
-                f = open("/proc/sys/net/ipv4/ip_nonlocal_bind")
-                if int(f.read()) != 0:
-                    logger.warning("non-local bind is set and not "
-                                   "allowed to create "
-                                   "raw sockets, cannot determine "
-                                   "if %s is local" % host)
-                    return False
-                s = socket.socket(ai[0], socket.SOCK_DGRAM)
-            finally:
-                if f:
-                    f.close()
-        try:
-            s.bind(ai[-1])
-            locaddr = True
-            break
-        except:
-            pass
-        s.close()
-    return locaddr
+@cache_output
+def get_my_uuid():
+    cmd = ["gluster", "system::", "uuid", "get", "--xml"]
+    rc, out, err = execute(cmd)
+
+    if rc != 0:
+        return None
+
+    tree = etree.fromstring(out)
+    uuid_el = tree.find("uuidGenerate/uuid")
+    return uuid_el.text
+
+
+def is_host_local(host_uuid):
+    # Get UUID only if it is not done previously
+    # else Cache the UUID value
+    my_uuid = get_my_uuid()
+    if my_uuid == host_uuid:
+        return True
+
+    return False
+
+
+def get_changelog_rollover_time(volumename):
+    cmd = ["gluster", "volume", "get", volumename,
+           "changelog.rollover-time", "--xml"]
+    rc, out, err = execute(cmd)
+
+    if rc != 0:
+        return DEFAULT_CHANGELOG_INTERVAL
+
+    try:
+        tree = etree.fromstring(out)
+        return int(tree.find('volGetopts/Value').text)
+    except ParseError:
+        return DEFAULT_CHANGELOG_INTERVAL
+
+

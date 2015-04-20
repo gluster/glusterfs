@@ -12,7 +12,8 @@ import os
 import sys
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from errno import ENOENT
+import urllib
+import time
 
 from utils import mkdirp, setup_logger, create_file, output_write, find
 import conf
@@ -36,36 +37,17 @@ def brickfind_crawl(brick, args):
     with open(args.outfile, "a+") as fout:
         brick_path_len = len(brick)
 
-        def mtime_filter(path):
-            try:
-                st = os.lstat(path)
-            except (OSError, IOError) as e:
-                if e.errno == ENOENT:
-                    st = None
-                else:
-                    raise
-
-            if st and (st.st_mtime > args.start or st.st_ctime > args.start):
-                return True
-
-            return False
-
         def output_callback(path):
             path = path.strip()
             path = path[brick_path_len+1:]
-            output_write(fout, path, args.output_prefix)
+            output_write(fout, path, args.output_prefix, encode=True)
 
         ignore_dirs = [os.path.join(brick, dirname)
                        for dirname in
                        conf.get_opt("brick_ignore_dirs").split(",")]
 
-        if args.full:
-            find(brick, callback_func=output_callback,
-                 ignore_dirs=ignore_dirs)
-        else:
-            find(brick, callback_func=output_callback,
-                 filter_func=mtime_filter,
-                 ignore_dirs=ignore_dirs)
+        find(brick, callback_func=output_callback,
+             ignore_dirs=ignore_dirs)
 
         fout.flush()
         os.fsync(fout.fileno())
@@ -81,7 +63,6 @@ def _get_args():
     parser.add_argument("outfile", help="Output File")
     parser.add_argument("start", help="Start Time", type=float)
     parser.add_argument("--debug", help="Debug", action="store_true")
-    parser.add_argument("--full", help="Full Find", action="store_true")
     parser.add_argument("--output-prefix", help="File prefix in output",
                         default=".")
 
@@ -90,6 +71,12 @@ def _get_args():
 
 if __name__ == "__main__":
     args = _get_args()
+    session_dir = os.path.join(conf.get_opt("session_dir"), args.session)
+    status_file = os.path.join(session_dir, args.volume,
+                               "%s.status" % urllib.quote_plus(args.brick))
+    status_file_pre = status_file + ".pre"
+    mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
+           logger=logger)
     mkdirp(os.path.join(conf.get_opt("log_dir"), args.session, args.volume),
            exit_on_err=True)
     log_file = os.path.join(conf.get_opt("log_dir"),
@@ -97,5 +84,9 @@ if __name__ == "__main__":
                             args.volume,
                             "brickfind.log")
     setup_logger(logger, log_file, args.debug)
+
+    time_to_update = int(time.time())
     brickfind_crawl(args.brick, args)
+    with open(status_file_pre, "w", buffering=0) as f:
+        f.write(str(time_to_update))
     sys.exit(0)

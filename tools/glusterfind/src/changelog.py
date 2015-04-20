@@ -16,10 +16,12 @@ from errno import ENOENT
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import hashlib
+import urllib
 
 import libgfchangelog
 from utils import create_file, mkdirp, execute, symlink_gfid_to_path
 from utils import fail, setup_logger, output_write, find
+from utils import get_changelog_rollover_time
 import conf
 
 
@@ -190,7 +192,7 @@ def sort_unique(filename):
             exit_msg="Sort failed", logger=logger)
 
 
-def get_changes(brick, hash_dir, log_file, end, args):
+def get_changes(brick, hash_dir, log_file, start, end, args):
     """
     Makes use of libgfchangelog's history API to get changelogs
     containing changes from start and end time. Further collects
@@ -216,7 +218,7 @@ def get_changes(brick, hash_dir, log_file, end, args):
     # Fail if History fails for requested Start and End
     try:
         actual_end = libgfchangelog.cl_history_changelog(
-            cl_path, args.start, end, CHANGELOGAPI_NUM_WORKERS)
+            cl_path, start, end, CHANGELOGAPI_NUM_WORKERS)
     except libgfchangelog.ChangelogException as e:
         fail("%s Historical Changelogs not available: %s" % (brick, e),
              logger=logger)
@@ -235,6 +237,11 @@ def get_changes(brick, hash_dir, log_file, end, args):
             if changes:
                 with open(gfid_list_path, 'a+') as fgfid:
                     for change in changes:
+                        # Ignore if last processed changelog comes
+                        # again in list
+                        if change.endswith(".%s" % start):
+                            continue
+
                         with open(change) as f:
                             for line in f:
                                 # Space delimited list, collect GFID
@@ -259,8 +266,10 @@ def get_changes(brick, hash_dir, log_file, end, args):
                              args.outfile, gfid_list_failures_file)
     gfid_to_path_using_batchfind(brick, gfid_list_failures_file, args.outfile)
 
+    return actual_end
 
-def changelog_crawl(brick, end, args):
+
+def changelog_crawl(brick, start, end, args):
     """
     Init function, prepares working dir and calls Changelog query
     """
@@ -283,8 +292,8 @@ def changelog_crawl(brick, end, args):
                             "changelog.%s.log" % brickhash)
 
     logger.info("%s Started Changelog Crawl. Start: %s, End: %s"
-                % (brick, args.start, end))
-    get_changes(brick, working_dir, log_file, end, args)
+                % (brick, start, end))
+    return get_changes(brick, working_dir, log_file, start, end, args)
 
 
 def _get_args():
@@ -312,6 +321,23 @@ if __name__ == "__main__":
                             args.volume,
                             "changelog.log")
     setup_logger(logger, log_file, args.debug)
-    end = int(time.time()) - int(conf.get_opt("changelog_rollover_time"))
-    changelog_crawl(args.brick, end, args)
+
+    session_dir = os.path.join(conf.get_opt("session_dir"), args.session)
+    status_file = os.path.join(session_dir, args.volume,
+                               "%s.status" % urllib.quote_plus(args.brick))
+    status_file_pre = status_file + ".pre"
+    mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
+           logger=logger)
+
+    try:
+        with open(status_file) as f:
+            start = int(f.read().strip())
+    except (ValueError, OSError, IOError):
+        start = args.start
+
+    end = int(time.time()) - get_changelog_rollover_time(args.volume)
+    actual_end = changelog_crawl(args.brick, start, end, args)
+    with open(status_file_pre, "w", buffering=0) as f:
+        f.write(str(actual_end))
+
     sys.exit(0)
