@@ -6072,6 +6072,7 @@ glusterd_snapshot_clone_commit (dict_t *dict, char **op_errstr,
                goto out;
        }
        ret = glusterd_snapdsvc_init (snap_vol);
+
        glusterd_list_add_order (&snap_vol->vol_list, &priv->volumes,
                        glusterd_compare_volume_name);
 
