@@ -319,17 +319,6 @@ glusterd_snapdsvc_restart ()
         GF_ASSERT (conf);
 
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                /* Init per volume snapd svc */
-                ret = glusterd_snapdsvc_init (volinfo);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "snapd service "
-                                "initialization failed for volume %s",
-                                volinfo->volname);
-                        goto out;
-                }
-                gf_log (this->name, GF_LOG_DEBUG, "snapd service initialized "
-                        "for %s", volinfo->volname);
-
                 /* Start per volume snapd svc */
                 if (volinfo->status == GLUSTERD_STATUS_STARTED &&
                     glusterd_is_snapd_enabled (volinfo)) {
