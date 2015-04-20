@@ -219,17 +219,12 @@ int
 glusterd_op_set_ganesha (dict_t *dict, char **errstr)
 {
         int                                      ret = 0;
-        int                                      flags = 0;
-        glusterd_volinfo_t                      *volinfo = NULL;
-        char                                    *volname = NULL;
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
         char                                    *key = NULL;
         char                                    *value = NULL;
-        char                                     str[50] = {0, };
-        int32_t                                  dict_count = 0;
         dict_t                                  *vol_opts = NULL;
-        int count                                = 0;
+        char                                    *next_version =  NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -268,9 +263,17 @@ glusterd_op_set_ganesha (dict_t *dict, char **errstr)
                         " nfs-ganesha in dict.");
                 goto out;
         }
-
-        /* To do : Lock the global options file before writing */
-        /* into this file. Bug ID : 1200254    */
+        ret = glusterd_get_next_global_opt_version_str (priv->opts,
+                                                        &next_version);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "Could not fetch "
+                        " global op version");
+                goto out;
+        }
+        ret = dict_set_str (priv->opts, GLUSTERD_GLOBAL_OPT_VERSION,
+                            next_version);
+        if (ret)
+                goto out;
 
         ret = glusterd_store_options (this, priv->opts);
         if (ret) {

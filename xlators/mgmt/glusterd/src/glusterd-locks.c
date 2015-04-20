@@ -26,7 +26,7 @@
 
 #include <signal.h>
 
-#define GF_MAX_LOCKING_ENTITIES 2
+#define GF_MAX_LOCKING_ENTITIES 3
 
 /* Valid entities that the mgmt_v3 lock can hold locks upon    *
  * To add newer entities to be locked, we can just add more    *
@@ -34,6 +34,7 @@
 glusterd_valid_entities   valid_types[] = {
         { "vol",  _gf_true  },
         { "snap", _gf_false },
+        { "global", _gf_false},
         { NULL              },
 };
 
