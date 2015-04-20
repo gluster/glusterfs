@@ -456,6 +456,15 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          "features.quota-deem-statfs",
+                                          "on");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "setting quota-deem-statfs"
+                        "in volinfo failed");
+                goto out;
+        }
+
         *crawl = _gf_true;
 
         ret = glusterd_store_quota_config (volinfo, NULL, NULL,
