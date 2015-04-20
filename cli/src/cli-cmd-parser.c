@@ -903,6 +903,20 @@ cli_cmd_ganesha_parse (struct cli_state *state,
                 goto out;
         }
 
+        ret = dict_set_str (dict, "globalname", "All");
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "dict set on global"
+                        " key failed.");
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "hold_global_locks", _gf_true);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "dict set on global key "
+                        "failed.");
+                goto out;
+        }
+
         *options = dict;
 out:
         if (ret)
@@ -4370,6 +4384,17 @@ cli_snap_config_limit_parse (const char **words, dict_t *dict,
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Could not set "
                         "%s in dictionary", key);
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (dict, "globalname", "All");
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not set global key");
+                goto out;
+        }
+        ret = dict_set_int32 (dict, "hold_global_locks", _gf_true);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Could not set global locks");
                 goto out;
         }
 

@@ -3232,7 +3232,9 @@ static int
 glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
 {
         int32_t                         ret             = 0;
+        int32_t                         err             = 0;
         char                           *volname         = NULL;
+        char                           *globalname      = NULL;
         glusterd_op_lock_ctx_t         *lock_ctx        = NULL;
         glusterd_conf_t                *priv            = NULL;
         xlator_t                       *this            = NULL;
@@ -3263,8 +3265,19 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to acquire lock for %s",
                                         volname);
+                        goto out;
                 }
+                ret = dict_get_str (lock_ctx->dict, "globalname", &globalname);
+                if (!ret) {
+                        ret = glusterd_mgmt_v3_lock (globalname, lock_ctx->uuid,
+                                                     "global");
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to acquire lock for %s",
+                                        globalname);
 
+                }
+out:
                 glusterd_op_mgmt_v3_lock_send_resp (lock_ctx->req,
                                                    &event->txn_id, ret);
 
@@ -3280,6 +3293,7 @@ glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
 {
         int32_t                         ret             = 0;
         char                           *volname         = NULL;
+        char                           *globalname      = NULL;
         glusterd_op_lock_ctx_t         *lock_ctx        = NULL;
         glusterd_conf_t                *priv            = NULL;
         xlator_t                       *this            = NULL;
@@ -3311,8 +3325,20 @@ glusterd_op_ac_unlock (glusterd_op_sm_event_t *event, void *ctx)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to release lock for %s",
                                         volname);
+                        goto out;
                 }
 
+                ret = dict_get_str (lock_ctx->dict, "globalname", &globalname);
+                if (!ret) {
+                        ret = glusterd_mgmt_v3_unlock (globalname, lock_ctx->uuid,
+                                                      "global");
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to release lock for %s",
+                                        globalname);
+
+                }
+out:
                 glusterd_op_mgmt_v3_unlock_send_resp (lock_ctx->req,
                                                      &event->txn_id, ret);
 
