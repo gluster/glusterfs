@@ -1877,9 +1877,9 @@ gf_cli_ganesha_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (rsp.op_ret) {
                 if (strcmp (rsp.op_errstr, ""))
-                        cli_err ("ganesha enable: failed: %s", rsp.op_errstr);
+                        cli_err ("nfs-ganesha: failed: %s", rsp.op_errstr);
                 else
-                        cli_err ("ganesha enable: failed");
+                        cli_err ("nfs-ganesha: failed");
         }
 
         else {

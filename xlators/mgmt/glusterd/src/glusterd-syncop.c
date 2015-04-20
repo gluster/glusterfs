@@ -1440,6 +1440,8 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         int                     ret         = -1;
         xlator_t               *this        = NULL;
         struct syncargs         args        = {0};
+        int32_t                 global      = 0;
+        char                   *type        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1479,7 +1481,13 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
                 }
                 rcu_read_unlock ();
         } else {
-                if (volname) {
+
+                ret = dict_get_int32 (op_ctx, "hold_global_locks", &global);
+                if (global)
+                        type = "global";
+                else
+                        type = "vol";
+                if (volname || global) {
                         rcu_read_lock ();
                         cds_list_for_each_entry_rcu (peerinfo, &conf->peers,
                                                      uuid_list) {
@@ -1537,9 +1545,9 @@ out:
                 if (conf->op_version < GD_OP_VERSION_3_6_0)
                         glusterd_unlock (MY_UUID);
                 else {
-                        if (volname) {
+                        if (type) {
                                 ret = glusterd_mgmt_v3_unlock (volname, MY_UUID,
-                                                               "vol");
+                                                               type);
                                 if (ret)
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Unable to release lock for %s",
@@ -1672,9 +1680,11 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         int32_t                     tmp_op           = 0;
         char                        *op_errstr       = NULL;
         char                        *tmp             = NULL;
+        char                        *global          = NULL;
         char                        *volname         = NULL;
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
+        gf_boolean_t                is_global        = _gf_false;
         uuid_t                      *txn_id          = NULL;
         glusterd_op_info_t          txn_opinfo       = {{0},};
 
@@ -1731,6 +1741,12 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 }
         } else {
 
+                ret = dict_get_str (op_ctx, "globalname", &global);
+                if (!ret) {
+                        is_global = _gf_true;
+                        goto global;
+                }
+
                 /* If no volname is given as a part of the command, locks will
                  * not be held */
                 ret = dict_get_str (op_ctx, "volname", &tmp);
@@ -1759,13 +1775,28 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                 }
         }
 
+global:
+        if (is_global) {
+                ret = glusterd_mgmt_v3_lock (global, MY_UUID, "global");
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to acquire lock for %s", global);
+                        gf_asprintf (&op_errstr,
+                                     "Another transaction is in progress "
+                                     "for %s. Please try again after sometime.",
+                                     global);
+                        is_global = _gf_false;
+                        goto out;
+                }
+        }
+
         is_acquired = _gf_true;
 
 local_locking_done:
 
         /* If no volname is given as a part of the command, locks will
          * not be held */
-        if (volname || (conf->op_version < GD_OP_VERSION_3_6_0)) {
+        if (volname || (conf->op_version < GD_OP_VERSION_3_6_0) || is_global) {
                 ret = gd_lock_op_phase (conf, op, op_ctx, &op_errstr, *txn_id,
                                         &txn_opinfo);
                 if (ret) {
@@ -1801,9 +1832,15 @@ local_locking_done:
 out:
         op_ret = ret;
         if (txn_id) {
-                (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
-                                           op_errstr, volname, is_acquired,
-                                           *txn_id, &txn_opinfo);
+                if (volname)
+                        (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
+                                                   op_errstr, volname, is_acquired,
+                                                   *txn_id, &txn_opinfo);
+                if (global)
+                        (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
+                                                   op_errstr, global, is_acquired,
+                                                   *txn_id, &txn_opinfo);
+
 
                 /* Clearing the transaction opinfo */
                 ret = glusterd_clear_txn_opinfo (txn_id);
