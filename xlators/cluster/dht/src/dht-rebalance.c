@@ -866,6 +866,7 @@ done:
         }
 
 out:
+        GF_FREE (link);
         if (dict)
                 dict_unref (dict);
 

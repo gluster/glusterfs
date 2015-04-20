@@ -156,6 +156,7 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 out:
 	if (xdata)
 		dict_unref (xdata);
+	GF_FREE (linkname);
 	loc_wipe (&loc);
 	loc_wipe (&srcloc);
 	return ret;
