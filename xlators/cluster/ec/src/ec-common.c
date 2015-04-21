@@ -1022,7 +1022,8 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
         if (ctx != NULL) {
             if (ctx->inode_lock != NULL) {
                 lock = ctx->inode_lock;
-                lock->version = fop->answer->version;
+                lock->version[0] = fop->answer->version[0];
+                lock->version[1] = fop->answer->version[1];
 
                 if (buf->ia_type == IA_IFREG) {
                     lock->have_size = 1;
@@ -1031,7 +1032,8 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
             }
             if (ctx->entry_lock != NULL) {
                 lock = ctx->entry_lock;
-                lock->version = fop->answer->version;
+                lock->version[0] = fop->answer->version[0];
+                lock->version[1] = fop->answer->version[1];
             }
         }
 
@@ -1084,7 +1086,7 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ec_fop_data_t *fop = cookie, *parent;
     ec_lock_t *lock = NULL;
     uint64_t size = 0;
-    uint64_t version = 0;
+    uint64_t version[EC_VERSION_SIZE] = {0, 0};
 
     if (op_ret >= 0) {
         parent = fop->parent;
@@ -1106,9 +1108,10 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
             }
         }
 
-        if (ec_dict_del_number(dict, EC_XATTR_VERSION, &version) != 0) {
-             ec_fop_set_error(fop, EIO);
-             return 0;
+        if (ec_dict_del_array(dict, EC_XATTR_VERSION, version,
+                               EC_VERSION_SIZE) != 0) {
+            ec_fop_set_error(fop, EIO);
+            return 0;
         }
 
         LOCK(&lock->loc.inode->lock);
@@ -1118,7 +1121,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
             fop->parent->pre_size = fop->parent->post_size = size;
             fop->parent->have_size = lock->have_size = 1;
         }
-        lock->version = version;
+        lock->version[0] = version[0];
+        lock->version[1] = version[1];
 
         UNLOCK(&lock->loc.inode->lock);
 
@@ -1143,6 +1147,7 @@ void ec_get_size_version(ec_fop_data_t * fop)
     uid_t uid;
     gid_t gid;
     int32_t error = ENOMEM;
+    uint64_t version[EC_VERSION_SIZE] = {0, 0};
 
     if (fop->have_size)
     {
@@ -1171,7 +1176,8 @@ void ec_get_size_version(ec_fop_data_t * fop)
     {
         goto out;
     }
-    if ((ec_dict_set_number(xdata, EC_XATTR_VERSION, 0) != 0) ||
+    if ((ec_dict_set_array(xdata, EC_XATTR_VERSION,
+                           version, EC_VERSION_SIZE) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_SIZE, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_CONFIG, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_DIRTY, 0) != 0))
@@ -1240,6 +1246,7 @@ void ec_prepare_update(ec_fop_data_t *fop)
     ec_lock_t *lock;
     uid_t uid;
     gid_t gid;
+    uint64_t version[2] = {0, 0};
     int32_t error = ENOMEM;
 
     tmp = fop;
@@ -1266,7 +1273,8 @@ void ec_prepare_update(ec_fop_data_t *fop)
     if (xdata == NULL) {
         goto out;
     }
-    if ((ec_dict_set_number(xdata, EC_XATTR_VERSION, 0) != 0) ||
+    if ((ec_dict_set_array(xdata, EC_XATTR_VERSION,
+                           version, EC_VERSION_SIZE) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_SIZE, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_CONFIG, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_DIRTY, 1) != 0)) {
@@ -1383,7 +1391,7 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version,
+void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version[2],
                             uint64_t size, gf_boolean_t dirty, ec_lock_t *lock)
 {
     dict_t * dict;
@@ -1406,8 +1414,9 @@ void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version,
         goto out;
     }
 
-    if (version != 0) {
-        if (ec_dict_set_number(dict, EC_XATTR_VERSION, version) != 0) {
+    if (version[0] != 0 || version[1] != 0) {
+        if (ec_dict_set_array(dict, EC_XATTR_VERSION,
+                              version, EC_VERSION_SIZE) != 0) {
             goto out;
         }
     }
@@ -1568,7 +1577,7 @@ void ec_unlock(ec_fop_data_t *fop)
 void ec_flush_size_version(ec_fop_data_t * fop)
 {
     ec_lock_t * lock;
-    uint64_t version, delta;
+    uint64_t version[2], delta;
 
     GF_ASSERT(fop->lock_count == 1);
 
@@ -1578,9 +1587,11 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 
     GF_ASSERT(lock->owner == fop);
 
-    version = lock->version_delta;
+    version[0] = lock->version_delta[0];
+    version[1] = lock->version_delta[1];
     delta = lock->size_delta;
-    lock->version_delta = 0;
+    lock->version_delta[0] = 0;
+    lock->version_delta[1] = 0;
     lock->size_delta = 0;
 
     UNLOCK(&lock->loc.inode->lock);
@@ -1615,7 +1626,11 @@ void ec_lock_reuse(ec_fop_data_t *fop)
         if (((fop->locks_update >> i) & 1) != 0) {
             if (fop->error == 0)
             {
-                lock->version_delta++;
+		if (fop->id == GF_FOP_SETXATTR || fop->id == GF_FOP_SETATTR) {
+                    lock->version_delta[1]++;
+		} else {
+                    lock->version_delta[0]++;
+		}
                 lock->size_delta += fop->post_size - fop->pre_size;
                 if (fop->have_size) {
                     lock->size = fop->post_size;
