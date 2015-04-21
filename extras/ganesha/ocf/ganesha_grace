@@ -135,6 +135,9 @@ ganesha_grace_stop()
 ganesha_grace_monitor()
 {
 	# logger "ganesha_grace_monitor()"
+	if [ ! -d /var/run/ganesha ]; then
+		mkdir -p /var/run/ganesha
+	fi
 	pcs status | grep dead_ip-1 | sort > /var/run/ganesha/pcs_status
 	return $OCF_SUCCESS
 }
