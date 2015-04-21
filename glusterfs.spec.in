@@ -524,6 +524,10 @@ Requires:         portmap
 %if ( 0%{?rhel} && 0%{?rhel} < 6 )
 Obsoletes:        %{name}-geo-replication = %{version}-%{release}
 %endif
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+Requires:         python-argparse
+%endif
+Requires:         pyxattr
 
 %description server
 GlusterFS is a distributed file-system capable of scaling to several
