@@ -103,6 +103,7 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
     ec_t * ec;
     ec_cbk_data_t * cbk;
     ec_fd_t * ctx;
+    uint64_t version[2] = {0, 0};
 
     switch (state)
     {
@@ -151,7 +152,8 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
                 return EC_STATE_REPORT;
             }
 
-            if (ec_dict_set_number(fop->xdata, EC_XATTR_VERSION, 0) != 0) {
+            if (ec_dict_set_array(fop->xdata, EC_XATTR_VERSION,
+                                  version, EC_VERSION_SIZE) != 0) {
                 fop->error = EIO;
 
                 return EC_STATE_REPORT;
@@ -565,7 +567,7 @@ void ec_wind_mkdir(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
 {
     ec_cbk_data_t * cbk;
-
+    uint64_t version[2] = {0, 0};
     switch (state)
     {
         case EC_STATE_INIT:
@@ -578,9 +580,9 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
                 }
             }
 
-            if (ec_dict_set_number(fop->xdata, EC_XATTR_VERSION, 0) != 0) {
+            if (ec_dict_set_array(fop->xdata, EC_XATTR_VERSION,
+                                  version, EC_VERSION_SIZE) != 0) {
                 fop->error = EIO;
-
                 return EC_STATE_REPORT;
             }
 
@@ -764,6 +766,7 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
 {
     ec_t *ec;
     ec_cbk_data_t * cbk;
+    uint64_t version[2] = {0, 0};
 
     switch (state)
     {
@@ -794,7 +797,8 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
                     return EC_STATE_REPORT;
                 }
 
-                if (ec_dict_set_number(fop->xdata, EC_XATTR_VERSION, 0) != 0) {
+                if (ec_dict_set_array(fop->xdata, EC_XATTR_VERSION,
+                                      version, EC_VERSION_SIZE) != 0) {
                     fop->error = EIO;
 
                     return EC_STATE_REPORT;

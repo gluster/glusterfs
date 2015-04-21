@@ -23,6 +23,8 @@
 #define EC_XATTR_HEAL    EC_XATTR_PREFIX"heal"
 #define EC_XATTR_DIRTY   EC_XATTR_PREFIX"dirty"
 
+#define EC_VERSION_SIZE 2
+
 struct _ec
 {
     xlator_t *        xl;

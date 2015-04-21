@@ -143,8 +143,8 @@ struct _ec_lock
     int32_t            have_size;
     uint64_t           size;
     uint64_t           size_delta;
-    uint64_t           version;
-    uint64_t           version_delta;
+    uint64_t           version[2];
+    uint64_t           version_delta[2];
     ec_fop_data_t     *owner;
     loc_t              loc;
     union
@@ -249,7 +249,7 @@ struct _ec_cbk_data
     int32_t          int32;
     uintptr_t        uintptr[3];
     uint64_t         size;
-    uint64_t         version;
+    uint64_t         version[2];
     inode_t *        inode;
     fd_t *           fd;
     struct statvfs   statvfs;
@@ -282,7 +282,7 @@ struct _ec_heal
     uintptr_t         fixed;
     uint64_t          offset;
     uint64_t          size;
-    uint64_t          version;
+    uint64_t          version[2];
     uint64_t          raw_size;
 };
 

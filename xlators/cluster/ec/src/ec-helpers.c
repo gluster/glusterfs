@@ -157,6 +157,52 @@ size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
     return total;
 }
 
+int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],
+                          int32_t size)
+{
+    uint64_t   *ptr = NULL;
+    int32_t     vindex;
+    if (value == NULL)
+        return -1;
+    ptr = GF_MALLOC(sizeof(uint64_t) * size, gf_common_mt_char);
+    if (ptr == NULL) {
+        return -1;
+    }
+    for (vindex = 0; vindex < size; vindex++) {
+         ptr[vindex] = hton64(value[vindex]);
+    }
+    return dict_set_bin(dict, key, ptr, sizeof(uint64_t) * size);
+}
+
+
+int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
+                          int32_t size)
+{
+    void    *ptr;
+    int32_t len;
+    int32_t vindex;
+
+    if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0)) {
+        return -1;
+    }
+
+    if (len > (size * sizeof(uint64_t)) ||
+        (len % sizeof (uint64_t)))
+            return -1;
+
+    memset (value, 0, size * sizeof(uint64_t));
+    /* 3.6 version ec would have stored version in 64 bit. In that case treat
+     * metadata versions as 0*/
+    size = min (size, len/sizeof(uint64_t));
+    for (vindex = 0; vindex < size; vindex++) {
+         value[vindex] = ntoh64(*((uint64_t *)ptr + vindex));
+    }
+    dict_del(dict, key);
+
+    return 0;
+}
+
+
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value)
 {
     uint64_t * ptr;

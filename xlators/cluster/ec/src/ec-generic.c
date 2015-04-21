@@ -717,7 +717,8 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
         return;
     }
 
-    ec_dict_del_number(cbk->xdata, EC_XATTR_VERSION, &cbk->version);
+    ec_dict_del_array(cbk->xdata, EC_XATTR_VERSION,
+                      cbk->version, EC_VERSION_SIZE);
 
     if (ec_loc_update(fop->xl, &fop->loc[0], cbk->inode, &cbk->iatt[0]) != 0) {
         cbk->op_ret = -1;
@@ -732,7 +733,8 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     if ((ctx != NULL) && (ctx->inode_lock != NULL))
     {
         lock = ctx->inode_lock;
-        cbk->version = lock->version;
+        cbk->version[0] = lock->version[0];
+        cbk->version[1] = lock->version[1];
         if (lock->have_size)
         {
             size = lock->size;

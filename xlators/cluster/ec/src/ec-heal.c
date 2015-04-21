@@ -79,7 +79,8 @@ void ec_heal_lookup_resume(ec_fop_data_t * fop)
             if (cbk->op_ret >= 0)
             {
                 heal->iatt = cbk->iatt[0];
-                heal->version = cbk->version;
+                heal->version[0] = cbk->version[0];
+                heal->version[1] = cbk->version[1];
                 heal->raw_size = cbk->size;
                 heal->fop->pre_size = cbk->iatt[0].ia_size;
                 heal->fop->post_size = cbk->iatt[0].ia_size;
@@ -856,7 +857,8 @@ void ec_heal_setxattr_others(ec_heal_t * heal)
         if ((cbk->iatt[0].ia_type == IA_IFREG) ||
             (cbk->iatt[0].ia_type == IA_IFDIR))
         {
-            if (ec_dict_set_number(xdata, EC_XATTR_VERSION, cbk->version) != 0)
+            if (ec_dict_set_array(xdata, EC_XATTR_VERSION,
+                                  cbk->version, EC_VERSION_SIZE) != 0)
             {
                 goto out;
             }

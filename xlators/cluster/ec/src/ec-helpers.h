@@ -22,6 +22,10 @@ int32_t ec_bits_consume(uint64_t * n);
 size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
                       off_t offset, size_t size);
 
+int32_t ec_dict_set_array(dict_t *dict, char *key,
+                          uint64_t *value, int32_t size);
+int32_t ec_dict_del_array(dict_t *dict, char *key,
+                          uint64_t *value, int32_t size);
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value);
 int32_t ec_dict_del_number(dict_t * dict, char * key, uint64_t * value);
 int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config);
