@@ -1588,6 +1588,11 @@ init (xlator_t *this)
                 }
         }
 
+        /* Store ping-timeout in conf */
+        ret = dict_get_int32 (this->options, "ping-timeout",
+                              &conf->ping_timeout);
+        /* Not failing here since ping-timeout can be optional as well */
+
         this->private = conf;
         glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();

@@ -36,7 +36,8 @@ echo -e "# WARNING : Using Gluster CLI will overwrite manual
 # and run ganesha-ha.sh --refresh-config."
 
 echo "EXPORT{"
-echo "      Export_Id = 1;"
+echo "      Export_Id = 2;"
+echo "      Path = \"/$VOL\";"
 echo "      FSAL {"
 echo "           name = "GLUSTER";"
 echo "           hostname=\"localhost\";"
@@ -45,8 +46,8 @@ echo "           }"
 echo "      Access_type = RW;"
 echo '      Squash="No_root_squash";'
 echo "      Pseudo=\"/$VOL\";"
-echo '      Protocols = "3,4" ;'
-echo '      Transports = "UDP,TCP";'
+echo '      Protocols = "3", "4" ;'
+echo '      Transports = "UDP","TCP";'
 echo '      SecType = "sys";'
 echo "     }"
 }

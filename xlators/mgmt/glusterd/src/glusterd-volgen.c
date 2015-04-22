@@ -1629,8 +1629,8 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
                 goto out;
 
         bricknum = 0;
-        list_for_each_entry_safe (brickiter, tmp, &volinfo->bricks,
-                                  brick_list) {
+        cds_list_for_each_entry_safe (brickiter, tmp, &volinfo->bricks,
+                                      brick_list) {
                 if (brickiter == brickinfo)
                         break;
                 bricknum++;
@@ -4761,7 +4761,7 @@ build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         if (mod_dict)
                 dict_copy (mod_dict, set_dict);
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
 
@@ -4775,7 +4775,8 @@ build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                         strcpy (transt, "tcp");
 
 
-                list_for_each_entry (brickinfo, &voliter->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &voliter->bricks,
+                                         brick_list) {
                         if (!glusterd_is_local_brick (this, voliter, brickinfo))
                                 continue;
                         xl  = volgen_graph_build_client (graph, voliter,
@@ -4854,8 +4855,11 @@ build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict)
         if (mod_dict)
                 dict_copy (mod_dict, set_dict);
 
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                if (!glusterd_is_bitrot_enabled (voliter))
                         continue;
 
                 memset (transt, '\0', 16);
@@ -4865,15 +4869,10 @@ build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict)
                         strcpy (transt, "tcp");
 
 
-                list_for_each_entry (brickinfo, &voliter->bricks, brick_list) {
+                cds_list_for_each_entry (brickinfo, &voliter->bricks,
+                                         brick_list) {
                         if (!glusterd_is_local_brick (this, voliter, brickinfo))
                                 continue;
-                        /*To do: check whether bitd is enable or not if "
-                         * "not then continue;
-                         * Since bitd is a service running within the "
-                         * trusted storage pool, it is treated as a trusted
-                         * client.
-                         */
                         xl  = volgen_graph_build_client (graph, voliter,
                                                          brickinfo->hostname,
                                                          brickinfo->path,

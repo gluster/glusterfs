@@ -4132,7 +4132,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
-        if (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
+        if (name && strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
                       strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0) {
                 op_ret = posix_fdget_objectsignature (_fd, dict);
                 if (op_ret < 0) {

@@ -5,6 +5,8 @@ N0=${N0:=/mnt/nfs/0};         # 0th mount point for NFS
 N1=${N1:=/mnt/nfs/1};         # 1st mount point for NFS
 V0=${V0:=patchy};             # volume name to use in tests
 V1=${V1:=patchy1};            # volume name to use in tests
+GMV0=${GMV0:=master};	      # master volume name to use in geo-rep tests
+GSV0=${GSV0:=slave};	      # slave volume name to use in geo-rep tests
 B0=${B0:=/d/backends};        # top level of brick directories
 WORKDIRS="$B0 $M0 $M1 $M2 $N0 $N1" 
 CC=cc
@@ -436,9 +438,11 @@ function cleanup()
                 ;;
         esac
 
-        if [ -n "${GLUSTERD_WORKDIR}" ] ; then
-            rm -rf $GLUSTERD_WORKDIR/* $B0/* /etc/glusterd/*;
-        fi
+        # remove contents of "GLUSTERD_WORKDIR" except hooks directory.
+        find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
+        -o -exec rm -rf '{}' ';'
+
+        rm -rf $B0/* /etc/glusterd/*;
 
         # unmount all stale mounts from /tmp, This is a temporary work around
         # till the stale mount in /tmp is found.

@@ -18,6 +18,22 @@
 #include "ganesha-mem-types.h"
 
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_ganesha_mt_end + 1);
+
+        if (ret != 0)
+                gf_log (this->name, GF_LOG_WARNING, "Memory accounting"
+                        "init failed");
+
+        return ret;
+}
 
 int32_t
 init (xlator_t *this)

@@ -181,27 +181,88 @@ function run_tests()
         fi
     done
     if [ ${RES} -ne 0 ] ; then
+        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
         echo "Failed tests ${FAILED}"
     fi
     return ${RES}
 }
 
+function run_all ()
+{
+    old_cores=$(ls /core.* 2> /dev/null | wc -l)
+
+    find ${regression_testsdir}/tests -name '*.t' \
+    | LC_COLLATE=C sort \
+    | while read t; do
+        retval=0
+        prove -f --timer $t
+        TMP_RES=$?
+        if [ ${TMP_RES} -ne 0 ] ; then
+            echo "$t: bad status $TMP_RES"
+            retval=$((retval+1))
+        fi
+        new_cores=$(ls /core.* 2> /dev/null | wc -l)
+        if [ x"$new_cores" != x"$old_cores" ]; then
+            core_diff=$((new_cores-old_cores))
+            echo "$t: $core_diff new core files"
+            retval=$((retval+2))
+        fi
+        if [ $retval -ne 0 ]; then
+            return $retval
+        fi
+    done
+}
+
 function main()
 {
     if [ $# -lt 1 ]; then
-        echo "Running all the regression test cases"
-        prove -rf --timer ${regression_testsdir}/tests;
+        echo "Running all the regression test cases (new way)"
+        #prove -rf --timer ${regression_testsdir}/tests;
+        run_all
     else
         run_tests "$@"
     fi
+}
+
+function main_and_retry()
+{
+    RESFILE=`mktemp /tmp/${0##*/}.XXXXXX` || exit 1
+    main "$@" | tee ${RESFILE}
+    RET=$?
+
+    FAILED=$( awk '/Failed: /{print $1}' ${RESFILE} )
+    if [ "x${FAILED}" != "x" ] ; then
+       echo ""
+       echo "       *********************************"
+       echo "       *       REGRESSION FAILED       *"
+       echo "       * Retrying failed tests in case *"
+       echo "       * we got some spurous failures  *"
+       echo "       *********************************"
+       echo ""
+       main ${FAILED}
+       RET=$?
+    fi
+
+    rm -f ${RESFILE}
+    return ${RET}
 }
 
 echo
 echo ... GlusterFS Test Framework ...
 echo
 
-force=no
-test "x$1" = "x-f" && { force="yes"; shift; }
+force="no"
+retry="no"
+args=`getopt fr $*`
+set -- $args
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -f)    force="yes" ;;
+    -r)    retry="yes" ;;
+    --)    shift; break;;
+    esac
+    shift
+done
 
 # Make sure we're running as the root user
 check_user
@@ -213,4 +274,8 @@ check_dependencies
 check_location
 
 # Run the tests
-main "$@"
+if [ "x${retry}" = "xyes" ] ; then
+    main_and_retry $@
+else
+    main "$@"
+fi
