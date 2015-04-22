@@ -3355,6 +3355,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         volinfo->brick_count    = volinfo->tier_info.cold_brick_count;
         volinfo->replica_count  = volinfo->tier_info.cold_replica_count;
         volinfo->disperse_count = volinfo->tier_info.cold_disperse_count;
+        volinfo->redundancy_count = volinfo->tier_info.cold_redundancy_count;
         volinfo->type           = volinfo->tier_info.cold_type;
         sprintf (volinfo->volname, "%s-cold", st_volname);
 
