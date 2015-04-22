@@ -1615,6 +1615,20 @@ reconfigure (xlator_t *this, dict_t *options)
                           options, int32, out);
 
         ret = 0;
+
+        if (priv->cache_invalidation_enabled &&
+            !priv->reaper_init_done) {
+                ret = upcall_reaper_thread_init (this);
+
+                if (ret) {
+                        gf_msg ("upcall", GF_LOG_WARNING, 0,
+                                UPCALL_MSG_INTERNAL_ERROR,
+                                "reaper_thread creation failed (%s)."
+                                " Disabling cache_invalidation",
+                                strerror(errno));
+                }
+        }
+
 out:
         return ret;
 }
@@ -1639,10 +1653,27 @@ init (xlator_t *this)
         GF_OPTION_INIT ("cache-invalidation-timeout",
                         priv->cache_invalidation_timeout, int32, out);
 
+        LOCK_INIT (&priv->inode_ctx_lk);
+        INIT_LIST_HEAD (&priv->inode_ctx_list);
+
         this->private = priv;
+        priv->fini = 0;
+        priv->reaper_init_done = 0;
+
         this->local_pool = mem_pool_new (upcall_local_t, 512);
         ret = 0;
 
+        if (priv->cache_invalidation_enabled) {
+                ret = upcall_reaper_thread_init (this);
+
+                if (ret) {
+                        gf_msg ("upcall", GF_LOG_WARNING, 0,
+                                UPCALL_MSG_INTERNAL_ERROR,
+                                "reaper_thread creation failed (%s)."
+                                " Disabling cache_invalidation",
+                                strerror(errno));
+                }
+        }
 out:
         if (ret) {
                 GF_FREE (priv);
@@ -1662,6 +1693,15 @@ fini (xlator_t *this)
         }
         this->private = NULL;
 
+        priv->fini = 1;
+
+        pthread_join (priv->reaper_thr, NULL);
+
+        LOCK_DESTROY (&priv->inode_ctx_lk);
+
+        /* Do we need to cleanup the inode_ctxs? IMO not required
+         * as inode_forget would have been done on all the inodes
+         * before calling xlator_fini */
         GF_FREE (priv);
 
         return 0;

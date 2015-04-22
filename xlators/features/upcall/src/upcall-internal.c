@@ -181,8 +181,12 @@ int
 __upcall_inode_ctx_set (inode_t *inode, xlator_t *this)
 {
         upcall_inode_ctx_t *inode_ctx   = NULL;
+        upcall_private_t   *priv        = NULL;
         int                ret          = -1;
         uint64_t           ctx          = 0;
+
+        priv = this->private;
+        GF_ASSERT(priv);
 
         ret = __inode_ctx_get (inode, this, &ctx);
 
@@ -198,12 +202,22 @@ __upcall_inode_ctx_set (inode_t *inode, xlator_t *this)
         }
 
         pthread_mutex_init (&inode_ctx->client_list_lock, NULL);
+        INIT_LIST_HEAD (&inode_ctx->inode_ctx_list);
         INIT_LIST_HEAD (&inode_ctx->client_list);
+        inode_ctx->destroy = 0;
 
         ret = __inode_ctx_set (inode, this, (uint64_t *) inode_ctx);
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set inode ctx (%p)", inode);
+
+        /* add this inode_ctx to the global list */
+        LOCK (&priv->inode_ctx_lk);
+        {
+                list_add_tail (&inode_ctx->inode_ctx_list,
+                               &priv->inode_ctx_list);
+        }
+        UNLOCK (&priv->inode_ctx_lk);
 out:
         return ret;
 }
@@ -248,6 +262,51 @@ upcall_inode_ctx_get (inode_t *inode, xlator_t *this)
 }
 
 int
+upcall_cleanup_expired_clients (xlator_t *this,
+                                upcall_inode_ctx_t *up_inode_ctx) {
+
+        upcall_client_t *up_client      = NULL;
+        upcall_client_t *tmp            = NULL;
+        int             ret             = -1;
+        time_t          timeout         = 0;
+        time_t          t_expired       = 0;
+
+        timeout = get_cache_invalidation_timeout(this);
+
+        pthread_mutex_lock (&up_inode_ctx->client_list_lock);
+        {
+                list_for_each_entry_safe (up_client,
+                                          tmp,
+                                          &up_inode_ctx->client_list,
+                                          client_list) {
+                        t_expired = time(NULL) -
+                                         up_client->access_time;
+
+                        if (t_expired > (2*timeout)) {
+                                ret =
+                                  __upcall_cleanup_client_entry (up_client);
+
+                                if (ret) {
+                                        gf_msg ("upcall", GF_LOG_WARNING, 0,
+                                                UPCALL_MSG_INTERNAL_ERROR,
+                                                "Client entry cleanup failed (%p)",
+                                                up_client);
+                                        goto out;
+                                }
+                                gf_log (THIS->name, GF_LOG_TRACE,
+                                        "Cleaned up client_entry(%s) of",
+                                        up_client->client_uid);
+                        }
+                }
+        }
+        pthread_mutex_unlock (&up_inode_ctx->client_list_lock);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 __upcall_cleanup_client_entry (upcall_client_t *up_client)
 {
         list_del_init (&up_client->client_list);
@@ -285,31 +344,31 @@ upcall_cleanup_inode_ctx (xlator_t *this, inode_t *inode)
         uint64_t           ctx          = 0;
         upcall_inode_ctx_t *inode_ctx   = NULL;
         int                ret          = 0;
+        upcall_private_t   *priv        = NULL;
 
-        ret = inode_ctx_get (inode, this, &ctx);
+        priv = this->private;
+        GF_ASSERT(priv);
+
+        ret = inode_ctx_del (inode, this, &ctx);
 
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_TRACE,
-                        "Failed to get upcall_inode_ctx (%p)",
+                gf_msg ("upcall", GF_LOG_WARNING, 0,
+                        UPCALL_MSG_INTERNAL_ERROR,
+                        "Failed to del upcall_inode_ctx (%p)",
                         inode);
                 goto out;
         }
 
-        /* Invalidate all the upcall cache entries */
-        upcall_cache_forget (this, inode, inode_ctx);
-
-        /* Set inode context to NULL */
-        ret = __inode_ctx_set (inode, this, NULL);
-
-        if (!ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "_inode_ctx_set to NULL failed (%p)",
-                        inode);
-        }
         inode_ctx = (upcall_inode_ctx_t *)(long) ctx;
 
         if (inode_ctx) {
-                /* do we really need lock? */
+
+                /* Invalidate all the upcall cache entries */
+                upcall_cache_forget (this, inode, inode_ctx);
+
+                /* do we really need lock? yes now reaper thread
+                 * may also be trying to cleanup the client entries.
+                 */
                 pthread_mutex_lock (&inode_ctx->client_list_lock);
                 {
                         if (!list_empty (&inode_ctx->client_list)) {
@@ -320,10 +379,74 @@ upcall_cleanup_inode_ctx (xlator_t *this, inode_t *inode)
 
                 pthread_mutex_destroy (&inode_ctx->client_list_lock);
 
-                GF_FREE (inode_ctx);
+                /* Mark the inode_ctx to be destroyed */
+                inode_ctx->destroy = 1;
         }
 
 out:
+        return ret;
+}
+
+/*
+ * Traverse through the list of upcall_inode_ctx(s),
+ * cleanup the expired client entries and destroy the ctx
+ * which is no longer valid and has destroy bit set.
+ */
+void *
+upcall_reaper_thread (void *data)
+{
+        upcall_private_t *priv          = NULL;
+        upcall_inode_ctx_t *inode_ctx   = NULL;
+        upcall_inode_ctx_t *tmp         = NULL;
+        xlator_t           *this        = NULL;
+
+        this = (xlator_t *)data;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+
+        while (!priv->fini) {
+                list_for_each_entry_safe (inode_ctx, tmp,
+                                          &priv->inode_ctx_list,
+                                          inode_ctx_list) {
+
+                        /* cleanup expired clients */
+                        upcall_cleanup_expired_clients (this, inode_ctx);
+
+                        if (!inode_ctx->destroy) {
+                                continue;
+                        }
+
+                        LOCK (&priv->inode_ctx_lk);
+                        {
+                                /* client list would have been cleaned up*/
+                                list_del_init (&inode_ctx->inode_ctx_list);
+                                GF_FREE (inode_ctx);
+                        }
+                        UNLOCK (&priv->inode_ctx_lk);
+                }
+        }
+
+        return NULL;
+}
+
+/*
+ * Initialize upcall reaper thread.
+ */
+int
+upcall_reaper_thread_init (xlator_t *this)
+{
+        upcall_private_t *priv  = NULL;
+        int              ret    = -1;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = pthread_create (&priv->reaper_thr, NULL,
+                              upcall_reaper_thread, this);
+
         return ret;
 }
 
@@ -374,7 +497,8 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                 up_inode_ctx = upcall_inode_ctx_get (inode, this);
 
         if (!up_inode_ctx) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg ("upcall", GF_LOG_WARNING, 0,
+                        UPCALL_MSG_INTERNAL_ERROR,
                         "upcall_inode_ctx_get failed (%p)",
                         inode);
                 return;

@@ -56,6 +56,11 @@
 struct _upcall_private_t {
         gf_boolean_t     cache_invalidation_enabled;
         int32_t          cache_invalidation_timeout;
+        struct list_head inode_ctx_list;
+        gf_lock_t        inode_ctx_lk;
+        int32_t          reaper_init_done;
+        pthread_t        reaper_thr;
+        int32_t          fini;
 };
 typedef struct _upcall_private_t upcall_private_t;
 
@@ -71,9 +76,11 @@ typedef struct _upcall_client_t upcall_client_t;
 
 /* Upcall entries are maintained in inode_ctx */
 struct _upcall_inode_ctx_t {
+        struct list_head inode_ctx_list;
         struct list_head client_list;
         pthread_mutex_t client_list_lock; /* mutex for clients list
-                                                of this upcall entry */
+                                             of this upcall entry */
+        int destroy;
 };
 typedef struct _upcall_inode_ctx_t upcall_inode_ctx_t;
 
@@ -113,6 +120,8 @@ upcall_client_t *__get_upcall_client (call_frame_t *frame, uuid_t gfid,
                                       client_t *client,
                                       upcall_inode_ctx_t *up_inode_ctx);
 int __upcall_cleanup_client_entry (upcall_client_t *up_client);
+int upcall_cleanup_expired_clients (xlator_t *this,
+                                    upcall_inode_ctx_t *up_inode_ctx);
 
 int __upcall_inode_ctx_set (inode_t *inode, xlator_t *this);
 upcall_inode_ctx_t *__upcall_inode_ctx_get (inode_t *inode, xlator_t *this);
@@ -120,6 +129,9 @@ upcall_inode_ctx_t *upcall_inode_ctx_get (inode_t *inode, xlator_t *this);
 int upcall_cleanup_inode_ctx (xlator_t *this, inode_t *inode);
 void upcall_cache_forget (xlator_t *this, inode_t *inode,
                           upcall_inode_ctx_t *up_inode_ctx);
+
+void *upcall_reaper_thread (void *data);
+int upcall_reaper_thread_init (xlator_t *this);
 
 /* Xlator options */
 gf_boolean_t is_upcall_enabled(xlator_t *this);
