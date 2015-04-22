@@ -1705,26 +1705,38 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                                                     NULL);
 
                 if (!object) {
-                        errno = ENOMEM;
-                        goto out;
-                }
+                        /* It could so happen that the file which got
+                         * upcall notification may have got deleted
+                         * by other thread. Irrespective of the error,
+                         * log it and return with CBK_NULL reason.
+                         *
+                         * Applications will ignore this notification
+                         * as up_arg->object will be NULL */
+                        gf_log (subvol->name, GF_LOG_WARNING,
+                                "handle creation of %s failed: %s",
+                                uuid_utoa (gfid), strerror (errno));
 
-                upcall_data = &u_list->upcall_data;
+                        reason = GFAPI_CBK_EVENT_NULL;
+                } else {
 
-                switch (upcall_data->event_type) {
-                case GF_UPCALL_CACHE_INVALIDATION:
-                        /* XXX: Need to revisit this to support
-                         * GFAPI_INODE_UPDATE if required.
-                         */
-                        ca_data = upcall_data->data;
-                        GF_VALIDATE_OR_GOTO ("glfs_h_poll_upcall",
-                                             ca_data, out);
-                        reason = GFAPI_INODE_INVALIDATE;
-                        up_arg->flags = ca_data->flags;
-                        up_arg->expire_time_attr = ca_data->expire_time_attr;
-                        break;
-                default:
-                        break;
+                        upcall_data = &u_list->upcall_data;
+
+                        switch (upcall_data->event_type) {
+                        case GF_UPCALL_CACHE_INVALIDATION:
+                                /* XXX: Need to revisit this to support
+                                 * GFAPI_INODE_UPDATE if required.
+                                 */
+                                ca_data = upcall_data->data;
+                                GF_VALIDATE_OR_GOTO ("glfs_h_poll_upcall",
+                                                     ca_data, out);
+                                reason = GFAPI_INODE_INVALIDATE;
+                                up_arg->flags = ca_data->flags;
+                                up_arg->expire_time_attr = ca_data->expire_time_attr;
+
+                                break;
+                        default:
+                                break;
+                        }
                 }
 
                 up_arg->object = object;
