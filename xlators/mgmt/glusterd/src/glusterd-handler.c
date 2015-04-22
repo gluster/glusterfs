@@ -311,6 +311,79 @@ _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
 }
 
 int
+glusterd_add_tier_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
+                                    dict_t  *dict, int count)
+{
+        int            ret            = -1;
+        char           key[256]      = {0,};
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (dict);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_type", count);
+        ret = dict_set_int32 (dict, key, volinfo->tier_info.cold_type);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_brick_count", count);
+        ret = dict_set_int32 (dict, key, volinfo->tier_info.cold_brick_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_dist_count", count);
+        ret = dict_set_int32 (dict, key,
+                              volinfo->tier_info.cold_dist_leaf_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_replica_count", count);
+        ret = dict_set_int32 (dict, key,
+                              volinfo->tier_info.cold_replica_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_disperse_count", count);
+        ret = dict_set_int32 (dict, key,
+                              volinfo->tier_info.cold_disperse_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.cold_redundancy_count", count);
+        ret = dict_set_int32 (dict, key,
+                              volinfo->tier_info.cold_redundancy_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.hot_type", count);
+        ret = dict_set_int32 (dict, key, volinfo->tier_info.hot_type);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.hot_brick_count", count);
+        ret = dict_set_int32 (dict, key, volinfo->tier_info.hot_brick_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.hot_replica_count", count);
+        ret = dict_set_int32 (dict, key, volinfo->tier_info.hot_replica_count);
+        if (ret)
+                goto out;
+
+out:
+        return ret;
+
+}
+
+int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int count)
 {
@@ -359,6 +432,13 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         ret = dict_set_int32 (volumes, key, volinfo->tier_info.hot_brick_count);
         if (ret)
                 goto out;
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                ret = glusterd_add_tier_volume_detail_to_dict (volinfo,
+                                                       volumes, count);
+                if (ret)
+                        goto out;
+        }
 
         snprintf (key, 256, "volume%d.dist_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->dist_leaf_count);

@@ -309,6 +309,7 @@ typedef struct tier_info_ {
         int                       cold_replica_count;
         int                       cold_disperse_count;
         int                       cold_dist_leaf_count;
+        int                       cold_redundancy_count;
         int                       hot_type;
         int                       hot_brick_count;
         int                       hot_replica_count;
@@ -897,6 +898,10 @@ glusterd_fetchspec_notify (xlator_t *this);
 
 int
 glusterd_fetchsnap_notify (xlator_t *this);
+
+int
+glusterd_add_tier_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
+                                    dict_t  *volumes, int   count);
 
 int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,

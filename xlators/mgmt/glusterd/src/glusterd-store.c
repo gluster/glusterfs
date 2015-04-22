@@ -843,6 +843,13 @@ glusterd_volume_write_tier_details (int fd, glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d",
+                  volinfo->tier_info.cold_redundancy_count);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_COLD_REDUNDANCY_COUNT,
+                                   buf);
+        if (ret)
+                goto out;
+
         snprintf (buf, sizeof (buf), "%d", volinfo->tier_info.hot_brick_count);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_HOT_COUNT,
                                    buf);
@@ -2567,6 +2574,10 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_DISPERSE_COUNT,
                                      strlen (key))) {
                         volinfo->tier_info.cold_disperse_count = atoi (value);
+                } else if (!strncmp (key,
+                                     GLUSTERD_STORE_KEY_COLD_REDUNDANCY_COUNT,
+                                     strlen (key))) {
+                        volinfo->tier_info.cold_redundancy_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_HOT_COUNT,
                                      strlen (key))) {
                         volinfo->tier_info.hot_brick_count = atoi (value);
