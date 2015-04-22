@@ -1375,8 +1375,6 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         req.op_ret = op_ret;
 
         gf_uuid_copy (peerid, peerinfo->uuid);
-        if (ret)
-                goto out;
 
         synclock_unlock (&conf->big_lock);
 
@@ -1511,7 +1509,7 @@ gd_mgmt_v3_unlock_cbk_fn (struct rpc_req *req, struct iovec *iov,
         int32_t                     op_ret        = -1;
         int32_t                     op_errno      = -1;
         xlator_t                   *this          = NULL;
-        uuid_t                  *peerid = NULL;
+        uuid_t                     *peerid        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1589,8 +1587,6 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
         req.op = op;
 
         gf_uuid_copy (peerid, peerinfo->uuid);
-        if (ret)
-                goto out;
 
         synclock_unlock (&conf->big_lock);
 
