@@ -7405,6 +7405,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         int32_t                         node_count = 0;
         int32_t                         other_count = 0;
         int32_t                         brick_index_max = -1;
+        int32_t                         hot_brick_count = -1;
+        int32_t                         type = -1;
         int32_t                         rsp_node_count = 0;
         int32_t                         rsp_other_count = 0;
         int                             vol_count = -1;
@@ -7498,6 +7500,35 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "Failed to update other-count");
+                goto out;
+        }
+
+        ret = dict_get_int32 (rsp_dict, "hot_brick_count", &hot_brick_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get hot brick count from rsp_dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctx_dict, "hot_brick_count",
+                              node_count + rsp_node_count);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update hot_brick_count");
+                goto out;
+        }
+
+        ret = dict_get_int32 (rsp_dict, "type", &type);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to get type from rsp_dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (ctx_dict, "type", type);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Failed to update type");
                 goto out;
         }
 
