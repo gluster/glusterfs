@@ -550,6 +550,37 @@ out:
         return ret;
 }
 
+static int
+print_brick_details (dict_t *dict, int volcount, int start_index,
+                     int end_index)
+{
+        char           key[1024]   = {0,};
+        int            index       = start_index;
+        int            ret         = -1;
+        char          *brick       = NULL;
+#ifdef HAVE_BD_XLATOR
+        char          *caps        = NULL;
+#endif
+
+        while (index <= end_index) {
+                snprintf (key, 1024, "volume%d.brick%d", volcount, index);
+                ret = dict_get_str (dict, key, &brick);
+                if (ret)
+                        goto out;
+
+                cli_out ("Brick%d: %s", index, brick);
+#ifdef HAVE_BD_XLATOR
+                snprintf (key, 1024, "volume%d.vg%d", volcount, index);
+                ret = dict_get_str (dict, key, &caps);
+                if (!ret)
+                        cli_out ("Brick%d VG: %s", index, caps);
+#endif
+                index++;
+        }
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
@@ -562,6 +593,7 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    status               = 0;
         int32_t                    type                 = 0;
         int32_t                    brick_count          = 0;
+        int32_t                    hot_brick_count      = -1;
         int32_t                    dist_count           = 0;
         int32_t                    stripe_count         = 0;
         int32_t                    replica_count        = 0;
@@ -705,6 +737,11 @@ xml_output:
                 if (ret)
                         goto out;
 
+                snprintf (key, 256, "volume%d.hot_brick_count", i);
+                ret = dict_get_int32 (dict, key, &hot_brick_count);
+                if (ret)
+                        goto out;
+
                 snprintf (key, 256, "volume%d.dist_count", i);
                 ret = dict_get_int32 (dict, key, &dist_count);
                 if (ret)
@@ -816,23 +853,22 @@ next:
                 GF_FREE (local->get_vol.volname);
                 local->get_vol.volname = gf_strdup (volname);
 
-                if (brick_count)
-                        cli_out ("Bricks:");
-
-                while (j <= brick_count) {
-                        snprintf (key, 1024, "volume%d.brick%d", i, j);
-                        ret = dict_get_str (dict, key, &brick);
+                if (type == GF_CLUSTER_TYPE_TIER) {
+                        cli_out ("Hot Bricks:");
+                        ret = print_brick_details (dict, i, j, hot_brick_count);
+                        if (ret)
+                                goto out;
+                        cli_out ("Cold Bricks:");
+                        ret = print_brick_details (dict, i, hot_brick_count+1,
+                                                   brick_count);
                         if (ret)
                                 goto out;
 
-                        cli_out ("Brick%d: %s", j, brick);
-#ifdef HAVE_BD_XLATOR
-                        snprintf (key, 256, "volume%d.vg%d", i, j);
-                        ret = dict_get_str (dict, key, &caps);
-                        if (!ret)
-                                cli_out ("Brick%d VG: %s", j, caps);
-#endif
-                        j++;
+                } else {
+                        cli_out ("Bricks:");
+                        ret = print_brick_details (dict, i, j, brick_count);
+                        if (ret)
+                                goto out;
                 }
 
                 snprintf (key, 256, "volume%d.opt_count",i);
@@ -7191,6 +7227,8 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         int                             other_count     = 0;
         int                             index_max       = 0;
         int                             i               = 0;
+        int                             type            = -1;
+        int                             hot_brick_count = -1;
         int                             pid             = -1;
         uint32_t                        cmd             = 0;
         gf_boolean_t                    notbrick        = _gf_false;
@@ -7373,6 +7411,13 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
 
         index_max = brick_index_max + other_count;
 
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "hot_brick_count", &hot_brick_count);
+        if (ret)
+                goto out;
 
         cli_out ("Status of volume: %s", volname);
 
@@ -7382,9 +7427,14 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
                          "Online", "Pid");
                 cli_print_line (CLI_BRICK_STATUS_LINE_LEN);
         }
-
+        if (type == GF_CLUSTER_TYPE_TIER) {
+                cli_out ("Hot Bricks:");
+        }
         for (i = 0; i <= index_max; i++) {
 
+                if (type == GF_CLUSTER_TYPE_TIER && i == hot_brick_count) {
+                        cli_out ("Cold Bricks:");
+                }
                 status.rdma_port = 0;
 
                 memset (key, 0, sizeof (key));

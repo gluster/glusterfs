@@ -355,6 +355,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        snprintf (key, 256, "volume%d.hot_brick_count", count);
+        ret = dict_set_int32 (volumes, key, volinfo->tier_info.hot_brick_count);
+        if (ret)
+                goto out;
+
         snprintf (key, 256, "volume%d.dist_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->dist_leaf_count);
         if (ret)

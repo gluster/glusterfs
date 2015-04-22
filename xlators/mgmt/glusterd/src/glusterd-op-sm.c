@@ -2673,6 +2673,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         int                     node_count      = 0;
         int                     brick_index     = -1;
         int                     other_count     = 0;
+        int                     hot_brick_count = -1;
         int                     other_index     = 0;
         uint32_t                cmd             = 0;
         char                   *volname         = NULL;
@@ -2903,6 +2904,16 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                         }
                 }
         }
+
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                hot_brick_count = volinfo->tier_info.hot_brick_count;
+        ret = dict_set_int32 (rsp_dict, "hot_brick_count", hot_brick_count);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (rsp_dict, "type", volinfo->type);
+        if (ret)
+                goto out;
 
         ret = dict_set_int32 (rsp_dict, "brick-index-max", brick_index);
         if (ret) {
