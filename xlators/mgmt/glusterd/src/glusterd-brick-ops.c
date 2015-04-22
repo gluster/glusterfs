@@ -1907,6 +1907,7 @@ glusterd_op_perform_attach_tier (dict_t *dict,
         volinfo->tier_info.cold_brick_count    = volinfo->brick_count;
         volinfo->tier_info.cold_replica_count  = volinfo->replica_count;
         volinfo->tier_info.cold_disperse_count = volinfo->disperse_count;
+        volinfo->tier_info.cold_redundancy_count = volinfo->redundancy_count;
 
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (!ret)
@@ -1991,9 +1992,11 @@ out:
 static void
 glusterd_op_perform_detach_tier (glusterd_volinfo_t *volinfo)
 {
-        volinfo->type           = volinfo->tier_info.cold_type;
-        volinfo->replica_count  = volinfo->tier_info.cold_replica_count;
-        volinfo->disperse_count = volinfo->tier_info.cold_disperse_count;
+        volinfo->type             = volinfo->tier_info.cold_type;
+        volinfo->replica_count    = volinfo->tier_info.cold_replica_count;
+        volinfo->disperse_count   = volinfo->tier_info.cold_disperse_count;
+        volinfo->redundancy_count = volinfo->tier_info.cold_redundancy_count;
+        volinfo->dist_leaf_count  = volinfo->tier_info.cold_dist_leaf_count;
 }
 
 int
