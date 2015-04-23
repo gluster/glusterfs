@@ -9404,3 +9404,68 @@ glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
 
         cds_list_add_rcu (new, rcu_dereference (pos->prev));
 }
+
+
+int
+glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
+                               int cmd)
+{
+
+        xlator_t          *this       = NULL;
+        int                ret        = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER)
+                goto out;
+
+        switch (op) {
+        case GD_OP_ADD_BRICK:
+        case GD_OP_REPLACE_BRICK:
+                ret = -1;
+                gf_log (this->name, GF_LOG_DEBUG, "Operation not "
+                        "permitted on tiered volume %s",
+                        volinfo->volname);
+                break;
+        case GD_OP_REBALANCE:
+                switch (cmd) {
+                case GF_DEFRAG_CMD_START_TIER:
+                case GF_DEFRAG_CMD_STATUS_TIER:
+                case GF_DEFRAG_CMD_START_DETACH_TIER:
+                case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+                case GF_DEFRAG_CMD_STATUS:
+                        ret = 0;
+                        break;
+                default:
+                        gf_log (this->name, GF_LOG_DEBUG,
+                             "Rebalance Operation not permitted"
+                             " on tiered volume %s",
+                             volinfo->volname);
+                        ret = -1;
+                        break;
+                }
+                break;
+        case GD_OP_REMOVE_BRICK:
+                switch (cmd) {
+                case GF_OP_CMD_DETACH_COMMIT_FORCE:
+                case GF_OP_CMD_DETACH_COMMIT:
+                case GF_OP_CMD_DETACH_START:
+                case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+                        ret = 0;
+                        break;
+                default:
+                        gf_log (this->name, GF_LOG_DEBUG,
+                             "Remove brick operation not "
+                             "permitted on tiered volume %s",
+                             volinfo->volname);
+                        ret = -1;
+                        break;
+                }
+                break;
+        default:
+                break;
+        }
+out:
+        return ret;
+}

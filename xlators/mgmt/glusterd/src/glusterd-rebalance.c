@@ -421,6 +421,15 @@ glusterd_rebalance_cmd_validate (int cmd, char *volname,
                 goto out;
         }
 
+        ret = glusterd_disallow_op_for_tier (*volinfo, GD_OP_REBALANCE, cmd);
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Received rebalance command "
+                        "on Tier volume %s", volname);
+                snprintf (op_errstr, len, "Rebalance operations are not "
+                          "supported on a tiered volume");
+                goto out;
+        }
+
         ret = 0;
 
 out:
