@@ -30,7 +30,6 @@ glusterd_bitdsvc_create_volfile ()
         char              filepath[PATH_MAX] = {0,};
         int               ret                = -1;
         glusterd_conf_t   *conf              = NULL;
-        dict_t            *mod_dict          = NULL;
         xlator_t          *this              = NULL;
 
         this = THIS;
@@ -38,29 +37,16 @@ glusterd_bitdsvc_create_volfile ()
         GF_ASSERT (conf);
 
 
-        mod_dict = dict_new ();
-        if (!mod_dict) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to allocate new "
-                        "dict");
-                goto out;
-        }
-
-        ret = dict_set_uint32 (mod_dict, "trusted-client", GF_CLIENT_TRUSTED);
-        if (ret)
-                goto free_dict;
-
         glusterd_svc_build_volfile_path (bitd_svc_name, conf->workdir,
                                          filepath, sizeof (filepath));
 
         ret = glusterd_create_global_volfile (build_bitd_graph,
-                                              filepath, mod_dict);
+                                              filepath, NULL);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to create volfile");
-                goto free_dict;
+                goto out;
         }
 
-free_dict:
-        dict_unref (mod_dict);
 out:
         gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
