@@ -1479,10 +1479,30 @@ struct volume_options options[] = {
           .description = "default time duration for which an object waits "
                          "before it is signed",
         },
+        { .key = {"brick-count"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Total number of bricks for the current node for "
+                         "all volumes in the trusted storage pool.",
+        },
         { .key = {"scrubber"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
           .description = "option to run as a scrubber",
+        },
+        { .key = {"scrub-throttle"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Scrub-throttle value is a measure of how fast "
+                         "or slow the scrubber scrubs the filesystem for "
+                         "volume <VOLNAME>",
+        },
+        { .key = {"scrub-freq"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Scrub frequency for volume <VOLNAME>",
+        },
+        { .key = {"scrub-state"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Pause/Resume scrub. Upon resume, scrubber "
+                         "continues from where it left off.",
         },
 	{ .key  = {NULL} },
 };

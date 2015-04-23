@@ -25,6 +25,7 @@
 #include "syscall.h"
 #include "byte-order.h"
 #include "compat-errno.h"
+#include "glusterd-scrub-svc.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>
@@ -154,6 +155,13 @@ glusterd_bitrot_scrub_throttle (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
+        ret = glusterd_scrubsvc_reconfigure ();
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure scrub "
+                        "services");
+                goto out;
+        }
+
 out:
         return ret;
 }
@@ -182,6 +190,13 @@ glusterd_bitrot_scrub_freq (glusterd_volinfo_t *volinfo, dict_t *dict,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
                         key);
+                goto out;
+        }
+
+        ret = glusterd_scrubsvc_reconfigure ();
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure scrub "
+                        "services");
                 goto out;
         }
 
@@ -218,6 +233,13 @@ glusterd_bitrot_scrub (glusterd_volinfo_t *volinfo, dict_t *dict,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
                         key);
+                goto out;
+        }
+
+        ret = glusterd_scrubsvc_reconfigure ();
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure scrub "
+                        "services");
                 goto out;
         }
 

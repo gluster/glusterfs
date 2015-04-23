@@ -3730,6 +3730,58 @@ gd_get_matching_option (char **options, char *option)
 }
 
 static int
+scrubber_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        xlator_t           *xl                = NULL;
+        char               *scrub_option      = NULL;
+        int                 ret               = 0;
+        glusterd_volinfo_t *volinfo           = NULL;
+
+        volinfo = param;
+
+        xl = first_of (graph);
+
+        if (!strcmp (vme->option, "scrub-throttle")) {
+                ret = gf_asprintf (&scrub_option, "scrub-throttle");
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, scrub_option, vme->value);
+                        GF_FREE (scrub_option);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (!strcmp (vme->option, "scrub-frequency")) {
+                ret = gf_asprintf (&scrub_option, "scrub-freq");
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, scrub_option, vme->value);
+                        GF_FREE (scrub_option);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (!strcmp (vme->option, "scrubber")) {
+                if (!strcmp (vme->value, "pause")) {
+                        ret = gf_asprintf (&scrub_option, "scrub-state");
+                        if (ret != -1) {
+                                ret = xlator_set_option (xl, scrub_option,
+                                                         vme->value);
+                                GF_FREE (scrub_option);
+                        }
+
+                        if (ret)
+                                return -1;
+                }
+        }
+
+        return ret;
+}
+
+static int
 shd_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                     void *param)
 {
@@ -4815,25 +4867,96 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         return ret;
 }
 
-int
-build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+static int
+prepare_bitrot_scrub_volume_options (glusterd_volinfo_t *volinfo,
+                                     dict_t *mod_dict, dict_t *set_dict)
+{
+        int    ret = 0;
+
+
+        ret = dict_set_uint32 (set_dict, "trusted-client", GF_CLIENT_TRUSTED);
+        if (ret)
+                goto out;
+
+        dict_copy (volinfo->dict, set_dict);
+        if (mod_dict)
+                dict_copy (mod_dict, set_dict);
+
+out:
+        return ret;
+}
+
+static int
+build_bitd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                     dict_t *set_dict, unsigned int numbricks)
+{
+        int                      ret            = -1;
+        int                      clusters       = 0;
+        xlator_t                *xl             = NULL;
+        xlator_t                *trav           = NULL;
+        xlator_t                *this           = NULL;
+        char                     transt[16]     = {0,};
+        char                    *brick_hint     = NULL;
+        int                      brick_count    = 0;
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        char                    *bitrot_args[]  = {"features/bit-rot",
+                                                   "%s-bit-rot-%d"};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        get_transport_type (volinfo, set_dict, transt, _gf_false);
+        if (!strncmp (transt, "tcp,rdma", strlen ("tcp,rdma")))
+                strncpy (transt, "tcp", strlen ("tcp"));
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (!glusterd_is_local_brick (this, volinfo, brickinfo))
+                        continue;
+
+                xl = volgen_graph_build_client (graph, volinfo,
+                                                brickinfo->hostname,
+                                                brickinfo->path,
+                                                brickinfo->brick_id,
+                                                transt, set_dict);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+                brick_count++;
+        }
+
+
+        ret = volgen_link_bricks_from_list_tail (graph, volinfo, bitrot_args[0],
+                                                 bitrot_args[1], brick_count,
+                                                 brick_count);
+        clusters = ret;
+
+        xl = first_of (graph);
+
+        ret = gf_asprintf (&brick_hint, "%d", numbricks);
+        if (ret < 0)
+                goto out;
+
+        ret = xlator_set_option (xl, "brick-count", brick_hint);
+        if (ret)
+                goto out;
+
+        ret = clusters;
+
+out:
+        return ret;
+}
+
+static int
+build_bitd_volume_graph (volgen_graph_t *graph,
+                         glusterd_volinfo_t *volinfo, dict_t *mod_dict,
+                         dict_t *set_dict, unsigned int numbricks)
 {
         volgen_graph_t        cgraph        = {0};
-        glusterd_volinfo_t   *voliter       = NULL;
         xlator_t             *this          = NULL;
         glusterd_conf_t      *priv          = NULL;
-        dict_t               *set_dict      = NULL;
         int                   ret           = 0;
-        xlator_t             *bitd_xl       = NULL;
-        xlator_t             *xl            = NULL;
-        xlator_t             *trav          = NULL;
-        xlator_t             *txl           = NULL;
-        char                 *skey          = NULL;
-        char                  transt[16]    = {0,};
-        glusterd_brickinfo_t *brickinfo     = NULL;
-        char                 *br_args[]     = {"features/bit-rot",
-                                               "bit-rot"};
-        int32_t               count         = 0;
+        int                   clusters      = -1;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4841,14 +4964,69 @@ build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
         priv = this->private;
         GF_ASSERT (priv);
 
-        set_dict = dict_new ();
-        if (!set_dict) {
-                ret = -ENOMEM;
+        ret = prepare_bitrot_scrub_volume_options (volinfo, mod_dict, set_dict);
+        if (ret)
+                goto out;
+
+        clusters = build_bitd_clusters (&cgraph, volinfo, set_dict, numbricks);
+        if (clusters < 0) {
+                ret = -1;
                 goto out;
         }
 
-        if (mod_dict)
-                dict_copy (mod_dict, set_dict);
+        ret = volgen_graph_merge_sub (graph, &cgraph, clusters);
+        if (ret)
+                goto out;
+
+        ret = graph_set_generic_options (this, graph, set_dict, "Bitrot");
+out:
+        return ret;
+}
+
+int
+build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
+{
+        glusterd_volinfo_t   *voliter      = NULL;
+        xlator_t             *this         = NULL;
+        glusterd_conf_t      *priv         = NULL;
+        dict_t               *set_dict     = NULL;
+        int                   ret          = 0;
+        gf_boolean_t          valid_config = _gf_false;
+        xlator_t             *iostxl       = NULL;
+        glusterd_brickinfo_t *brickinfo    = NULL;
+        unsigned int          numbricks    = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        set_dict = dict_new ();
+        if (!set_dict) {
+                ret = -1;
+                goto out;
+        }
+
+        iostxl = volgen_graph_add_as (graph, "debug/io-stats", "bitd");
+        if (!iostxl) {
+                ret = -1;
+                goto out;
+        }
+
+        /* TODO: do way with this extra loop _if possible_ */
+        cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+                if (!glusterd_is_bitrot_enabled (voliter))
+                        continue;
+
+                cds_list_for_each_entry (brickinfo,
+                                         &voliter->bricks, brick_list) {
+                        if (!glusterd_is_local_brick (this, voliter, brickinfo))
+                                continue;
+                        numbricks++;
+                }
+        }
 
         cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
@@ -4857,92 +5035,142 @@ build_bitd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (!glusterd_is_bitrot_enabled (voliter))
                         continue;
 
-                memset (transt, '\0', 16);
-
-                get_transport_type (voliter, set_dict, transt, _gf_false);
-                if (!strcmp (transt, "tcp,rdma"))
-                        strcpy (transt, "tcp");
-
-
-                cds_list_for_each_entry (brickinfo, &voliter->bricks,
-                                         brick_list) {
-                        if (!glusterd_is_local_brick (this, voliter, brickinfo))
-                                continue;
-                        xl  = volgen_graph_build_client (graph, voliter,
-                                                         brickinfo->hostname,
-                                                         brickinfo->path,
-                                                         brickinfo->brick_id, transt,
-                                                         set_dict);
-                        if (!xl) {
-                                ret = -1;
-                                goto out;
-                        }
-
-                        count++;
-                }
-        }
-
-        bitd_xl = volgen_graph_add_nolink (graph, br_args[0], br_args[1]);
-        if (!bitd_xl) {
-                ret = -1;
-                goto out;
-        }
-
-        txl = first_of (graph);
-        for (trav = txl; count; trav = trav->next)
-                count--;
-
-        for (; trav != txl; trav = trav->prev) {
-                ret = volgen_xlator_link (bitd_xl, trav);
+                ret = build_bitd_volume_graph (graph, voliter,
+                                               mod_dict, set_dict, numbricks);
+                ret = dict_reset (set_dict);
                 if (ret)
                         goto out;
         }
-
-        ret = 0;
-
 out:
         if (set_dict)
                 dict_unref (set_dict);
 
-        gf_log(this->name, GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
+static int
+build_scrub_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict)
+{
+        int                      ret            = -1;
+        int                      clusters       = 0;
+        xlator_t                *xl             = NULL;
+        xlator_t                *trav           = NULL;
+        xlator_t                *this           = NULL;
+        char                     transt[16]     = {0,};
+        int                      brick_count    = 0;
+        glusterd_brickinfo_t    *brickinfo      = NULL;
+        char                    *scrub_args[]   = {"features/bit-rot",
+                                                   "%s-bit-rot-%d"};
+        this = THIS;
+        GF_ASSERT (this);
+
+        get_transport_type (volinfo, set_dict, transt, _gf_false);
+        if (!strncmp (transt, "tcp,rdma", strlen ("tcp,rdma")))
+                strncpy (transt, "tcp", strlen ("tcp"));
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (!glusterd_is_local_brick (this, volinfo, brickinfo))
+                        continue;
+
+                xl = volgen_graph_build_client (graph, volinfo,
+                                                brickinfo->hostname,
+                                                brickinfo->path,
+                                                brickinfo->brick_id,
+                                                transt, set_dict);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+                brick_count++;
+        }
+
+        ret = volgen_link_bricks_from_list_tail (graph, volinfo, scrub_args[0],
+                                                 scrub_args[1], brick_count,
+                                                 brick_count);
+        clusters = ret;
+
+        xl = first_of (graph);
+
+
+        ret = xlator_set_option (xl, "scrubber", "true");
+        if (ret)
+                goto out;
+
+        ret = clusters;
+
+out:
+        return ret;
+}
+
+static int
+build_scrub_volume_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                          dict_t *mod_dict, dict_t *set_dict)
+{
+        volgen_graph_t        cgraph        = {0};
+        xlator_t             *this          = NULL;
+        glusterd_conf_t      *priv          = NULL;
+        int                   ret           = 0;
+        int                   clusters      = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = prepare_bitrot_scrub_volume_options (volinfo, mod_dict, set_dict);
+        if (ret)
+                goto out;
+
+        clusters = build_scrub_clusters (&cgraph, volinfo, set_dict);
+        if (clusters < 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = volgen_graph_set_options_generic (&cgraph, set_dict,
+                                                volinfo,
+                                                scrubber_option_handler);
+        if (ret)
+                goto out;
+
+        ret = volgen_graph_merge_sub (graph, &cgraph, clusters);
+        if (ret)
+                goto out;
+
+        ret = graph_set_generic_options (this, graph, set_dict, "Scrubber");
+out:
         return ret;
 }
 
 int
 build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict)
 {
-        volgen_graph_t        cgraph        = {0};
-        glusterd_volinfo_t   *voliter       = NULL;
-        xlator_t             *this          = NULL;
-        glusterd_conf_t      *priv          = NULL;
-        dict_t               *set_dict      = NULL;
-        int                   ret           = 0;
-        xlator_t             *bitd_xl       = NULL;
-        xlator_t             *xl            = NULL;
-        xlator_t             *trav          = NULL;
-        xlator_t             *txl           = NULL;
-        char                 *skey          = NULL;
-        char                  transt[16]    = {0,};
-        glusterd_brickinfo_t *brickinfo     = NULL;
-        char                 *br_args[]     = {"features/bit-rot",
-                                               "bit-rot"};
-        int32_t               count         = 0;
+        glusterd_volinfo_t *voliter       = NULL;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *priv          = NULL;
+        dict_t             *set_dict      = NULL;
+        int                 ret           = 0;
+        gf_boolean_t        valid_config  = _gf_false;
+        xlator_t           *iostxl        = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-
         priv = this->private;
         GF_ASSERT (priv);
 
         set_dict = dict_new ();
         if (!set_dict) {
-                ret = -ENOMEM;
+                ret = -1;
                 goto out;
         }
 
-        if (mod_dict)
-                dict_copy (mod_dict, set_dict);
+        iostxl = volgen_graph_add_as (graph, "debug/io-stats", "scrub");
+        if (!iostxl) {
+                ret = -1;
+                goto out;
+        }
 
         cds_list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
@@ -4951,58 +5179,15 @@ build_scrub_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (!glusterd_is_bitrot_enabled (voliter))
                         continue;
 
-                memset (transt, '\0', 16);
-
-                get_transport_type (voliter, set_dict, transt, _gf_false);
-                if (!strcmp (transt, "tcp,rdma"))
-                        strcpy (transt, "tcp");
-
-
-                cds_list_for_each_entry (brickinfo, &voliter->bricks,
-                                         brick_list) {
-                        if (!glusterd_is_local_brick (this, voliter, brickinfo))
-                                continue;
-                        xl  = volgen_graph_build_client (graph, voliter,
-                                                         brickinfo->hostname,
-                                                         brickinfo->path,
-                                                         brickinfo->brick_id, transt,
-                                                         set_dict);
-                        if (!xl) {
-                                ret = -1;
-                                goto out;
-                        }
-
-                        count++;
-                }
-        }
-
-        bitd_xl = volgen_graph_add_nolink (graph, br_args[0], br_args[1]);
-        if (!bitd_xl) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = xlator_set_option (bitd_xl, "scrubber", "true");
-        if (ret)
-                goto out;
-
-        txl = first_of (graph);
-        for (trav = txl; count; trav = trav->next)
-                count--;
-
-        for (; trav != txl; trav = trav->prev) {
-                ret = volgen_xlator_link (bitd_xl, trav);
+                ret = build_scrub_volume_graph (graph, voliter, mod_dict,
+                                                set_dict);
+                ret = dict_reset (set_dict);
                 if (ret)
                         goto out;
         }
-
-        ret = 0;
-
 out:
         if (set_dict)
                 dict_unref (set_dict);
-
-        gf_log(this->name, GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
