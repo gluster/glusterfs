@@ -498,6 +498,64 @@ out:
         return 0;
 }
 
+int32_t
+svc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc,
+            dict_t *xdata)
+{
+        xlator_t      *subvolume  = NULL;
+        int32_t        ret        = -1;
+        int            inode_type = -1;
+        int32_t        op_ret     = -1;
+        int32_t        op_errno   = EINVAL;
+        gf_boolean_t   wind       = _gf_false;
+        svc_private_t  *priv      = NULL;
+        const char     *path      = NULL;
+        int             path_len  = -1;
+        int             snap_len  = -1;
+        loc_t           root_loc  = {0,};
+        loc_t          *temp_loc  = NULL;
+
+        GF_VALIDATE_OR_GOTO ("svc", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        priv = this->private;
+        SVC_GET_SUBVOL_FROM_CTX (this, op_ret, op_errno, inode_type, ret,
+                                 loc->inode, subvolume, out);
+        path_len = strlen (loc->path);
+        snap_len = strlen (priv->path);
+        temp_loc = loc;
+
+        if (path_len >= snap_len && inode_type == VIRTUAL_INODE) {
+                path = &loc->path[path_len - snap_len];
+                if (!strcmp (path, priv->path)) {
+                        /*
+                         * statfs call for virtual snap directory.
+                         * Sent the fops to parent volume by removing
+                         * virtual directory from path
+                         */
+                        subvolume = FIRST_CHILD (this);
+                        root_loc.path = "/";
+                        gf_uuid_clear(root_loc.gfid);
+                        root_loc.gfid[15] = 1;
+                        root_loc.inode = loc->inode->table->root;
+                        root_loc.inode->ia_type = IA_IFDIR;
+                        temp_loc = &root_loc;
+                }
+        }
+
+        STACK_WIND_TAIL (frame, subvolume, subvolume->fops->statfs,
+                         temp_loc, xdata);
+
+        wind = _gf_true;
+out:
+        if (!wind)
+                SVC_STACK_UNWIND (statfs, frame, op_ret, op_errno,
+                                  NULL, NULL);
+        return 0;
+}
+
 /* should all the fops be handled like lookup is supposed to be
    handled? i.e just based on inode type decide where the call should
    be sent and in the call back update the contexts.
@@ -2303,6 +2361,7 @@ struct xlator_fops fops = {
         .opendir       = svc_opendir,
         .stat          = svc_stat,
         .fstat         = svc_fstat,
+        .statfs        = svc_statfs,
         .rmdir         = svc_rmdir,
         .rename        = svc_rename,
         .mkdir         = svc_mkdir,
