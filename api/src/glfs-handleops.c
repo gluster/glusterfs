@@ -121,6 +121,57 @@ out:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lookupat, 3.4.2);
 
+int
+pub_glfs_h_statfs (struct glfs *fs, struct glfs_object *object,
+                   struct statvfs *statvfs)
+{
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        inode_t         *inode = NULL;
+        loc_t            loc = {0, };
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL || statvfs == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        __glfs_entry_fs (fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                errno = ESTALE;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (inode, loc, out);
+
+        /* fop/op */
+        ret = syncop_statfs (subvol, &loc, statvfs, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+        loc_wipe (&loc);
+
+out:
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_statfs, 3.7.0);
 
 int
 pub_glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)

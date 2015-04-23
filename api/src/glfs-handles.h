@@ -198,6 +198,10 @@ int glfs_h_stat(struct glfs *fs, struct glfs_object *object,
                 struct stat *stat) __THROW
         GFAPI_PUBLIC(glfs_h_stat, 3.4.0);
 
+int glfs_h_statfs(struct glfs *fs, struct glfs_object *object,
+                struct statvfs *stat) __THROW
+        GFAPI_PUBLIC(glfs_h_statfs, 3.7.0);
+
 int glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
 		     struct stat *stat) __THROW
         GFAPI_PUBLIC(glfs_h_getattrs, 3.4.0);
