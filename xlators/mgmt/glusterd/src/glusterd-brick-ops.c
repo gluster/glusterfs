@@ -511,6 +511,14 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                 goto brick_val;
         }
 
+        ret = glusterd_disallow_op_for_tier (volinfo, GD_OP_ADD_BRICK, -1);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Add-brick operation is "
+                          "not supported on a tiered volume %s", volname);
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
+        }
+
         if (!stripe_count && !replica_count) {
                 if (volinfo->type == GF_CLUSTER_TYPE_NONE)
                         goto brick_val;
@@ -753,6 +761,7 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         int32_t                   replica_count    = 0;
         char                     *volname          = 0;
         xlator_t                 *this             = NULL;
+        int                       cmd              = -1;
 
         GF_ASSERT (req);
         this = THIS;
@@ -815,6 +824,22 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Tiering not supported at this version");
                 ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "command", &cmd);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Unable to get cmd "
+                          "ccommand");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
+                goto out;
+        }
+
+        ret = glusterd_disallow_op_for_tier (volinfo, GD_OP_REMOVE_BRICK, cmd);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str),
+                          "Removing brick from a Tier volume is not allowed");
+                gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                 goto out;
         }
 

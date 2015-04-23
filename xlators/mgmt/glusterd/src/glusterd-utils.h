@@ -650,4 +650,8 @@ void
 glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
                         int (*compare)(struct cds_list_head *,
                                        struct cds_list_head *));
+int
+glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
+                               int cmd);
+
 #endif

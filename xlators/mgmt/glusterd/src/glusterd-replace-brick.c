@@ -243,6 +243,14 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        ret = glusterd_disallow_op_for_tier (volinfo, GD_OP_REPLACE_BRICK, -1);
+        if (ret) {
+                snprintf (msg, sizeof (msg), "Replace brick commands are not "
+                          "supported on tiered volume %s", volname);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
         if (!glusterd_store_is_valid_brickpath (volname, dst_brick) ||
                 !glusterd_is_valid_volfpath (volname, dst_brick)) {
                 snprintf (msg, sizeof (msg), "brick path %s is too "
