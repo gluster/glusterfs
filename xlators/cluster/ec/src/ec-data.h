@@ -192,6 +192,9 @@ struct _ec_fop_data
     uint32_t           flags;
     uint32_t           first;
     uintptr_t          mask;
+    uintptr_t          healing; /*Dispatch is done but call is successful only
+                                  if fop->minimum number of subvolumes succeed
+                                  which are not healing*/
     uintptr_t          remaining;
     uintptr_t          good;
     uintptr_t          bad;
