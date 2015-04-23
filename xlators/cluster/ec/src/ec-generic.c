@@ -16,7 +16,9 @@
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
+#include "byte-order.h"
 
+#define EC_SELFHEAL_BIT 62
 /* FOP: flush */
 
 int32_t ec_flush_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
@@ -1308,69 +1310,57 @@ int32_t ec_combine_xattrop(ec_fop_data_t * fop, ec_cbk_data_t * dst,
     return 1;
 }
 
-int32_t ec_xattrop_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                       int32_t op_ret, int32_t op_errno, dict_t * xattr,
-                       dict_t * xdata)
+int32_t
+ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, dict_t *xattr,
+                dict_t *xdata)
 {
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
+        ec_fop_data_t *fop = NULL;
+        ec_cbk_data_t *cbk = NULL;
+        int32_t idx = (int32_t)(uintptr_t)cookie;
+        uint64_t version = 0;
+        uint64_t *version_xattr = 0;
 
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+        VALIDATE_OR_GOTO (this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
-    fop = frame->local;
+        fop = frame->local;
 
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
+        ec_trace ("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
+                  frame, op_ret, op_errno);
 
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_XATTROP, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (xattr != NULL)
-            {
-                cbk->dict = dict_ref(xattr);
-                if (cbk->dict == NULL)
-                {
-                    gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                     "dictionary.");
-
-                    goto out;
-                }
-            }
-        }
-        if (xdata != NULL)
-        {
-            uint64_t dirty;
-
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
+        cbk = ec_cbk_data_allocate (frame, this, fop, fop->id, idx, op_ret,
+                                    op_errno);
+        if (!cbk)
                 goto out;
-            }
-            if (ec_dict_del_number(cbk->xdata, EC_XATTR_DIRTY, &dirty) == 0) {
-                cbk->dirty = dirty != 0;
-            }
+
+        if (op_ret >= 0) {
+                uint64_t dirty;
+                cbk->dict = dict_ref (xattr);
+
+                if (dict_get_bin (xattr, EC_XATTR_VERSION,
+                                  (void **)&version_xattr) == 0) {
+                        version = ntoh64(version_xattr[0]);
+                        if ((version >> EC_SELFHEAL_BIT) & 1)
+                                fop->healing |= (1ULL<<idx);
+                }
+
+                if (ec_dict_del_number (xattr, EC_XATTR_DIRTY, &dirty) == 0)
+                    cbk->dirty = dirty != 0;
         }
 
-        ec_combine(cbk, ec_combine_xattrop);
-    }
+        if (xdata)
+                cbk->xdata = dict_ref(xdata);
+
+        ec_combine (cbk, ec_combine_xattrop);
 
 out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
+        if (fop)
+            ec_complete(fop);
 
-    return 0;
+        return 0;
 }
 
 void ec_wind_xattrop(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
@@ -1576,73 +1566,11 @@ out:
     }
 }
 
-/* FOP: fxattrop */
-
-int32_t ec_fxattrop_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
-                        int32_t op_ret, int32_t op_errno, dict_t * xattr,
-                        dict_t * xdata)
-{
-    ec_fop_data_t * fop = NULL;
-    ec_cbk_data_t * cbk = NULL;
-    int32_t idx = (int32_t)(uintptr_t)cookie;
-
-    VALIDATE_OR_GOTO(this, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame, out);
-    GF_VALIDATE_OR_GOTO(this->name, frame->local, out);
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    fop = frame->local;
-
-    ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
-             frame, op_ret, op_errno);
-
-    cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_FXATTROP, idx, op_ret,
-                               op_errno);
-    if (cbk != NULL)
-    {
-        if (op_ret >= 0)
-        {
-            if (xattr != NULL)
-            {
-                cbk->dict = dict_ref(xattr);
-                if (cbk->dict == NULL)
-                {
-                    gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                     "dictionary.");
-
-                    goto out;
-                }
-            }
-        }
-        if (xdata != NULL)
-        {
-            cbk->xdata = dict_ref(xdata);
-            if (cbk->xdata == NULL)
-            {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                 "dictionary.");
-
-                goto out;
-            }
-        }
-
-        ec_combine(cbk, ec_combine_xattrop);
-    }
-
-out:
-    if (fop != NULL)
-    {
-        ec_complete(fop);
-    }
-
-    return 0;
-}
-
 void ec_wind_fxattrop(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    STACK_WIND_COOKIE(fop->frame, ec_fxattrop_cbk, (void *)(uintptr_t)idx,
+    STACK_WIND_COOKIE(fop->frame, ec_xattrop_cbk, (void *)(uintptr_t)idx,
                       ec->xl_list[idx], ec->xl_list[idx]->fops->fxattrop,
                       fop->fd, fop->xattrop_flags, fop->dict, fop->xdata);
 }

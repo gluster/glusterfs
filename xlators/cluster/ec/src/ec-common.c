@@ -333,6 +333,7 @@ void ec_complete(ec_fop_data_t * fop)
 {
     ec_cbk_data_t * cbk = NULL;
     int32_t resume = 0, update = 0;
+    int healing_count = 0;
 
     LOCK(&fop->lock);
 
@@ -342,11 +343,15 @@ void ec_complete(ec_fop_data_t * fop)
         if (fop->answer == NULL) {
             if (!list_empty(&fop->cbk_list)) {
                 cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
-                if ((cbk->count >= fop->minimum) &&
-                    ((cbk->op_ret >= 0) || (cbk->op_errno != ENOTCONN))) {
-                    fop->answer = cbk;
+                healing_count = ec_bits_count (cbk->mask & fop->healing);
+                if ((cbk->count - healing_count) >= fop->minimum) {
+                        /* fop shouldn't be treated as success if it is not
+                         * successful on at least fop->minimum good copies*/
+                    if ((cbk->op_ret >= 0) || (cbk->op_errno != ENOTCONN)) {
+                        fop->answer = cbk;
 
-                    update = 1;
+                        update = 1;
+                    }
                 }
             }
 
@@ -431,6 +436,8 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     }
     ec->idx = first;
 
+    /*Unconditionally wind on healing subvolumes*/
+    fop->mask |= fop->healing;
     fop->remaining = fop->mask;
 
     ec_trace("SELECT", fop, "");
@@ -560,17 +567,17 @@ void ec_dispatch_inc(ec_fop_data_t * fop)
     }
 }
 
-void ec_dispatch_all(ec_fop_data_t * fop)
+void
+ec_dispatch_all (ec_fop_data_t *fop)
 {
-    ec_dispatch_start(fop);
+        ec_dispatch_start(fop);
 
-    if (ec_child_select(fop))
-    {
-        fop->expected = ec_bits_count(fop->remaining);
-        fop->first = 0;
+        if (ec_child_select(fop)) {
+                fop->expected = ec_bits_count(fop->remaining);
+                fop->first = 0;
 
-        ec_dispatch_mask(fop, fop->remaining);
-    }
+                ec_dispatch_mask(fop, fop->remaining);
+        }
 }
 
 void ec_dispatch_min(ec_fop_data_t * fop)
@@ -1052,9 +1059,27 @@ int32_t ec_get_size_version_set(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-int32_t ec_prepare_update_cbk(call_frame_t *frame, void *cookie,
-                              xlator_t *this, int32_t op_ret, int32_t op_errno,
-                              dict_t *dict, dict_t *xdata)
+gf_boolean_t
+ec_is_data_fop (glusterfs_fop_t fop)
+{
+        switch (fop) {
+        case GF_FOP_WRITE:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_DISCARD:
+        case GF_FOP_ZEROFILL:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+
+int32_t
+ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
+                       xlator_t *this, int32_t op_ret, int32_t op_errno,
+                       dict_t *dict, dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie, *parent;
     ec_lock_t *lock = NULL;
@@ -1091,6 +1116,9 @@ int32_t ec_prepare_update_cbk(call_frame_t *frame, void *cookie,
         UNLOCK(&lock->loc.inode->lock);
 
         fop->parent->mask &= fop->good;
+        /*As of now only data healing marks bricks as healing*/
+        if (ec_is_data_fop (fop->parent->id))
+                fop->parent->healing |= fop->healing;
 
         fop->parent->pre_size = fop->parent->post_size = lock->size;
         fop->parent->have_size = 1;
