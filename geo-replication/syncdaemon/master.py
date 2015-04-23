@@ -800,6 +800,7 @@ class GMasterChangelogMixin(GMasterCommon):
     # index for change type and entry
     IDX_START = 0
     IDX_END = 2
+    UNLINK_ENTRY = 2
 
     POS_GFID = 0
     POS_TYPE = 1
@@ -934,6 +935,11 @@ class GMasterChangelogMixin(GMasterCommon):
                 gfid = ec[self.POS_GFID]
 
                 if ty in ['UNLINK', 'RMDIR']:
+                    # The index of PARGFID/BNAME for UNLINK, RMDIR
+                    # is no more the last index. It varies based on
+                    # changelog.capture-del-path is enabled or not.
+                    en = unescape(os.path.join(pfx, ec[self.UNLINK_ENTRY]))
+
                     # Remove from DATA list, so that rsync will
                     # not fail
                     pt = os.path.join(pfx, ec[0])
