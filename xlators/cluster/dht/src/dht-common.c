@@ -6007,7 +6007,8 @@ err:
         if (xattrs)
                 dict_unref (xattrs);
 
-        DHT_STACK_DESTROY (lookup_frame);
+        if (lookup_frame)
+                DHT_STACK_DESTROY (lookup_frame);
         return 0;
 }
 
