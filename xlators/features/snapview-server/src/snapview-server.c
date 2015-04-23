@@ -1800,6 +1800,58 @@ out:
 }
 
 int32_t
+svs_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        svs_private_t *priv         = NULL;
+        struct statvfs buf          = {0, };
+        int32_t        op_errno     = EINVAL;
+        int32_t        op_ret       = -1;
+        svs_inode_t   *inode_ctx    = NULL;
+        glfs_t        *fs           = NULL;
+        glfs_object_t *object       = NULL;
+        int            ret          = -1;
+
+        GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        priv = this->private;
+
+        /* Instead of doing the check of whether it is a entry point directory
+           or not by checking the name of the entry and then deciding what
+           to do, just check the inode context and decide what to be done.
+        */
+        inode_ctx = svs_inode_ctx_get (this, loc->inode);
+        if (!inode_ctx) {
+                gf_log (this->name, GF_LOG_ERROR, "inode context not found for"
+                        " %s", uuid_utoa (loc->inode->gfid));
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                               op_errno, out);
+
+        ret = glfs_h_statfs (fs, object, &buf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "glfs_h_statvfs on %s "
+                        "(gfid: %s) failed", loc->name,
+                        uuid_utoa (loc->inode->gfid));
+                op_ret = -1;
+                op_errno = errno;
+                goto out;
+        }
+        op_ret = ret;
+
+out:
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, &buf, xdata);
+        return 0;
+}
+
+
+int32_t
 svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, dict_t *xdata)
 {
@@ -2218,6 +2270,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .lookup     = svs_lookup,
         .stat       = svs_stat,
+        .statfs     = svs_statfs,
         .opendir    = svs_opendir,
         .readdirp   = svs_readdirp,
         .readdir    = svs_readdir,
