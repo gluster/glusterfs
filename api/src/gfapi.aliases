@@ -129,6 +129,7 @@ _pub_glfs_ipc _glfs_ipc$GFAPI_3.7.0
 _pub_glfs_h_poll_upcall _glfs_h_poll_upcall$GFAPI_3.7.0
 _pub_glfs_h_acl_set _glfs_h_acl_set$GFAPI_3.7.0
 _pub_glfs_h_acl_get _glfs_h_acl_get$GFAPI_3.7.0
+_pub_glfs_h_statfs _glfs_h_statfs$GFAPI_3.7.0
 
 _priv_glfs_free_from_ctx _glfs_free_from_ctx$GFAPI_PRIVATE_3.7.0
 _priv_glfs_new_from_ctx _glfs_new_from_ctx$GFAPI_PRIVATE_3.7.0
