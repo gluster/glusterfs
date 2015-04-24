@@ -176,12 +176,16 @@ gf_timer_proc (void *ctx)
                         }
                         pthread_mutex_unlock (&reg->lock);
                         if (need_cbk) {
+                                old_THIS = NULL;
                                 if (event->xl) {
                                         old_THIS = THIS;
                                         THIS = event->xl;
                                 }
                                 event->callbk (event->data);
-                                if (event->xl) {
+                                /*This callbk above would have freed the event
+                                 * by calling timer_cancel, don't ever touch it
+                                 * again*/
+                                if (old_THIS) {
                                         THIS = old_THIS;
                                 }
                         }
