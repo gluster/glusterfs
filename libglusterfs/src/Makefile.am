@@ -5,7 +5,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
-	-DSBIN_DIR=\"$(sbindir)\"
+	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel
 
 libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
@@ -28,7 +28,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
-	$(CONTRIBDIR)/timer-wheel/find_last_bit.c
+	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
@@ -48,7 +48,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	unittest/unittest.h quota-common-utils.h rot-buffs.h \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.h compat-uuid.h \
-	upcall-utils.h
+	upcall-utils.h tw.h
 
 if !HAVE_LIBUUID
 # FIXME: unbundle libuuid, see compat-uuid.h.

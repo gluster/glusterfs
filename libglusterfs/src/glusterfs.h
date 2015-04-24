@@ -437,6 +437,10 @@ struct _cmd_args {
         int              gid_timeout;
         char             gid_timeout_set;
         int              aux_gfid_mount;
+
+        /* need a process wide timer-wheel? */
+        int              global_timer_wheel;
+
         struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
@@ -498,6 +502,8 @@ typedef enum {
         MGMT_SSL_COPY_IO,
         MGMT_SSL_ALWAYS
 } mgmt_ssl_t;
+
+struct tvec_base;
 
 struct _glusterfs_ctx {
         cmd_args_t          cmd_args;
@@ -572,6 +578,8 @@ struct _glusterfs_ctx {
         pthread_mutex_t notify_lock;
         pthread_cond_t notify_cond;
         int notifying;
+
+        struct tvec_base *timer_wheel; /* global timer-wheel instance */
 
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
