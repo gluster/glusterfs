@@ -187,8 +187,10 @@ syncop_ftw_throttle (xlator_t *subvol, loc_t *loc, int pid, void *data,
                             !strcmp (entry->d_name, ".."))
                                 continue;
 
-                        if (++tmp >= count)
+                        if (++tmp >= count) {
+                                tmp = 0;
                                 sleep (sleep_time);
+                        }
 
                         gf_link_inode_from_dirent (NULL, fd->inode, entry);
 
