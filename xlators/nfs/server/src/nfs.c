@@ -1962,7 +1962,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 3600,
-          .default_value = "5",
+          .default_value = "300",
           .description = "Number of seconds to cache auxiliary-GID data, when "
                          OPT_SERVER_AUX_GIDS " is set."
         },
