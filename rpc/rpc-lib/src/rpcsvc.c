@@ -677,7 +677,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 
         if (req->rpc_err == SUCCESS) {
                 /* Before going to xlator code, set the THIS properly */
-                THIS = svc->mydata;
+                THIS = svc->xl;
 
                 actor_fn = actor->actor;
 
@@ -1802,7 +1802,7 @@ rpcsvc_register_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata)
         if (!wrapper) {
                 goto out;
         }
-        svc->mydata   = mydata;  /* this_xlator */
+        svc->mydata   = mydata;
         wrapper->data = mydata;
         wrapper->notify = notify;
 
@@ -2045,7 +2045,7 @@ rpcsvc_reconfigure_options (rpcsvc_t *svc, dict_t *options)
                 return (-1);
 
         /* Fetch the xlator from svc */
-        xlator = (xlator_t *) svc->mydata;
+        xlator = svc->xl;
         if (!xlator)
                 return (-1);
 
@@ -2311,7 +2311,7 @@ rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
         ret = -1;
         svc->options = options;
         svc->ctx = ctx;
-        svc->mydata = xl;
+        svc->xl = xl;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC service inited.");
 
         gluster_dump_prog.options = options;
