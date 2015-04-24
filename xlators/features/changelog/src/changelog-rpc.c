@@ -253,7 +253,7 @@ changelog_handle_probe (rpcsvc_request_t *req)
 
         /* ->xl hidden in rpcsvc */
         svc    = rpcsvc_request_service (req);
-        this   = svc->mydata;
+        this   = svc->xl;
         priv   = this->private;
         c_clnt = &priv->connections;
 

@@ -62,7 +62,7 @@ quotad_aggregator_alloc_frame (rpcsvc_request_t *req)
         GF_VALIDATE_OR_GOTO ("server", req->svc, out);
         GF_VALIDATE_OR_GOTO ("server", req->svc->ctx, out);
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
 
         frame = create_frame (this, req->svc->ctx->pool);
         if (!frame)

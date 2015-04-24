@@ -16,6 +16,7 @@
 #include "compat.h"
 #include "glusterfs.h"
 #include "dict.h"
+#include "xlator.h"
 
 typedef enum {
         RPCSVC_EVENT_ACCEPT,
@@ -69,7 +70,8 @@ typedef struct rpcsvc_state {
         struct list_head        notify;
         int                     notify_count;
 
-        void                    *mydata; /* This is xlator */
+        xlator_t                *xl;      /* xlator */
+        void                    *mydata;
         rpcsvc_notify_t         notifyfn;
         struct mem_pool         *rxpool;
         rpcsvc_drc_globals_t    *drc;

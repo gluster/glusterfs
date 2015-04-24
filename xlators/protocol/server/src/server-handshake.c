@@ -257,7 +257,7 @@ server_getspec (rpcsvc_request_t *req)
         gf_getspec_req       args                   = {0,};
         gf_getspec_rsp       rsp                    = {0,};
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
         conf = this->private;
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_gf_getspec_req);
@@ -367,7 +367,7 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
 
         config_params = dict_copy_with_ref (this->options, NULL);
         conf          = this->private;
@@ -741,7 +741,7 @@ server_set_lk_version (rpcsvc_request_t *req)
         server_ctx_t       *serv_ctx = NULL;
         xlator_t           *this     = NULL;
 
-        this = req->svc->mydata;
+        this = req->svc->xl;
         //TODO: Decide on an appropriate errno for the error-path
         //below
         if (!this)
