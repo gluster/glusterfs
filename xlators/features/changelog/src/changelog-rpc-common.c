@@ -249,8 +249,8 @@ changelog_rpc_server_destroy (xlator_t *this, rpcsvc_t *rpc, char *sockfile,
                               rpcsvc_notify_t fn, struct rpcsvc_program **progs)
 {
         rpcsvc_listener_t      *listener = NULL;
-        rpcsvc_listener_t      *next    = NULL;
-        struct rpcsvc_program *prog    = NULL;
+        rpcsvc_listener_t      *next     = NULL;
+        struct rpcsvc_program  *prog     = NULL;
 
         while (*progs) {
                 prog = *progs;
