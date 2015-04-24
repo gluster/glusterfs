@@ -28,6 +28,7 @@
 #include <sys/time.h>
 
 #include "gfdb_data_store.h"
+#include "ctr-xlator-ctx.h"
 
 /*CTR Xlator Private structure*/
 typedef struct gf_ctr_private {
@@ -384,7 +385,7 @@ ctr_insert_wind (call_frame_t                    *frame,
 
                 /*Insert the db record*/
                 ret = insert_record (_priv->_db_conn,
-                                        &ctr_local->gfdb_db_record);
+                                &ctr_local->gfdb_db_record);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "WIND: Inserting of record failed!");
@@ -461,6 +462,146 @@ out:
         frame->local = NULL;
         return ret;
 }
+
+/******************************* Hard link function ***************************/
+
+static inline int
+add_hard_link_ctx (call_frame_t *frame,
+                   xlator_t     *this,
+                   inode_t      *inode)
+{
+        int ret = -1;
+        gf_ctr_local_t   *ctr_local       = NULL;
+        ctr_xlator_ctx_t *ctr_xlator_ctx  = NULL;
+        ctr_hard_link_t  *ctr_hard_link   = NULL;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+        GF_ASSERT (inode);
+
+        ctr_local = frame->local;
+        if (!ctr_local) {
+                goto out;
+        }
+
+        ctr_xlator_ctx  = init_ctr_xlator_ctx (this, inode);
+        if (!ctr_xlator_ctx) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed accessing ctr inode context");
+                goto out;
+        }
+
+        LOCK (&ctr_xlator_ctx->lock);
+
+        /* Check if the hard link already exists
+         * in the ctr inode context*/
+        ctr_hard_link = ctr_search_hard_link_ctx (this,
+                                ctr_xlator_ctx,
+                                CTR_DB_REC(ctr_local).pargfid,
+                                CTR_DB_REC(ctr_local).file_name);
+        /* if there then ignore */
+        if (ctr_hard_link) {
+                ret = 1;
+                goto unlock;
+        }
+
+        /* Add the hard link to the list*/
+        ret = ctr_add_hard_link (this, ctr_xlator_ctx,
+                        CTR_DB_REC(ctr_local).pargfid,
+                        CTR_DB_REC(ctr_local).file_name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to add hardlink to the ctr inode context");
+                goto unlock;
+        }
+
+        ret = 0;
+unlock:
+        UNLOCK (&ctr_xlator_ctx->lock);
+out:
+        return ret;
+}
+
+static inline int
+delete_hard_link_ctx (call_frame_t *frame,
+                      xlator_t     *this,
+                      inode_t      *inode)
+{
+        int ret = -1;
+        ctr_xlator_ctx_t *ctr_xlator_ctx  = NULL;
+        gf_ctr_local_t   *ctr_local       = NULL;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+        GF_ASSERT (inode);
+
+        ctr_local = frame->local;
+        if (!ctr_local) {
+                goto out;
+        }
+
+        ctr_xlator_ctx = get_ctr_xlator_ctx (this, inode);
+        if (!ctr_xlator_ctx) {
+                /* Since there is no ctr inode context so nothing more to do */
+                ret = 0;
+                goto out;
+        }
+
+        ret = ctr_delete_hard_link (this, ctr_xlator_ctx,
+                        CTR_DB_REC(ctr_local).pargfid,
+                        CTR_DB_REC(ctr_local).file_name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to delete hard link");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static inline int
+update_hard_link_ctx (call_frame_t *frame,
+                      xlator_t     *this,
+                      inode_t      *inode)
+{
+        int ret = -1;
+        ctr_xlator_ctx_t *ctr_xlator_ctx  = NULL;
+        gf_ctr_local_t   *ctr_local       = NULL;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+        GF_ASSERT (inode);
+
+        ctr_local = frame->local;
+        if (!ctr_local) {
+                goto out;
+        }
+
+        ctr_xlator_ctx  = init_ctr_xlator_ctx (this, inode);
+        if (!ctr_xlator_ctx) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed accessing ctr inode context");
+                goto out;
+        }
+
+        ret = ctr_update_hard_link (this, ctr_xlator_ctx,
+                        CTR_DB_REC(ctr_local).pargfid,
+                        CTR_DB_REC(ctr_local).file_name,
+                        CTR_DB_REC(ctr_local).old_pargfid,
+                        CTR_DB_REC(ctr_local).old_file_name);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to delete hard link");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
 
 /******************************************************************************
  *

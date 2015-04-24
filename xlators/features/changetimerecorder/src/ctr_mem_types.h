@@ -16,6 +16,8 @@
 
 enum gf_ctr_mem_types_ {
         gf_ctr_mt_private_t = gfdb_mt_end + 1,
+        gf_ctr_mt_xlator_ctx,
+        gf_ctr_mt_hard_link_t,
         gf_ctr_mt_end
 };
 #endif

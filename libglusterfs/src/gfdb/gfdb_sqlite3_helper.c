@@ -373,7 +373,8 @@ gf_sql_insert_link (gf_sql_connection_t  *sql_conn,
         /*Execute the prepare statement*/
         if (sqlite3_step (insert_stmt) != SQLITE_DONE) {
                 gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
-                        "Failed executing the prepared stmt %s : %s",
+                        "Failed executing the prepared stmt %s %s %s %s %s : %s",
+                        gfid, pargfid, basename, basepath,
                         insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
@@ -568,7 +569,8 @@ gf_sql_insert_write_wind_time (gf_sql_connection_t  *sql_conn,
         /*Execute the prepare statement*/
         if (sqlite3_step (insert_stmt) != SQLITE_DONE) {
                 gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
-                        "Failed executing the prepared stmt %s : %s",
+                        "Failed executing the prepared stmt GFID:%s %s : %s",
+                        gfid,
                         insert_str,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
