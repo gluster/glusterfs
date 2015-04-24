@@ -182,7 +182,7 @@ int
 bitd_compare_ckum (xlator_t *this,
                    br_isignature_out_t *sign,
                    unsigned char *md, inode_t *linked_inode,
-                   gf_dirent_t *entry, fd_t *fd, br_child_t *child)
+                   gf_dirent_t *entry, fd_t *fd, br_child_t *child, loc_t *loc)
 {
         int   ret = -1;
         dict_t *xattr = NULL;
@@ -197,15 +197,15 @@ bitd_compare_ckum (xlator_t *this,
 
         if (strncmp
             (sign->signature, (char *) md, strlen (sign->signature)) == 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Entry %s [GFID: %s] matches calculated checksum",
-                        entry->d_name, uuid_utoa (linked_inode->gfid));
+                gf_log (this->name, GF_LOG_DEBUG, "%s [GFID: %s | Brick: %s] "
+                        "matches calculated checksum", loc->path,
+                        uuid_utoa (linked_inode->gfid), child->brick_path);
                 return 0;
         }
 
         gf_log (this->name, GF_LOG_WARNING,
-                "Object checksumsum mismatch: %s [GFID: %s]",
-                entry->d_name, uuid_utoa (linked_inode->gfid));
+                "Object checksumsum mismatch: %s [GFID: %s | Brick: %s]",
+                loc->path, uuid_utoa (linked_inode->gfid), child->brick_path);
 
         /* Perform bad-file marking */
         xattr = dict_new ();
@@ -217,18 +217,20 @@ bitd_compare_ckum (xlator_t *this,
         ret = dict_set_int32 (xattr, "trusted.glusterfs.bad-file", _gf_true);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Error setting bad-file marker for %s [GFID: %s]",
-                        entry->d_name, uuid_utoa (linked_inode->gfid));
+                        "Error setting bad-file marker for %s [GFID: %s | "
+                        "Brick: %s]", loc->path, uuid_utoa (linked_inode->gfid),
+                        child->brick_path);
                 goto dictfree;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "Marking %s [GFID: %s] as corrupted..",
-                entry->d_name, uuid_utoa (linked_inode->gfid));
+        gf_log (this->name, GF_LOG_INFO, "Marking %s [GFID: %s | Brick: %s] "
+                "as corrupted..", loc->path, uuid_utoa (linked_inode->gfid),
+                child->brick_path);
         ret = syncop_fsetxattr (child->xl, fd, xattr, 0, NULL, NULL);
         if (ret)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Error marking object %s [GFID: %s] as corrupted",
-                        entry->d_name, uuid_utoa (linked_inode->gfid));
+                        loc->path, uuid_utoa (linked_inode->gfid));
 
  dictfree:
         dict_unref (xattr);
@@ -347,7 +349,7 @@ bitd_start_scrub (xlator_t *subvol,
                 goto free_md;
 
         ret = bitd_compare_ckum (this, sign, md,
-                                 linked_inode, entry, fd, child);
+                                 linked_inode, entry, fd, child, &loc);
 
         GF_FREE (sign); /* alloced on post-compute */
 
