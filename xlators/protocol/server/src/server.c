@@ -1353,7 +1353,7 @@ struct volume_options options[] = {
         },
         { .key = {"gid-timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "2",
+          .default_value = "300",
           .description = "Timeout in seconds for the cached groups to expire."
         },
         { .key   = {"event-threads"},

@@ -202,7 +202,7 @@ static struct argp_option gf_options[] = {
          "[default: 1]"},
 	{"gid-timeout", ARGP_GID_TIMEOUT_KEY, "SECONDS", 0,
 	 "Set auxilary group list timeout to SECONDS for fuse translator "
-	 "[default: 0]"},
+	 "[default: 300]"},
 	{"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
 	 "Set fuse module's background queue length to N "
 	 "[default: 64]"},
