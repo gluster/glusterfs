@@ -74,6 +74,7 @@
 #include "exports.h"
 
 #include "daemon.h"
+#include "tw.h"
 
 /* process mode definitions */
 #define GF_SERVER_PROCESS   0
@@ -184,6 +185,8 @@ static struct argp_option gf_options[] = {
          "Brick Port to be registered with Gluster portmapper" },
 	{"fopen-keep-cache", ARGP_FOPEN_KEEP_CACHE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
 	 "Do not purge the cache on file open"},
+        {"global-timer-wheel", ARGP_GLOBAL_TIMER_WHEEL, "BOOL",
+         OPTION_ARG_OPTIONAL, "Instantiate process global timer-wheel"},
 
         {0, 0, 0, 0, "Fuse options:"},
         {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -1064,6 +1067,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
                               "unknown cache setting \"%s\"", arg);
 
 		break;
+
+        case ARGP_GLOBAL_TIMER_WHEEL:
+                cmd_args->global_timer_wheel = 1;
+                break;
 
 	case ARGP_GID_TIMEOUT_KEY:
 		if (!gf_string2int(arg, &cmd_args->gid_timeout)) {
@@ -2218,7 +2225,6 @@ out:
         return ret;
 }
 
-
 /* This is the only legal global pointer  */
 glusterfs_ctx_t *glusterfsd_ctx;
 
@@ -2304,6 +2310,13 @@ main (int argc, char *argv[])
         if (!ctx->env) {
                 gf_msg ("", GF_LOG_ERROR, 0, glusterfsd_msg_31);
                 goto out;
+        }
+
+        /* do this _after_ deamonize() */
+        if (cmd->global_timer_wheel) {
+                ret = glusterfs_global_timer_wheel_init (ctx);
+                if (ret)
+                        goto out;
         }
 
         ret = glusterfs_volumes_init (ctx);
