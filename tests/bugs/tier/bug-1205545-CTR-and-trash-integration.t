@@ -15,12 +15,12 @@ TEST pidof glusterd
 
 # Set-up tier cluster [3-4]
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
+TEST $CLI volume start $V0
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 
 # Start and mount the volume after enabling CTR and trash [5-8]
 TEST $CLI volume set $V0 features.ctr-enabled on
 TEST $CLI volume set $V0 features.trash on
-TEST $CLI volume start $V0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 
 # Create an empty file

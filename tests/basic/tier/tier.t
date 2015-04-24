@@ -65,9 +65,18 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
 # testing bug 1215122, ie should fail if replica count and bricks are not compatible.
 TEST ! $CLI volume attach-tier $V0 replica 5 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
 TEST $CLI volume start $V0
+TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
+TEST $CLI volume set $V0 cluster.tier-promote-frequency 4
+TEST $CLI volume set $V0 cluster.read-freq-threshold 0
+TEST $CLI volume set $V0 cluster.write-freq-threshold 0
+TEST $CLI volume set $V0 performance.quick-read off
+TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 features.ctr-enabled on
+
+TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 
 # Basic operations.
@@ -88,13 +97,6 @@ TEST file_on_fast_tier d1/data.txt
 #TEST setfattr -n trusted.distribute.migrate-data d1/data.txt
 #TEST file_on_slow_tier d1/data.txt
 
-TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
-TEST $CLI volume set $V0 cluster.tier-promote-frequency 4
-TEST $CLI volume set $V0 cluster.read-freq-threshold 0
-TEST $CLI volume set $V0 cluster.write-freq-threshold 0
-TEST $CLI volume set $V0 performance.quick-read off
-TEST $CLI volume set $V0 performance.io-cache off
-TEST $CLI volume rebalance $V0 tier start
 uuidgen > d1/data2.txt
 uuidgen > d1/data3.txt
 EXPECT "0" file_on_fast_tier d1/data2.txt

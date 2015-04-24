@@ -3894,9 +3894,17 @@ int32_t
 gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
-        gf_cli_req              req =  {{0,} };
-        int                     ret = 0;
-        dict_t                  *dict = NULL;
+        gf_cli_req              req             =  {{0,} };
+        int                     ret             = 0;
+        dict_t                  *dict           = NULL;
+        dict_t                  *newdict        = NULL;
+        char                    *tierwords[]    = {"volume", "rebalance", "",
+                                                   "tier", "start", NULL};
+        const char              **words         = (const char **)tierwords;
+        int                     wordcount       = 5;
+        char                    *volname        = NULL;
+        cli_local_t             *local          = NULL;
+        cli_local_t             *oldlocal       = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -3912,6 +3920,39 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
                                (xdrproc_t) xdr_gf_cli_req, dict,
                                GLUSTER_CLI_ATTACH_TIER, this,
                                cli_rpc_prog, NULL);
+        if (ret)
+                goto out;
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get volume name");
+                goto notify_cli;
+        }
+
+        words[2] = volname;
+        ret = cli_cmd_volume_defrag_parse ((const char **)words,
+                                           wordcount, &newdict);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to parse tier start "
+                        "command");
+                goto notify_cli;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Sending tier start");
+
+        oldlocal = frame->local;
+        CLI_LOCAL_INIT (local, words, frame, newdict);
+        ret = gf_cli_defrag_volume (frame, this, newdict);
+        frame->local = oldlocal;
+        cli_local_wipe (local);
+
+notify_cli:
+        if (ret) {
+                cli_out ("Failed to run tier start. Please execute tier start "
+                         "command explictly");
+                cli_out ("Usage : gluster volume rebalance <volname> tier "
+                         "start");
+        }
+
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
