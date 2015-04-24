@@ -1005,7 +1005,7 @@ pub_glfs_fini (struct glfs *fs)
                 {
                         /* Do we need to increase countdown? */
                         if ((!call_pool->cnt) && (!fs->pin_refcnt)) {
-                                gf_log ("glfs", GF_LOG_ERROR,
+                                gf_log ("glfs", GF_LOG_TRACE,
                                         "call_pool_cnt - %ld,"
                                         "pin_refcnt - %d",
                                         call_pool->cnt, fs->pin_refcnt);
