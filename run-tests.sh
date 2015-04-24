@@ -164,7 +164,8 @@ function run_tests()
         return $match
     }
     RES=0
-    for t in $(find ${regression_testsdir}/tests | LC_COLLATE=C sort) ; do
+    for t in $(find ${regression_testsdir}/tests | grep -v geo-rep \
+    | LC_COLLATE=C sort) ; do
         if match $t "$@" ; then
             if [ -d $t ] ; then
                 echo "Running tests in directory $t"
@@ -205,6 +206,7 @@ function is_bad_test ()
 function run_all ()
 {
     find ${regression_testsdir}/tests -name '*.t' \
+    | grep -v geo-rep \
     | LC_COLLATE=C sort \
     | while read t; do
 	old_cores=$(ls /core.* 2> /dev/null | wc -l)
