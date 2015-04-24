@@ -13,6 +13,308 @@
 #include "gfdb_sqlite3.h"
 #include "ctr-helper.h"
 
+/*******************************inode forget***********************************/
+
+int
+ctr_forget (xlator_t *this, inode_t *inode)
+{
+        fini_ctr_xlator_ctx (this, inode);
+        return 0;
+}
+
+/************************** Look up heal **************************************/
+/*
+Problem: The CTR xlator records file meta (heat/hardlinks)
+into the data. This works fine for files which are created
+after ctr xlator is switched ON. But for files which were
+created before CTR xlator is ON, CTR xlator is not able to
+record either of the meta i.e heat or hardlinks. Thus making
+those files immune to promotions/demotions.
+
+Solution: The solution that is implemented in this patch is
+do ctr-db heal of all those pre-existent files, using named lookup.
+For this purpose we use the inode-xlator context variable option
+in gluster.
+The inode-xlator context variable for ctr xlator will have the
+following,
+    a. A Lock for the context variable
+    b. A hardlink list: This list represents the successful looked
+       up hardlinks.
+These are the scenarios when the hardlink list is updated:
+1) Named-Lookup: Whenever a named lookup happens on a file, in the
+   wind path we copy all required hardlink and inode information to
+   ctr_db_record structure, which resides in the frame->local variable.
+   We dont update the database in wind. During the unwind, we read the
+   information from the ctr_db_record and ,
+   Check if the inode context variable is created, if not we create it.
+   Check if the hard link is there in the hardlink list.
+      If its not there we add it to the list and send a update to the
+      database using libgfdb.
+      Please note: The database transaction can fail(and we ignore) as there
+      already might be a record in the db. This update to the db is to heal
+      if its not there.
+      If its there in the list we ignore it.
+2) Inode Forget: Whenever an inode forget hits we clear the hardlink list in
+   the inode context variable and delete the inode context variable.
+   Please note: An inode forget may happen for two reason,
+   a. when the inode is delete.
+   b. the in-memory inode is evicted from the inode table due to cache limits.
+3) create: whenever a create happens we create the inode context variable and
+   add the hardlink. The database updation is done as usual by ctr.
+4) link: whenever a hardlink is created for the inode, we create the inode
+ context variable, if not present, and add the hardlink to the list.
+5) unlink: whenever a unlink happens we delete the hardlink from the list.
+6) mknod: same as create.
+7) rename: whenever a rename happens we update the hardlink in list. if the
+   hardlink was not present for updation, we add the hardlink to the list.
+
+What is pending:
+1) This solution will only work for named lookups.
+2) We dont track afr-self-heal/dht-rebalancer traffic for healing.
+
+*/
+
+
+/* This function doesnot write anything to the db,
+ * just created the local variable
+ * for the frame and sets values for the ctr_db_record */
+static inline int
+ctr_lookup_wind(call_frame_t                    *frame,
+                xlator_t                        *this,
+                gf_ctr_inode_context_t          *ctr_inode_cx)
+{
+        int ret                         = -1;
+        gf_ctr_private_t *_priv         = NULL;
+        gf_ctr_local_t *ctr_local       = NULL;
+
+        GF_ASSERT(frame);
+        GF_ASSERT(frame->root);
+        GF_ASSERT(this);
+        IS_CTR_INODE_CX_SANE(ctr_inode_cx);
+
+        _priv = this->private;
+        GF_ASSERT (_priv);
+
+        if (_priv->ctr_record_wind && ctr_inode_cx->ia_type != IA_IFDIR) {
+
+                frame->local = init_ctr_local_t (this);
+                if (!frame->local) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "WIND: Error while creating ctr local");
+                        goto out;
+                };
+                ctr_local = frame->local;
+                ctr_local->client_pid = frame->root->pid;
+                /*Definately no internal fops will reach here*/
+                ctr_local->is_internal_fop = _gf_false;
+                /*Dont record counters*/
+                CTR_DB_REC(ctr_local).do_record_counters = _gf_false;
+                /*Don't record time at all*/
+                CTR_DB_REC(ctr_local).do_record_times = _gf_false;
+
+                /*Copy gfid into db record*/
+                gf_uuid_copy (CTR_DB_REC(ctr_local).gfid,
+                                *(ctr_inode_cx->gfid));
+
+                /* Set fop_path and fop_type, required by libgfdb to make
+                * decision while inserting the record */
+                CTR_DB_REC(ctr_local).gfdb_fop_path = ctr_inode_cx->fop_path;
+                CTR_DB_REC(ctr_local).gfdb_fop_type = ctr_inode_cx->fop_type;
+
+                /* Copy hard link info*/
+                gf_uuid_copy (CTR_DB_REC(ctr_local).pargfid,
+                        *((NEW_LINK_CX(ctr_inode_cx))->pargfid));
+                strcpy (CTR_DB_REC(ctr_local).file_name,
+                        NEW_LINK_CX(ctr_inode_cx)->basename);
+                strcpy (CTR_DB_REC(ctr_local).file_path,
+                        NEW_LINK_CX(ctr_inode_cx)->basepath);
+
+        }
+
+        ret = 0;
+
+out:
+
+        if (ret) {
+                free_ctr_local (ctr_local);
+                frame->local = NULL;
+        }
+
+        return ret;
+}
+
+
+/* This function inserts the ctr_db_record populated by ctr_lookup_wind
+ * in to the db. It also destroys the frame->local created by ctr_lookup_wind */
+static inline int
+ctr_lookup_unwind (call_frame_t          *frame,
+                   xlator_t              *this)
+{
+        int ret = -1;
+        gf_ctr_private_t *_priv         = NULL;
+        gf_ctr_local_t *ctr_local       = NULL;
+
+        GF_ASSERT(frame);
+        GF_ASSERT(this);
+
+        _priv = this->private;
+        GF_ASSERT (_priv);
+
+        GF_ASSERT(_priv->_db_conn);
+
+        ctr_local = frame->local;
+
+        if (ctr_local && (ctr_local->ia_inode_type != IA_IFDIR)) {
+
+                ret = insert_record(_priv->_db_conn,
+                                &ctr_local->gfdb_db_record);
+                if (ret == -1) {
+                        gf_log(this->name, GF_LOG_ERROR, "UNWIND: Error"
+                                "filling ctr local");
+                        goto out;
+                }
+        }
+        ret = 0;
+out:
+        free_ctr_local (ctr_local);
+        frame->local = NULL;
+        return ret;
+}
+
+/******************************************************************************
+ *
+ *                        FOPS HANDLING BELOW
+ *
+ * ***************************************************************************/
+
+/****************************LOOKUP********************************************/
+
+
+int32_t
+ctr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   struct iatt *buf, dict_t *dict, struct iatt *postparent)
+{
+        int ret                         = -1;
+        ctr_xlator_ctx_t *ctr_xlator_ctx;
+        gf_ctr_local_t *ctr_local       = NULL;
+
+        CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, dict, out);
+
+        /* if the lookup failed lookup dont do anything*/
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_TRACE, "lookup failed with %s",
+                        strerror (op_errno));
+                goto out;
+        }
+
+        /* Ignore directory lookups */
+        if (inode->ia_type == IA_IFDIR) {
+                goto out;
+        }
+
+        /* if frame local was not set by the ctr_lookup()
+         * so dont so anything*/
+        if (!frame->local) {
+                goto out;
+        }
+
+        ctr_local = frame->local;
+        /*Assign the proper inode type*/
+        ctr_local->ia_inode_type = inode->ia_type;
+
+        /* if its a first entry
+         * then mark the ctr_record for create
+         * A create will attempt a file and a hard link created in the db*/
+        ctr_xlator_ctx = get_ctr_xlator_ctx (this, inode);
+        if (!ctr_xlator_ctx) {
+                CTR_DB_REC(ctr_local).gfdb_fop_type = GFDB_FOP_CREATE_WRITE;
+        }
+
+        /* Copy the correct gfid from resolved inode */
+        gf_uuid_copy (CTR_DB_REC(ctr_local).gfid, inode->gfid);
+
+        /* Add hard link to the list */
+        ret = add_hard_link_ctx (frame, this, inode);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_TRACE, "Failed adding hard link");
+                goto out;
+        }
+
+        /* Inserts the ctr_db_record populated by ctr_lookup_wind
+        * in to the db. It also destroys the frame->local
+        * created by ctr_lookup_wind */
+        ret = ctr_lookup_unwind(frame, this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_TRACE,
+                                "Failed inserting link wind");
+        }
+
+
+out:
+        free_ctr_local ((gf_ctr_local_t *)frame->local);
+        frame->local = NULL;
+
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
+                             dict, postparent);
+
+        return 0;
+}
+
+
+
+int32_t
+ctr_lookup (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, dict_t *xdata)
+{
+        gf_ctr_inode_context_t ctr_inode_cx;
+        gf_ctr_inode_context_t *_inode_cx       = &ctr_inode_cx;
+        gf_ctr_link_context_t  ctr_link_cx;
+        gf_ctr_link_context_t  *_link_cx        = &ctr_link_cx;
+        int ret                                 = -1;
+
+        CTR_IS_DISABLED_THEN_GOTO(this, out);
+        CTR_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, out);
+
+        GF_ASSERT(frame);
+        GF_ASSERT(frame->root);
+
+        /* Dont handle nameless lookups*/
+        if (!loc->parent)
+                goto out;
+
+        /*fill ctr link context*/
+        FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name,
+                        loc->path);
+
+         /* Fill ctr inode context*/
+         /* IA_IFREG : We assume its a file in the wind
+          * but in the unwind we are sure what the inode is a file
+          * or directory
+          * gfid: we are just filling loc->gfid which is not correct.
+          * In unwind we fill the correct gfid for successful lookup*/
+        FILL_CTR_INODE_CONTEXT(_inode_cx, IA_IFREG,
+                loc->gfid, _link_cx, NULL,
+                GFDB_FOP_DENTRY_WRITE, GFDB_FOP_WIND);
+
+        /* Create the frame->local and populate ctr_db_record
+         * No writing to the db yet */
+        ret = ctr_lookup_wind(frame, this, _inode_cx);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "Failed inserting link wind");
+        }
+
+out:
+        STACK_WIND (frame, ctr_lookup_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, loc, xdata);
+        return 0;
+}
+
+
+
+
 /****************************WRITEV********************************************/
 int32_t
 ctr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -415,6 +717,15 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                                 "Failed inserting rename wind");
+        } else {
+                /* We are doing updation of hard link in inode context in wind
+                 * As we dont get the "inode" in the call back for rename */
+                ret = update_hard_link_ctx (frame, this, oldloc->inode);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed updating hard link in"
+                                "ctr inode context");
+                }
         }
 
 out:
@@ -509,6 +820,15 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                                 "Failed inserting unlink wind");
+        } else {
+                /* We are doing delete of hard link in inode context in wind
+                 * As we dont get the "inode" in the call back for rename */
+                ret = delete_hard_link_ctx (frame, this, loc->inode);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed deleting hard link from ctr "
+                                "inode context");
+                }
         }
 
         /*
@@ -672,6 +992,12 @@ ctr_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
+        /* Add hard link to the list */
+        ret = add_hard_link_ctx (frame, this, inode);
+        if (ret) {
+                gf_log (this->name, GF_LOG_TRACE, "Failed adding hard link");
+        }
+
         ret = ctr_insert_unwind(frame, this, GFDB_FOP_CREATE_WRITE,
                                 GFDB_FOP_UNWIND);
         if (ret) {
@@ -751,6 +1077,12 @@ ctr_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
+
+        ret = add_hard_link_ctx (frame, this, inode);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed adding hard link");
+        }
+
         ret = ctr_insert_unwind(frame, this, GFDB_FOP_CREATE_WRITE,
                                 GFDB_FOP_UNWIND);
         if (ret) {
@@ -829,6 +1161,12 @@ ctr_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = -1;
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
+
+        /* Add hard link to the list */
+        ret = add_hard_link_ctx (frame, this, inode);
+        if (ret) {
+                gf_log (this->name, GF_LOG_TRACE, "Failed adding hard link");
+        }
 
         ret = ctr_insert_unwind(frame, this, GFDB_FOP_DENTRY_WRITE,
                                 GFDB_FOP_UNWIND);
@@ -1117,6 +1455,8 @@ fini (xlator_t *this)
 }
 
 struct xlator_fops fops = {
+        /*lookup*/
+        .lookup      = ctr_lookup,
         /*write fops */
         .mknod       = ctr_mknod,
         .create      = ctr_create,
@@ -1133,7 +1473,9 @@ struct xlator_fops fops = {
         .readv       = ctr_readv
 };
 
-struct xlator_cbks cbks;
+struct xlator_cbks cbks = {
+        .forget = ctr_forget
+};
 
 struct volume_options options[] = {
         { .key  = {"ctr-enabled",},
