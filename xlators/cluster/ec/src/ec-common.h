@@ -31,6 +31,8 @@ typedef enum {
 
 #define EC_FLAG_WAITING_WINDS     0x0010
 
+#define EC_SELFHEAL_BIT 62
+
 #define EC_MINIMUM_ONE   -1
 #define EC_MINIMUM_MIN   -2
 #define EC_MINIMUM_ALL   -3
