@@ -46,6 +46,7 @@
 #include "common-utils.h"
 #include "syncop.h"
 #include "call-stub.h"
+#include "gfapi-messages.h"
 
 #include "glfs.h"
 #include "glfs-internal.h"
@@ -72,8 +73,9 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         ret = xlator_mem_acct_init (THIS, glfs_mt_end + 1);
         if (ret != 0) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                   "Memory accounting init failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
+                        API_MSG_MEM_ACCT_INIT_FAILED,
+                        "Memory accounting init failed");
                 return ret;
         }
 
@@ -198,9 +200,9 @@ create_master (struct glfs *fs)
 		goto err;
 
 	if (xlator_set_type (master, "mount/api") == -1) {
-		gf_log ("glfs", GF_LOG_ERROR,
-			"master xlator for %s initialization failed",
-			fs->volname);
+		gf_msg ("glfs", GF_LOG_ERROR, 0,
+                        API_MSG_MASTER_XLATOR_INIT_FAILED, "master xlator "
+                        "for %s initialization failed", fs->volname);
 		goto err;
 	}
 
@@ -213,7 +215,8 @@ create_master (struct glfs *fs)
 
 	ret = xlator_init (master);
 	if (ret) {
-		gf_log ("glfs", GF_LOG_ERROR,
+		gf_msg ("glfs", GF_LOG_ERROR, 0,
+                        API_MSG_GFAPI_XLATOR_INIT_FAILED,
 			"failed to initialize gfapi translator");
 		goto err;
 	}
@@ -241,15 +244,15 @@ get_volfp (struct glfs *fs)
 	cmd_args = &fs->ctx->cmd_args;
 
 	if ((specfp = fopen (cmd_args->volfile, "r")) == NULL) {
-		gf_log ("glfs", GF_LOG_ERROR,
+		gf_msg ("glfs", GF_LOG_ERROR, errno,
+                        API_MSG_VOLFILE_OPEN_FAILED,
 			"volume file %s open failed: %s",
 			cmd_args->volfile,
 			strerror (errno));
 		return NULL;
 	}
 
-	gf_log ("glfs", GF_LOG_DEBUG,
-		"loading volume file %s", cmd_args->volfile);
+	gf_msg_debug ("glfs", 0, "loading volume file %s", cmd_args->volfile);
 
 	return specfp;
 }
@@ -275,7 +278,8 @@ glfs_volumes_init (struct glfs *fs)
 	fp = get_volfp (fs);
 
 	if (!fp) {
-		gf_log ("glfs", GF_LOG_ERROR,
+		gf_msg ("glfs", GF_LOG_ERROR, ENOENT,
+                        API_MSG_VOL_SPEC_FILE_ERROR,
 			"Cannot reach volume specification file");
 		ret = -1;
 		goto out;
@@ -801,7 +805,7 @@ priv_glfs_init_done (struct glfs *fs, int ret)
 	glfs_init_cbk init_cbk;
 
 	if (!fs) {
-		gf_log ("glfs", GF_LOG_ERROR,
+		gf_msg ("glfs", GF_LOG_ERROR, EINVAL, API_MSG_GLFS_FSOBJ_NULL,
 			"fs is NULL");
 		goto out;
 	}
@@ -857,7 +861,7 @@ glfs_init_async (struct glfs *fs, glfs_init_cbk cbk)
 	int  ret = -1;
 
 	if (!fs || !fs->ctx) {
-		gf_log ("glfs", GF_LOG_ERROR,
+		gf_msg ("glfs", GF_LOG_ERROR, EINVAL, API_MSG_INVALID_ENTRY,
 			"fs is not properly initialized.");
 		errno = EINVAL;
 		return ret;
@@ -877,7 +881,7 @@ pub_glfs_init (struct glfs *fs)
 	int  ret = -1;
 
 	if (!fs || !fs->ctx) {
-		gf_log ("glfs", GF_LOG_ERROR,
+		gf_msg ("glfs", GF_LOG_ERROR, EINVAL, API_MSG_INVALID_ENTRY,
 			"fs is not properly initialized.");
 		errno = EINVAL;
 		return ret;
@@ -1005,7 +1009,7 @@ pub_glfs_fini (struct glfs *fs)
                 {
                         /* Do we need to increase countdown? */
                         if ((!call_pool->cnt) && (!fs->pin_refcnt)) {
-                                gf_log ("glfs", GF_LOG_TRACE,
+                                gf_msg_trace ("glfs", 0,
                                         "call_pool_cnt - %ld,"
                                         "pin_refcnt - %d",
                                         call_pool->cnt, fs->pin_refcnt);
@@ -1049,7 +1053,8 @@ pub_glfs_fini (struct glfs *fs)
                         graph = subvol->graph;
                         err = pthread_mutex_lock (&fs->mutex);
                         if (err != 0) {
-                                gf_log ("glfs", GF_LOG_ERROR,
+                                gf_msg ("glfs", GF_LOG_ERROR, err,
+                                        API_MSG_FSMUTEX_LOCK_FAILED,
                                         "pthread lock on glfs mutex, "
                                         "returned error: (%s)", strerror (err));
                                 goto fail;
@@ -1060,7 +1065,8 @@ pub_glfs_fini (struct glfs *fs)
                                         err = pthread_cond_wait (&fs->child_down_cond,
                                                                  &fs->mutex);
                                         if (err != 0)
-                                                gf_log ("glfs", GF_LOG_INFO,
+                                                gf_msg ("glfs", GF_LOG_INFO, err,
+                                                        API_MSG_COND_WAIT_FAILED,
                                                         "%s cond wait failed %s",
                                                         subvol->name,
                                                         strerror (err));
@@ -1069,7 +1075,8 @@ pub_glfs_fini (struct glfs *fs)
 
                         err = pthread_mutex_unlock (&fs->mutex);
                         if (err != 0) {
-                                gf_log ("glfs", GF_LOG_ERROR,
+                                gf_msg ("glfs", GF_LOG_ERROR, err,
+                                        API_MSG_FSMUTEX_UNLOCK_FAILED,
                                         "pthread unlock on glfs mutex, "
                                         "returned error: (%s)", strerror (err));
                                 goto fail;
@@ -1145,13 +1152,13 @@ pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
 
         glfs_lock(fs);
         if (len >= fs->oldvollen) {
-                gf_log ("glfs", GF_LOG_TRACE, "copying %zu to %p", len, buf);
+                gf_msg_trace ("glfs", 0, "copying %zu to %p", len, buf);
                 memcpy(buf,fs->oldvolfile,len);
                 res = len;
         }
         else {
                 res = len - fs->oldvollen;
-                gf_log ("glfs", GF_LOG_TRACE, "buffer is %zd too short", -res);
+                gf_msg_trace ("glfs", 0, "buffer is %zd too short", -res);
         }
         glfs_unlock(fs);
 
