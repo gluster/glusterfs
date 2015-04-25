@@ -40,6 +40,7 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
+#include "gfapi-messages.h"
 
 int glfs_volfile_fetch (struct glfs *fs);
 int32_t glfs_get_volume_info_rpc (call_frame_t *frame, xlator_t *this,
@@ -56,13 +57,16 @@ glfs_process_volfp (struct glfs *fs, FILE *fp)
 	ctx = fs->ctx;
 	graph = glusterfs_graph_construct (fp);
 	if (!graph) {
-		gf_log ("glfs", GF_LOG_ERROR, "failed to construct the graph");
+		gf_msg ("glfs", GF_LOG_ERROR, errno,
+                        API_MSG_GRAPH_CONSTRUCT_FAILED,
+                        "failed to construct the graph");
 		goto out;
 	}
 
 	for (trav = graph->first; trav; trav = trav->next) {
 		if (strcmp (trav->type, "mount/fuse") == 0) {
-			gf_log ("glfs", GF_LOG_ERROR,
+			gf_msg ("glfs", GF_LOG_ERROR, EINVAL,
+                                API_MSG_FUSE_XLATOR_ERROR,
 				"fuse xlator cannot be specified "
 				"in volume file");
 			goto out;
@@ -183,7 +187,8 @@ mgmt_submit_request (void *req, call_frame_t *frame,
 		/* Create the xdr payload */
 		ret = xdr_serialize_generic (iov, req, xdrproc);
 		if (ret == -1) {
-			gf_log (THIS->name, GF_LOG_WARNING,
+			gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                API_MSG_XDR_PAYLOAD_FAILED,
 				"failed to create XDR payload");
 			goto out;
 		}
@@ -227,7 +232,8 @@ mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
         args = frame->local;
 
         if (!ctx) {
-                gf_log (frame->this->name, GF_LOG_ERROR, "NULL context");
+                gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
+                        API_MSG_INVALID_ENTRY, "NULL context");
                 errno = EINVAL;
                 ret = -1;
                 goto out;
@@ -236,7 +242,8 @@ mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
         fs = ((xlator_t *)ctx->master)->private;
 
         if (-1 == req->rpc_status) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
+                        API_MSG_INVALID_ENTRY,
                         "GET_VOLUME_INFO RPC call is not successfull");
                 errno = EINVAL;
                 ret = -1;
@@ -246,13 +253,14 @@ mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_get_volume_info_rsp);
 
         if (ret < 0) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_msg (frame->this->name, GF_LOG_ERROR, 0,
+                        API_MSG_XDR_RESPONSE_DECODE_FAILED,
                         "Failed to decode xdr response for GET_VOLUME_INFO");
                 goto out;
         }
 
-        gf_log (frame->this->name, GF_LOG_DEBUG,
-                "Received resp to GET_VOLUME_INFO RPC: %d", rsp.op_ret);
+        gf_msg_debug (frame->this->name, 0, "Received resp to GET_VOLUME_INFO "
+                      "RPC: %d", rsp.op_ret);
 
         if (rsp.op_ret == -1) {
                 errno = rsp.op_errno;
@@ -261,8 +269,9 @@ mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (!rsp.dict.dict_len) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "Response received for GET_VOLUME_INFO RPC call is not valid");
+                gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
+                        API_MSG_INVALID_ENTRY, "Response received for "
+                        "GET_VOLUME_INFO RPC call is not valid");
                 ret = -1;
                 errno = EINVAL;
                 goto out;
@@ -295,17 +304,17 @@ mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
         ret = 0;
 out:
         if (volume_id_str) {
-                gf_log (frame->this->name, GF_LOG_DEBUG,
-                        "Volume Id: %s", volume_id_str);
+                gf_msg_debug (frame->this->name, 0,
+                              "Volume Id: %s", volume_id_str);
                 pthread_mutex_lock (&fs->mutex);
                 gf_uuid_parse (volume_id_str, fs->vol_uuid);
                 pthread_mutex_unlock (&fs->mutex);
         }
 
         if (ret) {
-               gf_log (frame->this->name, GF_LOG_ERROR,
-                       "In GET_VOLUME_INFO cbk, received error: %s",
-                       strerror(errno));
+                gf_msg (frame->this->name, GF_LOG_ERROR, errno,
+                        API_MSG_GET_VOLINFO_CBK_FAILED, "In GET_VOLUME_INFO "
+                        "cbk, received error: %s", strerror(errno));
         }
 
         if (dict)
@@ -317,7 +326,7 @@ out:
         if (rsp.op_errstr && *rsp.op_errstr)
                 free (rsp.op_errstr);
 
-        gf_log (frame->this->name, GF_LOG_DEBUG, "Returning: %d", ret);
+        gf_msg_debug (frame->this->name, 0, "Returning: %d", ret);
 
         __wake (args);
 
@@ -344,18 +353,21 @@ pub_glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
         glfs_get_volume_info (fs);
 
         if (gf_uuid_is_null (fs->vol_uuid)) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to fetch volume UUID");
+                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
+                        API_MSG_FETCH_VOLUUID_FAILED, "Unable to fetch "
+                        "volume UUID");
                 return -1;
         }
 
 done:
         if (!volid || !size) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "volumeid/size is null");
+                gf_msg_debug (THIS->name, 0, "volumeid/size is null");
                 return uuid_size;
         }
 
         if (size < uuid_size) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Insufficient size passed");
+                gf_msg (THIS->name, GF_LOG_ERROR, ERANGE, API_MSG_INSUFF_SIZE,
+                        "Insufficient size passed");
                 errno = ERANGE;
                 return -1;
         }
@@ -378,7 +390,9 @@ glfs_get_volume_info (struct glfs *fs)
         ctx = fs->ctx;
         frame = create_frame (THIS, ctx->pool);
         if (!frame) {
-                gf_log ("glfs", GF_LOG_ERROR, "failed to create the frame");
+                gf_msg ("glfs", GF_LOG_ERROR, ENOMEM,
+                        API_MSG_FRAME_CREAT_FAILED,
+                        "failed to create the frame");
                 ret = -1;
                 goto out;
         }
@@ -433,7 +447,8 @@ glfs_get_volume_info_rpc (call_frame_t *frame, xlator_t *this,
         flags = (int32_t)GF_GET_VOLUME_UUID; //ctx->flags;
         ret = dict_set_int32 (dict, "flags", flags);
         if (ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR, "failed to set flags");
+                gf_msg (frame->this->name, GF_LOG_ERROR, ENOKEY,
+                        API_MSG_DICT_SET_FAILED, "failed to set flags");
                 goto out;
         }
 
@@ -500,7 +515,8 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	ctx = frame->this->ctx;
 
 	if (!ctx) {
-		gf_log (frame->this->name, GF_LOG_ERROR, "NULL context");
+		gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
+                        API_MSG_INVALID_ENTRY, "NULL context");
 		errno = EINVAL;
 		ret = -1;
 		goto out;
@@ -516,13 +532,15 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 	ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
 	if (ret < 0) {
-		gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding error");
+		gf_msg (frame->this->name, GF_LOG_ERROR, 0,
+                        API_MSG_XDR_DECODE_FAILED, "XDR decoding error");
 		ret   = -1;
 		goto out;
 	}
 
 	if (-1 == rsp.op_ret) {
-		gf_log (frame->this->name, GF_LOG_ERROR,
+		gf_msg (frame->this->name, GF_LOG_ERROR, rsp.op_errno,
+                        API_MSG_GET_VOLFILE_FAILED,
 			"failed to get the 'volume file' from server");
 		ret = -1;
 		errno = rsp.op_errno;
@@ -534,7 +552,8 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 	if ((size == fs->oldvollen) &&
 	    (memcmp (fs->oldvolfile, rsp.spec, size) == 0)) {
-		gf_log (frame->this->name, GF_LOG_INFO,
+		gf_msg (frame->this->name, GF_LOG_INFO, 0,
+                        API_MSG_VOLFILE_INFO,
 			"No change in volfile, continuing");
 		goto out;
 	}
@@ -563,15 +582,14 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	ret = glusterfs_volfile_reconfigure (fs->oldvollen, tmpfp, fs->ctx,
 					     fs->oldvolfile);
 	if (ret == 0) {
-		gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-			"No need to re-load volfile, reconfigure done");
+		gf_msg_debug ("glusterfsd-mgmt", 0, "No need to re-load "
+                              "volfile, reconfigure done");
 		ret = glusterfs_oldvolfile_update (fs, rsp.spec, size);
 		goto out;
 	}
 
 	if (ret < 0) {
-		gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-			"Reconfigure failed !!");
+		gf_msg_debug ("glusterfsd-mgmt", 0, "Reconfigure failed !!");
 		goto out;
 	}
 
@@ -590,8 +608,9 @@ out:
 
 	// Stop if server is running at an unsupported op-version
 	if (ENOTSUP == ret) {
-		gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
-			"op-version which is not supported");
+		gf_msg ("mgmt", GF_LOG_ERROR, ENOTSUP, API_MSG_WRONG_OPVERSION,
+                        "Server is operating at an op-version which is not "
+                        "supported");
 		errno = ENOTSUP;
 		glfs_init_done (fs, -1);
 	}
@@ -600,7 +619,8 @@ out:
 		/* Do it only for the first time */
 		/* Failed to get the volume file, something wrong,
 		   restart the process */
-		gf_log ("glfs-mgmt", GF_LOG_ERROR,
+		gf_msg ("glfs-mgmt", GF_LOG_ERROR, EINVAL,
+                        API_MSG_INVALID_ENTRY,
 			"failed to fetch volume file (key:%s)",
 			ctx->cmd_args.volfile_id);
 		if (!need_retry) {
@@ -645,22 +665,25 @@ glfs_volfile_fetch (struct glfs *fs)
         // decision
         ret = dict_set_int32 (dict, "min-op-version", GD_OP_VERSION_MIN);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set min-op-version"
-                        " in request dict");
+                gf_msg (THIS->name, GF_LOG_ERROR, ENOKEY,
+                        API_MSG_DICT_SET_FAILED,
+                        "Failed to set min-op-version in request dict");
                 goto out;
         }
 
         ret = dict_set_int32 (dict, "max-op-version", GD_OP_VERSION_MAX);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to set max-op-version"
-                        " in request dict");
+                gf_msg (THIS->name, GF_LOG_ERROR, ENOKEY,
+                        API_MSG_DICT_SET_FAILED,
+                        "Failed to set max-op-version in request dict");
                 goto out;
         }
 
         ret = dict_allocate_and_serialize (dict, &req.xdata.xdata_val,
                                            &req.xdata.xdata_len);
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        API_MSG_DICT_SERIALIZE_FAILED,
                         "Failed to serialize dictionary");
                 goto out;
         }
@@ -696,15 +719,17 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 	switch (event) {
 	case RPC_CLNT_DISCONNECT:
 		if (!ctx->active) {
-                        gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                        gf_msg ("glfs-mgmt", GF_LOG_ERROR, errno,
+                                API_MSG_REMOTE_HOST_CONN_FAILED,
                                 "failed to connect with remote-host: %s (%s)",
                                 ctx->cmd_args.volfile_server,
                                 strerror (errno));
                         server = ctx->cmd_args.curr_server;
                         if (server->list.next == &ctx->cmd_args.volfile_servers) {
                                 errno = ENOTCONN;
-                                gf_log("glfs-mgmt", GF_LOG_INFO,
-                                       "Exhausted all volfile servers");
+                                gf_msg ("glfs-mgmt", GF_LOG_INFO, ENOTCONN,
+                                        API_MSG_VOLFILE_SERVER_EXHAUST,
+                                        "Exhausted all volfile servers");
                                 glfs_init_done (fs, -1);
                                 break;
                         }
@@ -719,7 +744,8 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                               "remote-port",
                                               server->port);
                         if (ret != 0) {
-                                gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                gf_msg ("glfs-mgmt", GF_LOG_ERROR, ENOTCONN,
+                                        API_MSG_DICT_SET_FAILED,
                                         "failed to set remote-port: %d",
                                         server->port);
                                 errno = ENOTCONN;
@@ -731,7 +757,8 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                             "remote-host",
                                             server->volfile_server);
                         if (ret != 0) {
-                                gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                gf_msg ("glfs-mgmt", GF_LOG_ERROR, ENOTCONN,
+                                        API_MSG_DICT_SET_FAILED,
                                         "failed to set remote-host: %s",
                                         server->volfile_server);
                                 errno = ENOTCONN;
@@ -743,14 +770,16 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                             "transport-type",
                                             server->transport);
                         if (ret != 0) {
-                                gf_log ("glfs-mgmt", GF_LOG_ERROR,
+                                gf_msg ("glfs-mgmt", GF_LOG_ERROR, ENOTCONN,
+                                        API_MSG_DICT_SET_FAILED,
                                         "failed to set transport-type: %s",
                                         server->transport);
                                 errno = ENOTCONN;
                                 glfs_init_done (fs, -1);
                                 break;
                         }
-                        gf_log ("glfs-mgmt", GF_LOG_INFO,
+                        gf_msg ("glfs-mgmt", GF_LOG_INFO, 0,
+                                API_MSG_VOLFILE_CONNECTING,
                                 "connecting to next volfile server %s"
                                 " at port %d with transport: %s",
                                 server->volfile_server, server->port,
@@ -764,7 +793,8 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 		if (ret && (ctx->active == NULL)) {
 			/* Do it only for the first time */
 			/* Exit the process.. there are some wrong options */
-			gf_log ("glfs-mgmt", GF_LOG_ERROR,
+			gf_msg ("glfs-mgmt", GF_LOG_ERROR, EINVAL,
+                                API_MSG_INVALID_ENTRY,
 				"failed to fetch volume file (key:%s)",
                                 ctx->cmd_args.volfile_id);
                         errno = EINVAL;
@@ -829,21 +859,24 @@ glfs_mgmt_init (struct glfs *fs)
 	rpc = rpc_clnt_new (options, ctx, THIS->name, 8);
 	if (!rpc) {
 		ret = -1;
-		gf_log (THIS->name, GF_LOG_WARNING,
+		gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        API_MSG_CREATE_RPC_CLIENT_FAILED,
 			"failed to create rpc clnt");
 		goto out;
 	}
 
 	ret = rpc_clnt_register_notify (rpc, mgmt_rpc_notify, THIS);
 	if (ret) {
-		gf_log (THIS->name, GF_LOG_WARNING,
+		gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        API_MSG_REG_NOTIFY_FUNC_FAILED,
 			"failed to register notify function");
 		goto out;
 	}
 
 	ret = rpcclnt_cbk_program_register (rpc, &mgmt_cbk_prog, THIS);
 	if (ret) {
-		gf_log (THIS->name, GF_LOG_WARNING,
+		gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        API_MSG_REG_CBK_FUNC_FAILED,
 			"failed to register callback function");
 		goto out;
 	}

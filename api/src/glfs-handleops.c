@@ -14,6 +14,7 @@
 #include "syncop.h"
 #include "glfs.h"
 #include "glfs-handles.h"
+#include "gfapi-messages.h"
 
 int
 glfs_listxattr_process (void *value, size_t size, dict_t *xattr);
@@ -1161,7 +1162,8 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         ret = syncop_lookup (subvol, &loc, &iatt, 0, 0, 0);
         DECODE_SYNCOP_ERR (ret);
         if (ret) {
-                gf_log (subvol->name, GF_LOG_WARNING,
+                gf_msg (subvol->name, GF_LOG_WARNING, errno,
+                        API_MSG_INODE_REFRESH_FAILED,
                         "inode refresh of %s failed: %s",
                         uuid_utoa (loc.gfid), strerror (errno));
                 goto out;
@@ -1171,7 +1173,8 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         if (newinode)
                 inode_lookup (newinode);
         else {
-                gf_log (subvol->name, GF_LOG_WARNING,
+                gf_msg (subvol->name, GF_LOG_WARNING, EINVAL,
+                        API_MSG_INVALID_ENTRY,
                         "inode linking of %s failed: %s",
                         uuid_utoa (loc.gfid), strerror (errno));
                 errno = EINVAL;
