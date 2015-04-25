@@ -135,6 +135,9 @@ typedef int32_t (*shard_post_resolve_fop_handler_t) (call_frame_t *frame,
 typedef int32_t (*shard_post_lookup_shards_fop_handler_t) (call_frame_t *frame,
                                                            xlator_t *this);
 
+typedef int32_t (*shard_post_mknod_fop_handler_t) (call_frame_t *frame,
+                                                   xlator_t *this);
+
 typedef struct shard_local {
         int op_ret;
         int op_errno;
@@ -152,6 +155,7 @@ typedef struct shard_local {
         size_t total_size;
         size_t written_size;
         size_t hole_size;
+        size_t req_size;
         loc_t loc;
         loc_t dot_shard_loc;
         loc_t loc2;
@@ -169,8 +173,11 @@ typedef struct shard_local {
         struct iatt postnewparent;
         struct iovec *vector;
         struct iobref *iobref;
+        struct iobuf *iobuf;
         shard_post_fop_handler_t handler;
         shard_post_lookup_shards_fop_handler_t pls_fop_handler;
+        shard_post_resolve_fop_handler_t post_res_handler;
+        shard_post_mknod_fop_handler_t post_mknod_handler;
         struct {
                 int lock_count;
                 fop_inodelk_cbk_t inodelk_cbk;
