@@ -121,6 +121,41 @@ cluster_tryentrylk (xlator_t **subvols, unsigned char *on, int numsubvols,
                     call_frame_t *frame, xlator_t *this, char *dom,
                     inode_t *inode, const char *name);
 
+int32_t
+cluster_fxattrop (xlator_t **subvols, unsigned char *on, int numsubvols,
+                  default_args_cbk_t *replies, unsigned char *output,
+                  call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata);
+
+int32_t
+cluster_fstat (xlator_t **subvols, unsigned char *on, int numsubvols,
+               default_args_cbk_t *replies, unsigned char *output,
+               call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata);
+
+int32_t
+cluster_ftruncate (xlator_t **subvols, unsigned char *on, int numsubvols,
+                   default_args_cbk_t *replies, unsigned char *output,
+                   call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                   dict_t *xdata);
+
+int32_t
+cluster_open (xlator_t **subvols, unsigned char *on, int numsubvols,
+              default_args_cbk_t *replies, unsigned char *output,
+              call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+              fd_t *fd, dict_t *xdata);
+
+int
+cluster_tryinodelk (xlator_t **subvols, unsigned char *on, int numsubvols,
+                    default_args_cbk_t *replies, unsigned char *locked_on,
+                    call_frame_t *frame, xlator_t *this, char *dom,
+                    inode_t *inode, off_t off, size_t size);
+
+int32_t
+cluster_fsetattr (xlator_t **subvols, unsigned char *on, int numsubvols,
+                  default_args_cbk_t *replies, unsigned char *output,
+                  call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  struct iatt *stbuf, int32_t valid, dict_t *xdata);
+
 void
 cluster_replies_wipe (default_args_cbk_t *replies, int num_subvols);
 #endif /* !_CLUSTER_SYNCOP_H */

@@ -18,7 +18,6 @@
 #include "ec-fops.h"
 #include "byte-order.h"
 
-#define EC_SELFHEAL_BIT 62
 /* FOP: flush */
 
 int32_t ec_flush_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
