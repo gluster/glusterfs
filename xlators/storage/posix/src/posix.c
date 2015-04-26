@@ -4683,7 +4683,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                                                 "fgetxattr failed on gfid=%s "
                                                 "while doing xattrop: "
                                                 "Key:%s (%s)",
-                                                uuid_utoa (filler->fd->inode->gfid),
+                                                uuid_utoa (filler->inode->gfid),
                                                 k, strerror (op_errno));
                         }
 
@@ -4738,7 +4738,7 @@ unlock:
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsetxattr failed on gfid=%s while doing xattrop: "
                                 "key=%s (%s)",
-                                uuid_utoa (filler->fd->inode->gfid),
+                                uuid_utoa (filler->inode->gfid),
                                 k, strerror (op_errno));
 
                 op_ret = -1;
@@ -4756,7 +4756,7 @@ unlock:
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "dict_set_bin failed (gfid=%s): "
                                         "key=%s (%s)",
-                                        uuid_utoa (filler->fd->inode->gfid),
+                                        uuid_utoa (filler->inode->gfid),
                                         k, strerror (-size));
 
                         op_ret = -1;
