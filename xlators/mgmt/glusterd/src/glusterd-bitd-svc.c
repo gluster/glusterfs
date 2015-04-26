@@ -106,7 +106,23 @@ out:
 int
 glusterd_bitdsvc_start (glusterd_svc_t *svc, int flags)
 {
-        return glusterd_svc_start (svc, flags, NULL);
+        int ret = -1;
+        dict_t *cmdict = NULL;
+
+        cmdict = dict_new ();
+        if (!cmdict)
+                goto error_return;
+
+        ret = dict_set_str (cmdict, "cmdarg0", "--global-timer-wheel");
+        if (ret)
+                goto dealloc_dict;
+
+        ret = glusterd_svc_start (svc, flags, cmdict);
+
+ dealloc_dict:
+        dict_unref (cmdict);
+ error_return:
+        return ret;
 }
 
 int
