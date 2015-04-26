@@ -25,6 +25,8 @@
 #include "bit-rot-scrub.h"
 #include <pthread.h>
 
+#include "tw.h"
+
 static int
 br_find_child_index (xlator_t *this, xlator_t *child)
 {
@@ -603,6 +605,8 @@ br_add_object_to_queue (struct gf_tw_timer_list *timer,
         object = data;
         this   = object->this;
         priv   = this->private;
+
+        THIS = this;
 
         pthread_mutex_lock (&priv->lock);
         {
@@ -1292,23 +1296,17 @@ static inline void
 br_fini_signer (xlator_t *this, br_private_t *priv)
 {
         int i = 0;
-        int ret = 0;
 
         for (; i < BR_WORKERS; i++) {
                 (void) gf_thread_cleanup_xint (priv->obj_queue->workers[i]);
         }
 
         pthread_cond_destroy (&priv->object_cond);
-        ret = gf_tw_cleanup_timers (priv->timer_wheel);
-        if (ret == 0) {
-                priv->timer_wheel = NULL;
-        }
 }
 
 static inline int32_t
 br_init_signer (xlator_t *this, br_private_t *priv)
 {
-        int rc = 0;
         int i = 0;
         int32_t ret = -1;
 
@@ -1317,10 +1315,10 @@ br_init_signer (xlator_t *this, br_private_t *priv)
         if (ret)
                 goto out;
 
-        priv->timer_wheel = gf_tw_init_timers ();
+        priv->timer_wheel = glusterfs_global_timer_wheel (this);
         if (!priv->timer_wheel) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "failed to initialize the timer wheel");
+                        "global timer wheel unavailable");
                 goto out;
         }
 
@@ -1329,7 +1327,7 @@ br_init_signer (xlator_t *this, br_private_t *priv)
         priv->obj_queue = GF_CALLOC (1, sizeof (*priv->obj_queue),
                                      gf_br_mt_br_ob_n_wk_t);
         if (!priv->obj_queue)
-                goto cleanup_timer;
+                goto cleanup_cond;
         INIT_LIST_HEAD (&priv->obj_queue->objects);
 
         for (i = 0; i < BR_WORKERS; i++) {
@@ -1352,14 +1350,9 @@ br_init_signer (xlator_t *this, br_private_t *priv)
 
         GF_FREE (priv->obj_queue);
 
- cleanup_timer:
+ cleanup_cond:
         /* that's explicit */
         pthread_cond_destroy (&priv->object_cond);
-        rc = gf_tw_cleanup_timers (priv->timer_wheel);
-        if (rc == 0) {
-                priv->timer_wheel = NULL;
-        }
-
  out:
         return -1;
 }
@@ -1460,7 +1453,6 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
-        int ret = 0;
 	br_private_t *priv = this->private;
 
         if (!priv)
@@ -1469,13 +1461,6 @@ fini (xlator_t *this)
         if (!priv->iamscrubber)
                 br_fini_signer (this, priv);
         br_free_children (this);
-        if (priv->timer_wheel) {
-                ret = gf_tw_cleanup_timers (priv->timer_wheel);
-
-                if (ret == 0) {
-                        priv->timer_wheel = NULL;
-                }
-        }
 
         this->private = NULL;
 	GF_FREE (priv);
