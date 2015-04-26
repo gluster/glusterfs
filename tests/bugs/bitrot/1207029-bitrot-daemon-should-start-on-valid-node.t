@@ -10,6 +10,9 @@
 
 cleanup;
 
+function get_bitd_count {
+        ps auxw | grep glusterfs | grep bitd.pid | grep -v grep | wc -l
+}
 
 ## Start a 2 node virtual cluster
 TEST launch_cluster 2;
@@ -30,8 +33,7 @@ TEST $CLI_1 volume bitrot $V0 enable
 
 ## Bitd daemon should be running on the node which is having brick. Here node1
 ## only have brick so bitrot daemon count value should be 1.
-bitrot_daemon=$(ps auxww | grep glusterfs | grep bitd.pid | grep -v grep | wc -l)
-TEST [ "$bitrot_daemon" -eq 1 ];
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count
 
 ## Bitd daemon should not run on 2nd node and it should not create bitrot
 ## volfile on this node. Below test case it to check whether its creating bitrot
