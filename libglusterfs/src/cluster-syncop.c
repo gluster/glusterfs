@@ -1172,9 +1172,9 @@ cluster_entrylk (xlator_t **subvols, unsigned char *on, int numsubvols,
                         cluster_unentrylk (subvols, locked_on, numsubvols,
                                            replies, output, frame, this, dom,
                                            inode, name);
-                        FOP_ONLIST (subvols, on, numsubvols, replies,
-                                    locked_on, frame, entrylk, dom, &loc, name,
-                                    ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
+                        FOP_SEQ (subvols, on, numsubvols, replies,
+                                 locked_on, frame, entrylk, dom, &loc, name,
+                                 ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
                         break;
                 }
         }
