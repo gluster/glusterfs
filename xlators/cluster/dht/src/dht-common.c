@@ -2767,29 +2767,36 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conf = this->private;
         local = frame->local;
 
+        LOCK (&frame->lock);
+        {
+                if (!xattr || (op_ret == -1)) {
+                        local->op_ret = op_ret;
+                        goto unlock;
+                }
+
+                if (dict_get (xattr, conf->xattr_name)) {
+                        dict_del (xattr, conf->xattr_name);
+                }
+
+                if (frame->root->pid >= 0) {
+                        GF_REMOVE_INTERNAL_XATTR
+                                ("trusted.glusterfs.quota*", xattr);
+                        GF_REMOVE_INTERNAL_XATTR("trusted.pgfid*", xattr);
+                }
+
+                local->op_ret = 0;
+
+                if (!local->xattr) {
+                        local->xattr = dict_copy_with_ref (xattr, NULL);
+                } else {
+                        dht_aggregate_xattr (local->xattr, xattr);
+                }
+
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
         this_call_cnt = dht_frame_return (frame);
-
-        if (!xattr || (op_ret == -1)) {
-                local->op_ret = op_ret;
-                goto out;
-        }
-
-        if (dict_get (xattr, conf->xattr_name)) {
-                dict_del (xattr, conf->xattr_name);
-        }
-
-        if (frame->root->pid >= 0 ) {
-                GF_REMOVE_INTERNAL_XATTR("trusted.glusterfs.quota*", xattr);
-                GF_REMOVE_INTERNAL_XATTR("trusted.pgfid*", xattr);
-        }
-
-        local->op_ret = 0;
-
-        if (!local->xattr) {
-                local->xattr = dict_copy_with_ref (xattr, NULL);
-        } else {
-                dht_aggregate_xattr (local->xattr, xattr);
-        }
 out:
         if (is_last_call (this_call_cnt)) {
                 DHT_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
