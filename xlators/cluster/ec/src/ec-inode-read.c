@@ -394,7 +394,7 @@ int32_t ec_getxattr_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *xl,
                 goto out;
             }
 
-            if (dict_set_str(dict, EC_XATTR_HEAL, str) != 0) {
+            if (dict_set_dynstr(dict, EC_XATTR_HEAL, str) != 0) {
                 GF_FREE(str);
                 dict_unref(dict);
                 dict = NULL;
@@ -1202,10 +1202,6 @@ out:
 int32_t ec_combine_readv(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                          ec_cbk_data_t * src)
 {
-    if (src->dirty) {
-        return 0;
-    }
-
     if (!ec_vector_compare(dst->vector, dst->int32, src->vector, src->int32))
     {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching vector in "

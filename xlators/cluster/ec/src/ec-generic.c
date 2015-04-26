@@ -759,7 +759,6 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
         for (i = 0, ans = cbk; (ans != NULL) && (i < ec->fragments);
              ans = ans->next)
         {
-            if (!ans->dirty) {
                 data = dict_get(ans->xdata, GF_CONTENT_KEY);
                 if (data != NULL)
                 {
@@ -770,7 +769,6 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
                     }
                     i++;
                 }
-            }
         }
 
         if (i >= ec->fragments)
@@ -878,8 +876,6 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         }
         if (xdata != NULL)
         {
-            uint64_t dirty;
-
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
@@ -888,9 +884,8 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
 
                 goto out;
             }
-            if (ec_dict_del_number(cbk->xdata, EC_XATTR_DIRTY, &dirty) == 0) {
-                cbk->dirty = dirty != 0;
-            }
+            ec_dict_del_array (xdata, EC_XATTR_DIRTY, cbk->dirty,
+                               EC_VERSION_SIZE);
         }
 
         ec_combine(cbk, ec_combine_lookup);
@@ -1341,7 +1336,6 @@ ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
 
         if (op_ret >= 0) {
-                uint64_t dirty;
                 cbk->dict = dict_ref (xattr);
 
                 if (dict_get_bin (xattr, EC_XATTR_VERSION,
@@ -1350,9 +1344,8 @@ ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if ((version >> EC_SELFHEAL_BIT) & 1)
                                 fop->healing |= (1ULL<<idx);
                 }
-
-                if (ec_dict_del_number (xattr, EC_XATTR_DIRTY, &dirty) == 0)
-                    cbk->dirty = dirty != 0;
+                ec_dict_del_array (xattr, EC_XATTR_DIRTY, cbk->dirty,
+                                   EC_VERSION_SIZE);
         }
 
         if (xdata)

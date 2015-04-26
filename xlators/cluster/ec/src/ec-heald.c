@@ -18,7 +18,7 @@
 #include "syncop-utils.h"
 #include "protocol-common.h"
 
-#define SHD_INODE_LRU_LIMIT          2048
+#define SHD_INODE_LRU_LIMIT          10
 #define ASSERT_LOCAL(this, healer)				        \
         do {                                                            \
                 if (!ec_shd_is_subvol_local (this, healer->subvol)) {	\
@@ -224,8 +224,8 @@ ec_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                    void *data)
 {
         struct subvol_healer *healer = data;
-        ec_t                 *ec = NULL;
-        loc_t                loc = {0};
+        ec_t                 *ec     = NULL;
+        loc_t                loc     = {0};
         int                  ret     = 0;
 
         ec = healer->this->private;
@@ -254,6 +254,8 @@ ec_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         ec_shd_selfheal (healer, healer->subvol, &loc);
 
 out:
+        if (loc.inode)
+                inode_forget (loc.inode, 0);
         loc_wipe (&loc);
 
         return 0;
@@ -280,7 +282,7 @@ ec_shd_index_sweep (struct subvol_healer *healer)
         ret = syncop_dir_scan (subvol, &loc, GF_CLIENT_PID_AFR_SELF_HEALD,
                                healer, ec_shd_index_heal);
 
-        inode_forget (loc.inode, 1);
+        inode_forget (loc.inode, 0);
         loc_wipe (&loc);
 
         return ret;
@@ -318,10 +320,12 @@ ec_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
 
         ec_shd_selfheal (healer, healer->subvol, &loc);
 
-        loc_wipe (&loc);
         ret = 0;
 
 out:
+        if (loc.inode)
+                inode_forget (loc.inode, 0);
+        loc_wipe (&loc);
         return ret;
 }
 

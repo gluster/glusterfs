@@ -1078,6 +1078,23 @@ ec_is_data_fop (glusterfs_fop_t fop)
         return _gf_false;
 }
 
+gf_boolean_t
+ec_is_metadata_fop (glusterfs_fop_t fop)
+{
+        switch (fop) {
+        case GF_FOP_SETATTR:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+
 int32_t
 ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -1098,7 +1115,10 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         }
 
         lock = parent->locks[0].lock;
-	lock->is_dirty = _gf_true;
+        if (ec_is_metadata_fop (fop->parent->id))
+                lock->is_dirty[EC_METADATA_TXN] = _gf_true;
+        else
+                lock->is_dirty[EC_DATA_TXN] = _gf_true;
 
 	if (lock->loc.inode->ia_type == IA_IFREG) {
             if (!ec_config_check(fop, dict) ||
@@ -1147,7 +1167,7 @@ void ec_get_size_version(ec_fop_data_t * fop)
     uid_t uid;
     gid_t gid;
     int32_t error = ENOMEM;
-    uint64_t version[EC_VERSION_SIZE] = {0, 0};
+    uint64_t allzero[EC_VERSION_SIZE] = {0, 0};
 
     if (fop->have_size)
     {
@@ -1177,10 +1197,11 @@ void ec_get_size_version(ec_fop_data_t * fop)
         goto out;
     }
     if ((ec_dict_set_array(xdata, EC_XATTR_VERSION,
-                           version, EC_VERSION_SIZE) != 0) ||
+                           allzero, EC_VERSION_SIZE) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_SIZE, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_CONFIG, 0) != 0) ||
-        (ec_dict_set_number(xdata, EC_XATTR_DIRTY, 0) != 0))
+        (ec_dict_set_array(xdata, EC_XATTR_DIRTY, allzero,
+                           EC_VERSION_SIZE) != 0))
     {
         goto out;
     }
@@ -1244,16 +1265,19 @@ void ec_prepare_update(ec_fop_data_t *fop)
     dict_t *xdata;
     ec_fop_data_t *tmp;
     ec_lock_t *lock;
+    ec_t *ec;
     uid_t uid;
     gid_t gid;
     uint64_t version[2] = {0, 0};
+    uint64_t dirty[2] = {0, 0};
     int32_t error = ENOMEM;
 
     tmp = fop;
     while ((tmp != NULL) && (tmp->locks[0].lock == NULL)) {
         tmp = tmp->parent;
     }
-    if ((tmp != NULL) && tmp->locks[0].lock->is_dirty) {
+    if ((tmp != NULL) &&
+        (tmp->locks[0].lock->is_dirty[0] || tmp->locks[0].lock->is_dirty[1])) {
         lock = tmp->locks[0].lock;
 
         fop->pre_size = fop->post_size = lock->size;
@@ -1269,6 +1293,16 @@ void ec_prepare_update(ec_fop_data_t *fop)
 
     memset(&loc, 0, sizeof(loc));
 
+    ec = fop->xl->private;
+    if (ec_bits_count (fop->mask) >= ec->fragments) {
+            /* It is changing data only if the update happens on at least
+             * fragment number of bricks. Otherwise it probably is healing*/
+            if (ec_is_metadata_fop (fop->id))
+                    dirty[EC_METADATA_TXN] = 1;
+            else
+                    dirty[EC_DATA_TXN] = 1;
+    }
+
     xdata = dict_new();
     if (xdata == NULL) {
         goto out;
@@ -1277,7 +1311,8 @@ void ec_prepare_update(ec_fop_data_t *fop)
                            version, EC_VERSION_SIZE) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_SIZE, 0) != 0) ||
         (ec_dict_set_number(xdata, EC_XATTR_CONFIG, 0) != 0) ||
-        (ec_dict_set_number(xdata, EC_XATTR_DIRTY, 1) != 0)) {
+        (ec_dict_set_array(xdata, EC_XATTR_DIRTY, dirty,
+                           EC_VERSION_SIZE) != 0)) {
             goto out;
     }
 
@@ -1391,12 +1426,38 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     return 0;
 }
 
-void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version[2],
-                            uint64_t size, gf_boolean_t dirty, ec_lock_t *lock)
+uint64_t
+ec_get_dirty_value (ec_t *ec, uintptr_t fop_mask, uint64_t version_delta,
+                     gf_boolean_t dirty)
 {
+        uint64_t dirty_val = 0;
+
+        if (version_delta) {
+                if (~fop_mask & ec->node_mask) {
+                        /* fop didn't succeed on all subvols so 'dirty' xattr
+                         * shouldn't be cleared */
+                        if (!dirty)
+                                dirty_val = 1;
+                } else {
+                        /* fop succeed on all subvols so 'dirty' xattr
+                         * should be cleared */
+                        if (dirty)
+                                dirty_val = -1;
+                }
+        }
+        return dirty_val;
+}
+
+void
+ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version[2],
+                       uint64_t size, gf_boolean_t dirty[2], ec_lock_t *lock)
+{
+    ec_t *ec = fop->xl->private;
     dict_t * dict;
     uid_t uid;
     gid_t gid;
+    uint64_t dirty_values[2] = {0};
+    int i = 0;
 
     if (fop->parent != NULL)
     {
@@ -1425,8 +1486,15 @@ void ec_update_size_version(ec_fop_data_t *fop, loc_t *loc, uint64_t version[2],
             goto out;
         }
     }
-    if (dirty) {
-        if (ec_dict_set_number(dict, EC_XATTR_DIRTY, -1) != 0) {
+
+    for (i = 0; i < sizeof (dirty_values)/sizeof (dirty_values[0]); i++) {
+            dirty_values[i] = ec_get_dirty_value (ec, fop->mask, version[i],
+                                                  dirty[i]);
+    }
+
+    if (dirty_values[0] || dirty_values[1]) {
+        if (ec_dict_set_array(dict, EC_XATTR_DIRTY, dirty_values,
+                              EC_VERSION_SIZE) != 0) {
             goto out;
         }
     }
@@ -1469,7 +1537,8 @@ void ec_unlock_now(ec_fop_data_t *fop, ec_lock_t *lock)
 {
     ec_trace("UNLOCK_NOW", fop, "lock=%p", lock);
 
-    if ((lock->version_delta != 0) || lock->is_dirty) {
+    if ((lock->version_delta[0] != 0) || (lock->version_delta[1] != 0) ||
+         lock->is_dirty[0] || lock->is_dirty[1]) {
         ec_update_size_version(fop, &lock->loc, lock->version_delta,
                                lock->size_delta, lock->is_dirty, lock);
     } else {
@@ -1578,6 +1647,7 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 {
     ec_lock_t * lock;
     uint64_t version[2], delta;
+    gf_boolean_t dirty[2] = {_gf_false, _gf_false};
 
     GF_ASSERT(fop->lock_count == 1);
 
@@ -1589,16 +1659,20 @@ void ec_flush_size_version(ec_fop_data_t * fop)
 
     version[0] = lock->version_delta[0];
     version[1] = lock->version_delta[1];
+    dirty[0] = lock->is_dirty[0];
+    dirty[1] = lock->is_dirty[1];
     delta = lock->size_delta;
     lock->version_delta[0] = 0;
     lock->version_delta[1] = 0;
     lock->size_delta = 0;
+    lock->is_dirty[0] = _gf_false;
+    lock->is_dirty[1] = _gf_false;
 
     UNLOCK(&lock->loc.inode->lock);
 
-    if (version > 0)
+    if (version[0] > 0 || version[1] > 0 || dirty[0] || dirty[1])
     {
-        ec_update_size_version(fop, &lock->loc, version, delta, _gf_false,
+        ec_update_size_version(fop, &lock->loc, version, delta, dirty,
                                NULL);
     }
 }
@@ -1626,7 +1700,7 @@ void ec_lock_reuse(ec_fop_data_t *fop)
         if (((fop->locks_update >> i) & 1) != 0) {
             if (fop->error == 0)
             {
-		if (fop->id == GF_FOP_SETXATTR || fop->id == GF_FOP_SETATTR) {
+		if (ec_is_metadata_fop (fop->id)) {
                     lock->version_delta[1]++;
 		} else {
                     lock->version_delta[0]++;

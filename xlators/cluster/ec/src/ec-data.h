@@ -145,6 +145,7 @@ struct _ec_lock
     uint64_t           size_delta;
     uint64_t           version[2];
     uint64_t           version_delta[2];
+    gf_boolean_t       is_dirty[2];
     ec_fop_data_t     *owner;
     loc_t              loc;
     union
@@ -152,7 +153,6 @@ struct _ec_lock
         entrylk_type     type;
         struct gf_flock  flock;
     };
-    gf_boolean_t       is_dirty;
 };
 
 struct _ec_lock_link
@@ -257,7 +257,7 @@ struct _ec_cbk_data
     struct gf_flock  flock;
     struct iovec *   vector;
     struct iobref *  buffers;
-    gf_boolean_t     dirty;
+    uint64_t         dirty[2];
 };
 
 struct _ec_heal
@@ -282,6 +282,7 @@ struct _ec_heal
     uintptr_t         fixed;
     uint64_t          offset;
     uint64_t          size;
+    uint64_t          total_size;
     uint64_t          version[2];
     uint64_t          raw_size;
 };
