@@ -2858,3 +2858,23 @@ syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
 
         return args.op_ret;
 }
+
+int
+syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
+                 dict_t *dict, dict_t *xdata_in, dict_t **xdata_out)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_xattrop_cbk, subvol->fops->fxattrop,
+                fd, flags, dict, xdata_in);
+
+        if (xdata_out)
+                *xdata_out = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        if (args.op_ret < 0)
+                return -args.op_errno;
+
+        return args.op_ret;
+}

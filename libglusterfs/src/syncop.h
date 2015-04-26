@@ -495,4 +495,7 @@ int syncop_ipc (xlator_t *subvol, int op, dict_t *xdata_in, dict_t **xdata_out);
 int syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
                     dict_t *dict, dict_t *xdata_in, dict_t **xdata_out);
 
+int
+syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
+                 dict_t *dict, dict_t *xdata_in, dict_t **xdata_out);
 #endif /* _SYNCOP_H */
