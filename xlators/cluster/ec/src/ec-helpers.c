@@ -181,6 +181,7 @@ int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
     void    *ptr;
     int32_t len;
     int32_t vindex;
+    int32_t old_size = 0;
 
     if ((dict == NULL) || (dict_get_ptr_and_len(dict, key, &ptr, &len) != 0)) {
         return -1;
@@ -192,11 +193,18 @@ int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
 
     memset (value, 0, size * sizeof(uint64_t));
     /* 3.6 version ec would have stored version in 64 bit. In that case treat
-     * metadata versions as 0*/
-    size = min (size, len/sizeof(uint64_t));
-    for (vindex = 0; vindex < size; vindex++) {
+     * metadata versions same as data*/
+    old_size = min (size, len/sizeof(uint64_t));
+    for (vindex = 0; vindex < old_size; vindex++) {
          value[vindex] = ntoh64(*((uint64_t *)ptr + vindex));
     }
+
+    if (old_size < size) {
+            for (vindex = old_size; vindex < size; vindex++) {
+                 value[vindex] = value[old_size-1];
+            }
+    }
+
     dict_del(dict, key);
 
     return 0;
