@@ -374,7 +374,7 @@ out:
 }
 
 int32_t
-gf_store_handle_new (char *path, gf_store_handle_t **handle)
+gf_store_handle_new (const char *path, gf_store_handle_t **handle)
 {
         int32_t                 ret = -1;
         gf_store_handle_t *shandle = NULL;
