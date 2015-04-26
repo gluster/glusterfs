@@ -137,6 +137,7 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
+        case -EC_STATE_DELAYED_START:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -392,6 +393,7 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
+        case -EC_STATE_DELAYED_START:
             GF_ASSERT(fop->error != 0);
 
             if (fop->cbks.fsync != NULL)
@@ -605,6 +607,7 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
+        case -EC_STATE_DELAYED_START:
             GF_ASSERT(fop->error != 0);
 
             if (fop->cbks.fsyncdir != NULL)
