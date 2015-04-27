@@ -501,7 +501,7 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                ret = dict_get_int32 (dict, "type", &type);
+                ret = dict_get_int32 (dict, "hot-type", &type);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to get type from dictionary");
@@ -1914,7 +1914,7 @@ glusterd_op_perform_attach_tier (dict_t *dict,
         else
                 volinfo->tier_info.hot_replica_count  = 1;
         volinfo->tier_info.hot_brick_count     = count;
-        ret = dict_get_int32 (dict, "type", &type);
+        ret = dict_get_int32 (dict, "hot-type", &type);
         volinfo->tier_info.hot_type      = type;
         ret = dict_set_int32 (dict, "type", GF_CLUSTER_TYPE_TIER);
 
