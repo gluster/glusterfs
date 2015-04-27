@@ -1217,23 +1217,6 @@ syncop_lookup (xlator_t *subvol, loc_t *loc, struct iatt *iatt,
         return args.op_ret;
 }
 
-static gf_dirent_t *
-entry_copy (gf_dirent_t *source)
-{
-        gf_dirent_t *sink = NULL;
-
-        sink = gf_dirent_for_name (source->d_name);
-
-        sink->d_off = source->d_off;
-        sink->d_ino = source->d_ino;
-        sink->d_type = source->d_type;
-        sink->d_stat = source->d_stat;
-
-	if (source->inode)
-		sink->inode = inode_ref (source->inode);
-        return sink;
-}
-
 int32_t
 syncop_readdirp_cbk (call_frame_t *frame,
                      void *cookie,

@@ -171,6 +171,20 @@ gf_dirent_for_name (const char *name)
         return gf_dirent;
 }
 
+void
+gf_dirent_entry_free (gf_dirent_t *entry)
+{
+        if (!entry)
+                return;
+
+        if (entry->dict)
+                dict_unref (entry->dict);
+        if (entry->inode)
+                inode_unref (entry->inode);
+
+        list_del (&entry->list);
+        GF_FREE (entry);
+}
 
 void
 gf_dirent_free (gf_dirent_t *entries)
@@ -185,14 +199,25 @@ gf_dirent_free (gf_dirent_t *entries)
                 return;
 
         list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                if (entry->dict)
-                        dict_unref (entry->dict);
-                if (entry->inode)
-                        inode_unref (entry->inode);
-
-                list_del (&entry->list);
-                GF_FREE (entry);
+                gf_dirent_entry_free (entry);
         }
+}
+
+gf_dirent_t *
+entry_copy (gf_dirent_t *source)
+{
+        gf_dirent_t *sink = NULL;
+
+        sink = gf_dirent_for_name (source->d_name);
+
+        sink->d_off = source->d_off;
+        sink->d_ino = source->d_ino;
+        sink->d_type = source->d_type;
+        sink->d_stat = source->d_stat;
+
+	if (source->inode)
+		sink->inode = inode_ref (source->inode);
+        return sink;
 }
 
 void

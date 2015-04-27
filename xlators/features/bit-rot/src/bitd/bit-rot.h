@@ -38,7 +38,25 @@
  */
 #define BR_WORKERS 4
 
+typedef enum scrub_throttle {
+        BR_SCRUB_THROTTLE_VOID       = -1,
+        BR_SCRUB_THROTTLE_LAZY       = 0,
+        BR_SCRUB_THROTTLE_NORMAL     = 1,
+        BR_SCRUB_THROTTLE_AGGRESSIVE = 2,
+} scrub_throttle_t;
+
 #define signature_size(hl) (sizeof (br_isignature_t) + hl + 1)
+
+struct br_scanfs {
+        gf_lock_t entrylock;
+
+        pthread_mutex_t waitlock;
+        pthread_cond_t  waitcond;
+
+        unsigned int     entries;
+        struct list_head queued;
+        struct list_head ready;
+};
 
 struct br_child {
         char child_up;                /* Indicates whether this child is
@@ -53,12 +71,14 @@ struct br_child {
         xlator_t *this;               /* Bit rot xlator */
 
         pthread_t thread;             /* initial crawler for unsigned
-                                         object(s) */
+                                         object(s) or scrub crawler */
         int threadrunning;            /* active thread */
 
         struct mem_pool *timer_pool;  /* timer-wheel's timer mem-pool */
 
         struct timeval tv;
+
+        struct br_scanfs fsscan;      /* per subvolume FS scanner */
 };
 
 typedef struct br_child br_child_t;
@@ -70,6 +90,23 @@ struct br_obj_n_workers {
         pthread_t workers[BR_WORKERS];    /* Threads which pick up the objects
                                              from the above queue and start
                                              signing each object */
+};
+
+struct br_scrubber {
+        xlator_t *this;
+
+        scrub_throttle_t throttle;
+
+        pthread_mutex_t mutex;
+        pthread_cond_t  cond;
+
+        unsigned int nr_scrubbers;
+        struct list_head scrubbers;
+
+        /*
+         * list of "rotatable" subvolume(s) undergoing scrubbing
+         */
+        struct list_head scrublist;
 };
 
 typedef struct br_obj_n_workers br_obj_n_workers_t;
@@ -100,6 +137,7 @@ struct br_private {
         br_tbf_t *tbf;                    /* token bucket filter */
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
+        struct br_scrubber fsscrub;       /* scrubbers for this subvolume */
 };
 
 typedef struct br_private br_private_t;
