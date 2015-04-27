@@ -11,6 +11,13 @@
 #ifndef __BIT_ROT__SCRUB_H__
 #define __BIT_ROT_SCRUB_H__
 
-void *br_scrubber (void *);
+#include "xlator.h"
+#include "bit-rot.h"
+
+void *br_fsscanner (void *);
+
+int32_t br_scrubber_handle_options (xlator_t *, br_private_t *, dict_t *);
+
+int32_t br_scrubber_init (xlator_t *, br_private_t *);
 
 #endif /* __BIT_ROT_SCRUB_H__ */

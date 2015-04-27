@@ -29,15 +29,6 @@
 
 #define BR_HASH_CALC_READ_SIZE  (128 * 1024)
 
-br_tbf_opspec_t opthrottle[] = {
-        {
-                .op       = BR_TBF_OP_HASH,
-                .rate     = BR_HASH_CALC_READ_SIZE,
-                .maxlimit = (2 * BR_WORKERS * BR_HASH_CALC_READ_SIZE),
-        },
-        /** TODO: throttle getdents(), read() request(s) */
-};
-
 static int
 br_find_child_index (xlator_t *this, xlator_t *child)
 {
@@ -1066,6 +1057,7 @@ br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
                 child->threadrunning = 1;
 
         /* it's OK to continue, "old" objects would be signed when modified */
+        list_del_init (&child->list);
         return 0;
 
  dealloc:
@@ -1078,14 +1070,45 @@ static inline int32_t
 br_enact_scrubber (xlator_t *this, br_child_t *child)
 {
         int32_t ret = 0;
+        br_private_t *priv = NULL;
+        struct br_scanfs *fsscan = NULL;
+        struct br_scrubber *fsscrub = NULL;
 
-        ret = gf_thread_create (&child->thread, NULL, br_scrubber, child);
+        priv = this->private;
+
+        fsscan = &child->fsscan;
+        fsscrub = &priv->fsscrub;
+
+        LOCK_INIT (&fsscan->entrylock);
+        pthread_mutex_init (&fsscan->waitlock, NULL);
+        pthread_cond_init (&fsscan->waitcond, NULL);
+
+        fsscan->entries = 0;
+        INIT_LIST_HEAD (&fsscan->queued);
+        INIT_LIST_HEAD (&fsscan->ready);
+
+        ret = gf_thread_create (&child->thread, NULL, br_fsscanner, child);
         if (ret != 0) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "failed to spawn scrubber");
+                gf_log (this->name, GF_LOG_ALERT, "failed to spawn bitrot "
+                        "scrubber daemon [Brick: %s]", child->brick_path);
+                goto error_return;
         }
 
-        return ret;
+        /**
+         * Everything has been setup.. add this subvolume to scrubbers
+         * list.
+         */
+        pthread_mutex_lock (&fsscrub->mutex);
+        {
+                list_move (&child->list, &fsscrub->scrublist);
+                pthread_cond_broadcast (&fsscrub->cond);
+        }
+        pthread_mutex_unlock (&fsscrub->mutex);
+
+        return 0;
+
+ error_return:
+        return -1;
 }
 
 /**
@@ -1202,8 +1225,7 @@ br_handle_events (void *arg)
                                                 "failed to connect to the "
                                                 "child (subvolume: %s)",
                                                 child->xl->name);
-                                else
-                                        list_del_init (&child->list);
+
                         }
 
                 }
@@ -1379,14 +1401,70 @@ br_init_signer (xlator_t *this, br_private_t *priv)
         return -1;
 }
 
-int32_t
-br_init_rate_limiter (br_private_t *priv)
+/**
+ * For signer, only rate limit CPU usage (during hash calculation) when
+ * compiled with -DBR_RATE_LIMIT_SIGNER cflags, else let it run full
+ * throttle.
+ */
+static int32_t
+br_rate_limit_signer (xlator_t *this, int child_count, int numbricks)
 {
-        br_tbf_opspec_t *spec = opthrottle;
-        priv->tbf = br_tbf_init (spec, sizeof (opthrottle)
-                                           / sizeof (br_tbf_opspec_t));
+        br_private_t *priv = NULL;
+        br_tbf_opspec_t spec = {0,};
 
+        priv = this->private;
+
+        spec.op       = BR_TBF_OP_HASH;
+        spec.rate     = 0;
+        spec.maxlimit = 0;
+
+#ifdef BR_RATE_LIMIT_SIGNER
+
+        double contribution = 0;
+        contribution = ((double)1 - ((double)child_count / (double)numbricks));
+        if (contribution == 0)
+                contribution = 1;
+        spec.rate = BR_HASH_CALC_READ_SIZE * contribution;
+        spec.maxlimit = BR_WORKERS * BR_HASH_CALC_READ_SIZE;
+
+#endif
+
+        if (!spec.rate)
+                gf_log (this->name,
+                GF_LOG_INFO, "[Rate Limit Info] \"FULL THROTTLE\"");
+        else
+                gf_log (this->name, GF_LOG_INFO,
+                        "[Rate Limit Info] \"tokens/sec (rate): %lu, "
+                        "maxlimit: %lu\"", spec.rate, spec.maxlimit);
+
+        priv->tbf = br_tbf_init (&spec, 1);
         return priv->tbf ? 0 : -1;
+}
+
+static int32_t
+br_signer_init (xlator_t *this, br_private_t *priv)
+{
+        int32_t ret = 0;
+        int numbricks = 0;
+
+        GF_OPTION_INIT ("expiry-time", priv->expiry_time, int32, error_return);
+        GF_OPTION_INIT ("brick-count", numbricks, int32, error_return);
+
+        ret = br_rate_limit_signer (this, priv->child_count, numbricks);
+        if (ret)
+                goto error_return;
+
+        ret = br_init_signer (this, priv);
+        if (ret)
+                goto cleanup_tbf;
+
+        return 0;
+
+ cleanup_tbf:
+        /* cleanup TBF */
+ error_return:
+        return -1;
+
 }
 
 int32_t
@@ -1410,7 +1488,6 @@ init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("scrubber", priv->iamscrubber, bool, out);
-        GF_OPTION_INIT ("expiry-time", priv->expiry_time, int32, out);
 
         priv->child_count = xlator_subvolume_count (this);
         priv->children = GF_CALLOC (priv->child_count, sizeof (*priv->children),
@@ -1443,17 +1520,18 @@ init (xlator_t *this)
                 INIT_LIST_HEAD (&priv->children[i].list);
         INIT_LIST_HEAD (&priv->bricks);
 
-        ret = br_init_rate_limiter (priv);
-        if (ret)
-                goto cleanup_mutex;
-
 	this->private = priv;
 
         if (!priv->iamscrubber) {
-                ret = br_init_signer (this, priv);
-                if (ret)
-                        goto cleanup_tbf;
+                ret = br_signer_init (this, priv);
+        } else {
+                ret = br_scrubber_init (this, priv);
+                if (!ret)
+                        ret = br_scrubber_handle_options (this, priv, NULL);
         }
+
+        if (ret)
+                goto cleanup_mutex;
 
         ret = gf_thread_create (&priv->thread, NULL, br_handle_events, this);
         if (ret != 0) {
@@ -1469,7 +1547,6 @@ init (xlator_t *this)
                 return 0;
         }
 
- cleanup_tbf:
  cleanup_mutex:
         (void) pthread_cond_destroy (&priv->cond);
         (void) pthread_mutex_destroy (&priv->lock);
@@ -1503,6 +1580,17 @@ fini (xlator_t *this)
 	GF_FREE (priv);
 
 	return;
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        br_private_t *priv = this->private;
+
+        if (!priv->iamscrubber)
+                return 0;
+
+        return br_scrubber_handle_options (this, priv, options);
 }
 
 struct xlator_fops fops;
