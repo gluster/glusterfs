@@ -39,11 +39,11 @@
 #define GLFS_MSGID_COMP_RPC_LIB_END        GLFS_MSGID_COMP_RPC_LIB + \
                                            GLFS_MSGID_SEGMENT
 
-#define GLFS_MSGID_COMP_RPC_TRANSPORT      GLFS_MSGID_COMP_RPC_LIB_END
-#define GLFS_MSGID_COMP_RPC_TRANSPORT_END  GLFS_MSGID_COMP_RPC_TRANSPORT + \
-                                           GLFS_MSGID_SEGMENT
+#define GLFS_MSGID_COMP_RPC_TRANS_RDMA     GLFS_MSGID_COMP_RPC_LIB_END
+#define GLFS_MSGID_COMP_RPC_TRANS_RDMA_END (GLFS_MSGID_COMP_RPC_TRANS_RDMA + \
+                                           GLFS_MSGID_SEGMENT)
 
-#define GLFS_MSGID_COMP_API                GLFS_MSGID_COMP_RPC_TRANSPORT_END
+#define GLFS_MSGID_COMP_API                GLFS_MSGID_COMP_RPC_TRANS_RDMA_END
 #define GLFS_MSGID_COMP_API_END            GLFS_MSGID_COMP_API + \
                                            GLFS_MSGID_SEGMENT
 
@@ -79,6 +79,34 @@
 #define GLFS_MSGID_COMP_NFS                GLFS_MSGID_COMP_UPCALL_END
 #define GLFS_MSGID_COMP_NFS_END            (GLFS_MSGID_COMP_NFS +\
                                            GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_POSIX              GLFS_MSGID_COMP_NFS_END
+#define GLFS_MSGID_COMP_POSIX_END          (GLFS_MSGID_COMP_POSIX +\
+                                           GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_PC                 GLFS_MSGID_COMP_POSIX_END
+#define GLFS_MSGID_COMP_PC_END             (GLFS_MSGID_COMP_PC +\
+                                           GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_PS                 GLFS_MSGID_COMP_PC_END
+#define GLFS_MSGID_COMP_PS_END             (GLFS_MSGID_COMP_PS +\
+                                           GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_PERF               GLFS_MSGID_COMP_PS_END
+#define GLFS_MSGID_COMP_PERF_END           (GLFS_MSGID_COMP_PERF +\
+                                           GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_CHANGELOG          GLFS_MSGID_COMP_PERF_END
+#define GLFS_MSGID_COMP_CHANGELOG_END      (GLFS_MSGID_COMP_CHANGELOG +\
+                                           GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_BITROT             GLFS_MSGID_COMP_CHANGELOG_END
+#define GLFS_MSGID_COMP_BITROT_END         (GLFS_MSGID_COMP_BITROT +\
+                                           GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_RPC_TRANS_SOCKET        GLFS_MSGID_COMP_NFS_END
+#define GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END    (GLFS_MSGID_COMP_RPC_TRANS_SOCKET + \
+                                                GLFS_MSGID_SEGMENT)
 
 /* --- new segments for messages goes above this line --- */
 
