@@ -130,6 +130,31 @@ enum _gf_xlator_ipc_targets {
 typedef enum _gf_boolean gf_boolean_t;
 typedef enum _gf_client_pid gf_client_pid_t;
 typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
+
+/* The DHT file rename operation is not a straightforward rename.
+ * It involves creating linkto and linkfiles, and can unlink or rename the
+ * source file depending on the hashed and cached subvols for the source
+ * and target files. this makes it difficult for geo-rep to figure out that
+ * a rename operation has taken place.
+ *
+ * We now send a special key and the values of the source and target pargfids
+ * and basenames to indicate to changelog that the operation in question
+ * should be treated as a rename. We are explicitly filling and sending this
+ * as a binary value in the dictionary as the unlink op will not have the
+ * source file information. The lengths of the src and target basenames
+ * are used to calculate where to start reading the names in the structure.
+ * XFS allows a max of 255 chars for filenames but other file systems might
+ * not have such restrictions
+ */
+typedef struct dht_changelog_rename_info {
+         uuid_t  old_pargfid;
+         uuid_t  new_pargfid;
+         int32_t oldname_len;
+         int32_t newname_len;
+         char    buffer[1];
+ } dht_changelog_rename_info_t;
+
+
 typedef int (*gf_cmp) (void *, void *);
 
 void gf_global_variable_init(void);
