@@ -939,7 +939,7 @@ cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
         if (ret)
                 goto out;
 
-        ret = dict_set_int32 (options, "type", type);
+        ret = dict_set_int32 (options, "hot-type", type);
         if (ret)
                 goto out;
 
