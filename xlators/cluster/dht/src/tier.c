@@ -389,7 +389,7 @@ static int
 tier_gf_query_callback (gfdb_query_record_t *gfdb_query_record,
                         void *_args) {
         int ret = -1;
-        char gfid_str[UUID_CANONICAL_FORM_LEN] = "";
+        char gfid_str[UUID_CANONICAL_FORM_LEN+1] = "";
         query_cbk_args_t *query_cbk_args = _args;
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
