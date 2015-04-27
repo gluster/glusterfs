@@ -25,6 +25,9 @@ enum br_mem_types {
         gf_br_mt_br_tbf_t,
         gf_br_mt_br_tbf_bucket_t,
         gf_br_mt_br_tbf_throttle_t,
+        gf_br_mt_br_tbf_opspec_t,
+        gf_br_mt_br_scrubber_t,
+        gf_br_mt_br_fsscan_entry_t,
         gf_br_stub_mt_end
 };
 

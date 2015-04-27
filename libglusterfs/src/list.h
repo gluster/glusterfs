@@ -214,6 +214,20 @@ static inline void list_replace_init(struct list_head *old,
 	INIT_LIST_HEAD(old);
 }
 
+/**
+ * list_rotate_left - rotate the list to the left
+ * @head: the head of the list
+ */
+static inline void list_rotate_left (struct list_head *head)
+{
+	struct list_head *first;
+
+	if (!list_empty (head)) {
+		first = head->next;
+		list_move_tail (first, head);
+	}
+}
+
 #define list_entry(ptr, type, member)					\
 	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
 

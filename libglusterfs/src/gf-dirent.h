@@ -61,6 +61,8 @@ struct _gf_dirent_t {
 #define DT_ISDIR(mode) (mode == DT_DIR)
 
 gf_dirent_t *gf_dirent_for_name (const char *name);
+gf_dirent_t *entry_copy (gf_dirent_t *source);
+void gf_dirent_entry_free (gf_dirent_t *entry);
 void gf_dirent_free (gf_dirent_t *entries);
 int gf_link_inodes_from_dirent (xlator_t *this, inode_t *parent,
                                 gf_dirent_t *entries);
