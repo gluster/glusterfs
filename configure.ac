@@ -13,7 +13,7 @@ AC_INIT([glusterfs],
 AC_SUBST([PACKAGE_RELEASE],
          [m4_esyscmd([build-aux/pkg-version --release])])
 
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE(tar-pax)
 
 # Removes warnings when using automake 1.14 around (...but option 'subdir-objects' is disabled )
 #but libglusterfs fails to build with contrib (Then are not set up that way?)
