@@ -994,7 +994,7 @@ static int
 tier_load_externals (xlator_t *this)
 {
         int               ret            = -1;
-        char *libpathfull = (LIBDIR "/libgfdb.so." LIBGFDB_VERSION);
+        char *libpathfull = (LIBDIR "/libgfdb.so");
         get_gfdb_methods_t get_gfdb_methods;
 
         GF_VALIDATE_OR_GOTO("this", this, out);
