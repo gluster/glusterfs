@@ -140,6 +140,7 @@
 #define GLUSTERFS_VERSION_XCHG_KEY     "glusterfs.version.xchg"
 
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
+#define DHT_CHANGELOG_RENAME_OP_KEY   "changelog.rename-op"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15

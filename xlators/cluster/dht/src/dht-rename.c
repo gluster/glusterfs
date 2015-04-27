@@ -319,6 +319,56 @@ err:
                           NULL, NULL);
         return 0;
 }
+
+
+
+static int
+dht_rename_track_for_changelog (xlator_t *this, dict_t *xattr,
+                                loc_t *oldloc, loc_t *newloc)
+{
+        int ret        = -1;
+        dht_changelog_rename_info_t *info = NULL;
+        char *name     = NULL;
+        int len1       = 0;
+        int len2       = 0;
+        int size       = 0;
+
+        if (!xattr || !oldloc || !newloc || !this)
+                return ret;
+
+        len1 = strlen (oldloc->name) + 1;
+        len2 = strlen (newloc->name) + 1;
+        size = sizeof (dht_changelog_rename_info_t) + len1 + len2;
+
+        info = GF_CALLOC (size, sizeof(char), gf_common_mt_char);
+        if (!info) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to calloc memory");
+                return ret;
+        }
+
+        gf_uuid_copy (info->old_pargfid, oldloc->pargfid);
+        gf_uuid_copy (info->new_pargfid, newloc->pargfid);
+
+        info->oldname_len = len1;
+        info->newname_len = len2;
+        strncpy (info->buffer, oldloc->name, len1);
+        name = info->buffer + len1;
+        strncpy (name, newloc->name, len2);
+
+        ret = dict_set_bin (xattr, DHT_CHANGELOG_RENAME_OP_KEY,
+                            info, size);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value: key = %s,"
+                        " path = %s", DHT_CHANGELOG_RENAME_OP_KEY,
+                        oldloc->name);
+        }
+        return ret;
+}
+
+
 #define DHT_MARK_FOP_INTERNAL(xattr) do {                                      \
                 int tmp = -1;                                                  \
                 if (!xattr) {                                                  \
@@ -353,6 +403,32 @@ err:
                                 local->loc.path);                             \
                 }                                                              \
         }while (0)
+
+
+#define DHT_CHANGELOG_TRACK_AS_RENAME(xattr, oldloc, newloc) do {            \
+                int tmp = -1;                                                \
+                if (!xattr) {                                                \
+                        xattr = dict_new ();                                 \
+                        if (!xattr) {                                        \
+                                gf_msg (this->name, GF_LOG_ERROR, 0,         \
+                                        DHT_MSG_DICT_SET_FAILED,             \
+                                        "Failed to create dictionary to "    \
+                                        "track rename");                     \
+                                break;                                       \
+                        }                                                    \
+                }                                                            \
+                                                                             \
+                tmp = dht_rename_track_for_changelog (this, xattr,           \
+                                oldloc, newloc);                             \
+                                                                             \
+                if (tmp) {                                                   \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,                 \
+                                DHT_MSG_DICT_SET_FAILED,                     \
+                                "Failed to set dictionary value: key = %s,"  \
+                                " path = %s", DHT_CHANGELOG_RENAME_OP_KEY,   \
+                                (oldloc)->path);                             \
+                }                                                            \
+        } while (0)
 
 int
 dht_rename_unlock_cbk (call_frame_t *frame, void *cookie,
@@ -745,6 +821,8 @@ err:
                         DHT_MARKER_DONT_ACCOUNT(xattr_new);
                 }
 
+                DHT_CHANGELOG_TRACK_AS_RENAME(xattr_new, &local->loc,
+                                              &local->loc2);
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             src_cached, src_cached->fops->unlink,
                             &local->loc, 0, xattr_new);
@@ -829,6 +907,10 @@ dht_do_rename (call_frame_t *frame)
 
         if ((src_cached != dst_hashed) && (rename_subvol == dst_hashed)) {
                 DHT_MARKER_DONT_ACCOUNT(dict);
+        }
+
+        if (rename_subvol == src_cached) {
+                DHT_CHANGELOG_TRACK_AS_RENAME(dict, &local->loc, &local->loc2);
         }
 
         gf_msg_trace (this->name, 0,
