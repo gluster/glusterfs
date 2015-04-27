@@ -920,9 +920,11 @@ cli_cmd_volume_detach_tier_cbk (struct cli_state *state,
                 goto out;
 
         ret = cli_cmd_volume_detach_tier_parse(words, wordcount, &options);
-
-        if (ret)
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
+        }
 
         ret = dict_set_int32 (options, "force", 1);
         if (ret)

@@ -1588,9 +1588,6 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         int32_t  command = GF_OP_CMD_NONE;
         int      force = 0;
 
-        if (!((wordcount == 4) || (wordcount == 5)))
-                goto out;
-
         dict = dict_new ();
         if (!dict)
                 goto out;
@@ -1599,10 +1596,23 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
+        if (wordcount == 3 && !strcmp ((char *)words[2], "help")) {
+                return -1;
+        }
+
+        if (!((wordcount == 4) || (wordcount == 5))) {
+                ret = -1;
+                goto out;
+        }
+
         if (wordcount == 5) {
                 word = (char *)words[4];
                 if (!strcmp(word, "force"))
                         force = 1;
+                else {
+                        ret = -1;
+                        goto out;
+                }
         }
 
         word = (char *)words[3];
