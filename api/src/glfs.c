@@ -965,7 +965,7 @@ glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
                 return 0;
 
         /* For all the graphs, crawl through the xlator_t structs and free
-         * all its members except for the mem_acct.rec member,
+         * all its members except for the mem_acct member,
          * as GF_FREE will be referencing it.
          */
         list_for_each_entry_safe (trav_graph, tmp, &ctx->graphs, list) {

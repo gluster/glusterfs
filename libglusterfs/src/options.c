@@ -1019,7 +1019,7 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
         THIS = xlator;
 
         /* Need this here, as this graph has not yet called init() */
-        if (!xlator->mem_acct.num_types) {
+        if (!xlator->mem_acct) {
                 if (!xlator->mem_acct_init)
                         xlator->mem_acct_init = default_mem_acct_init;
                 xlator->mem_acct_init (xlator);

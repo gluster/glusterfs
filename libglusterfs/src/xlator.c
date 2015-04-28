@@ -509,16 +509,22 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         if (!xl->ctx->mem_acct_enable)
                 return 0;
 
-        xl->mem_acct.num_types = num_types;
 
-        xl->mem_acct.rec = CALLOC(num_types, sizeof(struct mem_acct_rec));
+        xl->mem_acct = MALLOC (sizeof(struct mem_acct)
+                               + sizeof(struct mem_acct_rec) * num_types);
 
-        if (!xl->mem_acct.rec) {
+        if (!xl->mem_acct) {
                 return -1;
         }
+        memset (xl->mem_acct, 0, sizeof(struct mem_acct));
+
+        xl->mem_acct->num_types = num_types;
+        LOCK_INIT (&xl->mem_acct->lock);
+        xl->mem_acct->refcnt = 1;
 
         for (i = 0; i < num_types; i++) {
-                ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
+                memset (&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
+                ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
                 if (ret) {
                         fprintf(stderr, "Unable to lock..errno : %d",errno);
                 }
@@ -559,17 +565,22 @@ xlator_list_destroy (xlator_list_t *list)
 static int
 xlator_memrec_free (xlator_t *xl)
 {
-        uint32_t i = 0;
+        uint32_t        i               = 0;
+        struct mem_acct *mem_acct       = NULL;
 
-        if (!xl)
+        if (!xl) {
                 return 0;
+        }
+        mem_acct = xl->mem_acct;
 
-        if (xl->mem_acct.rec) {
-                for (i = 0; i < xl->mem_acct.num_types; i++) {
-                        LOCK_DESTROY (&(xl->mem_acct.rec[i].lock));
+        if (mem_acct) {
+                for (i = 0; i < mem_acct->num_types; i++) {
+                        LOCK_DESTROY (&(mem_acct->rec[i].lock));
                 }
-                FREE (xl->mem_acct.rec);
-                xl->mem_acct.rec = NULL;
+                if (DECREMENT_ATOMIC (mem_acct->lock, mem_acct->refcnt) == 0) {
+                        FREE (mem_acct);
+                        xl->mem_acct = NULL;
+                }
         }
 
         return 0;
@@ -653,7 +664,6 @@ xlator_tree_free_memacct (xlator_t *tree)
 {
         xlator_t *trav = tree;
         xlator_t *prev = tree;
-        int          i = 0;
 
         if (!tree) {
                 gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
@@ -662,13 +672,7 @@ xlator_tree_free_memacct (xlator_t *tree)
 
         while (prev) {
                 trav = prev->next;
-                if (prev->mem_acct.rec) {
-                        for (i = 0; i < prev->mem_acct.num_types; i++) {
-                                LOCK_DESTROY (&(prev->mem_acct.rec[i].lock));
-                        }
-                        FREE (prev->mem_acct.rec);
-                }
-                GF_FREE (prev);
+                xlator_memrec_free (prev);
                 prev = trav;
         }
 
