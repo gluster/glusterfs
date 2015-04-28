@@ -164,7 +164,8 @@ function run_tests()
         return $match
     }
     RES=0
-    for t in $(find ${regression_testsdir}/tests | LC_COLLATE=C sort) ; do
+    for t in $(find ${regression_testsdir}/tests | grep -v geo-rep \
+    | LC_COLLATE=C sort) ; do
         if match $t "$@" ; then
             if [ -d $t ] ; then
                 echo "Running tests in directory $t"
@@ -193,20 +194,22 @@ function run_tests()
 function is_bad_test ()
 {
     local name=$1
-    for bt in ./tests/basic/volume-snapshot-clone.t \
-              ./tests/basic/uss.t                   \
-              ./tests/features/glupy.t; do
+    for bt in ./tests/basic/volume-snapshot-clone.t	\
+    	      ./tests/basic/uss.t			\
+              ./tests/basic/ec/ec-12-4.t                \
+	      ./tests/features/glupy.t; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
-    return 1                              # bash: non-zero means false/failure
+    return 1				  # bash: non-zero means false/failure
 }
 
 function run_all ()
 {
     find ${regression_testsdir}/tests -name '*.t' \
+    | grep -v geo-rep \
     | LC_COLLATE=C sort \
     | while read t; do
-        old_cores=$(ls /core.* 2> /dev/null | wc -l)
+	old_cores=$(ls /core.* 2> /dev/null | wc -l)
         retval=0
         prove -f --timer $t
         TMP_RES=$?
@@ -221,11 +224,11 @@ function run_all ()
             retval=$((retval+2))
         fi
         if [ $retval -ne 0 ]; then
-            if is_bad_test $t; then
-                echo  "Ignoring failure from known-bad test $t"
-            else
-                return $retval
-            fi
+	    if is_bad_test $t; then
+		echo  "Ignoring failure from known-bad test $t"
+	    else
+		return $retval
+	    fi
         fi
     done
 }
