@@ -30,6 +30,8 @@ gitclean: distclean
 	-rm -f $(CONTRIBDIR)/argp-standalone/aclocal.m4
 	-rm -f $(CONTRIBDIR)/argp-standalone/config.h.in
 	-rm -f $(CONTRIBDIR)/argp-standalone/configure
+	-rm -f $(CONTRIBDIR)/argp-standalone/config.status
+	-rm -f $(CONTRIBDIR)/argp-standalone/config.log
 	-rm -f $(CONTRIBDIR)/argp-standalone/depcomp
 	-rm -fr $(CONTRIBDIR)/argp-standalone/.deps
 	-rm -f $(CONTRIBDIR)/argp-standalone/install-sh
