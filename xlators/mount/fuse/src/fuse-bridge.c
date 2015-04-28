@@ -1253,13 +1253,15 @@ fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR");
 
                 send_fuse_err (this, finh, 0);
-        } else if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, op_errno)) {
-                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRIu64": %s() %s => -1 (%s)",
-                        frame->root->unique,
-                        gf_fop_list[frame->root->op],
-                        state->loc.path ? state->loc.path : "ERR",
-                        strerror (op_errno));
+        } else {
+                if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, op_errno)) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "%"PRIu64": %s() %s => -1 (%s)",
+                                frame->root->unique,
+                                gf_fop_list[frame->root->op],
+                                state->loc.path ? state->loc.path : "ERR",
+                                strerror (op_errno));
+                }
 
                 send_fuse_err (this, finh, op_errno);
         }
