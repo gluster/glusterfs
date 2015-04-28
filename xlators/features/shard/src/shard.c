@@ -494,6 +494,12 @@ shard_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         uint64_t           block_size = 0;
         shard_local_t     *local      = NULL;
 
+        if (IA_ISDIR (loc->inode->ia_type)) {
+                STACK_WIND (frame, default_stat_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->stat, loc, xdata);
+                return 0;
+        }
+
         ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
@@ -537,6 +543,12 @@ shard_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         int                ret        = -1;
         uint64_t           block_size = 0;
         shard_local_t     *local      = NULL;
+
+        if (IA_ISDIR (fd->inode->ia_type)) {
+                STACK_WIND (frame, default_fstat_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD (this)->fops->fstat, fd, xdata);
+                return 0;
+        }
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
