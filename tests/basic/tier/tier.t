@@ -59,11 +59,12 @@ PROMOTE_TIMEOUT=5
 MIGRATION_TIMEOUT=10
 cleanup
 
-
 TEST glusterd
 TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
+# testing bug 1215122, ie should fail if replica count and bricks are not compatible.
+TEST ! $CLI volume attach-tier $V0 replica 5 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 TEST $CLI volume start $V0
 TEST $CLI volume set $V0 features.ctr-enabled on
