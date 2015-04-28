@@ -172,7 +172,7 @@ typedef struct {
         gf_store_handle_t         *missed_snaps_list_shandle;
         struct cds_list_head       missed_snaps_list;
         int                        ping_timeout;
-        uint64_t                   generation;
+        uint32_t                   generation;
 } glusterd_conf_t;
 
 
