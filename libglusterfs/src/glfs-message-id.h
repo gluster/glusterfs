@@ -104,9 +104,14 @@
 #define GLFS_MSGID_COMP_BITROT_END         (GLFS_MSGID_COMP_BITROT +\
                                            GLFS_MSGID_SEGMENT)
 
-#define GLFS_MSGID_COMP_RPC_TRANS_SOCKET        GLFS_MSGID_COMP_NFS_END
+#define GLFS_MSGID_COMP_RPC_TRANS_SOCKET        GLFS_MSGID_COMP_BITROT_END
 #define GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END    (GLFS_MSGID_COMP_RPC_TRANS_SOCKET + \
                                                 GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_QUOTA           GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END
+#define GLFS_MSGID_COMP_QUOTA_END       (GLFS_MSGID_COMP_QUOTA +\
+                                        GLFS_MSGID_SEGMENT)
+
 
 /* --- new segments for messages goes above this line --- */
 
