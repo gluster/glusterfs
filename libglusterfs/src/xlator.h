@@ -889,7 +889,7 @@ struct _xlator {
         inode_table_t      *itable;
         char                init_succeeded;
         void               *private;
-        struct mem_acct     mem_acct;
+        struct mem_acct    *mem_acct;
         uint64_t            winds;
         char                switched;
 

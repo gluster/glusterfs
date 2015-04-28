@@ -225,29 +225,29 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
         if (!xl)
                 return;
 
-        if (!xl->mem_acct.rec)
+        if (!xl->mem_acct)
                 return;
 
         gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
-        gf_proc_dump_write ("num_types", "%d", xl->mem_acct.num_types);
+        gf_proc_dump_write ("num_types", "%d", xl->mem_acct->num_types);
 
-        for (i = 0; i < xl->mem_acct.num_types; i++) {
-                if (!(memcmp (&xl->mem_acct.rec[i], &rec,
+        for (i = 0; i < xl->mem_acct->num_types; i++) {
+                if (!(memcmp (&xl->mem_acct->rec[i], &rec,
                               sizeof (struct mem_acct))))
                         continue;
 
                 gf_proc_dump_add_section ("%s.%s - usage-type %s memusage",
                                           xl->type, xl->name,
-                                          xl->mem_acct.rec[i].typestr);
-                gf_proc_dump_write ("size", "%u", xl->mem_acct.rec[i].size);
+                                          xl->mem_acct->rec[i].typestr);
+                gf_proc_dump_write ("size", "%u", xl->mem_acct->rec[i].size);
                 gf_proc_dump_write ("num_allocs", "%u",
-                                    xl->mem_acct.rec[i].num_allocs);
+                                    xl->mem_acct->rec[i].num_allocs);
                 gf_proc_dump_write ("max_size", "%u",
-                                    xl->mem_acct.rec[i].max_size);
+                                    xl->mem_acct->rec[i].max_size);
                 gf_proc_dump_write ("max_num_allocs", "%u",
-                                    xl->mem_acct.rec[i].max_num_allocs);
+                                    xl->mem_acct->rec[i].max_num_allocs);
                 gf_proc_dump_write ("total_allocs", "%u",
-                                    xl->mem_acct.rec[i].total_allocs);
+                                    xl->mem_acct->rec[i].total_allocs);
         }
 
         return;
@@ -261,29 +261,29 @@ gf_proc_dump_xlator_mem_info_only_in_use (xlator_t *xl)
         if (!xl)
                 return;
 
-        if (!xl->mem_acct.rec)
+        if (!xl->mem_acct->rec)
                 return;
 
         gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
-        gf_proc_dump_write ("num_types", "%d", xl->mem_acct.num_types);
+        gf_proc_dump_write ("num_types", "%d", xl->mem_acct->num_types);
 
-        for (i = 0; i < xl->mem_acct.num_types; i++) {
-                if (!xl->mem_acct.rec[i].size)
+        for (i = 0; i < xl->mem_acct->num_types; i++) {
+                if (!xl->mem_acct->rec[i].size)
                         continue;
 
                 gf_proc_dump_add_section ("%s.%s - usage-type %d", xl->type,
                                           xl->name,i);
 
                 gf_proc_dump_write ("size", "%u",
-                                    xl->mem_acct.rec[i].size);
+                                    xl->mem_acct->rec[i].size);
                 gf_proc_dump_write ("max_size", "%u",
-                                    xl->mem_acct.rec[i].max_size);
+                                    xl->mem_acct->rec[i].max_size);
                 gf_proc_dump_write ("num_allocs", "%u",
-                                    xl->mem_acct.rec[i].num_allocs);
+                                    xl->mem_acct->rec[i].num_allocs);
                 gf_proc_dump_write ("max_num_allocs", "%u",
-                                    xl->mem_acct.rec[i].max_num_allocs);
+                                    xl->mem_acct->rec[i].max_num_allocs);
                 gf_proc_dump_write ("total_allocs", "%u",
-                                    xl->mem_acct.rec[i].total_allocs);
+                                    xl->mem_acct->rec[i].total_allocs);
         }
 
         return;
