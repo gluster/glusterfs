@@ -835,6 +835,53 @@ out:
 }
 
 int
+cli_tier_validate_replica_type (dict_t *dict, int type)
+{
+
+        int             brick_count             = -1;
+        int             replica_count           = 1;
+        int             ret                     = -1;
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to get brick count");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "replica-count", &replica_count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_DEBUG, "Failed to get replica count. "
+                        "Defaulting to one");
+                replica_count = 1;
+        }
+
+        /*
+         * Change the calculation of sub_count once attach-tier support
+         * disperse volume.
+         * sub_count = disperse_count for disperse volume
+         * */
+
+
+        if (brick_count % replica_count) {
+             if (type == GF_CLUSTER_TYPE_REPLICATE)
+                     cli_err ("number of bricks is not a multiple of "
+                              "replica count");
+             else if (type == GF_CLUSTER_TYPE_DISPERSE)
+                     cli_err ("number of bricks is not a multiple of "
+                              "disperse count");
+             else
+                     cli_err ("number of bricks given doesn't match "
+                              "required count");
+
+             ret = -1;
+             goto out;
+     }
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
                                 struct cli_cmd_word *word, const char **words,
                                 int wordcount)
@@ -854,6 +901,16 @@ cli_cmd_volume_attach_tier_cbk (struct cli_state *state,
                 goto out;
 
         ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options, &type);
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        /*
+         * Merge this check when attach-tier has it's own cli parse function.
+         */
+        ret = cli_tier_validate_replica_type (options, type);
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
