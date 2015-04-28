@@ -264,6 +264,10 @@ def _get_args():
                             type=str, default='changelog')
     parser_pre.add_argument("--output-prefix", help="File prefix in output",
                             default=".")
+    parser_pre.add_argument("--regenerate-outfile",
+                            help="Regenerate outfile, discard the outfile "
+                            "generated from last pre command",
+                            action="store_true")
 
     # post <SESSION> <VOLUME>
     parser_post = subparsers.add_parser('post')
@@ -380,6 +384,11 @@ def mode_pre(session_dir, args):
     status_file_pre = status_file + ".pre"
 
     mkdirp(os.path.dirname(args.outfile), exit_on_err=True, logger=logger)
+
+    # If Pre status file exists and running pre command again
+    if os.path.exists(status_file_pre) and not args.regenerate_outfile:
+        fail("Post command is not run after last pre, "
+             "use --regenerate-outfile")
 
     start = 0
     try:
