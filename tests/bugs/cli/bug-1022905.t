@@ -24,9 +24,6 @@ TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 ## Reset cmd resets only unprotected option(s), succeeds.
 TEST $CLI volume reset $V0;
 
-## Reset should fail
-TEST ! $CLI volume reset $V0;
-
 ## Set an unprotected option
 TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 
