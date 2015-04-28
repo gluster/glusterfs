@@ -2749,8 +2749,13 @@ marker_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         parent = NULL;
                 }
 
-                ret = marker_inode_loc_fill (entry->inode,
-                                             entry->d_name, &loc);
+                if (parent) {
+                        ret = marker_inode_loc_fill (parent,
+                                                     entry->d_name, &loc);
+                } else {
+                        ret = marker_inode_loc_fill (entry->inode, NULL, &loc);
+                }
+
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING, "Couldn't build "
                                 "loc for %s/%s",
@@ -2797,8 +2802,9 @@ marker_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         list_for_each_entry (entry, &entries->list, list) {
-                if ((strcmp (entry->d_name, ".") == 0) ||
-                    (strcmp (entry->d_name, "..") == 0))
+                if ((strcmp (entry->d_name, ".") == 0)  ||
+                    (strcmp (entry->d_name, "..") == 0) ||
+                    entry->inode == NULL)
                         continue;
 
                 loc.parent = inode_ref (local->loc.inode);
