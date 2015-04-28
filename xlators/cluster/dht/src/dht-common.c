@@ -715,7 +715,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                if (stbuf->ia_type != local->inode->ia_type) {
+                if ((!IA_ISINVAL(local->inode->ia_type)) &&
+                    stbuf->ia_type != local->inode->ia_type) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_FILE_TYPE_MISMATCH,
                                 "mismatching filetypes 0%o v/s 0%o for %s,"
@@ -727,6 +728,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = EINVAL;
 
                         goto unlock;
+
                 }
 
                 layout = local->layout;
