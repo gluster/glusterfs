@@ -56,6 +56,10 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int              cli_op_ret;
 extern int              connected;
 
+int32_t
+gf_cli_remove_brick (call_frame_t *frame, xlator_t *this,
+                     void *data);
+
 char *cli_vol_type_str[] = {"Distribute",
                             "Stripe",
                             "Replicate",
@@ -741,7 +745,7 @@ xml_output:
                 // Distributed (stripe/replicate/stripe-replica) setups
                 if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
                     (dist_count < brick_count))
-                       vol_type = type + 5;
+                       vol_type = type + GF_CLUSTER_TYPE_MAX - 1;
 
                 cli_out ("Volume Name: %s", volname);
                 cli_out ("Type: %s", cli_vol_type_str[vol_type]);
@@ -1355,11 +1359,14 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
                 /* Check if status is NOT_STARTED, and continue early */
                 memset (key, 0, 256);
                 snprintf (key, 256, "status-%d", i);
+
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret) {
+                        gf_log ("cli", GF_LOG_TRACE, "count %d %d", count, i);
                         gf_log ("cli", GF_LOG_TRACE, "failed to get status");
                         goto out;
                 }
+
                 if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
                         continue;
 
@@ -2245,6 +2252,7 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         switch (cmd) {
+        case GF_OP_CMD_DETACH_START:
         case GF_OP_CMD_START:
                 cmd_str = "start";
 
@@ -3913,30 +3921,7 @@ int32_t
 gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
-        gf_cli_req              req =  {{0,} };
-        int                     ret = 0;
-        dict_t                  *dict = NULL;
-        char                    *volname = NULL;
-
-        if (!frame || !this ||  !data) {
-                ret = -1;
-                goto out;
-        }
-
-        dict = data;
-
-        ret = cli_to_glusterd (&req, frame, gf_cli_remove_brick_cbk,
-                              (xdrproc_t) xdr_gf_cli_req, dict,
-                               GLUSTER_CLI_DETACH_TIER, this,
-                               cli_rpc_prog, NULL);
-
-
-out:
-        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
-
-        GF_FREE (req.dict.dict_val);
-
-        return ret;
+        return gf_cli_remove_brick(frame, this, data);
 }
 
 
@@ -7065,7 +7050,11 @@ gf_cli_status_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         status.brick = GF_CALLOC (1, PATH_MAX + 256, gf_common_mt_strdup);
-
+        if (!status.brick) {
+                errno   = ENOMEM;
+                ret     = -1;
+                goto out;
+        }
         switch (cmd & GF_CLI_STATUS_MASK) {
                 case GF_CLI_STATUS_MEM:
                         cli_print_volume_status_mem (dict, notbrick);
@@ -9831,9 +9820,8 @@ gf_cli_get_vol_opt_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 } else {
                         cli_err ("%s", msg);
                 }
-                ret = 0; /* setting ret to 0 ensures we do not end up displaying
-                            double error messages */
-                goto out;
+                ret = rsp.op_ret;
+                goto out_nolog;
         }
         dict = dict_new ();
 
@@ -9901,6 +9889,8 @@ out:
                 cli_out ("volume get option failed. Check the cli/glusterd log "
                          "file for more details");
         }
+
+out_nolog:
         if (dict)
                 dict_unref (dict);
         free (rsp.op_errstr);

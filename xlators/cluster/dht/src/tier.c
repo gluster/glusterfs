@@ -389,7 +389,7 @@ static int
 tier_gf_query_callback (gfdb_query_record_t *gfdb_query_record,
                         void *_args) {
         int ret = -1;
-        char gfid_str[UUID_CANONICAL_FORM_LEN] = "";
+        char gfid_str[UUID_CANONICAL_FORM_LEN+1] = "";
         query_cbk_args_t *query_cbk_args = _args;
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
@@ -678,7 +678,7 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
         char           *rv        = NULL;
         char           *rh        = NULL;
         char           localhost[256] = {0};
-        char           *db_path = "";
+        char           *db_path = NULL;
         char           *brickname = NULL;
         char            db_name[PATH_MAX] = "";
         int             ret = 0;
@@ -730,6 +730,8 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
                 ret = tier_get_bricklist(child->xlator, bricklist);
         }
 out:
+        GF_FREE (db_path);
+
         return ret;
 }
 
@@ -791,6 +793,15 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                                 DHT_MSG_LOG_TIER_ERROR,
                                 "defrag->defrag_status != "
                                 "GF_DEFRAG_STATUS_STARTED");
+                        goto out;
+                }
+
+                if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+                        ret = 1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_LOG_TIER_ERROR,
+                                "defrag->defrag_cmd == "
+                                "GF_DEFRAG_CMD_START_DETACH_TIER");
                         goto out;
                 }
 
@@ -893,15 +904,19 @@ tier_migration_get_dst (xlator_t *this, dht_local_t *local)
 {
         dht_conf_t              *conf   = NULL;
         int32_t                  ret = -1;
+        gf_defrag_info_t        *defrag = NULL;
 
         GF_VALIDATE_OR_GOTO("tier", this, out);
         GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
         conf = this->private;
-        if (!conf)
-                goto out;
 
-        if (conf->subvolumes[0] == local->cached_subvol)
+        defrag = conf->defrag;
+
+        if (defrag && defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
+                local->rebalance.target_node = conf->subvolumes[0];
+
+        } else if (conf->subvolumes[0] == local->cached_subvol)
                 local->rebalance.target_node =
                         conf->subvolumes[1];
         else
@@ -918,16 +933,25 @@ out:
 xlator_t *
 tier_search (xlator_t *this, dht_layout_t *layout, const char *name)
 {
-        xlator_t  *subvol = NULL;
-        void      *value;
-        int        search_first_subvol = 0;
+        xlator_t                *subvol = NULL;
+        void                    *value;
+        int                      search_first_subvol = 0;
+        dht_conf_t              *conf   = NULL;
+        gf_defrag_info_t        *defrag = NULL;
 
         GF_VALIDATE_OR_GOTO("tier", this, out);
         GF_VALIDATE_OR_GOTO(this->name, layout, out);
         GF_VALIDATE_OR_GOTO(this->name, name, out);
+        GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-        if (!dict_get_ptr (this->options, "rule", &value) &&
-            !strcmp(layout->list[0].xlator->name, value)) {
+        conf = this->private;
+
+        defrag = conf->defrag;
+        if (defrag && defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
+                search_first_subvol = 1;
+
+        else if (!dict_get_ptr (this->options, "rule", &value) &&
+                 !strcmp(layout->list[0].xlator->name, value)) {
                 search_first_subvol = 1;
         }
 

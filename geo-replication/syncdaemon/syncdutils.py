@@ -16,7 +16,6 @@ import fcntl
 import shutil
 import logging
 import socket
-from subprocess import Popen, PIPE
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED
 from errno import EINTR, ENOENT, EPERM, ESTALE, errorcode
@@ -216,8 +215,6 @@ def finalize(*a, **kw):
         except:
             if sys.exc_info()[0] == OSError:
                 pass
-
-    # TODO: Clean up mgmt volume mount point only monitor dies
 
     if gconf.log_exit:
         logging.info("exiting.")
@@ -487,7 +484,7 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[ESTALE]):
             if nr_tries == GF_OP_RETRIES:
                 # probably a screwed state, cannot do much...
                 logging.warn('reached maximum retries (%s)...' % repr(arg))
-                return
+                return ex.errno
             time.sleep(0.250)  # retry the call
 
 

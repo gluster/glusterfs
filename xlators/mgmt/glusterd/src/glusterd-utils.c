@@ -2730,6 +2730,7 @@ glusterd_spawn_daemons (void *opaque)
         gf_boolean_t    start_bricks = !conf->restart_done;
         int             ret             = -1;
 
+        synclock_lock (&conf->big_lock);
         if (start_bricks) {
                 glusterd_restart_bricks (conf);
                 conf->restart_done = _gf_true;
@@ -4535,6 +4536,12 @@ glusterd_restart_gsyncds (glusterd_conf_t *conf)
         return ret;
 }
 
+int
+glusterd_calc_dist_leaf_count (int rcount, int scount)
+{
+        return (rcount ? rcount : 1) * (scount ? scount : 1);
+}
+
 inline int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
 {
@@ -4544,7 +4551,7 @@ glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo)
     if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)
         return volinfo->disperse_count;
 
-    return (rcount ? rcount : 1) * (scount ? scount : 1);
+    return glusterd_calc_dist_leaf_count (rcount, scount);
 }
 
 int
@@ -5258,6 +5265,10 @@ out:
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
 {
+        /* Defrag is never enabled for tiered volumes. */
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                return 0;
+
         return (volinfo->rebal.defrag != NULL);
 }
 
@@ -6018,6 +6029,7 @@ glusterd_recreate_volfiles (glusterd_conf_t *conf)
         int                      op_ret = 0;
 
         GF_ASSERT (conf);
+
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 ret = generate_brick_volfiles (volinfo);
                 if (ret) {
@@ -9085,7 +9097,8 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
         this = THIS;
         priv = this->private;
 
-        synclock_lock (&priv->big_lock);
+        /* synclock_lock must be called from within synctask, @fn must call it before
+         * it starts with its work*/
         ret = synctask_new (this->ctx->env, fn, gd_default_synctask_cbk, NULL,
                             opaque);
         if (ret)
@@ -9298,7 +9311,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
                 if (!all_opts && strcmp (vme->key, input_key))
                         continue;
-
                 key_found = _gf_true;
                 /* First look for the key in the vol_dict, if its not
                  * present then look for translator default value */

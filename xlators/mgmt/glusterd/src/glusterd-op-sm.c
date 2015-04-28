@@ -77,6 +77,11 @@ static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
 
+int
+glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
+                                         struct cds_list_head *selected);
+
+
 int32_t
 glusterd_txn_opinfo_dict_init ()
 {
@@ -662,6 +667,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         char                            *val_dup                = NULL;
         char                            str[100]                = {0, };
         char                            *trash_path             = NULL;
+        int                             trash_path_len          = 0;
         int                             count                   = 0;
         int                             dict_count              = 0;
         char                            errstr[2048]            = {0, };
@@ -983,9 +989,14 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                              brick_list) {
                                 /* Check for local brick */
                                 if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
-                                        trash_path = gf_strdup (brickinfo->path);
-                                        strcat(trash_path, "/");
-                                        strcat(trash_path, value);
+                                        trash_path_len = strlen (value) +
+                                                   strlen (brickinfo->path) + 2;
+                                        trash_path = GF_CALLOC (1,
+                                                     trash_path_len,
+                                                     gf_common_mt_char);
+                                        snprintf (trash_path, trash_path_len,
+                                                  "%s/%s", brickinfo->path,
+                                                  value);
 
                                         /* Checks whether a directory with
                                            given option exists or not */
@@ -1015,6 +1026,11 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                                 ret = -1;
                                                 goto out;
                                         }
+                                }
+                                if (trash_path) {
+                                         GF_FREE (trash_path);
+                                         trash_path = NULL;
+                                         trash_path_len = 0;
                                 }
                         }
                 } else if (!strcmp(key, "features.trash-dir") && !trash_enabled) {
@@ -5161,8 +5177,8 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
         int32_t                                 i = 1;
         char                                    key[256] = {0,};
         glusterd_pending_node_t                 *pending_node = NULL;
+        int32_t                                 command = 0;
         int32_t                                 force = 0;
-
 
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -5184,6 +5200,15 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
                 gf_log ("", GF_LOG_ERROR, "Unable to get count");
                 goto out;
         }
+
+        ret = dict_get_int32 (dict, "command", &command);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get command");
+                goto out;
+        }
+
+        if (command == GF_OP_CMD_DETACH_START)
+                return glusterd_bricks_select_rebalance_volume(dict, op_errstr, selected);
 
         ret = dict_get_int32 (dict, "force", &force);
         if (ret) {
@@ -5863,7 +5888,7 @@ out:
 
 }
 
-static int
+int
 glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
                                          struct cds_list_head *selected)
 {
@@ -5900,7 +5925,7 @@ glusterd_bricks_select_rebalance_volume (dict_t *dict, char **op_errstr,
         } else {
                 pending_node->node = volinfo;
                 pending_node->type = GD_NODE_REBALANCE;
-                cds_list_add_tail (&pending_node->list, &opinfo.pending_bricks);
+                cds_list_add_tail (&pending_node->list, selected);
                 pending_node = NULL;
         }
 
@@ -6899,6 +6924,6 @@ int
 glusterd_op_sm_init ()
 {
         CDS_INIT_LIST_HEAD (&gd_op_sm_queue);
-        synclock_init (&gd_op_sm_lock);
+        synclock_init (&gd_op_sm_lock, SYNC_LOCK_DEFAULT);
         return 0;
 }

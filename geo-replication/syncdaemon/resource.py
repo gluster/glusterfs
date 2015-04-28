@@ -607,6 +607,19 @@ class Server(object):
                     er = errno_wrap(os.rmdir, [entry], [ENOENT, ENOTEMPTY])
                     if er == ENOTEMPTY:
                         return er
+
+        def collect_failure(e, cmd_ret):
+            # We do this for failing fops on Slave
+            # Master should be logging this
+            if cmd_ret == EEXIST:
+                disk_gfid = cls.gfid_mnt(e['entry'])
+                if isinstance(disk_gfid, basestring):
+                    if e['gfid'] != disk_gfid:
+                        failures.append((e, cmd_ret, disk_gfid))
+            else:
+                failures.append((e, cmd_ret))
+
+        failures = []
         for e in entries:
             blob = None
             op = e['op']
@@ -644,7 +657,10 @@ class Server(object):
                     (pg, bname) = entry2pb(entry)
                     blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
-                    errno_wrap(os.link, [slink, entry], [ENOENT, EEXIST])
+                    cmd_ret = errno_wrap(os.link,
+                                         [slink, entry],
+                                         [ENOENT, EEXIST])
+                    collect_failure(e, cmd_ret)
             elif op == 'SYMLINK':
                 blob = entry_pack_symlink(gfid, bname, e['link'], e['stat'])
             elif op == 'RENAME':
@@ -655,16 +671,22 @@ class Server(object):
                         (pg, bname) = entry2pb(en)
                         blob = entry_pack_reg_stat(gfid, bname, e['stat'])
                 else:
-                    errno_wrap(os.rename, [entry, en], [ENOENT, EEXIST])
+                    cmd_ret = errno_wrap(os.rename,
+                                         [entry, en],
+                                         [ENOENT, EEXIST])
+                    collect_failure(e, cmd_ret)
             if blob:
-                errno_wrap(Xattr.lsetxattr,
-                           [pg, 'glusterfs.gfid.newfile', blob],
-                           [EEXIST],
-                           [ENOENT, ESTALE, EINVAL])
+                cmd_ret = errno_wrap(Xattr.lsetxattr,
+                                     [pg, 'glusterfs.gfid.newfile', blob],
+                                     [EEXIST],
+                                     [ENOENT, ESTALE, EINVAL])
+                collect_failure(e, cmd_ret)
+        return failures
 
     @classmethod
     def meta_ops(cls, meta_entries):
         logging.debug('Meta-entries: %s' % repr(meta_entries))
+        failures = []
         for e in meta_entries:
             mode = e['stat']['mode']
             uid = e['stat']['uid']
@@ -672,10 +694,18 @@ class Server(object):
             atime = e['stat']['atime']
             mtime = e['stat']['mtime']
             go = e['go']
-            errno_wrap(os.chmod, [go, mode], [ENOENT], [ESTALE, EINVAL])
+            cmd_ret = errno_wrap(os.chmod, [go, mode],
+                                 [ENOENT], [ESTALE, EINVAL])
+            # This is a fail fast mechanism
+            # We do this for failing fops on Slave
+            # Master should be logging this
+            if isinstance(cmd_ret, int):
+                failures.append((e, cmd_ret))
+                continue
             errno_wrap(os.chown, [go, uid, gid], [ENOENT], [ESTALE, EINVAL])
             errno_wrap(os.utime, [go, (atime, mtime)],
                        [ENOENT], [ESTALE, EINVAL])
+        return failures
 
     @classmethod
     @_pathguard
@@ -1339,10 +1369,9 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                 register_time = int(time.time())
                 g2.register(register_time, changelog_agent)
                 g3.register(register_time, changelog_agent)
-            except ChangelogException:
-                changelog_register_failed = True
-                register_time = None
-                logging.info("Changelog register failed, fallback to xsync")
+            except ChangelogException as e:
+                logging.error("Changelog register failed, %s" % e)
+                sys.exit(1)
 
             g1.register()
             logging.info("Register time: %s" % register_time)
@@ -1351,31 +1380,23 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             # Note: if config.change_detector is xsync then
             # it will not use changelog history api
             try:
-                if not changelog_register_failed:
-                    g3.crawlwrap(oneshot=True)
-                else:
-                    g1.crawlwrap(oneshot=True)
-            except (ChangelogException, PartialHistoryAvailable,
-                    NoPurgeTimeAvailable) as e:
-                if isinstance(e, ChangelogException):
-                    logging.info('Changelog history crawl failed, fallback '
-                                 'to xsync: %s - %s' % (e.errno, e.strerror))
-                elif isinstance(e, PartialHistoryAvailable):
-                    logging.info('Partial history available, using xsync crawl'
-                                 ' after consuming history '
-                                 'till %s' % str(e))
+                g3.crawlwrap(oneshot=True)
+            except PartialHistoryAvailable as e:
+                logging.info('Partial history available, using xsync crawl'
+                             ' after consuming history till %s' % str(e))
                 g1.crawlwrap(oneshot=True, register_time=register_time)
-
-            # crawl loop: Try changelog crawl, if failed
-            # switch to FS crawl
-            try:
-                if not changelog_register_failed:
-                    g2.crawlwrap()
-                else:
-                    g1.crawlwrap()
+            except NoPurgeTimeAvailable:
+                logging.info('No stime available, using xsync crawl')
+                g1.crawlwrap(oneshot=True, register_time=register_time)
             except ChangelogException as e:
-                logging.info('Changelog crawl failed, fallback to xsync')
-                g1.crawlwrap()
+                logging.error("Changelog History Crawl failed, %s" % e)
+                sys.exit(1)
+
+            try:
+                g2.crawlwrap()
+            except ChangelogException as e:
+                logging.error("Changelog crawl failed, %s" % e)
+                sys.exit(1)
         else:
             sup(self, *args)
 

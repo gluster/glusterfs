@@ -256,6 +256,10 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                                 dict_t **options, int *type);
 
 int32_t
+cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
+                                  dict_t **options);
+
+int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                                    dict_t **options, int *question);
 

@@ -948,6 +948,12 @@ nfs_init_state (xlator_t *this)
                         gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
                         goto free_foppool;
                 }
+
+                /* check if writing the rmtab is disabled*/
+                if (nfs->rmtab && strcmp ("/-", nfs->rmtab) == 0) {
+                        GF_FREE (nfs->rmtab);
+                        nfs->rmtab = NULL;
+                }
         }
 
         /* support both options rpc-auth.ports.insecure and
@@ -1176,7 +1182,13 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 }
                 gf_path_strip_trailing_slashes (rmtab);
         }
-        if (strcmp (nfs->rmtab, rmtab) != 0) {
+        /* check if writing the rmtab is disabled*/
+        if (strcmp ("/-", rmtab) == 0) {
+                GF_FREE (nfs->rmtab);
+                nfs->rmtab = NULL;
+                gf_log (GF_NFS, GF_LOG_INFO,
+                                "Disabled writing of nfs.mount-rmtab");
+        } else if (!nfs->rmtab || strcmp (nfs->rmtab, rmtab) != 0) {
                 mount_rewrite_rmtab (nfs->mstate, rmtab);
                 gf_log (GF_NFS, GF_LOG_INFO,
                                 "Reconfigured nfs.mount-rmtab path: %s",
@@ -1914,7 +1926,8 @@ struct volume_options options[] = {
                          "list all the NFS-clients that have connected "
                          "through the MOUNT protocol. If this is on shared "
                          "storage, all GlusterFS servers will update and "
-                         "output (with 'showmount') the same list."
+                         "output (with 'showmount') the same list. Set to "
+                         "\"/-\" to disable."
         },
         { .key = {OPT_SERVER_RPC_STATD},
           .type = GF_OPTION_TYPE_PATH,

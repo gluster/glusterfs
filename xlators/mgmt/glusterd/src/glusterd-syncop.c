@@ -406,14 +406,12 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
                                         gd_syncop_mgmt_v3_lock_cbk,
                                         (xdrproc_t)
                                         xdr_gd1_mgmt_v3_lock_req);
-        synclock_lock (&conf->big_lock);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -503,14 +501,12 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_UNLOCK,
                                         gd_syncop_mgmt_v3_unlock_cbk,
                                         (xdrproc_t)
                                         xdr_gd1_mgmt_v3_unlock_req);
-        synclock_lock (&conf->big_lock);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -598,13 +594,11 @@ gd_syncop_mgmt_lock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         gf_uuid_copy (req.uuid, my_uuid);
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_LOCK,
                                         gd_syncop_mgmt_lock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
-        synclock_lock (&conf->big_lock);
         return ret;
 }
 
@@ -689,13 +683,11 @@ gd_syncop_mgmt_unlock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         gf_uuid_copy (req.uuid, my_uuid);
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_UNLOCK,
                                         gd_syncop_mgmt_unlock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
-        synclock_lock (&conf->big_lock);
         return ret;
 }
 
@@ -826,12 +818,10 @@ gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, req, args, &peerid,
                                         &gd_mgmt_prog, GLUSTERD_MGMT_STAGE_OP,
                                         gd_syncop_stage_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_stage_op_req);
-        synclock_lock (&conf->big_lock);
 out:
         gd_stage_op_req_free (req);
         return ret;
@@ -1108,12 +1098,10 @@ gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
-        synclock_unlock (&conf->big_lock);
         ret = gd_syncop_submit_request (peerinfo->rpc, req, args, &peerid,
                                         &gd_mgmt_prog, GLUSTERD_MGMT_COMMIT_OP,
                                         gd_syncop_commit_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_commit_op_req);
-        synclock_lock (&conf->big_lock);
 out:
         gd_commit_op_req_free (req);
         return ret;
@@ -1596,6 +1584,7 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         rpc_clnt_t              *rpc = NULL;
         dict_t                  *rsp_dict = NULL;
         glusterd_conf_t         *conf = NULL;
+        int32_t                 cmd = GF_OP_CMD_NONE;
 
         this = THIS;
         conf = this->private;
@@ -1639,8 +1628,24 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                                 "due to rpc failure.");
                         goto out;
                 }
+
+                /* Redirect operation to be detach tier via rebalance flow. */
+                ret = dict_get_int32 (req_dict, "command", &cmd);
+                if (!ret) {
+                        if (cmd == GF_OP_CMD_DETACH_START) {
+                                op = GD_OP_REBALANCE;
+                                ret = dict_set_int32 (req_dict, "rebalance-command",
+                                                      GF_DEFRAG_CMD_START_DETACH_TIER);
+                                if (ret)
+                                        goto out;
+                        }
+                }
                 ret = gd_syncop_mgmt_brick_op (rpc, pending_node, op, req_dict,
                                                op_ctx, op_errstr);
+                if (cmd == GF_OP_CMD_DETACH_START) {
+                        op = GD_OP_REMOVE_BRICK;
+                        dict_del (req_dict, "rebalance-command");
+                }
                 if (ret)
                         goto out;
 

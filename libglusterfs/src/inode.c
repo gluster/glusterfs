@@ -1898,14 +1898,16 @@ __inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 goto out;
 
         if (inode->_ctx[index].value1) {
-                if (value1)
+                if (value1) {
                         *value1 = inode->_ctx[index].value1;
-                ret = 0;
+                        ret = 0;
+                }
         }
         if (inode->_ctx[index].value2) {
-                if (value2)
+                if (value2) {
                         *value2 = inode->_ctx[index].value2;
-                ret = 0;
+                        ret = 0;
+                }
         }
 out:
         return ret;

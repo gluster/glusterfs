@@ -202,6 +202,15 @@ struct glusterd_brickinfo {
         char vg[PATH_MAX]; /* FIXME: Use max size for length of vg */
         int     caps; /* Capability */
         int32_t            snap_status;
+        /*
+         * The group is used to identify which bricks are part of the same
+         * replica set during brick-volfile generation, so that NSR volfiles
+         * can "cross-connect" the bricks to one another. It is also used by
+         * AFR to load the arbiter xlator in the appropriate brick in case of
+         * a replica 3 volume with arbiter enabled.
+         */
+        uint16_t           group;
+
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;

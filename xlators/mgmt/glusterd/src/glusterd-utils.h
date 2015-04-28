@@ -378,6 +378,9 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                            dict_t *vol_opts);
 
 int
+glusterd_calc_dist_leaf_count (int rcount, int scount);
+
+int
 glusterd_get_dist_leaf_count (glusterd_volinfo_t *volinfo);
 
 glusterd_brickinfo_t*

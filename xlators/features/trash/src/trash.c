@@ -750,6 +750,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char               *dir_name           = NULL;
         char               *tmp_cookie         = NULL;
         loc_t              tmp_loc             = {0,};
+        dict_t             *new_xdata          = NULL;
         char               *tmp_stat           = NULL;
         char               real_path[PATH_MAX] = {0,};
         int                ret                 = 0;
@@ -829,14 +830,69 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        /**********************************************************************
+         *
+         * CTR Xlator message handling done here!
+         *
+         **********************************************************************/
+        /**
+         * If unlink is handled by trash translator, it should inform the
+         * CTR Xlator. And trash translator only handles the unlink for
+         * the last hardlink.
+         *
+         * Check if there is a CTR_REQUEST_LINK_COUNT_XDATA from CTR Xlator
+         *
+         */
+
+        if (local->ctr_link_count_req) {
+
+                /* Sending back inode link count to ctr_unlink
+                 * (changetimerecoder xlator) via
+                 * "CTR_RESPONSE_LINK_COUNT_XDATA" key using xdata.
+                 * */
+                if (xdata) {
+                        ret = dict_set_uint32 (xdata,
+                                               CTR_RESPONSE_LINK_COUNT_XDATA,
+                                               1);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to set"
+                                        " CTR_RESPONSE_LINK_COUNT_XDATA");
+                        }
+                } else {
+                        new_xdata = dict_new ();
+                        if (!new_xdata) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Memory allocation failure while "
+                                        "creating new_xdata");
+                                goto ctr_out;
+                        }
+                        ret = dict_set_uint32 (new_xdata,
+                                               CTR_RESPONSE_LINK_COUNT_XDATA,
+                                               1);
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to set"
+                                        " CTR_RESPONSE_LINK_COUNT_XDATA");
+                        }
+ctr_out:
+                        TRASH_STACK_UNWIND (unlink, frame, 0, op_errno,
+                                            &local->preparent,
+                                            &local->postparent, new_xdata);
+                        goto out;
+                }
+         }
         /* All other cases, unlink should return success */
         TRASH_STACK_UNWIND (unlink, frame, 0, op_errno, &local->preparent,
                             &local->postparent, xdata);
 out:
+
         if (tmp_str)
                 GF_FREE (tmp_str);
         if (tmp_cookie)
                 GF_FREE (tmp_cookie);
+        if (new_xdata)
+                dict_unref (new_xdata);
 
         return ret;
 }
@@ -938,6 +994,7 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
         trash_private_t         *priv           = NULL;
         trash_local_t           *local          = NULL;/* files inside trash */
         int32_t                 match           = 0;
+        int32_t                 ctr_link_req    = 0;
         char                    *pathbuf        = NULL;
         int                     ret             = 0;
 
@@ -1033,6 +1090,15 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
                             xdata);
                 goto out;
         }
+
+        /* To know whether CTR xlator requested for the link count */
+        ret = dict_get_int32 (xdata, CTR_REQUEST_LINK_COUNT_XDATA,
+                              &ctr_link_req);
+        if (ret) {
+                local->ctr_link_count_req = _gf_false;
+                ret = 0;
+        } else
+                local->ctr_link_count_req = _gf_true;
 
         LOCK_INIT (&frame->lock);
 
@@ -1559,6 +1625,10 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Creating vaild parent and pargfids for both files */
 
+        if (dir_entry == NULL) {
+                ret = EINVAL;
+                goto out;
+        }
         local->loc.parent = inode_ref (dir_entry->parent);
         gf_uuid_copy (local->loc.pargfid, dir_entry->parent->gfid);
 
@@ -1916,6 +1986,12 @@ reconfigure (xlator_t *this, dict_t *options)
                                 goto out;
                         }
                         frame = create_frame (this, this->ctx->pool);
+                        if (frame == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                                "failed to create frame");
+                                ret = ENOMEM;
+                                goto out;
+                        }
 
                         /* assign new location values to new_loc members */
                         gf_uuid_copy (new_loc.gfid, trash_gfid);
@@ -1960,8 +2036,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->rename,
                                     &old_loc, &new_loc, options);
-                        if (priv->oldtrash_dir)
-                                GF_FREE (priv->oldtrash_dir);
+                        GF_FREE (priv->oldtrash_dir);
 
                         priv->oldtrash_dir = gf_strdup(priv->newtrash_dir);
                         if (!priv->oldtrash_dir) {
@@ -2038,6 +2113,13 @@ notify (xlator_t *this, int event, void *data, ...)
         /* Check whether posix is up not */
         if (event == GF_EVENT_CHILD_UP) {
                 frame = create_frame(this, this->ctx->pool);
+                if (frame == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to create frame");
+                        ret = ENOMEM;
+                        goto out;
+                }
+
                 dict = dict_new ();
                 if (!dict) {
                         ret = ENOMEM;
@@ -2067,6 +2149,10 @@ notify (xlator_t *this, int event, void *data, ...)
                         loc_wipe (&loc);
                 }
 
+                if (priv->oldtrash_dir == NULL) {
+                        ret = EINVAL;
+                        goto out;
+                }
                 if (strcmp (priv->oldtrash_dir, priv->newtrash_dir) == 0) {
                         gf_log (this->name, GF_LOG_DEBUG, "Creating trash "
                                            "directory %s from notify",
@@ -2163,8 +2249,7 @@ notify (xlator_t *this, int event, void *data, ...)
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->rename,
                                     &old_loc, &loc, dict);
-                        if (priv->oldtrash_dir)
-                                GF_FREE (priv->oldtrash_dir);
+                        GF_FREE (priv->oldtrash_dir);
 
                         priv->oldtrash_dir = gf_strdup(priv->newtrash_dir);
                         if (!priv->oldtrash_dir) {

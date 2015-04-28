@@ -5,7 +5,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
-	-DSBIN_DIR=\"$(sbindir)\"
+	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel
 
 libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
@@ -22,12 +22,13 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/rbtree/rb.c rbthash.c store.c latency.c \
 	graph.c syncop.c graph-print.c trie.c run.c options.c fd-lk.c \
 	circ-buff.c event-history.c gidcache.c ctx.c client_t.c event-poll.c \
-	event-epoll.c syncop-utils.c $(CONTRIBDIR)/libgen/basename_r.c \
+	event-epoll.c syncop-utils.c cluster-syncop.c \
+	$(CONTRIBDIR)/libgen/basename_r.c \
 	$(CONTRIBDIR)/libgen/dirname_r.c $(CONTRIBDIR)/stdlib/gf_mkostemp.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
-	$(CONTRIBDIR)/timer-wheel/find_last_bit.c
+	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c
 
@@ -38,14 +39,16 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	fd.h revision.h compat-errno.h event.h mem-pool.h byte-order.h \
 	gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h \
 	checksum.h daemon.h $(CONTRIBDIR)/rbtree/rb.h store.h\
-	rbthash.h iatt.h latency.h mem-types.h syncop.h graph-utils.h trie.h \
+	rbthash.h iatt.h latency.h mem-types.h syncop.h cluster-syncop.h \
+	graph-utils.h trie.h \
 	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
 	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
 	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	unittest/unittest.h quota-common-utils.h rot-buffs.h \
-	$(CONTRIBDIR)/timer-wheel/timer-wheel.h compat-uuid.h
+	$(CONTRIBDIR)/timer-wheel/timer-wheel.h compat-uuid.h \
+	tw.h
 
 if !HAVE_LIBUUID
 # FIXME: unbundle libuuid, see compat-uuid.h.

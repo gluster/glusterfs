@@ -13,7 +13,7 @@ AC_INIT([glusterfs],
 AC_SUBST([PACKAGE_RELEASE],
          [m4_esyscmd([build-aux/pkg-version --release])])
 
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE(tar-pax)
 
 # Removes warnings when using automake 1.14 around (...but option 'subdir-objects' is disabled )
 #but libglusterfs fails to build with contrib (Then are not set up that way?)
@@ -1269,15 +1269,15 @@ AC_SUBST(GLUSTERFSD_MISCDIR)
 
 dnl pkg-config versioning
 dnl
-dnl Once we released gluster-api.pc with version=4. Since then we undid the
+dnl Once we released gluster-api.pc with version=7. Since then we undid the
 dnl library versioning and replaced it with symbol-versioning. The current
 dnl libgfapi.so has version 0, but the symbols have the version from the main
 dnl package at the time they were added.
 dnl
 dnl Because other packages (like samba) use the pkg-config version, we can not
 dnl drop it, or decrease the version easily. The simplest solution is to keep
-dnl the version=4 and add sub-digits for the actual package/symbol versions.
-GFAPI_VERSION="4."${PACKAGE_VERSION}
+dnl the version=7 and add sub-digits for the actual package/symbol versions.
+GFAPI_VERSION="7."${PACKAGE_VERSION}
 LIBGFCHANGELOG_VERSION="0.0.1"
 AC_SUBST(GFAPI_VERSION)
 AC_SUBST(LIBGFCHANGELOG_VERSION)

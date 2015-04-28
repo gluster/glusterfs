@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libgfapi.la
-noinst_HEADERS = glfs-mem-types.h glfs-internal.h
+noinst_HEADERS = glfs-mem-types.h glfs-internal.h gfapi-messages.h
 libgfapi_HEADERS = glfs.h glfs-handles.h
 libgfapidir = $(includedir)/glusterfs/api
 

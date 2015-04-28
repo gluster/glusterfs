@@ -454,9 +454,23 @@ class GMasterCommon(object):
         """Take management volume lock """
         bname = str(gconf.volume_id) + "_subvol_" + str(gconf.subvol_num) \
             + ".lock"
-        path = os.path.join(gconf.working_dir, gconf.meta_volume, bname)
+        mgmt_lock_dir = os.path.join(gconf.meta_volume_mnt, "geo-rep")
+        path = os.path.join(mgmt_lock_dir, bname)
         logging.debug("lock_file_path: %s" % path)
-        fd = os.open(path, os.O_CREAT | os.O_RDWR)
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_RDWR)
+        except OSError:
+            ex = sys.exc_info()[1]
+            if ex.errno == ENOENT:
+                logging.info("Creating geo-rep directory in meta volume...")
+                try:
+                    os.makedirs(mgmt_lock_dir)
+                except OSError:
+                    ex = sys.exc_info()[1]
+                    if ex.errno == EEXIST:
+                        pass
+                    else:
+                        raise
         try:
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except:
@@ -472,16 +486,12 @@ class GMasterCommon(object):
 
 
     def should_crawl(self):
-        if not gconf.meta_volume:
+        if not gconf.use_meta_volume:
             return gconf.glusterd_uuid in self.master.server.node_uuid()
 
-        mgmt_mnt = os.path.join(gconf.working_dir, gconf.meta_volume)
-        if not os.path.ismount(mgmt_mnt):
-            po = Popen(["mount", "-t", "glusterfs", "localhost:%s"
-                        % gconf.meta_volume, mgmt_mnt], stdout=PIPE,
-                       stderr=PIPE)
-            po.wait()
-            po.terminate_geterr()
+        if not os.path.ismount(gconf.meta_volume_mnt):
+            logging.error("Meta-volume is not mounted. Worker Exiting...")
+            sys.exit(1)
         return self.mgmt_lock()
 
 
@@ -800,6 +810,7 @@ class GMasterChangelogMixin(GMasterCommon):
     # index for change type and entry
     IDX_START = 0
     IDX_END = 2
+    UNLINK_ENTRY = 2
 
     POS_GFID = 0
     POS_TYPE = 1
@@ -916,6 +927,12 @@ class GMasterChangelogMixin(GMasterCommon):
         def purge_update():
             files_pending['purge'] += 1
 
+        def log_failures(failures, entry_key, gfid_prefix, log_prefix):
+            for failure in failures:
+                st = lstat(os.path.join(gfid_prefix, failure[0][entry_key]))
+                if not isinstance(st, int):
+                    logging.warn('%s FAILED: %s' % (log_prefix, repr(failure)))
+
         for e in clist:
             e = e.strip()
             et = e[self.IDX_START:self.IDX_END]   # entry type
@@ -934,14 +951,20 @@ class GMasterChangelogMixin(GMasterCommon):
                 gfid = ec[self.POS_GFID]
 
                 if ty in ['UNLINK', 'RMDIR']:
+                    # The index of PARGFID/BNAME for UNLINK, RMDIR
+                    # is no more the last index. It varies based on
+                    # changelog.capture-del-path is enabled or not.
+                    en = unescape(os.path.join(pfx, ec[self.UNLINK_ENTRY]))
+
                     # Remove from DATA list, so that rsync will
                     # not fail
                     pt = os.path.join(pfx, ec[0])
                     if pt in datas:
                         datas.remove(pt)
 
-                    purge_update()
-                    entries.append(edct(ty, gfid=gfid, entry=en))
+                    if not boolify(gconf.ignore_deletes):
+                        purge_update()
+                        entries.append(edct(ty, gfid=gfid, entry=en))
                 elif ty in ['CREATE', 'MKDIR', 'MKNOD']:
                     entry_update()
                     # stat information present in the changelog itself
@@ -1012,7 +1035,8 @@ class GMasterChangelogMixin(GMasterCommon):
             self.update_worker_cumilitive_status(files_pending)
         # sync namespace
         if entries:
-            self.slave.server.entry_ops(entries)
+            failures = self.slave.server.entry_ops(entries)
+            log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
         # sync metadata
         if meta_gfid:
             meta_entries = []
@@ -1026,7 +1050,8 @@ class GMasterChangelogMixin(GMasterCommon):
                     continue
                 meta_entries.append(edct('META', go=go[0], stat=st))
             if meta_entries:
-                self.slave.server.meta_ops(meta_entries)
+                failures = self.slave.server.meta_ops(meta_entries)
+                log_failures(failures, 'go', '', 'META')
         # sync data
         if datas:
             self.a_syncdata(datas)

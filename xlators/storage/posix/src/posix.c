@@ -1652,11 +1652,12 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         if (!unwind_dict) {
                 op_ret = 0;
                  gf_log (this->name, GF_LOG_WARNING,
-                        "Failed to creating unwind_dict");
+                        "Memory allocation failure while "
+                        "creating unwind_dict");
                 goto out;
         }
-        /* Even if unwind_dict fails to set CTR_RESPONSE_LINK_COUNT_XDATA we will
-         * not mark the FOP unsuccessful
+        /* Even if unwind_dict fails to set CTR_RESPONSE_LINK_COUNT_XDATA we
+         * will not mark the FOP unsuccessful
          * because this dict is only used by CTR Xlator to clear
          * all records if link count == 0*/
         op_ret = dict_set_uint32 (unwind_dict, CTR_RESPONSE_LINK_COUNT_XDATA,
@@ -1676,6 +1677,11 @@ out:
 
         if (fd != -1) {
                 close (fd);
+        }
+
+        /* unref unwind_dict*/
+        if (unwind_dict) {
+                dict_unref (unwind_dict);
         }
 
         return 0;
@@ -4677,7 +4683,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                                                 "fgetxattr failed on gfid=%s "
                                                 "while doing xattrop: "
                                                 "Key:%s (%s)",
-                                                uuid_utoa (filler->fd->inode->gfid),
+                                                uuid_utoa (filler->inode->gfid),
                                                 k, strerror (op_errno));
                         }
 
@@ -4732,7 +4738,7 @@ unlock:
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsetxattr failed on gfid=%s while doing xattrop: "
                                 "key=%s (%s)",
-                                uuid_utoa (filler->fd->inode->gfid),
+                                uuid_utoa (filler->inode->gfid),
                                 k, strerror (op_errno));
 
                 op_ret = -1;
@@ -4750,7 +4756,7 @@ unlock:
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "dict_set_bin failed (gfid=%s): "
                                         "key=%s (%s)",
-                                        uuid_utoa (filler->fd->inode->gfid),
+                                        uuid_utoa (filler->inode->gfid),
                                         k, strerror (-size));
 
                         op_ret = -1;
