@@ -973,6 +973,9 @@ tier_search (xlator_t *this, dht_layout_t *layout, const char *name)
                 search_first_subvol = 1;
         }
 
+        if ((layout->list[0].err > 0) && (layout->list[0].err != ENOTCONN))
+                search_first_subvol = 0;
+
         if (search_first_subvol)
                 subvol = layout->list[0].xlator;
         else
