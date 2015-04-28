@@ -9091,7 +9091,7 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
         conf = this->private;
         GF_ASSERT (conf);
 
-        if (conf->op_version >= GD_OP_VERSION_3_6_0) {
+        if (conf->op_version >= GD_OP_VERSION_3_7_0) {
                 /* Set needed volume options in volinfo->dict
                  * For ex.,
                  *
@@ -9100,6 +9100,22 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
                  *      ...
                  * }
                  * */
+
+                /* readdir-ahead needs to be enabled for new volumes with
+                 * >= gluster version 3.7
+                 */
+                if (!option || !strcmp ("performance.readdir-ahead", option)) {
+                        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                        "performance.readdir-ahead", "on");
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Failed to set option "
+                                        "'performance.readdir-ahead' on volume "
+                                        "%s", volinfo->volname);
+                                goto out;
+                        }
+                }
+
         }
 out:
         return ret;
