@@ -151,6 +151,7 @@ typedef struct shard_local {
         off_t offset;
         size_t total_size;
         size_t written_size;
+        size_t hole_size;
         loc_t loc;
         loc_t dot_shard_loc;
         loc_t loc2;

@@ -1614,7 +1614,7 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this)
         if (!xattr_req)
                 goto err;
 
-        ret = shard_set_size_attrs (local->postbuf.ia_size,
+        ret = shard_set_size_attrs (local->postbuf.ia_size + local->hole_size,
                                     local->postbuf.ia_blocks, &size_attr);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to set size attrs for"
@@ -1673,7 +1673,7 @@ shard_writev_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = shard_call_count_return (frame);
         if (call_count == 0) {
                 if (local->op_ret < 0) {
-                        SHARD_STACK_UNWIND (writev, frame, local->op_ret,
+                        SHARD_STACK_UNWIND (writev, frame, local->written_size,
                                             local->op_errno, NULL, NULL, NULL);
                 } else {
                         if (xdata)
@@ -1793,6 +1793,13 @@ shard_post_lookup_writev_handler (call_frame_t *frame, xlator_t *this)
         }
 
         local->postbuf = local->prebuf;
+
+        /* At this point, calculate the size of the hole if it is going to be
+         * created as part of this write.
+         */
+        if (local->offset > local->prebuf.ia_size)
+                local->hole_size = local->offset - local->prebuf.ia_size;
+
         shard_writev_do (frame, this);
 
         return 0;
