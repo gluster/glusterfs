@@ -2171,6 +2171,68 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+         /* tiering related variables */
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_brick_count", prefix, count);
+        ret = dict_set_uint32 (dict, key, volinfo->tier_info.cold_brick_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_type", prefix, count);
+        ret = dict_set_uint32 (dict, key, volinfo->tier_info.cold_type);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_replica_count", prefix, count);
+        ret = dict_set_uint32 (dict, key,
+                               volinfo->tier_info.cold_replica_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_disperse_count", prefix, count);
+        ret = dict_set_uint32 (dict, key,
+                               volinfo->tier_info.cold_disperse_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_redundancy_count",
+                               prefix, count);
+        ret = dict_set_uint32 (dict, key,
+                               volinfo->tier_info.cold_redundancy_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_dist_count", prefix, count);
+        ret = dict_set_uint32 (dict, key,
+                               volinfo->tier_info.cold_dist_leaf_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.hot_brick_count", prefix, count);
+        ret = dict_set_uint32 (dict, key, volinfo->tier_info.hot_brick_count);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.hot_type", prefix, count);
+        ret = dict_set_uint32 (dict, key, volinfo->tier_info.hot_type);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.hot_replica_count", prefix, count);
+        ret = dict_set_uint32 (dict, key,
+                               volinfo->tier_info.hot_replica_count);
+        if (ret)
+                goto out;
+
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d", prefix, count);
         ret = gd_add_vol_snap_details_to_dict (dict, key, volinfo);
@@ -3169,6 +3231,98 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         if (ret)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "peer is possibly old version");
+
+        /* not having a 'hot_brick_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.hot_brick_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.hot_brick_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'hot_type' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.hot_type", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.hot_type);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'hot_replica_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.hot_replica_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.hot_replica_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'cold_brick_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_brick_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.cold_brick_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'cold_type' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_type", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.cold_type);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'cold_replica_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_replica_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.cold_replica_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'cold_disperse_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_disperse_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.cold_disperse_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'cold_redundancy_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_redundancy_count",
+                               prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.cold_redundancy_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
+        /* not having a 'cold_dist_count' key is not a error
+           (as peer may be of old version) */
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s%d.cold_dist_count", prefix, count);
+        ret = dict_get_int32 (peer_data, key,
+                              &new_volinfo->tier_info.cold_dist_leaf_count);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "peer is possibly old version");
+
         new_volinfo->subvol_count = new_volinfo->brick_count/
                                     glusterd_get_dist_leaf_count (new_volinfo);
         memset (key, 0, sizeof (key));
