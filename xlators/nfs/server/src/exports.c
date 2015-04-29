@@ -15,6 +15,7 @@
 #include "exports.h"
 #include "hashfn.h"
 #include "parse-utils.h"
+#include "nfs-messages.h"
 
 static void _exp_dict_destroy (dict_t *ng_dict);
 static void _export_options_print (const struct export_options *opts);
@@ -79,7 +80,7 @@ _exports_file_init ()
 
         file = GF_CALLOC (1, sizeof (*file), gf_common_mt_nfs_exports);
         if (!file) {
-                gf_log (GF_EXP, GF_LOG_CRITICAL,
+                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to allocate file struct!");
                 goto out;
         }
@@ -87,7 +88,8 @@ _exports_file_init ()
         file->exports_dict = dict_new ();
         file->exports_map = dict_new ();
         if (!file->exports_dict || !file->exports_map) {
-                gf_log (GF_EXP, GF_LOG_CRITICAL, "Failed to allocate dict!");
+                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to allocate dict!");
                 goto free_and_out;
         }
 
@@ -180,7 +182,7 @@ _export_dir_init ()
                                                 gf_common_mt_nfs_exports);
 
         if (!expdir)
-                gf_log (GF_EXP, GF_LOG_CRITICAL,
+                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to allocate export dir structure!");
 
         return expdir;
@@ -239,7 +241,7 @@ _export_item_init ()
                                               gf_common_mt_nfs_exports);
 
         if (!item)
-                gf_log (GF_EXP, GF_LOG_CRITICAL,
+                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to allocate export item!");
 
         return item;
@@ -278,7 +280,7 @@ _export_options_init ()
                                                  gf_common_mt_nfs_exports);
 
         if (!opts)
-                gf_log (GF_EXP, GF_LOG_CRITICAL,
+                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Failed to allocate options structure!");
 
         return opts;
@@ -665,6 +667,10 @@ __exp_line_opt_parse (const char *opt_str, struct export_options **exp_opts)
                                 goto out;
                         }
                 } else
+                        /* Cannot change to gf_msg.
+                         * gf_msg not giving output to STDOUT
+                         * Bug id : BZ1215017
+                         */
                         gf_log (GF_EXP, GF_LOG_WARNING,
                                 "Could not find any valid options for "
                                 "string: %s", strmatch);
@@ -1024,8 +1030,8 @@ __exp_line_dir_parse (const char *line, char **dirname, struct mount3_state *ms)
                  */
                 mnt3export = mnt3_mntpath_to_export (ms, dir, _gf_true);
                 if (!mnt3export) {
-                        gf_log (GF_EXP, GF_LOG_DEBUG, "%s not in mount state, "
-                                                      "ignoring!", dir);
+                        gf_msg_debug (GF_EXP, 0, "%s not in mount state, "
+                                      "ignoring!", dir);
                         ret = GF_EXP_PARSE_ITEM_NOT_IN_MOUNT_STATE;
                         goto out;
                 }
@@ -1131,8 +1137,8 @@ _exp_line_parse (const char *line, struct export_dir **dir,
         /* Get the directory string from the line */
         ret = __exp_line_dir_parse (line, &dirstr, ms);
         if (ret < 0) {
-                gf_log (GF_EXP, GF_LOG_ERROR, "Parsing directory failed: %s",
-                        strerror (-ret));
+                gf_msg (GF_EXP, GF_LOG_ERROR, 0, NFS_MSG_PARSE_DIR_FAIL,
+                        "Parsing directory failed: %s", strerror (-ret));
                 /* If parsing the directory failed,
                  * we should simply fail because there's
                  * nothing else we can extract from the string to make
@@ -1147,8 +1153,8 @@ _exp_line_parse (const char *line, struct export_dir **dir,
         /* Parse the netgroup part of the string */
         ret = __exp_line_ng_parse (line, &netgroups);
         if (ret < 0) {
-                gf_log (GF_EXP, GF_LOG_ERROR, "Critical error: %s",
-                        strerror (-ret));
+                gf_msg (GF_EXP, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
+                        "Critical error: %s", strerror (-ret));
                 /* Return values less than 0
                  * indicate critical failures (null parameters,
                  * failure to allocate memory, etc).
@@ -1157,6 +1163,10 @@ _exp_line_parse (const char *line, struct export_dir **dir,
         }
         if (ret != 0) {
                 if (ret == GF_EXP_PARSE_ITEM_FAILURE)
+                        /* Cannot change to gf_msg.
+                         * gf_msg not giving output to STDOUT
+                         * Bug id : BZ1215017
+                         */
                         gf_log (GF_EXP, GF_LOG_WARNING,
                                 "Error parsing netgroups for: %s", line);
                 /* Even though parsing failed for the netgroups we should let
@@ -1168,13 +1178,13 @@ _exp_line_parse (const char *line, struct export_dir **dir,
         /* Parse the host part of the string */
         ret = __exp_line_host_parse (line, &hosts);
         if (ret < 0) {
-                gf_log (GF_EXP, GF_LOG_ERROR, "Critical error: %s",
-                        strerror (-ret));
+                gf_msg (GF_EXP, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
+                        "Critical error: %s", strerror (-ret));
                 goto free_and_out;
         }
         if (ret != 0) {
                 if (ret == GF_EXP_PARSE_ITEM_FAILURE)
-                        gf_log (GF_EXP, GF_LOG_WARNING,
+                        gf_msg (GF_EXP, GF_LOG_WARNING, 0, NFS_MSG_PARSE_FAIL,
                                 "Error parsing hosts for: %s", line);
                 /* If netgroups parsing failed, AND
                  * host parsing failed, then theres something really
@@ -1210,8 +1220,8 @@ exp_dir_get_netgroup (const struct export_dir *expdir, const char *netgroup)
 
         dict_res = dict_get (expdir->netgroups, (char *)netgroup);
         if (!dict_res) {
-                gf_log (GF_EXP, GF_LOG_DEBUG, "%s not found for %s",
-                                netgroup, expdir->dir_name);
+                gf_msg_debug (GF_EXP, 0, "%s not found for %s",
+                              netgroup, expdir->dir_name);
         }
 
         lookup_res = (struct export_item *)dict_res->data;
@@ -1243,8 +1253,8 @@ exp_dir_get_host (const struct export_dir *expdir, const char *host)
 
         dict_res = dict_get (expdir->hosts, (char *)host);
         if (!dict_res) {
-                gf_log (GF_EXP, GF_LOG_DEBUG, "%s not found for %s",
-                        host, expdir->dir_name);
+                gf_msg_debug (GF_EXP, 0, "%s not found for %s",
+                              host, expdir->dir_name);
 
                 /* Check if wildcards are allowed for the host */
                 dict_res = dict_get (expdir->hosts, "*");
@@ -1294,8 +1304,8 @@ exp_file_get_dir (const struct exports_file *file, const char *dir)
 
         dict_res = dict_get (file->exports_dict, dirdup);
         if (!dict_res) {
-                gf_log (GF_EXP, GF_LOG_DEBUG, "%s not found in %s", dirdup,
-                        file->filename);
+                gf_msg_debug (GF_EXP, 0, "%s not found in %s", dirdup,
+                              file->filename);
                 goto out;
         }
 
@@ -1399,7 +1409,7 @@ exp_file_parse (const char *filepath, struct exports_file **expfile,
                 }
 
                 if (ret < 0) {
-                        gf_log (GF_EXP, GF_LOG_ERROR,
+                        gf_msg (GF_EXP, GF_LOG_ERROR, -ret, NFS_MSG_PARSE_FAIL,
                                 "Failed to parse line #%lu", line_number);
                         continue; /* Skip entering this line and continue */
                 }
@@ -1408,9 +1418,9 @@ exp_file_parse (const char *filepath, struct exports_file **expfile,
                         /* This just means the line was empty or started with a
                          * '#' or a ' ' and we are ignoring it.
                          */
-                        gf_log (GF_EXP, GF_LOG_DEBUG,
-                                "Ignoring line #%lu because it started "
-                                "with a %c", line_number, *line);
+                        gf_msg_debug (GF_EXP, 0,
+                                      "Ignoring line #%lu because it started "
+                                      "with a %c", line_number, *line);
                         continue;
                 }
 

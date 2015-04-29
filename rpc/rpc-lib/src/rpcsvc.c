@@ -179,13 +179,25 @@ rpcsvc_can_outstanding_req_be_ignored (rpcsvc_request_t *req)
 int
 rpcsvc_request_outstanding (rpcsvc_request_t *req, int delta)
 {
-        int ret = 0;
-        int old_count = 0;
-        int new_count = 0;
-        int limit = 0;
+        int             ret = -1;
+        int             old_count = 0;
+        int             new_count = 0;
+        int             limit = 0;
+        gf_boolean_t    throttle = _gf_false;
 
-        if (rpcsvc_can_outstanding_req_be_ignored (req))
-                return 0;
+        if (!req)
+                goto out;
+
+        throttle = rpcsvc_get_throttle (req->svc);
+        if (!throttle) {
+                ret = 0;
+                goto out;
+        }
+
+        if (rpcsvc_can_outstanding_req_be_ignored (req)) {
+                ret = 0;
+                goto out;
+        }
 
         pthread_mutex_lock (&req->trans->lock);
         {
@@ -206,6 +218,7 @@ rpcsvc_request_outstanding (rpcsvc_request_t *req, int delta)
 unlock:
         pthread_mutex_unlock (&req->trans->lock);
 
+out:
         return ret;
 }
 
@@ -2201,6 +2214,52 @@ rpcsvc_set_outstanding_rpc_limit (rpcsvc_t *svc, dict_t *options, int defvalue)
         }
 
         return (0);
+}
+
+/*
+ * Enable throttling for rpcsvc_t svc.
+ * Returns 0 on success, -1 otherwise.
+ */
+int
+rpcsvc_set_throttle_on (rpcsvc_t *svc)
+{
+
+        if (!svc)
+                return -1;
+
+        svc->throttle = _gf_true;
+
+        return 0;
+}
+
+/*
+ * Disable throttling for rpcsvc_t svc.
+ * Returns 0 on success, -1 otherwise.
+ */
+int
+rpcsvc_set_throttle_off (rpcsvc_t *svc)
+{
+
+        if (!svc)
+                return -1;
+
+        svc->throttle = _gf_false;
+
+        return 0;
+}
+
+/*
+ * Get throttle state for rpcsvc_t svc.
+ * Returns value of attribute throttle on success, _gf_false otherwise.
+ */
+gf_boolean_t
+rpcsvc_get_throttle (rpcsvc_t *svc)
+{
+
+        if (!svc)
+                return _gf_false;
+
+        return svc->throttle;
 }
 
 /* The global RPC service initializer.
