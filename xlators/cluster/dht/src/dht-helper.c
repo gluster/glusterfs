@@ -946,6 +946,28 @@ dht_migration_complete_check_task (void *data)
                         local->op_errno = EIO;
                         goto out;
                 }
+        } else {
+                tmp_loc.inode = inode;
+                gf_uuid_copy (tmp_loc.gfid, inode->gfid);
+                ret = syncop_lookup (dst_node, &tmp_loc, &stbuf, 0, 0, 0);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "%s: failed to lookup the file on %s",
+                                tmp_loc.path, dst_node->name);
+                        local->op_errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+
+                if (gf_uuid_compare (stbuf.ia_gfid, tmp_loc.inode->gfid)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_GFID_MISMATCH,
+                                "%s: gfid different on the target file on %s",
+                                tmp_loc.path, dst_node->name);
+                        ret = -1;
+                        local->op_errno = EIO;
+                        goto out;
+                }
         }
 
         /* update inode ctx (the layout) */
