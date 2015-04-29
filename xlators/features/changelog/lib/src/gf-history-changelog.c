@@ -477,6 +477,36 @@ out:
         return -1;
 }
 
+/*
+ * Description: Checks if the changelog path is usable or not,
+ *              which is differenciated by checking for "changelog"
+ *              in the path and not "CHANGELOG".
+ *
+ * Returns:
+ * 1 : Yes, usable ( contains "CHANGELOG" )
+ * 0 : No, Not usable ( contains, "changelog")
+ */
+int
+gf_is_changelog_usable (char *cl_path)
+{
+        int             ret             = -1;
+        const char      low_c[]         = "changelog";
+        char            *str_ret        = NULL;
+        char            *bname          = NULL;
+
+        bname = basename (cl_path);
+
+        str_ret = strstr (bname, low_c);
+
+        if (str_ret != NULL)
+                ret = 0;
+        else
+                ret = 1;
+
+        return ret;
+
+}
+
 void *
 gf_changelog_consume_wrap (void* data)
 {
@@ -499,15 +529,16 @@ gf_changelog_consume_wrap (void* data)
         }
 
         /* TODO: handle short reads and EOF. */
+        if (gf_is_changelog_usable (ccd->changelog) == 1) {
 
-        ret = gf_changelog_consume (ccd->this,
-                                    ccd->jnl, ccd->changelog, _gf_true);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "could not parse changelog: %s", ccd->changelog);
-                goto out;
+                ret = gf_changelog_consume (ccd->this,
+                                            ccd->jnl, ccd->changelog, _gf_true);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                               "could not parse changelog: %s", ccd->changelog);
+                        goto out;
+                }
         }
-
         ccd->retval = 0;
 
  out:
