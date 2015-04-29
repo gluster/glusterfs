@@ -72,13 +72,15 @@ pub_glfs_h_lookupat (struct glfs *fs, struct glfs_object *parent,
         struct glfs_object      *object = NULL;
         loc_t                    loc = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (path == NULL)) {
+        if (path == NULL) {
                 errno = EINVAL;
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -116,6 +118,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -130,13 +135,15 @@ pub_glfs_h_statfs (struct glfs *fs, struct glfs_object *object,
         inode_t         *inode = NULL;
         loc_t            loc = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
         if ((fs == NULL) || (object == NULL || statvfs == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -168,6 +175,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -182,13 +192,15 @@ pub_glfs_h_stat (struct glfs *fs, struct glfs_object *object, struct stat *stat)
         loc_t            loc = {0, };
         struct iatt      iatt = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
         if ((fs == NULL) || (object == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -224,6 +236,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -234,7 +249,7 @@ int
 pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
                      struct stat *stat)
 {
-        int                      ret = 0;
+        int                      ret = -1;
         xlator_t                *subvol = NULL;
         inode_t                 *inode = NULL;
         struct iatt              iatt = {0, };
@@ -245,7 +260,8 @@ pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -258,6 +274,7 @@ pub_glfs_h_getattrs (struct glfs *fs, struct glfs_object *object,
         /* get/refresh the in arg objects inode in correlation to the xlator */
         inode = glfs_resolve_inode (fs, subvol, object);
         if (!inode) {
+                ret = 0;
                 errno = ESTALE;
                 goto out;
         }
@@ -276,6 +293,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -296,8 +316,6 @@ glfs_h_getxattrs_common (struct glfs *fs, struct glfs_object *object,
                 errno = EINVAL;
                 return -1;
         }
-
-        __glfs_entry_fs (fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -336,7 +354,7 @@ int
 pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
                       const char *name, void *value, size_t size)
 {
-        int                 ret = 0;
+        int                    ret   = -1;
         dict_t                *xattr = NULL;
 
         /* validate in args */
@@ -344,6 +362,9 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
                 errno = EINVAL;
                 return -1;
         }
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         ret = glfs_h_getxattrs_common (fs, object, &xattr, name);
         if (ret)
@@ -358,6 +379,10 @@ pub_glfs_h_getxattrs (struct glfs *fs, struct glfs_object *object,
 out:
         if (xattr)
                 dict_unref (xattr);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -380,7 +405,8 @@ pub_glfs_h_setattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -414,6 +440,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -438,7 +467,8 @@ pub_glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -480,6 +510,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -501,7 +534,8 @@ pub_glfs_h_removexattrs (struct glfs *fs, struct glfs_object *object,
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -533,6 +567,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -554,7 +591,8 @@ pub_glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -622,6 +660,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return glfd;
 }
 
@@ -648,7 +689,8 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -726,6 +768,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
 
 out:
         if (ret && object != NULL) {
+                /* Release the held reference */
                 glfs_h_close (object);
                 object = NULL;
         }
@@ -745,6 +788,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -770,7 +816,8 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -837,6 +884,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -862,7 +912,8 @@ pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -928,6 +979,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -948,7 +1002,8 @@ pub_glfs_h_unlink (struct glfs *fs, struct glfs_object *parent, const char *path
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -995,6 +1050,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1016,7 +1074,8 @@ pub_glfs_h_opendir (struct glfs *fs, struct glfs_object *object)
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1074,6 +1133,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return glfd;
 }
 
@@ -1094,7 +1156,8 @@ pub_glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask)
 		goto out;
 	}
 
-	__glfs_entry_fs (fs);
+	DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
 	/* get the active volume */
 	subvol = glfs_active_subvol (fs);
@@ -1128,6 +1191,9 @@ out:
 
 	glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
 	return ret;
 }
 
@@ -1185,7 +1251,8 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1255,6 +1322,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -1264,7 +1334,6 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_create_from_handle, 3.4.2);
 int
 pub_glfs_h_close (struct glfs_object *object)
 {
-        /* Release the held reference */
         inode_unref (object->inode);
         GF_FREE (object);
 
@@ -1282,13 +1351,15 @@ pub_glfs_h_truncate (struct glfs *fs, struct glfs_object *object, off_t offset)
         xlator_t           *subvol = NULL;
         inode_t            *inode = NULL;
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (object == NULL)) {
+        if (object == NULL) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1323,6 +1394,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1342,14 +1416,16 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
         dict_t             *xattr_req = NULL;
         struct glfs_object *object = NULL;
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (parent == NULL) || (name == NULL) ||
+        if ((parent == NULL) || (name == NULL) ||
                 (data == NULL)) {
                 errno = EINVAL;
                 return NULL;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1421,6 +1497,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return object;
 }
 
@@ -1437,13 +1516,15 @@ pub_glfs_h_readlink (struct glfs *fs, struct glfs_object *object, char *buf,
         inode_t            *inode = NULL;
         char               *linkval = NULL;
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (object == NULL) || (buf == NULL)) {
+        if ((object == NULL) || (buf == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1481,6 +1562,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1498,14 +1582,16 @@ pub_glfs_h_link (struct glfs *fs, struct glfs_object *linksrc,
         loc_t               oldloc = {0, };
         loc_t               newloc = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (linksrc == NULL) || (parent == NULL) ||
+        if ((linksrc == NULL) || (parent == NULL) ||
                 (name == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1570,6 +1656,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1590,14 +1679,16 @@ pub_glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
         struct iatt         oldiatt = {0, };
         struct iatt         newiatt = {0, };
 
+        DECLARE_OLD_THIS;
+
         /* validate in args */
-        if ((fs == NULL) || (olddir == NULL) || (oldname == NULL) ||
+        if ((olddir == NULL) || (oldname == NULL) ||
                 (newdir == NULL) || (newname == NULL)) {
                 errno = EINVAL;
                 return -1;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
@@ -1667,6 +1758,9 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1777,19 +1871,21 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
         int                                 ret             = -1;
         struct gf_upcall                    *upcall_data    = NULL;
 
-        if (!fs || !up_arg) {
+        DECLARE_OLD_THIS;
+
+        if (!up_arg) {
                 errno = EINVAL;
                 goto err;
         }
 
-        __glfs_entry_fs (fs);
+        __GLFS_ENTRY_VALIDATE_FS (fs, err);
 
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
 
         if (!subvol) {
                 errno = EIO;
-                goto err;
+                goto restore;
         }
 
         /* Ideally applications should stop polling before calling
@@ -1871,6 +1967,8 @@ out:
 
         glfs_subvol_done (fs, subvol);
 
+restore:
+        __GLFS_EXIT_FS;
 err:
         return ret;
 }
@@ -1890,23 +1988,32 @@ pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
         const char *acl_key = NULL;
         ssize_t acl_len = 0;
 
-        if (!fs || !object || !acl) {
+        DECLARE_OLD_THIS;
+
+        if (!object || !acl) {
                 errno = EINVAL;
                 return ret;
         }
 
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
         acl_key = gf_posix_acl_get_key (type);
         if (!acl_key)
-                return ret;
+                goto out;
 
         acl_s = acl_to_any_text (acl, NULL, ',',
                                  TEXT_ABBREVIATE | TEXT_NUMERIC_IDS);
         if (!acl_s)
-                return ret;
+                goto out;
 
         ret = pub_glfs_h_setxattrs (fs, object, acl_key, acl_s, acl_len, 0);
 
         acl_free (acl_s);
+
+out:
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1920,18 +2027,22 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
         dict_t *xattr = NULL;
         const char *acl_key = NULL;
 
-        if (!fs || !object) {
+        DECLARE_OLD_THIS;
+
+        if (!object) {
                 errno = EINVAL;
                 return NULL;
         }
 
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
         acl_key = gf_posix_acl_get_key (type);
         if (!acl_key)
-                return NULL;
+                goto out;
 
         ret = glfs_h_getxattrs_common (fs, object, &xattr, acl_key);
         if (ret)
-                return NULL;
+                goto out;
 
         ret = dict_get_str (xattr, (char *)acl_key, &acl_s);
         if (ret == -1)
@@ -1941,6 +2052,10 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
 
 out:
         GF_FREE (acl_s);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return acl;
 }
 #else /* !HAVE_ACL_LIBACL_H */
