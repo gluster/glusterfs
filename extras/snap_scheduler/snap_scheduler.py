@@ -17,6 +17,7 @@ import argparse
 import fcntl
 import logging.handlers
 import sys
+import shutil
 from errno import EEXIST
 
 
@@ -234,7 +235,7 @@ def write_tasks_to_file():
         ret = False
         return ret
 
-    os.rename(TMP_FILE, GCRON_ENABLED)
+    shutil.move(TMP_FILE, GCRON_ENABLED)
     ret = True
 
     return ret
@@ -346,7 +347,7 @@ def initialise_scheduler():
         ret = False
         return ret
 
-    os.rename("/tmp/crontab", GCRON_UPDATE_TASK)
+    shutil.move("/tmp/crontab", GCRON_UPDATE_TASK)
 
     if not os.path.lexists(GCRON_TASKS):
         try:
