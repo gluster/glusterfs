@@ -396,7 +396,7 @@ int
 glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
                                     char **op_errstr,
                                     gf_boolean_t  *is_acquired,
-                                    uint64_t txn_generation)
+                                    uint32_t txn_generation)
 {
         char                *volname    = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
@@ -670,7 +670,7 @@ out:
 int
 glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
                                char **op_errstr,
-                               uint64_t txn_generation)
+                               uint32_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -927,7 +927,7 @@ out:
 
 int
 glusterd_mgmt_v3_brick_op (glusterd_op_t op, dict_t *req_dict, char **op_errstr,
-                           uint64_t txn_generation)
+                           uint32_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1170,7 +1170,7 @@ out:
 
 int
 glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
-                         char **op_errstr, uint64_t txn_generation)
+                         char **op_errstr, uint32_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1393,7 +1393,7 @@ out:
 int
 glusterd_mgmt_v3_post_validate (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                 dict_t *req_dict, char **op_errstr,
-                                uint64_t txn_generation)
+                                uint32_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1606,7 +1606,7 @@ int
 glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
                                      int32_t op_ret, char **op_errstr,
                                      gf_boolean_t  is_acquired,
-                                     uint64_t txn_generation)
+                                     uint32_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1691,7 +1691,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         xlator_t                    *this            = NULL;
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
-        uint64_t                    txn_generation   = 0;
+        uint32_t                    txn_generation   = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1904,7 +1904,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t                      *originator_uuid = NULL;
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
-        uint64_t                    txn_generation   = 0;
+        uint32_t                    txn_generation   = 0;
 
         this = THIS;
         GF_ASSERT (this);
