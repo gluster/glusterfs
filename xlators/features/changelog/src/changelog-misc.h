@@ -73,7 +73,7 @@
                         fp = fdopen (fd_dup, "r");                      \
                         if (fp) {                                       \
                                 if (fgets (buffer, len, fp)) {          \
-                                        elen = strlen (buffer);         \
+                                        enc_len = strlen (buffer);      \
                                         sscanf (buffer,                 \
                                                 CHANGELOG_HEADER,       \
                                                 &maj, &min, &enc);      \
