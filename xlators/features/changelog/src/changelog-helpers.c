@@ -340,15 +340,91 @@ out:
         return ret;
 }
 
+/*
+ * Description: Check if the changelog to rollover is empty or not.
+ * It is assumed that fd passed is already verified.
+ *
+ * Returns:
+ * 1 : If found empty, changed path from "CHANGELOG.<TS>" to "changelog.<TS>"
+ * 0 : If NOT empty, proceed usual.
+ */
+int
+cl_is_empty (xlator_t *this, int fd)
+{
+        int             ret             = -1;
+        size_t          elen            = 0;
+        int             encoding        = -1;
+        char            buffer[1024]    = {0,};
+        struct stat     stbuf           = {0,};
+
+        ret = fstat (fd, &stbuf);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "Could not stat (CHANGELOG)");
+                goto out;
+        }
+
+        ret = lseek (fd, 0, SEEK_SET);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "Could not lseek (CHANGELOG)");
+                goto out;
+        }
+
+        CHANGELOG_GET_ENCODING (fd, buffer, 1024, encoding, elen);
+
+        if (elen == stbuf.st_size) {
+                ret = 1;
+        } else {
+                ret = 0;
+        }
+
+out:
+        return ret;
+}
+
+/*
+ * Description: Updates "CHANGELOG" to "changelog" for writing changelog path
+ * to htime file.
+ *
+ * Returns:
+ * 0  : Success
+ * -1 : Error
+ */
+int
+update_path (xlator_t *this, char *cl_path)
+{
+        char low_cl[]     = "changelog";
+        char up_cl[]      = "CHANGELOG";
+        char *found       = NULL;
+        int  iter         = 0;
+        int  ret          = -1;
+
+        found = strstr(cl_path, up_cl);
+
+        if (found == NULL) {
+                gf_log (this->name, GF_LOG_ERROR,
+                                "Could not find CHANGELOG in changelog path");
+                goto out;
+        } else {
+                strncpy(found, low_cl, strlen(low_cl));
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 static int
 changelog_rollover_changelog (xlator_t *this,
                               changelog_priv_t *priv, unsigned long ts)
 {
-        int   ret            = -1;
-        int   notify         = 0;
-        char ofile[PATH_MAX] = {0,};
-        char nfile[PATH_MAX] = {0,};
-        changelog_event_t ev = {0,};
+        int   ret             = -1;
+        int   notify          = 0;
+        int   cl_empty_flag   = 0;
+        char  ofile[PATH_MAX] = {0,};
+        char  nfile[PATH_MAX] = {0,};
+        changelog_event_t ev  = {0,};
 
         if (priv->changelog_fd != -1) {
                 ret = fsync (priv->changelog_fd);
@@ -356,6 +432,14 @@ changelog_rollover_changelog (xlator_t *this,
                         gf_log (this->name, GF_LOG_ERROR,
                                 "fsync failed (reason: %s)",
                                 strerror (errno));
+                }
+                ret = cl_is_empty (this, priv->changelog_fd);
+                if (ret == 1) {
+                        cl_empty_flag = 1;
+                } else if (ret == -1) {
+                        /* Log error but proceed as usual */
+                        gf_log (this->name, GF_LOG_WARNING,
+                                        "Error detecting empty changelog");
                 }
                 close (priv->changelog_fd);
                 priv->changelog_fd = -1;
@@ -367,22 +451,38 @@ changelog_rollover_changelog (xlator_t *this,
                          "%s/"CHANGELOG_FILE_NAME".%lu",
                          priv->changelog_dir, ts);
 
-        ret = rename (ofile, nfile);
-        if (!ret)
-                notify = 1;
+        if (cl_empty_flag == 1) {
+                ret = unlink (ofile);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                     "error unlinking(empty cl) %s (reason %s)",
+                                     ofile, strerror(errno));
+                        ret = 0;  /* Error in unlinking empty changelog should
+                                     not break further changelog operation, so
+                                     reset return value to 0*/
+                }
+        } else {
+                ret = rename (ofile, nfile);
 
-        if (ret && (errno == ENOENT)) {
-                ret = 0;
-                goto out;
+                if (ret && (errno == ENOENT)) {
+                        ret = 0;
+                        goto out;
+                }
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "error renaming %s -> %s (reason %s)",
+                                ofile, nfile, strerror (errno));
+                }
         }
 
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "error renaming %s -> %s (reason %s)",
-                        ofile, nfile, strerror (errno));
+        if (!ret && (cl_empty_flag == 0)) {
+                        notify = 1;
         }
 
         if (!ret) {
+                if (cl_empty_flag) {
+                        update_path (this, nfile);
+                }
                 ret = htime_update (this, priv, ts, nfile);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
