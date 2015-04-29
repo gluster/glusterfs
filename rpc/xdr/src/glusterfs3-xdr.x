@@ -50,6 +50,12 @@ struct gfs3_cbk_cache_invalidation_req {
         unsigned int   flags;  /* or mask of events incase of inotify */
         unsigned int   expire_time_attr; /* the amount of time which client
                                           * can cache this entry */
+        struct gf_iatt stat;  /* Updated/current stat of the file/dir */
+        struct gf_iatt parent_stat;  /* Updated stat of the parent dir
+                                      * needed in case of create, mkdir,
+                                      * unlink, rmdir, rename fops */
+        struct gf_iatt oldparent_stat;  /* Updated stat of the oldparent dir
+                                           needed in case of rename fop */
         opaque   xdata<>; /* Extra data */
 };
 
