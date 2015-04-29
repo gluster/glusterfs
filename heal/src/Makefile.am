@@ -6,7 +6,7 @@ glfsheal_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
 		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 		$(top_builddir)/api/src/libgfapi.la \
-		$(GF_GLUSTERFS_LIBS) $(XML_LIBS) $(GFAPI_LIBS)
+		$(XML_LIBS) $(GFAPI_LIBS) $(UUID_LIBS)
 
 glfsheal_LDFLAGS = $(GF_LDFLAGS)
 
@@ -17,9 +17,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/api/src\
 	-I$(top_srcdir)/contrib/argp-standalone\
 	-DDATADIR=\"$(localstatedir)\" \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
-	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
-	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DSBIN_DIR=\"$(sbindir)\"\
+	-DSBIN_DIR=\"$(sbindir)\" \
 	$(XML_CPPFLAGS)
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
