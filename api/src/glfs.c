@@ -303,6 +303,9 @@ pub_glfs_set_xlator_option (struct glfs *fs, const char *xlator,
 {
 	xlator_cmdline_option_t *option = NULL;
 
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
 	option = GF_CALLOC (1, sizeof (*option),
 			    glfs_mt_xlator_cmdline_option_t);
 	if (!option)
@@ -322,18 +325,25 @@ pub_glfs_set_xlator_option (struct glfs *fs, const char *xlator,
 
 	list_add (&option->cmd_args, &fs->ctx->cmd_args.xlator_options);
 
+        __GLFS_EXIT_FS;
+
 	return 0;
 enomem:
 	errno = ENOMEM;
 
-	if (!option)
+	if (!option) {
+                __GLFS_EXIT_FS;
 		return -1;
+        }
 
 	GF_FREE (option->volume);
 	GF_FREE (option->key);
 	GF_FREE (option->value);
 	GF_FREE (option);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
 	return -1;
 }
 
@@ -353,6 +363,9 @@ pub_glfs_unset_volfile_server (struct glfs *fs, const char *transport,
                 return ret;
         }
 
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
         cmd_args = &fs->ctx->cmd_args;
         list_for_each_entry(server, &cmd_args->curr_server->list, list) {
                 if ((!strcmp(server->volfile_server, host) &&
@@ -365,6 +378,9 @@ pub_glfs_unset_volfile_server (struct glfs *fs, const char *transport,
         }
 
 out:
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -384,6 +400,9 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
                 errno = EINVAL;
                 return ret;
         }
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         cmd_args = &fs->ctx->cmd_args;
 
@@ -444,6 +463,9 @@ out:
                 }
         }
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -453,6 +475,9 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_volfile_server, 3.4.0);
 int
 pub_glfs_setfsuid (uid_t fsuid)
 {
+         /* TODO:
+         * - Set the THIS and restore it appropriately
+         */
 	return syncopctx_setfsuid (&fsuid);
 }
 
@@ -462,6 +487,9 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_setfsuid, 3.4.2);
 int
 pub_glfs_setfsgid (gid_t fsgid)
 {
+         /* TODO:
+         * - Set the THIS and restore it appropriately
+         */
 	return syncopctx_setfsgid (&fsgid);
 }
 
@@ -471,6 +499,9 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_setfsgid, 3.4.2);
 int
 pub_glfs_setfsgroups (size_t size, const gid_t *list)
 {
+         /* TODO:
+         * - Set the THIS and restore it appropriately
+         */
 	return syncopctx_setfsgroups(size, list);
 }
 
@@ -563,7 +594,7 @@ pub_glfs_new (const char *volname)
 	struct glfs     *fs             = NULL;
 	int              ret            = -1;
 	glusterfs_ctx_t *ctx            = NULL;
-        gf_boolean_t     cleanup_fini   = _gf_false;
+        xlator_t        *old_THIS       = NULL;
 
         if (!volname) {
                 errno = EINVAL;
@@ -590,47 +621,49 @@ pub_glfs_new (const char *volname)
         if (ret != 0)
                 goto cond_child_destroy;
 
-        cleanup_fini = _gf_true;
-
         ctx = glusterfs_ctx_new ();
         if (!ctx)
-                goto freefs;
+                goto fini;
 
         /* first globals init, for gf_mem_acct_enable_set () */
 
         ret = glusterfs_globals_init (ctx);
         if (ret)
-                goto freefs;
+                goto fini;
 
-        if (!THIS->ctx)
-                THIS->ctx = ctx;
+        old_THIS = THIS;
+        /* THIS is set to NULL so that we do not modify the caller xlators'
+         * ctx, instead we set the global_xlator->ctx
+         */
+        THIS = NULL;
+        THIS->ctx = ctx;
 
         /* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
 
         ret = glusterfs_ctx_defaults_init (ctx);
         if (ret)
-                goto freefs;
+                goto fini;
 
         fs->ctx = ctx;
 
         ret = glfs_set_logging (fs, "/dev/null", 0);
         if (ret)
-                goto freefs;
+                goto fini;
 
         fs->ctx->cmd_args.volfile_id = gf_strdup (volname);
         if (!(fs->ctx->cmd_args.volfile_id))
-                goto freefs;
+                goto fini;
 
         fs->volname = strdup (volname);
         if (!fs->volname)
-                goto freefs;
+                goto fini;
 
         INIT_LIST_HEAD (&fs->openfds);
         INIT_LIST_HEAD (&fs->upcall_list);
 
         fs->pin_refcnt = 0;
 
-        return fs;
+        goto out;
 
 cond_child_destroy:
         pthread_cond_destroy (&fs->child_down_cond);
@@ -642,7 +675,10 @@ mutex_destroy:
         pthread_mutex_destroy (&fs->mutex);
 
 freefs:
-
+        FREE (fs);
+        fs = NULL;
+        goto out;
+fini:
         /*
          * When pthread_*init() fails there is no way for other cleanup
          * funtions (glfs_fini/glfs_free_from_ctx) to know which of them succeded
@@ -651,14 +687,13 @@ freefs:
          * directly call glfs_fini() to cleanup the resources.
          */
 
-        if (!cleanup_fini)
-                FREE(fs);
-        else
-                glfs_fini (fs);
-        fs = NULL;
+         glfs_fini (fs);
+         fs = NULL;
+out:
+        if (old_THIS)
+                THIS = old_THIS;
 
         return fs;
-
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_new, 3.4.0);
@@ -750,8 +785,11 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_volfile, 3.4.0);
 int
 pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
-        int  ret = 0;
+        int  ret = -1;
         char *tmplog = NULL;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         if (!logfile) {
                 ret = gf_set_log_file_path (&fs->ctx->cmd_args);
@@ -775,6 +813,9 @@ pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
                 goto out;
 
 out:
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -882,6 +923,8 @@ pub_glfs_init (struct glfs *fs)
 {
 	int  ret = -1;
 
+        DECLARE_OLD_THIS;
+
 	if (!fs || !fs->ctx) {
 		gf_msg ("glfs", GF_LOG_ERROR, EINVAL, API_MSG_INVALID_ENTRY,
 			"fs is not properly initialized.");
@@ -889,17 +932,22 @@ pub_glfs_init (struct glfs *fs)
 		return ret;
 	}
 
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
 	ret = glfs_init_common (fs);
 	if (ret)
-		return ret;
+		goto out;
 
 	ret = glfs_init_wait (fs);
+out:
+        __GLFS_EXIT_FS;
 
         /* Set the initial current working directory to "/" */
         if (ret >= 0) {
                 ret = glfs_chdir (fs, "/");
         }
 
+invalid_fs:
 	return ret;
 }
 
@@ -985,18 +1033,14 @@ pub_glfs_fini (struct glfs *fs)
         int                fs_init = 0;
         int                err = -1;
 
+        DECLARE_OLD_THIS;
 
-        if (!fs) {
-                errno = EINVAL;
-                return 0;
-        }
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         ctx = fs->ctx;
         if (!ctx) {
                 goto free_fs;
         }
-
-        __glfs_entry_fs (fs);
 
         if (ctx->mgmt) {
                 rpc_clnt_disable (ctx->mgmt);
@@ -1141,6 +1185,9 @@ fail:
         if (!ret)
                 ret = err;
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 
@@ -1150,7 +1197,10 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fini, 3.4.0);
 ssize_t
 pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
 {
-        ssize_t         res;
+        ssize_t         res = -1;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         glfs_lock(fs);
         if (len >= fs->oldvollen) {
@@ -1164,6 +1214,9 @@ pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
         }
         glfs_unlock(fs);
 
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return res;
 }
 
@@ -1173,9 +1226,10 @@ int
 pub_glfs_ipc (struct glfs *fs, int opcode)
 {
 	xlator_t        *subvol = NULL;
-        int             ret;
+        int             ret = -1;
 
-	__glfs_entry_fs (fs);
+	DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
 	subvol = glfs_active_subvol (fs);
 	if (!subvol) {
@@ -1189,6 +1243,9 @@ pub_glfs_ipc (struct glfs *fs, int opcode)
 
 out:
         glfs_subvol_done (fs, subvol);
+        __GLFS_EXIT_FS;
+
+invalid_fs:
         return ret;
 }
 

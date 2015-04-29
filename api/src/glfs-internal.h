@@ -199,18 +199,32 @@ int glfs_first_lookup (xlator_t *subvol);
 void glfs_process_upcall_event (struct glfs *fs, void *data);
         GFAPI_PRIVATE(glfs_process_upcall_event, 3.7.0);
 
-static inline void
-__glfs_entry_fs (struct glfs *fs)
-{
-	THIS = fs->ctx->master;
-}
+#define DECLARE_OLD_THIS xlator_t *old_THIS = NULL
 
+#define __GLFS_ENTRY_VALIDATE_FS(fs, label)                         \
+do {                                                                \
+        if (!fs) {                                                  \
+                errno = EINVAL;                                     \
+                goto label;                                         \
+        }                                                           \
+        old_THIS = THIS;                                            \
+        THIS = fs->ctx->master;                                     \
+} while (0)
 
-static inline void
-__glfs_entry_fd (struct glfs_fd *fd)
-{
-	THIS = fd->fd->inode->table->xl->ctx->master;
-}
+#define __GLFS_EXIT_FS                                              \
+do {                                                                \
+        THIS = old_THIS;                                            \
+} while (0)
+
+#define __GLFS_ENTRY_VALIDATE_FD(glfd, label)                       \
+do {                                                                \
+        if (!glfd) {                                                \
+                errno = EINVAL;                                     \
+                goto label;                                         \
+        }                                                           \
+        old_THIS = THIS;                                            \
+        THIS = glfd->fd->inode->table->xl->ctx->master;             \
+} while (0)
 
 
 /*

@@ -339,6 +339,9 @@ pub_glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
         /* TODO: Define a global macro to store UUID size */
         size_t uuid_size = 16;
 
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
         pthread_mutex_lock (&fs->mutex);
         {
                 /* check if the volume uuid is initialized */
@@ -356,12 +359,13 @@ pub_glfs_get_volumeid (struct glfs *fs, char *volid, size_t size)
                 gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
                         API_MSG_FETCH_VOLUUID_FAILED, "Unable to fetch "
                         "volume UUID");
-                return -1;
+                goto out;
         }
 
 done:
         if (!volid || !size) {
                 gf_msg_debug (THIS->name, 0, "volumeid/size is null");
+                __GLFS_EXIT_FS;
                 return uuid_size;
         }
 
@@ -369,12 +373,20 @@ done:
                 gf_msg (THIS->name, GF_LOG_ERROR, ERANGE, API_MSG_INSUFF_SIZE,
                         "Insufficient size passed");
                 errno = ERANGE;
-                return -1;
+                goto out;
         }
 
         memcpy (volid, fs->vol_uuid, uuid_size);
 
+        __GLFS_EXIT_FS;
+
         return uuid_size;
+
+out:
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return -1;
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_get_volumeid, 3.5.0);

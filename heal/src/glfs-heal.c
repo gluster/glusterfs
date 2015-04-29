@@ -773,7 +773,6 @@ main (int argc, char **argv)
         }
 
         sleep (2);
-        __glfs_entry_fs (fs);
         top_subvol = glfs_active_subvol (fs);
         if (!top_subvol) {
                 ret = -1;
