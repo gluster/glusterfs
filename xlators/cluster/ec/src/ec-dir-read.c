@@ -16,6 +16,7 @@
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
+#include "ec-messages.h"
 
 /* FOP: opendir */
 
@@ -24,9 +25,10 @@ int32_t ec_combine_opendir(ec_fop_data_t * fop, ec_cbk_data_t * dst,
 {
     if (dst->fd != src->fd)
     {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching fd in answers "
-                                             "of 'GF_FOP_OPENDIR': %p <-> %p",
-               dst->fd, src->fd);
+        gf_msg (fop->xl->name, GF_LOG_NOTICE, 0,
+                EC_MSG_FD_MISMATCH, "Mismatching fd in answers "
+                "of 'GF_FOP_OPENDIR': %p <-> %p",
+                dst->fd, src->fd);
 
         return 0;
     }
@@ -63,8 +65,9 @@ int32_t ec_opendir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                 cbk->fd = fd_ref(fd);
                 if (cbk->fd == NULL)
                 {
-                    gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
-                                                     "file descriptor.");
+                    gf_msg (this->name, GF_LOG_ERROR, 0,
+                            EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
+                            "file descriptor.");
 
                     goto out;
                 }
@@ -75,7 +78,8 @@ int32_t ec_opendir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                                  "dictionary.");
 
                 goto out;
@@ -216,8 +220,9 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -231,7 +236,7 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(OPENDIR) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(OPENDIR) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -249,7 +254,8 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -259,7 +265,8 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -270,7 +277,8 @@ void ec_opendir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -308,7 +316,8 @@ ec_deitransform (xlator_t *this, off_t offset)
 
 out:
         if (idx < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        EC_MSG_INVALID_REQUEST,
                         "Invalid index %d in readdirp request", client_id);
         }
         return idx;
@@ -521,8 +530,9 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 
             return EC_STATE_END;
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -536,7 +546,7 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(READDIR) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(READDIR) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -560,7 +570,8 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -571,7 +582,8 @@ void ec_readdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -610,7 +622,7 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(READDIRP) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(READDIRP) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -634,7 +646,8 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -645,7 +658,8 @@ void ec_readdirp(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;

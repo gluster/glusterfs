@@ -27,6 +27,7 @@ ec_headers += ec-combine.h
 ec_headers += ec-gf.h
 ec_headers += ec-method.h
 ec_headers += ec-heald.h
+ec_headers += ec-messages.h
 
 ec_ext_sources = $(top_builddir)/xlators/lib/src/libxlator.c
 

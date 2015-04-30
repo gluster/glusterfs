@@ -12,6 +12,7 @@
 #include "defaults.h"
 #include "compat-errno.h"
 #include "ec.h"
+#include "ec-messages.h"
 #include "ec-heald.h"
 #include "ec-mem-types.h"
 #include "syncop.h"
@@ -182,7 +183,7 @@ ec_shd_index_inode (xlator_t *this, xlator_t *subvol)
         if (ret)
                 goto out;
 
-        gf_log (this->name, GF_LOG_DEBUG, "index-dir gfid for %s: %s",
+        gf_msg_debug (this->name, 0, "index-dir gfid for %s: %s",
                 subvol->name, uuid_utoa (index_gfid));
 
         inode = ec_shd_inode_find (this, subvol, index_gfid);
@@ -232,7 +233,7 @@ ec_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (!ec->shd.enabled)
                 return -EBUSY;
 
-        gf_log (healer->this->name, GF_LOG_DEBUG, "got entry: %s",
+        gf_msg_debug (healer->this->name, 0, "got entry: %s",
                 entry->d_name);
 
         ret = gf_uuid_parse (entry->d_name, loc.gfid);
@@ -274,7 +275,8 @@ ec_shd_index_sweep (struct subvol_healer *healer)
 
         loc.inode = ec_shd_index_inode (healer->this, subvol);
         if (!loc.inode) {
-                gf_log (healer->this->name, GF_LOG_WARNING,
+                gf_msg (healer->this->name, GF_LOG_WARNING, errno,
+                        EC_MSG_INDEX_DIR_GET_FAIL,
                         "unable to get index-dir on %s", subvol->name);
                 return -errno;
         }
@@ -357,13 +359,13 @@ ec_shd_index_healer (void *data)
 
                 ASSERT_LOCAL(this, healer);
 
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "starting index sweep on subvol %s",
                         ec_subvol_name (this, healer->subvol));
 
                 ec_shd_index_sweep (healer);
 
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         "finished index sweep on subvol %s",
                         ec_subvol_name (this, healer->subvol));
         }
@@ -397,13 +399,15 @@ ec_shd_full_healer (void *data)
 
                 ASSERT_LOCAL(this, healer);
 
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        EC_MSG_FULL_SWEEP_START,
                         "starting full sweep on subvol %s",
                         ec_subvol_name (this, healer->subvol));
 
                 ec_shd_full_sweep (healer, this->itable->root);
 
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        EC_MSG_FULL_SWEEP_STOP,
                         "finished full sweep on subvol %s",
                         ec_subvol_name (this, healer->subvol));
         }

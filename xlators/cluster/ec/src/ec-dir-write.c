@@ -16,6 +16,7 @@
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
+#include "ec-messages.h"
 
 int
 ec_dir_write_cbk (call_frame_t *frame, xlator_t *this,
@@ -266,8 +267,9 @@ int32_t ec_manager_create(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -282,7 +284,7 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(CREATE) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(CREATE) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -306,7 +308,8 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -316,7 +319,8 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -327,7 +331,8 @@ void ec_create(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -465,8 +470,9 @@ int32_t ec_manager_link(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -480,7 +486,7 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(LINK) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(LINK) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -497,7 +503,8 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], oldloc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -506,7 +513,8 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[1], newloc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -516,7 +524,8 @@ void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -667,8 +676,9 @@ int32_t ec_manager_mkdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -682,7 +692,7 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(MKDIR) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(MKDIR) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -704,7 +714,8 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -714,7 +725,8 @@ void ec_mkdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -894,8 +906,9 @@ int32_t ec_manager_mknod(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -909,7 +922,7 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(MKNOD) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(MKNOD) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -932,7 +945,8 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -942,7 +956,8 @@ void ec_mknod(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1082,8 +1097,9 @@ int32_t ec_manager_rename(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1097,7 +1113,7 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(RENAME) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(RENAME) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1116,7 +1132,8 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], oldloc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1125,7 +1142,8 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[1], newloc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1135,7 +1153,8 @@ void ec_rename(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1259,8 +1278,9 @@ int32_t ec_manager_rmdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1274,7 +1294,7 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(RMDIR) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(RMDIR) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1295,7 +1315,8 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1305,7 +1326,8 @@ void ec_rmdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1440,8 +1462,9 @@ int32_t ec_manager_symlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1456,7 +1479,7 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(SYMLINK) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(SYMLINK) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1478,7 +1501,8 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->str[0] = gf_strdup(linkname);
         if (fop->str[0] == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to duplicate a string.");
+            gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                    EC_MSG_NO_MEMORY, "Failed to duplicate a string.");
 
             goto out;
         }
@@ -1487,7 +1511,8 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1497,7 +1522,8 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1622,8 +1648,9 @@ int32_t ec_manager_unlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1637,7 +1664,7 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(UNLINK) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(UNLINK) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1658,7 +1685,8 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1668,7 +1696,8 @@ void ec_unlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;

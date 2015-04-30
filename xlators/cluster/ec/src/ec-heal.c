@@ -21,6 +21,7 @@
 #include "ec-mem-types.h"
 #include "ec-data.h"
 #include "byte-order.h"
+#include "ec-messages.h"
 #include "syncop.h"
 #include "syncop-utils.h"
 #include "cluster-syncop.h"
@@ -500,9 +501,9 @@ ec_heal_init (ec_fop_data_t * fop)
 
     inode = heal->loc.inode;
     if (inode == NULL) {
-        gf_log(fop->xl->name, GF_LOG_WARNING, "Unable to start inode healing "
-                                              "because there is not enough "
-                                              "information");
+        gf_msg (fop->xl->name, GF_LOG_WARNING, ENODATA,
+                EC_MSG_DATA_UNAVAILABLE, "Unable to start inode healing "
+                "because there is not enough information");
 
         error = ENODATA;
         goto out;
@@ -528,8 +529,10 @@ ec_heal_init (ec_fop_data_t * fop)
     }
 
     if (list_empty(&ctx->heal)) {
-        gf_log("ec", GF_LOG_INFO, "Healing '%s', gfid %s", heal->loc.path,
-               uuid_utoa(heal->loc.gfid));
+        gf_msg ("ec", GF_LOG_INFO, 0,
+                EC_MSG_HEALING_INFO,
+                "Healing '%s', gfid %s", heal->loc.path,
+                uuid_utoa(heal->loc.gfid));
     } else {
         ec_sleep(fop);
     }
@@ -679,10 +682,9 @@ void ec_heal_remove_others(ec_heal_t * heal)
             if ((cbk->op_errno != ENOENT) && (cbk->op_errno != ENOTDIR) &&
                 (cbk->op_errno != ESTALE))
             {
-                gf_log(heal->xl->name, GF_LOG_WARNING, "Don't know how to "
-                                                       "remove inode with "
-                                                       "error %d",
-                       cbk->op_errno);
+                gf_msg (heal->xl->name, GF_LOG_WARNING, cbk->op_errno,
+                        EC_MSG_INODE_REMOVE_FAIL, "Don't know how to "
+                                                       "remove inode");
             }
 
             ec_heal_exclude(heal, cbk->mask);
@@ -713,9 +715,9 @@ void ec_heal_prepare_others(ec_heal_t * heal)
             }
             else
             {
-                gf_log(heal->xl->name, GF_LOG_ERROR, "Don't know how to "
-                                                     "heal error %d",
-                       cbk->op_errno);
+                gf_msg (heal->xl->name, GF_LOG_ERROR, cbk->op_errno,
+                        EC_MSG_HEAL_FAIL, "Don't know how to "
+                                                     "heal");
 
                 ec_heal_exclude(heal, cbk->mask);
             }
@@ -802,9 +804,8 @@ void ec_heal_prepare(ec_heal_t * heal)
         }
         else
         {
-            gf_log(heal->xl->name, GF_LOG_ERROR, "Don't know how to heal "
-                                                 "error %d",
-                   cbk->op_errno);
+            gf_msg (heal->xl->name, GF_LOG_ERROR, cbk->op_errno,
+                    EC_MSG_HEAL_FAIL, "Don't know how to heal ");
         }
     }
     else
@@ -814,7 +815,8 @@ void ec_heal_prepare(ec_heal_t * heal)
             heal->fd = fd_create(heal->loc.inode, heal->fop->frame->root->pid);
             if (heal->fd == NULL)
             {
-                gf_log(heal->xl->name, GF_LOG_ERROR, "Unable to create a new "
+                gf_msg (heal->xl->name, GF_LOG_ERROR, errno,
+                        EC_MSG_FD_CREATE_FAIL, "Unable to create a new "
                                                      "file descriptor");
 
                 goto out;
@@ -1088,7 +1090,7 @@ ec_heal_writev_cbk (call_frame_t *frame, void *cookie,
 
     ec_trace("WRITE_CBK", cookie, "ret=%d, errno=%d", op_ret, op_errno);
 
-    gf_log (fop->xl->name, GF_LOG_DEBUG, "%s: write op_ret %d, op_errno %s"
+    gf_msg_debug (fop->xl->name, 0, "%s: write op_ret %d, op_errno %s"
             " at %"PRIu64, uuid_utoa (heal->fd->inode->gfid), op_ret,
             strerror (op_errno), heal->offset);
 
@@ -1112,7 +1114,7 @@ int32_t ec_heal_readv_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
 
     if (op_ret > 0)
     {
-        gf_log (fop->xl->name, GF_LOG_DEBUG, "%s: read succeeded, proceeding "
+        gf_msg_debug (fop->xl->name, 0, "%s: read succeeded, proceeding "
                 "to write at %"PRIu64, uuid_utoa (heal->fd->inode->gfid),
                 heal->offset);
         ec_writev(heal->fop->frame, heal->xl, heal->bad, EC_MINIMUM_ONE,
@@ -1121,7 +1123,7 @@ int32_t ec_heal_readv_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     }
     else
     {
-            gf_log (fop->xl->name, GF_LOG_DEBUG, "%s: read failed %s, failing "
+            gf_msg_debug (fop->xl->name, 0, "%s: read failed %s, failing "
                     "to heal block at %"PRIu64,
                     uuid_utoa (heal->fd->inode->gfid), strerror (op_errno),
                     heal->offset);
@@ -1563,8 +1565,9 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1578,7 +1581,7 @@ void ec_heal2(call_frame_t *frame, xlator_t *this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(HEAL) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(HEAL) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
@@ -1597,7 +1600,8 @@ void ec_heal2(call_frame_t *frame, xlator_t *this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1607,7 +1611,8 @@ void ec_heal2(call_frame_t *frame, xlator_t *this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1658,7 +1663,7 @@ void ec_fheal(call_frame_t * frame, xlator_t * this, uintptr_t target,
 
     if (ctx != NULL)
     {
-        gf_log("ec", GF_LOG_DEBUG, "FHEAL ctx: flags=%X, open=%lX, bad=%lX",
+        gf_msg_trace ("ec", 0, "FHEAL ctx: flags=%X, open=%lX, bad=%lX",
                ctx->flags, ctx->open, ctx->bad);
         ec_heal(frame, this, target, minimum, func, data, &ctx->loc, partial,
                 xdata);
@@ -2107,7 +2112,7 @@ ec_heal_metadata (call_frame_t *frame, ec_t *ec, inode_t *inode,
                                0);
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
+                        gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
                                 "as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (inode->gfid), ret);
                         ret = -ENOTCONN;
@@ -2274,7 +2279,7 @@ ec_delete_stale_name (dict_t *gfid_db, char *key, data_t *d, void *data)
         dict_del (gfid_db, key);
 out:
         if (ret < 0) {
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s/%s: heal failed %s",
+                gf_msg_debug (ec->xl->name, 0, "%s/%s: heal failed %s",
                         uuid_utoa (name_data->parent->gfid), name_data->name,
                         strerror (-ret));
         }
@@ -2456,7 +2461,7 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         ret = 0;
 out:
         if (ret < 0)
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s/%s: heal failed %s",
+                gf_msg_debug (ec->xl->name, 0, "%s/%s: heal failed %s",
                         uuid_utoa (parent->gfid), name, strerror (-ret));
         cluster_replies_wipe (replies, ec->nodes);
         loc_wipe (&loc);
@@ -2552,7 +2557,8 @@ __ec_heal_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         }
 
         if (gfid_db->count > 1) {
-                gf_log (ec->xl->name, GF_LOG_INFO, "%s/%s: Not able to heal",
+                gf_msg (ec->xl->name, GF_LOG_INFO, 0,
+                        EC_MSG_HEAL_FAIL, "%s/%s: Not able to heal",
                         uuid_utoa (parent->gfid), name);
                 memset (participants, 0, ec->nodes);
                 goto out;
@@ -2602,7 +2608,7 @@ ec_heal_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
                                0, 0);
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s/%s: Skipping "
+                        gf_msg_debug (ec->xl->name, 0, "%s/%s: Skipping "
                                 "heal as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (parent->gfid), name,
                                 ret);
@@ -2703,7 +2709,7 @@ __ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
                                0, 0);
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
+                        gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
                                 "as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (inode->gfid), ret);
                         ret = -ENOTCONN;
@@ -2768,7 +2774,7 @@ ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
                                0, 0);
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
+                        gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
                                 "as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (inode->gfid), ret);
                         ret = -ENOTCONN;
@@ -2968,10 +2974,10 @@ out:
                 dict_unref (xattrs);
         cluster_replies_wipe (replies, ec->nodes);
         if (ret < 0) {
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: heal failed %s",
+                gf_msg_debug (ec->xl->name, 0, "%s: heal failed %s",
                         uuid_utoa (fd->inode->gfid), strerror (-ret));
         } else {
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: sources: %d, sinks: "
+                gf_msg_debug (ec->xl->name, 0, "%s: sources: %d, sinks: "
                         "%d", uuid_utoa (fd->inode->gfid),
                         EC_COUNT (sources, ec->nodes),
                         EC_COUNT (healed_sinks, ec->nodes));
@@ -3041,7 +3047,7 @@ out:
         if (xattrs)
                 dict_unref (xattrs);
         if (ret < 0)
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: heal failed %s",
+                gf_msg_debug (ec->xl->name, 0, "%s: heal failed %s",
                         uuid_utoa (fd->inode->gfid), strerror (-ret));
         return ret;
 }
@@ -3061,7 +3067,7 @@ ec_manager_heal_block (ec_fop_data_t *fop, int32_t state)
         return EC_STATE_HEAL_DATA_COPY;
 
     case EC_STATE_HEAL_DATA_COPY:
-        gf_log (fop->xl->name, GF_LOG_DEBUG, "%s: read/write starting",
+        gf_msg_debug (fop->xl->name, 0, "%s: read/write starting",
                 uuid_utoa (heal->fd->inode->gfid));
         ec_heal_data_block (heal);
 
@@ -3093,8 +3099,9 @@ ec_manager_heal_block (ec_fop_data_t *fop, int32_t state)
 
         return -EC_STATE_END;
     default:
-        gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-               state, ec_fop_name(fop->id));
+        gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                state, ec_fop_name(fop->id));
 
         return EC_STATE_END;
     }
@@ -3109,7 +3116,7 @@ ec_heal_block (call_frame_t *frame, xlator_t *this, uintptr_t target,
     ec_fop_data_t *fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(HEAL) %p", frame);
+    gf_msg_trace("ec", 0, "EC(HEAL) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
@@ -3185,7 +3192,7 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
 
         for (heal->offset = 0; (heal->offset < size) && !heal->done;
                                                    heal->offset += heal->size) {
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: sources: %d, sinks: "
+                gf_msg_debug (ec->xl->name, 0, "%s: sources: %d, sinks: "
                         "%d, offset: %"PRIu64" bsize: %"PRIu64,
                         uuid_utoa (fd->inode->gfid),
                         EC_COUNT (sources, ec->nodes),
@@ -3200,7 +3207,7 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
         LOCK_DESTROY (&heal->lock);
         syncbarrier_destroy (heal->data);
         if (ret < 0)
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: heal failed %s",
+                gf_msg_debug (ec->xl->name, 0, "%s: heal failed %s",
                         uuid_utoa (fd->inode->gfid), strerror (-ret));
         return ret;
 }
@@ -3237,7 +3244,7 @@ __ec_heal_trim_sinks (call_frame_t *frame, ec_t *ec, fd_t *fd,
 out:
         cluster_replies_wipe (replies, ec->nodes);
         if (ret < 0)
-                gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: heal failed %s",
+                gf_msg_debug (ec->xl->name, 0, "%s: heal failed %s",
                         uuid_utoa (fd->inode->gfid), strerror (-ret));
         return ret;
 }
@@ -3392,7 +3399,7 @@ ec_restore_time_and_adjust_versions (call_frame_t *frame, ec_t *ec, fd_t *fd,
                                fd->inode, 0, 0);
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
+                        gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
                                 "as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (fd->inode->gfid), ret);
                         ret = -ENOTCONN;
@@ -3457,7 +3464,7 @@ __ec_heal_data (call_frame_t *frame, ec_t *ec, fd_t *fd, unsigned char *heal_on,
                                fd->inode, 0, 0);
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
+                        gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
                                 "as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (fd->inode->gfid), ret);
                         ret = -ENOTCONN;
@@ -3484,7 +3491,7 @@ unlock:
         if (ret < 0)
                 goto out;
 
-        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: sources: %d, sinks: "
+        gf_msg_debug (ec->xl->name, 0, "%s: sources: %d, sinks: "
                 "%d", uuid_utoa (fd->inode->gfid),
                 EC_COUNT (sources, ec->nodes),
                 EC_COUNT (healed_sinks, ec->nodes));
@@ -3552,7 +3559,7 @@ ec_heal_data (call_frame_t *frame, ec_t *ec, gf_boolean_t block, inode_t *inode,
         }
         {
                 if (ret <= ec->fragments) {
-                        gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
+                        gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
                                 "as only %d number of subvolumes could "
                                 "be locked", uuid_utoa (inode->gfid), ret);
                         ret = -ENOTCONN;
@@ -3614,12 +3621,15 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
                 ret = ec_heal_name (frame, ec, loc->parent, (char *)loc->name,
                                     participants);
                 if (ret == 0) {
-                        gf_log (this->name, GF_LOG_INFO, "%s: name heal "
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                EC_MSG_HEAL_SUCCESS, "%s: name heal "
                                 "successful on %lX", loc->path,
-                              ec_char_array_to_mask (participants, ec->nodes));
+                                ec_char_array_to_mask (participants,
+                                    ec->nodes));
                 } else {
-                        gf_log (this->name, GF_LOG_INFO, "%s: name heal "
-                                "failed on %s", loc->path, strerror (-ret));
+                        gf_msg (this->name, GF_LOG_INFO, -ret,
+                                EC_MSG_HEAL_FAIL, "%s: name heal "
+                                "failed", loc->path);
                 }
         }
 
@@ -3691,7 +3701,7 @@ ec_heal (call_frame_t *frame, xlator_t *this, uintptr_t target,
     ec_fop_data_t *fop = NULL;
     int ret = 0;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(HEAL) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(HEAL) %p", frame);
 
     VALIDATE_OR_GOTO(this, fail);
     GF_VALIDATE_OR_GOTO(this->name, this->private, fail);
