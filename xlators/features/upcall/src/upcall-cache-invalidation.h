@@ -35,7 +35,7 @@
                                    invalidate the cache entry */
 
 /* for fops - open, read, lk, */
-#define UP_IDEMPOTENT_FLAGS     (UP_ATIME)
+#define UP_UPDATE_CLIENT        (UP_ATIME)
 
 /* for fop - write, truncate */
 #define UP_WRITE_FLAGS          (UP_SIZE | UP_TIMES)
@@ -52,30 +52,6 @@
 
 /* for fop - unlink, link, rmdir, mkdir */
 #define UP_NLINK_FLAGS          (UP_NLINK | UP_TIMES)
-
-#define CACHE_INVALIDATE(frame, this, client, inode, p_flags) do {      \
-                                                                        \
-        if (!is_cache_invalidation_enabled(this))                       \
-                break;                                                  \
-                                                                        \
-        (void)upcall_cache_invalidate (frame, this, client,             \
-                                       inode, p_flags);                 \
-} while (0)
-
-#define CACHE_INVALIDATE_DIR(frame, this, client, inode_p, p_flags) do {\
-                                                                        \
-        if (!is_cache_invalidation_enabled(this))                       \
-                break;                                                  \
-                                                                        \
-        dentry_t *dentry;                                               \
-        dentry_t *dentry_tmp;                                           \
-        list_for_each_entry_safe (dentry, dentry_tmp,                   \
-                                  &inode_p->dentry_list,                \
-                                  inode_list) {                         \
-                (void)upcall_cache_invalidate (frame, this, client,     \
-                                               dentry->inode, p_flags); \
-        }                                                               \
-} while (0)
 
 /* xlator options */
 gf_boolean_t is_cache_invalidation_enabled(xlator_t *this);
