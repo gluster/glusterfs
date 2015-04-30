@@ -24,6 +24,13 @@ ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
 cache_data = {}
 
 
+class RecordType(object):
+    NEW = "NEW"
+    MODIFY = "MODIFY"
+    RENAME = "RENAME"
+    DELETE = "DELETE"
+
+
 def cache_output(func):
     def wrapper(*args, **kwargs):
         global cache_data
@@ -46,8 +53,10 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
     if path in ignore_dirs:
         return
 
-    if filter_func(path):
-        callback_func(path)
+    # Capture filter_func output and pass it to callback function
+    filter_result = filter_func(path)
+    if filter_result is not None:
+        callback_func(path, filter_result)
 
     for p in os.listdir(path):
         full_path = os.path.join(path, p)
@@ -56,11 +65,13 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
             if subdirs_crawl:
                 find(full_path, callback_func, filter_func, ignore_dirs)
             else:
-                if filter_func(full_path):
-                    callback_func(full_path)
+                filter_result = filter_func(full_path)
+                if filter_result is not None:
+                    callback_func(full_path, filter_result)
         else:
-            if filter_func(full_path):
-                callback_func(full_path)
+            filter_result = filter_func(full_path)
+            if filter_result is not None:
+                callback_func(full_path, filter_result)
 
 
 def output_write(f, path, prefix=".", encode=False):
@@ -215,5 +226,3 @@ def get_changelog_rollover_time(volumename):
         return int(tree.find('volGetopts/Value').text)
     except ParseError:
         return DEFAULT_CHANGELOG_INTERVAL
-
-

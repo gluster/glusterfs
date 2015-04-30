@@ -20,9 +20,9 @@ import shutil
 
 from utils import execute, is_host_local, mkdirp, fail
 from utils import setup_logger, human_time, handle_rm_error
-from utils import get_changelog_rollover_time, cache_output
+from utils import get_changelog_rollover_time, cache_output, create_file
 import conf
-
+from changelogdata import OutputMerger
 
 PROG_DESCRIPTION = """
 GlusterFS Incremental API
@@ -235,6 +235,9 @@ def _get_args():
                             help="Regenerate outfile, discard the outfile "
                             "generated from last pre command",
                             action="store_true")
+    parser_pre.add_argument("-N", "--only-namespace-changes",
+                            help="List only namespace changes",
+                            action="store_true")
 
     # post <SESSION> <VOLUME>
     parser_post = subparsers.add_parser('post')
@@ -377,10 +380,29 @@ def mode_pre(session_dir, args):
     run_cmd_nodes("pre", args, start=start)
 
     # Merger
-    cmd = ["sort", "-u"] + node_outfiles + ["-o", args.outfile]
-    execute(cmd,
-            exit_msg="Failed to merge output files "
-            "collected from nodes", logger=logger)
+    if args.full:
+        cmd = ["sort", "-u"] + node_outfiles + ["-o", args.outfile]
+        execute(cmd,
+                exit_msg="Failed to merge output files "
+                "collected from nodes", logger=logger)
+    else:
+        # Read each Changelogs db and generate finaldb
+        create_file(args.outfile, exit_on_err=True, logger=logger)
+        outfilemerger = OutputMerger(args.outfile + ".db", node_outfiles)
+
+        with open(args.outfile, "a") as f:
+            for row in outfilemerger.get():
+                # Multiple paths in case of Hardlinks
+                paths = row[1].split(",")
+                for p in paths:
+                    if p == "":
+                        continue
+                    f.write("%s %s %s\n" % (row[0], p, row[2]))
+
+    try:
+        os.remove(args.outfile + ".db")
+    except (IOError, OSError):
+        pass
 
     run_cmd_nodes("cleanup", args)
 
