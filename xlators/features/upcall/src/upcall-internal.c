@@ -327,6 +327,24 @@ out:
         return ret;
 }
 
+void
+upcall_cache_invalidate_dir (call_frame_t *frame, xlator_t *this,
+                             client_t *client, inode_t *inode, uint32_t flags)
+{
+        dentry_t        *dentry;
+        dentry_t        *dentry_tmp;
+
+        if (!is_cache_invalidation_enabled(this))
+                return;
+
+        list_for_each_entry_safe (dentry, dentry_tmp,
+                                  &inode->dentry_list,
+                                  inode_list) {
+                upcall_cache_invalidate (frame, this, client,
+                                         dentry->inode, flags);
+        }
+}
+
 /*
  * Given a gfid, client, first fetch upcall_entry_t based on gfid.
  * Later traverse through the client list of that upcall entry. If this client
@@ -346,6 +364,9 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
         upcall_client_t *tmp             = NULL;
         upcall_inode_ctx_t *up_inode_ctx = NULL;
         gf_boolean_t     found           = _gf_false;
+
+        if (!is_cache_invalidation_enabled(this))
+                return;
 
         up_inode_ctx = ((upcall_local_t *)frame->local)->upcall_inode_ctx;
 

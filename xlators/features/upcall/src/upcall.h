@@ -96,6 +96,7 @@ struct upcall_local {
          */
         upcall_inode_ctx_t *upcall_inode_ctx;
         inode_t   *inode;
+        loc_t     rename_oldloc;
 };
 typedef struct upcall_local upcall_local_t;
 
@@ -129,5 +130,8 @@ void upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *cli
 void upcall_client_cache_invalidate (xlator_t *xl, uuid_t gfid,
                                      upcall_client_t *up_client_entry,
                                      uint32_t flags);
+void upcall_cache_invalidate_dir (call_frame_t *frame, xlator_t *this,
+                                  client_t *client, inode_t *inode,
+                                  uint32_t flags);
 
 #endif /* __UPCALL_H__ */
