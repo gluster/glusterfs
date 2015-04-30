@@ -41,8 +41,9 @@ main (int argc, char *argv[])
         struct    callback_arg cbk;
         char      *logfile = NULL;
         char      *volname = NULL;
+        struct callback_inode_arg *in_arg = NULL;
 
-        cbk.object = NULL;
+        cbk.reason = 0;
 
         if (argc != 3) {
                 fprintf (stderr, "Invalid argument\n");
@@ -147,10 +148,18 @@ main (int argc, char *argv[])
                 if (cnt > 2) {
                         ret = glfs_h_poll_upcall(fs_tmp, &cbk);
                         LOG_ERR ("glfs_h_poll_upcall", ret);
-                        if (cbk.object) {
+                        /* Expect 'GFAPI_INODE_INVALIDATE' upcall event. */
+                        if (cbk.reason == GFAPI_INODE_INVALIDATE) {
+                                in_arg = cbk.event_arg;
                                 fprintf (stderr, " upcall event type - %d,"
-                                                 " flags - %d, expire_time_attr - %d\n" ,
-                                         cbk.reason, cbk.flags, cbk.expire_time_attr);
+                                         " object(%p), flags(%d), "
+                                         " expire_time_attr(%d)\n" ,
+                                         cbk.reason, in_arg->object,
+                                         in_arg->flags,
+                                         in_arg->expire_time_attr);
+                                ret = glfs_h_close (in_arg->object);
+                                LOG_ERR ("glfs_h_close", ret);
+                                free (in_arg);
                         } else {
                                 fprintf (stderr,
                                          "Dint receive upcall notify event");

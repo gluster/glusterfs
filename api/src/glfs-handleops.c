@@ -1621,6 +1621,76 @@ out:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 
+int
+glfs_h_poll_cache_invalidation (struct glfs *fs,
+                                struct callback_arg *up_arg,
+                                struct gf_upcall *upcall_data)
+{
+        int                                 ret           = -1;
+        struct glfs_object                  *p_object     = NULL;
+        struct glfs_object                  *oldp_object  = NULL;
+        struct glfs_object                  *object       = NULL;
+        struct gf_upcall_cache_invalidation *ca_data      = NULL;
+        struct callback_inode_arg           *up_inode_arg = NULL;
+
+        ca_data = upcall_data->data;
+        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                             ca_data, out);
+
+        object = glfs_h_create_from_handle (fs, upcall_data->gfid,
+                                            GFAPI_HANDLE_LENGTH,
+                                            NULL);
+        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                             object, out);
+
+        up_inode_arg = calloc (1, sizeof (struct callback_inode_arg));
+        GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                             up_inode_arg, out);
+
+        up_arg->event_arg = up_inode_arg;
+
+        up_inode_arg->object = object;
+        up_inode_arg->flags = ca_data->flags;
+        up_inode_arg->expire_time_attr = ca_data->expire_time_attr;
+
+        /* XXX: Update stat as well incase of UP_*_TIMES.
+         * This will be addressed as part of INODE_UPDATE */
+        if (ca_data->flags & GFAPI_INODE_UPDATE_FLAGS) {
+                glfs_iatt_to_stat (fs, &ca_data->stat, &up_inode_arg->buf);
+        }
+
+        if (ca_data->flags & GFAPI_UP_PARENT_TIMES) {
+                p_object = glfs_h_create_from_handle (fs,
+                                                      ca_data->p_stat.ia_gfid,
+                                                      GFAPI_HANDLE_LENGTH,
+                                                      NULL);
+                GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                                       p_object, out);
+
+                glfs_iatt_to_stat (fs, &ca_data->p_stat, &up_inode_arg->p_buf);
+        }
+        up_inode_arg->p_object = p_object;
+
+        /* In case of RENAME, update old parent as well */
+        if (ca_data->flags & GFAPI_UP_RENAME) {
+                oldp_object = glfs_h_create_from_handle (fs,
+                                                     ca_data->oldp_stat.ia_gfid,
+                                                     GFAPI_HANDLE_LENGTH,
+                                                     NULL);
+                GF_VALIDATE_OR_GOTO ("glfs_h_poll_cache_invalidation",
+                                       oldp_object, out);
+
+                glfs_iatt_to_stat (fs, &ca_data->oldp_stat,
+                                   &up_inode_arg->oldp_buf);
+        }
+        up_inode_arg->oldp_object = oldp_object;
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
 /*
  * This API is used to poll for upcall events stored in the
  * upcall list. Current users of this API is NFS-Ganesha.
@@ -1628,11 +1698,17 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
  * into 'callback_arg' along with the handle object  to be passed
  * to NFS-Ganesha.
  *
- * On success, applications need to check for 'object' to decide
+ * On success, applications need to check for 'reason' to decide
  * if any upcall event is received.
  *
- * After processing the event, they need to free "object"
- * using glfs_h_close(..).
+ * Current supported upcall_events -
+ *      GFAPI_INODE_INVALIDATE -
+ *              'arg - callback_inode_arg
+ *
+ * After processing the event, applications need to free 'event_arg'.
+ *
+ * Incase of INODE_INVALIDATE, applications need to free "object",
+ * "p_object" and "oldp_object" using glfs_h_close(..).
  *
  * Also similar to I/Os, the application should ideally stop polling
  * before calling glfs_fini(..). Hence making an assumption that
@@ -1641,8 +1717,6 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_rename, 3.4.2);
 int
 pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 {
-        struct glfs_object                  *object         = NULL;
-        uuid_t                              gfid;
         upcall_entry                        *u_list         = NULL;
         upcall_entry                        *tmp            = NULL;
         xlator_t                            *subvol         = NULL;
@@ -1651,7 +1725,6 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
         glusterfs_ctx_t                     *ctx            = NULL;
         int                                 ret             = -1;
         struct gf_upcall                    *upcall_data    = NULL;
-        struct gf_upcall_cache_invalidation *ca_data        = NULL;
 
         if (!fs || !up_arg) {
                 errno = EINVAL;
@@ -1667,8 +1740,6 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                 errno = EIO;
                 goto err;
         }
-
-        up_arg->object = NULL;
 
         /* Ideally applications should stop polling before calling
          * 'glfs_fini'. Yet cross check if cleanup has started
@@ -1691,7 +1762,6 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                 list_for_each_entry_safe (u_list, tmp,
                                           &fs->upcall_list,
                                           upcall_list) {
-                        gf_uuid_copy (gfid, u_list->upcall_data.gfid);
                         found = 1;
                         break;
                 }
@@ -1700,11 +1770,20 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
         pthread_mutex_unlock (&fs->upcall_list_mutex);
 
         if (found) {
-                object = glfs_h_create_from_handle (fs, gfid,
-                                                    GFAPI_HANDLE_LENGTH,
-                                                    NULL);
+                upcall_data = &u_list->upcall_data;
 
-                if (!object) {
+                switch (upcall_data->event_type) {
+                case GF_UPCALL_CACHE_INVALIDATION:
+                        /* XXX: Need to revisit this to support
+                         * GFAPI_INODE_UPDATE if required.
+                         */
+                        reason = GFAPI_INODE_INVALIDATE;
+                        ret = glfs_h_poll_cache_invalidation (fs,
+                                                              up_arg,
+                                                              upcall_data);
+                        if (!ret) {
+                                break;
+                        }
                         /* It could so happen that the file which got
                          * upcall notification may have got deleted
                          * by other thread. Irrespective of the error,
@@ -1714,32 +1793,15 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                          * as up_arg->object will be NULL */
                         gf_log (subvol->name, GF_LOG_WARNING,
                                 "handle creation of %s failed: %s",
-                                uuid_utoa (gfid), strerror (errno));
+                                uuid_utoa (upcall_data->gfid),
+                                strerror (errno));
 
                         reason = GFAPI_CBK_EVENT_NULL;
-                } else {
-
-                        upcall_data = &u_list->upcall_data;
-
-                        switch (upcall_data->event_type) {
-                        case GF_UPCALL_CACHE_INVALIDATION:
-                                /* XXX: Need to revisit this to support
-                                 * GFAPI_INODE_UPDATE if required.
-                                 */
-                                ca_data = upcall_data->data;
-                                GF_VALIDATE_OR_GOTO ("glfs_h_poll_upcall",
-                                                     ca_data, out);
-                                reason = GFAPI_INODE_INVALIDATE;
-                                up_arg->flags = ca_data->flags;
-                                up_arg->expire_time_attr = ca_data->expire_time_attr;
-
-                                break;
-                        default:
-                                break;
-                        }
+                        break;
+                default:
+                        break;
                 }
 
-                up_arg->object = object;
                 up_arg->reason = reason;
 
                 list_del_init (&u_list->upcall_list);

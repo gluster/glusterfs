@@ -51,7 +51,8 @@ up_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (open, frame, op_ret, op_errno, fd, xdata);
@@ -105,7 +106,8 @@ up_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_WRITE_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 postbuf, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (writev, frame, op_ret, op_errno,
@@ -166,7 +168,8 @@ up_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (readv, frame, op_ret, op_errno, vector,
@@ -224,7 +227,8 @@ up_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (lk, frame, op_ret, op_errno, lock, xdata);
@@ -278,7 +282,8 @@ up_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_WRITE_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 postbuf, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (truncate, frame, op_ret, op_errno,
@@ -339,7 +344,8 @@ up_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * Bug1200271.
          */
         flags = UP_ATTR_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 statpost, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (setattr, frame, op_ret, op_errno,
@@ -397,17 +403,9 @@ up_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) || !local) {
                 goto out;
         }
-        flags = UP_RENAME_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
-
-        /* Need to invalidate old and new parent entries as well */
-        flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
-
-        /* notify oldparent as well */
-        flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client,
-                                     local->rename_oldloc.inode, flags);
+        flags = (UP_RENAME_FLAGS | UP_PARENT_DENTRY_FLAGS);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 stbuf, postnewparent, postoldparent);
 
 out:
         UPCALL_STACK_UNWIND (rename, frame, op_ret, op_errno,
@@ -466,12 +464,9 @@ up_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) || !local) {
                 goto out;
         }
-        flags = UP_NLINK_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
-
-        flags = UP_PARENT_DENTRY_FLAGS;
-        /* invalidate parent's entry too */
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
+        flags = (UP_NLINK_FLAGS | UP_PARENT_DENTRY_FLAGS);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, postparent, NULL);
 
 out:
         UPCALL_STACK_UNWIND (unlink, frame, op_ret, op_errno,
@@ -526,10 +521,10 @@ up_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) || !local) {
                 goto out;
         }
-        flags = UP_NLINK_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        flags = (UP_NLINK_FLAGS | UP_PARENT_DENTRY_FLAGS);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 stbuf, postparent, NULL);
 
-        /* do we need to update parent as well?? */
 out:
         UPCALL_STACK_UNWIND (link, frame, op_ret, op_errno,
                              inode, stbuf, preparent, postparent, xdata);
@@ -584,12 +579,10 @@ up_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret < 0) || !local) {
                 goto out;
         }
-        flags = UP_NLINK_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
 
-        /* invalidate parent's entry too */
-        flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
+        flags = (UP_NLINK_FLAGS | UP_PARENT_DENTRY_FLAGS);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, postparent, NULL);
 
 out:
         UPCALL_STACK_UNWIND (rmdir, frame, op_ret, op_errno,
@@ -648,7 +641,8 @@ up_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* invalidate parent's entry too */
         flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 stbuf, postparent, NULL);
 
 out:
         UPCALL_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
@@ -709,7 +703,8 @@ up_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* As its a new file create, no need of sending notification */
         /* However invalidate parent's entry */
         flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 stbuf, postparent, NULL);
 
 out:
         UPCALL_STACK_UNWIND (create, frame, op_ret, op_errno, fd,
@@ -769,7 +764,8 @@ up_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf,
@@ -826,7 +822,8 @@ up_stat_cbk (call_frame_t *frame, void *cookie,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (stat, frame, op_ret, op_errno, buf,
@@ -939,7 +936,8 @@ up_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (access, frame, op_ret, op_errno, xdata);
@@ -994,7 +992,8 @@ up_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, stbuf,
@@ -1054,7 +1053,8 @@ up_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* invalidate parent's entry too */
         flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 buf, postparent, NULL);
 
 out:
         UPCALL_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, buf,
@@ -1114,7 +1114,8 @@ up_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* invalidate parent's entry too */
         flags = UP_PARENT_DENTRY_FLAGS;
-        upcall_cache_invalidate_dir (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 buf, postparent, NULL);
 
 out:
         UPCALL_STACK_UNWIND (symlink, frame, op_ret, op_errno, inode, buf,
@@ -1172,7 +1173,8 @@ up_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (opendir, frame, op_ret, op_errno, fd, xdata);
@@ -1227,7 +1229,8 @@ up_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (statfs, frame, op_ret, op_errno, buf, xdata);
@@ -1282,7 +1285,8 @@ up_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_UPDATE_CLIENT;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, xdata);
@@ -1396,7 +1400,8 @@ up_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_WRITE_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 post, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (fallocate, frame, op_ret, op_errno, pre,
@@ -1453,7 +1458,8 @@ up_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_WRITE_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 post, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (discard, frame, op_ret, op_errno, pre,
@@ -1510,7 +1516,8 @@ up_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         flags = UP_WRITE_FLAGS;
-        upcall_cache_invalidate (frame, this, client, local->inode, flags);
+        upcall_cache_invalidate (frame, this, client, local->inode, flags,
+                                 post, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (zerofill, frame, op_ret, op_errno, pre,
@@ -1725,10 +1732,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int                 ret              = -1;
         int32_t             val              = 0;
-        notify_event_data_t *notify_event    = NULL;
-        struct gf_upcall    up_req           = {0,};
-        upcall_client_t     *up_client_entry = NULL;
-        struct gf_upcall_cache_invalidation ca_req = {0,};
+        struct gf_upcall    *up_req          = NULL;
 
         switch (event) {
         case GF_EVENT_UPCALL:
@@ -1736,41 +1740,20 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 gf_log (this->name, GF_LOG_DEBUG, "Upcall Notify event = %d",
                         event);
 
-                notify_event = (notify_event_data_t *) data;
-                up_client_entry = notify_event->client_entry;
+                up_req = (struct gf_upcall *) data;
 
-                if (!up_client_entry) {
+                GF_VALIDATE_OR_GOTO(this->name, up_req, out);
+
+                ret = default_notify (this, event, up_req);
+
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                UPCALL_MSG_NOTIFY_FAILED,
+                                "Failed to notify cache invalidation"
+                                " to client(%s)",
+                                up_req->client_uid);
                         goto out;
                 }
-
-                up_req.client_uid = up_client_entry->client_uid;
-
-                gf_uuid_copy (up_req.gfid, notify_event->gfid);
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Sending notify to the client- %s, gfid - %s",
-                        up_client_entry->client_uid, up_req.gfid);
-
-                switch (notify_event->event_type) {
-                case GF_UPCALL_CACHE_INVALIDATION:
-                        ca_req.flags = notify_event->invalidate_flags;
-                        ca_req.expire_time_attr =
-                                        up_client_entry->expire_time_attr;
-                        up_req.data = &ca_req;
-                        break;
-                default:
-                        goto out;
-                }
-
-                up_req.event_type = notify_event->event_type;
-
-                ret = default_notify (this, event, &up_req);
-
-                /*
-                 * notify may fail as the client could have been
-                 * dis(re)connected. Cleanup the client entry.
-                 */
-                if (ret < 0)
-                        __upcall_cleanup_client_entry (up_client_entry);
         }
         break;
         default:
@@ -1784,7 +1767,15 @@ out:
 }
 
 struct xlator_fops fops = {
-        /* fops which do not trigger upcall
+        /* fops which change only "ATIME" do not result
+         * in any cache invalidation. Hence upcall
+         * notifications are not sent in this case.
+         * But however, we need to store/update the
+         * client info in the upcall state to be able
+         * to notify them incase of any changes done
+         * to the data.
+         *
+         * Below such fops do not trigger upcall
          * notifications but will add/update
          * clients info in the upcall inode ctx.*/
         .lookup      = up_lookup,

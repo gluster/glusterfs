@@ -294,7 +294,7 @@ upcall_cleanup_expired_clients (xlator_t *this,
                                         goto out;
                                 }
                                 gf_log (THIS->name, GF_LOG_TRACE,
-                                        "Cleaned up client_entry(%s) of",
+                                        "Cleaned up client_entry(%s)",
                                         up_client->client_uid);
                         }
                 }
@@ -450,24 +450,6 @@ upcall_reaper_thread_init (xlator_t *this)
         return ret;
 }
 
-void
-upcall_cache_invalidate_dir (call_frame_t *frame, xlator_t *this,
-                             client_t *client, inode_t *inode, uint32_t flags)
-{
-        dentry_t        *dentry;
-        dentry_t        *dentry_tmp;
-
-        if (!is_cache_invalidation_enabled(this))
-                return;
-
-        list_for_each_entry_safe (dentry, dentry_tmp,
-                                  &inode->dentry_list,
-                                  inode_list) {
-                upcall_cache_invalidate (frame, this, client,
-                                         dentry->inode, flags);
-        }
-}
-
 /*
  * Given a gfid, client, first fetch upcall_entry_t based on gfid.
  * Later traverse through the client list of that upcall entry. If this client
@@ -480,7 +462,8 @@ upcall_cache_invalidate_dir (call_frame_t *frame, xlator_t *this,
  */
 void
 upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
-                         inode_t *inode, uint32_t flags)
+                         inode_t *inode, uint32_t flags, struct iatt *stbuf,
+                         struct iatt *p_stbuf, struct iatt *oldp_stbuf)
 {
         upcall_client_t *up_client       = NULL;
         upcall_client_t *up_client_entry = NULL;
@@ -536,7 +519,8 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                         upcall_client_cache_invalidate(this,
                                                        inode->gfid,
                                                        up_client_entry,
-                                                       flags);
+                                                       flags, stbuf,
+                                                       p_stbuf, oldp_stbuf);
                 }
 
                 if (!found) {
@@ -556,27 +540,49 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
 void
 upcall_client_cache_invalidate (xlator_t *this, uuid_t gfid,
                                 upcall_client_t *up_client_entry,
-                                uint32_t flags)
+                                uint32_t flags, struct iatt *stbuf,
+                                struct iatt *p_stbuf,
+                                struct iatt *oldp_stbuf)
 {
-        notify_event_data_t n_event_data;
-        time_t timeout   = 0;
+        struct gf_upcall                    up_req  = {0,};
+        struct gf_upcall_cache_invalidation ca_req  = {0,};
+        time_t                              timeout = 0;
+        int                                 ret     = -1;
         time_t t_expired = time(NULL) - up_client_entry->access_time;
 
         timeout = get_cache_invalidation_timeout(this);
 
         if (t_expired < timeout) {
                 /* Send notify call */
-                gf_uuid_copy(n_event_data.gfid, gfid);
-                n_event_data.client_entry = up_client_entry;
-                n_event_data.event_type = GF_UPCALL_CACHE_INVALIDATION;
-                n_event_data.invalidate_flags = flags;
+                up_req.client_uid = up_client_entry->client_uid;
+                gf_uuid_copy (up_req.gfid, gfid);
 
-                /* Need to send inode flags */
-                this->notify (this, GF_EVENT_UPCALL, &n_event_data);
+                ca_req.flags = flags;
+                ca_req.expire_time_attr =
+                                 up_client_entry->expire_time_attr;
+                if (stbuf)
+                        ca_req.stat = *stbuf;
+                if (p_stbuf)
+                        ca_req.p_stat = *p_stbuf;
+                if (oldp_stbuf)
+                        ca_req.oldp_stat = *oldp_stbuf;
+
+                up_req.data = &ca_req;
+                up_req.event_type = GF_UPCALL_CACHE_INVALIDATION;
 
                 gf_log (THIS->name, GF_LOG_TRACE,
                         "Cache invalidation notification sent to %s",
                         up_client_entry->client_uid);
+
+                /* Need to send inode flags */
+                ret = this->notify (this, GF_EVENT_UPCALL, &up_req);
+
+                /*
+                 * notify may fail as the client could have been
+                 * dis(re)connected. Cleanup the client entry.
+                 */
+                if (ret < 0)
+                        __upcall_cleanup_client_entry (up_client_entry);
 
         } else {
                 gf_log (THIS->name, GF_LOG_TRACE,
@@ -621,7 +627,8 @@ upcall_cache_forget (xlator_t *this, inode_t *inode, upcall_inode_ctx_t *up_inod
                         upcall_client_cache_invalidate(this,
                                                        inode->gfid,
                                                        up_client_entry,
-                                                       flags);
+                                                       flags, NULL,
+                                                       NULL, NULL);
                 }
 
         }

@@ -14,6 +14,8 @@
 
 #include "xlator.h"
 #include "glusterfs.h"
+#include "upcall-utils.h"
+#include "glfs-handles.h"
 
 #define GLFS_SYMLINK_MAX_FOLLOW 2048
 
@@ -335,5 +337,9 @@ void glfs_free_from_ctx (struct glfs *fs)
 
 int glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
                                         struct gf_upcall *from_up_data);
+int
+glfs_h_poll_cache_invalidation (struct glfs *fs,
+                                struct callback_arg *up_arg,
+                                struct gf_upcall *upcall_data);
 
 #endif /* !_GLFS_INTERNAL_H */
