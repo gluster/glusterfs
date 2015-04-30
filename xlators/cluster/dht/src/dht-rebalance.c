@@ -32,6 +32,17 @@
                 idx %= sv_cnt;                  \
         }
 
+#define GF_FREE_DIR_DFMETA(dir_dfmeta) {                        \
+                if (dir_dfmeta) {                               \
+                        GF_FREE (dir_dfmeta->head);             \
+                        GF_FREE (dir_dfmeta->equeue);           \
+                        GF_FREE (dir_dfmeta->iterator);         \
+                        GF_FREE (dir_dfmeta->offset_var);       \
+                        GF_FREE (dir_dfmeta->fetch_entries);    \
+                        GF_FREE (dir_dfmeta);                   \
+                }                                               \
+        }                                                       \
+
 void
 dht_set_global_defrag_error (gf_defrag_info_t *defrag, int ret)
 {
@@ -42,6 +53,7 @@ dht_set_global_defrag_error (gf_defrag_info_t *defrag, int ret)
         UNLOCK (&defrag->lock);
         return;
 }
+
 static int
 dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
                       int32_t size, off_t offset, struct iobref *iobref)
@@ -2029,8 +2041,11 @@ out:
         if (ret == 0) {
                 *container = tmp_container;
         } else {
-                GF_FREE (tmp_container->parent_loc);
-                GF_FREE (tmp_container);
+                if (tmp_container) {
+                        GF_FREE (tmp_container->df_entry);
+                        GF_FREE (tmp_container->parent_loc);
+                        GF_FREE (tmp_container);
+                }
         }
 
         if (xattr_rsp)
@@ -2253,12 +2268,7 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         ret = 0;
 out:
 
-        GF_FREE (dir_dfmeta->head);
-        GF_FREE (dir_dfmeta->equeue);
-        GF_FREE (dir_dfmeta->iterator);
-        GF_FREE (dir_dfmeta->offset_var);
-        GF_FREE (dir_dfmeta->fetch_entries);
-        GF_FREE (dir_dfmeta);
+        GF_FREE_DIR_DFMETA (dir_dfmeta);
 
         if (dict)
                 dict_unref(dict);
@@ -2464,7 +2474,6 @@ gf_defrag_start_crawl (void *data)
         int                      i              = 0;
         int                     thread_index    = 0;
         int                     err             = 0;
-        int                     thread_status   = 0;
         pthread_t tid[MAX_MIGRATOR_THREAD_COUNT];
 
         this = data;
@@ -2648,7 +2657,7 @@ out:
 
         /*Wait for all the threads to complete their task*/
         for (i = 0; i < thread_index; i++) {
-                thread_status = pthread_join (tid[i], NULL);
+                pthread_join (tid[i], NULL);
         }
 
         if (defrag->queue) {
