@@ -58,6 +58,7 @@ const char *gd_quota_op_list[GF_QUOTA_OPTION_TYPE_MAX + 1] = {
         [GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS]      = "limit-objects",
         [GF_QUOTA_OPTION_TYPE_LIST_OBJECTS]       = "list-objects",
         [GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS]     = "remove-objects",
+        [GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS]     = "enable-objects",
         [GF_QUOTA_OPTION_TYPE_MAX]                = NULL
 };
 
@@ -266,7 +267,8 @@ glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname,
                 }
                 runinit (&runner);
 
-                if (type == GF_QUOTA_OPTION_TYPE_ENABLE)
+                if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
+                    type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)
                         runner_add_args (&runner, "/usr/bin/find", ".",
                                          "-exec", "/usr/bin/stat",
                                          "{}", "\\", ";", NULL);
@@ -348,11 +350,66 @@ out:
 }
 
 int32_t
+glusterd_inode_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
+                             gf_boolean_t *crawl)
+{
+        int32_t         ret     = -1;
+        xlator_t        *this   = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (this->name, crawl, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
+
+        if (glusterd_is_volume_started (volinfo) == 0) {
+                *op_errstr = gf_strdup ("Volume is stopped, start volume "
+                                        "to enable inode quota.");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret != 0) {
+                *op_errstr = gf_strdup ("Quota is disabled. Enabling quota "
+                                        "will enable inode quota");
+                ret = -1;
+                goto out;
+        }
+
+        if (glusterd_is_volume_inode_quota_enabled (volinfo)) {
+                *op_errstr = gf_strdup ("Inode Quota is already enabled");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          VKEY_FEATURES_INODE_QUOTA, "on");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
+                goto out;
+        }
+
+        *crawl = _gf_true;
+
+        ret = glusterd_store_quota_config (volinfo, NULL, NULL,
+                                           GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS,
+                                           op_errstr);
+
+        ret = 0;
+out:
+        if (ret && op_errstr && !*op_errstr)
+                gf_asprintf (op_errstr, "Enabling inode quota on volume %s has "
+                             "been unsuccessful", volinfo->volname);
+        return ret;
+}
+
+int32_t
 glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                        gf_boolean_t *crawl)
 {
         int32_t         ret     = -1;
-        char            *quota_status = NULL;
         xlator_t        *this         = NULL;
 
         this = THIS;
@@ -376,15 +433,15 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
-        quota_status = gf_strdup ("on");
-        if (!quota_status) {
-                gf_log (this->name, GF_LOG_ERROR, "memory allocation failed");
-                ret = -1;
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, VKEY_FEATURES_QUOTA,
+                                          "on");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
                 goto out;
         }
 
-        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA,
-                               quota_status);
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          VKEY_FEATURES_INODE_QUOTA, "on");
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "dict set failed");
                 goto out;
@@ -410,7 +467,6 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
 {
         int32_t    ret            = -1;
         int        i              =  0;
-        char      *quota_status   = NULL;
         char      *value          = NULL;
         xlator_t  *this           = NULL;
         glusterd_conf_t *conf     = NULL;
@@ -435,14 +491,15 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 goto out;
         }
 
-        quota_status = gf_strdup ("off");
-        if (!quota_status) {
-                gf_log (this->name, GF_LOG_ERROR, "memory allocation failed");
-                ret = -1;
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, VKEY_FEATURES_QUOTA,
+                                          "off");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "dict set failed");
                 goto out;
         }
 
-        ret = dict_set_dynstr (volinfo->dict, VKEY_FEATURES_QUOTA, quota_status);
+        ret = dict_set_dynstr_with_alloc (volinfo->dict,
+                                          VKEY_FEATURES_INODE_QUOTA, "off");
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "dict set failed");
                 goto out;
@@ -793,7 +850,8 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 goto out;
 
         /* Just create empty quota.conf file if create */
-        if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode) {
+        if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode ||
+            GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS == opcode) {
                 modified = _gf_true;
                 goto out;
         }
@@ -1251,6 +1309,13 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 goto out;
                         break;
 
+                case GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS:
+                        ret = glusterd_inode_quota_enable (volinfo, op_errstr,
+                                                           &start_crawl);
+                        if (ret < 0)
+                                goto out;
+                        break;
+
                 case GF_QUOTA_OPTION_TYPE_DISABLE:
                         ret = glusterd_quota_disable (volinfo, op_errstr,
                                                       &start_crawl);
@@ -1563,6 +1628,16 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
+        if (type > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS) {
+                if (!glusterd_is_volume_inode_quota_enabled (volinfo) &&
+                    type != GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS) {
+                        *op_errstr = gf_strdup ("Inode Quota is disabled, "
+                                                "please enable inode quota");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         if (!glusterd_is_quota_supported (type, op_errstr)) {
                 ret = -1;
                 goto out;
@@ -1578,6 +1653,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         switch (type) {
         case GF_QUOTA_OPTION_TYPE_ENABLE:
+        case GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS:
         case GF_QUOTA_OPTION_TYPE_LIST:
         case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
                 /* Fuse mount req. only for enable & list-usage options*/

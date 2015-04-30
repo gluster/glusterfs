@@ -527,6 +527,9 @@ int
 glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo);
 
 int
+glusterd_is_volume_inode_quota_enabled (glusterd_volinfo_t *volinfo);
+
+int
 glusterd_is_bitrot_enabled (glusterd_volinfo_t *volinfo);
 
 gf_boolean_t

@@ -428,23 +428,49 @@ glusterd_check_quota_cmd (char *key, char *value, char *errstr, size_t size)
                 if (ret)
                         goto out;
                 if (b) {
-                          snprintf (errstr, size," 'gluster "
-                                    "volume set <VOLNAME> %s %s' is "
-                                    "deprecated. Use 'gluster volume "
-                                    "quota <VOLNAME> enable' instead.",
-                                     key, value);
-                          ret = -1;
-                          goto out;
+                        snprintf (errstr, size, " 'gluster "
+                                  "volume set <VOLNAME> %s %s' is "
+                                  "deprecated. Use 'gluster volume "
+                                  "quota <VOLNAME> enable' instead.",
+                                   key, value);
+                        ret = -1;
+                        goto out;
                 } else {
-                          snprintf (errstr, size, " 'gluster "
-                                    "volume set <VOLNAME> %s %s' is "
-                                    "deprecated. Use 'gluster volume "
-                                    "quota <VOLNAME> disable' instead.",
-                                     key, value);
-                          ret = -1;
-                          goto out;
+                        snprintf (errstr, size, " 'gluster "
+                                  "volume set <VOLNAME> %s %s' is "
+                                  "deprecated. Use 'gluster volume "
+                                  "quota <VOLNAME> disable' instead.",
+                                   key, value);
+                        ret = -1;
+                        goto out;
+                }
+        } else if ((strcmp (key, "inode-quota") == 0) ||
+                   (strcmp (key, "features.inode-quota") == 0)) {
+                ret = gf_string2boolean (value, &b);
+                if (ret)
+                        goto out;
+                if (b) {
+                        snprintf (errstr, size, " 'gluster "
+                                  "volume set <VOLNAME> %s %s' is "
+                                  "deprecated. Use 'gluster volume "
+                                  "inode-quota <VOLNAME> enable' instead.",
+                                  key, value);
+                        ret = -1;
+                        goto out;
+                } else {
+                        /* inode-quota disable not supported,
+                         * use quota disable
+                         */
+                        snprintf (errstr, size, " 'gluster "
+                                  "volume set <VOLNAME> %s %s' is "
+                                  "deprecated. Use 'gluster volume "
+                                  "quota <VOLNAME> disable' instead.",
+                                   key, value);
+                        ret = -1;
+                        goto out;
                 }
         }
+
         ret = 0;
 out:
         return ret;

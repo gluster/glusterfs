@@ -3043,6 +3043,13 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
+        data = dict_get (options, "inode-quota");
+        if (data) {
+                ret = gf_string2boolean (data->data, &flag);
+                if (ret == 0 && flag == _gf_true)
+                        priv->feature_enabled |= GF_INODE_QUOTA;
+        }
+
         data = dict_get (options, "xtime");
         if (data) {
                 ret = gf_string2boolean (data->data, &flag);
@@ -3111,6 +3118,13 @@ init (xlator_t *this)
 
                         priv->feature_enabled |= GF_QUOTA;
                 }
+        }
+
+        data = dict_get (options, "inode-quota");
+        if (data) {
+                ret = gf_string2boolean (data->data, &flag);
+                if (ret == 0 && flag == _gf_true)
+                        priv->feature_enabled |= GF_INODE_QUOTA;
         }
 
         data = dict_get (options, "xtime");
@@ -3206,6 +3220,7 @@ struct volume_options options[] = {
         {.key = {"volume-uuid"}},
         {.key = {"timestamp-file"}},
         {.key = {"quota"}},
+        {.key = {"inode-quota"} },
         {.key = {"xtime"}},
         {.key = {"gsync-force-xtime"}},
         {.key = {NULL}}

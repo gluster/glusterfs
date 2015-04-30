@@ -8789,6 +8789,13 @@ glusterd_is_volume_quota_enabled (glusterd_volinfo_t *volinfo)
 }
 
 int
+glusterd_is_volume_inode_quota_enabled (glusterd_volinfo_t *volinfo)
+{
+        return (glusterd_volinfo_get_boolean (volinfo,
+                                              VKEY_FEATURES_INODE_QUOTA));
+}
+
+int
 glusterd_is_bitrot_enabled (glusterd_volinfo_t *volinfo)
 {
         return glusterd_volinfo_get_boolean (volinfo, VKEY_FEATURES_BITROT);

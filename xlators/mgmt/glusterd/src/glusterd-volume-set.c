@@ -1264,6 +1264,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_FORCE,
           .op_version  = 1
         },
+        { .key         = VKEY_FEATURES_INODE_QUOTA,
+          .voltype     = "features/marker",
+          .option      = "inode-quota",
+          .value       = "off",
+          .type        = NO_DOC,
+          .flags       = OPT_FLAG_FORCE,
+          .op_version  = 1
+        },
 
         { .key         = VKEY_FEATURES_BITROT,
           .voltype     = "features/bitrot",
