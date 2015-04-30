@@ -1515,11 +1515,20 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                                "configuration. Do you want to continue?";
 
         //parse **words into options dictionary
-        ret = cli_cmd_quota_parse (words, wordcount, &options);
-        if (ret < 0) {
-                cli_usage_out (word->pattern);
-                parse_err = 1;
-                goto out;
+        if (strcmp (words[1], "inode-quota") == 0) {
+                ret = cli_cmd_inode_quota_parse (words, wordcount, &options);
+                if (ret < 0) {
+                        cli_usage_out (word->pattern);
+                        parse_err = 1;
+                        goto out;
+                }
+        } else {
+                ret = cli_cmd_quota_parse (words, wordcount, &options);
+                if (ret < 0) {
+                        cli_usage_out (word->pattern);
+                        parse_err = 1;
+                        goto out;
+                }
         }
 
         ret = dict_get_int32 (options, "type", &type);
@@ -2646,6 +2655,10 @@ struct cli_cmd volume_cmds[] = {
           "volume quota <VOLNAME> {limit-usage <path> <size> [<percent>]} |\n"
           "volume quota <VOLNAME> {limit-objects <path> <number> [<percent>]} |\n"
           "volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
+          cli_cmd_quota_cbk,
+          "quota translator specific operations"},
+
+        { "volume inode-quota <VOLNAME> enable",
           cli_cmd_quota_cbk,
           "quota translator specific operations"},
 
