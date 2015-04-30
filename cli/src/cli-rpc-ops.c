@@ -1818,11 +1818,11 @@ done:
                                     rsp.op_errstr);
         else {
                 if (rsp.op_ret)
-                        cli_err ("volume rebalance: %s: failed: %s", volname,
-                                 msg);
+                        cli_err ("volume rebalance: %s: failed%s%s",
+                                 volname, strlen (msg) ? ": " : "", msg);
                 else
-                        cli_out ("volume rebalance: %s: success: %s", volname,
-                                 msg);
+                        cli_out ("volume rebalance: %s: success%s%s",
+                                 volname, strlen (msg) ? ": " : "", msg);
         }
         ret = rsp.op_ret;
 
