@@ -38,6 +38,7 @@
 #define AFR_LOCKEE_COUNT_MAX    3
 #define AFR_DOM_COUNT_MAX    3
 #define AFR_NUM_CHANGE_LOGS            3 /*data + metadata + entry*/
+#define AFR_DEFAULT_SPB_CHOICE_TIMEOUT 300 /*in seconds*/
 
 #define ARBITER_BRICK_INDEX 2
 
@@ -130,6 +131,7 @@ typedef struct _afr_private {
 	void                   *pump_private;
 	gf_boolean_t           use_afr_in_pump;
         gf_boolean_t           consistent_metadata;
+        uint64_t               spb_choice_timeout;
 } afr_private_t;
 
 
@@ -742,7 +744,16 @@ typedef struct _afr_local {
 typedef struct _afr_inode_ctx {
         uint64_t        read_subvol;
         int             spb_choice;
+        gf_timer_t      *timer;
 } afr_inode_ctx_t;
+
+typedef struct afr_spbc_timeout {
+        call_frame_t *frame;
+        gf_boolean_t d_spb;
+        gf_boolean_t m_spb;
+        loc_t        *loc;
+        int          spb_child_index;
+} afr_spbc_timeout_t;
 
 /* did a call fail due to a child failing? */
 #define child_went_down(op_ret, op_errno) (((op_ret) < 0) &&            \
@@ -1046,4 +1057,13 @@ afr_inode_split_brain_choice_get (inode_t *inode, xlator_t *this,
                                   int *spb_choice);
 int
 afr_get_child_index_from_name (xlator_t *this, char *name);
+
+int
+afr_is_split_brain (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                    uuid_t gfid, gf_boolean_t *d_spb, gf_boolean_t *m_spb);
+int
+afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode);
+
+int
+afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque);
 #endif /* __AFR_H__ */

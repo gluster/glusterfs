@@ -426,6 +426,15 @@ Now performing cat operation on the file will again result in input/output error
 cat: file1: Input/output error
 ~~~
 
+The user can access each file for a timeout amount of period every time replica.split-brain-choice is set. This timeout is configurable by user, with a default value of 5 minutes.
+### To set split-brain-choice timeout
+A setfattr command from the mount allows the user set this timeout, to be specified in minutes.
+~~~
+# setfattr -n replica.split-brain-choice-timeout -v <timeout-in-minutes> <mount_point/file>
+~~~
+This is a global timeout, i.e. applicable to all files as long as the mount exists. So, the timeout need not be set each time a file needs to be inspected but for a new mount it will have to be set again for the first time. This option also needs to be set every time there is a client graph switch (_See note #3_). 
+
+### Resolving the split-brain
 Once the choice for resolving split-brain is made, source brick is supposed to be set for the healing to be done.
 This is done using the following command:
 
@@ -446,3 +455,5 @@ NOTE:
 ~~~
 
 2) The above mentioned process for split-brain resolution from mount will not work on nfs mounts as it doesn't provide xattrs support.
+
+3) Client graph switch occurs when there is a change in the client side translator graph; typically during addition of new translators to the graph on client side and add-brick/remove-brick operations.
