@@ -447,7 +447,7 @@ glfs_get_volume_info_rpc (call_frame_t *frame, xlator_t *this,
         flags = (int32_t)GF_GET_VOLUME_UUID; //ctx->flags;
         ret = dict_set_int32 (dict, "flags", flags);
         if (ret) {
-                gf_msg (frame->this->name, GF_LOG_ERROR, ENOKEY,
+                gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
                         API_MSG_DICT_SET_FAILED, "failed to set flags");
                 goto out;
         }
@@ -665,7 +665,7 @@ glfs_volfile_fetch (struct glfs *fs)
         // decision
         ret = dict_set_int32 (dict, "min-op-version", GD_OP_VERSION_MIN);
         if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, ENOKEY,
+                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
                         API_MSG_DICT_SET_FAILED,
                         "Failed to set min-op-version in request dict");
                 goto out;
@@ -673,7 +673,7 @@ glfs_volfile_fetch (struct glfs *fs)
 
         ret = dict_set_int32 (dict, "max-op-version", GD_OP_VERSION_MAX);
         if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, ENOKEY,
+                gf_msg (THIS->name, GF_LOG_ERROR, EINVAL,
                         API_MSG_DICT_SET_FAILED,
                         "Failed to set max-op-version in request dict");
                 goto out;
