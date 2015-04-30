@@ -57,6 +57,7 @@
  */
 #define UPCALL_MSG_NO_MEMORY             (GLFS_COMP_BASE_UPCALL + 1)
 #define UPCALL_MSG_INTERNAL_ERROR        (GLFS_COMP_BASE_UPCALL + 2)
+#define UPCALL_MSG_NOTIFY_FAILED         (GLFS_COMP_BASE_UPCALL + 3)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 

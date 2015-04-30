@@ -370,11 +370,6 @@ typedef enum {
         GF_XATTROP_AND_ARRAY
 } gf_xattrop_flags_t;
 
-typedef enum {
-        GF_UPCALL_EVENT_NULL,
-        GF_UPCALL_CACHE_INVALIDATION,
-} gf_upcall_event_t;
-
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
 #define GF_SET_DIR_ONLY       0x4
@@ -619,18 +614,6 @@ struct gf_flock {
         off_t        l_len;
         pid_t        l_pid;
         gf_lkowner_t l_owner;
-};
-
-struct gf_upcall {
-        char   *client_uid;
-        uuid_t gfid;
-        u_int  event_type;
-        void   *data;
-};
-
-struct gf_upcall_cache_invalidation {
-        u_int flags;
-        u_int expire_time_attr;
 };
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))

@@ -71,6 +71,9 @@
                                          permission checking */
 #define GFAPI_UP_RENAME  0x00000080   /* this is a rename op -
                                          delete the cache entry */
+#define GFAPI_UP_FORGET  0x00000100   /* inode_forget on server side -
+                                         invalidate the cache entry */
+#define GFAPI_UP_PARENT_TIMES   0x00000200   /* update parent dir times */
 
 #define GFAPI_INODE_UPDATE_FLAGS (GFAPI_UP_NLINK | GFAPI_UP_MODE | \
                                   GFAPI_UP_OWN | GFAPI_UP_SIZE | \
@@ -102,15 +105,30 @@ typedef struct glfs_object glfs_object_t;
  * Applications (currently NFS-Ganesha) can make use of this
  * structure to read upcall notifications sent by server.
  *
- * On success, applications need to check for 'object' to decide
+ * On success, applications need to check for 'reason' to decide
  * if any upcall event is received.
  *
- * After processing the event, they need to free "object"
- * using glfs_h_close(..).
+ * Currently supported upcall_events -
+ *      GFAPI_INODE_INVALIDATE -
+ *              'event_arg' - callback_inode_arg
+ *
+ * After processing the event, applications need to free 'event_arg'.
+ *
+ * Also similar to I/Os, the application should ideally stop polling
+ * before calling glfs_fini(..). Hence making an assumption that
+ * 'fs' & ctx structures cannot be freed while in this routine.
  */
 struct callback_arg {
         struct glfs             *fs; /* glfs object */
         int                     reason;  /* Upcall event type */
+        void                    *event_arg; /* changes based in the event type */
+};
+
+/*
+ * After processing upcall event, they need to free "object" , "p_object",
+ * "oldp_object" using glfs_h_close(..).
+ */
+struct callback_inode_arg {
         struct glfs_object      *object; /* Object which need to be acted upon */
         int                     flags; /* Cache UPDATE/INVALIDATE flags */
         struct stat             buf; /* Latest stat of this entry */
@@ -118,6 +136,12 @@ struct callback_arg {
                                                    * the application need to cache
                                                    * this entry
                                                    */
+        struct glfs_object      *p_object; /* parent Object to be updated */
+        struct stat             p_buf; /* Latest stat of parent dir handle */
+        struct glfs_object      *oldp_object; /* Old parent Object
+                                               * to be updated */
+        struct stat             oldp_buf; /* Latest stat of old parent
+                                           * dir handle */
 };
 
 /* reason list in callback_arg */

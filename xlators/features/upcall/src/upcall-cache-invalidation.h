@@ -33,6 +33,7 @@
                                    delete the cache entry */
 #define UP_FORGET  0x00000100   /* inode_forget on server side -
                                    invalidate the cache entry */
+#define UP_PARENT_TIMES   0x00000200   /* update parent dir times */
 
 /* for fops - open, read, lk, */
 #define UP_UPDATE_CLIENT        (UP_ATIME)
@@ -48,7 +49,7 @@
 
 /* to invalidate parent directory entries for fops -rename, unlink,
  * rmdir, mkdir, create */
-#define UP_PARENT_DENTRY_FLAGS  (UP_TIMES)
+#define UP_PARENT_DENTRY_FLAGS  (UP_PARENT_TIMES)
 
 /* for fop - unlink, link, rmdir, mkdir */
 #define UP_NLINK_FLAGS          (UP_NLINK | UP_TIMES)

@@ -16,6 +16,8 @@
 #include "xdr-generic.h"
 #include "glusterfs3-xdr.h"
 #include "iatt.h"
+#include "protocol-common.h"
+#include "upcall-utils.h"
 
 #define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
 #define xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
@@ -289,6 +291,9 @@ gf_proto_cache_invalidation_from_upcall (gfs3_cbk_cache_invalidation_req *gf_c_r
         gf_c_req->event_type       = gf_up_data->event_type;
         gf_c_req->flags            = gf_c_data->flags;
         gf_c_req->expire_time_attr = gf_c_data->expire_time_attr;
+        gf_stat_from_iatt (&gf_c_req->stat, &gf_c_data->stat);
+        gf_stat_from_iatt (&gf_c_req->parent_stat, &gf_c_data->p_stat);
+        gf_stat_from_iatt (&gf_c_req->oldparent_stat, &gf_c_data->oldp_stat);
 
 out:
         return;
@@ -319,6 +324,9 @@ gf_proto_cache_invalidation_to_upcall (gfs3_cbk_cache_invalidation_req *gf_c_req
 
         gf_c_data->flags            = gf_c_req->flags;
         gf_c_data->expire_time_attr = gf_c_req->expire_time_attr;
+        gf_stat_to_iatt (&gf_c_req->stat, &gf_c_data->stat);
+        gf_stat_to_iatt (&gf_c_req->parent_stat, &gf_c_data->p_stat);
+        gf_stat_to_iatt (&gf_c_req->oldparent_stat, &gf_c_data->oldp_stat);
 
 out:
         return;
