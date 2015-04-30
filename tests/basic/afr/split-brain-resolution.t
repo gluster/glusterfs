@@ -50,6 +50,7 @@ TEST setfattr -n replica.split-brain-choice -v $V0-client-0 $M0/data-split-brain
 #Should now be able to read the contents of data-split-brain.txt
 EXPECT "brick0_alive" cat $M0/data-split-brain.txt
 
+TEST setfattr -n replica.split-brain-choice-timeout -v 10 $M0/
 TEST setfattr -n replica.split-brain-choice -v $V0-client-1 $M0/data-split-brain.txt
 
 #Should now be able to read the contents of data-split-brain.txt

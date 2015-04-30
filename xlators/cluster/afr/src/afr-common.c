@@ -413,6 +413,142 @@ out:
 	return ret;
 }
 
+int
+afr_spb_choice_timeout_cancel (xlator_t *this, inode_t *inode)
+{
+        afr_inode_ctx_t *ctx    = NULL;
+        int              ret    = -1;
+
+        if (!inode)
+                return ret;
+
+        LOCK(&inode->lock);
+        {
+                __afr_inode_ctx_get (this, inode, &ctx);
+                if (!ctx) {
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to cancel"
+                                " split-brain choice timer.");
+                        goto out;
+                }
+                ctx->spb_choice = -1;
+                if (ctx->timer) {
+                        gf_timer_call_cancel (this->ctx, ctx->timer);
+                        ctx->timer = NULL;
+                }
+                ret = 0;
+        }
+out:
+        UNLOCK(&inode->lock);
+        return ret;
+}
+
+void
+afr_set_split_brain_choice_cbk (void *data)
+{
+        inode_t      *inode     = data;
+        xlator_t     *this      = THIS;
+
+        afr_spb_choice_timeout_cancel (this, inode);
+        inode_unref (inode);
+        return;
+}
+
+
+int
+afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
+{
+        int     op_errno         = ENOMEM;
+        afr_private_t *priv      = NULL;
+        afr_inode_ctx_t *ctx     = NULL;
+        inode_t *inode           = NULL;
+        loc_t   *loc             = NULL;
+        xlator_t *this           = NULL;
+        afr_spbc_timeout_t *data = opaque;
+        struct timespec delta    = {0, };
+
+        if (ret)
+                goto out;
+
+        frame = data->frame;
+        loc = data->loc;
+        this = frame->this;
+        priv = this->private;
+
+        delta.tv_sec = priv->spb_choice_timeout;
+        delta.tv_nsec = 0;
+
+        inode = loc->inode;
+        if (!inode)
+                goto out;
+
+        if (!(data->d_spb || data->m_spb)) {
+                gf_log (this->name, GF_LOG_WARNING, "Cannot set "
+                        "replica.split-brain-choice on %s. File is"
+                        " not in data/metadata split-brain.",
+                        uuid_utoa (loc->gfid));
+                ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        LOCK(&inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, inode, &ctx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to get"
+                                "inode_ctx for %s", loc->name);
+                        goto unlock;
+                }
+
+                ctx->spb_choice = data->spb_child_index;
+
+                /* Possible changes in spb-choice :
+                 *         -1 to valid    : ref and inject timer
+                 *
+                 *         valid to valid : cancel timer and inject new one
+                 *
+                 *         valid to -1    : cancel timer and unref
+                 *
+                 *         -1    to -1    : do not do anything
+                 */
+
+                /* ctx->timer is NULL iff previous value of
+                 * ctx->spb_choice is -1
+                 */
+                if (ctx->timer) {
+                        if (ctx->spb_choice == -1) {
+                                gf_timer_call_cancel (this->ctx, ctx->timer);
+                                ctx->timer = NULL;
+                                inode_unref (inode);
+                                goto unlock;
+                        }
+                        goto reset_timer;
+                } else {
+                        if (ctx->spb_choice == -1)
+                                goto unlock;
+                }
+
+                inode = inode_ref (loc->inode);
+                goto set_timer;
+
+reset_timer:
+                gf_timer_call_cancel (this->ctx, ctx->timer);
+                ctx->timer = NULL;
+
+set_timer:
+                ctx->timer = gf_timer_call_after (this->ctx, delta,
+                                                  afr_set_split_brain_choice_cbk,
+                                                  inode);
+        }
+unlock:
+        UNLOCK(&inode->lock);
+        inode_invalidate (inode);
+out:
+        if (data)
+                GF_FREE (data);
+        AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
+        return 0;
+}
 
 int
 afr_accused_fill (xlator_t *this, dict_t *xdata, unsigned char *accused,
@@ -3589,6 +3725,7 @@ afr_forget (xlator_t *this, inode_t *inode)
         uint64_t        ctx_int = 0;
         afr_inode_ctx_t *ctx    = NULL;
 
+        afr_spb_choice_timeout_cancel (this, inode);
         inode_ctx_del (inode, this, &ctx_int);
         if (!ctx_int)
                 return 0;
@@ -4552,10 +4689,10 @@ out:
 }
 
 int
-afr_set_split_brain_status (call_frame_t *frame, xlator_t *this,
-                            struct afr_reply *replies,
-                            afr_transaction_type type,
-                            gf_boolean_t *spb)
+_afr_is_split_brain (call_frame_t *frame, xlator_t *this,
+                         struct afr_reply *replies,
+                         afr_transaction_type type,
+                         gf_boolean_t *spb)
 {
         afr_private_t    *priv              = NULL;
         uint64_t         *witness           = NULL;
@@ -4584,6 +4721,37 @@ afr_set_split_brain_status (call_frame_t *frame, xlator_t *this,
 }
 
 int
+afr_is_split_brain (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                    uuid_t gfid, gf_boolean_t *d_spb, gf_boolean_t *m_spb)
+{
+        int    ret                          = -1;
+        afr_private_t    *priv              = NULL;
+        struct afr_reply *replies           = NULL;
+
+        priv = this->private;
+
+        replies = alloca0 (sizeof (*replies) * priv->child_count);
+
+        ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies);
+        if (ret)
+                goto out;
+
+        ret = _afr_is_split_brain (frame, this, replies,
+                                    AFR_DATA_TRANSACTION, d_spb);
+        if (ret)
+                goto out;
+
+        ret = _afr_is_split_brain (frame, this, replies,
+                                    AFR_METADATA_TRANSACTION, m_spb);
+out:
+        if (replies) {
+                afr_replies_wipe (replies, priv->child_count);
+                replies = NULL;
+        }
+        return ret;
+}
+
+int
 afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         gf_boolean_t      d_spb             = _gf_false;
@@ -4594,7 +4762,6 @@ afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
         char             *choices           = NULL;
         char             *status            = NULL;
         dict_t           *dict              = NULL;
-        struct afr_reply *replies           = NULL;
         inode_t          *inode             = NULL;
         afr_private_t    *priv              = NULL;
         xlator_t         **children         = NULL;
@@ -4605,7 +4772,6 @@ afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
         inode = afr_inode_find (this, loc->gfid);
         if (!inode)
                 goto out;
-        replies = alloca0 (sizeof (*replies) * priv->child_count);
 
         /* Calculation for string length :
         * (child_count X length of child-name) + strlen ("    Choices :")
@@ -4615,23 +4781,9 @@ afr_get_split_brain_status (call_frame_t *frame, xlator_t *this, loc_t *loc)
         */
         choices = alloca0 (priv->child_count * (256 + strlen ("-client-00,")) +
                            strlen ("    Choices:"));
-        ret = afr_selfheal_unlocked_discover (frame, inode, loc->gfid, replies);
-        if (ret) {
-                op_errno = -ret;
-                ret = -1;
-                goto out;
-        }
 
-        ret = afr_set_split_brain_status (frame, this, replies,
-                                          AFR_DATA_TRANSACTION, &d_spb);
-        if (ret) {
-                op_errno = -ret;
-                ret = -1;
-                goto out;
-        }
-
-        ret = afr_set_split_brain_status (frame, this, replies,
-                                          AFR_METADATA_TRANSACTION, &m_spb);
+        ret = afr_is_split_brain (frame, this, inode, loc->gfid, &d_spb,
+                                  &m_spb);
         if (ret) {
                 op_errno = -ret;
                 ret = -1;
@@ -4678,8 +4830,6 @@ out:
         AFR_STACK_UNWIND (getxattr, frame, ret, op_errno, dict, NULL);
         if (dict)
                dict_unref (dict);
-        if (replies)
-                afr_replies_wipe (replies, priv->child_count);
         if (inode)
                 inode_unref (inode);
         return ret;

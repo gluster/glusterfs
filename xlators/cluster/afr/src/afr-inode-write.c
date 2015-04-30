@@ -979,12 +979,7 @@ afr_split_brain_resolve_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int     ret                       = -1;
         int     op_errno                  = EINVAL;
 
-        local = AFR_FRAME_INIT (frame, op_errno);
-        if (!local)
-                goto out;
-
-        local->op = GF_FOP_SETXATTR;
-
+        local = frame->local;
         local->xdata_req = dict_new ();
 
         if (!local->xdata_req) {
@@ -1005,33 +1000,25 @@ afr_split_brain_resolve_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 ret = -1;
                 goto out;
         }
+        /* set spb choice to -1 whether heal succeeds or not:
+         * If heal succeeds : spb-choice should be set to -1 as
+         *                    it is no longer valid; file is not
+         *                    in split-brain anymore.
+         * If heal doesn't succeed:
+         *                    spb-choice should be set to -1
+         *                    otherwise reads will be served
+         *                    from spb-choice which is misleading.
+         */
+        ret = afr_inode_split_brain_choice_set (loc->inode, this, -1);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "Failed to set"
+                        "split-brain choice to -1");
         afr_heal_splitbrain_file (frame, this, loc);
+        ret = 0;
 out:
         if (ret < 0)
                 AFR_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
         return 0;
-}
-
-int
-afr_set_split_brain_choice (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                            int spb_choice)
-{
-        int     ret       = -1;
-        int     op_errno  = ENOMEM;
-        afr_private_t *priv = NULL;
-
-        priv = this->private;
-
-        ret = afr_inode_split_brain_choice_set (loc->inode, this, spb_choice);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set"
-                        "split-brain choice as %s for %s",
-                        priv->children[spb_choice]->name,
-                        loc->name);
-        }
-        inode_invalidate (loc->inode);
-        AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
-        return ret;
 }
 
 int
@@ -1056,17 +1043,51 @@ afr_get_split_brain_child_index (xlator_t *this, void *value, size_t len)
 }
 
 int
+afr_can_set_split_brain_choice (void *opaque)
+{
+        afr_spbc_timeout_t        *data         = opaque;
+        call_frame_t              *frame        = NULL;
+        xlator_t                  *this         = NULL;
+        loc_t                     *loc          = NULL;
+        int                        ret          = -1;
+
+        frame = data->frame;
+        loc = data->loc;
+        this = frame->this;
+
+        ret = afr_is_split_brain (frame, this, loc->inode, loc->gfid,
+                                  &data->d_spb, &data->m_spb);
+
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "Failed to determine if %s"
+                        " is in split-brain. "
+                        "Aborting split-brain-choice set.",
+                        uuid_utoa (loc->gfid));
+        return ret;
+}
+
+int
 afr_handle_split_brain_commands (xlator_t *this, call_frame_t *frame,
                                 loc_t *loc, dict_t *dict)
 {
-        int             len               = 0;
         void           *value             = NULL;
+        afr_private_t  *priv              = NULL;
+        afr_local_t    *local             = NULL;
+        afr_spbc_timeout_t *data          = NULL;
+        int             len               = 0;
         int             spb_child_index   = -1;
         int             ret               = -1;
         int             op_errno          = EINVAL;
-        afr_private_t  *priv              = NULL;
 
         priv = this->private;
+
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local) {
+                ret = 1;
+                goto out;
+        }
+
+        local->op = GF_FOP_SETXATTR;
 
         ret =  dict_get_ptr_and_len (dict, GF_AFR_SBRAIN_CHOICE, &value,
                                      &len);
@@ -1079,12 +1100,29 @@ afr_handle_split_brain_commands (xlator_t *this, call_frame_t *frame,
                                 spb_child_index = -1;
                         else {
                                 ret = 1;
+                                op_errno = EINVAL;
                                 goto out;
                         }
                 }
 
-                afr_set_split_brain_choice (frame, this, loc,
-                                            spb_child_index);
+                data = GF_CALLOC (1, sizeof (*data), gf_afr_mt_spbc_timeout_t);
+                if (!data) {
+                        ret = 1;
+                        goto out;
+                }
+                data->spb_child_index = spb_child_index;
+                data->frame = frame;
+                data->loc = loc;
+                ret = synctask_new (this->ctx->env,
+                                    afr_can_set_split_brain_choice,
+                                    afr_set_split_brain_choice, NULL, data);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Failed to create"
+                                " synctask. Aborting split-brain choice set"
+                                " for %s", loc->name);
+                        ret = 1;
+                        goto out;
+                }
                 ret = 0;
                 goto out;
         }
@@ -1112,6 +1150,41 @@ out:
 }
 
 int
+afr_handle_spb_choice_timeout (xlator_t *this, call_frame_t *frame,
+                               dict_t *dict)
+{
+        int             ret               = -1;
+        int             op_errno          = 0;
+        uint64_t        timeout           = 0;
+        afr_private_t  *priv              = NULL;
+
+        priv = this->private;
+
+        ret = dict_get_uint64 (dict, GF_AFR_SPB_CHOICE_TIMEOUT, &timeout);
+        if (!ret) {
+                priv->spb_choice_timeout = timeout * 60;
+                AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
+        }
+
+        return ret;
+}
+
+static int
+afr_handle_special_xattr (xlator_t *this, call_frame_t *frame, loc_t *loc,
+                          dict_t *dict)
+{
+        int     ret     = -1;
+
+        ret = afr_handle_split_brain_commands (this, frame, loc, dict);
+        if (ret == 0)
+                goto out;
+
+        ret = afr_handle_spb_choice_timeout (this, frame, dict);
+out:
+        return ret;
+}
+
+int
 afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 	      int32_t flags, dict_t *xdata)
 {
@@ -1126,8 +1199,7 @@ afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         GF_IF_INTERNAL_XATTR_GOTO ("trusted.glusterfs.afr.*", dict,
                                    op_errno, out);
 
-        ret = afr_handle_split_brain_commands (this, frame, loc, dict);
-
+        ret = afr_handle_special_xattr (this, frame, loc, dict);
         if (ret == 0)
                 return 0;
 
