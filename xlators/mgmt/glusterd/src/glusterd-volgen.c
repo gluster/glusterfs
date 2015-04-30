@@ -3445,9 +3445,11 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         if (volinfo->type == GF_CLUSTER_TYPE_TIER)
-                ret = volume_volgen_graph_build_clusters_tier (graph, volinfo, _gf_false);
+                ret = volume_volgen_graph_build_clusters_tier
+                                        (graph, volinfo, _gf_false);
         else
-                ret = volume_volgen_graph_build_clusters (graph, volinfo, _gf_false);
+                ret = volume_volgen_graph_build_clusters
+                                        (graph, volinfo, _gf_false);
 
         if (ret == -1)
                 goto out;
@@ -4480,8 +4482,12 @@ build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 if (ret)
                         goto out;
 
-                ret = volume_volgen_graph_build_clusters (&cgraph, voliter,
-                                                          _gf_true);
+                if (voliter->type == GF_CLUSTER_TYPE_TIER)
+                        ret = volume_volgen_graph_build_clusters_tier
+                                                (&cgraph, voliter, _gf_true);
+                else
+                        ret = volume_volgen_graph_build_clusters
+                                                (&cgraph, voliter, _gf_true);
                 if (ret) {
                         ret = -1;
                         goto out;
