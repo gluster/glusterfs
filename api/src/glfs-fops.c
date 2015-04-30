@@ -61,8 +61,11 @@ glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
 
         to_up_data->data = ca_data;
 
-        ca_data->flags = f_ca_data->flags;
+        ca_data->flags      = f_ca_data->flags;
         ca_data->expire_time_attr = f_ca_data->expire_time_attr;
+        ca_data->stat       = f_ca_data->stat;
+        ca_data->p_stat     = f_ca_data->p_stat;
+        ca_data->oldp_stat  = f_ca_data->oldp_stat;
 
         ret = 0;
 out:

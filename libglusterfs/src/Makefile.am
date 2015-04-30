@@ -47,7 +47,8 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	unittest/unittest.h quota-common-utils.h rot-buffs.h \
-	$(CONTRIBDIR)/timer-wheel/timer-wheel.h compat-uuid.h
+	$(CONTRIBDIR)/timer-wheel/timer-wheel.h compat-uuid.h \
+	upcall-utils.h
 
 if !HAVE_LIBUUID
 # FIXME: unbundle libuuid, see compat-uuid.h.

@@ -16,15 +16,11 @@
 #endif
 
 #include "compat-errno.h"
-#include "stack.h"
-#include "call-stub.h"
 #include "upcall-mem-types.h"
 #include "client_t.h"
-#include "rpcsvc.h"
-#include "lkowner.h"
-#include "locking.h"
 #include "upcall-messages.h"
 #include "upcall-cache-invalidation.h"
+#include "upcall-utils.h"
 
 #define EXIT_IF_UPCALL_OFF(this, label) do {                       \
         if (!is_upcall_enabled(this))                              \
@@ -84,18 +80,6 @@ struct _upcall_inode_ctx_t {
 };
 typedef struct _upcall_inode_ctx_t upcall_inode_ctx_t;
 
-struct _notify_event_data {
-        uuid_t gfid;
-        upcall_client_t *client_entry;
-        gf_upcall_event_t event_type;
-        uint32_t invalidate_flags;
-        /* any extra data needed, like inode flags
-         * to be invalidated incase of cache invalidation,
-         * may be fd for lease recalls */
-        void *extra;
-};
-typedef struct _notify_event_data notify_event_data_t;
-
 struct upcall_local {
         /* XXX: need to check if we can store
          * pointers in 'local' which may get freed
@@ -137,13 +121,15 @@ int upcall_reaper_thread_init (xlator_t *this);
 gf_boolean_t is_upcall_enabled(xlator_t *this);
 
 /* Cache invalidation specific */
-void upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
-                              inode_t *inode, uint32_t flags);
+void upcall_cache_invalidate (call_frame_t *frame, xlator_t *this,
+                              client_t *client, inode_t *inode,
+                              uint32_t flags, struct iatt *stbuf,
+                              struct iatt *p_stbuf,
+                              struct iatt *oldp_stbuf);
 void upcall_client_cache_invalidate (xlator_t *xl, uuid_t gfid,
                                      upcall_client_t *up_client_entry,
-                                     uint32_t flags);
-void upcall_cache_invalidate_dir (call_frame_t *frame, xlator_t *this,
-                                  client_t *client, inode_t *inode,
-                                  uint32_t flags);
+                                     uint32_t flags, struct iatt *stbuf,
+                                     struct iatt *p_stbuf,
+                                     struct iatt *oldp_stbuf);
 
 #endif /* __UPCALL_H__ */
