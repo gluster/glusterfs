@@ -4272,16 +4272,9 @@ quota_statfs_continue (call_frame_t *frame, xlator_t *this, inode_t *inode)
         quota_local_t   *local          = frame->local;
         int              ret            = -1;
 
-        stub = fop_statfs_stub (frame, quota_statfs_helper,
-                                &local->loc, local->xdata);
-        if (!stub)
-                goto err;
-
         LOCK (&local->lock);
         {
                 local->inode = inode_ref (inode);
-                local->link_count = 1;
-                local->stub = stub;
         }
         UNLOCK (&local->lock);
 
@@ -4289,12 +4282,6 @@ quota_statfs_continue (call_frame_t *frame, xlator_t *this, inode_t *inode)
                               quota_statfs_validate_cbk);
         if (0 > ret)
                 quota_handle_validate_error (local, -1, -ret);
-        return;
-
-err:
-        QUOTA_STACK_UNWIND (statfs, frame, -1, ENOMEM, NULL, NULL);
-
-        return;
 }
 
 void
@@ -4361,6 +4348,7 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         int8_t           ignore_deem_statfs  = 0;
         quota_priv_t    *priv                = NULL;
         quota_local_t   *local               = NULL;
+        call_stub_t     *stub                = NULL;
 
         priv = this->private;
         GF_ASSERT (loc);
@@ -4380,6 +4368,7 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                         op_errno = ENOMEM;
                         goto err;
                 }
+                frame->local = local;
 
                 ret = loc_copy (&local->loc, loc);
                 if (-1 == ret) {
@@ -4390,9 +4379,19 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 if (xdata)
                         local->xdata = dict_ref (xdata);
 
-                local->link_count = 1;
+                stub = fop_statfs_stub (frame, quota_statfs_helper,
+                                        &local->loc, local->xdata);
+                if (!stub) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
 
-                frame->local = local;
+                LOCK (&local->lock);
+                {
+                        local->link_count = 1;
+                        local->stub = stub;
+                }
+                UNLOCK (&local->lock);
 
                 quota_get_limit_dir (frame, loc->inode, this);
 
