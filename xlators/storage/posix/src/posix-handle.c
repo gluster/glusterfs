@@ -175,6 +175,10 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         memset (&iabuf, 0, sizeof (iabuf));
 
         inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
+        if (inode == NULL) {
+                ret = -1;
+                goto out;
+        }
 
         ret = posix_make_ancestral_node (priv_base_path, path, pathsize, head,
                                          dir_name, &iabuf, inode, type, xdata);
