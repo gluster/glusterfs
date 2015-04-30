@@ -15,6 +15,7 @@
 #include "ec-mem-types.h"
 #include "ec-fops.h"
 #include "ec-helpers.h"
+#include "ec-messages.h"
 
 #ifndef ffsll
 #define ffsll(x) __builtin_ffsll(x)
@@ -79,7 +80,7 @@ void ec_trace(const char * event, ec_fop_data_t * fop, const char * fmt, ...)
         msg = "<memory allocation error>";
     }
 
-    gf_log("ec", GF_LOG_TRACE, "%s(%s) %p(%p) [refs=%d, winds=%d, jobs=%d] "
+    gf_msg_trace ("ec", 0, "%s(%s) %p(%p) [refs=%d, winds=%d, jobs=%d] "
                                "frame=%p/%p, min/exp=%d/%d, err=%d state=%d "
                                "{%s:%s:%s} %s",
            event, ec_fop_name(fop->id), fop, fop->parent, fop->refs,
@@ -250,8 +251,10 @@ int32_t ec_dict_set_config(dict_t * dict, char * key, ec_config_t * config)
 
     if (config->version > EC_CONFIG_VERSION)
     {
-        gf_log("ec", GF_LOG_ERROR, "Trying to store an unsupported config "
-                                   "version (%u)", config->version);
+        gf_msg ("ec", GF_LOG_ERROR, EINVAL,
+                EC_MSG_UNSUPPORTED_VERSION,
+                "Trying to store an unsupported config "
+                "version (%u)", config->version);
 
         return -1;
     }
@@ -291,8 +294,10 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
     config->version = (data >> 56) & 0xff;
     if (config->version > EC_CONFIG_VERSION)
     {
-        gf_log("ec", GF_LOG_ERROR, "Found an unsupported config version (%u)",
-               config->version);
+        gf_msg ("ec", GF_LOG_ERROR, EINVAL,
+                EC_MSG_UNSUPPORTED_VERSION,
+                "Found an unsupported config version (%u)",
+                config->version);
 
         return -1;
     }
@@ -324,7 +329,9 @@ int32_t ec_loc_gfid_check(xlator_t * xl, uuid_t dst, uuid_t src)
 
     if (gf_uuid_compare(dst, src) != 0)
     {
-        gf_log(xl->name, GF_LOG_WARNING, "Mismatching GFID's in loc");
+        gf_msg (xl->name, GF_LOG_WARNING, 0,
+                EC_MSG_GFID_MISMATCH,
+                "Mismatching GFID's in loc");
 
         return 0;
     }
@@ -369,8 +376,10 @@ int32_t ec_loc_setup_parent(xlator_t *xl, inode_table_t *table, loc_t *loc)
         } else if (loc->path && strchr (loc->path, '/')) {
             path = gf_strdup(loc->path);
             if (path == NULL) {
-                gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
-                       loc->path);
+                gf_msg (xl->name, GF_LOG_ERROR, ENOMEM,
+                        EC_MSG_NO_MEMORY,
+                        "Unable to duplicate path '%s'",
+                        loc->path);
 
                 goto out;
             }
@@ -422,8 +431,10 @@ int32_t ec_loc_setup_path(xlator_t *xl, loc_t *loc)
 
         if (loc->name != NULL) {
             if (strcmp(loc->name, name) != 0) {
-                gf_log(xl->name, GF_LOG_ERROR, "Invalid name '%s' in loc",
-                       loc->name);
+                gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
+                        EC_MSG_INVALID_LOC_NAME,
+                        "Invalid name '%s' in loc",
+                        loc->name);
 
                 goto out;
             }
@@ -458,17 +469,21 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
     if (loc->path && strchr (loc->path, '/')) {
         str = gf_strdup(loc->path);
         if (str == NULL) {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
-                   loc->path);
+                gf_msg (xl->name, GF_LOG_ERROR, ENOMEM,
+                        EC_MSG_NO_MEMORY,
+                        "Unable to duplicate path '%s'",
+                        loc->path);
 
-            goto out;
+                goto out;
         }
         parent->path = gf_strdup(dirname(str));
         if (parent->path == NULL) {
-            gf_log(xl->name, GF_LOG_ERROR, "Unable to duplicate path '%s'",
-                   dirname(str));
+                gf_msg (xl->name, GF_LOG_ERROR, ENOMEM,
+                        EC_MSG_NO_MEMORY,
+                        "Unable to duplicate path '%s'",
+                        dirname(str));
 
-            goto out;
+                goto out;
         }
     }
 
@@ -480,7 +495,9 @@ int32_t ec_loc_parent(xlator_t *xl, loc_t *loc, loc_t *parent)
 
     if ((parent->inode == NULL) && (parent->path == NULL) &&
         gf_uuid_is_null(parent->gfid)) {
-        gf_log(xl->name, GF_LOG_ERROR, "Parent inode missing for loc_t");
+        gf_msg (xl->name, GF_LOG_ERROR, 0,
+                EC_MSG_LOC_PARENT_INODE_MISSING,
+                "Parent inode missing for loc_t");
 
         goto out;
     }

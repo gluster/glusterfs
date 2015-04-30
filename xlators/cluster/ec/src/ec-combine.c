@@ -17,6 +17,7 @@
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-combine.h"
+#include "ec-messages.h"
 #include "quota-common-utils.h"
 
 #define EC_QUOTA_PREFIX "trusted.glusterfs.quota."
@@ -78,16 +79,18 @@ ec_combine_write (ec_fop_data_t *fop, ec_cbk_data_t *dst,
                 valid = 5;
                 break;
         default:
-                gf_log_callingfn (fop->xl->name, GF_LOG_WARNING, "Invalid fop "
-                                  "%d", fop->id);
+                gf_msg_callingfn (fop->xl->name, GF_LOG_WARNING, EINVAL,
+                                  EC_MSG_INVALID_FOP,
+                                  "Invalid fop %d", fop->id);
                 return 0;
                 break;
         }
 
         if (!ec_iatt_combine(fop, dst->iatt, src->iatt, valid)) {
-                gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
-                       "answers of '%s'", gf_fop_list[fop->id]);
-
+                gf_msg (fop->xl->name, GF_LOG_NOTICE, 0,
+                        EC_MSG_IATT_MISMATCH,
+                        "Mismatching iatt in "
+                        "answers of '%s'", gf_fop_list[fop->id]);
                 return 0;
         }
         return 1;
@@ -184,22 +187,23 @@ int32_t ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
                  * data is returned. */
                 failed = _gf_true;
             } else {
-                gf_log(fop->xl->name, GF_LOG_DEBUG,
+                gf_msg_debug (fop->xl->name, 0,
                        "Ignoring iatt differences because inode is not "
                        "locked");
             }
         }
         if (failed) {
-            gf_log(fop->xl->name, GF_LOG_WARNING,
-                   "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "
-                   "uid: %u-%u, gid: %u-%u, rdev: %lu-%lu, size: %lu-%lu, "
-                   "mode: %o-%o)",
-                   dst[i].ia_ino, src[i].ia_ino, dst[i].ia_nlink,
-                   src[i].ia_nlink, dst[i].ia_uid, src[i].ia_uid,
-                   dst[i].ia_gid, src[i].ia_gid, dst[i].ia_rdev,
-                   src[i].ia_rdev, dst[i].ia_size, src[i].ia_size,
-                   st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type),
-                   st_mode_from_ia(src[i].ia_prot, dst[i].ia_type));
+            gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
+                    EC_MSG_IATT_COMBINE_FAIL,
+                    "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "
+                    "uid: %u-%u, gid: %u-%u, rdev: %lu-%lu, size: %lu-%lu, "
+                    "mode: %o-%o)",
+                    dst[i].ia_ino, src[i].ia_ino, dst[i].ia_nlink,
+                    src[i].ia_nlink, dst[i].ia_uid, src[i].ia_uid,
+                    dst[i].ia_gid, src[i].ia_gid, dst[i].ia_rdev,
+                    src[i].ia_rdev, dst[i].ia_size, src[i].ia_size,
+                    st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type),
+                    st_mode_from_ia(src[i].ia_prot, dst[i].ia_type));
 
             return 0;
         }
@@ -291,8 +295,10 @@ int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,
     {
         if (i >= max)
         {
-            gf_log(cbk->fop->xl->name, GF_LOG_ERROR, "Unexpected number of "
-                                                     "dictionaries");
+            gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, EINVAL,
+                    EC_MSG_INVALID_DICT_NUMS,
+                    "Unexpected number of "
+                    "dictionaries");
 
             return 0;
         }
@@ -339,7 +345,9 @@ char * ec_concat_prepare(xlator_t * xl, char ** sep, char ** post,
     return str;
 
 out:
-    gf_log(xl->name, GF_LOG_ERROR, "Invalid concat format");
+    gf_msg (xl->name, GF_LOG_ERROR, EINVAL,
+            EC_MSG_INVALID_FORMAT,
+            "Invalid concat format");
 
     GF_FREE(str);
 
@@ -652,8 +660,10 @@ int32_t ec_dict_data_stime(ec_cbk_data_t * cbk, int32_t which, char * key)
     {
         if (gf_get_max_stime(cbk->fop->xl, dict, key, data[i]) != 0)
         {
-            gf_log(cbk->fop->xl->name, GF_LOG_ERROR, "STIME combination "
-                                                     "failed");
+            gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_STIME_COMBINE_FAIL,
+                    "STIME combination "
+                    "failed");
 
             return -1;
         }
@@ -731,8 +741,10 @@ int32_t ec_dict_combine(ec_cbk_data_t * cbk, int32_t which)
     if ((dict != NULL) &&
         (dict_foreach(dict, ec_dict_data_combine, &data) != 0))
     {
-        gf_log(cbk->fop->xl->name, GF_LOG_ERROR, "Dictionary combination "
-                                                 "failed");
+        gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, 0,
+                EC_MSG_DICT_COMBINE_FAIL,
+                "Dictionary combination "
+                "failed");
 
         return 0;
     }
@@ -835,9 +847,10 @@ void ec_statvfs_combine(struct statvfs * dst, struct statvfs * src)
 
     if (dst->f_flag != src->f_flag)
     {
-        gf_log(THIS->name, GF_LOG_DEBUG, "Mismatching file system flags "
-                                         "(%lX, %lX)",
-               dst->f_flag, src->f_flag);
+        gf_msg_debug (THIS->name, 0,
+                "Mismatching file system flags "
+                "(%lX, %lX)",
+                dst->f_flag, src->f_flag);
     }
     dst->f_flag &= src->f_flag;
 }
@@ -849,7 +862,7 @@ int32_t ec_combine_check(ec_cbk_data_t * dst, ec_cbk_data_t * src,
 
     if (dst->op_ret != src->op_ret)
     {
-        gf_log(fop->xl->name, GF_LOG_DEBUG, "Mismatching return code in "
+        gf_msg_debug (fop->xl->name, 0, "Mismatching return code in "
                                             "answers of '%s': %d <-> %d",
                ec_fop_name(fop->id), dst->op_ret, src->op_ret);
 
@@ -859,7 +872,7 @@ int32_t ec_combine_check(ec_cbk_data_t * dst, ec_cbk_data_t * src,
     {
         if (dst->op_errno != src->op_errno)
         {
-            gf_log(fop->xl->name, GF_LOG_DEBUG, "Mismatching errno code in "
+            gf_msg_debug (fop->xl->name, 0, "Mismatching errno code in "
                                                 "answers of '%s': %d <-> %d",
                    ec_fop_name(fop->id), dst->op_errno, src->op_errno);
 
@@ -869,9 +882,10 @@ int32_t ec_combine_check(ec_cbk_data_t * dst, ec_cbk_data_t * src,
 
     if (!ec_dict_compare(dst->xdata, src->xdata))
     {
-        gf_log(fop->xl->name, GF_LOG_WARNING, "Mismatching xdata in answers "
-                                              "of '%s'",
-               ec_fop_name(fop->id));
+        gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
+                EC_MSG_XDATA_MISMATCH,
+                "Mismatching xdata in answers "
+                "of '%s'", ec_fop_name(fop->id));
 
         return 0;
     }

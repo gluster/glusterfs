@@ -16,6 +16,7 @@
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
+#include "ec-messages.h"
 #include "byte-order.h"
 
 /* FOP: flush */
@@ -46,7 +47,8 @@ int32_t ec_flush_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                                  "dictionary.");
 
                 goto out;
@@ -163,8 +165,9 @@ int32_t ec_manager_flush(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -178,7 +181,7 @@ void ec_flush(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(FLUSH) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(FLUSH) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -199,7 +202,8 @@ void ec_flush(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -210,7 +214,8 @@ void ec_flush(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -236,7 +241,8 @@ int32_t ec_combine_fsync(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                          ec_cbk_data_t * src)
 {
     if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 2)) {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
+        gf_msg (fop->xl->name, GF_LOG_NOTICE, 0,
+                EC_MSG_IATT_MISMATCH, "Mismatching iatt in "
                                              "answers of 'GF_FOP_FSYNC'");
 
         return 0;
@@ -283,7 +289,8 @@ int32_t ec_fsync_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                                  "dictionary.");
 
                 goto out;
@@ -411,8 +418,9 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -426,7 +434,7 @@ void ec_fsync(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(FSYNC) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(FSYNC) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -449,7 +457,8 @@ void ec_fsync(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -460,7 +469,8 @@ void ec_fsync(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -508,7 +518,8 @@ int32_t ec_fsyncdir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                                  "dictionary.");
 
                 goto out;
@@ -625,8 +636,9 @@ int32_t ec_manager_fsyncdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -640,7 +652,7 @@ void ec_fsyncdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(FSYNCDIR) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(FSYNCDIR) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -663,7 +675,8 @@ void ec_fsyncdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -674,7 +687,8 @@ void ec_fsyncdir(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -813,7 +827,8 @@ int32_t ec_combine_lookup(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                           ec_cbk_data_t * src)
 {
     if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 2)) {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
+        gf_msg (fop->xl->name, GF_LOG_NOTICE, 0,
+                EC_MSG_IATT_MISMATCH, "Mismatching iatt in "
                                              "answers of 'GF_FOP_LOOKUP'");
 
         return 0;
@@ -852,8 +867,9 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
                 cbk->inode = inode_ref(inode);
                 if (cbk->inode == NULL)
                 {
-                    gf_log(this->name, GF_LOG_ERROR,
-                           "Failed to reference an inode.");
+                    gf_msg (this->name, GF_LOG_ERROR, 0,
+                            EC_MSG_INODE_REF_FAIL,
+                            "Failed to reference an inode.");
 
                     goto out;
                 }
@@ -872,7 +888,8 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                                  "dictionary.");
 
                 goto out;
@@ -914,8 +931,9 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
                 fop->xdata = dict_new();
                 if (fop->xdata == NULL)
                 {
-                    gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to prepare "
-                                                        "lookup request");
+                    gf_msg (fop->xl->name, GF_LOG_ERROR, EIO,
+                            EC_MSG_LOOKUP_REQ_PREP_FAIL, "Unable to prepare "
+                            "lookup request");
 
                     fop->error = EIO;
 
@@ -941,7 +959,8 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
                 (dict_set_uint64(fop->xdata, EC_XATTR_VERSION, 0) != 0) ||
                 (dict_set_uint64(fop->xdata, EC_XATTR_DIRTY, 0) != 0))
             {
-                gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to prepare lookup "
+                gf_msg (fop->xl->name, GF_LOG_ERROR, EIO,
+                        EC_MSG_LOOKUP_REQ_PREP_FAIL, "Unable to prepare lookup "
                                                     "request");
 
                 fop->error = EIO;
@@ -1025,8 +1044,9 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1040,7 +1060,7 @@ void ec_lookup(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(LOOKUP) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(LOOKUP) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1058,7 +1078,8 @@ void ec_lookup(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1068,7 +1089,8 @@ void ec_lookup(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1132,7 +1154,8 @@ int32_t ec_statfs_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL)
             {
-                gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                                  "dictionary.");
 
                 goto out;
@@ -1232,8 +1255,9 @@ int32_t ec_manager_statfs(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1247,7 +1271,7 @@ void ec_statfs(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(STATFS) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(STATFS) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1265,7 +1289,8 @@ void ec_statfs(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1275,7 +1300,8 @@ void ec_statfs(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1302,7 +1328,8 @@ int32_t ec_combine_xattrop(ec_fop_data_t *fop, ec_cbk_data_t *dst,
 {
     if (!ec_dict_compare(dst->dict, src->dict))
     {
-        gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching dictionary in "
+        gf_msg (fop->xl->name, GF_LOG_NOTICE, 0,
+                EC_MSG_DICT_MISMATCH, "Mismatching dictionary in "
                                              "answers of 'GF_FOP_XATTROP'");
 
         return 0;
@@ -1491,8 +1518,9 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_END;
 
         default:
-            gf_log(fop->xl->name, GF_LOG_ERROR, "Unhandled state %d for %s",
-                   state, ec_fop_name(fop->id));
+            gf_msg (fop->xl->name, GF_LOG_ERROR, 0,
+                    EC_MSG_UNHANDLED_STATE, "Unhandled state %d for %s",
+                    state, ec_fop_name(fop->id));
 
             return EC_STATE_END;
     }
@@ -1507,7 +1535,7 @@ void ec_xattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(XATTROP) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(XATTROP) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1528,7 +1556,8 @@ void ec_xattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
     {
         if (loc_copy(&fop->loc[0], loc) != 0)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to copy a location.");
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_LOC_COPY_FAIL, "Failed to copy a location.");
 
             goto out;
         }
@@ -1538,7 +1567,8 @@ void ec_xattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->dict = dict_ref(xattr);
         if (fop->dict == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1549,7 +1579,8 @@ void ec_xattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1587,7 +1618,7 @@ void ec_fxattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
     ec_fop_data_t * fop = NULL;
     int32_t error = EIO;
 
-    gf_log("ec", GF_LOG_TRACE, "EC(FXATTROP) %p", frame);
+    gf_msg_trace ("ec", 0, "EC(FXATTROP) %p", frame);
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -1611,7 +1642,8 @@ void ec_fxattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->fd = fd_ref(fd);
         if (fop->fd == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_FILE_DESC_REF_FAIL, "Failed to reference a "
                                              "file descriptor.");
 
             goto out;
@@ -1622,7 +1654,8 @@ void ec_fxattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->dict = dict_ref(xattr);
         if (fop->dict == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
@@ -1633,7 +1666,8 @@ void ec_fxattrop(call_frame_t * frame, xlator_t * this, uintptr_t target,
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL)
         {
-            gf_log(this->name, GF_LOG_ERROR, "Failed to reference a "
+            gf_msg (this->name, GF_LOG_ERROR, 0,
+                    EC_MSG_DICT_REF_FAIL, "Failed to reference a "
                                              "dictionary.");
 
             goto out;
