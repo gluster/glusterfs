@@ -18,6 +18,7 @@
 #include "ec-fops.h"
 #include "ec-method.h"
 #include "ec.h"
+#include "ec-messages.h"
 #include "ec-heald.h"
 
 #define EC_MAX_FRAGMENTS EC_METHOD_MAX_FRAGMENTS
@@ -51,8 +52,10 @@ int32_t ec_parse_options(xlator_t * this)
     if ((ec->redundancy < 1) || (ec->redundancy >= ec->fragments) ||
         (ec->fragments > EC_MAX_FRAGMENTS))
     {
-        gf_log(this->name, GF_LOG_ERROR, "Invalid redundancy (must be between "
-                                         "1 and %d)", (ec->nodes - 1) / 2);
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_INVALID_REDUNDANCY,
+                "Invalid redundancy (must be between "
+                "1 and %d)", (ec->nodes - 1) / 2);
 
         goto out;
     }
@@ -68,7 +71,7 @@ int32_t ec_parse_options(xlator_t * this)
     ec->fragment_size = EC_METHOD_CHUNK_SIZE;
     ec->stripe_size = ec->fragment_size * ec->fragments;
 
-    gf_log("ec", GF_LOG_DEBUG, "Initialized with: nodes=%u, fragments=%u, "
+    gf_msg_debug ("ec", 0, "Initialized with: nodes=%u, fragments=%u, "
                                "stripe_size=%u, node_mask=%lX",
            ec->nodes, ec->fragments, ec->stripe_size, ec->node_mask);
 
@@ -90,7 +93,8 @@ int32_t ec_prepare_childs(xlator_t * this)
     }
     if (count > EC_MAX_NODES)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Too many subvolumes");
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_TOO_MANY_SUBVOLS, "Too many subvolumes");
 
         return EINVAL;
     }
@@ -99,7 +103,8 @@ int32_t ec_prepare_childs(xlator_t * this)
     ec->xl_list = GF_CALLOC(count, sizeof(ec->xl_list[0]), ec_mt_xlator_t);
     if (ec->xl_list == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Allocation of xlator list failed");
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Allocation of xlator list failed");
 
         return ENOMEM;
     }
@@ -204,7 +209,8 @@ int32_t mem_acct_init(xlator_t * this)
 {
     if (xlator_mem_acct_init(this, ec_mt_end + 1) != 0)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Memory accounting initialization "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Memory accounting initialization "
                                          "failed.");
 
         return -1;
@@ -258,7 +264,8 @@ ec_up (xlator_t *this, ec_t *ec)
         }
 
         ec->up = 1;
-        gf_log(this->name, GF_LOG_INFO, "Going UP");
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                EC_MSG_EC_UP, "Going UP");
 }
 
 void
@@ -270,7 +277,8 @@ ec_down (xlator_t *this, ec_t *ec)
         }
 
         ec->up = 0;
-        gf_log(this->name, GF_LOG_INFO, "Going DOWN");
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                EC_MSG_EC_DOWN, "Going DOWN");
 }
 
 void
@@ -325,13 +333,14 @@ ec_launch_notify_timer (xlator_t *this, ec_t *ec)
 {
         struct timespec delay = {0, };
 
-        gf_log (this->name, GF_LOG_DEBUG, "Initiating child-down timer");
+        gf_msg_debug (this->name, 0, "Initiating child-down timer");
         delay.tv_sec = 10;
         delay.tv_nsec = 0;
         ec->timer = gf_timer_call_after (this->ctx, delay, ec_notify_cbk, ec);
         if (ec->timer == NULL) {
-                gf_log(this->name, GF_LOG_ERROR, "Cannot create timer "
-                       "for delayed initialization");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_TIMER_CREATE_FAIL, "Cannot create timer "
+                        "for delayed initialization");
         }
 }
 
@@ -358,7 +367,7 @@ ec_handle_down (xlator_t *this, ec_t *ec, int32_t idx)
         }
 
         if (((ec->xl_up >> idx) & 1) != 0) { /* Duplicate event */
-                gf_log(this->name, GF_LOG_DEBUG, "Child %d is DOWN", idx);
+                gf_msg_debug (this->name, 0, "Child %d is DOWN", idx);
 
                 ec->xl_up ^= 1ULL << idx;
                 ec->xl_up_count--;
@@ -419,7 +428,7 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         dict_t            *output   = NULL;
         gf_boolean_t      propagate = _gf_true;
 
-        gf_log (this->name, GF_LOG_TRACE, "NOTIFY(%d): %p, %p",
+        gf_msg_trace (this->name, 0, "NOTIFY(%d): %p, %p",
                 event, data, data2);
 
         if (event == GF_EVENT_TRANSLATOR_OP) {
@@ -514,13 +523,15 @@ init (xlator_t *this)
 
     if (this->parents == NULL)
     {
-        gf_log(this->name, GF_LOG_WARNING, "Volume does not have parents.");
+        gf_msg (this->name, GF_LOG_WARNING, 0,
+                EC_MSG_NO_PARENTS, "Volume does not have parents.");
     }
 
     ec = GF_MALLOC(sizeof(*ec), ec_mt_ec_t);
     if (ec == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate private memory.");
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to allocate private memory.");
 
         return -1;
     }
@@ -539,21 +550,24 @@ init (xlator_t *this)
     if ((ec->fop_pool == NULL) || (ec->cbk_pool == NULL) ||
         (ec->lock_pool == NULL))
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to create memory pools.");
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to create memory pools.");
 
         goto failed;
     }
 
     if (ec_prepare_childs(this) != 0)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to initialize xlator");
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_XLATOR_INIT_FAIL, "Failed to initialize xlator");
 
         goto failed;
     }
 
     if (ec_parse_options(this) != 0)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to parse xlator options");
+        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_XLATOR_PARSE_OPT_FAIL, "Failed to parse xlator options");
 
         goto failed;
     }
@@ -564,21 +578,23 @@ init (xlator_t *this)
 
     if (ec->shd.iamshd)
             ec_selfheal_daemon_init (this);
-    gf_log(this->name, GF_LOG_DEBUG, "Disperse translator initialized.");
+    gf_msg_debug (this->name, 0, "Disperse translator initialized.");
 
     ec->leaf_to_subvolid = dict_new ();
     if (!ec->leaf_to_subvolid)
             goto failed;
     if (glusterfs_reachable_leaves (this, ec->leaf_to_subvolid)) {
-            gf_log (this->name, GF_LOG_ERROR, "Failed to build subvol "
-                    "dictionary");
-            goto failed;
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_SUBVOL_BUILD_FAIL, "Failed to build subvol "
+                "dictionary");
+        goto failed;
     }
 
     if (ec_subvol_to_subvol_id_transform (ec, ec->leaf_to_subvolid) < 0) {
-            gf_log (this->name, GF_LOG_ERROR, "Failed to build subvol-id "
-                    "dictionary");
-            goto failed;
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_SUBVOL_ID_DICT_SET_FAIL, "Failed to build subvol-id "
+                "dictionary");
+        goto failed;
     }
 
     return 0;

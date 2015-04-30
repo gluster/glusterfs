@@ -12,6 +12,7 @@
 #include "ec-helpers.h"
 #include "ec-common.h"
 #include "ec-data.h"
+#include "ec-messages.h"
 
 ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
                                      ec_fop_data_t * fop, int32_t id,
@@ -23,15 +24,16 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
 
     if (fop->xl != this)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Mismatching xlators between request "
-                                         "and answer (req=%s, ans=%s).",
-                                         fop->xl->name, this->name);
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_XLATOR_MISMATCH, "Mismatching xlators between request "
+                "and answer (req=%s, ans=%s).", fop->xl->name, this->name);
 
         return NULL;
     }
     if (fop->frame != frame)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Mismatching frames between request "
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_FRAME_MISMATCH, "Mismatching frames between request "
                                          "and answer (req=%p, ans=%p).",
                                          fop->frame, frame);
 
@@ -39,7 +41,8 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     }
     if (fop->id != id)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Mismatching fops between request "
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                EC_MSG_FOP_MISMATCH, "Mismatching fops between request "
                                          "and answer (req=%d, ans=%d).",
                                          fop->id, id);
 
@@ -49,7 +52,8 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     cbk = mem_get0(ec->cbk_pool);
     if (cbk == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate memory for an "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to allocate memory for an "
                                          "answer.");
     }
 
@@ -123,7 +127,8 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     fop = mem_get0(ec->fop_pool);
     if (fop == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate memory for a "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to allocate memory for a "
                                          "request.");
 
         return NULL;
@@ -155,7 +160,8 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     }
     if (fop->frame == NULL)
     {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to create a private frame "
+        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                EC_MSG_NO_MEMORY, "Failed to create a private frame "
                                          "for a request");
 
         mem_put(fop);
