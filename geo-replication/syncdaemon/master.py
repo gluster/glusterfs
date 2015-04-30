@@ -460,7 +460,7 @@ class GMasterCommon(object):
 
     def mgmt_lock(self):
         """Take management volume lock """
-        bname = str(gconf.volume_id) + "_subvol_" + str(gconf.subvol_num) \
+        bname = str(self.uuid) + "_subvol_" + str(gconf.subvol_num) \
             + ".lock"
         mgmt_lock_dir = os.path.join(gconf.meta_volume_mnt, "geo-rep")
         path = os.path.join(mgmt_lock_dir, bname)
@@ -473,6 +473,7 @@ class GMasterCommon(object):
                 logging.info("Creating geo-rep directory in meta volume...")
                 try:
                     os.makedirs(mgmt_lock_dir)
+                    fd = os.open(path, os.O_CREAT | os.O_RDWR)
                 except OSError:
                     ex = sys.exc_info()[1]
                     if ex.errno == EEXIST:
