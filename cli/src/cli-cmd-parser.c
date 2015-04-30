@@ -926,6 +926,60 @@ out:
 }
 
 int32_t
+cli_cmd_inode_quota_parse (const char **words, int wordcount, dict_t **options)
+{
+        dict_t          *dict    = NULL;
+        char            *volname = NULL;
+        int              ret     = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log ("cli", GF_LOG_ERROR, "dict_new failed");
+                goto out;
+        }
+
+        if (wordcount != 4)
+                goto out;
+
+        volname = (char *)words[2];
+        if (!volname) {
+                ret = -1;
+                goto out;
+        }
+
+        /* Validate the volume name here itself */
+        if (cli_validate_volname (volname) < 0)
+                goto out;
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret < 0)
+                goto out;
+
+        if (strcmp (words[3], "enable") != 0) {
+                cli_out ("Invalid quota option : %s", words[3]);
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "type",
+                              GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS);
+        if (ret < 0)
+                goto out;
+
+        *options = dict;
+out:
+        if (ret < 0) {
+                if (dict)
+                        dict_destroy (dict);
+        }
+
+        return ret;
+}
+
+int32_t
 cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t          *dict    = NULL;

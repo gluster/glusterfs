@@ -2037,6 +2037,38 @@ err:
         return -1;
 }
 
+int32_t
+_quota_dict_get_meta (xlator_t *this, dict_t *dict, char *key,
+                      quota_meta_t *meta, ia_type_t ia_type,
+                      gf_boolean_t add_delta)
+{
+        int32_t             ret     = 0;
+        marker_conf_t      *priv    = NULL;
+
+        priv = this->private;
+
+        ret = quota_dict_get_meta (dict, key, meta);
+        if (ret == -2 && (priv->feature_enabled & GF_INODE_QUOTA) == 0) {
+                /* quota_dict_get_meta returns -2 if
+                 * inode quota xattrs are not present.
+                 * if inode quota self heal is turned off,
+                 * then we should skip healing inode quotas
+                 */
+
+                gf_log (this->name, GF_LOG_DEBUG, "inode quota disabled. "
+                        "inode quota self heal will not be performed");
+                ret = 0;
+                if (add_delta) {
+                        if (ia_type == IA_IFDIR)
+                                meta->dir_count = 1;
+                        else
+                                meta->file_count = 1;
+                }
+        }
+
+        return ret;
+}
+
 void
 mq_compute_delta (quota_meta_t *delta, const quota_meta_t *op1,
                   const quota_meta_t *op2)
@@ -2116,7 +2148,8 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
 
         *result = _gf_true;
         if (loc->inode->ia_type == IA_IFDIR) {
-                ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY, &meta);
+                ret = _quota_dict_get_meta (this, rsp_dict, QUOTA_SIZE_KEY,
+                                            &meta, IA_IFDIR, _gf_false);
                 if (ret < 0 || meta.dir_count == 0) {
                         ret = 0;
                         *result = _gf_false;
@@ -2126,7 +2159,8 @@ mq_are_xattrs_set (xlator_t *this, loc_t *loc, gf_boolean_t *result,
         }
 
         if (!loc_is_root(loc)) {
-                ret = quota_dict_get_meta (rsp_dict, contri_key, &meta);
+                ret = _quota_dict_get_meta (this, rsp_dict, contri_key,
+                                            &meta, IA_IFREG, _gf_false);
                 if (ret < 0) {
                         ret = 0;
                         *result = _gf_false;
@@ -2392,8 +2426,9 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
 
         if (size) {
                 if (loc->inode->ia_type == IA_IFDIR) {
-                        ret = quota_dict_get_meta (rsp_dict, QUOTA_SIZE_KEY,
-                                                   &meta);
+                        ret = _quota_dict_get_meta (this, rsp_dict,
+                                                    QUOTA_SIZE_KEY, &meta,
+                                                    IA_IFDIR, _gf_true);
                         if (ret < 0) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "dict_get failed.");
@@ -2411,7 +2446,8 @@ _mq_get_metadata (xlator_t *this, loc_t *loc, quota_meta_t *contri,
         }
 
         if (contri && !loc_is_root(loc)) {
-                ret = quota_dict_get_meta (rsp_dict, contri_key, &meta);
+                ret = _quota_dict_get_meta (this, rsp_dict, contri_key, &meta,
+                                            loc->inode->ia_type, _gf_false);
                 if (ret < 0) {
                         contri->size = 0;
                         contri->file_count = 0;
@@ -3419,7 +3455,8 @@ mq_inspect_directory_xattr_task (void *opaque)
         if (ret < 0)
                 goto out;
 
-        ret = quota_dict_get_meta (dict, QUOTA_SIZE_KEY, &size);
+        ret = _quota_dict_get_meta (this, dict, QUOTA_SIZE_KEY, &size,
+                                    IA_IFDIR, _gf_false);
         if (ret < 0)
                 goto out;
 
@@ -3428,7 +3465,8 @@ mq_inspect_directory_xattr_task (void *opaque)
                 if (ret < 0)
                         goto err;
 
-                ret = quota_dict_get_meta (dict, contri_key, &contri);
+                ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
+                                            IA_IFDIR, _gf_false);
                 if (ret < 0)
                         goto out;
 
@@ -3544,7 +3582,8 @@ mq_inspect_file_xattr_task (void *opaque)
                 if (ret < 0)
                         continue;
 
-                ret = quota_dict_get_meta (dict, contri_key, &contri);
+                ret = _quota_dict_get_meta (this, dict, contri_key, &contri,
+                                            IA_IFREG, _gf_true);
                 if (ret < 0) {
                         ret = mq_create_xattrs_blocking_txn (this, loc);
                 } else {

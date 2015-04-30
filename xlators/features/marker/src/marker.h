@@ -31,6 +31,7 @@ enum {
         GF_QUOTA             = 1,
         GF_XTIME             = 2,
         GF_XTIME_GSYNC_FORCE = 4,
+        GF_INODE_QUOTA       = 8,
 };
 
 /*initialize the local variable*/
