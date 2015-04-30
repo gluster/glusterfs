@@ -37,7 +37,7 @@ def brickfind_crawl(brick, args):
     with open(args.outfile, "a+") as fout:
         brick_path_len = len(brick)
 
-        def output_callback(path):
+        def output_callback(path, filter_result):
             path = path.strip()
             path = path[brick_path_len+1:]
             output_write(fout, path, args.output_prefix, encode=True)
