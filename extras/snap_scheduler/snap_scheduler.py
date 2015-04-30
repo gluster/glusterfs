@@ -68,7 +68,7 @@ def scheduler_status():
     global scheduler_enabled
     try:
         f = os.path.realpath(GCRON_TASKS)
-        if f != GCRON_ENABLED or not os.path.exists(GCRON_ENABLED):
+        if f != os.path.realpath(GCRON_ENABLED) or not os.path.exists(GCRON_ENABLED):
             log.info("Snapshot scheduler is currently disabled.")
             scheduler_enabled = False
         else:
