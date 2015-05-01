@@ -47,7 +47,7 @@ BEFORE="$(stat -c %n:%Y $M0/subdir/* | tr '\n' ',')"
 # Migrate brick
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}1
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}0 start
-EXPECT_WITHIN 10 "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}0"
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}0"
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}0 commit
 
 # Get mtime after migration
