@@ -188,6 +188,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 TEST $CLI volume quota $V0 disable
 TEST $CLI volume stop $V0;
+EXPECT "1" get_aux
 EXPECT 'Stopped' volinfo_field $V0 'Status';
 
 TEST $CLI volume delete $V0;

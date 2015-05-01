@@ -60,4 +60,6 @@ exec 4>&-
 exec 5>&-
 exec 6>&-
 
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup;

@@ -127,6 +127,7 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0" quota_object_list_field "/test_dir" 4
 TEST $CLI volume quota $V0 remove-objects /test_dir
 
 TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 TEST $CLI volume delete $V0
 
 cleanup;

@@ -55,5 +55,7 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test"
 
 TEST rm $M0/test/file2.txt
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test"
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 
 cleanup;

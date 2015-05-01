@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
 function usage()
@@ -49,4 +50,6 @@ TEST rm -f $N0/$deep/newfile_2
 ## Before killing daemon to avoid deadlocks
 umount_nfs $N0
 
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup;

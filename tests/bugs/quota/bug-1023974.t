@@ -5,6 +5,7 @@
 # limit set.
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -32,4 +33,6 @@ TEST dd if=/dev/urandom of=$M0/1/3/file bs=1024k count=102;
 #The corresponding rename(3) should fail with EDQUOT ("Disk quota exceeded")
 TEST ! mv $M0/1/3/ $M0/1/2/3_mvd;
 
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup;

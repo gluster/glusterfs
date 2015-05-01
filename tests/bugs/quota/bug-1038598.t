@@ -76,5 +76,7 @@ TEST $CLI volume set $V0 features.soft-timeout 0
 TEST ! dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=15
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'Yes' hl_exceeded "/test_dir";
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 
 cleanup;

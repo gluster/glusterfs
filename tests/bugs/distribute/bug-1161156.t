@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
 function usage()
@@ -49,6 +50,7 @@ TEST mv $N0/dir/file $N0/dir/newfile_3
 # rename should fail here with disk quota exceeded
 TEST ! mv $N0/dir/newfile_3 $N0/newdir/
 
-# cleanup
 umount_nfs $N0
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup;
