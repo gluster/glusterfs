@@ -30,19 +30,6 @@ TEST $CLI volume quota $V0 enable
 sleep 3;
 }
 
-function get_aux()
-{
-##Check if a auxiliary mount is there
-df -h | grep "/var/run/gluster/$V0" -
-
-if [ $? -eq 0 ]
-then
-        echo "0"
-else
-        echo "1"
-fi
-}
-
 function create_data()
 {
 #set some limit on the volume

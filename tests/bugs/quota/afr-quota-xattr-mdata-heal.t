@@ -135,4 +135,6 @@ EXPECT "$acl_access_val" echo $(getfattr -d -m. -e hex $B0/${V0}0/d | grep syste
 EXPECT "$acl_file_val" echo $(getfattr -d -m. -e hex $B0/${V0}0/d | grep trusted.SGI_ACL_FILE)
 EXPECT "$acl_access_val" echo $(getfattr -d -m. -e hex $B0/${V0}1/d | grep system.posix_acl_access)
 EXPECT "$acl_file_val" echo $(getfattr -d -m. -e hex $B0/${V0}1/d | grep trusted.SGI_ACL_FILE)
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup

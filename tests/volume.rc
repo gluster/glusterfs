@@ -518,3 +518,16 @@ function num_graphs
     local mountpoint=$1
     echo `ls $mountpoint/.meta/graphs/ | grep -v active | wc -l`
 }
+
+function get_aux()
+{
+##Check if a auxiliary mount is there
+df -h 2>&1 | grep "/var/run/gluster/$V0" -
+
+if [ $? -eq 0 ]
+then
+        echo "0"
+else
+        echo "1"
+fi
+}

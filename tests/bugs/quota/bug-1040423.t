@@ -65,8 +65,6 @@ EXPECT "1.0GB" get_hardlimit $V0
 
 _init;
 check_fattrs;
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup
-
-
-
-
