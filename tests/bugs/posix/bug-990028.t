@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../fileio.rc
 
 cleanup;
@@ -151,5 +152,7 @@ function links_across_directories()
 __init;
 links_in_same_directory;
 links_across_directories;
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 
 cleanup

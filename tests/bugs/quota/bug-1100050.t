@@ -22,4 +22,6 @@ TEST gluster volume quota $V0 limit-usage /dir 10MB;
 
 TEST mkdir $M0/dir/subdir;
 
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 cleanup;
