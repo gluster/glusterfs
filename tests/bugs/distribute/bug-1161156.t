@@ -40,7 +40,7 @@ TEST $CLI volume quota $V0 hard-timeout 0
 TEST dd if=/dev/zero of=$N0/$mydir/newfile_1 bs=512 count=10240
 # wait for write behind to complete.
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" usage "/"
-TEST ! dd if=/dev/zero of=$N0/$mydir/newfile_2 bs=1k count=10240
+TEST ! dd if=/dev/zero of=$N0/$mydir/newfile_2 bs=1k count=10240 conv=fdatasync
 
 # Test rename within a directory. It should pass even when the
 # corresponding directory quota is filled.
