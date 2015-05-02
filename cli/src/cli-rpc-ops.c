@@ -1971,6 +1971,302 @@ out:
 }
 
 int
+gf_cli_attach_tier_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf_cli_rsp                  rsp   = {0,};
+        int                         ret   = -1;
+        char                        msg[1024] = {0,};
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to attach tier");
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+        else
+                snprintf (msg, sizeof (msg), "Attach tier %s",
+                          (rsp.op_ret) ? "unsuccessful" : "successful");
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volAttachTier", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (rsp.op_ret)
+                cli_err ("volume attach-tier: failed: %s", msg);
+        else
+                cli_out ("volume attach-tier: success");
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+        return ret;
+}
+
+int
+gf_cli_detach_tier_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+
+        gf_cli_rsp                      rsp   = {0,};
+        int                             ret   = -1;
+        char                            msg[1024] = {0,};
+        gf1_op_commands                 cmd = GF_OP_CMD_NONE;
+        char                           *cmd_str = "unknown";
+        cli_local_t                    *local = NULL;
+        call_frame_t                   *frame = NULL;
+        char                           *task_id_str = NULL;
+        dict_t                         *rsp_dict = NULL;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        frame = myframe;
+        local = frame->local;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        ret = dict_get_int32 (local->dict, "command", (int32_t *)&cmd);
+        if (ret) {
+                 gf_log ("", GF_LOG_ERROR, "failed to get command");
+                 goto out;
+        }
+
+        if (rsp.dict.dict_len) {
+                rsp_dict = dict_new ();
+                if (!rsp_dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len,
+                                        &rsp_dict);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Failed to unserialize rsp_dict");
+                        goto out;
+                }
+        }
+
+        switch (cmd) {
+        case GF_OP_CMD_DETACH_START:
+                cmd_str = "start";
+
+                ret = dict_get_str (rsp_dict, GF_REMOVE_BRICK_TID_KEY,
+                                    &task_id_str);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "remove-brick-id is not present in dict");
+                }
+                break;
+        case GF_OP_CMD_DETACH_COMMIT:
+                cmd_str = "commit";
+                break;
+        case GF_OP_CMD_DETACH_COMMIT_FORCE:
+                cmd_str = "commit force";
+                break;
+        default:
+                cmd_str = "unknown";
+                break;
+        }
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to detach-tier");
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+        else
+                snprintf (msg, sizeof (msg), "Detach tier %s %s", cmd_str,
+                          (rsp.op_ret) ? "unsuccessful" : "successful");
+
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_vol_remove_brick_detach_tier (
+                                                       _gf_false, rsp_dict,
+                                                       rsp.op_ret, rsp.op_errno,
+                                                       msg, "volDetachTier");
+
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (rsp.op_ret) {
+                cli_err ("volume detach-tier %s: failed: %s", cmd_str,
+                         msg);
+        } else {
+                cli_out ("volume detach-tier %s: success", cmd_str);
+                if (GF_OP_CMD_DETACH_START == cmd && task_id_str != NULL)
+                        cli_out ("ID: %s", task_id_str);
+                if (GF_OP_CMD_DETACH_COMMIT == cmd)
+                        cli_out ("Check the detached bricks to ensure all files"
+                                 " are migrated.\nIf files with data are "
+                                 "found on the brick path, copy them via a "
+                                 "gluster mount point before re-purposing the "
+                                 "removed brick. ");
+        }
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+
+        return ret;
+}
+
+int
+gf_cli_detach_tier_status_cbk (struct rpc_req *req, struct iovec *iov,
+                                 int count, void *myframe)
+{
+        gf_cli_rsp               rsp     = {0,};
+        int                      ret     = -1;
+        dict_t                  *dict    = NULL;
+        char                     msg[1024] = {0,};
+        int32_t                  command = 0;
+        gf1_op_commands          cmd = GF_OP_CMD_NONE;
+        cli_local_t             *local = NULL;
+        call_frame_t            *frame = NULL;
+        char                    *cmd_str = "unknown";
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        frame = myframe;
+
+        ret = xdr_to_generic (*iov, &rsp,
+                              (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+        if (frame)
+                local = frame->local;
+        ret = dict_get_int32 (local->dict, "command", &command);
+        if (ret)
+                goto out;
+        cmd = command;
+
+        switch (cmd) {
+        case GF_OP_CMD_STOP_DETACH_TIER:
+                cmd_str = "stop";
+                break;
+        case GF_OP_CMD_STATUS:
+                cmd_str = "status";
+                break;
+        default:
+                break;
+        }
+
+        ret = rsp.op_ret;
+        if (rsp.op_ret == -1) {
+                if (strcmp (rsp.op_errstr, ""))
+                        snprintf (msg, sizeof (msg), "volume detach-tier %s: "
+                                  "failed: %s", cmd_str, rsp.op_errstr);
+                else
+                        snprintf (msg, sizeof (msg), "volume detach-tier %s: "
+                                  "failed", cmd_str);
+
+                if (global_state->mode & GLUSTER_MODE_XML)
+                        goto xml_output;
+
+                cli_err ("%s", msg);
+                goto out;
+        }
+
+        if (rsp.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                        rsp.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        strncpy (msg, "failed to unserialize req-buffer to "
+                                 "dictionary", sizeof (msg));
+
+                        if (global_state->mode & GLUSTER_MODE_XML) {
+                                rsp.op_ret = -1;
+                                goto xml_output;
+                        }
+
+                        gf_log ("cli", GF_LOG_ERROR, "%s", msg);
+                        goto out;
+                }
+        }
+xml_output:
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                if (strcmp (rsp.op_errstr, "")) {
+                        ret = cli_xml_output_vol_remove_brick_detach_tier (
+                                                               _gf_true, dict,
+                                                               rsp.op_ret,
+                                                               rsp.op_errno,
+                                                               rsp.op_errstr,
+                                                               "volDetachTier");
+                } else {
+                        ret = cli_xml_output_vol_remove_brick_detach_tier
+                                                               (_gf_true, dict,
+                                                               rsp.op_ret,
+                                                               rsp.op_errno,
+                                                               msg,
+                                                               "volDetachTier");
+                }
+                goto out;
+        }
+
+        ret = gf_cli_print_rebalance_status (dict, GF_TASK_TYPE_REMOVE_BRICK);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to print remove-brick "
+                        "rebalance status");
+                goto out;
+        }
+
+        if ((cmd == GF_OP_CMD_STOP_DETACH_TIER) && (rsp.op_ret == 0)) {
+                cli_out ("'detach-tier' process may be in the middle of a "
+                         "file migration.\nThe process will be fully stopped "
+                         "once the migration of the file is complete.\nPlease "
+                         "check detach-tier process for completion before "
+                         "doing any further brick related tasks on the "
+                         "volume.");
+        }
+
+out:
+        free (rsp.dict.dict_val); /* malloced by xdr */
+        if (dict)
+                dict_unref (dict);
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+
+int
 gf_cli_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
@@ -2106,15 +2402,19 @@ gf_cli3_remove_brick_status_cbk (struct rpc_req *req, struct iovec *iov,
 xml_output:
         if (global_state->mode & GLUSTER_MODE_XML) {
                 if (strcmp (rsp.op_errstr, "")) {
-                        ret = cli_xml_output_vol_remove_brick (_gf_true, dict,
+                        ret = cli_xml_output_vol_remove_brick_detach_tier (
+                                                               _gf_true, dict,
                                                                rsp.op_ret,
                                                                rsp.op_errno,
-                                                               rsp.op_errstr);
+                                                               rsp.op_errstr,
+                                                               "volRemoveBrick");
                 } else {
-                        ret = cli_xml_output_vol_remove_brick (_gf_true, dict,
+                        ret = cli_xml_output_vol_remove_brick_detach_tier (
+                                                               _gf_true, dict,
                                                                rsp.op_ret,
                                                                rsp.op_errno,
-                                                               msg);
+                                                               msg,
+                                                               "volRemoveBrick");
                 }
                 goto out;
         }
@@ -2225,9 +2525,10 @@ gf_cli_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                           (rsp.op_ret) ? "unsuccessful": "successful");
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_vol_remove_brick (_gf_false, rsp_dict,
+                ret = cli_xml_output_vol_remove_brick_detach_tier (
+                                                       _gf_false, rsp_dict,
                                                        rsp.op_ret, rsp.op_errno,
-                                                       msg);
+                                                       msg, "volRemoveBrick");
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");
@@ -3779,7 +4080,7 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = cli_to_glusterd (&req, frame, gf_cli_add_brick_cbk,
+        ret = cli_to_glusterd (&req, frame, gf_cli_attach_tier_cbk,
                                (xdrproc_t) xdr_gf_cli_req, dict,
                                GLUSTER_CLI_ATTACH_TIER, this,
                                cli_rpc_prog, NULL);
@@ -3827,8 +4128,69 @@ int32_t
 gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
-        return gf_cli_remove_brick(frame, this, data);
+        gf_cli_req                req =  { {0,} };
+        gf_cli_req                status_req = { {0,} };
+        int                       ret = 0;
+        dict_t                   *dict = NULL;
+        int32_t                   command = 0;
+        char                     *volname = NULL;
+        int32_t                   cmd = 0;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "command", &command);
+        if (ret)
+                goto out;
+
+        if ((command != GF_OP_CMD_STATUS) &&
+            (command != GF_DEFRAG_CMD_STOP_DETACH_TIER)) {
+
+
+                ret = cli_to_glusterd (&req, frame, gf_cli_detach_tier_cbk,
+                                       (xdrproc_t) xdr_gf_cli_req, dict,
+                                       GLUSTER_CLI_REMOVE_BRICK, this,
+                                       cli_rpc_prog, NULL);
+        } else {
+                /* Need rebalance status to be sent :-) */
+                if (command == GF_OP_CMD_STATUS)
+                        cmd |= GF_DEFRAG_CMD_STATUS;
+                else
+                        cmd |= GF_DEFRAG_CMD_STOP;
+
+                ret = dict_set_int32 (dict, "rebalance-command", (int32_t) cmd);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set dict");
+                        goto out;
+                }
+
+                ret = cli_to_glusterd (&status_req, frame,
+                                       gf_cli_detach_tier_status_cbk,
+                                       (xdrproc_t) xdr_gf_cli_req, dict,
+                                       GLUSTER_CLI_DEFRAG_VOLUME, this,
+                                       cli_rpc_prog, NULL);
+
+                }
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+
+        GF_FREE (status_req.dict.dict_val);
+
+        return ret;
 }
+
 
 
 int32_t

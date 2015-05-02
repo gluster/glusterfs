@@ -52,7 +52,8 @@ enum gf_bitrot_type {
         GF_OP_CMD_COMMIT_FORCE,
         GF_OP_CMD_DETACH_START,
         GF_OP_CMD_DETACH_COMMIT,
-        GF_OP_CMD_DETACH_COMMIT_FORCE
+        GF_OP_CMD_DETACH_COMMIT_FORCE,
+        GF_OP_CMD_STOP_DETACH_TIER
 };
 
 enum gf_quota_type {

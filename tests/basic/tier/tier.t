@@ -125,7 +125,7 @@ TEST $CLI volume rebalance $V0 tier status
 
 TEST $CLI volume detach-tier $V0 start
 
-TEST $CLI volume detach-tier $V0 commit
+TEST $CLI volume detach-tier $V0 commit force
 
 EXPECT "0" file_on_slow_tier d1/data.txt
 

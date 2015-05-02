@@ -996,7 +996,7 @@ cli_cmd_volume_detach_tier_cbk (struct cli_state *state,
         if (ret)
                 goto out;
 
-        ret = dict_set_int32 (options, "count", 1);
+        ret = dict_set_int32 (options, "count", 0);
         if (ret)
                 goto out;
 
