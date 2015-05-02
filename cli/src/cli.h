@@ -403,8 +403,10 @@ cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
                               int op_errno, char *op_errstr);
 
 int
-cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
-                                 int op_ret, int op_errno, char *op_errstr);
+cli_xml_output_vol_remove_brick_detach_tier (gf_boolean_t status_op,
+                                             dict_t *dict, int op_ret,
+                                             int op_errno, char *op_errstr,
+                                             const char *op);
 
 int
 cli_xml_output_vol_replace_brick (char *op, dict_t *dict, int op_ret,
