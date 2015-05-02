@@ -1696,7 +1696,7 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
                 else
                         command = GF_OP_CMD_DETACH_COMMIT;
         } else if (!strcmp(word, "stop"))
-                command = GF_DEFRAG_CMD_STOP_DETACH_TIER;
+                command = GF_OP_CMD_STOP_DETACH_TIER;
         else if (!strcmp(word, "status"))
                 command = GF_OP_CMD_STATUS;
         else

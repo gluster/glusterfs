@@ -3371,8 +3371,10 @@ out:
 }
 
 int
-cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
-                                 int op_ret, int op_errno, char *op_errstr)
+cli_xml_output_vol_remove_brick_detach_tier (gf_boolean_t status_op,
+                                             dict_t *dict, int op_ret,
+                                             int op_errno, char *op_errstr,
+                                             const char *op)
 {
 #if (HAVE_LIB_XML)
         int                     ret = -1;
@@ -3388,8 +3390,7 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
         if (ret)
                 goto out;
 
-        /* <volRemoveBrick> */
-        ret = xmlTextWriterStartElement (writer, (xmlChar *)"volRemoveBrick");
+        ret = xmlTextWriterStartElement (writer, (xmlChar *) op);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
@@ -3407,7 +3408,6 @@ cli_xml_output_vol_remove_brick (gf_boolean_t status_op, dict_t *dict,
                         goto out;
         }
 
-        /* </volRemoveBrick> */
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 

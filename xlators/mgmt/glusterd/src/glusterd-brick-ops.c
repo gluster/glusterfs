@@ -1738,10 +1738,12 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         }
 
         case GF_OP_CMD_STOP:
+        case GF_OP_CMD_STOP_DETACH_TIER:
                 ret = 0;
                 break;
 
         case GF_OP_CMD_COMMIT:
+        case GF_OP_CMD_DETACH_COMMIT:
                 if (volinfo->decommission_in_progress) {
                         errstr = gf_strdup ("use 'force' option as migration "
                                             "is in progress");
@@ -1791,7 +1793,6 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
                 break;
 
-        case GF_OP_CMD_DETACH_COMMIT:
         case GF_OP_CMD_DETACH_COMMIT_FORCE:
         case GF_OP_CMD_COMMIT_FORCE:
                 break;
@@ -2081,6 +2082,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 goto out;
 
         case GF_OP_CMD_STOP:
+        case GF_OP_CMD_STOP_DETACH_TIER:
         {
                 /* Fall back to the old volume file */
                 cds_list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
