@@ -2737,7 +2737,8 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        if ((volinfo->dist_leaf_count < volinfo->brick_count) &&
+        if ((volinfo->type != GF_CLUSTER_TYPE_TIER) &&
+            (volinfo->dist_leaf_count < volinfo->brick_count) &&
             ((volinfo->brick_count % volinfo->dist_leaf_count) != 0)) {
                 gf_log ("", GF_LOG_ERROR,
                         "volume inconsistency: "

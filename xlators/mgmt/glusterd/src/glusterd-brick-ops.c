@@ -1413,7 +1413,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
+                gf_log (THIS->name, GF_LOG_DEBUG,
                         "Unable to get replica count");
         }
 
