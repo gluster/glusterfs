@@ -32,6 +32,7 @@
 #define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
 #define DHT_LAYOUT_HEAL_DOMAIN      "dht.layout.heal"
 #define DHT_LAYOUT_HASH_INVALID     1
+#define TIERING_MIGRATION_KEY       "tiering.migration"
 
 #include <fnmatch.h>
 
