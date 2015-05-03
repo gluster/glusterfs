@@ -232,7 +232,7 @@ tier_migrate_using_query_file (void *_args)
                          * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
                          * calling dht_start_rebalance_task() */
                         per_file_status = dict_set_str (migrate_data,
-                                                "tiering.migration", "yes");
+                                                TIERING_MIGRATION_KEY, "yes");
                         if (per_file_status) {
                                 goto per_file_out;
                         }

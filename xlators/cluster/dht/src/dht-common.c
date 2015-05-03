@@ -3444,9 +3444,11 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                          * data migration and set the frame->root->pid to
                          * GF_CLIENT_PID_TIER_DEFRAG in dht_setxattr() just before
                          * calling dht_start_rebalance_task() */
-                        tmp = dict_get (xattr, "tiering.migration");
+                        tmp = dict_get (xattr, TIERING_MIGRATION_KEY);
                         if (tmp)
                                 frame->root->pid = GF_CLIENT_PID_TIER_DEFRAG;
+                        else
+                                frame->root->pid = GF_CLIENT_PID_DEFRAG;
 
                         ret = dht_start_rebalance_task (this, frame);
                         if (!ret)
