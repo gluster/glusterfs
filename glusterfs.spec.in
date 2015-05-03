@@ -314,8 +314,9 @@ This package provides the development libraries and include files.
 %package extra-xlators
 Summary:          Extra Gluster filesystem Translators
 Group:            Applications/File
-# We need python-glusterfs rpm for gluster module's __init__.py in Python site-packages area
-Requires:         python-%{name} = %{version}-%{release}
+# We need python-gluster rpm for gluster module's __init__.py in Python
+# site-packages area
+Requires:         python-gluster = %{version}-%{release}
 Requires:         python python-ctypes
 
 %description extra-xlators
