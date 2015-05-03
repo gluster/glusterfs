@@ -31,6 +31,7 @@
 #define DHT_PATHINFO_HEADER         "DISTRIBUTE:"
 #define DHT_FILE_MIGRATE_DOMAIN     "dht.file.migrate"
 #define DHT_LAYOUT_HEAL_DOMAIN      "dht.layout.heal"
+#define TIERING_MIGRATION_KEY       "tiering.migration"
 
 #include <fnmatch.h>
 

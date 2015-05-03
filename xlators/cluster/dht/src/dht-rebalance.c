@@ -1379,7 +1379,6 @@ dht_start_rebalance_task (xlator_t *this, call_frame_t *frame)
 {
         int         ret     = -1;
 
-        frame->root->pid = GF_CLIENT_PID_DEFRAG;
         ret = synctask_new (this->ctx->env, rebalance_task,
                             rebalance_task_completion,
                             frame, frame);
