@@ -15,11 +15,32 @@
 #endif
 
 /* TODO: add NS locking */
-
+#include <sys/sysinfo.h>
 #include "statedump.h"
 #include "dht-common.h"
 #include "dht-messages.h"
 
+#define MAX(a, b) (((a) > (b))?(a):(b))
+
+#define GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf) {         \
+                                                                        \
+                pthread_mutex_lock (&conf->defrag->dfq_mutex);          \
+                                                                        \
+                if (!strcasecmp (conf->dthrottle, "lazy"))              \
+                        conf->defrag->recon_thread_count = 1;           \
+                                                                        \
+                throttle_count = MAX ((get_nprocs() - 4), 4);           \
+                                                                        \
+                if (!strcasecmp (conf->dthrottle, "normal"))            \
+                        conf->defrag->recon_thread_count =              \
+                                                 (throttle_count / 2);  \
+                                                                        \
+                if (!strcasecmp (conf->dthrottle, "aggressive"))        \
+                        conf->defrag->recon_thread_count =              \
+                                                 throttle_count;        \
+                                                                        \
+                pthread_mutex_unlock (&conf->defrag->dfq_mutex);        \
+        }                                                               \
 
 /* TODO:
    - use volumename in xattr instead of "dht"
@@ -374,6 +395,7 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         char            *temp_str = NULL;
         gf_boolean_t     search_unhashed;
         int              ret = -1;
+        int              throttle_count = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO ("dht", options, out);
@@ -425,6 +447,16 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("randomize-hash-range-by-gfid",
                           conf->randomize_by_gfid,
                           options, bool, out);
+
+        GF_OPTION_RECONF ("rebal-throttle", conf->dthrottle, options,
+                          str, out);
+
+        if (conf->defrag) {
+                GF_DECIDE_DEFRAG_THROTTLE_COUNT (throttle_count, conf);
+                gf_log ("DHT", GF_LOG_INFO, "conf->dthrottle: %s, "
+                        "conf->defrag->recon_thread_count: %d",
+                         conf->dthrottle, conf->defrag->recon_thread_count);
+        }
 
         if (conf->defrag) {
                 GF_OPTION_RECONF ("rebalance-stats", conf->defrag->stats,
@@ -534,7 +566,7 @@ dht_init (xlator_t *this)
         gf_defrag_info_t                *defrag         = NULL;
         int                              cmd            = 0;
         char                            *node_uuid      = NULL;
-
+        int                              throttle_count = 0;
 
         GF_VALIDATE_OR_GOTO ("dht", this, err);
 
@@ -604,6 +636,8 @@ dht_init (xlator_t *this)
                 pthread_mutex_init (&defrag->dfq_mutex, 0);
                 pthread_cond_init  (&defrag->parallel_migration_cond, 0);
                 pthread_cond_init  (&defrag->rebalance_crawler_alarm, 0);
+                pthread_cond_init  (&defrag->df_wakeup_thread, 0);
+
                 defrag->global_error = 0;
 
         }
@@ -709,6 +743,17 @@ dht_init (xlator_t *this)
 
         GF_OPTION_INIT ("randomize-hash-range-by-gfid",
                         conf->randomize_by_gfid, bool, err);
+
+        if (defrag) {
+                GF_OPTION_INIT ("rebal-throttle",
+                                 conf->dthrottle, str, err);
+
+                GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf);
+
+                gf_log ("DHT", GF_LOG_DEBUG, "conf->dthrottle: %s, "
+                        "conf->defrag->recon_thread_count: %d",
+                         conf->dthrottle, conf->defrag->recon_thread_count);
+        }
 
         GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);
         gf_asprintf (&conf->link_xattr_name, "%s."DHT_LINKFILE_STR,
@@ -920,6 +965,18 @@ struct volume_options options[] = {
           "from which hash ranges are allocated starting with 0. "
           "Note that we still use a directory/file's name to determine the "
           "subvolume to which it hashes"
+        },
+
+        { .key =  {"rebal-throttle"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "normal",
+          .description = " Sets the maximum number of parallel file migrations "
+                         "allowed on a node during the rebalance operation. The"
+                         " default value is normal and allows a max of "
+                         "[($(processing units) - 4) / 2), 2]  files to be "
+                         "migrated at a time. Lazy will allow only one file to "
+                         "be migrated at a time and aggressive will allow "
+                         "max of [($(processing units) - 4) / 2), 4]"
         },
 
         { .key  = {NULL} },
