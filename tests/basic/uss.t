@@ -23,10 +23,6 @@ function lookup()
     fi
 }
 
-count_snaps () {
-	ls $1/.snaps | wc -l
-}
-
 cleanup;
 TESTS_EXPECTED_IN_LOOP=10
 
