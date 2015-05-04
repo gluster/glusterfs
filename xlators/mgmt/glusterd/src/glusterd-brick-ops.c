@@ -27,6 +27,34 @@
 
 /* misc */
 
+gf_boolean_t
+glusterd_is_tiering_supported (char *op_errstr)
+{
+        xlator_t           *this        = NULL;
+        glusterd_conf_t    *conf        = NULL;
+        gf_boolean_t        supported   = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        if (conf->op_version < GD_OP_VERSION_3_7_0)
+                goto out;
+
+        supported = _gf_true;
+
+out:
+        if (!supported && op_errstr != NULL && conf)
+                sprintf (op_errstr, "Tier operation failed. The cluster is "
+                         "operating at version %d. Tiering"
+                         " is unavailable in this version.",
+                         conf->op_version);
+
+        return supported;
+}
+
 /* In this function, we decide, based on the 'count' of the brick,
    where to add it in the current volume. 'count' tells us already
    how many of the given bricks are added. other argument are self-
@@ -466,6 +494,13 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
                         goto out;
                 }
 
+                if (glusterd_is_tiering_supported(err_str) == _gf_false) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Tiering not supported at this version");
+                        ret = -1;
+                        goto out;
+                }
+
                 ret = dict_get_int32 (dict, "type", &type);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -732,7 +767,6 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-
         gf_log (this->name, GF_LOG_INFO, "Received rem brick req");
 
         if (cli_req.dict.dict_len) {
@@ -774,6 +808,14 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
                            volname);
                  gf_log (this->name, GF_LOG_ERROR, "%s", err_str);
                  goto out;
+        }
+
+        if ((volinfo->type == GF_CLUSTER_TYPE_TIER) &&
+            (glusterd_is_tiering_supported(err_str) == _gf_false)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Tiering not supported at this version");
+                ret = -1;
+                goto out;
         }
 
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
