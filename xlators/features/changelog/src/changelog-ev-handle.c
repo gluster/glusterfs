@@ -199,8 +199,10 @@ changelog_ev_connector (void *data)
                                                            crpc->sock,
                                                            changelog_rpc_notify);
                         if (!crpc->rpc) {
-                                gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                        "connect back.. <%s>", crpc->sock);
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_MSG_RPC_CONNECT_ERROR,
+                                        "failed to connect back.. <%s>",
+                                        crpc->sock);
                                 crpc->cleanup (crpc);
                                 goto mutex_unlock;
                         }
@@ -338,7 +340,8 @@ changelog_ev_dispatch (void *data)
                                        &opaque, sequencer, c_clnt);
                 if (ret != RBUF_CONSUMABLE) {
                         if (ret != RBUF_EMPTY)
-                                gf_log (this->name, GF_LOG_WARNING,
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        CHANGELOG_MSG_BUFFER_STARVATION_ERROR,
                                         "Failed to get buffer for RPC dispatch "
                                         "[rbuf retval: %d]", ret);
                         continue;
@@ -347,7 +350,8 @@ changelog_ev_dispatch (void *data)
                 ret = rbuf_wait_for_completion (c_clnt->rbuf,
                                                 opaque, _dispatcher, c_clnt);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                CHANGELOG_MSG_PUT_BUFFER_FAILED,
                                 "failed to put buffer after consumption");
         }
 

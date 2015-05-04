@@ -13,6 +13,7 @@
 
 #include "gf-changelog-helpers.h"
 #include "changelog-rpc-common.h"
+#include "changelog-lib-messages.h"
 
 /**
  * Reverse socket: actual data transfer handler. Connection
@@ -52,7 +53,8 @@ gf_changelog_connection_janitor (void *arg)
                 drained = 0;
                 ev = &entry->event;
 
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_LIB_MSG_CLEANING_BRICK_ENTRY_INFO,
                         "Cleaning brick entry for brick %s", entry->brick);
 
                 /* 0x0: disbale rpc-clnt */
@@ -67,7 +69,8 @@ gf_changelog_connection_janitor (void *arg)
                 while (!list_empty (&ev->events)) {
                         event = list_first_entry (&ev->events,
                                                   struct gf_event, list);
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                CHANGELOG_LIB_MSG_DRAINING_EVENT_INFO,
                                 "Draining event [Seq: %lu, Payload: %d]",
                                 event->seq, event->count);
 
@@ -75,11 +78,14 @@ gf_changelog_connection_janitor (void *arg)
                         drained++;
                 }
 
-                gf_log (this->name, GF_LOG_INFO,
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_LIB_MSG_DRAINING_EVENT_INFO,
                         "Drained %lu events", drained);
 
                 /* 0x3: freeup brick entry */
-                gf_log (this->name, GF_LOG_INFO, "freeing entry %p", entry);
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_LIB_MSG_FREEING_ENTRY_INFO,
+                        "freeing entry %p", entry);
                 LOCK_DESTROY (&entry->statelock);
                 GF_FREE (entry);
         }
@@ -158,7 +164,9 @@ gf_changelog_reborp_rpcsvc_notify (rpcsvc_t *rpc, void *mydata,
         case RPCSVC_EVENT_ACCEPT:
                 ret = unlink (RPC_SOCK(entry));
                 if (ret != 0)
-                        gf_log (this->name, GF_LOG_WARNING, "failed to unlink "
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                CHANGELOG_LIB_MSG_UNLINK_FAILED,
+                                "failed to unlink "
                                 "reverse socket %s", RPC_SOCK (entry));
                 if (entry->connected)
                         GF_CHANGELOG_INVOKE_CBK (this, entry->connected,
@@ -361,7 +369,9 @@ gf_changelog_event_handler (rpcsvc_request_t *req,
         len = xdr_to_generic (req->msg[0],
                               &rpc_req, (xdrproc_t)xdr_changelog_event_req);
         if (len < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "xdr decoding failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_LIB_MSG_XDR_DECODING_FAILED,
+                        "xdr decoding failed");
                 req->rpc_err = GARBAGE_ARGS;
                 goto handle_xdr_error;
         }
@@ -400,10 +410,10 @@ gf_changelog_event_handler (rpcsvc_request_t *req,
                                req->msg[i].iov_base, req->msg[i].iov_len);
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "seq: %lu [%s] (time: %lu.%lu), (vec: %d, len: %ld)",
-                rpc_req.seq, entry->brick, rpc_req.tv_sec,
-                rpc_req.tv_usec, payloadcnt, payloadlen);
+        gf_msg_debug (this->name, 0,
+                      "seq: %lu [%s] (time: %lu.%lu), (vec: %d, len: %ld)",
+                      rpc_req.seq, entry->brick, rpc_req.tv_sec,
+                      rpc_req.tv_usec, payloadcnt, payloadlen);
 
         /* dispatch event */
         entry->queueevent (ev, event);

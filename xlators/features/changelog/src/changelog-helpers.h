@@ -24,6 +24,7 @@
 #include "changelog-ev-handle.h"
 
 #include "changelog.h"
+#include "changelog-messages.h"
 
 /**
  * the changelog entry
@@ -644,7 +645,8 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
 
 #define CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, label) do {                      \
                 if (!priv->active) {                                           \
-                        gf_log (this->name, GF_LOG_WARNING,                    \
+                        gf_msg (this->name, GF_LOG_WARNING, 0,                 \
+                                CHANGELOG_MSG_NOT_ACTIVE,                      \
                                 "Changelog is not active, return success");    \
                         ret = 0;                                               \
                         goto label;                                            \
@@ -654,17 +656,19 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t gfid, char **path, char *bname);
 /* Log pthread error and goto label */
 #define CHANGELOG_PTHREAD_ERROR_HANDLE_0(ret, label) do {                      \
                 if (ret) {                                                     \
-                        gf_log (this->name, GF_LOG_ERROR,                      \
+                        gf_msg (this->name, GF_LOG_ERROR,                      \
+                                0, CHANGELOG_MSG_PTHREAD_ERROR,                \
                                 "pthread error: Error: %d", ret);              \
                         ret = -1;                                              \
                         goto label;                                            \
                 }                                                              \
-        } while (0)
+        } while (0);
 
 /* Log pthread error, set flag and goto label */
 #define CHANGELOG_PTHREAD_ERROR_HANDLE_1(ret, label, flag) do {                \
                 if (ret) {                                                     \
-                        gf_log (this->name, GF_LOG_ERROR,                      \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,                   \
+                                CHANGELOG_MSG_PTHREAD_ERROR,                   \
                                 "pthread error: Error: %d", ret);              \
                         ret = -1;                                              \
                         flag = _gf_true;                                       \

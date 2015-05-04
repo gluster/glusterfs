@@ -9,7 +9,7 @@
 */
 
 #include "changelog-rpc-common.h"
-
+#include "changelog-messages.h"
 /**
 *****************************************************
                   Client Interface
@@ -47,7 +47,8 @@ changelog_rpc_client_init (xlator_t *this, void *cbkdata,
 
         ret = rpc_transport_unix_options_build (&options, sockfile, 0);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_RPC_BUILD_ERROR,
                         "failed to build rpc options");
                 goto dealloc_dict;
         }
@@ -58,13 +59,17 @@ changelog_rpc_client_init (xlator_t *this, void *cbkdata,
 
         ret = rpc_clnt_register_notify (rpc, fn, cbkdata);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to register notify");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_NOTIFY_REGISTER_FAILED,
+                        "failed to register notify");
                 goto dealloc_rpc_clnt;
         }
 
         ret = rpc_clnt_start (rpc);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to start rpc");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_RPC_START_ERROR,
+                        "failed to start rpc");
                 goto dealloc_rpc_clnt;
         }
 
@@ -158,7 +163,9 @@ changelog_invoke_rpc (xlator_t *this, struct rpc_clnt *rpc,
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to create frame");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_CREATE_FRAME_FAILED,
+                        "failed to create frame");
                 goto error_return;
         }
 
@@ -229,7 +236,9 @@ changelog_rpc_sumbit_reply (rpcsvc_request_t *req,
 
         iob = __changelog_rpc_serialize_reply (req, arg, &iov, xdrproc);
         if (!iob)
-                gf_log ("", GF_LOG_ERROR, "failed to serialize reply");
+                gf_msg ("", GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_RPC_SUBMIT_REPLY_FAILED,
+                        "failed to serialize reply");
         else
                 iobref_add (iobref, iob);
 
@@ -290,21 +299,24 @@ changelog_rpc_server_init (xlator_t *this, char *sockfile, void *cbkdata,
 
         rpc = rpcsvc_init (this, this->ctx, options, 8);
         if (rpc == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to init rpc");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_RPC_START_ERROR,
+                        "failed to init rpc");
                 goto dealloc_dict;
         }
 
         ret = rpcsvc_register_notify (rpc, fn, cbkdata);
         if (ret) {
-                gf_log (this->name,
-                        GF_LOG_ERROR, "failed to register notify function");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_NOTIFY_REGISTER_FAILED,
+                        "failed to register notify function");
                 goto dealloc_rpc;
         }
 
         ret = rpcsvc_create_listeners (rpc, options, this->name);
         if (ret != 1) {
-                gf_log (this->name,
-                        GF_LOG_DEBUG, "failed to create listeners");
+                gf_msg_debug (this->name,
+                              0, "failed to create listeners");
                 goto dealloc_rpc;
         }
 
@@ -312,8 +324,9 @@ changelog_rpc_server_init (xlator_t *this, char *sockfile, void *cbkdata,
                 prog = *progs;
                 ret = rpcsvc_program_register (rpc, prog);
                 if (ret) {
-                        gf_log (this->name,
-                                GF_LOG_ERROR, "cannot register program "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CHANGELOG_MSG_PROGRAM_NAME_REG_FAILED,
+                                "cannot register program "
                                 "(name: %s, prognum: %d, pogver: %d)",
                                 prog->progname, prog->prognum, prog->progver);
                         goto dealloc_rpc;

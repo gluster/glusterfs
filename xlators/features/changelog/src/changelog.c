@@ -17,10 +17,12 @@
 
 #include "changelog-encoders.h"
 #include "changelog-mem-types.h"
+#include "changelog-messages.h"
 
 #include <pthread.h>
 
 #include "changelog-rpc.h"
+#include "errno.h"
 
 static struct changelog_bootstrap
 cb_bootstrap[] = {
@@ -71,8 +73,9 @@ changelog_rmdir_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeue rmdir");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeue rmdir");
+                      changelog_color_fop_and_inc_cnt (this, priv,
+                      frame->local);
         STACK_WIND (frame, changelog_rmdir_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->rmdir,
                     loc, xflags, xdata);
@@ -143,13 +146,14 @@ changelog_rmdir (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueue rmdir");
+                gf_msg_debug (this->name, 0, "Enqueue rmdir");
                 goto out;
         }
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: rmdir, ERROR: %s", strerror (ENOMEM));
+                        "FOP: rmdir");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -195,8 +199,9 @@ changelog_unlink_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeue unlink");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeue unlink");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_unlink_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->unlink,
                     loc, xflags, xdata);
@@ -296,13 +301,14 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueue unlink");
+                gf_msg_debug (this->name, 0, "Enqueue unlink");
                 goto out;
         }
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: unlink, ERROR: %s", strerror (ENOMEM));
+                        "FOP: unlink");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -349,8 +355,9 @@ changelog_rename_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeue rename");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeue rename");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_rename_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->rename,
                     oldloc, newloc, xdata);
@@ -420,13 +427,14 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueue rename");
+                gf_msg_debug (this->name, 0, "Enqueue rename");
                 goto out;
         }
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: rename, ERROR: %s", strerror (ENOMEM));
+                        "FOP: rename");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 /* changelog barrier */
@@ -477,8 +485,9 @@ changelog_link_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing link");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeuing link");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_link_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->link,
                     oldloc, newloc, xdata);
@@ -535,14 +544,15 @@ changelog_link (call_frame_t *frame,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueued link");
+                gf_msg_debug (this->name, 0, "Enqueued link");
                 goto out;
         }
 
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: link, ERROR: %s", strerror (ENOMEM));
+                        "FOP: link");
                 chlog_barrier_dequeue_all (this, &queue);
         }
  wind:
@@ -592,8 +602,9 @@ changelog_mkdir_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing mkdir");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeuing mkdir");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_mkdir_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mkdir,
                     loc, mode, umask, xdata);
@@ -621,8 +632,8 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get gfid from dict");
+                gf_msg_debug (this->name, 0,
+                              "failed to get gfid from dict");
                 goto wind;
         }
         gf_uuid_copy (gfid, uuid_req);
@@ -668,14 +679,15 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueued mkdir");
+                gf_msg_debug (this->name, 0, "Enqueued mkdir");
                 goto out;
         }
 
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: mkdir, ERROR: %s", strerror (ENOMEM));
+                        "FOP: mkdir");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -727,8 +739,9 @@ changelog_symlink_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing symlink");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeuing symlink");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_symlink_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->symlink,
                     linkname, loc, umask, xdata);
@@ -757,8 +770,8 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get gfid from dict");
+                gf_msg_debug (this->name, 0,
+                              "failed to get gfid from dict");
                 goto wind;
         }
         gf_uuid_copy (gfid, uuid_req);
@@ -796,14 +809,15 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueued symlink");
+                gf_msg_debug (this->name, 0, "Enqueued symlink");
                 goto out;
         }
 
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: symlink, ERROR: %s", strerror (ENOMEM));
+                        "FOP: symlink");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -854,8 +868,9 @@ changelog_mknod_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing mknod");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeuing mknod");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_mknod_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->mknod,
                     loc, mode, rdev, umask, xdata);
@@ -885,8 +900,8 @@ changelog_mknod (call_frame_t *frame,
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get gfid from dict");
+                gf_msg_debug (this->name, 0,
+                              "failed to get gfid from dict");
                 goto wind;
         }
         gf_uuid_copy (gfid, uuid_req);
@@ -932,14 +947,15 @@ changelog_mknod (call_frame_t *frame,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueued mknod");
+                gf_msg_debug (this->name, 0, "Enqueued mknod");
                 goto out;
         }
 
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: mknod, ERROR: %s", strerror (ENOMEM));
+                        "FOP: mknod");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -981,7 +997,8 @@ changelog_create_cbk (call_frame_t *frame,
                    (this, &priv->ev_selection, CHANGELOG_OP_TYPE_RELEASE)) {
                 ret = fd_ctx_set (fd, this, (uint64_t)(long) 0x1);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                CHANGELOG_MSG_SET_FD_CONTEXT,
                                 "could not set fd context (for release cbk)");
         }
 
@@ -1008,8 +1025,9 @@ changelog_create_resume (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_DEBUG, "Dequeuing create");
-        changelog_color_fop_and_inc_cnt (this, priv, frame->local);
+        gf_msg_debug (this->name, 0, "Dequeuing create");
+                      changelog_color_fop_and_inc_cnt
+                      (this, priv, frame->local);
         STACK_WIND (frame, changelog_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, umask, fd, xdata);
@@ -1039,8 +1057,8 @@ changelog_create (call_frame_t *frame, xlator_t *this,
 
         ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get gfid from dict");
+                gf_msg_debug (this->name, 0,
+                              "failed to get gfid from dict");
                 goto wind;
         }
         gf_uuid_copy (gfid, uuid_req);
@@ -1090,14 +1108,15 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->lock);
 
         if (barrier_enabled && stub) {
-                gf_log (this->name, GF_LOG_DEBUG, "Enqueued create");
+                gf_msg_debug (this->name, 0, "Enqueued create");
                 goto out;
         }
 
         if (barrier_enabled && !stub) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: create, ERROR: %s", strerror (ENOMEM));
+                        "FOP: create");
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -1408,7 +1427,9 @@ changelog_handle_virtual_xattr (call_frame_t *frame, xlator_t *this,
         if (valid) {
                 ret = changelog_fill_entry_buf (frame, this, loc, &local);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_INFO, "Entry cannot be"
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                CHANGELOG_MSG_ENTRY_BUF_INFO,
+                                "Entry cannot be"
                                 " captured for gfid: %s. Capturing DATA"
                                 " entry.", uuid_utoa (loc->inode->gfid));
                         goto unwind;
@@ -1737,7 +1758,8 @@ changelog_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    (this, &priv->ev_selection, CHANGELOG_OP_TYPE_RELEASE)) {
                 ret = fd_ctx_set (fd, this, (uint64_t)(long) 0x1);
                 if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                CHANGELOG_MSG_SET_FD_CONTEXT,
                                 "could not set fd context (for release cbk)");
         }
 
@@ -1882,9 +1904,9 @@ changelog_cleanup_helper_threads (xlator_t *this, changelog_priv_t *priv)
                 priv->cr.rollover_th = 0;
                 ret = close (priv->cr_wfd);
                 if (ret)
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "error closing write end of rollover pipe"
-                                " (reason: %s)", strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                CHANGELOG_MSG_CLOSE_ERROR,
+                                "error closing write end of rollover pipe");
         }
 
         if (priv->cf.fsync_th) {
@@ -1915,8 +1937,9 @@ changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
 
         ret = pipe (pipe_fd);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Cannot create pipe (reason: %s)", strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR,
+                        errno, CHANGELOG_MSG_PIPE_CREATION_ERROR,
+                        "Cannot create pipe");
                 goto out;
         }
 
@@ -1926,7 +1949,8 @@ changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
 
         ret = fcntl (pipe_fd[1], F_SETFL, flags);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_FCNTL_FAILED,
                         "failed to set O_NONBLOCK flag");
                 goto out;
         }
@@ -1979,13 +2003,15 @@ notify (xlator_t *this, int event, void *data, ...)
 
                 switch (barrier) {
                 case DICT_ERROR:
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CHANGELOG_MSG_DICT_GET_FAILED,
                                 "Barrier dict_get_str_boolean failed");
                         ret = -1;
                         goto out;
 
                 case BARRIER_OFF:
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                CHANGELOG_MSG_BARRIER_INFO,
                                 "Barrier off notification");
 
                         CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
@@ -2003,9 +2029,10 @@ notify (xlator_t *this, int event, void *data, ...)
                         UNLOCK (&priv->bflags.lock);
 
                         if (ret == -1 ) {
-                                gf_log (this->name, GF_LOG_ERROR, "Received"
-                                        " another barrier off notification"
-                                        " while already off");
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_MSG_BARRIER_ERROR,
+                                        "Received another barrier off"
+                                        " notification while already off");
                                 goto out;
                         }
 
@@ -2023,10 +2050,12 @@ notify (xlator_t *this, int event, void *data, ...)
                          */
                         if (ret == 0) {
                                 chlog_barrier_dequeue_all(this, &queue);
-                                gf_log(this->name, GF_LOG_INFO,
+                                gf_msg(this->name, GF_LOG_INFO, 0,
+                                       CHANGELOG_MSG_BARRIER_INFO,
                                        "Disabled changelog barrier");
                         } else {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_MSG_BARRIER_ERROR,
                                         "Changelog barrier already disabled");
                         }
 
@@ -2039,7 +2068,8 @@ notify (xlator_t *this, int event, void *data, ...)
                         goto out;
 
                 case BARRIER_ON:
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                CHANGELOG_MSG_BARRIER_INFO,
                                 "Barrier on notification");
 
                         CHANGELOG_NOT_ON_THEN_GOTO(priv, ret, out);
@@ -2059,9 +2089,11 @@ notify (xlator_t *this, int event, void *data, ...)
                         UNLOCK (&priv->bflags.lock);
 
                         if (ret == -1 ) {
-                                gf_log (this->name, GF_LOG_ERROR, "Received"
-                                        " another barrier on notification when"
-                                        " last one is not served yet");
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_MSG_BARRIER_ERROR,
+                                        "Received another barrier on"
+                                        "notification when last one is"
+                                        "not served yet");
                                 goto out;
                         }
 
@@ -2086,12 +2118,14 @@ notify (xlator_t *this, int event, void *data, ...)
                                 goto out;
                         }
 
-                        gf_log(this->name, GF_LOG_INFO,
-                                           "Enabled changelog barrier");
+                        gf_msg(this->name, GF_LOG_INFO, 0,
+                               CHANGELOG_MSG_BARRIER_INFO,
+                               "Enabled changelog barrier");
 
                         ret = changelog_barrier_notify(priv, buf);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_MSG_WRITE_FAILED,
                                         "Explicit roll over: write failed");
                                 changelog_barrier_cleanup (this, priv, &queue);
                                 ret = -1;
@@ -2121,19 +2155,22 @@ notify (xlator_t *this, int event, void *data, ...)
                         ret1 = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
                         CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret1, out,
                                                           bclean_req);
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                CHANGELOG_MSG_BNOTIFY_INFO,
                                 "Woke up: bnotify conditional wait");
 
                         goto out;
 
                 case DICT_DEFAULT:
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CHANGELOG_MSG_DICT_GET_FAILED,
                                 "barrier key not found");
                         ret = -1;
                         goto out;
 
                 default:
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                CHANGELOG_MSG_DICT_GET_FAILED,
                                 "Something went bad in dict_get_str_boolean");
                         ret = -1;
                         goto out;
@@ -2160,7 +2197,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_changelog_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING, "Memory accounting"
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY, "Memory accounting"
                         " init failed");
                 return ret;
         }
@@ -2178,7 +2216,8 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
 
         ret = gettimeofday (&tv, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_GET_TIME_OP_FAILED,
                         "gettimeofday() failure");
                 goto out;
         }
@@ -2239,7 +2278,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
         int             ret                   = 0;
 
         if ((ret = pthread_mutex_init(&priv->bn.bnotify_mutex, NULL)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
                         "bnotify pthread_mutex_init failed (%d)", ret);
                 ret = -1;
                 goto out;
@@ -2247,7 +2287,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
         bn_mutex_init = _gf_true;
 
         if ((ret = pthread_cond_init(&priv->bn.bnotify_cond, NULL)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
                         "bnotify pthread_cond_init failed (%d)", ret);
                 ret = -1;
                 goto out;
@@ -2256,7 +2297,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
 
         if ((ret = pthread_mutex_init(&priv->dm.drain_black_mutex, NULL)) != 0)
         {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
                         "drain_black pthread_mutex_init failed (%d)", ret);
                 ret = -1;
                 goto out;
@@ -2264,7 +2306,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
         dm_mutex_black_init = _gf_true;
 
         if ((ret = pthread_cond_init(&priv->dm.drain_black_cond, NULL)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
                         "drain_black pthread_cond_init failed (%d)", ret);
                 ret = -1;
                 goto out;
@@ -2273,7 +2316,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
 
         if ((ret = pthread_mutex_init(&priv->dm.drain_white_mutex, NULL)) != 0)
         {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
                         "drain_white pthread_mutex_init failed (%d)", ret);
                 ret = -1;
                 goto out;
@@ -2281,7 +2325,8 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
         dm_mutex_white_init = _gf_true;
 
         if ((ret = pthread_cond_init(&priv->dm.drain_white_cond, NULL)) != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
                         "drain_white pthread_cond_init failed (%d)", ret);
                 ret = -1;
                 goto out;
@@ -2345,7 +2390,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("changelog-dir", tmp, options, str, out);
         if (!tmp) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_DIR_OPTIONS_NOT_SET,
                         "\"changelog-dir\" option is not set");
                 goto out;
         }
@@ -2419,10 +2465,12 @@ reconfigure (xlator_t *this, dict_t *options)
 
                 if (active_now) {
                         if (!active_earlier) {
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        CHANGELOG_MSG_HTIME_INFO,
                                         "Reconfigure: Changelog Enable");
                                 if (gettimeofday(&tv, NULL) ) {
-                                        gf_log (this->name, GF_LOG_ERROR,
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                CHANGELOG_MSG_HTIME_ERROR,
                                                  "unable to fetch htime");
                                         ret = -1;
                                         goto out;
@@ -2437,8 +2485,8 @@ reconfigure (xlator_t *this, dict_t *options)
         if (ret) {
                 /* TODO */
         } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "changelog reconfigured");
+                gf_msg_debug (this->name, 0,
+                              "changelog reconfigured");
                 if (active_now && priv)
                         priv->active = _gf_true;
         }
@@ -2453,7 +2501,8 @@ changelog_freeup_options (xlator_t *this, changelog_priv_t *priv)
 
         ret = priv->cb->dtor (this, &priv->cd);
         if (ret)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_FREEUP_FAILED,
                         "could not cleanup bootstrapper");
         GF_FREE (priv->changelog_brick);
         GF_FREE (priv->changelog_dir);
@@ -2601,13 +2650,15 @@ init (xlator_t *this)
         GF_VALIDATE_OR_GOTO ("changelog", this, error_return);
 
         if (!this->children || this->children->next) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_CHILD_MISCONFIGURED,
                         "translator needs a single subvolume");
                 goto error_return;
         }
 
         if (!this->parents) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CHANGELOG_MSG_VOL_MISCONFIGURED,
                         "dangling volume. please check volfile");
                 goto error_return;
         }
@@ -2618,7 +2669,8 @@ init (xlator_t *this)
 
         this->local_pool = mem_pool_new (changelog_local_t, 64);
         if (!this->local_pool) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CHANGELOG_MSG_NO_MEMORY,
                         "failed to create local memory pool");
                 goto cleanup_priv;
         }
@@ -2659,7 +2711,8 @@ init (xlator_t *this)
         ret = changelog_init (this, priv);
         if (ret)
                 goto cleanup_rpc;
-        gf_log (this->name, GF_LOG_DEBUG, "changelog translator loaded");
+
+        gf_msg_debug (this->name, 0, "changelog translator loaded");
 
         this->private = priv;
         return 0;
@@ -2698,7 +2751,6 @@ fini (xlator_t *this)
 
                 /* deallocate mempool */
                 mem_pool_destroy (this->local_pool);
-
                 /* finally, dealloac private variable */
                 GF_FREE (priv);
         }

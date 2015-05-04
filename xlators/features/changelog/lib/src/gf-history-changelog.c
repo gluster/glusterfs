@@ -18,6 +18,7 @@
 
 /* from the changelog translator */
 #include "changelog-misc.h"
+#include "changelog-lib-messages.h"
 #include "changelog-mem-types.h"
 
 /**
@@ -72,13 +73,14 @@ gf_history_changelog_done (char *file)
 
         (void) snprintf (to_path, PATH_MAX, "%s%s",
                          hist_jnl->jnl_processed_dir, basename (buffer));
-        gf_log (this->name, GF_LOG_DEBUG,
-                "moving %s to processed directory", file);
+        gf_msg_debug (this->name, 0,
+                      "moving %s to processed directory", file);
         ret = rename (buffer, to_path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "cannot move %s to %s (reason: %s)",
-                        file, to_path, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_RENAME_FAILED,
+                        "cannot move %s to %s",
+                        file, to_path);
                 goto out;
         }
 
@@ -283,7 +285,8 @@ gf_history_changelog_scan ()
                 GF_CHANGELOG_FILL_BUFFER ("\n", buffer, off, 1);
 
                 if (gf_changelog_write (tracker_fd, buffer, off) != off) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CHANGELOG_LIB_MSG_WRITE_FAILED,
                                 "error writing changelog filename"
                                 " to tracker file");
                         break;
@@ -293,9 +296,9 @@ gf_history_changelog_scan ()
 
         GF_FREE (entryp);
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "hist_done %d, is_last_scan: %d", hist_jnl->hist_done,
-                is_last_scan);
+        gf_msg_debug (this->name, 0,
+                      "hist_done %d, is_last_scan: %d",
+                      hist_jnl->hist_done, is_last_scan);
 
         if (!result) {
                 if (gf_lseek (tracker_fd, 0, SEEK_SET) != -1) {
@@ -335,7 +338,8 @@ gf_history_get_timestamp (int fd, int index, int len,
         n_read = pread (fd, path_buf, len, offset);
         if (n_read < 0 ) {
                 ret = -1;
-                gf_log ( this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_READ_ERROR,
                          "could not read from htime file");
                 goto out;
         }
@@ -522,9 +526,9 @@ gf_changelog_consume_wrap (void* data)
 
         nread = pread (ccd->fd, ccd->changelog, PATH_MAX, ccd->offset);
         if (nread < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "cannot read from history metadata file (reason %s)",
-                        strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_READ_ERROR,
+                        "cannot read from history metadata file");
                 goto out;
         }
 
@@ -534,8 +538,10 @@ gf_changelog_consume_wrap (void* data)
                 ret = gf_changelog_consume (ccd->this,
                                             ccd->jnl, ccd->changelog, _gf_true);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                               "could not parse changelog: %s", ccd->changelog);
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                0, CHANGELOG_LIB_MSG_PARSE_ERROR,
+                                "could not parse changelog: %s",
+                                ccd->changelog);
                         goto out;
                 }
         }
@@ -621,9 +627,9 @@ gf_history_consume (void * data)
                         ret = pthread_create (&th_id[iter], NULL,
                                               gf_changelog_consume_wrap, curr);
                         if (ret) {
-                                gf_log ( this->name, GF_LOG_ERROR,
-                                        "could not create consume-thread"
-                                        " reason (%s)", strerror (ret));
+                                gf_msg (this->name, GF_LOG_ERROR, ret,
+                                        CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED
+                                        , "could not create consume-thread");
                                 ret = -1;
                                 goto sync;
                         } else
@@ -637,9 +643,9 @@ gf_history_consume (void * data)
                         ret = pthread_join (th_id[iter], NULL);
                         if (ret) {
                                 publish = _gf_false;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "pthread_join() error %s",
-                                        strerror (ret));
+                                gf_msg (this->name, GF_LOG_ERROR, ret,
+                                        CHANGELOG_LIB_MSG_PTHREAD_JOIN_FAILED,
+                                        "pthread_join() error");
                                 /* try to join the rest */
                                 continue;
                         }
@@ -650,7 +656,8 @@ gf_history_consume (void * data)
                         curr = &ccd[iter];
                         if (ccd->retval) {
                                 publish = _gf_false;
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        0, CHANGELOG_LIB_MSG_PARSE_ERROR,
                                         "parsing error, ceased publishing...");
                                 continue;
                         }
@@ -659,7 +666,8 @@ gf_history_consume (void * data)
                                                     curr->jnl, curr->changelog);
                         if (ret) {
                                 publish = _gf_false;
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_LIB_MSG_PUBLISH_ERROR,
                                         "publish error, ceased publishing...");
                         }
                 }
@@ -723,9 +731,10 @@ gf_changelog_extract_min_max (const char *dname, const char *htime_dir,
         ret = stat (htime_file, &stbuf);
         if (ret) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "stat() failed on htime file %s (reason %s)",
-                        htime_file, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_HTIME_ERROR,
+                        "stat() failed on htime file %s",
+                        htime_file);
                 goto out;
         }
 
@@ -738,9 +747,10 @@ gf_changelog_extract_min_max (const char *dname, const char *htime_dir,
         *fd = open (htime_file, O_RDONLY);
         if (*fd < 0) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "open() failed for htime %s (reasong %s)",
-                        htime_file, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_HTIME_ERROR,
+                        "open() failed for htime %s",
+                        htime_file);
                 goto out;
         }
 
@@ -748,14 +758,16 @@ gf_changelog_extract_min_max (const char *dname, const char *htime_dir,
         ret = sys_fgetxattr (*fd, HTIME_KEY, x_value, sizeof (x_value));
         if (ret < 0) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_GET_XATTR_FAILED,
                         "error extracting max timstamp from htime file"
-                        " %s (reason %s)", htime_file, strerror (errno));
+                        " %s", htime_file);
                 goto out;
         }
 
         sscanf (x_value, "%lu:%lu", max_ts, total);
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                CHANGELOG_LIB_MSG_TOTAL_LOG_INFO,
                 "MIN: %lu, MAX: %lu, TOTAL CHANGELOGS: %lu",
                 *min_ts, *max_ts, *total);
 
@@ -831,9 +843,10 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
         dirp = opendir (htime_dir);
         if (dirp == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "open dir on htime failed : %s (reason: %s)",
-                        htime_dir, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_HTIME_ERROR,
+                        "open dir on htime failed : %s",
+                        htime_dir);
                 ret = -1;
                 goto out;
         }
@@ -855,7 +868,8 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         n_read = read (fd, buffer, PATH_MAX);
                         if (n_read < 0) {
                                 ret = -1;
-                                gf_log ( this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        CHANGELOG_LIB_MSG_READ_ERROR,
                                         "unable to read htime file");
                                 goto out;
                         }
@@ -872,7 +886,8 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         /* ensuring correctness of gf_b_search */
                         if (gf_history_check (fd, from, start, len) != 0) {
                                 ret = -1;
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_LIB_MSG_GET_TIME_ERROR,
                                         "wrong result for start: %lu idx: %lu",
                                         start, from);
                                 goto out;
@@ -888,7 +903,8 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
                         if (gf_history_check (fd, to, end2, len) != 0) {
                                 ret = -1;
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        CHANGELOG_LIB_MSG_GET_TIME_ERROR,
                                         "wrong result for start: %lu idx: %lu",
                                         end2, to);
                                 goto out;
@@ -902,7 +918,8 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         if (ret == -1)
                                 goto out;
 
-                        gf_log (this->name, GF_LOG_INFO,
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                CHANGELOG_LIB_MSG_TOTAL_LOG_INFO,
                                 "FINAL: from: %lu, to: %lu, changes: %lu",
                                 ts1, ts2, (to - from + 1));
 
@@ -920,10 +937,10 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         ret = pthread_attr_setdetachstate
                                 (&attr, PTHREAD_CREATE_DETACHED);
                         if (ret != 0) {
-                                gf_log (this->name, GF_LOG_ERROR,
+                                gf_msg (this->name, GF_LOG_ERROR, ret,
+                                        CHANGELOG_LIB_MSG_PTHREAD_ERROR,
                                         "unable to sets the detach"
-                                        " state attribute, reason(%s)",
-                                        strerror (ret));
+                                        " state attribute");
                                 ret = -1;
                                 goto out;
                         }
@@ -932,9 +949,10 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         ret = pthread_create (&consume_th, &attr,
                                               gf_history_consume, hist_data);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "creation of consume parent-thread"
-                                        " failed. reason(%s)", strerror (ret));
+                                gf_msg (this->name, GF_LOG_ERROR, ret,
+                                        CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED
+                                        , "creation of consume parent-thread"
+                                        " failed.");
                                 ret = -1;
                                 goto out;
                         }

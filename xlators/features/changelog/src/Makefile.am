@@ -4,7 +4,8 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 noinst_HEADERS = changelog-helpers.h changelog-mem-types.h changelog-rt.h \
 		 changelog-rpc-common.h changelog-misc.h changelog-encoders.h \
-		 changelog-rpc-common.h changelog-rpc.h changelog-ev-handle.h
+		 changelog-rpc-common.h changelog-rpc.h changelog-ev-handle.h \
+		 changelog-messages.h
 
 changelog_la_LDFLAGS = -module -avoid-version
 
