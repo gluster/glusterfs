@@ -16,6 +16,10 @@ function init_n_bricks() {
     done
 }
 
+count_snaps () {
+    ls $1/.snaps | wc -l
+}
+
 function init_lvm() {
     if [ "$1" == "" ]; then
         echo "Error: Invalid argument supplied"
