@@ -41,9 +41,9 @@ TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 #Dir xyz exists in snap1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/xyz
 
-TEST ls $M0/xyz/.snaps/
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "3" count_snaps $M0/xyz
 TEST mkdir $M0/abc
-TEST ls $M0/abc/.snaps/
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "3" count_snaps $M0/abc
 
 #Clean up
 TEST $CLI snapshot delete snap1
@@ -53,4 +53,3 @@ TEST $CLI volume stop $V0 force
 TEST $CLI volume delete $V0
 
 cleanup;
-
