@@ -23,7 +23,7 @@ libgfchangelog_la_SOURCES = gf-changelog.c gf-changelog-journal-handler.c gf-cha
 		gf-changelog-api.c gf-history-changelog.c gf-changelog-rpc.c gf-changelog-reborp.c \
 		$(top_srcdir)/xlators/features/changelog/src/changelog-rpc-common.c
 
-noinst_HEADERS = gf-changelog-helpers.h gf-changelog-rpc.h gf-changelog-journal.h
+noinst_HEADERS = gf-changelog-helpers.h gf-changelog-rpc.h gf-changelog-journal.h changelog-lib-messages.h
 
 CLEANFILES =
 

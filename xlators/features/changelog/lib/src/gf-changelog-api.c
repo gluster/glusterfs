@@ -15,6 +15,7 @@
 #include "gf-changelog-helpers.h"
 #include "gf-changelog-journal.h"
 #include "changelog-mem-types.h"
+#include "changelog-lib-messages.h"
 
 int
 gf_changelog_done (char *file)
@@ -49,13 +50,14 @@ gf_changelog_done (char *file)
 
         (void) snprintf (to_path, PATH_MAX, "%s%s",
                          jnl->jnl_processed_dir, basename (buffer));
-        gf_log (this->name, GF_LOG_DEBUG,
-                "moving %s to processed directory", file);
+        gf_msg_debug (this->name, 0,
+                      "moving %s to processed directory", file);
         ret = rename (buffer, to_path);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "cannot move %s to %s (reason: %s)",
-                        file, to_path, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_LIB_MSG_RENAME_FAILED,
+                        "cannot move %s to %s",
+                        file, to_path);
                 goto out;
         }
 
@@ -205,7 +207,8 @@ gf_changelog_scan ()
                 GF_CHANGELOG_FILL_BUFFER ("\n", buffer, off, 1);
 
                 if (gf_changelog_write (tracker_fd, buffer, off) != off) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CHANGELOG_LIB_MSG_WRITE_FAILED,
                                 "error writing changelog filename"
                                 " to tracker file");
                         break;
