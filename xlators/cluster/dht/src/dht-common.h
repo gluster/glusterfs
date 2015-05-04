@@ -346,6 +346,13 @@ struct gf_defrag_info_ {
         int32_t                      abort;
         int32_t                      wakeup_crawler;
 
+        /*Throttle params*/
+        /*stands for reconfigured thread count*/
+        int32_t                      recon_thread_count;
+        /*stands for current running thread count*/
+        int32_t                      current_thread_count;
+        pthread_cond_t               df_wakeup_thread;
+
         /* Hard link handle requirement */
         synclock_t                   link_lock;
 };
@@ -421,6 +428,7 @@ struct dht_conf {
         /* Support size-weighted rebalancing (heterogeneous bricks). */
         gf_boolean_t    do_weighting;
         gf_boolean_t    randomize_by_gfid;
+        char           *dthrottle;
 
         dht_methods_t  *methods;
 

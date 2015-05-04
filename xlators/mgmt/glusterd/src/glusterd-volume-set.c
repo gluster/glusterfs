@@ -74,6 +74,35 @@ out:
 }
 
 static int
+validate_defrag_throttle_option (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                 char *key, char *value, char **op_errstr)
+{
+        char                 errstr[2048] = "";
+        glusterd_conf_t     *priv         = NULL;
+        int                  ret          = 0;
+        xlator_t            *this         = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (!strcasecmp (value, "lazy") ||
+            !strcasecmp (value, "normal") ||
+            !strcasecmp (value, "aggressive")) {
+                ret = 0;
+        } else {
+                ret = -1;
+                snprintf (errstr, sizeof (errstr), "%s should be "
+                          "{lazy|normal|aggressive}", key);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_quota (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 char *value, char **op_errstr)
 {
@@ -356,6 +385,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type       = NO_DOC,
           .op_version = GD_OP_VERSION_3_6_0,
           .flags      = OPT_FLAG_CLIENT_OPT,
+        },
+        { .key         = "cluster.rebal-throttle",
+          .voltype     = "cluster/distribute",
+          .option      = "rebal-throttle",
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .validate_fn = validate_defrag_throttle_option,
+          .flags       = OPT_FLAG_CLIENT_OPT,
         },
         /* NUFA xlator options (Distribute special case) */
         { .key        = "cluster.nufa",
