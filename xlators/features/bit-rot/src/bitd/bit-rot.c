@@ -1626,6 +1626,7 @@ struct volume_options options[] = {
         },
         { .key = {"scrub-state"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "active",
           .description = "Pause/Resume scrub. Upon resume, scrubber "
                          "continues from where it left off.",
         },

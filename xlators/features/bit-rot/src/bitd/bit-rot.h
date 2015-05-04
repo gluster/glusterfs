@@ -43,6 +43,7 @@ typedef enum scrub_throttle {
         BR_SCRUB_THROTTLE_LAZY       = 0,
         BR_SCRUB_THROTTLE_NORMAL     = 1,
         BR_SCRUB_THROTTLE_AGGRESSIVE = 2,
+        BR_SCRUB_THROTTLE_STALLED    = 3,
 } scrub_throttle_t;
 
 #define signature_size(hl) (sizeof (br_isignature_t) + hl + 1)

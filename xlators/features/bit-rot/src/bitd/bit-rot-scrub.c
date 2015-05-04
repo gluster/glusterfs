@@ -555,6 +555,7 @@ br_scrubber_calc_scale (xlator_t *this,
 
         switch (throttle) {
         case BR_SCRUB_THROTTLE_VOID:
+        case BR_SCRUB_THROTTLE_STALLED:
                 scale = 0;
                 break;
         case BR_SCRUB_THROTTLE_LAZY:
@@ -839,10 +840,28 @@ br_scrubber_configure (xlator_t *this, br_private_t *priv,
         return ret;
 }
 
+static inline int32_t
+br_scrubber_fetch_option (xlator_t *this,
+                          char *opt, dict_t *options, char **value)
+{
+        if (options)
+                GF_OPTION_RECONF (opt, *value, options, str, error_return);
+        else
+                GF_OPTION_INIT (opt, *value, str, error_return);
+
+        return 0;
+
+ error_return:
+        return -1;
+}
+
+/* internal "throttle" override */
+#define BR_SCRUB_STALLED  "STALLED"
+
 /* TODO: token buket spec */
 static int32_t
-br_scrubber_handle_throttle (xlator_t *this,
-                             br_private_t *priv, dict_t *options)
+br_scrubber_handle_throttle (xlator_t *this, br_private_t *priv,
+                             dict_t *options, gf_boolean_t scrubstall)
 {
         int32_t ret = 0;
         char *tmp = NULL;
@@ -851,11 +870,12 @@ br_scrubber_handle_throttle (xlator_t *this,
 
         fsscrub = &priv->fsscrub;
 
-        if (options)
-                GF_OPTION_RECONF ("scrub-throttle",
-                                  tmp, options, str, error_return);
-        else
-                GF_OPTION_INIT ("scrub-throttle", tmp, str, error_return);
+        ret = br_scrubber_fetch_option (this, "scrub-throttle", options, &tmp);
+        if (ret)
+                goto error_return;
+
+        if (scrubstall)
+                tmp = BR_SCRUB_STALLED;
 
         if (strcasecmp (tmp, "lazy") == 0)
                 nthrottle = BR_SCRUB_THROTTLE_LAZY;
@@ -863,6 +883,8 @@ br_scrubber_handle_throttle (xlator_t *this,
                 nthrottle = BR_SCRUB_THROTTLE_NORMAL;
         else if (strcasecmp (tmp, "aggressive") == 0)
                 nthrottle = BR_SCRUB_THROTTLE_AGGRESSIVE;
+        else if (strcasecmp (tmp, BR_SCRUB_STALLED) == 0)
+                nthrottle = BR_SCRUB_THROTTLE_STALLED;
         else
                 goto error_return;
 
@@ -878,13 +900,38 @@ br_scrubber_handle_throttle (xlator_t *this,
         return -1;
 }
 
-/* TODO: pause/resume, frequency */
+static int32_t
+br_scrubber_handle_stall (xlator_t *this, br_private_t *priv,
+                          dict_t *options, gf_boolean_t *scrubstall)
+{
+        int32_t ret = 0;
+        char *tmp = NULL;
+
+        ret = br_scrubber_fetch_option (this, "scrub-state", options, &tmp);
+        if (ret)
+                goto error_return;
+
+        if (strcasecmp (tmp, "pause") == 0) /* anything else is active */
+                *scrubstall = _gf_true;
+
+        return 0;
+
+ error_return:
+        return -1;
+}
+
+/* TODO: frequency */
 int32_t
 br_scrubber_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
 {
         int32_t ret = 0;
+        gf_boolean_t scrubstall = _gf_false; /* not as dangerous as it sounds */
 
-        ret = br_scrubber_handle_throttle (this, priv, options);
+        ret = br_scrubber_handle_stall (this, priv, options, &scrubstall);
+        if (ret)
+                goto error_return;
+
+        ret = br_scrubber_handle_throttle (this, priv, options, scrubstall);
         if (ret)
                 goto error_return;
 
