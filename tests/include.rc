@@ -461,6 +461,7 @@ function cleanup()
         umount $flag /tmp/mnt* 2>/dev/null
         umount $flag $M0 2>/dev/null || umount -f $M0 2>/dev/null || true;
         umount $flag $M1 2>/dev/null || umount -f $M1 2>/dev/null || true;
+        umount $flag $M2 2>/dev/null || umount -f $M2 2>/dev/null || true;
         umount $flag $N0 2>/dev/null || umount -f $N0 2>/dev/null || true;
         umount $flag $N1 2>/dev/null || umount -f $N1 2>/dev/null || true;
 
@@ -484,6 +485,12 @@ function cleanup()
                 return 1;
         fi >&2
         mkdir -p $WORKDIRS
+	# This is usually the last thing a test script calls, so our return
+	# value becomes their exit value.  While it's not great for the mkdir
+	# above to fail, promoting that into a failure of the whole test (and
+	# thus of an entire regression-test run) seems a bit excessive.  Make
+	# sure we return good status anyway.
+	return 0
 }
 
 function volinfo_field()
