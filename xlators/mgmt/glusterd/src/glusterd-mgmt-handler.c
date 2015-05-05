@@ -232,8 +232,9 @@ out:
 
 static int
 glusterd_mgmt_v3_pre_validate_send_resp (rpcsvc_request_t   *req,
-                                        int32_t op, int32_t status,
-                                        char *op_errstr, dict_t *rsp_dict)
+                                         int32_t op, int32_t status,
+                                         char *op_errstr, dict_t *rsp_dict,
+                                         uint32_t op_errno)
 {
         gd1_mgmt_v3_pre_val_rsp          rsp      = {{0},};
         int                             ret      = -1;
@@ -246,6 +247,7 @@ glusterd_mgmt_v3_pre_validate_send_resp (rpcsvc_request_t   *req,
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
         rsp.op = op;
+        rsp.op_errno = op_errno;
         if (op_errstr)
                 rsp.op_errstr = op_errstr;
         else
@@ -274,11 +276,12 @@ static int
 glusterd_handle_pre_validate_fn (rpcsvc_request_t *req)
 {
         int32_t                         ret       = -1;
-        gd1_mgmt_v3_pre_val_req          op_req    = {{0},};
+        gd1_mgmt_v3_pre_val_req         op_req    = {{0},};
         xlator_t                       *this      = NULL;
         char                           *op_errstr = NULL;
         dict_t                         *dict      = NULL;
         dict_t                         *rsp_dict  = NULL;
+        uint32_t                        op_errno  = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -326,8 +329,7 @@ glusterd_handle_pre_validate_fn (rpcsvc_request_t *req)
         }
 
         ret = gd_mgmt_v3_pre_validate_fn (op_req.op, dict, &op_errstr,
-                                         rsp_dict);
-
+                                          rsp_dict, &op_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_PRE_VALIDATION_FAIL,
@@ -336,8 +338,8 @@ glusterd_handle_pre_validate_fn (rpcsvc_request_t *req)
         }
 
         ret = glusterd_mgmt_v3_pre_validate_send_resp (req, op_req.op,
-                                                      ret, op_errstr,
-                                                      rsp_dict);
+                                                       ret, op_errstr,
+                                                       rsp_dict, op_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_OP_RESP_FAIL,
@@ -497,8 +499,9 @@ out:
 
 static int
 glusterd_mgmt_v3_commit_send_resp (rpcsvc_request_t   *req,
-                                  int32_t op, int32_t status,
-                                  char *op_errstr, dict_t *rsp_dict)
+                                   int32_t op, int32_t status,
+                                   char *op_errstr, uint32_t op_errno,
+                                   dict_t *rsp_dict)
 {
         gd1_mgmt_v3_commit_rsp           rsp      = {{0},};
         int                             ret      = -1;
@@ -511,6 +514,7 @@ glusterd_mgmt_v3_commit_send_resp (rpcsvc_request_t   *req,
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
         rsp.op = op;
+        rsp.op_errno = op_errno;
         if (op_errstr)
                 rsp.op_errstr = op_errstr;
         else
@@ -543,6 +547,7 @@ glusterd_handle_commit_fn (rpcsvc_request_t *req)
         char                           *op_errstr = NULL;
         dict_t                         *dict      = NULL;
         dict_t                         *rsp_dict  = NULL;
+        uint32_t                        op_errno  = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -589,7 +594,7 @@ glusterd_handle_commit_fn (rpcsvc_request_t *req)
         }
 
         ret = gd_mgmt_v3_commit_fn (op_req.op, dict, &op_errstr,
-                                   rsp_dict);
+                                    &op_errno, rsp_dict);
 
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -599,8 +604,8 @@ glusterd_handle_commit_fn (rpcsvc_request_t *req)
         }
 
         ret = glusterd_mgmt_v3_commit_send_resp (req, op_req.op,
-                                                ret, op_errstr,
-                                                rsp_dict);
+                                                 ret, op_errstr,
+                                                 op_errno, rsp_dict);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_OP_RESP_FAIL,
