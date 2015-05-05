@@ -419,6 +419,7 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
         int                      ret = -1;
         char                     str[1024];
         glusterd_volinfo_t      *volinfo = NULL;
+        dict_t                  *vol_opts = NULL;
         char                    *volname = NULL;
         xlator_t                *this    = NULL;
         glusterd_conf_t         *priv    = NULL;
@@ -500,11 +501,21 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
                 runner_add_args (&runner, "sh", GANESHA_PREFIX"/dbus-send.sh",
                          CONFDIR, value, volname, NULL);
                 ret = runner_run (&runner);
-                if (ret)
+                if (ret) {
                         gf_asprintf(op_errstr, "Dynamic export"
                                     " addition/deletion failed."
                                     " Please see log file for details");
+                        goto out;
+                }
         }
+        /* cache-invalidation should be on when a volume is exported
+         *  and off when a volume is unexported.                    */
+        vol_opts = volinfo->dict;
+        ret = dict_set_dynstr_with_alloc (vol_opts,
+                                         "features.cache-invalidation", value);
+        if (ret)
+                gf_asprintf (op_errstr, "Cache-invalidation could not"
+                             " be set to %s.", value);
 out:
         return ret;
 }

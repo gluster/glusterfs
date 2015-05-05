@@ -53,4 +53,7 @@ echo "     }"
 }
 
 write_conf $@ > $GANESHA_DIR/exports/export.$VOL.conf
+if ! (cat $CONF | grep  $VOL.conf$ )
+then
 echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF
+fi
