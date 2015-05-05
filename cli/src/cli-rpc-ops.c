@@ -1547,6 +1547,9 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
         double             elapsed      = 0;
         char               *status_str  = NULL;
         char               *size_str    = NULL;
+        int                hrs          = 0;
+        int                min          = 0;
+        int                sec          = 0;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
@@ -1557,7 +1560,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
 
         cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "Node",
                  "Rebalanced-files", "size", "scanned", "failures", "skipped",
-                 "status", "run time in secs");
+                 "status", "run time in h:m:s");
         cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "---------",
                  "-----------", "-----------", "-----------", "-----------",
                  "-----------", "------------", "--------------");
@@ -1644,16 +1647,20 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type)
 
                 status_str = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
+                hrs = elapsed / 3600;
+                min = ((int) elapsed % 3600) / 60;
+                sec = ((int) elapsed % 3600) % 60;
+
                 if (size_str) {
                         cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
-                                 PRIu64" %13"PRIu64 " %20s %18.2f", node_name,
-                                 files, size_str, lookup, failures, skipped,
-                                 status_str, elapsed);
+                                 PRIu64" %13"PRIu64 " %20s %8d:%d:%d",
+                                 node_name, files, size_str, lookup, failures,
+                                 skipped, status_str, hrs, min, sec);
                 } else {
                         cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"PRIu64
-                                 " %13"PRIu64" %13"PRIu64 " %20s %18.2f",
+                                 " %13"PRIu64" %13"PRIu64 " %20s %8d:%d:%d",
                                  node_name, files, size, lookup, failures,
-                                 skipped, status_str, elapsed);
+                                 skipped, status_str, hrs, min, sec);
                 }
                 GF_FREE(size_str);
         }
