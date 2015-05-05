@@ -388,6 +388,9 @@ function cleanup()
         done
 
         killall -15 glusterfs glusterfsd glusterd 2>/dev/null || true;
+        for m in `mount | grep fuse.glusterfs | awk '{print $3}'`; do
+                umount $m
+        done
         test x"$OSTYPE" = x"NetBSD" && pkill -15 perfused rpc.statd || true
         # allow completion of signal handlers for SIGTERM before issue SIGKILL
         sleep 1
