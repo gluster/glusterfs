@@ -185,14 +185,6 @@ BuildRequires:    python-simplejson
 %endif
 %if ( 0%{?_with_systemd:1} )
 BuildRequires:    systemd-units
-Requires(post):   systemd-units
-Requires(preun):  systemd-units
-Requires(postun): systemd-units
-%else
-Requires(post):   /sbin/chkconfig
-Requires(preun):  /sbin/service
-Requires(preun):  /sbin/chkconfig
-Requires(postun): /sbin/service
 %endif
 
 Requires:         %{name}-libs = %{version}-%{release}
@@ -239,13 +231,14 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
 This package includes the glusterfs binary, the glusterfsd daemon and the
-gluster command line, libglusterfs and glusterfs translator modules common to
-both GlusterFS server and client framework.
+libglusterfs and glusterfs translator modules common to both GlusterFS server
+and client framework.
 
 %package api
 Summary:          GlusterFS api library
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-client-xlators = %{version}-%{release}
 # we provide the Python package/namespace 'gluster'
 #Provides:         python-gluster = %{version}-%{release}
 
@@ -339,6 +332,7 @@ BuildRequires:    fuse-devel
 Requires:         attr
 
 Requires:         %{name} = %{version}-%{release}
+Requires:         %{name}-client-xlators = %{version}-%{release}
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
@@ -352,7 +346,8 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
-This package provides support to FUSE based clients.
+This package provides support to FUSE based clients and inlcudes the
+glusterfs(d) binary.
 
 %package ganesha
 Summary:          NFS-Ganesha configuration
@@ -508,14 +503,27 @@ like Pacemaker.
 Summary:          Clustered file-system server
 Group:            System Environment/Daemons
 Requires:         %{name} = %{version}-%{release}
-Requires:         %{name}-cli = %{version}-%{release}
 Requires:         %{name}-libs = %{version}-%{release}
+Requires:         %{name}-cli = %{version}-%{release}
+# some daemons (like quota) use a fuse-mount, glusterfsd is part of -fuse
 Requires:         %{name}-fuse = %{version}-%{release}
+# self-heal daemon, rebalance, nfs-server etc. are actually clients
+Requires:         %{name}-client-xlators = %{version}-%{release}
 # psmisc for killall, lvm2 for snapshot, and nfs-utils and
 # rpcbind/portmap for gnfs server
 Requires:         psmisc
 Requires:         lvm2
 Requires:         nfs-utils
+%if ( 0%{?_with_systemd:1} )
+Requires(post):   systemd-units
+Requires(preun):  systemd-units
+Requires(postun): systemd-units
+%else
+Requires(post):   /sbin/chkconfig
+Requires(preun):  /sbin/service
+Requires(preun):  /sbin/chkconfig
+Requires(postun): /sbin/service
+%endif
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
 %else
@@ -539,6 +547,21 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in user space and easily manageable.
 
 This package provides the glusterfs server daemon.
+
+%package client-xlators
+Summary:          GlusterFS client-side translators
+Group:            Applications/File
+
+%description client-xlators
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the translators needed on any GlusterFS client.
 
 %prep
 %setup -q -n %{name}-%{version}%{?prereltag}
@@ -885,55 +908,62 @@ fi
 /sbin/ldconfig
 
 ##-----------------------------------------------------------------------------
-## All %files should be placed here and keep them sorted
+## All files should be placed here and keep them grouped
 ##
 %files
 %doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README.md THANKS
-%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
-%config(noreplace) %{_sysconfdir}/sysconfig/*
 %if ( 0%{!?_without_syslog:1} )
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 %{_sysconfdir}/rsyslog.d/gluster.conf.example
 %endif
 %endif
-%{_libdir}/glusterfs
-%{_sbindir}/glusterfs*
 %{_mandir}/man8/*gluster*.8*
 %exclude %{_mandir}/man8/gluster.8*
 %dir %{_localstatedir}/log/glusterfs
-%dir %{_localstatedir}/run/gluster
-%if 0%{?_tmpfilesdir:1}
-%{_tmpfilesdir}/gluster.conf
-%endif
-%dir %{_sharedstatedir}/glusterd
 %if ( 0%{!?_without_rdma:1} )
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
-# server-side, etc., xlators in other RPMs
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
-# Glupy files are in the -extra-xlators package
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy*
-%exclude /usr/lib/python2.7/site-packages/gluster/glupy.py*
-
-# sample xlators not generally used or usable
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat*
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache*
 %dir %{_datadir}/glusterfs/scripts
 %{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
 %{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
+# xlators that are needed on the client- and on the server-side
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/auth
+%{_libdir}/glusterfs/%{version}%{?prereltag}/auth/addr.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/auth/login.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport
+%{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/socket.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/crypt.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/access-control.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-client.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/worm.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/meta.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-cache.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-threads.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/md-cache.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/open-behind.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/quick-read.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/read-ahead.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/readdir-ahead.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
+
 
 %files api
 %exclude %{_libdir}/*.so
 # libgfapi files
 %{_libdir}/libgfapi.*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api.so
 
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
@@ -958,9 +988,24 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
 
+%files client-xlators
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/qemu-block.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
+
 %files extra-xlators
-# Glupy C shared library
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_client.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_dht.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_server.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features/template.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 # Glupy Python files
 %{python_sitelib}/gluster/glupy/*
 # Don't expect a .egg-info file on EL5
@@ -969,7 +1014,11 @@ fi
 %endif
 
 %files fuse
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse*
+# glusterfs is a symlink to glusterfsd, -server depends on -fuse.
+%{_sbindir}/glusterfs
+%{_sbindir}/glusterfsd
+%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
 /sbin/mount.glusterfs
 %if ( 0%{!?_without_fusermount:1} )
 %{_bindir}/fusermount-glusterfs
@@ -1044,6 +1093,11 @@ fi
 %doc extras/clear_xattrs.sh
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %config(noreplace) %{_sysconfdir}/glusterfs
+%dir %{_localstatedir}/run/gluster
+%if 0%{?_tmpfilesdir:1}
+%{_tmpfilesdir}/gluster.conf
+%endif
+%dir %{_sharedstatedir}/glusterd
 %dir %{_sharedstatedir}/glusterd/groups
 %config(noreplace) %{_sharedstatedir}/glusterd/groups/virt
 # Legacy configs
@@ -1067,13 +1121,26 @@ fi
 # binaries
 %{_sbindir}/glusterd
 %{_sbindir}/glfsheal
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
+# {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a
+# symlink. The binary itself (and symlink) are part of the glusterfs-fuse
+# package, because glusterfs-server depends on that anyway.
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/index.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
 %{_libdir}/libgfdb.so.*
-%{_sharedstatedir}/glusterd
 
 #snap_scheduler
 %{_sbindir}/snap_scheduler.py
@@ -1120,15 +1187,12 @@ fi
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
-%exclude %{_libexecdir}/glusterfs/glusterfind/brickfind.pyc
-%exclude %{_libexecdir}/glusterfs/glusterfind/changelog.pyc
-%exclude %{_libexecdir}/glusterfs/glusterfind/nodecleanup.pyc
-%exclude %{_libexecdir}/glusterfs/glusterfind/brickfind.pyo
-%exclude %{_libexecdir}/glusterfs/glusterfind/changelog.pyo
-%exclude %{_libexecdir}/glusterfs/glusterfind/nodecleanup.pyo
 
 
 %changelog
+* Tue May 05 2015 Niels de Vos <ndevos@redhat.com>
+- Introduce glusterfs-client-xlators to reduce dependencies (#1195947)
+
 * Wed Apr 15 2015 Humble Chirammal <hchiramm@redhat.com>
 - Introducing python-gluster package to own gluster namespace in sitelib (#1211848)
 
