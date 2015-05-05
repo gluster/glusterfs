@@ -29,6 +29,7 @@
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-server-quorum.h"
 #include "glusterd-messages.h"
+#include "glusterd-errno.h"
 
 /*
  *  glusterd_snap_geo_rep_restore:
@@ -2616,7 +2617,8 @@ gf_boolean_t
 glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                                   int down_count, gf_boolean_t first_brick_on,
                                   int8_t snap_force, int quorum_count,
-                                  char *quorum_type, char **op_errstr)
+                                  char *quorum_type, char **op_errstr,
+                                  uint32_t *op_errno)
 {
         gf_boolean_t  quorum_met        = _gf_false;
         char          err_str[PATH_MAX] = {0, };
@@ -2625,6 +2627,7 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         this = THIS;
         GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!volinfo || !dict) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -2643,6 +2646,7 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_DISCONNECTED, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
+                *op_errno = EG_BRCKDWN;
                 goto out;
         }
 
@@ -2674,6 +2678,7 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
+                *op_errno = EG_BRCKDWN;
         }
 
 out:
@@ -2684,7 +2689,8 @@ int32_t
 glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                               dict_t *dict, char *key_prefix,
                               int8_t snap_force, int quorum_count,
-                              char *quorum_type, char **op_errstr)
+                              char *quorum_type, char **op_errstr,
+                              uint32_t *op_errno)
 {
         int                      ret                = 0;
         xlator_t                *this               = NULL;
@@ -2703,6 +2709,7 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!volinfo || !dict) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -2730,6 +2737,7 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                                         0, GD_MSG_SERVER_QUORUM_NOT_MET, "%s",
                                         err_str);
                                 *op_errstr = gf_strdup (err_str);
+                                *op_errno = EG_BRCKDWN;
                                 goto out;
                         }
                 }
@@ -2766,7 +2774,8 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                                                                     snap_force,
                                                                   quorum_count,
                                                                    quorum_type,
-                                                                   op_errstr);
+                                                                   op_errstr,
+                                                                   op_errno);
                         /* goto out if quorum is not met */
                         if (!quorum_met) {
                                 ret = -1;
@@ -2790,7 +2799,7 @@ out:
 
 int32_t
 glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
-                                       char **op_errstr)
+                                       char **op_errstr, uint32_t *op_errno)
 {
         int8_t              snap_force        = 0;
         int32_t             force             = 0;
@@ -2811,6 +2820,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
 
         this = THIS;
         GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!dict) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2851,6 +2861,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
+                *op_errno = EG_NODEDWN;
                 ret = -1;
                 goto out;
         } else
@@ -2974,7 +2985,8 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
                                                     snap_force,
                                                     quorum_count,
                                                     quorum_type,
-                                                    op_errstr);
+                                                    op_errstr,
+                                                    op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_VOL_NOT_FOUND, "volume %s "
@@ -2988,7 +3000,7 @@ out:
 
 int32_t
 glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
-                            char **op_errstr)
+                            char **op_errstr, uint32_t *op_errno)
 {
         int32_t             ret               = -1;
         xlator_t           *this              = NULL;
@@ -2997,13 +3009,13 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
 
         this = THIS;
         GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!dict) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_EMPTY, "dict is NULL");
                 goto out;
         }
-
 
         ret = dict_get_int32 (dict, "type", &snap_command);
         if (ret) {
@@ -3016,7 +3028,8 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         switch (snap_command) {
         case GF_SNAP_OPTION_TYPE_CREATE:
                 ret = glusterd_snap_quorum_check_for_create (dict, snap_volume,
-                                                             op_errstr);
+                                                             op_errstr,
+                                                             op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_QUORUM_CHECK_FAIL, "Quorum check"
@@ -3034,6 +3047,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                                 GD_MSG_SERVER_QUORUM_NOT_MET, "%s",
                                 err_str);
                         *op_errstr = gf_strdup (err_str);
+                        *op_errno = EG_NODEDWN;
                         goto out;
                 }
 
@@ -3050,6 +3064,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
                                 GD_MSG_SERVER_QUORUM_NOT_MET, "%s",
                                 err_str);
                         *op_errstr = gf_strdup (err_str);
+                        *op_errno = EG_NODEDWN;
                         goto out;
                 }
 

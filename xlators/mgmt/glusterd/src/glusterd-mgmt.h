@@ -16,7 +16,8 @@ void gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
 
 int32_t
 gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
-                           char **op_errstr, dict_t *rsp_dict);
+                            char **op_errstr, dict_t *rsp_dict,
+                            uint32_t *op_errno);
 
 int32_t
 gd_mgmt_v3_brick_op_fn (glusterd_op_t op, dict_t *dict,
@@ -24,7 +25,8 @@ gd_mgmt_v3_brick_op_fn (glusterd_op_t op, dict_t *dict,
 
 int32_t
 gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
-                     char **op_errstr, dict_t *rsp_dict);
+                      char **op_errstr, uint32_t *op_errno,
+                      dict_t *rsp_dict);
 
 int32_t
 gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,

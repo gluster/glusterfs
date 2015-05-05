@@ -144,7 +144,8 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
 
 int32_t
 gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
-                            char **op_errstr, dict_t *rsp_dict)
+                            char **op_errstr, dict_t *rsp_dict,
+                            uint32_t *op_errno)
 {
         int32_t       ret = -1;
         xlator_t     *this = NULL;
@@ -154,11 +155,12 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
         GF_ASSERT (rsp_dict);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         switch (op) {
         case GD_OP_SNAP:
                 ret = glusterd_snapshot_prevalidate (dict, op_errstr,
-                                                     rsp_dict);
+                                                     rsp_dict, op_errno);
 
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -216,7 +218,8 @@ out:
 
 int32_t
 gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
-                      char **op_errstr, dict_t *rsp_dict)
+                      char **op_errstr, uint32_t *op_errno,
+                      dict_t *rsp_dict)
 {
         int32_t       ret = -1;
         xlator_t     *this = NULL;
@@ -225,12 +228,14 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
         GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
         GF_ASSERT (rsp_dict);
 
         switch (op) {
                case GD_OP_SNAP:
                {
-                       ret = glusterd_snapshot (dict, op_errstr, rsp_dict);
+                       ret = glusterd_snapshot (dict, op_errstr,
+                                                op_errno, rsp_dict);
                        if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                                GD_MSG_COMMIT_OP_FAIL,
@@ -683,7 +688,7 @@ out:
 
 int
 glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
-                               char **op_errstr,
+                               char **op_errstr, uint32_t *op_errno,
                                uint32_t txn_generation)
 {
         int32_t              ret        = -1;
@@ -702,6 +707,7 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
 
         GF_ASSERT (req_dict);
         GF_ASSERT (op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -713,7 +719,7 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
 
         /* Pre Validation on local node */
         ret = gd_mgmt_v3_pre_validate_fn (op, req_dict, op_errstr,
-                                          rsp_dict);
+                                          rsp_dict, op_errno);
 
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -790,6 +796,7 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
         }
 
         ret = args.op_ret;
+        *op_errno = args.op_errno;
 
         gf_msg_debug (this->name, 0, "Sent pre valaidation req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
@@ -1191,7 +1198,8 @@ out:
 
 int
 glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
-                         char **op_errstr, uint32_t txn_generation)
+                         char **op_errstr, uint32_t *op_errno,
+                         uint32_t txn_generation)
 {
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -1210,6 +1218,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         GF_ASSERT (op_ctx);
         GF_ASSERT (req_dict);
         GF_ASSERT (op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -1221,7 +1230,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 
         /* Commit on local node */
         ret = gd_mgmt_v3_commit_fn (op, req_dict, op_errstr,
-                                   rsp_dict);
+                                    op_errno, rsp_dict);
 
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1298,6 +1307,7 @@ glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         }
 
         ret = args.op_ret;
+        *op_errno = args.op_errno;
 
         gf_msg_debug (this->name, 0, "Sent commit req for %s to %d "
                 "peers. Returning %d", gd_op_list[op], peer_cnt, ret);
@@ -1801,7 +1811,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* PRE-COMMIT VALIDATE PHASE */
         ret = glusterd_mgmt_v3_pre_validate (op, req_dict, &op_errstr,
-                                             txn_generation);
+                                             &op_errno, txn_generation);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_PRE_VALIDATION_FAIL, "Pre Validation Failed");
@@ -1810,7 +1820,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* COMMIT OP PHASE */
         ret = glusterd_mgmt_v3_commit (op, dict, req_dict, &op_errstr,
-                                       txn_generation);
+                                       &op_errno, txn_generation);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_COMMIT_OP_FAIL, "Commit Op Failed");
@@ -1850,8 +1860,8 @@ out:
                 }
         }
 
-        if (ret && (op_errno == 0))
-                op_errno = EINTRNL;
+        if (op_ret && (op_errno == 0))
+                op_errno = EG_INTRNL;
 
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, op_errno, req,
@@ -2035,7 +2045,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* PRE-COMMIT VALIDATE PHASE */
         ret = glusterd_mgmt_v3_pre_validate (op, req_dict, &op_errstr,
-                                             txn_generation);
+                                             &op_errno, txn_generation);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_PRE_VALIDATION_FAIL, "Pre Validation Failed");
@@ -2043,7 +2053,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         /* quorum check of the volume is done here */
-        ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr);
+        ret = glusterd_snap_quorum_check (req_dict, _gf_false, &op_errstr,
+                                          &op_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_QUORUM_CHECK_FAIL, "Volume quorum check failed");
@@ -2095,7 +2106,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         ret = glusterd_mgmt_v3_commit (op, dict, req_dict, &op_errstr,
-                                       txn_generation);
+                                       &op_errno, txn_generation);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_COMMIT_OP_FAIL,  "Commit Op Failed");
@@ -2134,7 +2145,8 @@ unbarrier:
         /*Do a quorum check if the commit phase is successful*/
         if (success) {
                 //quorum check of the snapshot volume
-                ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr);
+                ret = glusterd_snap_quorum_check (dict, _gf_true, &op_errstr,
+                                                  &op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_QUORUM_CHECK_FAIL,
@@ -2189,8 +2201,8 @@ out:
                 }
         }
 
-        if (ret && (op_errno == 0))
-                op_errno = EINTRNL;
+        if (op_ret && (op_errno == 0))
+                op_errno = EG_INTRNL;
 
         /* SEND CLI RESPONSE */
         glusterd_op_send_cli_response (op, op_ret, op_errno, req,

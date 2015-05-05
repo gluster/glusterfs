@@ -549,7 +549,7 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
                                   "Lock for %s held by %s",
                                   name, uuid_utoa (owner));
                 ret = -1;
-                *op_errno = EANOTRANS;
+                *op_errno = EG_ANOTRANS;
                 goto out;
         }
 

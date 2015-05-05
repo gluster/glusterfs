@@ -22,6 +22,7 @@
 #include "glusterd-locks.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"
+#include "glusterd-errno.h"
 
 extern glusterd_op_info_t opinfo;
 
@@ -1883,8 +1884,8 @@ out:
                                 uuid_utoa (*txn_id));
         }
 
-        if (ret && (op_errno == 0))
-                op_errno = -1;
+        if (op_ret && (op_errno == 0))
+                op_errno = EG_INTRNL;
 
         glusterd_op_send_cli_response (op, op_ret, op_errno, req,
                                        op_ctx, op_errstr);

@@ -15,6 +15,7 @@
 #include <sys/mount.h>
 #include <signal.h>
 #include "glusterd-messages.h"
+#include "glusterd-errno.h"
 
 #if defined(GF_LINUX_HOST_OS)
 #include <mntent.h>
@@ -927,7 +928,7 @@ out:
  */
 int32_t
 glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
-                                       dict_t *rsp_dict)
+                                       uint32_t *op_errno, dict_t *rsp_dict)
 {
         int                     ret             = -1;
         int32_t                 i               = 0;
@@ -947,6 +948,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
         GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
         GF_ASSERT (rsp_dict);
 
         ret = dict_get_str (dict, "snapname", &snapname);
@@ -961,6 +963,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
         if (NULL == snap) {
                 ret = gf_asprintf (op_errstr, "Snapshot (%s) does not exist",
                                 snapname);
+                *op_errno = EG_SNAPEXST;
                 if (ret < 0) {
                         goto out;
                 }
@@ -1016,6 +1019,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                 if (ret) {
                         ret = gf_asprintf (op_errstr, "Volume (%s) "
                                            "does not exist", volname);
+                        *op_errno = EG_NOVOL;
                         if (ret < 0) {
                                 goto out;
                         }
@@ -1029,6 +1033,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                         ret = gf_asprintf (op_errstr, "Volume (%s) has been "
                         "started. Volume needs to be stopped before restoring "
                         "a snapshot.", volname);
+                        *op_errno = EG_VOLRUN;
                         if (ret < 0) {
                                 goto out;
                         }
@@ -1209,7 +1214,8 @@ out:
 }
 
 int
-glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
+glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr,
+                                      uint32_t *op_errno)
 {
         char               *volname             = NULL;
         glusterd_volinfo_t *volinfo             = NULL;
@@ -1232,6 +1238,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
         GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         conf = this->private;
 
@@ -1255,6 +1262,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                 if (ret) {
                         snprintf (err_str, sizeof (err_str),
                                   "Volume (%s) does not exist.", volname);
+                        *op_errno = EG_NOVOL;
                         goto out;
                 }
         }
@@ -1273,6 +1281,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_HARD_LIMIT_SET_FAIL,
                                 "snap-max-hard-limit validation failed.");
+                        *op_errno = EINVAL;
                         goto out;
                 }
         }
@@ -1285,6 +1294,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                                  "snap-max-soft-limit ""%"
                                  PRIu64 ". Expected range 1 - %"PRIu64,
                                  soft_limit, max_limit);
+                        *op_errno = EINVAL;
                         goto out;
                 }
         }
@@ -1302,6 +1312,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Please enter a "
                                   "valid boolean value for auto-delete");
+                        *op_errno = EINVAL;
                         goto out;
                 }
 
@@ -1319,6 +1330,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                         else
                                 snprintf (err_str, sizeof (err_str),
                                           "auto-delete is already disabled");
+                        *op_errno = EINVAL;
                         goto out;
                 }
         } else if (dict_get(dict, GLUSTERD_STORE_KEY_SNAP_ACTIVATE)) {
@@ -1329,6 +1341,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                         ret = -1;
                         snprintf (err_str, sizeof (err_str), "Please enter a "
                                   "valid boolean value for activate-on-create");
+                        *op_errno = EINVAL;
                         goto out;
                 }
 
@@ -1346,11 +1359,13 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr)
                         else
                                 snprintf (err_str, sizeof (err_str),
                                       "activate-on-create is already disabled");
+                        *op_errno = EINVAL;
                         goto out;
                 }
         } else {
                 ret = -1;
                 snprintf (err_str, sizeof (err_str), "Invalid option");
+                *op_errno = EINVAL;
                 goto out;
         }
 
@@ -1866,7 +1881,7 @@ out:
  * @return              _gf_true if LV is thin else _gf_false
  */
 gf_boolean_t
-glusterd_is_thinp_brick (char *device)
+glusterd_is_thinp_brick (char *device, uint32_t *op_errno)
 {
         int             ret                     = -1;
         char            msg [1024]              = "";
@@ -1880,6 +1895,7 @@ glusterd_is_thinp_brick (char *device)
 
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
         GF_VALIDATE_OR_GOTO (this->name, device, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         snprintf (msg, sizeof (msg), "Get thin pool name for device %s",
                   device);
@@ -1924,14 +1940,21 @@ glusterd_is_thinp_brick (char *device)
         }
 
 out:
+        if (!is_thin)
+                *op_errno = EG_NOTTHINP;
+
         return is_thin;
 }
 
 int
 glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
-            char *snapname, char *err_str, char *snap_volname, int64_t volcount,
-            glusterd_volinfo_t *volinfo, gf_loglevel_t *loglevel, int clone)  {
-
+                                               char *snapname, char *err_str,
+                                               char *snap_volname,
+                                               int64_t volcount,
+                                               glusterd_volinfo_t *volinfo,
+                                               gf_loglevel_t *loglevel,
+                                               int clone, uint32_t *op_errno)
+{
         char                  *device            = NULL;
         char                   key[PATH_MAX]     = "";
         int                    ret               = -1;
@@ -1945,6 +1968,7 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
         this = THIS;
         conf = this->private;
         GF_ASSERT (conf);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!snapname || !volinfo) {
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
@@ -1991,6 +2015,7 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                                   "and then issue snapshot clone "
                                   "command ");
                         }
+                        *op_errno = EG_BRCKDWN;
                         ret = -1;
                         goto out;
                 }
@@ -2007,7 +2032,7 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                         goto out;
                 }
                 if (!clone) {
-                     if (!glusterd_is_thinp_brick (device)) {
+                     if (!glusterd_is_thinp_brick (device, op_errno)) {
                                 snprintf (err_str, PATH_MAX,
                                           "Snapshot is supported only for "
                                           "thin provisioned LV. Ensure that "
@@ -2133,7 +2158,7 @@ out:
 
 int
 glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
-                                      dict_t *rsp_dict)
+                                     dict_t *rsp_dict, uint32_t *op_errno)
 {
         char                  *clonename         = NULL;
         char                  *snapname          = NULL;
@@ -2150,6 +2175,7 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
         this = THIS;
         GF_ASSERT (op_errstr);
         GF_ASSERT (dict);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         ret = dict_get_str (dict, "clonename", &clonename);
         if (ret) {
@@ -2168,6 +2194,7 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
                 ret = -1;
                 snprintf (err_str, sizeof (err_str), "Volume with name:%s "
                           "already exists", clonename);
+                *op_errno = EG_VOLEXST;
                 goto out;
         }
         /* need to find snap volinfo*/
@@ -2200,14 +2227,19 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
-
         /* Adding snap bricks mount paths to the dict */
         ret = glusterd_snap_create_clone_common_prevalidate (rsp_dict, 0,
-                        snapname, err_str, clonename, 1, snap_vol,
-                        &loglevel, 1);
+                                                             snapname, err_str,
+                                                             clonename, 1,
+                                                             snap_vol,
+                                                             &loglevel,
+                                                             1, op_errno);
         if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_PRE_VALIDATION_FAIL, "Failed to pre validate");
                 goto out;
         }
+
         ret = dict_set_int64 (rsp_dict, "volcount", volcount);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2231,7 +2263,7 @@ out:
 
 int
 glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
-                                      dict_t *rsp_dict)
+                                      dict_t *rsp_dict, uint32_t *op_errno)
 {
         char                  *volname           = NULL;
         char                  *snapname          = NULL;
@@ -2254,6 +2286,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
         GF_ASSERT (op_errstr);
         conf = this->private;
         GF_ASSERT (conf);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         ret = dict_get_int64 (dict, "volcount", &volcount);
         if (ret) {
@@ -2285,6 +2318,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                 ret = -1;
                 snprintf (err_str, sizeof (err_str), "Snapshot %s already "
                           "exists", snapname);
+                *op_errno = EG_SNAPEXST;
                 goto out;
         }
 
@@ -2300,6 +2334,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                 if (ret) {
                         snprintf (err_str, sizeof (err_str),
                                   "Volume (%s) does not exist ", volname);
+                        *op_errno = EG_NOVOL;
                         goto out;
                 }
 
@@ -2308,6 +2343,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         snprintf (err_str, sizeof (err_str), "volume %s is "
                                   "not started", volinfo->volname);
                         loglevel = GF_LOG_WARNING;
+                        *op_errno = EG_VOLSTP;
                         goto out;
                 }
 
@@ -2316,6 +2352,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                   "rebalance process is running for the "
                                   "volume %s", volname);
                         loglevel = GF_LOG_WARNING;
+                        *op_errno = EG_RBALRUN;
                         goto out;
                 }
 
@@ -2326,6 +2363,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                    "stopped before taking a snapshot.",
                                    volname);
                          loglevel = GF_LOG_WARNING;
+                         *op_errno = EG_GEOREPRUN;
                          goto out;
                 }
 
@@ -2333,6 +2371,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                         snprintf (err_str, sizeof (err_str),
                                   "Volume %s is a snap volume", volname);
                         loglevel = GF_LOG_WARNING;
+                         *op_errno = EG_ISSNAP;
                         goto out;
                 }
 
@@ -2364,6 +2403,7 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                                   "snapshots before taking further snapshots.",
                                   effective_max_limit, volname);
                         loglevel = GF_LOG_WARNING;
+                        *op_errno = EG_HRDLMT;
                         goto out;
                 }
 
@@ -2382,8 +2422,14 @@ glusterd_snapshot_create_prevalidate (dict_t *dict, char **op_errstr,
                 GLUSTERD_GET_UUID_NOHYPHEN (snap_volname, *snap_volid);
 
                 ret = glusterd_snap_create_clone_common_prevalidate (rsp_dict,
-                                flags, snapname, err_str, snap_volname, i,
-                                volinfo, &loglevel, 0);
+                                                                        flags,
+                                                                     snapname,
+                                                                      err_str,
+                                                                 snap_volname,
+                                                                            i,
+                                                                      volinfo,
+                                                                    &loglevel,
+                                                                 0, op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_PRE_VALIDATION_FAIL,
@@ -3713,7 +3759,8 @@ out:
 
 int
 glusterd_handle_snapshot_list (rpcsvc_request_t *req, glusterd_op_t op,
-                               dict_t *dict, char *err_str, size_t len)
+                               dict_t *dict, char *err_str, size_t len,
+                               uint32_t *op_errno)
 {
         int                 ret             = -1;
         char               *volname         = NULL;
@@ -3724,6 +3771,7 @@ glusterd_handle_snapshot_list (rpcsvc_request_t *req, glusterd_op_t op,
 
         GF_VALIDATE_OR_GOTO (this->name, req, out);
         GF_VALIDATE_OR_GOTO (this->name, dict, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         /* Ignore error for getting volname as it is optional */
         ret = dict_get_str (dict, "volname", &volname);
@@ -3744,6 +3792,7 @@ glusterd_handle_snapshot_list (rpcsvc_request_t *req, glusterd_op_t op,
                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                                 GD_MSG_VOL_NOT_FOUND,
                                 "%s", err_str);
+                        *op_errno = EG_NOVOL;
                         goto out;
                 }
 
@@ -4178,7 +4227,8 @@ out:
  */
 int
 glusterd_handle_snapshot_restore (rpcsvc_request_t *req, glusterd_op_t op,
-                               dict_t *dict, char *err_str, size_t len)
+                                  dict_t *dict, char *err_str,
+                                  uint32_t *op_errno, size_t len)
 {
         int                     ret             = -1;
         char                    *snapname       = NULL;
@@ -4211,6 +4261,7 @@ glusterd_handle_snapshot_restore (rpcsvc_request_t *req, glusterd_op_t op,
         if (!snap) {
                 snprintf (err_str, len, "Snapshot (%s) does not exist",
                           snapname);
+                *op_errno = EG_NOSNAP;
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_SNAP_NOT_FOUND, "%s", err_str);
                 ret = -1;
@@ -5148,7 +5199,10 @@ out:
  * */
 int
 glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
-                char **op_errstr, dict_t *rsp_dict, gf_boolean_t is_op_activate)
+                                                   char **op_errstr,
+                                                   uint32_t *op_errno,
+                                                   dict_t *rsp_dict,
+                                                   gf_boolean_t is_op_activate)
 {
         int32_t                 ret                   = -1;
         char                    *snapname             = NULL;
@@ -5161,6 +5215,8 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
         int                     flags                 = 0;
 
         this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!dict || !op_errstr) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -5180,6 +5236,7 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
         if (!snap) {
                 snprintf (err_str, sizeof (err_str), "Snapshot (%s) does not "
                           "exist.", snapname);
+                *op_errno = EG_NOSNAP;
                 ret = -1;
                 goto out;
         }
@@ -5226,11 +5283,13 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
                                 snprintf (err_str, sizeof (err_str),
                                           "Snapshot %s is already activated.",
                                           snapname);
+                                *op_errno = EINVAL;
                                 ret = -1;
                         }
                 } else {
                         snprintf (err_str, sizeof (err_str),
                                "Snapshot %s is already deactivated.", snapname);
+                        *op_errno = EINVAL;
                         ret = -1;
                 }
                 goto out;
@@ -5248,7 +5307,8 @@ out:
 }
 
 int32_t
-glusterd_handle_snapshot_delete_vol (dict_t *dict, char *err_str, int len)
+glusterd_handle_snapshot_delete_vol (dict_t *dict, char *err_str,
+                                     uint32_t *op_errno, int len)
 {
         int32_t                 ret             = -1;
         int32_t                 i               = 0;
@@ -5262,6 +5322,7 @@ glusterd_handle_snapshot_delete_vol (dict_t *dict, char *err_str, int len)
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (dict);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -5274,6 +5335,7 @@ glusterd_handle_snapshot_delete_vol (dict_t *dict, char *err_str, int len)
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
                 snprintf (err_str, len, "Volume (%s) does not exist", volname);
+                *op_errno = EG_NOVOL;
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_VOL_NOT_FOUND, "Failed to get volinfo of "
                         "volume %s", volname);
@@ -5349,7 +5411,7 @@ int32_t
 glusterd_handle_snapshot_delete_type_snap (rpcsvc_request_t *req,
                                            glusterd_op_t op,
                                            dict_t *dict, char *err_str,
-                                           size_t len)
+                                           uint32_t *op_errno, size_t len)
 {
         int32_t                 ret             = -1;
         int64_t                  volcount       = 0;
@@ -5379,6 +5441,7 @@ glusterd_handle_snapshot_delete_type_snap (rpcsvc_request_t *req,
         if (!snap) {
                 snprintf (err_str, len, "Snapshot (%s) does not exist",
                           snapname);
+                *op_errno = EG_NOSNAP;
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_SNAP_NOT_FOUND, "%s", err_str);
                 ret = -1;
@@ -5443,7 +5506,8 @@ out :
  */
 int
 glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
-                                 dict_t *dict, char *err_str, size_t len)
+                                 dict_t *dict, char *err_str,
+                                 uint32_t *op_errno, size_t len)
 {
         int                      ret            = -1;
         xlator_t                *this           = NULL;
@@ -5456,6 +5520,7 @@ glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
         GF_ASSERT (req);
         GF_ASSERT (dict);
         GF_ASSERT (err_str);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         ret = dict_get_int32 (dict, "delete-cmd", &delete_cmd);
         if (ret) {
@@ -5467,7 +5532,8 @@ glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
         switch (delete_cmd) {
         case GF_SNAP_DELETE_TYPE_SNAP:
                 ret = glusterd_handle_snapshot_delete_type_snap (req, op, dict,
-                                                                 err_str, len);
+                                                                 err_str,
+                                                                 op_errno, len);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SNAP_REMOVE_FAIL, "Failed to handle "
@@ -5487,7 +5553,8 @@ glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
                 break;
 
         case GF_SNAP_DELETE_TYPE_VOL:
-                ret = glusterd_handle_snapshot_delete_vol (dict, err_str, len);
+                ret = glusterd_handle_snapshot_delete_vol (dict, err_str,
+                                                           op_errno, len);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SNAP_REMOVE_FAIL, "Failed to handle "
@@ -5497,6 +5564,7 @@ glusterd_handle_snapshot_delete (rpcsvc_request_t *req, glusterd_op_t op,
                 break;
 
         default:
+                *op_errno = EINVAL;
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_INVALID_ENTRY, "Wrong snapshot delete type");
                 break;
@@ -5520,7 +5588,7 @@ out:
 
 int
 glusterd_snapshot_remove_prevalidate (dict_t *dict, char **op_errstr,
-                                      dict_t *rsp_dict)
+                                      uint32_t *op_errno, dict_t *rsp_dict)
 {
         int32_t             ret         = -1;
         char               *snapname    = NULL;
@@ -5528,6 +5596,8 @@ glusterd_snapshot_remove_prevalidate (dict_t *dict, char **op_errstr,
         glusterd_snap_t    *snap        = NULL;
 
         this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         if (!dict || !op_errstr) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -5548,6 +5618,7 @@ glusterd_snapshot_remove_prevalidate (dict_t *dict, char **op_errstr,
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_SNAP_NOT_FOUND,
                         "Snapshot (%s) does not exist", snapname);
+                *op_errno = EG_NOSNAP;
                 ret = -1;
                 goto out;
         }
@@ -5569,7 +5640,7 @@ out:
 
 int
 glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
-                                      dict_t *rsp_dict)
+                                      uint32_t *op_errno, dict_t *rsp_dict)
 {
         int                     ret             =       -1;
         char                    *snapname       =       NULL;
@@ -5582,9 +5653,10 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
         this = THIS;
         GF_ASSERT (this);
         conf = this->private;
-
         GF_ASSERT (conf);
         GF_ASSERT (op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+
         if (!dict) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_INVALID_ENTRY, "Input dict is NULL");
@@ -5617,6 +5689,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                         if (!glusterd_find_snap_by_name (snapname)) {
                                 ret = gf_asprintf (op_errstr, "Snapshot (%s) "
                                                   "does not exist", snapname);
+                                *op_errno = EG_NOSNAP;
                                 if (ret < 0) {
                                         goto out;
                                 }
@@ -5643,6 +5716,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                         if (ret) {
                                 ret = gf_asprintf (op_errstr, "Volume (%s) "
                                                   "does not exist", volname);
+                                *op_errno = EG_NOVOL;
                                 if (ret < 0) {
                                         goto out;
                                 }
@@ -5659,6 +5733,7 @@ glusterd_snapshot_status_prevalidate (dict_t *dict, char **op_errstr,
                 {
                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                                 GD_MSG_COMMAND_NOT_FOUND, "Invalid command");
+                        *op_errno = EINVAL;
                         break;
                 }
         }
@@ -6435,7 +6510,7 @@ out:
 
 int32_t
 glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
-                                 dict_t *rsp_dict)
+                                 uint32_t *op_errno, dict_t *rsp_dict)
 {
         int                     ret                     = -1;
         int64_t                 i                       = 0;
@@ -6456,6 +6531,7 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
         GF_ASSERT(this);
         GF_ASSERT(dict);
         GF_ASSERT(op_errstr);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
         GF_ASSERT(rsp_dict);
         priv = this->private;
         GF_ASSERT(priv);
@@ -7854,7 +7930,8 @@ out:
 }
 
 int32_t
-glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
+glusterd_snapshot (dict_t *dict, char **op_errstr,
+                   uint32_t *op_errno, dict_t *rsp_dict)
 {
 
         xlator_t        *this           = NULL;
@@ -7869,6 +7946,7 @@ glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (rsp_dict);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         priv = this->private;
         GF_ASSERT (priv);
@@ -7885,7 +7963,7 @@ glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         case (GF_SNAP_OPTION_TYPE_CREATE):
                 ret = glusterd_snapshot_create_commit (dict, op_errstr,
-                                                       rsp_dict);
+                                                       op_errno, rsp_dict);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SNAP_CREATION_FAIL, "Failed to "
@@ -8115,7 +8193,7 @@ out:
 
 int
 glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
-                               dict_t *rsp_dict)
+                               dict_t *rsp_dict, uint32_t *op_errno)
 {
         int                snap_command          = 0;
         xlator_t           *this                 = NULL;
@@ -8126,6 +8204,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
         GF_ASSERT (this);
         GF_ASSERT (dict);
         GF_ASSERT (rsp_dict);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
 
         ret = dict_get_int32 (dict, "type", &snap_command);
         if (ret) {
@@ -8138,7 +8217,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
         switch (snap_command) {
         case (GF_SNAP_OPTION_TYPE_CREATE):
                 ret = glusterd_snapshot_create_prevalidate (dict, op_errstr,
-                                                            rsp_dict);
+                                                            rsp_dict, op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_CREATION_FAIL, "Snapshot create "
@@ -8149,7 +8228,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
 
         case (GF_SNAP_OPTION_TYPE_CLONE):
                 ret = glusterd_snapshot_clone_prevalidate (dict, op_errstr,
-                                                            rsp_dict);
+                                                           rsp_dict, op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_CLONE_PREVAL_FAILED,
@@ -8161,7 +8240,8 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
 
 
         case (GF_SNAP_OPTION_TYPE_CONFIG):
-                ret = glusterd_snapshot_config_prevalidate (dict, op_errstr);
+                ret = glusterd_snapshot_config_prevalidate (dict, op_errstr,
+                                                            op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_CONFIG_FAIL, "Snapshot config "
@@ -8172,6 +8252,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
 
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 ret = glusterd_snapshot_restore_prevalidate (dict, op_errstr,
+                                                             op_errno,
                                                              rsp_dict);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -8183,7 +8264,10 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
 
         case  GF_SNAP_OPTION_TYPE_ACTIVATE:
                 ret = glusterd_snapshot_activate_deactivate_prevalidate (dict,
-                                                op_errstr, rsp_dict, _gf_true);
+                                                                    op_errstr,
+                                                                     op_errno,
+                                                                     rsp_dict,
+                                                                    _gf_true);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_ACTIVATE_FAIL, "Snapshot activate "
@@ -8193,7 +8277,10 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
                 break;
         case GF_SNAP_OPTION_TYPE_DEACTIVATE:
                 ret = glusterd_snapshot_activate_deactivate_prevalidate (dict,
-                                                op_errstr, rsp_dict, _gf_false);
+                                                                    op_errstr,
+                                                                     op_errno,
+                                                                     rsp_dict,
+                                                                   _gf_false);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_DEACTIVATE_FAIL,
@@ -8203,7 +8290,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
                 ret = glusterd_snapshot_remove_prevalidate (dict, op_errstr,
-                                                            rsp_dict);
+                                                            op_errno, rsp_dict);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_REMOVE_FAIL, "Snapshot remove "
@@ -8214,7 +8301,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
 
         case GF_SNAP_OPTION_TYPE_STATUS:
                 ret = glusterd_snapshot_status_prevalidate (dict, op_errstr,
-                                                            rsp_dict);
+                                                            op_errno, rsp_dict);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_STATUS_FAIL, "Snapshot status "
@@ -8226,6 +8313,7 @@ glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
         default:
                 gf_msg (this->name, GF_LOG_WARNING, EINVAL,
                         GD_MSG_COMMAND_NOT_FOUND, "invalid snap command");
+                *op_errno = EINVAL;
                 goto out;
         }
 
@@ -8704,6 +8792,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
         char                 *host_uuid      = NULL;
         char                  err_str[2048]  = {0,};
         xlator_t             *this           = NULL;
+        uint32_t              op_errno       = 0;
 
         GF_ASSERT (req);
 
@@ -8763,6 +8852,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 snprintf (err_str, sizeof (err_str), "Cluster operating version"
                           " is lesser than the supported version "
                           "for a snapshot");
+                op_errno = EG_OPNOTSUP;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_UNSUPPORTED_VERSION,
                         "%s (%d < %d)", err_str,
@@ -8811,7 +8901,8 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
 
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 ret = glusterd_handle_snapshot_restore (req, cli_op, dict,
-                                                err_str, sizeof (err_str));
+                                                        err_str, &op_errno,
+                                                        sizeof (err_str));
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_RESTORE_FAIL,
@@ -8830,7 +8921,8 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 break;
         case GF_SNAP_OPTION_TYPE_LIST:
                 ret = glusterd_handle_snapshot_list (req, cli_op, dict,
-                                                err_str, sizeof (err_str));
+                                                     err_str, sizeof (err_str),
+                                                     &op_errno);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SNAP_LIST_GET_FAIL,
@@ -8848,7 +8940,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 break;
         case GF_SNAP_OPTION_TYPE_DELETE:
                 ret = glusterd_handle_snapshot_delete (req, cli_op, dict,
-                                                       err_str,
+                                                       err_str, &op_errno,
                                                        sizeof (err_str));
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -8896,7 +8988,11 @@ out:
                 if (err_str[0] == '\0')
                         snprintf (err_str, sizeof (err_str),
                                   "Operation failed");
-                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+
+                if (ret && (op_errno == 0))
+                        op_errno = EG_INTRNL;
+
+                ret = glusterd_op_send_cli_response (cli_op, ret, op_errno, req,
                                                      dict, err_str);
         }
 
