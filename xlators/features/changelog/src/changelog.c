@@ -212,39 +212,75 @@ int32_t
 changelog_unlink (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, int xflags, dict_t *xdata)
 {
-        size_t                  xtra_len                = 0;
-        changelog_priv_t       *priv                    = NULL;
-        changelog_opt_t        *co                      = NULL;
-        call_stub_t            *stub                    = NULL;
-        struct list_head        queue                   = {0, };
-        gf_boolean_t            barrier_enabled         = _gf_false;
+        size_t                       xtra_len        = 0;
+        changelog_priv_t             *priv           = NULL;
+        changelog_opt_t              *co             = NULL;
+        call_stub_t                  *stub           = NULL;
+        struct list_head             queue           = {0, };
+        gf_boolean_t                 barrier_enabled = _gf_false;
+        dht_changelog_rename_info_t  *info           = NULL;
+        int                          ret             = 0;
+        char                         old_name[NAME_MAX] = {0};
+        char                         new_name[NAME_MAX] = {0};
+        char                         *nname             = NULL;
 
         INIT_LIST_HEAD (&queue);
-
         priv = this->private;
+
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
-        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
 
-        CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, loc->inode->gfid, 2);
+        ret = dict_get_bin (xdata, DHT_CHANGELOG_RENAME_OP_KEY, (void **)&info);
+        if (!ret) {     /* special case: unlink considered as rename */
+                /* 3 == fop + oldloc + newloc */
+                CHANGELOG_INIT_NOCHECK (this, frame->local,
+                                        NULL, loc->inode->gfid, 3);
 
-        co = changelog_get_usable_buffer (frame->local);
-        if (!co)
-                goto wind;
+                co = changelog_get_usable_buffer (frame->local);
+                if (!co)
+                        goto wind;
 
-        CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op, fop_fn, xtra_len);
+                CHANGLOG_FILL_FOP_NUMBER (co, GF_FOP_RENAME, fop_fn, xtra_len);
 
-        co++;
-        if (priv->capture_del_path) {
-                CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid, loc->name,
-                                               del_entry_fn, del_entry_free_fn,
-                                              xtra_len, wind, _gf_true);
-        } else {
-                CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid, loc->name,
-                                               del_entry_fn, del_entry_free_fn,
-                                              xtra_len, wind, _gf_false);
+                co++;
+                strncpy (old_name, info->buffer, info->oldname_len);
+                CHANGELOG_FILL_ENTRY (co, info->old_pargfid, old_name,
+                                      entry_fn, entry_free_fn, xtra_len, wind);
+
+                co++;
+                /* new name resides just after old name */
+                nname = info->buffer + info->oldname_len;
+                strncpy (new_name, nname, info->newname_len);
+                CHANGELOG_FILL_ENTRY (co, info->new_pargfid, new_name,
+                                      entry_fn, entry_free_fn, xtra_len, wind);
+
+                changelog_set_usable_record_and_length (frame->local,
+                                                        xtra_len, 3);
+        } else {        /* default unlink */
+                CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
+                CHANGELOG_INIT_NOCHECK (this, frame->local, NULL,
+                                                        loc->inode->gfid, 2);
+
+                co = changelog_get_usable_buffer (frame->local);
+                if (!co)
+                        goto wind;
+
+                CHANGLOG_FILL_FOP_NUMBER (co, frame->root->op,
+                                                fop_fn, xtra_len);
+
+                co++;
+                if (priv->capture_del_path) {
+                        CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid,
+                                     loc->name, del_entry_fn, del_entry_free_fn,
+                                     xtra_len, wind, _gf_true);
+                } else {
+                        CHANGELOG_FILL_ENTRY_DIR_PATH (co, loc->pargfid,
+                                     loc->name, del_entry_fn, del_entry_free_fn,
+                                     xtra_len, wind, _gf_false);
+                }
+
+                changelog_set_usable_record_and_length (frame->local,
+                                                        xtra_len, 2);
         }
-
-        changelog_set_usable_record_and_length (frame->local, xtra_len, 2);
 
 /* changelog barrier */
         LOCK (&priv->lock);
@@ -295,16 +331,13 @@ changelog_rename_cbk (call_frame_t *frame,
                       struct iatt *postoldparent, struct iatt *prenewparent,
                       struct iatt *postnewparent, dict_t *xdata)
 {
-        changelog_priv_t  *priv  = NULL;
-        changelog_local_t *local = NULL;
+        changelog_priv_t                  *priv  = NULL;
+        changelog_local_t                 *local = NULL;
 
         priv  = this->private;
         local = frame->local;
-
         CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
-
         changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
-
  unwind:
         changelog_dec_fop_cnt (this, priv, local);
         CHANGELOG_STACK_UNWIND (rename, frame, op_ret, op_errno,
@@ -312,7 +345,6 @@ changelog_rename_cbk (call_frame_t *frame,
                                 prenewparent, postnewparent, xdata);
         return 0;
 }
-
 
 int32_t
 changelog_rename_resume (call_frame_t *frame, xlator_t *this,
@@ -334,17 +366,24 @@ int32_t
 changelog_rename (call_frame_t *frame, xlator_t *this,
                   loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        size_t                  xtra_len                = 0;
-        changelog_priv_t       *priv                    = NULL;
-        changelog_opt_t        *co                      = NULL;
-        call_stub_t            *stub                    = NULL;
-        struct list_head        queue                   = {0, };
-        gf_boolean_t            barrier_enabled         = _gf_false;
+        size_t               xtra_len        = 0;
+        changelog_priv_t     *priv           = NULL;
+        changelog_opt_t      *co             = NULL;
+        call_stub_t          *stub           = NULL;
+        struct list_head     queue           = {0, };
+        gf_boolean_t         barrier_enabled = _gf_false;
+        dht_changelog_rename_info_t  *info   = NULL;
+        int                  ret             = 0;
 
         INIT_LIST_HEAD (&queue);
 
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
+
+        ret = dict_get_bin (xdata, DHT_CHANGELOG_RENAME_OP_KEY, (void **)&info);
+        if (ret)  {      /* xdata "NOT" set, Special rename => avoid logging */
+               goto wind;
+        }
 
         /* 3 == fop + oldloc + newloc */
         CHANGELOG_INIT_NOCHECK (this, frame->local,
