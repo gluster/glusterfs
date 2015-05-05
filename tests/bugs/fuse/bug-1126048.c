@@ -19,7 +19,7 @@ main (int argc, char **argv)
         char    *cmd = argv[1];
 
         printf ("cmd is: %s\n", cmd);
-        fd = open("a.txt", O_CREAT|O_RDWR);
+        fd = open("a.txt", O_CREAT|O_RDWR, 0644);
         if (fd < 0)
                 printf ("open failed: %s\n", strerror(errno));
 
