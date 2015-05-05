@@ -904,14 +904,22 @@ class SlaveRemote(object):
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
         argv = gconf.rsync_command.split() + \
-            ['-avR0', '--inplace', '--files-from=-', '--super',
+            ['-aR0', '--inplace', '--files-from=-', '--super',
              '--stats', '--numeric-ids', '--no-implied-dirs'] + \
             gconf.rsync_options.split() + \
             (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
             (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ['.'] + list(args)
-        po = Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                   stderr=subprocess.PIPE)
+
+        if gconf.log_rsync_performance:
+            # use stdout=PIPE only when log_rsync_performance enabled
+            # Else rsync will write to stdout and nobody is their
+            # to consume. If PIPE is full rsync hangs.
+            po = Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE)
+        else:
+            po = Popen(argv, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
         for f in files:
             po.stdin.write(f)
             po.stdin.write('\0')
