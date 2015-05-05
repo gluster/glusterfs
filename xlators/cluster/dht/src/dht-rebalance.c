@@ -2477,19 +2477,19 @@ gf_defrag_start_crawl (void *data)
 
         this = data;
         if (!this)
-                goto out;
+                goto exit;
 
         ctx = this->ctx;
         if (!ctx)
-                goto out;
+                goto exit;
 
         conf = this->private;
         if (!conf)
-                goto out;
+                goto exit;
 
         defrag = conf->defrag;
         if (!defrag)
-                goto out;
+                goto exit;
 
         gettimeofday (&defrag->start_time, NULL);
         dht_build_root_inode (this, &defrag->root_inode);
@@ -2688,7 +2688,7 @@ out:
 
         if (dict)
                 dict_unref(dict);
-
+exit:
         return ret;
 }
 
