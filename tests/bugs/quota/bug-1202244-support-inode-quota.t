@@ -37,5 +37,7 @@ EXPECT "" get_quota_value "list" "/dir"
 
 TEST $CLI volume quota $V0 remove-objects /dir;
 EXPECT "" get_quota_value "list-objects" "/dir"
+TEST $CLI volume stop $V0
+EXPECT "1" get_aux
 
 cleanup;
