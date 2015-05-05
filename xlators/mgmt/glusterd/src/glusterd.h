@@ -1088,11 +1088,12 @@ glusterd_find_snap_by_id (uuid_t snap_id);
 
 int
 glusterd_snapshot_prevalidate (dict_t *dict, char **op_errstr,
-                               dict_t *rsp_dict);
+                               dict_t *rsp_dict, uint32_t *op_errno);
 int
 glusterd_snapshot_brickop (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
 int
-glusterd_snapshot (dict_t *dict, char **op_errstr, dict_t *rsp_dict);
+glusterd_snapshot (dict_t *dict, char **op_errstr,
+                   uint32_t *op_errno, dict_t *rsp_dict);
 int
 glusterd_snapshot_postvalidate (dict_t *dict, int32_t op_ret, char **op_errstr,
                                 dict_t *rsp_dict);
