@@ -37,13 +37,14 @@ int32_t
 glusterd_get_mgmt_v3_lock_owner (char *volname, uuid_t *uuid);
 
 int32_t
-glusterd_mgmt_v3_lock (const char *key, uuid_t uuid, char *type);
+glusterd_mgmt_v3_lock (const char *key, uuid_t uuid, uint32_t *op_errno,
+                       char *type);
 
 int32_t
 glusterd_mgmt_v3_unlock (const char *key, uuid_t uuid, char *type);
 
 int32_t
-glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid);
+glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno);
 
 int32_t
 glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid);
