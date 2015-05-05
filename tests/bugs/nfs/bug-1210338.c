@@ -14,7 +14,7 @@ main (int argc, char *argv[])
         int   ret  = -1;
         int   fd   = -1;
 
-        fd = open (argv[1], O_CREAT|O_EXCL);
+        fd = open (argv[1], O_CREAT|O_EXCL, 0644);
 
         if (fd == -1) {
                 fprintf (stderr, "creation of the file %s failed (%s)\n", argv[1],
