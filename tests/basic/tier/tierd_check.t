@@ -19,11 +19,6 @@ function create_dist_tier_vol () {
         TEST $CLI volume set $V0 cluster.tier-mode test
 }
 
-function tier_deamon_check () {
-pgrep -f "rebalance/$V0"
-echo "$?"
-}
-
 function tier_deamon_kill () {
 pkill -f "rebalance/$V0"
 echo "$?"
@@ -40,22 +35,22 @@ TEST $CLI volume status
 #Create and start a tiered volume
 create_dist_tier_vol
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_deamon_check
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_daemon_check
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_deamon_kill
 
 TEST $CLI volume tier $V0 start
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_deamon_check
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_deamon_kill
 
 TEST $CLI volume tier $V0 start force
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_deamon_check
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check
 
 TEST $CLI volume tier $V0 start force
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_deamon_check
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check
 
 cleanup
