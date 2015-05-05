@@ -165,7 +165,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         }
 
         rsp.op_ret = op_ret;
-        rsp.op_errno = errno;
+        rsp.op_errno = op_errno;
+
         if (errstr)
                 rsp.op_errstr = errstr;
         else if (op_errstr)

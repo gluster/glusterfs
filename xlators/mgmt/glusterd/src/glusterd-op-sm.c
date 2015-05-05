@@ -3210,6 +3210,7 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_op_lock_ctx_t         *lock_ctx        = NULL;
         glusterd_conf_t                *priv            = NULL;
         xlator_t                       *this            = NULL;
+        uint32_t                        op_errno        = 0;
 
         GF_ASSERT (event);
         GF_ASSERT (ctx);
@@ -3232,7 +3233,7 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
                                 "Unable to acquire volname");
                 else {
                         ret = glusterd_mgmt_v3_lock (volname, lock_ctx->uuid,
-                                                     "vol");
+                                                     &op_errno, "vol");
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to acquire lock for %s",
@@ -3242,7 +3243,7 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
                 ret = dict_get_str (lock_ctx->dict, "globalname", &globalname);
                 if (!ret) {
                         ret = glusterd_mgmt_v3_lock (globalname, lock_ctx->uuid,
-                                                     "global");
+                                                     &op_errno, "global");
                         if (ret)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Unable to acquire lock for %s",

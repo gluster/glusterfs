@@ -633,6 +633,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         uuid_t                     *txn_id          = NULL;
         glusterd_op_info_t          txn_op_info     = {{0},};
         glusterd_op_sm_event_type_t event_type      = GD_OP_EVENT_NONE;
+        uint32_t                    op_errno        = 0;
 
         GF_ASSERT (req);
         GF_ASSERT ((op > GD_OP_NONE) && (op < GD_OP_MAX));
@@ -696,7 +697,8 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                                 goto out;
                 }
 
-                ret = glusterd_mgmt_v3_lock (volname, MY_UUID, "vol");
+                ret = glusterd_mgmt_v3_lock (volname, MY_UUID, &op_errno,
+                                             "vol");
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire lock for %s", volname);

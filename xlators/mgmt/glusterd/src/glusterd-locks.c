@@ -21,6 +21,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-locks.h"
+#include "glusterd-errno.h"
 #include "run.h"
 #include "syscall.h"
 
@@ -191,6 +192,7 @@ out:
  * volumes */
 static int32_t
 glusterd_acquire_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
+                                            uint32_t *op_errno,
                                             int32_t count, char *type)
 {
         char           name_buf[PATH_MAX]    = "";
@@ -220,7 +222,7 @@ glusterd_acquire_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
                         break;
                 }
 
-                ret = glusterd_mgmt_v3_lock (name, uuid, type);
+                ret = glusterd_mgmt_v3_lock (name, uuid, op_errno, type);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to acquire lock for %s %s "
@@ -330,8 +332,8 @@ out:
  * if the type is "vol", this function will accordingly lock a single volume *
  * or multiple volumes */
 static int32_t
-glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, char *type,
-                              gf_boolean_t default_value)
+glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, uint32_t *op_errno,
+                              char *type, gf_boolean_t default_value)
 {
         char           name_buf[PATH_MAX]    = "";
         char          *name                  = NULL;
@@ -369,7 +371,7 @@ glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, char *type,
                         goto out;
                 }
 
-                ret = glusterd_mgmt_v3_lock (name, uuid, type);
+                ret = glusterd_mgmt_v3_lock (name, uuid, op_errno, type);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Failed to acquire lock for %s %s "
@@ -381,6 +383,7 @@ glusterd_mgmt_v3_lock_entity (dict_t *dict, uuid_t uuid, char *type,
                 /* Locking one element name after another */
                 ret = glusterd_acquire_multiple_locks_per_entity (dict,
                                                                   uuid,
+                                                                  op_errno,
                                                                   count,
                                                                   type);
                 if (ret) {
@@ -437,7 +440,7 @@ out:
 /* Try to acquire locks on multiple entities like *
  * volume, snaps etc. */
 int32_t
-glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid)
+glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno)
 {
         int32_t        i                     = -1;
         int32_t        ret                   = -1;
@@ -456,7 +459,7 @@ glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid)
         /* Locking one entity after other */
         for (i = 0; valid_types[i].type; i++) {
                 ret = glusterd_mgmt_v3_lock_entity
-                                            (dict, uuid,
+                                            (dict, uuid, op_errno,
                                              valid_types[i].type,
                                              valid_types[i].default_value);
                 if (ret) {
@@ -494,7 +497,8 @@ out:
 
 
 int32_t
-glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
+glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
+                       char *type)
 {
         char                            key[PATH_MAX]   = "";
         int32_t                         ret             = -1;
@@ -550,6 +554,7 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, char *type)
                                   "Lock for %s held by %s",
                                   name, uuid_utoa (owner));
                 ret = -1;
+                *op_errno = EANOTRANS;
                 goto out;
         }
 
