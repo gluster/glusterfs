@@ -265,6 +265,7 @@ Summary:          Development Libraries
 Group:            Development/Libraries
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-devel = %{version}-%{release}
+Requires:         libacl-devel
 
 %description api-devel
 GlusterFS is a distributed file-system capable of scaling to several
