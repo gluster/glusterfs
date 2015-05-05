@@ -132,14 +132,14 @@ TEST ! test -e /tmp/cdcdump.gz
 TEST rm -f /tmp/cdc* $M0/cdc*
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
+## Stop the volume
+TEST $CLI volume stop $V0;
+EXPECT 'Stopped' volinfo_field $V0 'Status';
+
 ## Reset the network.compression options
 TEST $CLI volume reset $V0 network.compression.debug
 TEST $CLI volume reset $V0 network.compression.min-size
 TEST $CLI volume reset $V0 network.compression
-
-## Stop the volume
-TEST $CLI volume stop $V0;
-EXPECT 'Stopped' volinfo_field $V0 'Status';
 
 ## Delete the volume
 TEST $CLI volume delete $V0;
