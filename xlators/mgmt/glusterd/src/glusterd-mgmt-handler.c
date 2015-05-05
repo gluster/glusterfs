@@ -28,7 +28,8 @@ glusterd_mgmt_v3_null (rpcsvc_request_t *req)
 }
 
 static int
-glusterd_mgmt_v3_lock_send_resp (rpcsvc_request_t *req, int32_t status)
+glusterd_mgmt_v3_lock_send_resp (rpcsvc_request_t *req, int32_t status,
+                                 uint32_t op_errno)
 {
 
         gd1_mgmt_v3_lock_rsp          rsp   = {{0},};
@@ -41,7 +42,7 @@ glusterd_mgmt_v3_lock_send_resp (rpcsvc_request_t *req, int32_t status)
 
         rsp.op_ret = status;
         if (rsp.op_ret)
-                rsp.op_errno = errno;
+                rsp.op_errno = op_errno;
 
         glusterd_get_uuid (&rsp.uuid);
 
@@ -61,6 +62,7 @@ glusterd_synctasked_mgmt_v3_lock (rpcsvc_request_t *req,
 {
         int32_t                         ret         = -1;
         xlator_t                       *this        = NULL;
+        uint32_t                        op_errno    = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -69,14 +71,14 @@ glusterd_synctasked_mgmt_v3_lock (rpcsvc_request_t *req,
         GF_ASSERT (ctx->dict);
 
         /* Trying to acquire multiple mgmt_v3 locks */
-        ret = glusterd_multiple_mgmt_v3_lock (ctx->dict, ctx->uuid);
+        ret = glusterd_multiple_mgmt_v3_lock (ctx->dict, ctx->uuid, &op_errno);
         if (ret)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_LOCK_GET_FAIL,
                         "Failed to acquire mgmt_v3 locks for %s",
                          uuid_utoa (ctx->uuid));
 
-        ret = glusterd_mgmt_v3_lock_send_resp (req, ret);
+        ret = glusterd_mgmt_v3_lock_send_resp (req, ret, op_errno);
 
         gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;

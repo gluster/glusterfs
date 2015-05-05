@@ -23,6 +23,7 @@
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"
+#include "glusterd-errno.h"
 
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
@@ -401,7 +402,7 @@ out:
 
 int
 glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
-                                    char **op_errstr,
+                                    char **op_errstr, uint32_t *op_errno,
                                     gf_boolean_t  *is_acquired,
                                     uint32_t txn_generation)
 {
@@ -424,7 +425,7 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
         GF_ASSERT (is_acquired);
 
         /* Trying to acquire multiple mgmt_v3 locks on local node */
-        ret = glusterd_multiple_mgmt_v3_lock (dict, MY_UUID);
+        ret = glusterd_multiple_mgmt_v3_lock (dict, MY_UUID, op_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_LOCK_GET_FAIL,
@@ -470,6 +471,7 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
                 *op_errstr = gf_strdup (args.errstr);
 
         ret = args.op_ret;
+        *op_errno = args.op_errno;
 
         gf_msg_debug (this->name, 0, "Sent lock op req for %s "
                 "to %d peers. Returning %d", gd_op_list[op], peer_cnt, ret);
@@ -1719,6 +1721,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         gf_boolean_t                is_acquired      = _gf_false;
         uuid_t                      *originator_uuid = NULL;
         uint32_t                    txn_generation   = 0;
+        uint32_t                    op_errno         = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1776,7 +1779,8 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* LOCKDOWN PHASE - Acquire mgmt_v3 locks */
         ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
-                                                  &is_acquired, txn_generation);
+                                                  &op_errno, &is_acquired,
+                                                  txn_generation);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_LOCKDOWN_FAIL,
@@ -1846,8 +1850,12 @@ out:
                 }
         }
 
+        if (ret && (op_errno == 0))
+                op_errno = EINTRNL;
+
         /* SEND CLI RESPONSE */
-        glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
+        glusterd_op_send_cli_response (op, op_ret, op_errno, req,
+                                       dict, op_errstr);
 
         if (req_dict)
                 dict_unref (req_dict);
@@ -1947,6 +1955,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         gf_boolean_t                success          = _gf_false;
         char                        *cli_errstr      = NULL;
         uint32_t                    txn_generation   = 0;
+        uint32_t                    op_errno         = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2004,7 +2013,8 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
 
         /* LOCKDOWN PHASE - Acquire mgmt_v3 locks */
         ret = glusterd_mgmt_v3_initiate_lockdown (op, dict, &op_errstr,
-                                                  &is_acquired, txn_generation);
+                                                  &op_errno, &is_acquired,
+                                                  txn_generation);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_MGMTV3_LOCKDOWN_FAIL,
@@ -2179,8 +2189,12 @@ out:
                 }
         }
 
+        if (ret && (op_errno == 0))
+                op_errno = EINTRNL;
+
         /* SEND CLI RESPONSE */
-        glusterd_op_send_cli_response (op, op_ret, 0, req, dict, op_errstr);
+        glusterd_op_send_cli_response (op, op_ret, op_errno, req,
+                                       dict, op_errstr);
 
         if (req_dict)
                 dict_unref (req_dict);

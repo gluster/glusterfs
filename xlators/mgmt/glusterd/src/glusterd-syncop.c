@@ -1716,6 +1716,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         gf_boolean_t                is_global        = _gf_false;
         uuid_t                      *txn_id          = NULL;
         glusterd_op_info_t          txn_opinfo       = {{0},};
+        uint32_t                    op_errno         = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1792,7 +1793,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                                 goto out;
                 }
 
-                ret = glusterd_mgmt_v3_lock (volname, MY_UUID, "vol");
+                ret = glusterd_mgmt_v3_lock (volname, MY_UUID,
+                                             &op_errno, "vol");
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire lock for %s", volname);
@@ -1806,7 +1808,8 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
 
 global:
         if (is_global) {
-                ret = glusterd_mgmt_v3_lock (global, MY_UUID, "global");
+                ret = glusterd_mgmt_v3_lock (global, MY_UUID, &op_errno,
+                                             "global");
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to acquire lock for %s", global);
@@ -1880,7 +1883,11 @@ out:
                                 uuid_utoa (*txn_id));
         }
 
-        glusterd_op_send_cli_response (op, op_ret, 0, req, op_ctx, op_errstr);
+        if (ret && (op_errno == 0))
+                op_errno = -1;
+
+        glusterd_op_send_cli_response (op, op_ret, op_errno, req,
+                                       op_ctx, op_errstr);
 
         if (volname)
                 GF_FREE (volname);
