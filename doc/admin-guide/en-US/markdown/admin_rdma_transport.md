@@ -1,14 +1,11 @@
 # Introduction
 
-GlusterFS supports using RDMA protocol for communication between glusterfs clients and glusterfs bricks.
+GlusterFS supports using [RDMA](http://www.rfc-editor.org/rfc/rfc5040.txt) protocol for communication between glusterfs clients and glusterfs bricks.
 GlusterFS clients include FUSE client, libgfapi clients(Samba and NFS-Ganesha included), gNFS server and other glusterfs processes that communicate with bricks like self-heal daemon, quotad, rebalance process etc.
 
-NOTE: As of now only FUSE client and gNFS server would support RDMA transport.
+> **Note**: As of now only FUSE client and gNFS server would support RDMA transport.
 
-
-NOTE:  
-NFS client to gNFS Server/NFS Ganesha Server communication would still happen over tcp.  
-CIFS Clients/Windows Clients to Samba Server communication would still happen over tcp.
+> **Note**: NFS client to gNFS Server/NFS Ganesha Server communication would still happen over tcp. CIFS Clients/Windows Clients to Samba Server communication would still happen over tcp.
 
 # Setup
 Please refer to these external documentation to setup RDMA on your machines  
@@ -16,7 +13,8 @@ http://pkg-ofed.alioth.debian.org/howto/infiniband-howto.html
 http://people.redhat.com/dledford/infiniband_get_started.html  
 
 ## Creating Trusted Storage Pool
-All the servers in the Trusted Storage Pool must have RDMA devices if either RDMA or TCP,RDMA volumes are created in the storage pool.  
+All the servers in the Trusted Storage Pool must have RDMA devices if either RDMA or TCP, RDMA volumes are created in the storage pool.
+
 The peer probe must be performed using IP/hostname assigned to the RDMA device.
 
 ## Ports and Firewall
@@ -65,6 +63,3 @@ For example, to mount using rdma transport, use the following command:
 All the auxillary processes like self-heal daemon, rebalance process etc use the default transport.In case you have a tcp,rdma volume it will use tcp.  
 In case of rdma volume, rdma will be used.  
 Configuration options to select transport used by these processes when volume is tcp,rdma are not yet available and will be coming in later releases.
-
-
-
