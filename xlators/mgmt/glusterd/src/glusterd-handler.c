@@ -3152,6 +3152,10 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
         gf_uuid_copy (peerctx->peerid, peerinfo->uuid);
         peerctx->peername = gf_strdup (peerinfo->hostname);
+        peerctx->peerinfo_gen = peerinfo->generation; /* A peerinfos generation
+                                                         number can be used to
+                                                         uniquely identify a
+                                                         peerinfo */
 
         ret = glusterd_transport_inet_options_build (&options,
                                                      peerinfo->hostname,
@@ -4613,7 +4617,7 @@ glusterd_friend_remove_notify (glusterd_peerctx_t *peerctx)
         GF_ASSERT (peerctx);
 
         rcu_read_lock ();
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 gf_log (THIS->name, GF_LOG_DEBUG, "Could not find peer %s(%s). "
                         "Peer could have been deleted.", peerctx->peername,
@@ -4684,7 +4688,7 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         rcu_read_lock ();
 
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 /* Peerinfo should be available at this point. Not finding it
                  * means that something terrible has happened
