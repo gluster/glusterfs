@@ -198,7 +198,7 @@ cleanup_ganesha_config ()
        rm -rf ${HA_CONFDIR}/exports/*.conf
        rm -rf ${HA_CONFDIR}/.export_added
        rm -rf /etc/cluster/cluster.conf*
-       > $CONF
+       sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' $CONF
 }
 
 
