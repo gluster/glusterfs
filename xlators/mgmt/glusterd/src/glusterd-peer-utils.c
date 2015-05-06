@@ -949,3 +949,41 @@ gd_add_peer_detail_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *friends,
 out:
         return ret;
 }
+
+/* glusterd_peerinfo_find_by_generation searches for a peer which has the
+ * generation number @generation and if found returns the pointer to peerinfo
+ * object. Returns NULL otherwise.
+ */
+glusterd_peerinfo_t *
+glusterd_peerinfo_find_by_generation (uint32_t generation) {
+        glusterd_conf_t         *priv = NULL;
+        glusterd_peerinfo_t     *entry = NULL;
+        glusterd_peerinfo_t     *found = NULL;
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv    = this->private;
+
+        GF_ASSERT (priv);
+
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (entry, &priv->peers, uuid_list) {
+                if (entry->generation == generation) {
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                 "Friend found... state: %s",
+                        glusterd_friend_sm_state_name_get (entry->state.state));
+                        found = entry; /* Probably should be rcu_dereferenced */
+                        break;
+                }
+        }
+        rcu_read_unlock ();
+
+        if (!found)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Friend with generation: %"PRIu32", not found",
+                        generation);
+        return found;
+}
