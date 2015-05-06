@@ -122,6 +122,7 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/glupy/src/Makefile
                 xlators/features/glupy/src/setup.py
                 xlators/features/glupy/src/__init__.py
+                xlators/features/glupy/src/glupy/Makefile
                 xlators/features/locks/Makefile
                 xlators/features/locks/src/Makefile
                 xlators/features/quota/Makefile
