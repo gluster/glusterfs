@@ -1728,6 +1728,7 @@ struct volume_options options[] = {
         },
         { .key = {"scrub-freq"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "biweekly",
           .description = "Scrub frequency for volume <VOLNAME>",
         },
         { .key = {"scrub-state"},
