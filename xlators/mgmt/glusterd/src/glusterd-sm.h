@@ -130,6 +130,7 @@ typedef struct glusterd_peer_ctx_ {
         glusterd_peerctx_args_t        args;
         uuid_t                         peerid;
         char                           *peername;
+        uint32_t                       peerinfo_gen;
         char                           *errstr;
 } glusterd_peerctx_t;
 

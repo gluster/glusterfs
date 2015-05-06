@@ -1527,7 +1527,7 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
 
         rcu_read_lock ();
 
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 ret = -1;
                 gf_log (THIS->name, GF_LOG_ERROR, "Could not find peer %s(%s)",
@@ -1621,7 +1621,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         peerctx = frame->local;
 
         rcu_read_lock ();
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 gf_log (this->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
@@ -1725,7 +1725,7 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
 
         rcu_read_lock ();
 
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
@@ -1859,7 +1859,7 @@ glusterd_mgmt_handshake (xlator_t *this, glusterd_peerctx_t *peerctx)
 
         rcu_read_lock ();
 
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 gf_log (THIS->name, GF_LOG_DEBUG, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
@@ -1988,7 +1988,7 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
 
         rcu_read_lock ();
 
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 gf_log (this->name, GF_LOG_DEBUG, "Couldn't find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
@@ -2109,7 +2109,7 @@ glusterd_peer_dump_version (xlator_t *this, struct rpc_clnt *rpc,
 
         rcu_read_lock ();
 
-        peerinfo = glusterd_peerinfo_find (peerctx->peerid, peerctx->peername);
+        peerinfo = glusterd_peerinfo_find_by_generation (peerctx->peerinfo_gen);
         if (!peerinfo) {
                 gf_log (this->name, GF_LOG_DEBUG, "Couldn't find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
