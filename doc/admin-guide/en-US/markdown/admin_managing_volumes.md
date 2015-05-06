@@ -710,3 +710,61 @@ The NUFA scheduler also exists, for use with the Unify translator; see below.
 -   subvolumes
 
     This option lists the subvolumes that are part of this 'cluster/nufa' volume. This translator requires more than one subvolume.
+
+<a name="bitrot-detection" />
+##BitRot Detection
+
+With BitRot detection in Gluster, it's possible to identify "insidious" type of disk
+errors where data is silently corrupted with no indication from the disk to the storage
+software layer than an error has occured. This also helps in catching "backend" tinkering
+of bricks (where data is directly manipulated on the bricks without going through FUSE,
+NFS or any other access protocol(s).
+
+BitRot detection is disbled by default and needs to be enabled to make use of other
+sub-commands.
+
+1. To enable bitrot detection for a given volume <VOLNAME>:
+
+        `# gluster volume bitrot <VOLNAME> enable`
+
+   and similarly to disable bitrot use:
+
+        `# gluster volume bitrot <VOLNAME> disable`
+
+NOTE: Enabling bitrot spanws the Signer & Scrubber daemon per node. Signer is responsible
+      for signing (calculating checksum for each file) an object and scrubber verifies the
+      calculated checksum against the objects data.
+
+2. Scrubber daemon has three (3) throttling modes that adjusts the rate at which objects
+   are verified.
+
+        `# volume bitrot <VOLNAME> scrub-throttle lazy`
+
+        `# volume bitrot <VOLNAME> scrub-throttle normal`
+
+        `# volume bitrot <VOLNAME> scrub-throttle aggressive`
+
+3. By default scrubber scrubs the filesystem biweekly. It's possible to tune it to scrub
+   based on predefined frequency such as monthly, etc. This can be done as shown below:
+
+        `# volume bitrot <VOLNAME> scrub-frequency daily`
+
+        `# volume bitrot <VOLNAME> scrub-frequency weekly`
+
+        `# volume bitrot <VOLNAME> scrub-frequency biweekly`
+
+        `# volume bitrot <VOLNAME> scrub-frequency monthly`
+
+NOTE: Daily scrubbing would not be available with GA release.
+
+4. Scrubber daemon can be paused and later resumed when required. This can be done as
+   shown below:
+
+        `# volume bitrot <VOLNAME> scrub pause`
+
+and to resume scrubbing
+
+        `# volume bitrot <VOLNAME> scrub resume`
+
+NOTE: Signing cannot be paused (and resumed) and would always be active as long as
+      bitrot is enabled for that particular volume.
