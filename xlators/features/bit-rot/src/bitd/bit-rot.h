@@ -139,6 +139,11 @@ struct br_private {
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
         struct br_scrubber fsscrub;       /* scrubbers for this subvolume */
+
+        char    *scrub_freq;              /* Scrubber frequency*/
+
+        struct  timeval  tv_before_scrub; /* time before starting scrubbing*/
+        struct  timeval  tv_after_scrub;  /* time after  scrubbing completion*/
 };
 
 typedef struct br_private br_private_t;

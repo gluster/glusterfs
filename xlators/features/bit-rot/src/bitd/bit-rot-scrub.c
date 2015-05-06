@@ -508,13 +508,121 @@ br_fsscanner_handle_entry (xlator_t *subvol,
         return -1;
 }
 
+/*scrubber frequency tunable value in second (day * hour * minut * second)*/
+#define DAILY      (1*24*60*60)
+#define WEEKLY     (7*24*60*60)
+#define BIWEEKLY   (14*24*60*60)
+#define MONTHLY    (30*24*60*60)
+
+struct timeval
+br_scrubber_calc_freq (xlator_t *this)
+{
+        br_private_t    *priv                = NULL;
+        struct          timeval   scrub_sec  = {0,};
+
+        priv = this->private;
+
+        /*By default scrubber frequency will be biweekly*/
+        if (!strncmp (priv->scrub_freq, "daily", strlen("daily"))) {
+                scrub_sec.tv_sec = DAILY;
+        } else if (!strncmp (priv->scrub_freq, "weekly", strlen("weekly"))) {
+                scrub_sec.tv_sec = WEEKLY;
+        } else if (!strncmp (priv->scrub_freq, "monthly", strlen("monthly"))) {
+                scrub_sec.tv_sec = MONTHLY;
+        } else if (!strncmp (priv->scrub_freq, "biweekly",
+                             strlen("biweekly"))) {
+                scrub_sec.tv_sec = BIWEEKLY;
+        } else {
+                gf_log (this->name, GF_LOG_ERROR, "Invalid scrub-frequency %s"
+                        "value.", priv->scrub_freq);
+                scrub_sec.tv_sec = -1;
+        }
+
+        return scrub_sec;
+}
+
+#define SCRUBBER_SLEEP(freq_diff, elapse_time) do {                  \
+                                                                     \
+                if (freq_diff < 0) {                                 \
+                        return 0;                                    \
+                } else if (freq_diff <= DAILY) {                     \
+                        gf_log (this->name, GF_LOG_INFO,             \
+                                "Scrubber is sleeping for %ld "      \
+                                "sec", freq_diff);                   \
+                        sleep (freq_diff);                           \
+                        return 0;                                    \
+                } else {                                             \
+                        gf_log (this->name, GF_LOG_INFO,             \
+                                "Scrubber is sleeping for %ld "      \
+                                "sec", freq_diff);                   \
+                        sleep (DAILY);                               \
+                        elapse_time += DAILY;                        \
+                }                                                    \
+        } while (0)
+
+static int
+br_scrubber_sleep_check (struct timeval *begin, struct timeval *end,
+                         xlator_t *this)
+{
+        br_private_t    *priv                   = NULL;
+        struct           timeval   elapse_time  = {0,};
+        struct           timeval   freq_diff    = {0,};
+        struct           timeval   scrub_sec    = {0,};
+        struct           timeval   temp         = {0,};
+
+        priv = this->private;
+
+        scrub_sec = br_scrubber_calc_freq (this);
+        if (scrub_sec.tv_sec == -1) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to calculate scrub "
+                        "frequency %s value", priv->scrub_freq);
+                return -1;
+        }
+
+        if ((end->tv_sec - begin->tv_sec) < scrub_sec.tv_sec) {
+                /* Sleep, if scrubber have completed its job before schedule
+                 * scrub frequency based on current scrub frequency value */
+                do {
+                        scrub_sec = br_scrubber_calc_freq (this);
+                        freq_diff.tv_sec = scrub_sec.tv_sec - (end->tv_sec -
+                                           begin->tv_sec) -
+                                           elapse_time.tv_sec;
+                        SCRUBBER_SLEEP(freq_diff.tv_sec, elapse_time.tv_sec);
+                } while (1);
+
+
+        } else {
+                /* Sleep, if scrubber have completed its job after schedule
+                 * scrub frequency based on current scrub frequency value */
+                temp.tv_sec = (end->tv_sec - begin->tv_sec) % scrub_sec.tv_sec;
+                if (temp.tv_sec != 0) {
+                        do {
+                                scrub_sec = br_scrubber_calc_freq (this);
+                                freq_diff.tv_sec = scrub_sec.tv_sec
+                                                   - temp.tv_sec
+                                                   - elapse_time.tv_sec;
+                                SCRUBBER_SLEEP(freq_diff.tv_sec,
+                                               elapse_time.tv_sec);
+                        } while (1);
+                }
+        }
+
+        return 0;
+}
+
 void *
 br_fsscanner (void *arg)
 {
-        loc_t             loc    = {0,};
-        xlator_t         *this   = NULL;
-        br_child_t       *child  = NULL;
-        struct br_scanfs *fsscan = NULL;
+        int32_t          ret                          = -1;
+        loc_t            loc                          = {0,};
+        char             timestr[1024]                = {0,};
+        xlator_t         *this                        = NULL;
+        br_child_t       *child                       = NULL;
+        struct br_scanfs *fsscan                      = NULL;
+        br_private_t     *priv                        = NULL;
+        struct           timeval       elapse_time    = {0,};
+        struct           timeval       scrub_sec      = {0,};
+        struct           timeval       freq_diff      = {0,};
 
         child = arg;
         this = child->this;
@@ -522,13 +630,73 @@ br_fsscanner (void *arg)
 
         THIS = this;
 
+        priv = this->private;
+
         loc.inode = child->table->root;
+
+        /* Scrubber should start scrubbing the filesystem *after* the
+         * schedueled scrub-frequency has expired.*/
+        do {
+                /*Calculate current scrub frequency value in second*/
+                scrub_sec = br_scrubber_calc_freq (this);
+                if (scrub_sec.tv_sec == -1) {
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to calculate "
+                                "scrub frequency %s value", priv->scrub_freq);
+                        return NULL;
+                }
+
+                freq_diff.tv_sec = scrub_sec.tv_sec - elapse_time.tv_sec;
+
+                if (freq_diff.tv_sec < 0) {
+                        break;
+                } else if (freq_diff.tv_sec == DAILY) {
+                        sleep (DAILY);
+                        break;
+                } else {
+                        sleep (DAILY);
+                        elapse_time.tv_sec += DAILY;
+                }
+
+        } while (1);
+
         while (1) {
+                /* log scrub start time */
+                gettimeofday (&priv->tv_before_scrub, NULL);
+                gf_time_fmt (timestr, sizeof timestr,
+                             priv->tv_before_scrub.tv_sec, gf_timefmt_FT);
+                gf_log (this->name, GF_LOG_INFO,
+                        "Scrubbing \"%s\" started at %s",
+                        child->brick_path, timestr);
+
+                /* scrub */
                 (void) syncop_ftw (child->xl, &loc,
                                    GF_CLIENT_PID_SCRUB,
                                    child, br_fsscanner_handle_entry);
                 if (!list_empty (&fsscan->queued))
                         wait_for_scrubbing (this, fsscan);
+
+                gettimeofday (&priv->tv_after_scrub, NULL);
+                /* log scrub finish time */
+                gf_time_fmt (timestr, sizeof timestr,
+                             priv->tv_after_scrub.tv_sec, gf_timefmt_FT);
+                gf_log (this->name, GF_LOG_INFO,
+                        "Scrubbing \"%s\" finished at %s",
+                        child->brick_path, timestr);
+
+                /* Scrubber should sleep if it have completed scrubbing
+                 * of filesystem before the scheduled scrub-frequency*/
+                ret = br_scrubber_sleep_check (&priv->tv_before_scrub,
+                                               &priv->tv_after_scrub,
+                                               this);
+                if (!ret) {
+                        gf_log (this->name, GF_LOG_DEBUG, "scrubber is crawling"
+                                " file system with scrubber frequency %s",
+                               priv->scrub_freq);
+                } else {
+                        gf_log (this->name, GF_LOG_ERROR, "Unable to perform "
+                                "scrubber sleep check for scrubber frequency");
+                        return NULL;
+                }
         }
 
         return NULL;
@@ -920,7 +1088,16 @@ br_scrubber_handle_stall (xlator_t *this, br_private_t *priv,
         return -1;
 }
 
-/* TODO: frequency */
+static int32_t
+br_scrubber_handle_freq (xlator_t *this, br_private_t *priv, dict_t *options)
+{
+        int32_t ret  = -1;
+
+        ret = br_scrubber_fetch_option (this, "scrub-freq", options,
+                                        &priv->scrub_freq);
+        return ret;
+}
+
 int32_t
 br_scrubber_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
 {
@@ -932,6 +1109,10 @@ br_scrubber_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
                 goto error_return;
 
         ret = br_scrubber_handle_throttle (this, priv, options, scrubstall);
+        if (ret)
+                goto error_return;
+
+        ret = br_scrubber_handle_freq (this, priv, options);
         if (ret)
                 goto error_return;
 
