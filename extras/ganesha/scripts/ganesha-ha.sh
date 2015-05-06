@@ -25,9 +25,39 @@ HA_SERVERS=""
 HA_CONFDIR=""
 HA_VOL_NAME="gluster_shared_storage"
 HA_VOL_MNT="/var/run/gluster/shared_storage"
+SERVICE_MAN="DISTRO_NOT_FOUND"
 CONF=$(cat /etc/sysconfig/ganesha | grep "CONFFILE" | cut -f 2 -d "=")
 
 RHEL6_PCS_CNAME_OPTION="--name"
+
+determine_service_manager () {
+
+        if [ -e "/usr/bin/systemctl" ];
+        then
+                SERVICE_MAN="/usr/bin/systemctl"
+        elif [ -e "/sbin/invoke-rc.d" ];
+        then
+                SERVICE_MAN="/sbin/invoke-rc.d"
+        elif [ -e "/sbin/service" ];
+        then
+                SERVICE_MAN="/sbin/service"
+        fi
+        if [ "$SERVICE_MAN" == "DISTRO_NOT_FOUND" ]
+        then
+                echo "Service manager not recognized, exiting"
+                exit 1
+        fi
+}
+
+manage_service ()
+{
+        if [ "$SERVICE_MAN" == "/usr/sbin/systemctl" ]
+        then
+                $SERVICE_MAN  $1 nfs-ganesha
+        else
+                $SERVICE_MAN nfs-ganesha $1
+        fi
+}
 
 check_cluster_exists()
 {
@@ -149,6 +179,13 @@ setup_copy_config()
     else
         logger "warning: scp ganesha-ha.conf to ${1} failed"
     fi
+}
+
+copy_export_config ()
+{
+        . /etc/ganesha/ganesha.conf
+        scp $HA_VOL_SERVER:/etc/ganesha.conf ${1}:/etc/ganesha/
+        scp -r $HA_VOL_SERVER:$2/exports/ ${1}:${2}/
 }
 
 
@@ -746,9 +783,9 @@ main()
         node=${1}; shift
         vip=${1}; shift
 
-        logger "adding ${node} with ${vip} to ${HA_NAME}"
+       logger "adding ${node} with ${vip} to ${HA_NAME}"
 
-        determine_servers "add"
+       determine_servers "add"
 
         pcs cluster node add ${node}
         if [ $? -ne 0 ]; then
@@ -760,6 +797,12 @@ main()
         setup_state_volume ${node}
 
         setup_copy_config ${node}
+
+        copy_export_config ${node} ${HA_CONFDIR}
+
+        determine_service_manager
+
+        manage_service "start"
         ;;
 
     delete | --delete)
@@ -779,6 +822,12 @@ main()
         # TODO: delete node's directory in shared state
 
         teardown_clean_etccluster ${node}
+
+        determine_service_manager
+
+        manage-service "stop"
+
+        cleanup_ganesha_config ${HA_CONFDIR}
         ;;
 
     status | --status)
@@ -788,10 +837,17 @@ main()
     refresh-config | --refresh-config)
         ;;
 
-    *)
+    help | --help)
+        echo "Usage      : add|delete|status"
+        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR>  \
+<NODE-IP/HOSTNAME>  <NODE-VIP>"
+        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR>  \
+<NODE-IP/HOSTNAME>"
+        ;;
+      *)
         # setup and teardown are not intended to be used by a
         # casual user
-        logger "Usage: ganesha-ha.sh setup|teardown|add|delete|status"
+        logger "Usage: ganesha-ha.sh add|delete|status"
         ;;
 
     esac
