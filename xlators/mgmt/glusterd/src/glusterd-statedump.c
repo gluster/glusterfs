@@ -232,6 +232,12 @@ glusterd_dump_priv (xlator_t *this)
                 gf_proc_dump_build_key (key, "glusterd", "quotad.online");
                 gf_proc_dump_write (key, "%d", priv->quotad_svc.online);
 
+                gf_proc_dump_build_key (key, "glusterd", "bitd.online");
+                gf_proc_dump_write (key, "%d", priv->bitd_svc.online);
+
+                gf_proc_dump_build_key (key, "glusterd", "scrub.online");
+                gf_proc_dump_write (key, "%d", priv->scrub_svc.online);
+
                 GLUSTERD_DUMP_PEERS (&priv->peers, uuid_list, _gf_false);
                 glusterd_dump_client_details (priv);
                 glusterd_dict_mgmt_v3_lock_statedump(priv->mgmt_v3_lock);
