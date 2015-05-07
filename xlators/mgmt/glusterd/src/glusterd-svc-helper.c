@@ -46,13 +46,13 @@ glusterd_svcs_reconfigure (glusterd_volinfo_t *volinfo)
         if (conf->op_version == GD_OP_VERSION_MIN)
                 goto out;
 
-        if (volinfo && !glusterd_is_volume_quota_enabled (volinfo))
-                goto out;
-
-        ret = glusterd_quotadsvc_reconfigure ();
-        if (ret)
-                goto out;
-
+        if (volinfo && !glusterd_is_volume_quota_enabled (volinfo)) {
+               /*Do nothing */
+        } else {
+                ret = glusterd_quotadsvc_reconfigure ();
+                if (ret)
+                        goto out;
+        }
         ret = glusterd_bitdsvc_reconfigure ();
         if (ret)
                 goto out;
