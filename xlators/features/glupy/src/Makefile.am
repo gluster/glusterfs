@@ -14,8 +14,11 @@ glupy_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 
 noinst_HEADERS = glupy.h
 
-# Install glupy.py into the Python site-packages area
-pyglupydir = @BUILD_PYTHON_SITE_PACKAGES@/gluster/glupy
-pyglupy_PYTHON = glupy.py __init__.py
+# Install __init__.py into the Python site-packages area
+pyglupydir = @BUILD_PYTHON_SITE_PACKAGES@/gluster
+pyglupy_PYTHON = __init__.py
+
+# Install glupy/__init_-.py into the Python site-packages area
+SUBDIRS = glupy
 
 CLEANFILES =

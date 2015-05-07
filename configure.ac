@@ -128,6 +128,7 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/glupy/src/Makefile
                 xlators/features/glupy/src/setup.py
                 xlators/features/glupy/src/__init__.py
+                xlators/features/glupy/src/glupy/Makefile
                 xlators/features/locks/Makefile
                 xlators/features/locks/src/Makefile
                 xlators/features/quota/Makefile
@@ -1128,9 +1129,12 @@ saved_CFLAGS=$CFLAGS
 saved_CPPFLAGS=$CPPFLAGS
 saved_LDFLAGS=$LDFLAGS
 
+# Use pkg-config to get runtime search patch missing from ${PYTHON}-config
+# Just do "true" on failure so that configure does not bail out
+PKG_CHECK_MODULES([PYTHON], "pythonxx-$PYTHON_VERSION",,true)
 CFLAGS="`${PYTHON}-config --cflags`"
 CPPFLAGS=$CFLAGS
-LDFLAGS="-L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
 
 AC_CHECK_HEADERS([python$PYTHON_VERSION/Python.h],[have_Python_h=yes],[])
 AC_ARG_ENABLE([glupy],
