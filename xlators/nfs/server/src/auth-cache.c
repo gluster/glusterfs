@@ -63,6 +63,13 @@ auth_cache_init (time_t ttl_sec)
 
         GF_VALIDATE_OR_GOTO ("auth-cache", cache, out);
 
+        cache->cache_dict = dict_new ();
+        if (!cache->cache_dict) {
+                GF_FREE (cache);
+                cache = NULL;
+                goto out;
+        }
+
         cache->ttl_sec = ttl_sec;
 out:
         return cache;
@@ -152,9 +159,7 @@ out:
 }
 
 /**
- * auth_cache_purge -- Purge the dict in the cache and set
- *                     the dict pointer to NULL. It will be allocated
- *                     on the first insert into the dict.
+ * auth_cache_purge -- Purge the dict in the cache and create a new empty one.
  *
  * @cache: Cache to purge
  *
@@ -162,10 +167,10 @@ out:
 void
 auth_cache_purge (struct auth_cache *cache)
 {
-        dict_t *new_cache_dict = NULL;
+        dict_t *new_cache_dict = dict_new ();
         dict_t *old_cache_dict = cache->cache_dict;
 
-        if (!cache || !cache->cache_dict)
+        if (!cache)
                 goto out;
 
         (void)__sync_lock_test_and_set (&cache->cache_dict, new_cache_dict);
@@ -263,15 +268,6 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
         GF_VALIDATE_OR_GOTO (GF_NFS, host_addr, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, fh, out);
-
-        /* If a dict has not been allocated already, allocate it. */
-        if (!cache->cache_dict) {
-                cache->cache_dict = dict_new ();
-                if (!cache->cache_dict) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
-        }
 
         /* If we could already find it in the cache, just return */
         ret = auth_cache_lookup (cache, fh, host_addr, &timestamp, &can_write);
