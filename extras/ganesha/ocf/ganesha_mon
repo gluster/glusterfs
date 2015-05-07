@@ -36,6 +36,8 @@ else
 . ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
 fi
 
+GRACE_DELAY=7
+
 ganesha_meta_data() {
         cat <<END
 <?xml version="1.0"?>
@@ -98,13 +100,7 @@ ganesha_mon_monitor()
 
 	if [ -e /var/run/ganesha.nfsd.pid -a \
 	     -d /proc/$(cat /var/run/ganesha.nfsd.pid) ]; then
-		# logger "note: ganesha_mon_monitor() pcs resource delete ${short_host}-dead_ip-1"
-		pcs resource delete ${short_host}-dead_ip-1
-		# if [ $? -ne 0 ]; then
-		# 	logger "warning: pcs resource delete ${short_host}-dead_ip-1"
-		# fi
-
-		sleep 1
+		( pcs resource delete ${short_host}-dead_ip-1 > /dev/null 2>&1 )
 
 		attrd_updater -n ganesha-active -v 1
 		if [ $? -ne 0 ]; then
@@ -112,13 +108,21 @@ ganesha_mon_monitor()
 		fi
 
 	else
-		# logger "note: ganesha_mon_montor(), pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy"
-		pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy
+		( pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy > /dev/null 2>&1 )
 		if [ $? -ne 0 ]; then
 			logger "warning: pcs resource create ${short_host}-dead_ip-1 ocf:heartbeat:Dummy failed"
 		fi
 
-		sleep 1
+		# The ${this-node}-dead_ip-1 resource is used to indicate
+		# that this ganesha.nfsd has died.
+		# VIP fail-over is then triggered by clearing the
+		# ganesha-active node attribute on this node.
+		#
+		# Meanwhile the ganesha_grace monitor() runs every 5
+		# seconds. We need to allow time for it to run and put
+		# the remaining ganesha.nfsds into grace before initiating
+		# the VIP fail-over.
+		sleep ${GRACE_DELAY}
 
 		attrd_updater -D -n ganesha-active
 		if [ $? -ne 0 ]; then
