@@ -4,14 +4,6 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../nfs.rc
 
-# Skip the entire test if /proc/sys/vm/drop_caches does not exist
-if [ ! -f /proc/sys/vm/drop_caches ] ; then
-    echo "Skip test using /proc/sys/vm/drop_caches, "\
-         "which does not exists on this system" >&2
-    SKIP_TESTS
-    exit 0
-fi
-
 cleanup;
 
 function file_count()
@@ -45,7 +37,7 @@ touch $M0/files{1..1000};
 # Kill a brick process
 kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}0.pid`;
 
-echo 3 >/proc/sys/vm/drop_caches;
+( cd $M0 ; umount $M0 ) # fail but drops kernel cache
 
 ls -l $M0 >/dev/null;
 
@@ -56,7 +48,7 @@ TEST $CLI volume start $V0 force
 # Kill a brick process
 kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
-echo 3 >/proc/sys/vm/drop_caches;
+( cd $M0 ; umount $M0 )
 
 ls -l $M0 >/dev/null;
 
