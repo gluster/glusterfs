@@ -92,7 +92,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 TEST kill_glusterd 2;
 TEST $glusterd_2;
 
-sleep 5
+EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field ${V0}_clone 'Status';
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field ${V1}_clone 'Status';
