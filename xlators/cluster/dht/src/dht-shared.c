@@ -15,12 +15,13 @@
 #endif
 
 /* TODO: add NS locking */
-#include <sys/sysinfo.h>
 #include "statedump.h"
 #include "dht-common.h"
 #include "dht-messages.h"
 
+#ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
+#endif
 
 #define GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf) {         \
                                                                         \
@@ -29,7 +30,8 @@
                 if (!strcasecmp (conf->dthrottle, "lazy"))              \
                         conf->defrag->recon_thread_count = 1;           \
                                                                         \
-                throttle_count = MAX ((get_nprocs() - 4), 4);           \
+                throttle_count =                                        \
+                    MAX ((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);       \
                                                                         \
                 if (!strcasecmp (conf->dthrottle, "normal"))            \
                         conf->defrag->recon_thread_count =              \

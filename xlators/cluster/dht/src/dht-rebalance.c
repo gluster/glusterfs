@@ -19,7 +19,6 @@
 #include <signal.h>
 #include <fnmatch.h>
 #include <signal.h>
-#include <sys/sysinfo.h>
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
@@ -28,7 +27,9 @@
 #define MAX_MIGRATE_QUEUE_COUNT         500
 #define MIN_MIGRATE_QUEUE_COUNT         200
 
+#ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
+#endif
 
 #define GF_CRAWL_INDEX_MOVE(idx, sv_cnt)  {     \
                 idx++;                          \
@@ -2640,7 +2641,7 @@ gf_defrag_start_crawl (void *data)
 
                 INIT_LIST_HEAD (&(defrag->queue[0].list));
 
-                thread_spawn_count = MAX ((get_nprocs() - 4), 4);
+                thread_spawn_count = MAX ((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);
 
                 gf_log (this->name, GF_LOG_DEBUG, "thread_spawn_count: %d",
                         thread_spawn_count);
