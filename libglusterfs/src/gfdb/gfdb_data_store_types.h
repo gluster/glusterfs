@@ -712,7 +712,7 @@ typedef struct gfdb_connection {
                 data = dict_get (params_dict, param_key);\
                 if (!data) {\
                         gf_log (comp_name, GF_LOG_ERROR,\
-                                "Failed retriving %s from params", param_key);\
+                                "Failed to retrieve %s from params", param_key);\
                         goto error;\
                 } else {\
                         str_value = data->data;\
@@ -730,7 +730,7 @@ typedef struct gfdb_connection {
                 if (!data) {\
                         str_value = _default_v;\
                         gf_log (comp_name, GF_LOG_WARNING,\
-                                "Failed retriving %s from params"\
+                                "Failed to retrieve %s from params."\
                                 "Assigning default value: %s",\
                                 param_key, _default_v);\
                 } else {\
