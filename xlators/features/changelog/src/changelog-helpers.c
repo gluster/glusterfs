@@ -356,6 +356,8 @@ cl_is_empty (xlator_t *this, int fd)
         int             encoding        = -1;
         char            buffer[1024]    = {0,};
         struct stat     stbuf           = {0,};
+        int             major_version   = -1;
+        int             minor_version   = -1;
 
         ret = fstat (fd, &stbuf);
         if (ret) {
@@ -371,7 +373,8 @@ cl_is_empty (xlator_t *this, int fd)
                 goto out;
         }
 
-        CHANGELOG_GET_ENCODING (fd, buffer, 1024, encoding, elen);
+        CHANGELOG_GET_HEADER_INFO (fd, buffer, 1024, encoding,
+                                   major_version, minor_version, elen);
 
         if (elen == stbuf.st_size) {
                 ret = 1;
