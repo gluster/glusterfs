@@ -1474,7 +1474,7 @@ glusterd_check_geo_rep_configured (glusterd_volinfo_t *volinfo,
 /*
  * is_geo_rep_active:
  *      This function reads the state_file and sets is_active to 1 if the
- *      monitor status is neither "Stopped" or "Not Started"
+ *      monitor status is neither "Stopped" or "Created"
  *
  * RETURN VALUE:
  *       0: On successful read of state_file.
@@ -1530,7 +1530,7 @@ is_geo_rep_active (glusterd_volinfo_t *volinfo, char *slave,
         }
 
         if ((!strcmp(monitor_status, "Stopped")) ||
-            (!strcmp(monitor_status, "Not Started"))) {
+            (!strcmp(monitor_status, "Created"))) {
                 *is_active = 0;
         } else {
                 *is_active = 1;

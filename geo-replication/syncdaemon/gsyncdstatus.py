@@ -310,13 +310,13 @@ class GeorepStatus(object):
         if data["worker_status"] not in ["Active", "Passive"]:
             data["slave_node"] = DEFAULT_STATUS
 
-        if data["last_synced_utc"] == 0:
+        if data.get("last_synced_utc", 0) == 0:
             data["last_synced_utc"] = DEFAULT_STATUS
 
-        if data["checkpoint_completion_time_utc"] == 0:
+        if data.get("checkpoint_completion_time_utc", 0) == 0:
             data["checkpoint_completion_time_utc"] = DEFAULT_STATUS
 
-        if data["checkpoint_time_utc"] == 0:
+        if data.get("checkpoint_time_utc", 0) == 0:
             data["checkpoint_time_utc"] = DEFAULT_STATUS
 
         return data
