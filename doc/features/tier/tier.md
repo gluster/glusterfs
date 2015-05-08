@@ -1,11 +1,12 @@
-Tiering =======
+##Tiering 
 
-* Feature page:
+* ####Feature page:
 http://www.gluster.org/community/documentation/index.php/Features/data-classification
 
-* Design: goo.gl/bkU5qv
+* #####Design: goo.gl/bkU5qv
 
-Theory of operation -------------------
+###Theory of operation
+
 
 The tiering feature enables different storage types to be used by the same
 logical volume. In Gluster 3.7, the two types are classified as "cold" and
@@ -46,7 +47,7 @@ Performance enhancements being considered include:
 
 * Write-back cache for database updates.
 
-Code organization -----------------
+###Code organization
 
 The design endevors to be upward compatible with future migration policies,
 such as scheduled file migration, data classification, etc. For example,
@@ -55,26 +56,66 @@ different set of migration policies could use the same underlying migration
 engine. The I/O tracking and meta data store compontents are intended to be
 reusable for things besides caching semantics.
 
-Meta data:
+####Libgfdb:
 
-A database stores meta-data on the files. Entries within it are added or
-removed by the changetimerecorder translator. The database is queried by
-the migration daemon. The results of the queries drive which files are to
-be migrated.
+Libgfdb provides abstract mechanism to record extra/rich metadata
+required for data maintenance, such as data tiering/classification.
+It provides consumer with API for recording and querying, keeping
+the consumer abstracted from the data store used beneath for storing data.
+It works in a plug-and-play model, where data stores can be plugged-in.
+Presently we have plugin for Sqlite3. In the future will provide recording
+and querying performance optimizer. In the current implementation the schema
+of metadata is fixed.
 
-The database resides withi the libgfdb subdirectory. There is one database
-for each brick. The database is currently sqlite. However, the libgfdb
-library API is not tied to sqlite, and a different database could be used.
+####Schema:
 
-For more information on libgfdb see the doc file: libgfdb.txt.
+      GF_FILE_TB Table:
+      This table has one entry per file inode. It holds the metadata required to
+      make decisions in data maintenance.
+      GF_ID (Primary key)	    : File GFID (Universal Unique IDentifier in the namespace)
+      W_SEC, W_MSEC 		     : Write wind time in sec & micro-sec
+      UW_SEC, UW_MSEC		    : Write un-wind time in sec & micro-sec
+      W_READ_SEC, W_READ_MSEC    : Read wind time in sec & micro-sec
+      UW_READ_SEC, UW_READ_MSEC  : Read un-wind time in sec & micro-sec
+      WRITE_FREQ_CNTR INTEGER	: Write Frequency Counter
+      READ_FREQ_CNTR INTEGER	 : Read Frequency Counter
 
-I/O tracking:
+      GF_FLINK_TABLE:
+      This table has all the hardlinks to a file inode.
+      GF_ID		 : File GFID               (Composite Primary Key)``|
+      GF_PID		: Parent Directory GFID  (Composite Primary Key)   |-> Primary Key
+      FNAME 		: File Base Name          (Composite Primary Key)__|
+      FPATH 		: File Full Path (Its redundant for now, this will go)
+      W_DEL_FLAG    : This Flag is used for crash consistancy, when a link is unlinked.
+                  	  i.e Set to 1 during unlink wind and during unwind this record  is deleted
+      LINK_UPDATE   : This Flag is used when a link is changed i.e rename.
+                          Set to 1 when rename wind and set to 0 in rename unwind
 
-The changetimerecorder server-side translator generates metadata about I/Os
-as they happen. Metadata is then entered into the database after the I/O
-completes. Internal I/Os are not included.
+Libgfdb API :
+Refer libglusterfs/src/gfdb/gfdb_data_store.h
 
-Migration daemon:
+####ChangeTimeRecorder (CTR) Translator:
+
+ChangeTimeRecorder(CTR) is server side xlator(translator) which sits
+just above posix xlator. The main role of this xlator is to record the
+access/write patterns on a file residing the brick. It records the
+read(only data) and write(data and metadata) times and also count on
+how many times a file is read or written. This xlator also captures
+the hard links to a file(as its required by data tiering to move
+files).
+
+CTR Xlator is the consumer of libgfdb.
+
+To Enable/Disable CTR Xlator:
+
+    **gluster volume set <volume-name> features.ctr-enabled {on/off}**
+
+To Enable/Disable Frequency Counter Recording in CTR Xlator:
+
+    **gluster volume set <volume-name> features.record-counters {on/off}**
+
+
+####Migration daemon:
 
 When a tiered volume is created, a migration daemon starts. There is one daemon
 for every tiered volume per node. The daemon sleeps and then periodically
@@ -86,7 +127,18 @@ Selected files are migrated between the tiers using existing DHT migration
 logic. The tier translator will leverage DHT rebalance performance
 enhancements.
 
-tier translator:
+Configurable for Migration daemon:
+
+    gluster volume set <volume-name> cluster.tier-demote-frequency <SECS>
+  
+    gluster volume set <volume-name> cluster.tier-promote-frequency <SECS>
+    
+    gluster volume set <volume-name> cluster.read-freq-threshold <SECS>
+
+    gluster volume set <volume-name> cluster.write-freq-threshold <SECS>
+
+
+####Tier Translator:
 
 The tier translator is the root node in tiered volumes. The first subvolume
 is the cold tier, and the second the hot tier. DHT logic for fowarding I/Os
@@ -108,11 +160,9 @@ Changes to DHT were made to allow "stacking", i.e. DHT over DHT:
 
 Currently tiered volume expansion (adding and removing bricks) is unsupported.
 
-glusterd:
+####glusterd:
 
 The tiered volume tree is a composition of two other volumes. The glusterd
 daemon builds it. Existing logic for adding and removing bricks is heavily
 leveraged to attach and detach tiers, and perform statistics collection.
-
-
 
