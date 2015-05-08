@@ -33,6 +33,9 @@
                                                 (xdrproc_t)xdrproc);           \
                 if (!ret)                                                      \
                         synctask_yield (stb->task);                            \
+                else                                                           \
+                        gf_asprintf (&stb->errstr, "%s failed. Check log file" \
+                                     " for more details", (prog)->progname);   \
                 synclock_lock (&conf->big_lock);                               \
         } while (0)
 
