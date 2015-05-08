@@ -16,5 +16,5 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 1
 
 TEST touch $M0/{1..100}
-EXPECT "100" echo $(ls $M0 | wc -l)
+EXPECT "100" echo $(ls $M0/* | wc -l)
 cleanup
