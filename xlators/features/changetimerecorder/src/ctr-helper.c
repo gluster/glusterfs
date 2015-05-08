@@ -247,7 +247,7 @@ int extract_ctr_options (xlator_t *this, gf_ctr_private_t *_priv) {
         GF_OPTION_INIT ("ctr-enabled", _priv->enabled, bool, out);
         if (!_priv->enabled) {
                 gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "CTR Xlator is Disable!");
+                                "CTR Xlator is disabled.");
                 ret = 0;
                 goto out;
         }
