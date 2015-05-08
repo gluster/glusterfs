@@ -28,8 +28,8 @@ TEST $CLI_1 volume create $V0 $H1:$B1/${V0}0 $H1:$B1/${V0}1
 ## Start the volume
 TEST $CLI_1 volume start $V0
 
-## Enable bitrot on volume
-TEST $CLI_1 volume bitrot $V0 enable
+## Enable bitrot on volume from 2nd node.
+TEST $CLI_2 volume bitrot $V0 enable
 
 ## Bitd daemon should be running on the node which is having brick. Here node1
 ## only have brick so bitrot daemon count value should be 1.
