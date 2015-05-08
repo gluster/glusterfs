@@ -690,13 +690,13 @@ int
 htime_create (xlator_t *this,
               changelog_priv_t *priv, unsigned long ts)
 {
-        int ht_file_fd                  = -1;
-        int ht_dir_fd                   = -1;
-        int ret                         = 0;
-        char ht_dir_path[PATH_MAX]      = {0,};
-        char ht_file_path[PATH_MAX]     = {0,};
-        char ht_file_bname[NAME_MAX]    = {0,};
-        int flags                       = 0;
+        int ht_file_fd                      = -1;
+        int ht_dir_fd                       = -1;
+        int ret                             = 0;
+        char ht_dir_path[PATH_MAX]          = {0,};
+        char ht_file_path[PATH_MAX]         = {0,};
+        char ht_file_bname[NAME_MAX + 1]    = {0,};
+        int flags                           = 0;
 
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
 
@@ -739,7 +739,7 @@ htime_create (xlator_t *this,
                 goto out;
         }
 
-        (void) snprintf (ht_file_bname, PATH_MAX, "%s.%lu",
+        (void) snprintf (ht_file_bname, sizeof (ht_file_bname), "%s.%lu",
                          HTIME_FILE_NAME, ts);
         if (sys_fsetxattr (ht_dir_fd, HTIME_CURRENT, ht_file_bname,
             strlen (ht_file_bname), 0)) {
