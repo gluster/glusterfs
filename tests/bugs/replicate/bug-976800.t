@@ -21,6 +21,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 TEST $CLI volume set $V0 ensure-durability off
 TEST $CLI volume set $V0 eager-lock off
+TEST $CLI volume set $V0 flush-behind off
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 TEST dd of=$M0/1 if=/dev/zero bs=1k count=1 conv=fsync
