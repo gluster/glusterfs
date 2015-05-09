@@ -197,6 +197,30 @@ function is_bad_test ()
     for bt in ./tests/basic/volume-snapshot-clone.t	\
     	      ./tests/basic/uss.t			\
               ./tests/bugs/snapshot/bug-1112559.t       \
+              ./tests/basic/afr/entry-self-heal.t       \
+              ./tests/bugs/replicate/bug-976800.t       \
+              ./tests/bugs/replicate/bug-1015990.t      \
+              ./tests/bugs/quota/bug-1038598.t  \
+              ./tests/basic/afr/arbiter.t       \
+              ./tests/basic/afr/read-subvol-entry.t     \
+              ./tests/basic/ec/quota.t  \
+              ./tests/bugs/distribute/bug-1161156.t     \
+              ./tests/basic/tier/tier.t \
+              ./tests/basic/ec/ec-4-1.t \
+              ./tests/basic/ec/ec.t \
+              ./tests/basic/quota-nfs.t \
+              ./tests/basic/ec/ec-6-2.t \
+              ./tests/bugs/quota/bug-1035576.t  \
+              ./tests/features/glupy.t  \
+              ./tests/basic/uss.t       \
+              ./tests/bugs/glusterfs/bug-867253.t       \
+              ./tests/bugs/glusterd/bug-974007.t        \
+              ./tests/basic/volume-snapshot-clone.t     \
+              ./tests/basic/quota-anon-fd-nfs.t \
+              ./tests/bugs/snapshot/bug-1112559.t       \
+              ./tests/bugs/disperse/bug-1187474.t       \
+              ./tests/basic/afr/sparse-file-self-heal.t \
+              ./tests/basic/afr/data-self-heal.t        \
 	      ./tests/features/glupy.t; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
