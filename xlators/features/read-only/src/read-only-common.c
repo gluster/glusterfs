@@ -30,11 +30,29 @@ is_readonly_or_worm_enabled (xlator_t *this)
         return readonly_or_worm_enabled;
 }
 
+static int
+_check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
+                           void *tmp)
+{
+        if (mem_0filled ((const char *)v->data, v->len)) {
+                /* -1 means, no more iterations, treat as 'break' */
+                return -1;
+        }
+        return 0;
+}
+
 int32_t
 ro_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
             gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        gf_boolean_t allzero = _gf_false;
+        int     ret = 0;
+
+        ret = dict_foreach (dict, _check_key_is_zero_filled, NULL);
+        if (ret == 0)
+                allzero = _gf_true;
+
+        if (is_readonly_or_worm_enabled (this) && !allzero)
                 STACK_UNWIND_STRICT (xattrop, frame, -1, EROFS, NULL, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -47,7 +65,14 @@ int32_t
 ro_fxattrop (call_frame_t *frame, xlator_t *this,
              fd_t *fd, gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        gf_boolean_t allzero = _gf_false;
+        int     ret = 0;
+
+        ret = dict_foreach (dict, _check_key_is_zero_filled, NULL);
+        if (ret == 0)
+                allzero = _gf_true;
+
+        if (is_readonly_or_worm_enabled (this) && !allzero)
                 STACK_UNWIND_STRICT (fxattrop, frame, -1, EROFS, NULL, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -62,12 +87,9 @@ ro_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
             loc_t *loc, const char *basename, entrylk_cmd cmd,
             entrylk_type type, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
-                STACK_UNWIND_STRICT (entrylk, frame, -1, EROFS, xdata);
-        else
-                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                                 FIRST_CHILD(this)->fops->entrylk,
-                                 volume, loc, basename, cmd, type, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->entrylk,
+                         volume, loc, basename, cmd, type, xdata);
 
         return 0;
 }
@@ -77,12 +99,9 @@ ro_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
              fd_t *fd, const char *basename, entrylk_cmd cmd, entrylk_type type,
              dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
-                STACK_UNWIND_STRICT (fentrylk, frame, -1, EROFS, xdata);
-        else
-                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                                 FIRST_CHILD(this)->fops->fentrylk,
-                                 volume, fd, basename, cmd, type, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->fentrylk,
+                         volume, fd, basename, cmd, type, xdata);
 
         return 0;
 }
@@ -91,12 +110,9 @@ int32_t
 ro_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
             loc_t *loc, int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
-                STACK_UNWIND_STRICT (inodelk, frame, -1, EROFS, xdata);
-        else
-                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                                 FIRST_CHILD(this)->fops->inodelk,
-                                 volume, loc, cmd, lock, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->inodelk,
+                         volume, loc, cmd, lock, xdata);
 
         return 0;
 }
@@ -105,12 +121,9 @@ int32_t
 ro_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
              fd_t *fd, int32_t cmd, struct gf_flock *lock, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
-                STACK_UNWIND_STRICT (finodelk, frame, -1, EROFS, xdata);
-        else
-                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                                 FIRST_CHILD(this)->fops->finodelk,
-                                 volume, fd, cmd, lock, xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->finodelk,
+                         volume, fd, cmd, lock, xdata);
 
         return 0;
 }
@@ -119,12 +132,9 @@ int32_t
 ro_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int cmd,
        struct gf_flock *flock, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
-                STACK_UNWIND_STRICT (lk, frame, -1, EROFS, NULL, xdata);
-        else
-                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
-                                 FIRST_CHILD(this)->fops->lk, fd, cmd, flock,
-                                 xdata);
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->lk, fd, cmd, flock,
+                         xdata);
 
         return 0;
 }
