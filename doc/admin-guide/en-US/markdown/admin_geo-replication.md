@@ -413,7 +413,7 @@ geo-replication sessions, as needed.
 -   **Initializing**: This is the initial phase of the Geo-replication session;
     it remains in this state for a minute in order to make sure no abnormalities are present.
 
--   **Not Started**: The geo-replication session is created, but not started.
+-   **Created**: The geo-replication session is created, but not started.
 
 -   **Active**: The gsync daemon in this node is active and syncing the data.
 

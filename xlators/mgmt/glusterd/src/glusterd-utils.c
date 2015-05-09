@@ -4345,7 +4345,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         /* Looks for the last status, to find if the sessiom was running
          * when the node went down. If the session was not started or
          * not started, do not restart the geo-rep session */
-        if ((!strcmp (buf, "Not Started")) ||
+        if ((!strcmp (buf, "Created")) ||
             (!strcmp (buf, "Stopped"))) {
                 gf_log (this1->name, GF_LOG_INFO,
                         "Geo-Rep Session was not started between "
