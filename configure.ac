@@ -1131,7 +1131,7 @@ saved_LDFLAGS=$LDFLAGS
 
 # Use pkg-config to get runtime search patch missing from ${PYTHON}-config
 # Just do "true" on failure so that configure does not bail out
-PKG_CHECK_MODULES([PYTHON], "pythonxx-$PYTHON_VERSION",,true)
+PKG_CHECK_MODULES([PYTHON], "python-$PYTHON_VERSION",,true)
 CFLAGS="`${PYTHON}-config --cflags`"
 CPPFLAGS=$CFLAGS
 LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
