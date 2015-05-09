@@ -276,6 +276,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("arbiter-count", priv->arbiter_count, uint32, out);
 
+        priv->spb_choice_timeout = AFR_DEFAULT_SPB_CHOICE_TIMEOUT;
+
 	GF_OPTION_INIT ("afr-dirty-xattr", priv->afr_dirty, str, out);
 
 	GF_OPTION_INIT ("metadata-splitbrain-forced-heal",
