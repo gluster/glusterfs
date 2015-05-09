@@ -22,6 +22,8 @@ TEST $CLI volume start $V0
 ## Enable bitrot on volume $V0
 TEST $CLI volume bitrot $V0 enable
 
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_bitd_count
+
 ## Set bitrot scrubber process to pause state
 TEST $CLI volume bitrot $V0 scrub pause
 
