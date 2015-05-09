@@ -1150,13 +1150,14 @@ pub_glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask)
 	inode_t         *inode = NULL;
 	loc_t            loc = {0, };
 
+	DECLARE_OLD_THIS;
+
 	/* validate in args */
 	if ((fs == NULL) || (object == NULL)) {
 		errno = EINVAL;
-		goto out;
+		return ret;
 	}
 
-	DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
 	/* get the active volume */
