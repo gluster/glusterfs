@@ -22,7 +22,7 @@ TEST $CLI volume start $V0
 ## Enable bitrot on volume $V0
 TEST $CLI volume bitrot $V0 enable
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_bitd_count
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count
 
 ## Set bitrot scrub-throttle value to lazy
 TEST $CLI volume bitrot $V0 scrub-throttle lazy
