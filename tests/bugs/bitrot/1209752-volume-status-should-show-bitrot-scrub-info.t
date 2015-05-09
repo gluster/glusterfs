@@ -26,6 +26,9 @@ TEST $CLI_1 volume start $V0
 ## Enable bitrot on volume $V0
 TEST $CLI_1 volume bitrot $V0 enable
 
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_bitd_count
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_scrubd_count
+
 ## From node 1 Gluster volume status command should show the status of bitrot
 ## daemon of all the nodes. there are 2 nodes in a cluster with having brick
 ## ${V0}1 and ${V0}2 . So there should be 2 bitrot daemon running.
