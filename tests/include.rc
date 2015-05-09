@@ -122,6 +122,21 @@ function dbg()
         [ "x$DEBUG" = "x0" ] || echo "$*" >&2;
 }
 
+function G_LOG()
+{
+     local logdir=`$CLI --print-logdir`
+     test -d $logdir
+     if [ $? != 0 ]; then
+        return
+     fi
+     local string="++++++++++ G_LOG:$0: TEST: $1 $2 ++++++++++"
+     string="`date -u +["%F %T.%N"]`:$string"
+     local i
+     for i in `find $logdir/ -type f`;
+        do
+                echo $string>>$i
+        done
+}
 
 function test_header()
 {
@@ -174,6 +189,7 @@ function _EXPECT()
         shift;
         local a=""
 
+        G_LOG $TESTLINE "$*";
         test_header "$@";
 
         e="$1";
@@ -207,6 +223,7 @@ function _EXPECT_NOT()
         shift;
         local a=""
 
+        G_LOG $TESTLINE "$*";
         test_header "$@";
 
         e="$1";
@@ -224,7 +241,7 @@ function _EXPECT_KEYWORD()
 {
         TESTLINE=$1;
         shift;
-
+        G_LOG $TESTLINE "$*";
         test_header "$@";
 
         e="$1";
@@ -234,13 +251,13 @@ function _EXPECT_KEYWORD()
         test_footer;
 }
 
-
 function _TEST()
 {
         TESTLINE=$1;
         shift;
         local redirect=""
 
+        G_LOG $TESTLINE "$*";
         test_header "$@";
 
         if [ "$1" = "!" ]; then
@@ -260,6 +277,7 @@ function _EXPECT_WITHIN()
         local timeout=$1
         shift;
 
+        G_LOG $TESTLINE "$*";
         test_header "$@"
 
         e=$1;
@@ -826,7 +844,7 @@ log_newer()
         logdir=`$CLI --print-logdir`
 
         IFS="["
-        for date in `grep -hr "$msg" $logdir | awk -F '[\]]' '{print $1}'` ; do
+        for date in `grep -hr "$msg" $logdir | grep -v "G_LOG" | awk -F '[\]]' '{print $1}'` ; do
                 if [ `date -d "$date" +%s` -gt $ts ] ; then
                         return 0;
                 fi
