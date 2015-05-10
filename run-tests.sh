@@ -210,6 +210,9 @@ function is_bad_test ()
               ./tests/basic/ec/ec.t \
               ./tests/basic/quota-nfs.t \
               ./tests/basic/ec/ec-6-2.t \
+              ./tests/basic/ec/ec-3-1.t \
+              ./tests/basic/ec/ec-5-1.t \
+              ./tests/basic/ec/ec-12-4.t \
               ./tests/bugs/quota/bug-1035576.t  \
               ./tests/basic/uss.t       \
               ./tests/bugs/glusterfs/bug-867253.t       \
