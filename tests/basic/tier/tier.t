@@ -52,8 +52,6 @@ function confirm_vol_stopped {
     fi
 }
 
-LAST_BRICK=1
-CACHE_BRICK=2
 DEMOTE_TIMEOUT=12
 PROMOTE_TIMEOUT=5
 MIGRATION_TIMEOUT=10
@@ -67,15 +65,26 @@ TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
 TEST ! $CLI volume attach-tier $V0 replica 5 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 
 TEST $CLI volume start $V0
-TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
-TEST $CLI volume set $V0 cluster.tier-promote-frequency 4
-TEST $CLI volume set $V0 cluster.read-freq-threshold 0
-TEST $CLI volume set $V0 cluster.write-freq-threshold 0
+
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 features.ctr-enabled on
 
+#Not a tier volume
+TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
+
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+
+#Tier options expect non-negative value
+TEST ! $CLI volume set $V0 cluster.tier-promote-frequency -1
+
+#Tier options expect non-negative value
+TEST ! $CLI volume set $V0 cluster.read-freq-threshold qwerty
+
+TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
+TEST $CLI volume set $V0 cluster.tier-promote-frequency 4
+TEST $CLI volume set $V0 cluster.read-freq-threshold 0
+TEST $CLI volume set $V0 cluster.write-freq-threshold 0
 
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
 
