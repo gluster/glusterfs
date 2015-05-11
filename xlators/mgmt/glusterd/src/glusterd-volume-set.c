@@ -12,6 +12,76 @@
 #include "glusterd-utils.h"
 
 static int
+validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+               char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+        int                  origin_val    = -1;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                snprintf (errstr, sizeof (errstr), "Volume %s is not a tier "
+                          "volume. Option %s is only valid for tier volume.",
+                          volinfo->volname, key);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+
+        /*
+         * All the volume set options for tier are expecting a positive
+         * Integer. Change the function accordingly if this constraint is
+         * changed.
+         */
+
+        ret = gf_string2int (value, &origin_val);
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "%s is not a compatible "
+                          "value. %s expects an integer value.",
+                          value, key);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+
+        if (strstr ("cluster.tier-promote-frequency", key) ||
+            strstr ("cluster.tier-demote-frequency", key)) {
+                if (origin_val < 1) {
+                        snprintf (errstr, sizeof (errstr), "%s is not a "
+                                  "compatible value. %s expects a positive "
+                                  "integer value.",
+                                  value, key);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                if (origin_val < 0) {
+                        snprintf (errstr, sizeof (errstr), "%s is not a "
+                                   "compatible value. %s expects a non-negative"
+                                   " integer value.",
+                                   value, key);
+                         gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                         *op_errstr = gf_strdup (errstr);
+                         ret = -1;
+                        goto out;
+                }
+        }
+
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_cache_max_min_size (glusterd_volinfo_t *volinfo, dict_t *dict,
                              char *key, char *value, char **op_errstr)
 {
@@ -1753,25 +1823,29 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "cluster/tier",
           .option      = "write-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
-          .flags       = OPT_FLAG_CLIENT_OPT
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier
         },
         { .key         = "cluster.read-freq-threshold",
           .voltype     = "cluster/tier",
           .option      = "read-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
-          .flags       = OPT_FLAG_CLIENT_OPT
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier
         },
         { .key         = "cluster.tier-promote-frequency",
           .voltype     = "cluster/tier",
           .option      = "tier-promote-frequency",
           .op_version  = GD_OP_VERSION_3_7_0,
-          .flags       = OPT_FLAG_CLIENT_OPT
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier
         },
         { .key         = "cluster.tier-demote-frequency",
           .voltype     = "cluster/tier",
           .option      = "tier-demote-frequency",
           .op_version  = GD_OP_VERSION_3_7_0,
-          .flags       = OPT_FLAG_CLIENT_OPT
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier
         },
         { .key         = "features.ctr-enabled",
           .voltype     = "features/changetimerecorder",
