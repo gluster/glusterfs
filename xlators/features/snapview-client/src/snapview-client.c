@@ -534,14 +534,15 @@ svc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         root_loc.path = "/";
                         gf_uuid_clear(root_loc.gfid);
                         root_loc.gfid[15] = 1;
-                        root_loc.inode = loc->inode->table->root;
-                        root_loc.inode->ia_type = IA_IFDIR;
+                        root_loc.inode = inode_ref (loc->inode->table->root);
                         temp_loc = &root_loc;
                 }
         }
 
         STACK_WIND_TAIL (frame, subvolume, subvolume->fops->statfs,
                          temp_loc, xdata);
+        if (temp_loc)
+                loc_wipe (temp_loc);
 
         wind = _gf_true;
 out:
