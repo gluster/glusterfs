@@ -999,7 +999,6 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_client.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_dht.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_server.so
@@ -1133,6 +1132,7 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
