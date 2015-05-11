@@ -49,6 +49,8 @@ touch $fname; # backpath remains same..
 
 TEST $STUB_EXEC $fname $(dirname $backpath)
 
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
+
 ##cleanups..
 rm -f $STUB_EXEC
 
