@@ -827,6 +827,12 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                 }
 
                 tick = (tick + 1) % TIMER_SECS;
+
+                if (freq_promote != defrag->tier_promote_frequency)
+                        next_promote = tick;
+                if (freq_demote != defrag->tier_demote_frequency)
+                        next_demote = tick;
+
                 if ((next_demote != tick) && (next_promote != tick))
                         continue;
 
