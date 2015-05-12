@@ -581,7 +581,7 @@ def perform_operation(args):
     return ret
 
 
-def main():
+def main(argv):
     initLogger()
     ret = -1
     parser = argparse.ArgumentParser()
@@ -617,7 +617,7 @@ def main():
     parser_edit.add_argument("schedule", help="Schedule")
     parser_edit.add_argument("volname", help="Volume Name")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not os.path.exists(SHARED_STORAGE_DIR):
         output("Failed: "+SHARED_STORAGE_DIR+" does not exist.")
@@ -675,4 +675,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
