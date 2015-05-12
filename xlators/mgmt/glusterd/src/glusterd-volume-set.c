@@ -1830,46 +1830,70 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "write-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
-          .validate_fn = validate_tier
+          .validate_fn = validate_tier,
+          .description = "Defines the number of writes, in a promotion/demotion"
+                         " cycle, that would mark a file HOT for promotion. Any"
+                         " file that has write hits less than this value will "
+                         "be considered as COLD and will be demoted."
         },
         { .key         = "cluster.read-freq-threshold",
           .voltype     = "cluster/tier",
           .option      = "read-freq-threshold",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
-          .validate_fn = validate_tier
+          .validate_fn = validate_tier,
+          .description = "Defines the number of reads, in a promotion/demotion "
+                         "cycle, that would mark a file HOT for promotion. Any "
+                         "file that has read hits less than this value will be "
+                         "considered as COLD and will be demoted."
         },
         { .key         = "cluster.tier-promote-frequency",
           .voltype     = "cluster/tier",
           .option      = "tier-promote-frequency",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
-          .validate_fn = validate_tier
+          .validate_fn = validate_tier,
+          .description = "Defines how often the promotion should be triggered "
+                         "i.e. periodicity of promotion cycles. The value is in "
+                         "secs."
         },
         { .key         = "cluster.tier-demote-frequency",
           .voltype     = "cluster/tier",
           .option      = "tier-demote-frequency",
           .op_version  = GD_OP_VERSION_3_7_0,
           .flags       = OPT_FLAG_CLIENT_OPT,
-          .validate_fn = validate_tier
+          .validate_fn = validate_tier,
+          .description = "Defines how often the demotion should be triggered "
+                         "i.e. periodicity of demotion cycles. The value is in "
+                         "secs."
         },
         { .key         = "features.ctr-enabled",
           .voltype     = "features/changetimerecorder",
           .value       = "off",
           .option      = "ctr-enabled",
-          .op_version  = GD_OP_VERSION_3_7_0
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .description = "Enable CTR xlator"
         },
         { .key         = "features.record-counters",
           .voltype     = "features/changetimerecorder",
           .value       = "off",
           .option      = "record-counters",
-          .op_version  = GD_OP_VERSION_3_7_0
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .description = "Its a Change Time Recorder Xlator option to enable recording write "
+                         "and read heat counters. The default is disabled. "
+                         "If enabled, \"cluster.write-freq-threshold\" and "
+                         "\"cluster.read-freq-threshold\" defined the number "
+                         "of writes (or reads) to a given file are needed "
+                         "before triggering migration."
         },
         { .key         = "features.ctr_link_consistency",
           .voltype     = "features/changetimerecorder",
           .value       = "off",
           .option      = "ctr_link_consistency",
-          .op_version  = GD_OP_VERSION_3_7_0
+          .op_version  = GD_OP_VERSION_3_7_0,
+          .description = "Enable a crash consistent way of recording hardlink "
+                         "updates by Change Time Recorder Xlator. When recording in a crash "
+                         "consistent way the data operations will experience more latency."
         },
 #endif /* USE_GFDB */
         { .key         = "locks.trace",
