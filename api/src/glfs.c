@@ -555,8 +555,10 @@ glfs_fd_destroy (struct glfs_fd *glfd)
 	}
 	glfs_unlock (glfd->fs);
 
-	if (glfd->fd)
-		fd_unref (glfd->fd);
+        if (glfd->fd) {
+                fd_unref (glfd->fd);
+                glfd->fd = NULL;
+        }
 
 	GF_FREE (glfd->readdirbuf);
 
