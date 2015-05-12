@@ -1965,8 +1965,9 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                            migration. Only the actual data file need to
                            be checked for migration criteria.
                         */
-                        gf_log (this->name, GF_LOG_INFO, "linkfile."
-                                " Hence skip for file: %s", entry_loc.path);
+                        gf_log (this->name, GF_LOG_DEBUG, "Skipping linkfile"
+                                " %s on subvol: %s", entry_loc.path,
+                                conf->local_subvols[i]->name);
                         continue;
                 }
 
