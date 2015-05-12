@@ -44,6 +44,7 @@ echo "           hostname=\"localhost\";"
 echo  "          volume=\"$VOL\";"
 echo "           }"
 echo "      Access_type = RW;"
+echo "      Disable_ACL = true;"
 echo '      Squash="No_root_squash";'
 echo "      Pseudo=\"/$VOL\";"
 echo '      Protocols = "3", "4" ;'
