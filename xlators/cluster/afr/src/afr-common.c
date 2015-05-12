@@ -951,7 +951,7 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
         if (!local->xattr_req)
                 goto out;
 
-        if (xattr_req != local->xattr_req)
+        if (xattr_req && (xattr_req != local->xattr_req))
                 dict_copy (xattr_req, local->xattr_req);
 
         ret = afr_xattr_req_prepare (this, local->xattr_req);
