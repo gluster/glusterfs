@@ -533,7 +533,7 @@ fd_destroy (fd_t *fd)
         }
         UNLOCK (&fd->inode->lock);
         inode_unref (fd->inode);
-        fd->inode = (inode_t *)0xaaaaaaaa;
+        fd->inode = NULL;
         fd_lk_ctx_unref (fd->lk_ctx);
         mem_put (fd);
 out:

@@ -268,8 +268,8 @@ do {                                                                \
 
 #define __GLFS_ENTRY_VALIDATE_FD(glfd, label)                       \
 do {                                                                \
-        if (!glfd) {                                                \
-                errno = EINVAL;                                     \
+        if (!glfd || !glfd->fd || !glfd->fd->inode) {               \
+                errno = EBADF;                                      \
                 goto label;                                         \
         }                                                           \
         old_THIS = THIS;                                            \
