@@ -835,10 +835,9 @@ dht_migration_complete_check_task (void *data)
 {
         int           ret      = -1;
         xlator_t     *src_node = NULL;
-        xlator_t     *dst_node = NULL;
+        xlator_t     *dst_node = NULL, *linkto_target = NULL;
         dht_local_t  *local    = NULL;
         dict_t       *dict     = NULL;
-        dht_layout_t *layout   = NULL;
         struct iatt   stbuf    = {0,};
         xlator_t     *this     = NULL;
         call_frame_t *frame    = NULL;
@@ -890,120 +889,50 @@ dht_migration_complete_check_task (void *data)
         }
 
         if (!ret)
-                dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
+                linkto_target = dht_linkfile_subvol (this, NULL, NULL, dict);
 
-        if (ret) {
-                if (!dht_inode_missing(-ret) || (!local->loc.inode)) {
-                        local->op_errno = -ret;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: failed to get the 'linkto' xattr %s",
-                                local->loc.path, strerror (-ret));
-                        ret = -1;
-                        goto out;
-                }
-
-                /* Need to do lookup on hashed subvol, then get the file */
-                ret = syncop_lookup (this, &local->loc, &stbuf, NULL,
-                                     NULL, NULL);
-                if (ret) {
-                        local->op_errno = -ret;
-                        ret = -1;
-                        goto out;
-                }
-
-                dst_node = dht_subvol_get_cached (this, local->loc.inode);
+        if (local->loc.inode) {
+                loc_copy (&tmp_loc, &local->loc);
+        } else {
+                tmp_loc.inode = inode_ref (inode);
+                gf_uuid_copy (tmp_loc.gfid, inode->gfid);
         }
 
-        if (!dst_node) {
+        ret = syncop_lookup (this, &tmp_loc, &stbuf, 0, 0, 0);
+        if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to get the destination node",
-                        local->loc.path);
+                        "%s: failed to lookup the file on %s (%s)",
+                        tmp_loc.path, this->name, strerror (-ret));
+                local->op_errno = -ret;
                 ret = -1;
-                local->op_errno = EINVAL;
                 goto out;
         }
 
-        /* lookup on dst */
-        if (local->loc.inode) {
-                ret = syncop_lookup (dst_node, &local->loc, &stbuf, NULL,
-                                     NULL, NULL);
-
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: failed to lookup the file on %s",
-                                local->loc.path, dst_node->name);
-                        local->op_errno = -ret;
-                        ret = -1;
-                        goto out;
-                }
-
-                if (gf_uuid_compare (stbuf.ia_gfid, local->loc.inode->gfid)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_GFID_MISMATCH,
-                                "%s: gfid different on the target file on %s",
-                                local->loc.path, dst_node->name);
-                        ret = -1;
-                        local->op_errno = EIO;
-                        goto out;
-                }
-        } else {
-                tmp_loc.inode = inode;
-                gf_uuid_copy (tmp_loc.gfid, inode->gfid);
-                ret = syncop_lookup (dst_node, &tmp_loc, &stbuf, 0, 0, 0);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "%s: failed to lookup the file on %s",
-                                tmp_loc.path, dst_node->name);
-                        local->op_errno = -ret;
-                        ret = -1;
-                        goto out;
-                }
-
-                if (gf_uuid_compare (stbuf.ia_gfid, tmp_loc.inode->gfid)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_GFID_MISMATCH,
-                                "%s: gfid different on the target file on %s",
-                                tmp_loc.path, dst_node->name);
-                        ret = -1;
-                        local->op_errno = EIO;
-                        goto out;
-                }
+        if (gf_uuid_compare (stbuf.ia_gfid, tmp_loc.inode->gfid)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_GFID_MISMATCH,
+                        "%s: gfid different on the target file on %s",
+                        tmp_loc.path, dst_node->name);
+                ret = -1;
+                local->op_errno = EIO;
+                goto out;
         }
 
-        /* update inode ctx (the layout) */
+        dst_node = dht_subvol_get_cached (this, tmp_loc.inode);
+        if (linkto_target && dst_node != linkto_target) {
+                gf_log (this->name, GF_LOG_WARNING, "linkto target (%s) is "
+                        "different from cached-subvol (%s). Treating %s as "
+                        "destination subvol", linkto_target->name,
+                        dst_node->name, dst_node->name);
+        }
+
+        /* update local. A layout is set in inode-ctx in lookup already */
+
         dht_layout_unref (this, local->layout);
 
-        ret = dht_layout_preset (this, dst_node, inode);
-        if (ret != 0) {
-                gf_msg_debug (this->name, 0,
-                              "%s: could not set preset layout "
-                              "for subvol %s", local->loc.path,
-                              dst_node->name);
-                ret   = -1;
-                local->op_errno = EINVAL;
-                goto out;
-        }
-
-        layout = dht_layout_for_subvol (this, dst_node);
-        if (!layout) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "%s: no pre-set layout for subvolume %s",
-                        local->loc.path, dst_node ? dst_node->name : "<nil>");
-                ret = -1;
-                local->op_errno = EINVAL;
-                goto out;
-        }
-
-        ret = dht_layout_set (this, inode, layout);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to set the new layout",
-                        local->loc.path);
-                local->op_errno = EINVAL;
-                goto out;
-        }
-
+        local->layout   = dht_layout_get (frame->this, inode);
         local->cached_subvol = dst_node;
+
         ret = 0;
 
         /* once we detect the migration complete, the inode-ctx2 is no more
@@ -1046,7 +975,6 @@ dht_migration_complete_check_task (void *data)
                         ret = -1;
                 }
         }
-        GF_FREE (path);
 
         SYNCTASK_SETID (frame->root->uid, frame->root->gid);
 
@@ -1056,6 +984,8 @@ dht_migration_complete_check_task (void *data)
         }
         ret = 0;
 out:
+
+        loc_wipe (&tmp_loc);
 
         return ret;
 }
