@@ -479,7 +479,7 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE (frame);
 
         if (op_ret < 0) {
-                gf_msg (this->name, GF_LOG_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_MKDIR, op_errno),
                         op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": MKDIR %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
@@ -527,7 +527,7 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE (frame);
 
         if (op_ret < 0) {
-                gf_msg (this->name, GF_LOG_INFO,
+                gf_msg (this->name, fop_log_level (GF_FOP_MKNOD, op_errno),
                         op_errno, PS_MSG_MKNOD_INFO,
                         "%"PRId64": MKNOD %s (%s/%s) ==> (%s)",
                         frame->root->unique, state->loc.path,
