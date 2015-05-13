@@ -143,13 +143,17 @@ struct br_private {
         struct list_head bricks;          /* list of bricks from which CHILD_UP
                                              has been received */
 
-        pthread_cond_t cond;              /* handling CHILD_UP notifications */
+        struct list_head signing;
+
         pthread_cond_t object_cond;       /* handling signing of objects */
         int child_count;
         br_child_t *children;             /* list of subvolumes */
         int up_children;
+
+        pthread_cond_t cond;              /* handling CHILD_UP notifications */
         pthread_t thread;                 /* thread for connecting each UP
                                              child with changelog */
+
         struct tvec_base *timer_wheel;    /* timer wheel where the objects which
                                              changelog has sent sits and waits
                                              for expiry */
@@ -163,6 +167,7 @@ struct br_private {
         br_tbf_t *tbf;                    /* token bucket filter */
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
+
         struct br_scrubber fsscrub;       /* scrubbers for this subvolume */
 };
 
