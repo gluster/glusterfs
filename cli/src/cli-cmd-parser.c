@@ -3323,8 +3323,8 @@ heal_command_type_get (const char *command)
                 [GF_SHD_OP_STATISTICS]                         = "statistics",
                 [GF_SHD_OP_STATISTICS_HEAL_COUNT]              = NULL,
                 [GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA]  = NULL,
-                [GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE]       = "split-brain",
-                [GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK]             = "split-brain",
+                [GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE]       = NULL,
+                [GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK]             = NULL,
                 [GF_SHD_OP_HEAL_ENABLE]                        = "enable",
                 [GF_SHD_OP_HEAL_DISABLE]                       = "disable",
         };
