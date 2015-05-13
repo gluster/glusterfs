@@ -47,11 +47,19 @@ afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
+#define AFR_READ_TXN_SET_ERROR_AND_GOTO(ret, errnum, index, label) \
+        do {                                                      \
+                local->op_ret = ret;                              \
+                local->op_errno = errnum;                          \
+                read_subvol = index;                              \
+                goto label;                                       \
+        } while (0)
 
 int
 afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 {
 	afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
 	int read_subvol = 0;
 	int event_generation = 0;
 	inode_t *inode = NULL;
@@ -60,35 +68,31 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 
 	local = frame->local;
 	inode = local->inode;
+        priv  = frame->this->private;
 
-	if (err) {
-		local->op_errno = -err;
-		local->op_ret = -1;
-		read_subvol = -1;
-		goto readfn;
-	}
+	if (err)
+                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, -err, -1, readfn);
 
 	ret = afr_inode_read_subvol_type_get (inode, this, local->readable,
 					      &event_generation,
 					      local->transaction.type);
 
-	if (ret == -1 || !event_generation) {
+	if (ret == -1 || !event_generation)
 		/* Even after refresh, we don't have a good
 		   read subvolume. Time to bail */
-		local->op_ret = -1;
-		local->op_errno = EIO;
-		read_subvol = -1;
-		goto readfn;
-	}
+                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
+
+         /* For directories in split-brain, we need to allow all fops
+          * except (f)getxattr and access. */
+        if (!AFR_COUNT(local->readable, priv->child_count) &&
+            local->transaction.type == AFR_DATA_TRANSACTION &&
+            inode->ia_type == IA_IFDIR)
+                memcpy (local->readable, local->child_up, priv->child_count);
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
 							local->readable);
-
-	if (read_subvol == -1) {
-		local->op_ret = -1;
-		local->op_errno = EIO;
-		goto readfn;
-	}
+	if (read_subvol == -1)
+                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
 
 	if (local->read_attempted[read_subvol]) {
 		afr_read_txn_next_subvol (frame, this);
