@@ -1080,7 +1080,10 @@ static inline int32_t
 br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
 {
         int32_t ret = 0;
+        br_private_t *priv = NULL;
         struct gf_brick_spec *brick = NULL;
+
+        priv = this->private;
 
         brick = GF_CALLOC (1, sizeof (struct gf_brick_spec),
                            gf_common_mt_gf_brick_spec_t);
@@ -1105,7 +1108,7 @@ br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
                 child->threadrunning = 1;
 
         /* it's OK to continue, "old" objects would be signed when modified */
-        list_del_init (&child->list);
+        list_add_tail (&child->list, &priv->signing);
         return 0;
 
  dealloc:
@@ -1157,7 +1160,7 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
          */
         pthread_mutex_lock (&fsscrub->mutex);
         {
-                list_move (&child->list, &fsscrub->scrublist);
+                list_add_tail (&child->list, &fsscrub->scrublist);
                 pthread_cond_broadcast (&fsscrub->cond);
         }
         pthread_mutex_unlock (&fsscrub->mutex);
@@ -1165,6 +1168,10 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
         return 0;
 
  error_return:
+        LOCK_DESTROY (&fsscan->entrylock);
+        pthread_mutex_destroy (&fsscan->waitlock);
+        pthread_cond_destroy (&fsscan->waitcond);
+
         return -1;
 }
 
@@ -1233,6 +1240,10 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         else
                 ret = br_enact_signer (this, child, stub);
 
+        if (!ret)
+                gf_log (this->name, GF_LOG_INFO,
+                        "Connected to brick %s..", child->brick_path);
+
  free_dict:
         dict_unref (xattr);
  wipeloc:
@@ -1249,10 +1260,10 @@ br_brick_connect (xlator_t *this, br_child_t *child)
 void *
 br_handle_events (void *arg)
 {
+        int32_t       ret   = 0;
         xlator_t     *this  = NULL;
         br_private_t *priv  = NULL;
         br_child_t   *child = NULL;
-        int32_t       ret   = -1;
 
         this = arg;
         priv = this->private;
@@ -1268,25 +1279,19 @@ br_handle_events (void *arg)
         while (1) {
                 pthread_mutex_lock (&priv->lock);
                 {
-                        while (list_empty (&priv->bricks)) {
-                                pthread_cond_wait (&priv->cond,
-                                                   &priv->lock);
-                        }
+                        while (list_empty (&priv->bricks))
+                                pthread_cond_wait (&priv->cond, &priv->lock);
 
-                        child = list_entry (priv->bricks.next, br_child_t,
-                                            list);
-                        if (child && child->child_up) {
-                                ret = br_brick_connect (this, child);
-                                if (ret == -1)
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "failed to connect to the "
-                                                "child (subvolume: %s)",
-                                                child->xl->name);
-
-                        }
-
+                        child = list_first_entry
+                                          (&priv->bricks, br_child_t, list);
+                        list_del_init (&child->list);
                 }
                 pthread_mutex_unlock (&priv->lock);
+
+                ret = br_brick_connect (this, child);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR, "failed to connect "
+                                "to subvolume %s", child->xl->name);
         }
 
         return NULL;
@@ -1295,7 +1300,7 @@ br_handle_events (void *arg)
 int32_t
 mem_acct_init (xlator_t *this)
 {
-        int32_t     ret = -1;
+        int32_t ret = -1;
 
         if (!this)
                 return ret;
@@ -1314,60 +1319,52 @@ mem_acct_init (xlator_t *this)
 int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
-        xlator_t                *subvol = NULL;
-        br_private_t            *priv   = NULL;
-        int                      idx    = -1;
-        br_child_t              *child  = NULL;
+        int           idx    = -1;
+        xlator_t     *subvol = NULL;
+        br_child_t   *child  = NULL;
+        br_private_t *priv   = NULL;
 
         subvol = (xlator_t *)data;
         priv = this->private;
 
-        gf_log (this->name, GF_LOG_TRACE, "Notification received: %d",
-                event);
+        gf_log (this->name, GF_LOG_TRACE, "Notification received: %d", event);
+
+        idx = br_find_child_index (this, subvol);
 
         switch (event) {
         case GF_EVENT_CHILD_UP:
-                /* should this be done under lock? or is it ok to do it
-                   without lock? */
-                idx = br_find_child_index (this, subvol);
+                if (idx < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Got event %d from invalid subvolume", event);
+                        goto out;
+                }
 
                 pthread_mutex_lock (&priv->lock);
                 {
-                        if (idx < 0) {
-                                gf_log (this->name, GF_LOG_ERROR, "got child "
-                                        "up from invalid subvolume");
-                        } else {
-                                child = &priv->children[idx];
-                                if (child->child_up != 1)
-                                        child->child_up = 1;
-                                if (!child->xl)
-                                        child->xl = subvol;
-                                if (!child->table)
-                                        child->table = inode_table_new (4096,
-                                                                       subvol);
-                                priv->up_children++;
-                                list_add_tail (&child->list, &priv->bricks);
-                                pthread_cond_signal (&priv->cond);
-                        }
+                        child = &priv->children[idx];
+                        if (child->child_up == 1)
+                                goto unblock;
+
+                        child->child_up = 1;
+                        child->xl = subvol;
+                        child->table = inode_table_new (4096, subvol);
+
+                        priv->up_children++;
+
+                        list_add_tail (&child->list, &priv->bricks);
+                        pthread_cond_signal (&priv->cond);
                 }
+        unblock:
                 pthread_mutex_unlock (&priv->lock);
+
+                if (priv->up_children == priv->child_count)
+                        default_notify (this, event, data);
                 break;
 
-        case GF_EVENT_CHILD_MODIFIED:
-                idx = br_find_child_index (this, subvol);
-                if (idx < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "received child up "
-                                "from invalid subvolume");
-                        goto out;
-                }
-                priv = this->private;
-                /* ++(priv->generation); */
-                break;
         case GF_EVENT_CHILD_DOWN:
-                idx = br_find_child_index (this, subvol);
                 if (idx < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "received child down "
-                                "from invalid subvolume");
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Got event %d from invalid subvolume", event);
                         goto out;
                 }
 
@@ -1379,13 +1376,15 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         }
                 }
                 pthread_mutex_unlock (&priv->lock);
+
+                if (priv->up_children == 0)
+                        default_notify (this, event, data);
                 break;
-        case GF_EVENT_PARENT_UP:
-                default_notify (this, GF_EVENT_PARENT_UP, data);
-                break;
+        default:
+                default_notify (this, event, data);
         }
 
-out:
+ out:
         return 0;
 }
 
@@ -1569,6 +1568,7 @@ init (xlator_t *this)
         for (i = 0; i < priv->child_count; i++)
                 INIT_LIST_HEAD (&priv->children[i].list);
         INIT_LIST_HEAD (&priv->bricks);
+        INIT_LIST_HEAD (&priv->signing);
 
         priv->timer_wheel = glusterfs_global_timer_wheel (this);
         if (!priv->timer_wheel) {
