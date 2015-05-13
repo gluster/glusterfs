@@ -658,6 +658,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 break;
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
+        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
                 ret = dict_get_str (dict, "cmd-str", &cmd_str);
                 if (ret) {
                      gf_log (this->name, GF_LOG_ERROR, "Failed to get "
@@ -822,6 +823,7 @@ glusterd_op_rebalance (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                                     cmd, NULL, GD_OP_REBALANCE);
                 break;
         case GF_DEFRAG_CMD_STOP:
+        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
                 /* Clear task-id only on explicitly stopping rebalance.
                  * Also clear the stored operation, so it doesn't cause trouble
                  * with future rebalance/remove-brick starts
