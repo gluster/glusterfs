@@ -267,9 +267,9 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
                 (strncmp(fop->str[0], GF_XATTR_CLRLK_CMD,
                          strlen(GF_XATTR_CLRLK_CMD)) != 0)) {
                 if (fop->fd == NULL) {
-                    ec_lock_prepare_inode(fop, &fop->loc[0], 0);
+                    ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO);
                 } else {
-                    ec_lock_prepare_fd(fop, fop->fd, 0);
+                    ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
                 }
                 ec_lock(fop);
             }
@@ -1094,12 +1094,12 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     size_t fsize = 0, size = 0, max = 0;
     int32_t i = 0;
 
-    if (cbk->op_ret < 0)
-    {
+    if (cbk->op_ret < 0) {
         goto out;
     }
 
-    cbk->iatt[0].ia_size = fop->pre_size;
+    /* This shouldn't fail because we have the inode locked. */
+    GF_ASSERT(ec_get_inode_size(fop, fop->fd->inode, &cbk->iatt[0].ia_size));
 
     if (cbk->op_ret > 0)
     {
@@ -1331,15 +1331,10 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, 0);
+            ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
             ec_lock(fop);
 
-            return EC_STATE_GET_SIZE_AND_VERSION;
-
-        case EC_STATE_GET_SIZE_AND_VERSION:
-	    ec_get_size_version(fop);
-
-	    return EC_STATE_DISPATCH;
+            return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
             ec_dispatch_min(fop);
@@ -1396,7 +1391,6 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
-        case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -1580,22 +1574,14 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            if (fop->fd == NULL)
-            {
-                ec_lock_prepare_inode(fop, &fop->loc[0], 0);
-            }
-            else
-            {
-                ec_lock_prepare_fd(fop, fop->fd, 0);
+            if (fop->fd == NULL) {
+                ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO);
+            } else {
+                ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
             }
             ec_lock(fop);
 
-            return EC_STATE_GET_SIZE_AND_VERSION;
-
-        case EC_STATE_GET_SIZE_AND_VERSION:
-	    ec_get_size_version(fop);
-
-	    return EC_STATE_DISPATCH;
+            return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
@@ -1614,16 +1600,16 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
                         cbk->op_errno = EIO;
                     }
                 }
-                if (cbk->op_ret < 0)
-                {
+                if (cbk->op_ret < 0) {
                     ec_fop_set_error(fop, cbk->op_errno);
-                }
-                else
-                {
+                } else if (cbk->iatt[0].ia_type == IA_IFREG) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 1,
                                     cbk->count);
 
-                    cbk->iatt[0].ia_size = fop->pre_size;
+                    /* This shouldn't fail because we have the inode locked. */
+                    GF_ASSERT(ec_get_inode_size(fop,
+                                                fop->locks[0].lock->loc.inode,
+                                                &cbk->iatt[0].ia_size));
                 }
             }
             else
@@ -1659,7 +1645,6 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
-        case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:

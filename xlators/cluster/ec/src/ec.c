@@ -278,6 +278,7 @@ ec_notify_cbk (void *data)
 {
         ec_t *ec = data;
         glusterfs_event_t event = GF_EVENT_MAXVAL;
+        gf_boolean_t propagate = _gf_false;
 
         LOCK(&ec->lock);
         {
@@ -309,10 +310,14 @@ ec_notify_cbk (void *data)
                 /* CHILD_DOWN should not come here as no grace period is given
                  * for notifying CHILD_DOWN. */
 
-                default_notify (ec->xl, event, NULL);
+                propagate = _gf_true;
         }
 unlock:
         UNLOCK(&ec->lock);
+
+        if (propagate) {
+                default_notify (ec->xl, event, NULL);
+        }
 }
 
 void
@@ -360,6 +365,49 @@ ec_handle_down (xlator_t *this, ec_t *ec, int32_t idx)
         }
 }
 
+gf_boolean_t
+ec_force_unlocks(ec_t *ec)
+{
+        struct list_head list;
+        ec_fop_data_t *fop;
+
+        if (list_empty(&ec->pending_fops)) {
+                return _gf_true;
+        }
+
+        INIT_LIST_HEAD(&list);
+
+        /* All pending fops when GF_EVENT_PARENT_DOWN is received should only
+         * be fops waiting for a delayed unlock. However the unlock can
+         * generate new fops. We don't want to trverse these new fops while
+         * forcing unlocks, so we move all fops to a temporal list. To process
+         * them without interferences.*/
+        list_splice_init(&ec->pending_fops, &list);
+
+        while (!list_empty(&list)) {
+                fop = list_entry(list.next, ec_fop_data_t, pending_list);
+                list_move_tail(&fop->pending_list, &ec->pending_fops);
+
+                UNLOCK(&ec->lock);
+
+                ec_unlock_force(fop);
+
+                LOCK(&ec->lock);
+        }
+
+        ec->shutdown = _gf_true;
+
+        return list_empty(&ec->pending_fops);
+}
+
+void
+ec_pending_fops_completed(ec_t *ec)
+{
+        if (ec->shutdown) {
+                default_notify(ec->xl, GF_EVENT_PARENT_DOWN, NULL);
+        }
+}
+
 int32_t
 ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 {
@@ -367,14 +415,16 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         int32_t           idx       = 0;
         int32_t           error     = 0;
         glusterfs_event_t old_event = GF_EVENT_MAXVAL;
-        glusterfs_event_t new_event = GF_EVENT_MAXVAL;
         dict_t            *input    = NULL;
         dict_t            *output   = NULL;
+        gf_boolean_t      propagate = _gf_true;
+
+        gf_log (this->name, GF_LOG_TRACE, "NOTIFY(%d): %p, %p",
+                event, data, data2);
 
         if (event == GF_EVENT_TRANSLATOR_OP) {
                 if (!ec->up) {
                         error = -1;
-                        goto out;
                 } else {
                         input = data;
                         output = data2;
@@ -400,13 +450,14 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
                  */
                 ec_launch_notify_timer (this, ec);
                 goto unlock;
+        } else if (event == GF_EVENT_PARENT_DOWN) {
+                /* If there aren't pending fops running after we have waken up
+                 * them, we immediately propagate the notification. */
+                propagate = ec_force_unlocks(ec);
+                goto unlock;
         }
 
-        gf_log (this->name, GF_LOG_TRACE, "NOTIFY(%d): %p, %d",
-                event, data, idx);
-
         if (idx < ec->nodes) { /* CHILD_* events */
-
                 old_event = ec_get_event_from_state (ec);
 
                 if (event == GF_EVENT_CHILD_UP) {
@@ -415,28 +466,30 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
                         ec_handle_down (this, ec, idx);
                 }
 
-                new_event = ec_get_event_from_state (ec);
+                event = ec_get_event_from_state (ec);
 
-                if (new_event == GF_EVENT_CHILD_UP && !ec->up) {
+                if (event == GF_EVENT_CHILD_UP && !ec->up) {
                         ec_up (this, ec);
-                } else if (new_event == GF_EVENT_CHILD_DOWN && ec->up) {
+                } else if (event == GF_EVENT_CHILD_DOWN && ec->up) {
                         ec_down (this, ec);
                 }
 
-                if ((new_event == old_event) && (new_event != GF_EVENT_MAXVAL))
-                        new_event = GF_EVENT_CHILD_MODIFIED;
-
-                event = GF_EVENT_MAXVAL;/* Take care of notifying inside lock */
-                if (new_event != GF_EVENT_MAXVAL)
-                        error = default_notify (this, new_event, data);
+                if (event != GF_EVENT_MAXVAL) {
+                        if (event == old_event) {
+                                event = GF_EVENT_CHILD_MODIFIED;
+                        }
+                } else {
+                        propagate = _gf_false;
+                }
         }
-    unlock:
-            UNLOCK (&ec->lock);
+unlock:
+        UNLOCK (&ec->lock);
 
-            if (event != GF_EVENT_MAXVAL)
-                    return default_notify (this, event, data);
+        if (propagate) {
+                error = default_notify (this, event, data);
+        }
 out:
-            return error;
+        return error;
 }
 
 int32_t
@@ -477,6 +530,8 @@ init (xlator_t *this)
 
     ec->xl = this;
     LOCK_INIT(&ec->lock);
+
+    INIT_LIST_HEAD(&ec->pending_fops);
 
     ec->fop_pool = mem_pool_new(ec_fop_data_t, 1024);
     ec->cbk_pool = mem_pool_new(ec_cbk_data_t, 4096);

@@ -96,6 +96,19 @@ void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
     mem_put(cbk);
 }
 
+/* PARENT_DOWN will be notified to children only after these fops are complete
+ * when graph switch happens.  We do not want graph switch to be waiting on
+ * heal to complete as healing big file/directory could take a while. Which
+ * will lead to hang on the mount.
+ */
+static inline gf_boolean_t
+ec_needs_graceful_completion (ec_fop_data_t *fop)
+{
+        if ((fop->id != EC_FOP_HEAL) && (fop->id != EC_FOP_FHEAL))
+                return _gf_true;
+        return _gf_false;
+}
+
 ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
                                      int32_t id, uint32_t flags,
                                      uintptr_t target, int32_t minimum,
@@ -113,6 +126,12 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
 
         return NULL;
     }
+
+    INIT_LIST_HEAD(&fop->cbk_list);
+    INIT_LIST_HEAD(&fop->answer_list);
+    INIT_LIST_HEAD(&fop->pending_list);
+    INIT_LIST_HEAD(&fop->locks[0].wait_list);
+    INIT_LIST_HEAD(&fop->locks[1].wait_list);
 
     fop->xl = this;
     fop->req_frame = frame;
@@ -148,9 +167,6 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     fop->minimum = minimum;
     fop->mask = target;
 
-    INIT_LIST_HEAD(&fop->cbk_list);
-    INIT_LIST_HEAD(&fop->answer_list);
-
     fop->wind = wind;
     fop->handler = handler;
     fop->cbks = cbks;
@@ -165,15 +181,18 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
         parent = frame->local;
         if (parent != NULL)
         {
-            LOCK(&parent->lock);
-
-            parent->jobs++;
-            parent->refs++;
-
-            UNLOCK(&parent->lock);
+            ec_sleep(parent);
         }
 
         fop->parent = parent;
+    }
+
+    if (ec_needs_graceful_completion (fop)) {
+            LOCK(&ec->lock);
+
+            list_add_tail(&fop->pending_list, &ec->pending_fops);
+
+            UNLOCK(&ec->lock);
     }
 
     return fop;
@@ -190,10 +209,41 @@ void ec_fop_data_acquire(ec_fop_data_t * fop)
     UNLOCK(&fop->lock);
 }
 
+static void
+ec_handle_last_pending_fop_completion (ec_fop_data_t *fop, gf_boolean_t *notify)
+{
+        ec_t *ec = fop->xl->private;
+
+        if (!list_empty (&fop->pending_list)) {
+                LOCK(&ec->lock);
+                {
+                        list_del_init (&fop->pending_list);
+                        *notify = list_empty (&ec->pending_fops);
+                }
+                UNLOCK(&ec->lock);
+        }
+}
+
+void
+ec_fop_cleanup(ec_fop_data_t *fop)
+{
+        ec_cbk_data_t *cbk, *tmp;
+
+        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list) {
+            list_del_init(&cbk->answer_list);
+
+            ec_cbk_data_destroy(cbk);
+        }
+        INIT_LIST_HEAD(&fop->cbk_list);
+
+        fop->answer = NULL;
+}
+
 void ec_fop_data_release(ec_fop_data_t * fop)
 {
-    ec_cbk_data_t * cbk, * tmp;
+    ec_t *ec = NULL;
     int32_t refs;
+    gf_boolean_t notify = _gf_false;
 
     LOCK(&fop->lock);
 
@@ -238,13 +288,13 @@ void ec_fop_data_release(ec_fop_data_t * fop)
 
         ec_resume_parent(fop, fop->error);
 
-        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list)
-        {
-            list_del_init(&cbk->answer_list);
+        ec_fop_cleanup(fop);
 
-            ec_cbk_data_destroy(cbk);
-        }
-
+        ec = fop->xl->private;
+        ec_handle_last_pending_fop_completion (fop, &notify);
         mem_put(fop);
+        if (notify) {
+            ec_pending_fops_completed(ec);
+        }
     }
 }
