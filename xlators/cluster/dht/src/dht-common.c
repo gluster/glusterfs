@@ -6846,7 +6846,8 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                                 gf_defrag_status_get (defrag, output);
                         else if (cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
                                 gf_defrag_start_detach_tier(defrag);
-                        else if (cmd == GF_DEFRAG_CMD_STOP)
+                        else if (cmd == GF_DEFRAG_CMD_STOP ||
+                                 cmd == GF_DEFRAG_CMD_STOP_DETACH_TIER)
                                 gf_defrag_stop (defrag,
                                                 GF_DEFRAG_STATUS_STOPPED, output);
                 }
