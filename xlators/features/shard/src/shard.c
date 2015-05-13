@@ -3188,6 +3188,8 @@ shard_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (!entry->dict)
                         continue;
+                if (IA_ISDIR (entry->d_stat.ia_type))
+                        continue;
 
                 shard_modify_size_and_block_count (&entry->d_stat, entry->dict);
 
