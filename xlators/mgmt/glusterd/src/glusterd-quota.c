@@ -791,7 +791,6 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         int                ret                   = -1;
         int                fd                    = -1;
         int                conf_fd               = -1;
-        size_t             entry_sz              = 139264;
         ssize_t            bytes_read            = 0;
         size_t             bytes_to_write        = 0;
         unsigned char      buf[131072]           = {0,};
@@ -869,7 +868,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 type = GF_QUOTA_CONF_TYPE_USAGE;
 
         for (;;) {
-                bytes_read = read (conf_fd, (void*)&buf, entry_sz);
+                bytes_read = read (conf_fd, (void *)&buf, sizeof (buf));
                 if (bytes_read <= 0) {
                         /*The flag @is_first_read is TRUE when the loop is
                          * entered, and is set to false if the first read
