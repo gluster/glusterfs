@@ -4302,7 +4302,7 @@ gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         if ((command != GF_OP_CMD_STATUS) &&
-            (command != GF_DEFRAG_CMD_STOP_DETACH_TIER)) {
+            (command != GF_OP_CMD_STOP_DETACH_TIER)) {
 
 
                 ret = cli_to_glusterd (&req, frame, gf_cli_detach_tier_cbk,
