@@ -700,14 +700,12 @@ __mnt3_build_mountid_from_path (const char *path, uuid_t mountid)
 {
         uint32_t hashed_path = 0;
         int      ret = -1;
-        size_t length;
 
-        length = sizeof(mountid);
         while (strlen (path) > 0 && path[0] == '/')
                 path++;
 
         /* Clear the mountid */
-        memset (mountid, 0, length);
+        gf_uuid_clear (mountid);
 
         hashed_path = SuperFastHash (path,  strlen (path));
         if (hashed_path == 1) {
@@ -727,12 +725,10 @@ __mnt3_get_mount_id (xlator_t *mntxl, uuid_t mountid)
 {
         int ret = -1;
         uint32_t hashed_path = 0;
-        size_t length;
 
-        length = sizeof(mountid);
 
         /* first clear the mountid */
-        memset (mountid, 0, length);
+        gf_uuid_clear (mountid);
 
         hashed_path = SuperFastHash (mntxl->name, strlen (mntxl->name));
         if (hashed_path == 1) {
