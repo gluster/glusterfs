@@ -3669,6 +3669,10 @@ fop_log_level (glusterfs_fop_t fop, int op_errno)
                         return GF_LOG_DEBUG;
         }
 
+        if (fop == GF_FOP_MKNOD || fop == GF_FOP_MKDIR)
+                if (op_errno == EEXIST)
+                        return GF_LOG_DEBUG;
+
         return GF_LOG_ERROR;
 }
 

@@ -235,7 +235,8 @@ client3_3_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1 &&
             GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, fop_log_level (GF_FOP_MKNOD,
+                        gf_error_to_errno (rsp.op_errno)),
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         local->loc.path);
@@ -302,7 +303,8 @@ client3_3_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (rsp.op_ret == -1 &&
             GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, fop_log_level (GF_FOP_MKDIR,
+                        gf_error_to_errno (rsp.op_errno)),
                         "remote operation failed: %s. Path: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)),
                         local->loc.path);
