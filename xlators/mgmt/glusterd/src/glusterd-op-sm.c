@@ -35,6 +35,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-locks.h"
 #include "glusterd-messages.h"
+#include "glusterd-utils.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
 #include "common-utils.h"
@@ -46,7 +47,7 @@
 #include "glusterd-nfs-svc.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-server-quorum.h"
-
+#include "glusterd-volgen.h"
 #include <sys/types.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -1537,13 +1538,14 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
         char                   msg[2048]      = {0,};
         char                  *volname        = NULL;
         char                  *brick          = NULL;
+        char                  *shd_key        = NULL;
         xlator_t              *this           = NULL;
         glusterd_conf_t       *priv           = NULL;
         glusterd_brickinfo_t  *brickinfo      = NULL;
         glusterd_volinfo_t    *volinfo        = NULL;
         dict_t                *vol_opts       = NULL;
         gf_boolean_t           nfs_disabled   = _gf_false;
-        gf_boolean_t           shd_enabled    = _gf_true;
+        gf_boolean_t           shd_enabled    = _gf_false;
 
         GF_ASSERT (dict);
         this = THIS;
@@ -1616,17 +1618,18 @@ glusterd_op_stage_status_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
         } else if ((cmd & GF_CLI_STATUS_SHD) != 0) {
-                if (!glusterd_is_volume_replicate (volinfo)) {
+                if (glusterd_is_shd_compatible_volume (volinfo)) {
+                        shd_key = volgen_get_shd_key(volinfo);
+                        shd_enabled = dict_get_str_boolean (vol_opts,
+                                                     shd_key,
+                                                     _gf_true);
+                } else {
                         ret = -1;
                         snprintf (msg, sizeof (msg),
-                                  "Volume %s is not of type replicate",
-                                  volname);
+                              "Volume %s is not Self-heal compatible",
+                              volname);
                         goto out;
                 }
-
-                shd_enabled = dict_get_str_boolean (vol_opts,
-                                                    "cluster.self-heal-daemon",
-                                                    _gf_true);
                 if (!shd_enabled) {
                         ret = -1;
                         snprintf (msg, sizeof (msg),
@@ -3061,13 +3064,14 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
         uint32_t                cmd             = 0;
         char                   *volname         = NULL;
         char                   *brick           = NULL;
+        char                   *shd_key         = NULL;
         xlator_t               *this            = NULL;
         glusterd_volinfo_t     *volinfo         = NULL;
         glusterd_brickinfo_t   *brickinfo       = NULL;
         glusterd_conf_t        *priv            = NULL;
         dict_t                 *vol_opts        = NULL;
         gf_boolean_t            nfs_disabled    = _gf_false;
-        gf_boolean_t            shd_enabled     = _gf_true;
+        gf_boolean_t            shd_enabled     = _gf_false;
         gf_boolean_t            origin_glusterd = _gf_false;
 
         this = THIS;
@@ -3233,12 +3237,13 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                                 other_count++;
                                 node_count++;
                         }
-
-                        shd_enabled = dict_get_str_boolean
-                                        (vol_opts, "cluster.self-heal-daemon",
-                                         _gf_true);
-                        if (glusterd_is_volume_replicate (volinfo)
-                            && shd_enabled) {
+                        if (glusterd_is_shd_compatible_volume (volinfo)) {
+                                shd_key = volgen_get_shd_key (volinfo);
+                                shd_enabled = dict_get_str_boolean (vol_opts,
+                                                     shd_key,
+                                                     _gf_true);
+                        }
+                        if (shd_enabled) {
                                 ret = glusterd_add_node_to_dict
                                         (priv->shd_svc.name, rsp_dict,
                                          other_index, vol_opts);
@@ -3248,6 +3253,7 @@ glusterd_op_status_volume (dict_t *dict, char **op_errstr,
                                 node_count++;
                                 other_index++;
                         }
+
                         if (glusterd_is_volume_quota_enabled (volinfo)) {
                                 ret = glusterd_add_node_to_dict
                                                         (priv->quotad_svc.name,
