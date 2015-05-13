@@ -7715,8 +7715,7 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_set_int32 (ctx_dict, "hot_brick_count",
-                              node_count + rsp_node_count);
+        ret = dict_set_int32 (ctx_dict, "hot_brick_count", hot_brick_count);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "Failed to update hot_brick_count");

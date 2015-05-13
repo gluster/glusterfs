@@ -704,7 +704,7 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
         if (ret)
                 goto out;
 
-        cli_out ("Cold Bricks:");
+        cli_out ("Cold Tier:");
         vol_type = cold_type;
         if ((cold_type != GF_CLUSTER_TYPE_TIER) &&
             (cold_type > 0) &&
@@ -4302,7 +4302,7 @@ gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         if ((command != GF_OP_CMD_STATUS) &&
-            (command != GF_DEFRAG_CMD_STOP_DETACH_TIER)) {
+            (command != GF_OP_CMD_STOP_DETACH_TIER)) {
 
 
                 ret = cli_to_glusterd (&req, frame, gf_cli_detach_tier_cbk,
@@ -4314,7 +4314,7 @@ gf_cli_detach_tier (call_frame_t *frame, xlator_t *this,
                 if (command == GF_OP_CMD_STATUS)
                         cmd |= GF_DEFRAG_CMD_STATUS;
                 else
-                        cmd |= GF_DEFRAG_CMD_STOP;
+                        cmd |= GF_DEFRAG_CMD_STOP_DETACH_TIER;
 
                 ret = dict_set_int32 (dict, "rebalance-command", (int32_t) cmd);
                 if (ret) {
