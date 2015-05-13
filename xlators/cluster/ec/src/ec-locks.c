@@ -37,13 +37,22 @@ int32_t ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
             locked |= ans->mask;
             cbk = ans;
         } else {
-            notlocked |= ans->mask;
+                if (ans->op_errno == EAGAIN) {
+                        switch (fop->uint32) {
+                        case EC_LOCK_MODE_NONE:
+                        case EC_LOCK_MODE_ALL:
+                                /* Goal is to treat non-blocking lock as failure
+                                 * even if there is a signle EAGAIN*/
+                                notlocked |= ans->mask;
+                                break;
+                        }
+                }
         }
     }
 
     if (error == -1) {
         if (ec_bits_count(locked | notlocked) >= ec->fragments) {
-            if (ec_bits_count (locked) >= ec->fragments) {
+            if (notlocked == 0) {
                 if (fop->answer == NULL) {
                     fop->answer = cbk;
                 }
