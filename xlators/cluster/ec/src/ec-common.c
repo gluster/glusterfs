@@ -1442,8 +1442,9 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     ec_inode_t *ctx;
 
     if (op_ret < 0) {
-        gf_log(fop->xl->name, GF_LOG_ERROR, "Failed to update version and "
-                                            "size (error %d)", op_errno);
+        gf_log(fop->xl->name, fop_log_level (fop->id, op_errno),
+                              "Failed to update version and"
+                              " size (error %d)", op_errno);
     } else {
         fop->parent->mask &= fop->good;
         link = fop->data;
