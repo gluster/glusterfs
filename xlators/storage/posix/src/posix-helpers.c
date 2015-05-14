@@ -964,6 +964,10 @@ posix_pacl_set (const char *path, const char *key, const char *acl_s)
 
         acl = acl_from_text (acl_s);
         ret = acl_set_file (path, type, acl);
+        if (ret)
+                /* posix_handle_pair expects ret to be the errno */
+                ret = -errno;
+
         acl_free (acl);
 
         return ret;
