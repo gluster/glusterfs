@@ -3535,8 +3535,6 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         tmp = dict_get (xattr, GF_XATTR_FIX_LAYOUT_KEY);
         if (tmp) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "fixing the layout of %s", loc->path);
 
                 ret = dict_get_uint32(xattr, "new-commit-hash", &new_hash);
                 if (ret == 0) {
@@ -3553,6 +3551,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         }
                         return ret;
                 }
+
+                gf_log (this->name, GF_LOG_INFO,
+                        "fixing the layout of %s", loc->path);
 
                 ret = dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
                                                 layout);

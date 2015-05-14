@@ -2341,7 +2341,7 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
                        loc_t *loc, dict_t *fix_layout)
 {
         int     ret;
-
+        dht_conf_t *conf = NULL;
         /*
          * Now we're ready to update the directory commit hash for the volume
          * root, so that hash miscompares and broadcast lookups can stop.
@@ -2352,6 +2352,19 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
         if (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX
             || defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER
             || defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+                return 0;
+        }
+
+        conf = this->private;
+        if (!conf) {
+                /*Uh oh
+                 */
+                return -1;
+        }
+
+        if (conf->local_subvols_cnt == 0) {
+                /* Commit hash updates are only done on local subvolumes
+                 */
                 return 0;
         }
 
