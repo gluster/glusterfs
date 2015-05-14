@@ -9759,3 +9759,34 @@ glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
 out:
         return ret;
 }
+
+int32_t
+glusterd_count_connected_peers (int32_t *count)
+{
+        glusterd_peerinfo_t  *peerinfo  = NULL;
+        glusterd_conf_t      *conf      = NULL;
+        int32_t               ret       = -1;
+        xlator_t             *this      = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+        GF_VALIDATE_OR_GOTO (this->name, count, out);
+
+        *count = 1;
+
+        rcu_read_lock ();
+        cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
+                /* Find peer who is connected and is a friend */
+                if ((peerinfo->connected) &&
+                     (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)) {
+                        (*count)++;
+                }
+        }
+        rcu_read_unlock ();
+
+        ret = 0;
+out:
+        return ret;
+}

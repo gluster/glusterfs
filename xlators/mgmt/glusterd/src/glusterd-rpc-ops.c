@@ -1467,6 +1467,15 @@ glusterd_rpc_friend_add (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        ret = dict_set_dynstr_with_alloc (peer_data,
+                                          "hostname_in_cluster",
+                                          peerinfo->hostname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Unable to add hostname of the peer");
+                goto out;
+        }
+
         if (priv->op_version >= GD_OP_VERSION_3_6_0) {
                 ret = glusterd_add_missed_snaps_to_export_dict (peer_data);
                 if (ret) {

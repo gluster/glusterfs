@@ -34,6 +34,8 @@
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-server-quorum.h"
 
+char local_node_hostname[PATH_MAX] = {0, };
+
 static struct cds_list_head gd_friend_sm_queue;
 
 static  char *glusterd_friend_sm_state_names[] = {
@@ -729,6 +731,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         int32_t                         op_ret = -1;
         int32_t                         op_errno = 0;
         xlator_t                       *this       = NULL;
+        char                           *hostname   = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -832,6 +835,15 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         new_ev_ctx->op = GD_FRIEND_UPDATE_ADD;
 
         new_event->ctx = new_ev_ctx;
+
+        ret = dict_get_str (ev_ctx->vols, "hostname_in_cluster",
+                            &hostname);
+        if (ret || !hostname) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Unable to fetch local hostname from peer");
+        } else
+                strncpy (local_node_hostname, hostname,
+                         sizeof(local_node_hostname));
 
         glusterd_friend_sm_inject_event (new_event);
         new_event = NULL;

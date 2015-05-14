@@ -1740,6 +1740,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/trash",
           .op_version  = GD_OP_VERSION_3_7_0,
         },
+        { .key         = GLUSTERD_SHARED_STORAGE_KEY,
+          .voltype     = "mgmt/glusterd",
+          .value       = "disable",
+          .type        = GLOBAL_DOC,
+          .op_version  = GD_OP_VERSION_3_7_1,
+        },
 
 #if USE_GFDB /* no GFDB means tiering is disabled */
         /* tier translator - global tunables */

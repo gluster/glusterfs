@@ -15,6 +15,8 @@
 #include "cli.h"
 #include "list.h"
 
+#define GLUSTER_SHARED_STORAGE      "gluster_shared_storage"
+
 #define CLI_LOCAL_INIT(local, words, frame, dictionary) \
         do {                                                 \
                 local = cli_local_get ();                    \

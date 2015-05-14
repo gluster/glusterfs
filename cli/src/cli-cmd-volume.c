@@ -281,19 +281,25 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
-        answer = cli_cmd_get_confirmation (state, question);
-
-        if (GF_ANSWER_NO == answer) {
-                ret = 0;
-                goto out;
-        }
-
         volname = (char *)words[2];
 
         ret = dict_set_str (dict, "volname", volname);
-
         if (ret) {
                 gf_log (THIS->name, GF_LOG_WARNING, "dict set failed");
+                goto out;
+        }
+
+        if (!strcmp (volname, GLUSTER_SHARED_STORAGE)) {
+                question = "Deleting the shared storage volume"
+                           "(gluster_shared_storage), will affect features "
+                           "like snapshot scheduler, geo-replication "
+                           "and NFS-Ganesha. Do you still want to "
+                           "continue?";
+        }
+
+        answer = cli_cmd_get_confirmation (state, question);
+        if (GF_ANSWER_NO == answer) {
+                ret = 0;
                 goto out;
         }
 
@@ -468,6 +474,14 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
+        if (!strcmp (volname, GLUSTER_SHARED_STORAGE)) {
+                question = "Stopping the shared storage volume"
+                           "(gluster_shared_storage), will affect features "
+                           "like snapshot scheduler, geo-replication "
+                           "and NFS-Ganesha. Do you still want to "
+                           "continue?";
+        }
+
         if (wordcount == 4) {
                 if (!strcmp("force", words[3])) {
                         flags |= GF_CLI_FLAG_OP_FORCE;
@@ -478,6 +492,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
                 }
         }
+
         ret = dict_set_int32 (dict, "flags", flags);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_ERROR,
@@ -727,7 +742,8 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_set_parse (words, wordcount, &options, &op_errstr);
+        ret = cli_cmd_volume_set_parse (state, words, wordcount,
+                                        &options, &op_errstr);
         if (ret) {
                 if (op_errstr) {
                     cli_err ("%s", op_errstr);
@@ -1607,6 +1623,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         int                     parse_error = 0;
         int                     need_question = 0;
         cli_local_t             *local = NULL;
+        char                    *volname = NULL;
 
         const char *question = "Removing brick(s) can result in data loss. "
                                "Do you want to Continue?";
@@ -1621,6 +1638,22 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
+        }
+
+        ret = dict_get_str (options, "volname", &volname);
+        if (ret || !volname) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to fetch volname");
+                ret = -1;
+                goto out;
+        }
+
+        if (!strcmp (volname, GLUSTER_SHARED_STORAGE)) {
+                question = "Removing brick from the shared storage volume"
+                           "(gluster_shared_storage), will affect features "
+                           "like snapshot scheduler, geo-replication "
+                           "and NFS-Ganesha. Do you still want to "
+                           "continue?";
+                need_question = _gf_true;
         }
 
         if (!(state->mode & GLUSTER_MODE_SCRIPT) && need_question) {

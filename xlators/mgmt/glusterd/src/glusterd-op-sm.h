@@ -163,6 +163,10 @@ typedef enum cli_cmd_type_ {
         ALL_HEAL_XL,
  } cli_cmd_type;
 
+typedef struct glusterd_all_volume_options {
+        char          *option;
+} glusterd_all_vol_opts;
+
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
                           glusterd_op_sm_event_t **new_event);

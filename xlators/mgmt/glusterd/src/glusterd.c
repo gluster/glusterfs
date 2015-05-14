@@ -62,7 +62,8 @@ extern struct rpcsvc_program gd_svc_cli_trusted_progs;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpcsvc_program glusterd_mgmt_hndsk_prog;
 
-extern char snap_mount_folder[PATH_MAX];
+extern char snap_mount_dir[PATH_MAX];
+char ss_brick_path[PATH_MAX];
 
 rpcsvc_cbk_program_t glusterd_cbk_prog = {
         .progname  = "Gluster Callback",
@@ -1115,18 +1116,18 @@ glusterd_stop_uds_listener (xlator_t *this)
 }
 
 static int
-glusterd_init_snap_folder (xlator_t *this)
+glusterd_find_correct_var_run_dir (xlator_t *this, char *var_run_dir)
 {
         int             ret = -1;
         struct stat     buf = {0,};
 
-        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, var_run_dir, out);
 
-        /* Snapshot volumes are mounted under /var/run/gluster/snaps folder.
-         * But /var/run is normally a symbolic link to /run folder, which
+        /* /var/run is normally a symbolic link to /run dir, which
          * creates problems as the entry point in the mtab for the mount point
          * and glusterd maintained entry point will be different. Therefore
-         * identify the correct run folder and use it for snap volume mounting.
+         * identify the correct run dir and use it
          */
         ret = lstat (GLUSTERD_VAR_RUN_DIR, &buf);
         if (ret != 0) {
@@ -1136,20 +1137,38 @@ glusterd_init_snap_folder (xlator_t *this)
                 goto out;
         }
 
-        /* If /var/run is symlink then use /run folder */
+        /* If /var/run is symlink then use /run dir */
         if (S_ISLNK (buf.st_mode)) {
-                strcpy (snap_mount_folder, GLUSTERD_RUN_DIR);
+                strcpy (var_run_dir, GLUSTERD_RUN_DIR);
         } else {
-                strcpy (snap_mount_folder, GLUSTERD_VAR_RUN_DIR);
+                strcpy (var_run_dir, GLUSTERD_VAR_RUN_DIR);
         }
 
-        strcat (snap_mount_folder, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+        ret = 0;
+out:
+        return ret;
+}
 
-        ret = stat (snap_mount_folder, &buf);
+static int
+glusterd_init_var_run_dirs (xlator_t *this, char *var_run_dir,
+                            char *dir_to_be_created)
+{
+        int             ret                = -1;
+        struct stat     buf                = {0,};
+        char            abs_path[PATH_MAX] = {0, };
+
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, var_run_dir, out);
+        GF_VALIDATE_OR_GOTO (this->name, dir_to_be_created, out);
+
+        snprintf (abs_path, sizeof(abs_path), "%s%s",
+                  var_run_dir, dir_to_be_created);
+
+        ret = stat (abs_path, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "stat fails on %s, exiting. (errno = %d)",
-                        snap_mount_folder, errno);
+                        abs_path, errno);
                 ret = -1;
                 goto out;
         }
@@ -1157,19 +1176,19 @@ glusterd_init_snap_folder (xlator_t *this)
         if ((!ret) && (!S_ISDIR(buf.st_mode))) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Provided snap path %s is not a directory,"
-                        "exiting", snap_mount_folder);
+                        "exiting", abs_path);
                 ret = -1;
                 goto out;
         }
 
         if ((-1 == ret) && (ENOENT == errno)) {
-                /* Create missing folders */
-                ret = mkdir_p (snap_mount_folder, 0777, _gf_true);
+                /* Create missing dirs */
+                ret = mkdir_p (abs_path, 0777, _gf_true);
 
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Unable to create directory %s"
-                                " ,errno = %d", snap_mount_folder, errno);
+                                " ,errno = %d", abs_path, errno);
                         goto out;
                 }
         }
@@ -1246,21 +1265,22 @@ out:
 int
 init (xlator_t *this)
 {
-        int32_t            ret               = -1;
-        rpcsvc_t          *rpc               = NULL;
-        rpcsvc_t          *uds_rpc           = NULL;
-        glusterd_conf_t   *conf              = NULL;
-        data_t            *dir_data          = NULL;
-        struct stat        buf               = {0,};
-        char               storedir [PATH_MAX] = {0,};
-        char               workdir [PATH_MAX] = {0,};
-        char               cmd_log_filename [PATH_MAX] = {0,};
-        int                first_time        = 0;
-        char              *mountbroker_root  = NULL;
-        int                i                 = 0;
-        int                total_transport   = 0;
-        char              *valgrind_str      = NULL;
-        char              *transport_type    = NULL;
+        int32_t            ret                        = -1;
+        rpcsvc_t          *rpc                        = NULL;
+        rpcsvc_t          *uds_rpc                    = NULL;
+        glusterd_conf_t   *conf                       = NULL;
+        data_t            *dir_data                   = NULL;
+        struct stat        buf                        = {0,};
+        char               storedir[PATH_MAX]         = {0,};
+        char               workdir[PATH_MAX]          = {0,};
+        char               cmd_log_filename[PATH_MAX] = {0,};
+        int                first_time                 = 0;
+        char              *mountbroker_root           = NULL;
+        int                i                          = 0;
+        int                total_transport            = 0;
+        char              *valgrind_str               = NULL;
+        char              *transport_type             = NULL;
+        char               var_run_dir[PATH_MAX]      = {0,};
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1322,13 +1342,34 @@ init (xlator_t *this)
         gf_log (this->name, GF_LOG_INFO, "Using %s as working directory",
                 workdir);
 
-        ret = glusterd_init_snap_folder (this);
-
+        ret = glusterd_find_correct_var_run_dir (this, var_run_dir);
         if (ret) {
-                gf_log (this->name, GF_LOG_CRITICAL, "Unable to create "
-                        "snap backend folder");
+                gf_log (this->name, GF_LOG_CRITICAL, "Unable to find "
+                        "the correct var run dir");
                 exit (1);
         }
+
+        ret = glusterd_init_var_run_dirs (this, var_run_dir,
+                                      GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL, "Unable to create "
+                        "snap backend dir");
+                exit (1);
+        }
+
+        snprintf (snap_mount_dir, sizeof(snap_mount_dir), "%s%s",
+                  var_run_dir, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+
+        ret = glusterd_init_var_run_dirs (this, var_run_dir,
+                                      GLUSTER_SHARED_STORAGE_BRICK_DIR);
+        if (ret) {
+                gf_log (this->name, GF_LOG_CRITICAL, "Unable to create "
+                        "shared storage brick");
+                exit (1);
+        }
+
+        snprintf (ss_brick_path, sizeof(ss_brick_path), "%s%s",
+                  var_run_dir, GLUSTER_SHARED_STORAGE_BRICK_DIR);
 
         snprintf (cmd_log_filename, PATH_MAX, "%s/cmd_history.log",
                   DEFAULT_LOG_FILE_DIRECTORY);
