@@ -44,6 +44,8 @@ struct _ec
     xlator_t **       xl_list;
     gf_lock_t         lock;
     gf_timer_t *      timer;
+    gf_boolean_t      shutdown;
+    struct list_head  pending_fops;
     struct mem_pool * fop_pool;
     struct mem_pool * cbk_pool;
     struct mem_pool * lock_pool;
@@ -51,4 +53,7 @@ struct _ec
     char              vol_uuid[UUID_SIZE + 1];
     dict_t           *leaf_to_subvolid;
 };
+
+void ec_pending_fops_completed(ec_t *ec);
+
 #endif /* __EC_H__ */

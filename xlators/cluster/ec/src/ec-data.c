@@ -165,16 +165,17 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
         parent = frame->local;
         if (parent != NULL)
         {
-            LOCK(&parent->lock);
-
-            parent->jobs++;
-            parent->refs++;
-
-            UNLOCK(&parent->lock);
+            ec_sleep(parent);
         }
 
         fop->parent = parent;
     }
+
+    LOCK(&ec->lock);
+
+    list_add_tail(&fop->pending_list, &ec->pending_fops);
+
+    UNLOCK(&ec->lock);
 
     return fop;
 }

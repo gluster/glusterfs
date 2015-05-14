@@ -1531,31 +1531,46 @@ void ec_unlock_now(ec_fop_data_t *fop, ec_lock_t *lock)
     ec_resume(fop, 0);
 }
 
+void
+ec_unlock_timer_del(ec_fop_data_t *fop, ec_lock_t *lock)
+{
+        inode_t *inode;
+        gf_boolean_t now = _gf_false;
+
+        /* A race condition can happen if timer expires, calls this function
+         * and the lock is released (lock->loc is wiped) but the fop is not
+         * fully completed yet (it's still on the list of pending fops). In
+         * this case, this function can also be called if ec_unlock_force() is
+         * called. */
+        inode = lock->loc.inode;
+        if (inode == NULL) {
+                return;
+        }
+
+        LOCK(&inode->lock);
+
+        if (lock->timer != NULL) {
+                ec_trace("UNLOCK_DELAYED", fop, "lock=%p", lock);
+
+                gf_timer_call_cancel(fop->xl->ctx, lock->timer);
+                lock->timer = NULL;
+                *lock->plock = NULL;
+
+                now = _gf_true;
+        }
+
+        UNLOCK(&inode->lock);
+
+        if (now) {
+                ec_unlock_now(fop, lock);
+        }
+}
+
 void ec_unlock_timer_cbk(void *data)
 {
-    ec_lock_link_t *link = data;
-    ec_lock_t *lock = link->lock;
-    ec_fop_data_t *fop = NULL;
+        ec_lock_link_t *link = data;
 
-    LOCK(&lock->loc.inode->lock);
-
-    if (lock->timer != NULL) {
-        fop = link->fop;
-
-        ec_trace("UNLOCK_DELAYED", fop, "lock=%p", lock);
-
-        GF_ASSERT(lock->refs == 1);
-
-        gf_timer_call_cancel(fop->xl->ctx, lock->timer);
-        lock->timer = NULL;
-        *lock->plock = NULL;
-    }
-
-    UNLOCK(&lock->loc.inode->lock);
-
-    if (fop != NULL) {
-        ec_unlock_now(fop, lock);
-    }
+        ec_unlock_timer_del(link->fop, link->lock);
 }
 
 void ec_unlock_timer_add(ec_lock_link_t *link)
@@ -1624,6 +1639,18 @@ void ec_unlock(ec_fop_data_t *fop)
     for (i = 0; i < fop->lock_count; i++) {
         ec_unlock_timer_add(&fop->locks[i]);
     }
+}
+
+void
+ec_unlock_force(ec_fop_data_t *fop)
+{
+        int32_t i;
+
+        for (i = 0; i < fop->lock_count; i++) {
+                ec_trace("UNLOCK_FORCED", fop, "lock=%p", &fop->locks[i]);
+
+                ec_unlock_timer_del(fop, fop->locks[i].lock);
+        }
 }
 
 void ec_flush_size_version(ec_fop_data_t * fop)
@@ -1740,7 +1767,20 @@ void __ec_manager(ec_fop_data_t * fop, int32_t error)
         }
 
         if ((fop->state == EC_STATE_END) || (fop->state == -EC_STATE_END)) {
+            gf_boolean_t notify;
+
+            LOCK(&ec->lock);
+
+            list_del_init(&fop->pending_list);
+            notify = list_empty(&ec->pending_fops);
+
+            UNLOCK(&ec->lock);
+
             ec_fop_data_release(fop);
+
+            if (notify) {
+                ec_pending_fops_completed(ec);
+            }
 
             break;
         }

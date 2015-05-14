@@ -532,12 +532,7 @@ ec_heal_init (ec_fop_data_t * fop)
         gf_log("ec", GF_LOG_INFO, "Healing '%s', gfid %s", heal->loc.path,
                uuid_utoa(heal->loc.gfid));
     } else {
-        LOCK(&fop->lock);
-
-        fop->jobs++;
-        fop->refs++;
-
-        UNLOCK(&fop->lock);
+        ec_sleep(fop);
     }
 
     list_add_tail(&heal->list, &ctx->heal);
