@@ -663,5 +663,7 @@ glusterd_defrag_rpc_put (glusterd_defrag_info_t *defrag);
 int
 glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
                                int cmd);
+int32_t
+glusterd_count_connected_peers (int32_t *count);
 
 #endif
