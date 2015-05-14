@@ -1401,17 +1401,19 @@ out:
 }
 
 int32_t
-cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
-                          char **op_errstr)
+cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
+                          int wordcount, dict_t **options, char **op_errstr)
 {
-        dict_t                  *dict = NULL;
-        char                    *volname = NULL;
-        int                     ret = -1;
-        int                     count = 0;
-        char                    *key = NULL;
-        char                    *value = NULL;
-        int                     i = 0;
-        char                    str[50] = {0,};
+        dict_t                 *dict      = NULL;
+        char                   *volname   = NULL;
+        int                     ret       = -1;
+        int                     count     = 0;
+        char                   *key       = NULL;
+        char                   *value     = NULL;
+        int                     i         = 0;
+        char                    str[50]   = {0,};
+        const char             *question  = NULL;
+        gf_answer_t             answer    = GF_ANSWER_NO;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -1432,6 +1434,22 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
 
         if (ret)
                 goto out;
+
+        if (!strcmp (volname, "all")) {
+                ret = dict_set_str (dict, "globalname", "All");
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "dict set on global key failed.");
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, "hold_global_locks", _gf_true);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "dict set on global key failed.");
+                        goto out;
+                }
+        }
 
         if ((!strcmp (volname, "help") || !strcmp (volname, "help-xml"))
             && wordcount == 3 ) {
@@ -1502,6 +1520,24 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options,
 
                 if (ret)
                         goto out;
+
+                if ((!strcmp (key, "cluster.enable-shared-storage")) &&
+                    (!strcmp (value, "disable"))) {
+                        question = "Disabling cluster.enable-shared-storage "
+                                   "will delete the shared storage volume"
+                                   "(gluster_shared_storage), which is used "
+                                   "by snapshot scheduler, geo-replication "
+                                   "and NFS-Ganesha. Do you still want to "
+                                   "continue?";
+                        answer = cli_cmd_get_confirmation (state, question);
+                        if (GF_ANSWER_NO == answer) {
+                                gf_log ("cli", GF_LOG_ERROR, "Operation "
+                                        "cancelled, exiting");
+                                *op_errstr = gf_strdup ("Aborted by user.");
+                                ret = -1;
+                                goto out;
+                        }
+                }
         }
 
         ret = dict_set_int32 (dict, "count", wordcount-3);

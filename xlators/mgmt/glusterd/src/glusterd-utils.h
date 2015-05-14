@@ -657,4 +657,8 @@ glusterd_defrag_rpc_get (glusterd_defrag_info_t *defrag);
 
 struct rpc_clnt*
 glusterd_defrag_rpc_put (glusterd_defrag_info_t *defrag);
+
+int32_t
+glusterd_count_connected_peers (int32_t *count);
+
 #endif

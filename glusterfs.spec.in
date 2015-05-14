@@ -1135,6 +1135,7 @@ fi
 %config %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre/S28Quota-enable-root-xattr-heal.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/set/post/S30samba-set.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/set/post/S31ganesha-set.sh
+%config %{_sharedstatedir}/glusterd/hooks/1/set/post/S32gluster_enable_shared_storage.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/start/post/S29CTDBsetup.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/start/post/S30samba-start.sh
 %config %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S30samba-stop.sh
@@ -1237,6 +1238,9 @@ fi
 
 * Wed May 20 2015 Anand Nekkunti <anekkunt@redhat.com>
 - glusterd.socket file cleanup during post run upgrade (#1210404)
+
+* Tue May 19 2015 Avra Sengupta <asengupt@redhat.com>
+- Added S32gluster_enable_shared_storage.sh as volume set hook script (#1222013)
 
 * Mon May 18 2015 Milind Changire <mchangir@redhat.com>
 - Move file peer_add_secret_pub to the server RPM to support glusterfind (#1221544)

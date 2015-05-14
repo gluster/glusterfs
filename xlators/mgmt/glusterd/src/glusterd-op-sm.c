@@ -51,11 +51,36 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+extern char ss_brick_path[PATH_MAX];
+extern char local_node_hostname[PATH_MAX];
+static int
+glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
+                             char **op_errstr);
+
+/* Valid options for all volumes to be listed in the *
+ * valid_all_vol_opts table. To add newer options to *
+ * all volumes, we can just add more entries to this *
+ * table                                             *
+ */
+glusterd_all_vol_opts   valid_all_vol_opts[] = {
+        { GLUSTERD_QUORUM_RATIO_KEY },
+        { GLUSTERD_SHARED_STORAGE_KEY },
+        { NULL },
+};
+
 #define ALL_VOLUME_OPTION_CHECK(volname, key, ret, op_errstr, label)           \
         do {                                                                   \
-                gf_boolean_t    _all = !strcmp ("all", volname);               \
-                gf_boolean_t    _ratio = !strcmp (key,                         \
-                                                  GLUSTERD_QUORUM_RATIO_KEY);  \
+                gf_boolean_t    _all   = !strcmp ("all", volname);             \
+                gf_boolean_t    _ratio = _gf_false;                            \
+                int32_t         i      = 0;                                    \
+                                                                               \
+                for (i = 0; valid_all_vol_opts[i].option; i++) {               \
+                        if (!strcmp (key, valid_all_vol_opts[i].option)) {     \
+                                _ratio = _gf_true;                             \
+                                break;                                         \
+                        }                                                      \
+                }                                                              \
+                                                                               \
                 if (_all && !_ratio) {                                         \
                         ret = -1;                                              \
                         *op_errstr = gf_strdup ("Not a valid option for all "  \
@@ -678,6 +703,71 @@ out:
 }
 
 static int
+glusterd_validate_shared_storage (char *key, char *value, char *errstr)
+{
+        int32_t       ret      = -1;
+        int32_t       exists   = -1;
+        int32_t       count    = -1;
+        xlator_t     *this     = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, key, out);
+        GF_VALIDATE_OR_GOTO (this->name, value, out);
+        GF_VALIDATE_OR_GOTO (this->name, errstr, out);
+
+        ret = 0;
+
+        if (strcmp (key, GLUSTERD_SHARED_STORAGE_KEY)) {
+                goto out;
+        }
+
+        if ((strcmp (value, "enable")) &&
+            (strcmp (value, "disable"))) {
+                snprintf (errstr, PATH_MAX,
+                          "Invalid option(%s). Valid options "
+                          "are 'enable' and 'disable'", value);
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                ret = -1;
+                goto out;
+        }
+
+        if (strcmp (value, "enable")) {
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (GLUSTER_SHARED_STORAGE);
+        if (exists) {
+                snprintf (errstr, PATH_MAX,
+                          "Shared storage volume("GLUSTER_SHARED_STORAGE
+                          ") already exists.");
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_count_connected_peers (&count);
+        if (ret) {
+                snprintf (errstr, PATH_MAX,
+                          "Failed to calculate number of connected peers.");
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                goto out;
+        }
+
+        if (count <= 1) {
+                snprintf (errstr, PATH_MAX,
+                          "More than one node should "
+                          "be up/present in the cluster to enable this option");
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
         int                             ret                     = -1;
@@ -692,7 +782,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         int                             trash_path_len          = 0;
         int                             count                   = 0;
         int                             dict_count              = 0;
-        char                            errstr[2048]            = {0, };
+        char                            errstr[PATH_MAX]        = {0, };
         glusterd_volinfo_t              *volinfo                = NULL;
         glusterd_brickinfo_t            *brickinfo              = NULL;
         dict_t                          *val_dict               = NULL;
@@ -994,6 +1084,14 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 if (ret)
                                         goto out;
                         }
+                }
+
+                ret = glusterd_validate_shared_storage (key, value, errstr);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to validate shared "
+                                "storage volume options");
+                        goto out;
                 }
 
                 if (!strcmp(key, "features.trash-dir") && trash_enabled) {
@@ -1921,7 +2019,8 @@ out:
 }
 
 static int
-glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
+glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
+                                    char **op_errstr)
 {
         char            *key            = NULL;
         char            *key_fixed      = NULL;
@@ -1945,6 +2044,7 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
                         "invalid key,value pair in 'volume set'");
                 goto out;
         }
+
         ret = glusterd_check_option_exists (key, &key_fixed);
         if (ret <= 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Invalid key %s", key);
@@ -1954,6 +2054,13 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict)
 
         if (key_fixed)
                 key = key_fixed;
+
+        ret = glusterd_set_shared_storage (dict, key, value, op_errstr);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set shared storage option");
+                goto out;
+        }
 
         /* If the key is cluster.op-version, set conf->op_version to the value
          * if needed and save it.
@@ -2033,6 +2140,82 @@ out:
 }
 
 static int
+glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
+                             char **op_errstr)
+{
+        int32_t       ret                  = -1;
+        int32_t       exists               = -1;
+        int32_t       count                = -1;
+        char          hooks_args[PATH_MAX] = {0, };
+        char          errstr[PATH_MAX]     = {0, };
+        xlator_t     *this                 = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+        GF_VALIDATE_OR_GOTO (this->name, key, out);
+        GF_VALIDATE_OR_GOTO (this->name, value, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
+
+        ret = 0;
+
+        if (strcmp (key, GLUSTERD_SHARED_STORAGE_KEY)) {
+                goto out;
+        }
+
+        /* Re-create the brick path so as to be *
+         * able to re-use it                    *
+         */
+        ret = recursive_rmdir (ss_brick_path);
+        if (ret) {
+                snprintf (errstr, PATH_MAX,
+                          "Failed to remove shared "
+                          "storage brick(%s). "
+                          "Reason: %s", ss_brick_path,
+                          strerror (errno));
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                ret = -1;
+                goto out;
+        }
+
+        ret = mkdir_p (ss_brick_path, 0777, _gf_true);
+        if (-1 == ret) {
+                snprintf (errstr, PATH_MAX,
+                          "Failed to create shared "
+                          "storage brick(%s). "
+                          "Reason: %s", ss_brick_path,
+                          strerror (errno));
+                gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                goto out;
+        }
+
+        if (is_origin_glusterd (dict)) {
+                snprintf(hooks_args, sizeof(hooks_args),
+                         "is_originator=1,local_node_hostname=%s",
+                         local_node_hostname);
+        } else {
+                snprintf(hooks_args, sizeof(hooks_args),
+                         "is_originator=0,local_node_hostname=%s",
+                         local_node_hostname);
+        }
+
+        ret = dict_set_dynstr_with_alloc (dict, "hooks_args", hooks_args);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set"
+                        " hooks_args in dict.");
+                goto out;
+        }
+
+out:
+        if (ret && strlen(errstr)) {
+                *op_errstr = gf_strdup (errstr);
+        }
+
+        return ret;
+}
+
+
+static int
 glusterd_op_set_volume (dict_t *dict, char **errstr)
 {
         int                                      ret = 0;
@@ -2086,7 +2269,8 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
         }
 
         if (strcasecmp (volname, "all") == 0) {
-                ret = glusterd_op_set_all_volume_options (this, dict);
+                ret = glusterd_op_set_all_volume_options (this, dict,
+                                                          &op_errstr);
                 goto out;
         }
 

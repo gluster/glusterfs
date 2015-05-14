@@ -62,7 +62,7 @@
 
 #include "lvm-defaults.h"
 
-char snap_mount_folder[PATH_MAX];
+char snap_mount_dir[PATH_MAX];
 struct snap_create_args_ {
         xlator_t             *this;
         dict_t               *dict;
@@ -4604,7 +4604,7 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
         GF_ASSERT (brickinfo);
 
         snprintf (snap_brick_mount_path, sizeof (snap_brick_mount_path),
-                  "%s/%s/brick%d",  snap_mount_folder, snap_volinfo->volname,
+                  "%s/%s/brick%d",  snap_mount_dir, snap_volinfo->volname,
                   brick_count + 1);
 
         ret = mkdir_p (snap_brick_mount_path, 0777, _gf_true);
@@ -4794,7 +4794,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
          * <snap-uuid>/<original-brick#>/snap-brick-dir *
          */
         snprintf (snap_brick_path, sizeof(snap_brick_path),
-                  "%s/%s/brick%d%s", snap_mount_folder,
+                  "%s/%s/brick%d%s", snap_mount_dir,
                   snap_vol->volname, brick_count+1,
                   snap_brick_dir);
 

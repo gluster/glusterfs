@@ -157,6 +157,34 @@ glusterd_hooks_add_hooks_version (runner_t* runner)
         runner_argprintf (runner, "--version=%d", GLUSTERD_HOOK_VER);
 }
 
+static void
+glusterd_hooks_add_custom_args (dict_t *dict, runner_t *runner)
+{
+        char      *hooks_args     = NULL;
+        int32_t    ret            = -1;
+        xlator_t  *this           = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+        GF_VALIDATE_OR_GOTO (this->name, runner, out);
+
+        ret = dict_get_str (dict, "hooks_args", &hooks_args);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "No Hooks Arguments.");
+        else
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Hooks Args = %s", hooks_args);
+
+        if (hooks_args)
+                runner_argprintf (runner, "%s", hooks_args);
+
+out:
+        return;
+}
+
+
 int
 glusterd_hooks_set_volume_args (dict_t *dict, runner_t *runner)
 {
@@ -190,6 +218,8 @@ glusterd_hooks_set_volume_args (dict_t *dict, runner_t *runner)
 
                 runner_argprintf (runner, "%s=%s", key, value);
         }
+
+        glusterd_hooks_add_custom_args (dict, runner);
 
         ret = 0;
 out:
@@ -258,15 +288,7 @@ glusterd_hooks_add_op_args (runner_t *runner, glusterd_op_t op,
                         break;
 
                 case GD_OP_GSYNC_CREATE:
-                        ret = dict_get_str (op_ctx, "hooks_args", &hooks_args);
-                        if (ret)
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "No Hooks Arguments.");
-                        else
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "Hooks Args = %s", hooks_args);
-                        if (hooks_args)
-                                runner_argprintf (runner, "%s", hooks_args);
+                        glusterd_hooks_add_custom_args (op_ctx, runner);
                         break;
 
                 case GD_OP_ADD_BRICK:

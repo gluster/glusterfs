@@ -47,6 +47,8 @@
 #define GEO_CONF_MAX_OPT_VALS           6
 #define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
                                         "S56glusterd-geo-rep-create-post.sh"
+#define GLUSTER_SHARED_STORAGE          "gluster_shared_storage"
+#define GLUSTERD_SHARED_STORAGE_KEY     "cluster.enable-shared-storage"
 
 #define GANESHA_HA_CONF  CONFDIR "/ganesha-ha.conf"
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
@@ -507,6 +509,7 @@ typedef enum {
 #define GLUSTERD_VOL_SNAP_DIR_PREFIX "snaps"
 
 #define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR        "/gluster/snaps"
+#define GLUSTER_SHARED_STORAGE_BRICK_DIR        "/gluster/ss_brick"
 #define GLUSTERD_VAR_RUN_DIR                    "/var/run"
 #define GLUSTERD_RUN_DIR                        "/run"
 
