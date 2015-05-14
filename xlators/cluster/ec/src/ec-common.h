@@ -87,6 +87,7 @@ void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update);
 void ec_lock(ec_fop_data_t * fop);
 void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
+void ec_unlock_force(ec_fop_data_t *fop);
 
 void ec_get_size_version(ec_fop_data_t * fop);
 void ec_prepare_update(ec_fop_data_t *fop);

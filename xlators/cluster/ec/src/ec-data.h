@@ -172,13 +172,14 @@ struct _ec_fop_data
     int32_t            winds;
     int32_t            jobs;
     int32_t            error;
-    ec_fop_data_t *    parent;
-    xlator_t *         xl;
-    call_frame_t *     req_frame;   // frame of the calling xlator
-    call_frame_t *     frame;       // frame used by this fop
-    struct list_head   cbk_list;    // sorted list of groups of answers
-    struct list_head   answer_list; // list of answers
-    ec_cbk_data_t *    answer;      // accepted answer
+    ec_fop_data_t     *parent;
+    xlator_t          *xl;
+    call_frame_t      *req_frame;    /* frame of the calling xlator */
+    call_frame_t      *frame;        /* frame used by this fop */
+    struct list_head   cbk_list;     /* sorted list of groups of answers */
+    struct list_head   answer_list;  /* list of answers */
+    struct list_head   pending_list; /* member of ec_t.pending_fops */
+    ec_cbk_data_t     *answer;       /* accepted answer */
     int32_t            lock_count;
     int32_t            locked;
     ec_lock_link_t     locks[2];
@@ -203,7 +204,7 @@ struct _ec_fop_data
     ec_handler_f       handler;
     ec_resume_f        resume;
     ec_cbk_t           cbks;
-    void *             data;
+    void              *data;
     ec_heal_t         *heal;
 
     uint64_t           user_size;
@@ -211,8 +212,8 @@ struct _ec_fop_data
 
     int32_t            use_fd;
 
-    dict_t *           xdata;
-    dict_t *           dict;
+    dict_t            *xdata;
+    dict_t            *dict;
     int32_t            int32;
     uint32_t           uint32;
     uint64_t           size;
@@ -222,14 +223,14 @@ struct _ec_fop_data
     entrylk_type       entrylk_type;
     gf_xattrop_flags_t xattrop_flags;
     dev_t              dev;
-    inode_t *          inode;
-    fd_t *             fd;
+    inode_t           *inode;
+    fd_t              *fd;
     struct iatt        iatt;
-    char *             str[2];
+    char              *str[2];
     loc_t              loc[2];
     struct gf_flock    flock;
-    struct iovec *     vector;
-    struct iobref *    buffers;
+    struct iovec      *vector;
+    struct iobref     *buffers;
 };
 
 struct _ec_cbk_data
