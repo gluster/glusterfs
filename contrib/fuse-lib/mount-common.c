@@ -105,7 +105,11 @@ fuse_mnt_add_mount (const char *progname, const char *fsname,
                 char *tmp;
 
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
-                setuid (geteuid ());
+                res = setuid (geteuid ());
+                if (res != 0) {
+                        GFFUSE_LOGERR ("%s: setuid: %s", progname, strerror (errno));
+                        exit (1);
+                }
 
                 /*
                  * hide in a directory, where mount isn't able to resolve
@@ -245,7 +249,11 @@ fuse_mnt_umount (const char *progname, const char *abs_mnt,
         }
         if (res == 0) {
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
-                setuid (geteuid ());
+                res = setuid (geteuid ());
+                if (res != 0) {
+                        GFFUSE_LOGERR ("%s: setuid: %s", progname, strerror (errno));
+                        exit (1);
+                }
 #ifdef GF_LINUX_HOST_OS
                 execl ("/bin/umount", "/bin/umount", "-i", rel_mnt,
                        lazy ? "-l" : NULL, NULL);
