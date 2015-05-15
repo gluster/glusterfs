@@ -2357,8 +2357,10 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
                 return -1;
         }
 
-        if (conf->local_subvols_cnt == 0) {
-                /* Commit hash updates are only done on local subvolumes
+        if (conf->local_subvols_cnt == 0 || !conf->lookup_optimize) {
+                /* Commit hash updates are only done on local subvolumes and
+                 * only when lookup optmization is needed (for older client
+                 * support)
                  */
                 return 0;
         }

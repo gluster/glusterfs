@@ -39,6 +39,11 @@ get_xattr () {
 	$cmd $1 | od -tx1 -An | tr -d ' '
 }
 
+get_xattr_hash () {
+        cmd="getfattr --absolute-names --only-values -n trusted.glusterfs.dht"
+        $cmd $1 | od -tx1 -An | awk '{printf("%s%s%s%s\n", $1, $2, $3, $4);}'
+}
+
 cleanup
 
 TEST glusterd
@@ -49,7 +54,7 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}{1,2}
 EXPECT "$V0" volinfo_field $V0 'Volume Name'
 EXPECT 'Created' volinfo_field $V0 'Status'
 
-TEST $CLI volume set $V0 cluster.lookup-unhashed auto
+TEST $CLI volume set $V0 cluster.lookup-optimize ON
 
 TEST $CLI volume start $V0
 EXPECT 'Started' volinfo_field $V0 'Status'
@@ -95,5 +100,26 @@ TEST $CLI volume rebalance $V0 start
 TEST wait_for_rebalance
 new_val=$(get_xattr $B0/${V0}1/dir)
 TEST [ ! x"$old_val" = x"$new_val" ]
+
+# Force an anomoly on an existing layout and heal it
+## The healed layout should not carry a commit-hash (or should carry 1 in the
+## commit-hash)
+TEST setfattr -x trusted.glusterfs.dht $B0/${V0}1/dir
+TEST $GFS -s $H0 --volfile-id $V0 $M0
+TEST [ -d $M0/dir ]
+new_hash=$(get_xattr_hash $B0/${V0}1/dir)
+TEST [ x"$new_hash" = x"00000001" ]
+new_hash=$(get_xattr_hash $B0/${V0}2/dir)
+TEST [ x"$new_hash" = x"00000001" ]
+
+# Unset the option and check that newly created directories get 1 in the
+# disk layout
+TEST $CLI volume reset $V0 cluster.lookup-optimize
+TEST mkdir $M0/dir1
+new_hash=$(get_xattr_hash $B0/${V0}1/dir1)
+TEST [ x"$new_hash" = x"00000001" ]
+new_hash=$(get_xattr_hash $B0/${V0}2/dir1)
+TEST [ x"$new_hash" = x"00000001" ]
+
 
 cleanup

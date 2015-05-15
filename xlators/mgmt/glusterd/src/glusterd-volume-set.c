@@ -328,6 +328,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.lookup-optimize",
+          .voltype    = "cluster/distribute",
+          .op_version  = GD_OP_VERSION_3_7_1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "cluster.min-free-disk",
           .voltype    = "cluster/distribute",
           .op_version = 1,
