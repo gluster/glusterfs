@@ -821,8 +821,9 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                 }
 
                 if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
-                        ret = 1;
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                        ret = 0;
+                        defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
+                        gf_msg (this->name, GF_LOG_DEBUG, 0,
                                 DHT_MSG_LOG_TIER_ERROR,
                                 "defrag->defrag_cmd == "
                                 "GF_DEFRAG_CMD_START_DETACH_TIER");

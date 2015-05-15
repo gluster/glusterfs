@@ -241,8 +241,9 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo);
         GLUSTERD_GET_DEFRAG_PID_FILE (pidfile, volinfo, priv);
-        snprintf (logfile, PATH_MAX, "%s/%s-rebalance.log",
-                    DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname);
+        snprintf (logfile, PATH_MAX, "%s/%s-%s.log",
+                    DEFAULT_LOG_FILE_DIRECTORY, volinfo->volname,
+                    (cmd == GF_DEFRAG_CMD_START_TIER ? "tier":"rebalance"));
         runinit (&runner);
 
         if (priv->valgrind) {
