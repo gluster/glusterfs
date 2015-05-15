@@ -2686,8 +2686,7 @@ gf_defrag_start_crawl (void *data)
                 goto out;
         }
 
-        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
-            (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
+        if (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX) {
                 migrate_data = dict_new ();
                 if (!migrate_data) {
                         defrag->total_failures++;
@@ -2784,11 +2783,7 @@ gf_defrag_start_crawl (void *data)
                 }
                 methods->migration_other(this, defrag);
                 if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
-                        migrate_data = dict_new ();
-                        if (!migrate_data) {
-                                ret = -1;
-                                goto out;
-                        }
+
                         ret = dict_set_str (migrate_data,
                                             GF_XATTR_FILE_MIGRATE_KEY,
                                             "force");
