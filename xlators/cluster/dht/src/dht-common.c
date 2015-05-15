@@ -1920,24 +1920,50 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               "Entry %s missing on subvol %s",
                               loc->path, prev->this->name);
 
-                if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
-                        local->op_errno = ENOENT;
-                        dht_lookup_everywhere (frame, this, loc);
-                        return 0;
-                }
-                if ((conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) &&
-                    (loc->parent)) {
+                /* lookup-optimize supercedes lookup-unhashed settings,
+                 *   - so if it is set, do not process search_unhashed
+                 *   - except, in the case of rebalance deamon, we want to
+                 *     force the lookup_everywhere behavior */
+                if (!conf->defrag && conf->lookup_optimize && loc->parent) {
                         ret = dht_inode_ctx_layout_get (loc->parent, this,
                                                         &parent_layout);
-                        if (ret || !parent_layout)
-                                goto out;
-                        if (parent_layout->commit_hash
-                                  != conf->vol_commit_hash) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "hashes don't match, do global lookup");
+                        if (ret || !parent_layout ||
+                            (parent_layout->commit_hash !=
+                             conf->vol_commit_hash)) {
+                                gf_msg_debug (this->name, 0,
+                                        "hashes don't match (ret - %d,"
+                                        " parent_layout - %p, parent_hash - %x,"
+                                        " vol_hash - %x), do global lookup",
+                                        ret, parent_layout,
+                                        (parent_layout ?
+                                         parent_layout->commit_hash : -1),
+                                        conf->vol_commit_hash);
                                 local->op_errno = ENOENT;
                                 dht_lookup_everywhere (frame, this, loc);
                                 return 0;
+                        }
+                } else {
+                        if (conf->search_unhashed ==
+                            GF_DHT_LOOKUP_UNHASHED_ON) {
+                                local->op_errno = ENOENT;
+                                dht_lookup_everywhere (frame, this, loc);
+                                return 0;
+                        }
+
+                        if ((conf->search_unhashed ==
+                            GF_DHT_LOOKUP_UNHASHED_AUTO) &&
+                            (loc->parent)) {
+                                ret = dht_inode_ctx_layout_get (loc->parent,
+                                                                this,
+                                                                &parent_layout);
+                                if (ret || !parent_layout)
+                                        goto out;
+                                if (parent_layout->search_unhashed) {
+                                        local->op_errno = ENOENT;
+                                        dht_lookup_everywhere (frame, this,
+                                                               loc);
+                                        return 0;
+                                }
                         }
                 }
         }
@@ -5797,7 +5823,15 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->layout->commit_hash = conf->vol_commit_hash;
+        /* set the newly created directory hash to the commit hash
+         * if the configuration option is set. If configuration option
+         * is not set, the older clients may still be connecting to the
+         * volume and hence we need to preserve the 1 in disk[0] part of the
+         * layout xattr */
+        if (conf->lookup_optimize)
+                local->layout->commit_hash = conf->vol_commit_hash;
+        else
+                local->layout->commit_hash = DHT_LAYOUT_HASH_INVALID;
 
         STACK_WIND (frame, dht_mkdir_hashed_cbk,
                     hashed_subvol,

@@ -426,6 +426,9 @@ dht_reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
+        GF_OPTION_RECONF ("lookup-optimize", conf->lookup_optimize, options,
+                          bool, out);
+
 	GF_OPTION_RECONF ("min-free-disk", conf->min_free_disk, options,
                           percent_or_size, out);
         /* option can be any one of percent or bytes */
@@ -662,6 +665,8 @@ dht_init (xlator_t *this)
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
         }
 
+        GF_OPTION_INIT ("lookup-optimize", conf->lookup_optimize, bool, err);
+
         GF_OPTION_INIT ("unhashed-sticky-bit", conf->unhashed_sticky_bit, bool,
                         err);
 
@@ -832,6 +837,14 @@ struct volume_options options[] = {
           "all the sub-volumes, in case a lookup didn't return any result "
           "from the hash subvolume. If set to OFF, it does not do a lookup "
           "on the remaining subvolumes."
+        },
+        { .key = {"lookup-optimize"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option if set to ON enables the optimization "
+          "of -ve lookups, by not doing a lookup on non-hashed subvolumes for "
+          "files, in case the hashed subvolume does not return any result. "
+          "This option disregards the lookup-unhashed setting, when enabled."
         },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
