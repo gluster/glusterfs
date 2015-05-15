@@ -597,10 +597,19 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                 STACK_DESTROY (frame->root);                            \
         } while (0)
 
+#define GLUSTERD_GET_DEFRAG_PROCESS(path, volinfo) do {                     \
+                if (volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER)  \
+                        snprintf (path, PATH_MAX, "tier"); \
+                else                                                        \
+                        snprintf (path, PATH_MAX, "rebalance"); \
+        } while (0)
+
 #define GLUSTERD_GET_DEFRAG_DIR(path, volinfo, priv) do {               \
                 char vol_path[PATH_MAX];                                \
+                char operation[NAME_MAX];                               \
                 GLUSTERD_GET_VOLUME_DIR(vol_path, volinfo, priv);       \
-                snprintf (path, PATH_MAX, "%s/rebalance",vol_path);     \
+                GLUSTERD_GET_DEFRAG_PROCESS(operation, volinfo);        \
+                snprintf (path, PATH_MAX, "%s/%s", vol_path, operation);\
         } while (0)
 
 #define GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD(path, volinfo, priv) do {     \
@@ -611,8 +620,10 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
         } while (0)
 
 #define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo) do {                   \
+                char operation[NAME_MAX];                                   \
+                GLUSTERD_GET_DEFRAG_PROCESS(operation, volinfo);            \
                 snprintf (path, UNIX_PATH_MAX, DEFAULT_VAR_RUN_DIRECTORY    \
-                          "/gluster-rebalance-%s.sock",                     \
+                          "/gluster-%s-%s.sock", operation,                 \
                            uuid_utoa(volinfo->volume_id));                  \
         } while (0)
 
