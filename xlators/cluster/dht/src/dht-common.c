@@ -2622,6 +2622,9 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         int           ret           = 0;
         char         *uuid_str      = NULL;
+        char         *uuid_list     = NULL;
+        char         *next_uuid_str = NULL;
+        char         *saveptr       = NULL;
         uuid_t        node_uuid     = {0,};
 
 
@@ -2644,7 +2647,7 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                ret = dict_get_str (xattr, local->xsel, &uuid_str);
+                ret = dict_get_str (xattr, local->xsel, &uuid_list);
 
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR, "Failed to "
@@ -2654,22 +2657,29 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                if (gf_uuid_parse (uuid_str, node_uuid)) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to parse uuid"
-                                " failed for %s", prev->this->name);
-                        local->op_ret = -1;
-                        local->op_errno = EINVAL;
-                        goto unlock;
-                }
+                for (uuid_str = strtok_r (uuid_list, " ", &saveptr);
+                     uuid_str;
+                     uuid_str = next_uuid_str) {
 
-                if (gf_uuid_compare (node_uuid, conf->defrag->node_uuid)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "subvol %s does not"
-                                "belong to this node", prev->this->name);
-                } else {
-                        conf->local_subvols[(conf->local_subvols_cnt)++]
-                                                           = prev->this;
-                        gf_log (this->name, GF_LOG_DEBUG, "subvol %s belongs to"
-                                " this node", prev->this->name);
+                        next_uuid_str = strtok_r (NULL, " ", &saveptr);
+                        if (gf_uuid_parse (uuid_str, node_uuid)) {
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to parse uuid"
+                                        " failed for %s", prev->this->name);
+                                local->op_ret = -1;
+                                local->op_errno = EINVAL;
+                                goto unlock;
+                        }
+
+                        if (gf_uuid_compare (node_uuid, conf->defrag->node_uuid)) {
+                                gf_log (this->name, GF_LOG_DEBUG, "subvol %s does not"
+                                        "belong to this node", prev->this->name);
+                        } else {
+                                conf->local_subvols[(conf->local_subvols_cnt)++]
+                                        = prev->this;
+                                gf_log (this->name, GF_LOG_DEBUG, "subvol %s belongs to"
+                                        " this node", prev->this->name);
+                                break;
+                        }
                 }
         }
 
