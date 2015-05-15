@@ -1642,6 +1642,10 @@ br_stub_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (ret < 0) {
                 ret = br_stub_init_inode_versions (this, fd, inode, version,
                                                    _gf_true);
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = EINVAL;
+                }
         } else {
                 ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
                 ret = br_stub_add_fd_to_inode (this, fd, ctx);
@@ -1670,6 +1674,52 @@ br_stub_create (call_frame_t *frame,
         return 0;
 unwind:
         STACK_UNWIND_STRICT (create, frame, -1, EINVAL, NULL, NULL, NULL, NULL,
+                             NULL, NULL);
+        return 0;
+}
+
+int
+br_stub_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int op_ret, int op_errno, inode_t *inode,
+                    struct iatt *stbuf, struct iatt *preparent,
+                    struct iatt *postparent, dict_t *xdata)
+{
+        int32_t              ret      = -1;
+        unsigned long        version  = BITROT_DEFAULT_CURRENT_VERSION;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        ret = br_stub_init_inode_versions (this, NULL, inode, version,
+                                           _gf_true);
+        /**
+         * Like lookup, if init_inode_versions fail, return EINVAL
+         */
+        if (ret) {
+                op_ret = -1;
+                op_errno = EINVAL;
+        }
+
+unwind:
+        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
+                             inode, stbuf, preparent, postparent, xdata);
+        return 0;
+}
+
+int
+br_stub_mknod (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, mode_t mode, dev_t dev, mode_t umask, dict_t *xdata)
+{
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
+
+        STACK_WIND (frame, br_stub_mknod_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->mknod,
+                    loc, mode, dev, umask, xdata);
+        return 0;
+unwind:
+        STACK_UNWIND_STRICT (mknod, frame, -1, EINVAL, NULL, NULL, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -2139,6 +2189,7 @@ struct xlator_fops fops = {
         .writev    = br_stub_writev,
         .truncate  = br_stub_truncate,
         .ftruncate = br_stub_ftruncate,
+        .mknod     = br_stub_mknod,
 };
 
 struct xlator_cbks cbks = {
