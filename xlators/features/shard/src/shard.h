@@ -23,8 +23,9 @@
 #define SHARD_ROOT_GFID "be318638-e8a0-4c6d-977d-7a937aa84806"
 #define SHARD_INODE_LRU_LIMIT 4096
 
-#define get_lowest_block(off, shard_size) (off / shard_size)
-#define get_highest_block(off, len, shard_size) ((off+len-1) / shard_size)
+#define get_lowest_block(off, shard_size) ((off) / (shard_size))
+#define get_highest_block(off, len, shard_size) \
+        (((((off)+(len)) == 0)?0:((off)+(len)-1)) / (shard_size))
 
 #define SHARD_ENTRY_FOP_CHECK(loc, op_errno, label) do {               \
         if ((loc->name && !strcmp (GF_SHARD_DIR, loc->name)) &&        \
