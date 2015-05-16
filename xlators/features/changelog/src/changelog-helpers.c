@@ -1899,17 +1899,15 @@ resolve_pargfid_to_path (xlator_t *this, uuid_t pargfid,
                                      &saveptr);
                 dir_name = strtok_r (NULL, "/", &saveptr);
 
-                strncpy (result, dir_name, PATH_MAX);
-                strncat (result, "/", 1);
-                strncat (result, pre_dir_name, PATH_MAX);
-                strncpy (pre_dir_name, result, PATH_MAX);
+                snprintf (result, PATH_MAX, "%s/%s", dir_name, pre_dir_name);
+                strncpy (pre_dir_name, result, sizeof(pre_dir_name));
 
                 gf_uuid_parse (pgfidstr, tmp_gfid);
                 gf_uuid_copy (pargfid, tmp_gfid);
         }
 
         if (bname)
-                strncat (result, bname, PATH_MAX);
+                strncat (result, bname, strlen(bname) + 1);
 
         *path = gf_strdup (result);
 
