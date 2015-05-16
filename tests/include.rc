@@ -67,6 +67,8 @@ CONFIG_UPDATE_TIMEOUT=5
 AUTH_REFRESH_INTERVAL=10
 GRAPH_SWITCH_TIMEOUT=10
 
+LOGDIR=$(gluster --print-logdir)
+
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";

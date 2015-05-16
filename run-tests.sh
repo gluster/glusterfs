@@ -215,7 +215,6 @@ function is_bad_test ()
               ./tests/basic/ec/ec-5-1.t \
               ./tests/basic/ec/ec-12-4.t \
               ./tests/bugs/quota/bug-1035576.t  \
-              ./tests/features/glupy.t  \
               ./tests/basic/uss.t       \
               ./tests/bugs/glusterfs/bug-867253.t       \
               ./tests/bugs/glusterd/bug-974007.t        \
@@ -225,7 +224,7 @@ function is_bad_test ()
               ./tests/bugs/disperse/bug-1187474.t       \
               ./tests/basic/afr/sparse-file-self-heal.t \
               ./tests/basic/afr/data-self-heal.t        \
-	      ./tests/features/glupy.t; do
+	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
     return 1				  # bash: non-zero means false/failure
