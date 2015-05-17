@@ -15,7 +15,10 @@ SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api xlators glusterfsd \
 	@UMOUNTD_SUBDIR@ tools
 
 pkgconfigdir = @pkgconfigdir@
-pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc libgfdb.pc
+pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
+if USE_GFDB
+pkgconfig_DATA += libgfdb.pc
+endif
 
 CLEANFILES =
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
