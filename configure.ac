@@ -388,14 +388,7 @@ AC_CHECK_HEADERS([sys/ioctl.h], AC_DEFINE(HAVE_IOCTL_IN_SYS_IOCTL_H, 1, [have sy
 AC_CHECK_HEADERS([sys/extattr.h])
 
 dnl Math library
-case $host_os in
-     linux*)
-        MATH_LIB=''
-        ;;
-     *)
-        MATH_LIB='-lm'
-        ;;
-esac
+AC_CHECK_LIB([m], [pow], [MATH_LIB='-lm'], [MATH_LIB=''])
 AC_SUBST(MATH_LIB)
 
 dnl use libuuid.so or fall-back to contrib/uuid
@@ -406,6 +399,16 @@ PKG_CHECK_MODULES([UUID], [uuid],
         [HAVE_LIBUUID=no
          UUID_CFLAGS='-I$(CONTRIBDIR)/uuid'])
 AM_CONDITIONAL([HAVE_LIBUUID], [test x$HAVE_LIBUUID = xyes])
+
+dnl older version of libuuid (from e2fsprogs) require including uuid/uuid.h
+saved_CFLAGS=${CFLAGS}
+CFLAGS="${CFLAGS} ${UUID_CFLAGS}"
+AC_CHECK_HEADER([uuid.h], [], [AC_CHECK_HEADER([uuid/uuid.h])])
+CFLAGS=${saved_CFLAGS}
+if test "x$ac_cv_header_uuid_uuid_h" = "xyes"; then
+    UUID_CFLAGS="${UUID_CFLAGS} -I$(pkg-config --variable=includedir uuid)/uuid"
+fi
+
 dnl libglusterfs needs uuid.h, practically everything depends on it
 GF_CPPFLAGS="${GF_CPPFLAGS} ${UUID_CFLAGS}"
 dnl PKGCONFIG_UUID is used for the dependency in *.pc.in files
@@ -529,6 +532,10 @@ if test "x${enable-bd-xlator}" != "xno" -a "x${HAVE_BD_LIB}" = "xyes"; then
 fi
 
 AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
+
+dnl check for old openssl
+AC_CHECK_FUNC([ssl], [CRYPTO_THREADID_set_callback], [HAVE_CRYPTO_THREADID=1], HAVE_CRYPTO_THREADID=0)
+AC_DEFINE(HAVE_CRYPTO_THREADID, $HAVE_CRYPTO_THREADID, [use new OpenSSL functions])
 
 # start encryption/crypt section
 
@@ -705,6 +712,7 @@ if test "x$enable_georeplication" != "xno"; then
   GEOREP_EXTRAS_SUBDIR=geo-rep
 fi
 AC_SUBST(GEOREP_EXTRAS_SUBDIR)
+AM_CONDITIONAL(USE_GEOREP, test "x$enable_georeplication" != "xno")
 
 # CDC xlator - check if libz is present if so enable HAVE_LIB_Z
 BUILD_CDC=yes
@@ -808,11 +816,8 @@ AC_SUBST(HAVE_BACKTRACE)
 
 if test "x${have_backtrace}" != "xyes"; then
 AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
-   [have_math_h=yes],
+   [],
    AC_MSG_ERROR([need math library for libexecinfo]))
-if test "x${have_math_h}" = "xyes"; then
-   LIBS="$LIBS -lm"
-fi
 fi
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
@@ -905,26 +910,29 @@ GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
 dnl check for gcc -Werror=format-security
-saved_GF_CFLAGS="-Wformat -Werror=format-security"
+saved_CFLAGS=$CFLAGS
+CFLAGS="-Wformat -Werror=format-security"
 AC_MSG_CHECKING([whether $CC accepts -Werror=format-security])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_format_security=yes], [cc_werror_format_security=no])
 echo $cc_werror_format_security
 if test "x$cc_werror_format_security" = "xno"; then
-    GF_CFLAGS="$GF_CFLAGS"
+    CFLAGS="$saved_CFLAGS"
 else
-    GF_CFLAGS="$saved_GF_CFLAGS $GF_CFLAGS"
+    CFLAGS="$saved_CFLAGS $CFLAGS"
+    GF_CFLAGS="$GF_CFLAGS $CFLAGS"
 fi
 
 dnl check for gcc -Werror=implicit-function-declaration
-saved_GF_CFLAGS=$GF_CFLAGS
-GF_CFLAGS="-Werror=implicit-function-declaration"
+saved_CFLAGS=$CFLAGS
+CFLAGS="-Werror=implicit-function-declaration"
 AC_MSG_CHECKING([whether $CC accepts -Werror=implicit-function-declaration])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_implicit=yes], [cc_werror_implicit=no])
 echo $cc_werror_implicit
 if test "x$cc_werror_implicit" = "xno"; then
-    GF_CFLAGS="$saved_GF_CFLAGS"
+    CFLAGS="$saved_CFLAGS"
 else
-    GF_CFLAGS="$saved_GF_CFLAGS $GF_CFLAGS"
+    CFLAGS="$saved_CFLAGS $CFLAGS"
+    GF_CFLAGS="$GF_CFLAGS $CFLAGS"
 fi
 
 dnl clang is mostly GCC-compatible, but its version is much lower,
@@ -1241,6 +1249,9 @@ AC_SUBST(UNITTEST_LDFLAGS)
 
 AC_SUBST(CFLAGS)
 # end enable debug section
+
+dnl libglusterfs.so uses math functions
+GF_LDADD="${GF_LDADD} ${MATH_LIB}"
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_CFLAGS)
