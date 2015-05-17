@@ -72,6 +72,11 @@
 %define _without_qemu_block --disable-qemu-block
 %endif
 
+# Disable data-tiering on EL5, sqlite is too old
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+%global _without_tiering --disable-tiering
+%endif
+
 ##-----------------------------------------------------------------------------
 ## All %global definitions should be placed here and keep them sorted
 ##
@@ -196,11 +201,17 @@ BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
 BuildRequires:    userspace-rcu-devel >= 0.7
+%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
+BuildRequires:    e2fsprogs-devel
+%else
 BuildRequires:    libuuid-devel
+%endif
 %if ( 0%{?_with_cmocka:1} )
 BuildRequires:    libcmocka-devel >= 1.0.1
 %endif
+%if ( 0%{!?_without_tiering:1} )
 BuildRequires:    sqlite-devel
+%endif
 %if ( 0%{!?_without_systemtap:1} )
 BuildRequires:    systemtap-sdt-devel
 %endif
@@ -572,17 +583,18 @@ This package provides the translators needed on any GlusterFS client.
 
 %build
 ./autogen.sh && %configure \
+        %{?_with_cmocka} \
         %{?_with_tmpfilesdir} \
-        %{?_without_rdma} \
+        %{?_without_bd} \
         %{?_without_epoll} \
         %{?_without_fusermount} \
         %{?_without_georeplication} \
         %{?_without_ocf} \
-        %{?_without_syslog} \
-        %{?_without_bd} \
         %{?_without_qemu_block} \
+        %{?_without_rdma} \
+        %{?_without_syslog} \
         %{?_without_systemtap} \
-        %{?_with_cmocka}
+        %{?_without_tiering}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -946,7 +958,10 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
+# RHEL-5 based distributions have a too old openssl
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/crypt.so
+%endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/access-control.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
@@ -996,13 +1011,17 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
 %{_libdir}/pkgconfig/libgfchangelog.pc
+%if ( 0%{!?_without_tiering:1} )
 %{_libdir}/pkgconfig/libgfdb.pc
+%endif
 
 %files client-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
+%if ( 0%{!?_without_qemu_block:1} )
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/qemu-block.so
+%endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 
 %files extra-xlators
@@ -1064,17 +1083,17 @@ fi
 %{_datadir}/glusterfs/scripts/generate-gfid-file.sh
 %{_datadir}/glusterfs/scripts/gsync-sync-gfid
 %ghost %attr(0644,-,-) %{_sharedstatedir}/glusterd/geo-replication/gsyncd_template.conf
+%endif
 %{_libexecdir}/glusterfs/gfind_missing_files
 %{_sbindir}/gfind_missing_files
-%exclude %{_libexecdir}/glusterfs/gfind_missing_files/gfid_to_path.pyo
-%exclude %{_libexecdir}/glusterfs/gfind_missing_files/gfid_to_path.pyc
-%endif
 
 %files libs
 %{_libdir}/*.so.*
 %exclude %{_libdir}/libgfapi.*
+%if ( 0%{!?_without_tiering:1} )
 # libgfdb is only needed server-side
 %exclude %{_libdir}/libgfdb.*
+%endif
 
 %files -n python-gluster
 # introducing glusterfs module in site packages.
@@ -1136,7 +1155,9 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
+%if ( 0%{!?_without_tiering:1} )
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
+%endif
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/index.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
@@ -1149,7 +1170,9 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
+%if ( 0%{!?_without_tiering:1} )
 %{_libdir}/libgfdb.so.*
+%endif
 
 #snap_scheduler
 %{_sbindir}/snap_scheduler.py
@@ -1217,6 +1240,9 @@ fi
 
 * Mon May 18 2015 Milind Changire <mchangir@redhat.com>
 - Move file peer_add_secret_pub to the server RPM to support glusterfind (#1221544)
+
+* Sun May 17 2015 Niels de Vos <ndevos@redhat.com>
+- Fix building on RHEL-5 based distributions (#1222317)
 
 * Tue May 05 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1195947)

@@ -3709,6 +3709,7 @@ locking_func (int mode, int type, const char *file, int line)
         }
 }
 
+#if HAVE_CRYPTO_THREADID
 static void
 threadid_func (CRYPTO_THREADID *id)
 {
@@ -3724,6 +3725,14 @@ threadid_func (CRYPTO_THREADID *id)
          */
         CRYPTO_THREADID_set_numeric (id, (unsigned long)pthread_self());
 }
+#else /* older openssl */
+static unsigned long
+legacy_threadid_func (void)
+{
+	/* See comments above, it applies here too. */
+	return (unsigned long)pthread_self();
+}
+#endif
 
 static void __attribute__((constructor))
 init_openssl_mt (void)
@@ -3738,7 +3747,11 @@ init_openssl_mt (void)
                         pthread_mutex_init (&lock_array[i], NULL);
                 }
                 CRYPTO_set_locking_callback (locking_func);
+#if HAVE_CRYPTO_THREADID
                 CRYPTO_THREADID_set_callback (threadid_func);
+#else /* older openssl */
+                CRYPTO_set_id_callback (legacy_threadid_func);
+#endif
                 constructor_ok = _gf_true;
         }
 
@@ -3987,7 +4000,12 @@ socket_init (rpc_transport_t *this)
                         goto err;
                 }
 
+#if defined(TLS1_2_VERSION)
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
+#else /* old openssl */
+#warning TLSv1.2 is not available, using insecure TLSv1 support
+		priv->ssl_meth = (SSL_METHOD *)TLSv1_method();
+#endif
 		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
                 if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
