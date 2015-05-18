@@ -44,6 +44,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
 	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
 	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
+	libglusterfs-messages.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h lvm-defaults.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	unittest/unittest.h quota-common-utils.h rot-buffs.h \
