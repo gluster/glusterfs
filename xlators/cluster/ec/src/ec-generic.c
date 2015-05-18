@@ -964,9 +964,20 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
+            /*
+             * Lookup happens without any lock, so there is a chance that it
+             * will have answers before modification happened and after
+             * modification happened in the same response. So choose the next
+             * best answer when the answers don't match for EC_MINIMUM_MIN
+             */
+
+            if (!fop->answer && !list_empty(&fop->cbk_list)) {
+                fop->answer = list_entry (fop->cbk_list.next, ec_cbk_data_t,
+                                          list);
+            }
+
             cbk = fop->answer;
-            if (cbk != NULL)
-            {
+            if (cbk != NULL) {
                 if (!ec_dict_combine(cbk, EC_COMBINE_XDATA))
                 {
                     if (cbk->op_ret >= 0)
@@ -986,9 +997,7 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
 
                     ec_lookup_rebuild(fop->xl->private, fop, cbk);
                 }
-            }
-            else
-            {
+            } else {
                 ec_fop_set_error(fop, EIO);
             }
 

@@ -1206,14 +1206,16 @@ void ec_get_size_version(ec_fop_data_t * fop)
 	    loc.path = NULL;
 	    loc.name = NULL;
         }
-	/* For normal fops, ec_lookup() must succeed on at least EC_MINIMUM_MIN
-	 * bricks, however when this is called as part of a self-heal operation
-	 * the mask of target bricks (fop->mask) could contain less than
-	 * EC_MINIMUM_MIN bricks, causing the lookup to always fail. Thus we
-	 * always use the same minimum used for the main fop.
+        /* For normal fops, ec_[f]xattrop() must succeed on at least
+         * EC_MINIMUM_MIN bricks, however when this is called as part of
+         * a self-heal operation the mask of target bricks (fop->mask) could
+         * contain less than EC_MINIMUM_MIN bricks, causing the lookup to
+         * always fail. Thus we always use the same minimum used for the main
+         * fop.
 	 */
-	 ec_lookup(fop->frame, fop->xl, fop->mask, fop->minimum,
-                      ec_get_size_version_set, NULL, &loc, xdata);
+        ec_xattrop (fop->frame, fop->xl, fop->mask, fop->minimum,
+                    ec_prepare_update_cbk, NULL, &loc,
+                    GF_XATTROP_ADD_ARRAY64, xdata, NULL);
     } else {
         if (ec_loc_from_fd(fop->xl, &loc, fop->fd) != 0) {
 	    goto out;
