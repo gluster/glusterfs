@@ -1053,7 +1053,6 @@ fi
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
 %{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
-%{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_libexecdir}/glusterfs/peer_gsec_create
 %{_libexecdir}/glusterfs/peer_mountbroker
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
@@ -1203,6 +1202,7 @@ fi
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
+%{_libexecdir}/glusterfs/peer_add_secret_pub
 
 
 %changelog
@@ -1217,6 +1217,9 @@ fi
 
 * Wed May 20 2015 Anand Nekkunti <anekkunt@redhat.com>
 - glusterd.socket file cleanup during post run upgrade (#1210404)
+
+* Mon May 18 2015 Milind Changire <mchangir@redhat.com>
+- Move file peer_add_secret_pub to the server RPM to support glusterfind (#1221544)
 
 * Tue May 05 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1195947)
