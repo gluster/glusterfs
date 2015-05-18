@@ -214,6 +214,8 @@ shard_local_wipe (shard_local_t *local)
         GF_FREE (local->vector);
         if (local->iobref)
                 iobref_unref (local->iobref);
+        if (local->list_inited)
+                gf_dirent_free (&local->entries_head);
 }
 
 int
@@ -563,43 +565,39 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR (buf->ia_type))
                 goto unwind;
 
-        if (!shard_inode_ctx_get_block_size (inode, this, &size))
-                goto unwind;
-
-        ret = dict_get_uint64 (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &size);
-        if (!ret) {
-                ctx_tmp.block_size = ntoh64 (size);
-                ctx_tmp.mode = st_mode_from_ia (buf->ia_prot, buf->ia_type);
-                ctx_tmp.rdev = buf->ia_rdev;
-                /* Sharding xlator would fetch size and block count only if
-                 * @size is present. The absence of GF_XATTR_SHARD_BLOCK_SIZE on
-                 * the file looked up could be because it was created before
-                 * sharding was enabled on the volume.
-                 */
-                ret = dict_get_ptr (xdata, GF_XATTR_SHARD_FILE_SIZE,
-                                    &size_attr);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_WARNING, "Failed to "
-                                "get xattr "GF_XATTR_SHARD_FILE_SIZE" from disk"
-                                " for %s", uuid_utoa (inode->gfid));
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto unwind;
+        /* If this was a fresh lookup, there are two possibilities:
+         * 1) If the file is sharded (indicated by the presence of block size
+         *    xattr), store this block size, along with rdev and mode in its
+         *    inode ctx.
+         * 2) If the file is not sharded, store size along with rdev and mode
+         *    (which are anyway don't cares) in inode ctx. Since @ctx_tmp is
+         *    already initialised to all zeroes, nothing more needs to be done.
+         */
+        if (shard_inode_ctx_get_block_size (inode, this, &size)) {
+                ret = dict_get_uint64 (xdata, GF_XATTR_SHARD_BLOCK_SIZE, &size);
+                if (!ret) {
+                        ctx_tmp.block_size = ntoh64 (size);
+                        ctx_tmp.mode = st_mode_from_ia (buf->ia_prot,
+                                                        buf->ia_type);
+                        ctx_tmp.rdev = buf->ia_rdev;
                 }
+                ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
+                if (ret)
+                        gf_log (this->name, GF_LOG_WARNING, "Failed to set "
+                                "inode ctx for %s", uuid_utoa (buf->ia_gfid));
+        }
 
+        /* Also, if the file is sharded, get the file size and block cnt xattr,
+         * and store them in the stbuf appropriately.
+         */
+
+        ret = dict_get_ptr (xdata, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
+        if (!ret) {
                 memcpy (size_array, size_attr, sizeof (size_array));
 
                 buf->ia_size = ntoh64 (size_array[0]);
                 buf->ia_blocks = ntoh64 (size_array[2]);
         }
-        /* else it is assumed that the file was created prior to enabling
-         * sharding on the volume.
-         */
-
-        ret = shard_inode_ctx_set_all (inode, this, &ctx_tmp);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING, "Failed to set inode ctx "
-                        "for %s", uuid_utoa (buf->ia_gfid));
 
 unwind:
         SHARD_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
@@ -3159,18 +3157,57 @@ shard_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         return 0;
 }
 
+int
+shard_readdir_past_dot_shard_cbk (call_frame_t *frame, void *cookie,
+                                  xlator_t *this, int32_t op_ret,
+                                  int32_t op_errno, gf_dirent_t *orig_entries,
+                                  dict_t *xdata)
+{
+        gf_dirent_t         *entry          = NULL;
+        gf_dirent_t         *tmp            = NULL;
+        shard_local_t       *local          = NULL;
+
+        local = frame->local;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        list_for_each_entry_safe (entry, tmp, (&orig_entries->list), list) {
+
+                list_del_init (&entry->list);
+                list_add_tail (&entry->list, &local->entries_head.list);
+
+                if (!entry->dict)
+                        continue;
+
+                if (IA_ISDIR (entry->d_stat.ia_type))
+                        continue;
+
+                shard_modify_size_and_block_count (&entry->d_stat, entry->dict);
+        }
+        local->op_ret += op_ret;
+
+unwind:
+        if (local->fop == GF_FOP_READDIR)
+                SHARD_STACK_UNWIND (readdir, frame, local->op_ret,
+                                    local->op_errno,
+                                    &local->entries_head, xdata);
+        else
+                SHARD_STACK_UNWIND (readdirp, frame, op_ret, op_errno,
+                                    &local->entries_head, xdata);
+        return 0;
+}
+
 int32_t
 shard_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                   int32_t op_ret, int32_t op_errno, gf_dirent_t *orig_entries,
                    dict_t *xdata)
 {
-        fd_t                *fd        = NULL;
-        gf_dirent_t         *entry     = NULL;
-        gf_dirent_t         *tmp       = NULL;
-        shard_local_t       *local     = NULL;
-        gf_dirent_t          skipped;
-
-        INIT_LIST_HEAD (&skipped.list);
+        fd_t                *fd             = NULL;
+        gf_dirent_t         *entry          = NULL;
+        gf_dirent_t         *tmp            = NULL;
+        shard_local_t       *local          = NULL;
+        gf_boolean_t         last_entry     = _gf_false;
 
         local = frame->local;
         fd = local->fd;
@@ -3178,26 +3215,55 @@ shard_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0)
                 goto unwind;
 
-        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+        list_for_each_entry_safe (entry, tmp, (&orig_entries->list), list) {
+                if (last_entry)
+                        last_entry = _gf_false;
+
                 if (__is_root_gfid (fd->inode->gfid) &&
                     !(strcmp (entry->d_name, GF_SHARD_DIR))) {
-                        list_del_init (&entry->list);
-                        list_add_tail (&entry->list, &skipped.list);
+                        local->offset = entry->d_off;
+                        op_ret--;
+                        last_entry = _gf_true;
                         continue;
                 }
 
+                list_del_init (&entry->list);
+                list_add_tail (&entry->list, &local->entries_head.list);
+
                 if (!entry->dict)
                         continue;
+
                 if (IA_ISDIR (entry->d_stat.ia_type))
                         continue;
 
                 shard_modify_size_and_block_count (&entry->d_stat, entry->dict);
+        }
 
+        local->op_ret = op_ret;
+
+        if (last_entry) {
+                if (local->fop == GF_FOP_READDIR)
+                        STACK_WIND (frame, shard_readdir_past_dot_shard_cbk,
+                                    FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->readdir, local->fd,
+                                    local->readdir_size, local->offset,
+                                    local->xattr_req);
+                else
+                        STACK_WIND (frame, shard_readdir_past_dot_shard_cbk,
+                                    FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->readdirp,
+                                    local->fd, local->readdir_size,
+                                    local->offset, local->xattr_req);
+                return 0;
         }
 
 unwind:
-        SHARD_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, xdata);
-        gf_dirent_free (&skipped);
+        if (local->fop == GF_FOP_READDIR)
+                SHARD_STACK_UNWIND (readdir, frame, op_ret, op_errno,
+                                    &local->entries_head, xdata);
+        else
+                SHARD_STACK_UNWIND (readdirp, frame, op_ret, op_errno,
+                                    &local->entries_head, xdata);
         return 0;
 }
 
@@ -3218,6 +3284,10 @@ shard_readdir_do (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         frame->local = local;
 
         local->fd = fd_ref (fd);
+        local->fop = whichop;
+        local->readdir_size = size;
+        INIT_LIST_HEAD (&local->entries_head.list);
+        local->list_inited = _gf_true;
 
         if (whichop == GF_FOP_READDIR) {
                 STACK_WIND (frame, shard_readdir_cbk, FIRST_CHILD(this),

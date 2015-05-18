@@ -153,6 +153,7 @@ typedef struct shard_local {
         size_t written_size;
         size_t hole_size;
         size_t req_size;
+        size_t readdir_size;
         loc_t loc;
         loc_t dot_shard_loc;
         loc_t loc2;
@@ -171,6 +172,8 @@ typedef struct shard_local {
         struct iovec *vector;
         struct iobref *iobref;
         struct iobuf *iobuf;
+        gf_dirent_t entries_head;
+        gf_boolean_t list_inited;
         shard_post_fop_handler_t handler;
         shard_post_lookup_shards_fop_handler_t pls_fop_handler;
         shard_post_resolve_fop_handler_t post_res_handler;
