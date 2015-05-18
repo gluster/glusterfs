@@ -10,11 +10,6 @@
 #ifndef __CLI_CMD_H__
 #define __CLI_CMD_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <netdb.h>
 
 #include "cli.h"

@@ -11,11 +11,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "hashfn.h"
 
 #define get16bits(d) (*((const uint16_t *) (d)))

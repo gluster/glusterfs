@@ -8,11 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dht-common.h"
 
 int dht_access2 (xlator_t *this, call_frame_t *frame, int ret);

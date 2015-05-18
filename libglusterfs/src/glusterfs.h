@@ -11,11 +11,6 @@
 #ifndef _GLUSTERFS_H
 #define _GLUSTERFS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

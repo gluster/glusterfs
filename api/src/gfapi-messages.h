@@ -11,11 +11,6 @@
 #ifndef _GFAPI_MESSAGES_H__
 #define _GFAPI_MESSAGES_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glfs-message-id.h"
 
 /*! \file gfapi-messages.h

@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #define RPC_CLNT_DEFAULT_REQUEST_COUNT 512
 
 #include "rpc-clnt.h"

@@ -10,11 +10,6 @@
 #ifndef __GFID_ACCESS_H__
 #define __GFID_ACCESS_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"

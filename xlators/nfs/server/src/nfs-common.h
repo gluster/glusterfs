@@ -11,11 +11,6 @@
 #ifndef _NFS_COMMON_H_
 #define _NFS_COMMON_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <unistd.h>
 
 #include "xlator.h"

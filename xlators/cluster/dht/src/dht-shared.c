@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 /* TODO: add NS locking */
 #include "statedump.h"
 #include "dht-common.h"

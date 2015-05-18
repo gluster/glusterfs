@@ -19,11 +19,6 @@
 #include <sys/time.h>
 #include <fnmatch.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif /* _CONFIG_H */
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "xlator.h"

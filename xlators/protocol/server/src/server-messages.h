@@ -11,11 +11,6 @@
 #ifndef _PS_MESSAGES_H__
 #define _PS_MESSAGES_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glfs-message-id.h"
 
 /*! \file server-messages.h

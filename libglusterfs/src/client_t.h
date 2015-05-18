@@ -11,11 +11,6 @@
 #ifndef _CLIENT_T_H
 #define _CLIENT_T_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "locking.h"  /* for gf_lock_t, not included by glusterfs.h */
 

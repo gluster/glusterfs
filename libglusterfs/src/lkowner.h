@@ -11,11 +11,6 @@
 #ifndef _LK_OWNER_H
 #define _LK_OWNER_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #define GF_MAX_LOCK_OWNER_LEN 1024 /* 1kB as per NLM */
 
 /* 16strings-16strings-... */

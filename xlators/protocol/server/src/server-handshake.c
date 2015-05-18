@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "server.h"
 #include "server-helpers.h"
 #include "rpc-common-xdr.h"

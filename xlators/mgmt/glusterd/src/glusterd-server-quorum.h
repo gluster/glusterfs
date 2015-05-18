@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_SERVER_QUORUM_H
 #define _GLUSTERD_SERVER_QUORUM_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 int
 glusterd_validate_quorum (xlator_t *this, glusterd_op_t op, dict_t *dict,
                           char **op_errstr);

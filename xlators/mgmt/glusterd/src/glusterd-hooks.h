@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_HOOKS_H_
 #define _GLUSTERD_HOOKS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <fnmatch.h>
 
 #define GLUSTERD_GET_HOOKS_DIR(path, version, priv) \

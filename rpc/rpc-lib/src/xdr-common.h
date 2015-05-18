@@ -11,11 +11,6 @@
 #ifndef _XDR_COMMON_H_
 #define _XDR_COMMON_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <rpc/types.h>
 #include <sys/types.h>
 #include <rpc/xdr.h>

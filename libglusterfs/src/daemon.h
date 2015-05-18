@@ -11,11 +11,6 @@
 #ifndef _DAEMON_H
 #define _DAEMON_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #define DEVNULLPATH "/dev/null"
 
 int os_daemon_return(int nochdir, int noclose);

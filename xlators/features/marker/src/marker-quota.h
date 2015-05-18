@@ -10,11 +10,6 @@
 #ifndef _MARKER_QUOTA_H
 #define _MARKER_QUOTA_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "marker-mem-types.h"
 

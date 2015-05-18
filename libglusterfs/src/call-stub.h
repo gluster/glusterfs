@@ -11,11 +11,6 @@
 #ifndef _CALL_STUB_H_
 #define _CALL_STUB_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "defaults.h"
 #include "stack.h"

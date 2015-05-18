@@ -12,11 +12,6 @@
 #ifndef _CLUSTER_SYNCOP_H
 #define _CLUSTER_SYNCOP_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include <sys/time.h>
 #include <pthread.h>

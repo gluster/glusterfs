@@ -12,11 +12,6 @@
 #ifndef _IATT_H
 #define _IATT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/types.h>
 #include <sys/stat.h> /* for iatt <--> stat conversions */
 #include <unistd.h>

@@ -11,11 +11,6 @@
 #ifndef _GLUSTERD_BITD_SVC_H_
 #define _GLUSTERD_BITD_SVC_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterd-svc-mgmt.h"
 
 #define bitd_svc_name "bitd"

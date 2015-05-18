@@ -32,11 +32,6 @@
 #include <errno.h>
 #include <pwd.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif

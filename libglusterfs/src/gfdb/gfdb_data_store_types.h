@@ -11,11 +11,6 @@
 #define __GFDB_DATA_STORE_TYPE_H
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>

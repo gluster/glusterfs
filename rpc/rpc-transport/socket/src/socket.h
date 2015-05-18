@@ -14,11 +14,6 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "event.h"
 #include "rpc-transport.h"
 #include "logging.h"

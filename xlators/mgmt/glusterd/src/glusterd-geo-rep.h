@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_GEO_REP_H_
 #define _GLUSTERD_GEO_REP_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #ifndef GSYNC_CONF_TEMPLATE
 #define GSYNC_CONF_TEMPLATE GEOREP"/gsyncd_template.conf"
 #endif

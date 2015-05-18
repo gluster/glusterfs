@@ -11,11 +11,6 @@
 #ifndef _GLUSTERD_PROC_MGMT_H_
 #define _GLUSTERD_PROC_MGMT_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 typedef struct glusterd_proc_ glusterd_proc_t;
 
 enum proc_flags {

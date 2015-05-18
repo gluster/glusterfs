@@ -10,11 +10,6 @@
 #ifndef _ERROR_GEN_H
 #define _ERROR_GEN_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "error-gen-mem-types.h"
 
 #define GF_FAILURE_DEFAULT 10

@@ -12,11 +12,6 @@
 #ifndef __AFR_H__
 #define __AFR_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "call-stub.h"
 #include "compat-errno.h"
 #include "afr-mem-types.h"

@@ -12,11 +12,6 @@
 #ifndef _GF_DIRENT_H
 #define _GF_DIRENT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "iatt.h"
 #include "inode.h"
 

@@ -10,11 +10,6 @@
 
 #ifndef _NFS3_HELPER_H_
 #define _NFS3_HELPER_H_
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include "xlator.h"
 #include "nfs3.h"

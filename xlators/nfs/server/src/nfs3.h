@@ -11,11 +11,6 @@
 #ifndef _NFS3_H_
 #define _NFS3_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "rpcsvc.h"
 #include "dict.h"
 #include "xlator.h"

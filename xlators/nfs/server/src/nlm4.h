@@ -11,11 +11,6 @@
 #ifndef _NLM4_H_
 #define _NLM4_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/types.h>
 #include <signal.h>
 #include "rpcsvc.h"

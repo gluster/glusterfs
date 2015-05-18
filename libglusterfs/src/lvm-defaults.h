@@ -11,11 +11,6 @@
 #ifndef _LVM_DEFAULTS_H
 #define _LVM_DEFAULTS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #define LVM_RESIZE "/sbin/lvresize"
 #define LVM_CREATE "/sbin/lvcreate"
 #define LVM_CONVERT "/sbin/lvconvert"

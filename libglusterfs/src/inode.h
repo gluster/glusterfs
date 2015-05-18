@@ -11,11 +11,6 @@
 #ifndef _INODE_H
 #define _INODE_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdint.h>
 #include <sys/types.h>
 

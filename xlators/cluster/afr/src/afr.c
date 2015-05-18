@@ -15,10 +15,6 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include "afr-common.c"
 
 struct volume_options options[];

@@ -12,11 +12,6 @@
 #include <fcntl.h>
 #include <limits.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "compat.h"
 #include "xlator.h"

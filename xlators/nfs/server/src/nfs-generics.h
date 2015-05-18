@@ -11,11 +11,6 @@
 #ifndef _NFS_GENERICS_H_
 #define _NFS_GENERICS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "nfs.h"
 #include "xlator.h"
 #include "nfs-fops.h"

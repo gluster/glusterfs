@@ -13,11 +13,6 @@
 
 #include "rpc-clnt.h"
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 typedef struct glusterd_conn_ glusterd_conn_t;
 
 typedef int (*glusterd_conn_notify_t)

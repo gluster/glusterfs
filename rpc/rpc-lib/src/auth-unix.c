@@ -10,11 +10,6 @@
 
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "rpcsvc.h"
 #include "list.h"
 #include "dict.h"

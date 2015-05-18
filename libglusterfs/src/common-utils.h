@@ -11,11 +11,6 @@
 #ifndef _COMMON_UTILS_H
 #define _COMMON_UTILS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdint.h>
 #include <sys/uio.h>
 #include <netdb.h>

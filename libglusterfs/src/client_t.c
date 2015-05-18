@@ -16,11 +16,6 @@
 #include "rpcsvc.h"
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 static int
 gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
                         uint32_t endcount)

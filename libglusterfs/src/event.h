@@ -11,11 +11,6 @@
 #ifndef _EVENT_H_
 #define _EVENT_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <pthread.h>
 
 struct event_pool;

@@ -16,11 +16,6 @@
 #ifndef _STACK_H
 #define _STACK_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 struct _call_stack_t;
 typedef struct _call_stack_t call_stack_t;
 struct _call_frame_t;

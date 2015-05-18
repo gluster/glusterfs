@@ -11,10 +11,6 @@
 #ifndef __CRYPT_H__
 #define __CRYPT_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>

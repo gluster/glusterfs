@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_LOCKS_H_
 #define _GLUSTERD_LOCKS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 typedef struct glusterd_mgmt_v3_lock_object_ {
         uuid_t              lock_owner;
 } glusterd_mgmt_v3_lock_obj;

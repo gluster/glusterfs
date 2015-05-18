@@ -10,11 +10,6 @@
 #ifndef __TRASH_H__
 #define __TRASH_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"

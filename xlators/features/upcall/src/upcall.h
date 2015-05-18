@@ -10,11 +10,6 @@
 #ifndef __UPCALL_H__
 #define __UPCALL_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "compat-errno.h"
 #include "upcall-mem-types.h"
 #include "client_t.h"

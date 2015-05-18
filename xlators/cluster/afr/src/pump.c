@@ -13,11 +13,6 @@
 #include <stdlib.h>
 #include <fnmatch.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "afr-common.c"
 #include "defaults.c"
 #include "glusterfs.h"

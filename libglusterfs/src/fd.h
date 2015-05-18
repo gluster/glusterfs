@@ -11,11 +11,6 @@
 #ifndef _FD_H
 #define _FD_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "list.h"
 #include <sys/types.h>
 #include <unistd.h>

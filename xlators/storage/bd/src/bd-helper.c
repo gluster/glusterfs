@@ -1,7 +1,3 @@
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include <lvm2app.h>
 #ifdef HAVE_LIBAIO
 #include <libaio.h>

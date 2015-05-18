@@ -12,11 +12,6 @@
 #ifndef _STRIPE_H_
 #define _STRIPE_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "logging.h"
 #include "defaults.h"

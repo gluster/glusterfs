@@ -10,11 +10,6 @@
 #ifndef __CLI_H__
 #define __CLI_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "rpc-clnt.h"
 #include "glusterfs.h"
 #include "protocol-common.h"

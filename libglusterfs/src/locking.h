@@ -11,11 +11,6 @@
 #ifndef _LOCKING_H
 #define _LOCKING_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <pthread.h>
 
 #if HAVE_SPINLOCK

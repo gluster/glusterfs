@@ -10,10 +10,6 @@
 #ifndef __GLUSTERFSD_H__
 #define __GLUSTERFSD_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 #include "rpcsvc.h"
 #include "glusterd1-xdr.h"
 

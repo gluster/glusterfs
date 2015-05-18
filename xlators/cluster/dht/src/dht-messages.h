@@ -10,11 +10,6 @@
 #ifndef _DHT_MESSAGES_H_
 #define _DHT_MESSAGES_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glfs-message-id.h"
 
 /*! \file dht-messages.h

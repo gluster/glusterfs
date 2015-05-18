@@ -15,11 +15,6 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "glusterfs.h"
 

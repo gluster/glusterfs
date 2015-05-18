@@ -21,11 +21,6 @@
 #include "mem-pool.h"
 #include "common-utils.h"
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
