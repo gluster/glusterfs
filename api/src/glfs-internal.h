@@ -21,6 +21,55 @@
 
 #define DEFAULT_REVAL_COUNT 1
 
+/*
+ * According to  pthread mutex and conditional variable ( cond, child_down_count,
+ * upcall mutex and mutex) initialization of struct glfs members,
+ * below GLFS_INIT_* flags are set in 'pthread_flags' member of struct glfs.
+ * The flags are set from glfs_init() and  glfs_new_from_ctx() functions
+ * as part of fs inititialization.
+ *
+ * These flag bits are validated in glfs_fini() to destroy all or partially
+ * initialized mutex and conditional variables of glfs object.
+ * If you introduce new pthread mutex or conditional variable in glfs object,
+ * please make sure you have a flag bit intorduced here for proper cleanup
+ * in glfs_fini().
+ *
+ */
+
+#define PTHREAD_MUTEX_INIT(mutex, attr, flags, mask, label) do { \
+        int __ret = -1;                                          \
+        __ret = pthread_mutex_init (mutex, attr);                \
+        if (__ret == 0)                                          \
+                flags |= mask;                                   \
+        else                                                     \
+                goto label;                                      \
+} while (0)
+
+#define PTHREAD_MUTEX_DESTROY(mutex, flags, mask) do {           \
+        if (flags & mask)                                        \
+                (void) pthread_mutex_destroy (mutex);            \
+} while (0)
+
+#define PTHREAD_COND_INIT(cond, attr, flags, mask, label) do {   \
+        int __ret = -1;                                          \
+        __ret = pthread_cond_init (cond, attr);                  \
+        if (__ret == 0)                                          \
+                flags |= mask;                                   \
+        else                                                     \
+                goto label;                                      \
+} while (0)
+
+#define PTHREAD_COND_DESTROY(cond, flags, mask) do {             \
+        if (flags & mask)                                        \
+                (void) pthread_cond_destroy (cond);              \
+} while (0)
+
+#define GLFS_INIT_MUTEX              0x00000001   /* pthread_mutex_flag */
+#define GLFS_INIT_COND               0x00000002   /* pthread_cond_flag */
+#define GLFS_INIT_COND_CHILD         0x00000004   /* pthread_cond_child_down_flag */
+#define GLFS_INIT_MUTEX_UPCALL       0x00000008   /* pthread_mutex_upcall_flag */
+
+
 #ifndef GF_DARWIN_HOST_OS
 #ifndef GFAPI_PUBLIC
 #define GFAPI_PUBLIC(sym, ver) /**/
@@ -154,6 +203,7 @@ struct glfs {
         pthread_mutex_t     upcall_list_mutex; /* mutex for upcall entry list */
 
         uint32_t            pin_refcnt;
+        uint32_t            pthread_flags; /* GLFS_INIT_* # defines set this flag */
 };
 
 struct glfs_fd {

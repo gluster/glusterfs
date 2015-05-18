@@ -581,12 +581,42 @@ glfs_poller (void *data)
 	return NULL;
 }
 
-/*
- * please note all the variable initializations done here probably
- * need to be added in 'glfs_new_from_ctx()' as well, so that,
- * we do not miss out while adding new members in 'fs'.
-*/
+static struct glfs *
+glfs_new_fs (const char *volname)
+{
+        struct glfs     *fs             = NULL;
 
+        fs = CALLOC (1, sizeof (*fs));
+        if (!fs)
+                return NULL;
+
+        INIT_LIST_HEAD (&fs->openfds);
+        INIT_LIST_HEAD (&fs->upcall_list);
+
+        PTHREAD_MUTEX_INIT (&fs->mutex, NULL, fs->pthread_flags,
+                            GLFS_INIT_MUTEX, err);
+
+        PTHREAD_COND_INIT (&fs->cond, NULL, fs->pthread_flags,
+                           GLFS_INIT_COND, err);
+
+        PTHREAD_COND_INIT (&fs->child_down_cond, NULL, fs->pthread_flags,
+                           GLFS_INIT_COND_CHILD, err);
+
+        PTHREAD_MUTEX_INIT (&fs->upcall_list_mutex, NULL, fs->pthread_flags,
+                            GLFS_INIT_MUTEX_UPCALL, err);
+
+        fs->volname = strdup (volname);
+        if (!fs->volname)
+                goto err;
+
+        fs->pin_refcnt = 0;
+
+        return fs;
+
+err:
+        glfs_free_from_ctx (fs);
+        return NULL;
+}
 
 struct glfs *
 pub_glfs_new (const char *volname)
@@ -601,25 +631,9 @@ pub_glfs_new (const char *volname)
                 return NULL;
         }
 
-        fs = CALLOC (1, sizeof (*fs));
+        fs = glfs_new_fs (volname);
         if (!fs)
                 return NULL;
-
-        ret = pthread_mutex_init (&fs->mutex, NULL);
-        if (ret != 0)
-                goto freefs;
-
-        ret = pthread_cond_init (&fs->cond, NULL);
-        if (ret != 0)
-                goto mutex_destroy;
-
-        ret = pthread_cond_init (&fs->child_down_cond, NULL);
-        if (ret != 0)
-                goto cond_destroy;
-
-        ret = pthread_mutex_init (&fs->upcall_list_mutex, NULL);
-        if (ret != 0)
-                goto cond_child_destroy;
 
         ctx = glusterfs_ctx_new ();
         if (!ctx)
@@ -654,39 +668,9 @@ pub_glfs_new (const char *volname)
         if (!(fs->ctx->cmd_args.volfile_id))
                 goto fini;
 
-        fs->volname = strdup (volname);
-        if (!fs->volname)
-                goto fini;
-
-        INIT_LIST_HEAD (&fs->openfds);
-        INIT_LIST_HEAD (&fs->upcall_list);
-
-        fs->pin_refcnt = 0;
-
         goto out;
 
-cond_child_destroy:
-        pthread_cond_destroy (&fs->child_down_cond);
-
-cond_destroy:
-        pthread_cond_destroy (&fs->cond);
-
-mutex_destroy:
-        pthread_mutex_destroy (&fs->mutex);
-
-freefs:
-        FREE (fs);
-        fs = NULL;
-        goto out;
 fini:
-        /*
-         * When pthread_*init() fails there is no way for other cleanup
-         * funtions (glfs_fini/glfs_free_from_ctx) to know which of them succeded
-         * and which did not(unless there is a flag). Hence pthread cleanup is done
-         * in this funtion.Anything that fails after pthread_*_init() succeeds, should
-         * directly call glfs_fini() to cleanup the resources.
-         */
-
          glfs_fini (fs);
          fs = NULL;
 out:
@@ -705,25 +689,15 @@ priv_glfs_new_from_ctx (glusterfs_ctx_t *ctx)
         struct glfs    *fs = NULL;
 
         if (!ctx)
-                return NULL;
+                goto out;
 
-        fs = CALLOC (1, sizeof (*fs));
+        fs = glfs_new_fs ("");
         if (!fs)
-                return NULL;
+                goto out;
+
         fs->ctx = ctx;
 
-        (void) pthread_cond_init (&fs->cond, NULL);
-        (void) pthread_cond_init (&fs->child_down_cond, NULL);
-
-        (void) pthread_mutex_init (&fs->mutex, NULL);
-
-        INIT_LIST_HEAD (&fs->openfds);
-
-        INIT_LIST_HEAD (&fs->upcall_list);
-        pthread_mutex_init (&fs->upcall_list_mutex, NULL);
-
-        fs->pin_refcnt = 0;
-
+out:
         return fs;
 }
 
@@ -747,15 +721,18 @@ priv_glfs_free_from_ctx (struct glfs *fs)
                 GF_FREE (u_list->upcall_data.data);
                 GF_FREE (u_list);
         }
-        (void) pthread_mutex_destroy (&fs->upcall_list_mutex);
 
-        (void) pthread_cond_destroy (&fs->cond);
-        (void) pthread_cond_destroy (&fs->child_down_cond);
+        PTHREAD_MUTEX_DESTROY (&fs->mutex, fs->pthread_flags, GLFS_INIT_MUTEX);
 
-        (void) pthread_mutex_destroy (&fs->mutex);
+        PTHREAD_COND_DESTROY (&fs->cond, fs->pthread_flags, GLFS_INIT_COND);
 
-        if (fs->volname)
-                FREE (fs->volname);
+        PTHREAD_COND_DESTROY (&fs->child_down_cond, fs->pthread_flags,
+                              GLFS_INIT_COND_CHILD);
+
+        PTHREAD_MUTEX_DESTROY (&fs->upcall_list_mutex, fs->pthread_flags,
+                               GLFS_INIT_MUTEX_UPCALL);
+
+        FREE (fs->volname);
 
         FREE (fs);
 }
