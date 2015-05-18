@@ -11,11 +11,6 @@
 #define __GFDB_SQLITE3_H
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 /*Sqlite3 header file*/
 #include <sqlite3.h>
 

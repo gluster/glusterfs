@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "afr.h"
 #include "afr-self-heal.h"
 #include "byte-order.h"

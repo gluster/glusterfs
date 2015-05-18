@@ -11,11 +11,6 @@
 #ifndef __RPC_TRANSPORT_H__
 #define __RPC_TRANSPORT_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include <inttypes.h>
 #ifdef GF_SOLARIS_HOST_OS

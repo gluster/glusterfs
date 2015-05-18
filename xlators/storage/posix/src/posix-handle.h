@@ -10,11 +10,6 @@
 #ifndef _POSIX_HANDLE_H
 #define _POSIX_HANDLE_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <limits.h>
 #include <sys/types.h>
 #include "xlator.h"

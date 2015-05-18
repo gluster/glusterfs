@@ -10,11 +10,6 @@
 
 #include <sys/uio.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "defaults.h"
 #include "logging.h"

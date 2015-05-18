@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_H_
 #define _GLUSTERD_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/types.h>
 #include <dirent.h>
 #include <pthread.h>

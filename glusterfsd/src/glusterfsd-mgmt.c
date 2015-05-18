@@ -13,11 +13,6 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif /* _CONFIG_H */
-
 #include "glusterfs.h"
 #include "stack.h"
 #include "dict.h"

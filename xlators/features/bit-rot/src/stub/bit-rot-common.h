@@ -11,11 +11,6 @@
 #ifndef __BIT_ROT_COMMON_H__
 #define __BIT_ROT_COMMON_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "bit-rot-object-version.h"
 

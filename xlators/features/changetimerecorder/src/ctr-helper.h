@@ -12,11 +12,6 @@
 #define __CTR_HELPER_H
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "ctr_mem_types.h"
 #include "iatt.h"

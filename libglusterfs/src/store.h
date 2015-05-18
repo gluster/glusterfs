@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_STORE_H_
 #define _GLUSTERD_STORE_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "compat.h"
 #include "glusterfs.h"
 

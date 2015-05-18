@@ -11,11 +11,6 @@
 #ifndef _TIMER_H
 #define _TIMER_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include <sys/time.h>

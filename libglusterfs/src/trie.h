@@ -11,11 +11,6 @@
 #ifndef _TRIE_H_
 #define _TRIE_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 struct trienode;
 typedef struct trienode trienode_t;
 

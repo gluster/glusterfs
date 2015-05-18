@@ -10,11 +10,6 @@
 #ifndef _MARKER_COMMON_H
 #define _MARKER_COMMON_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "inode.h"
 #include "xlator.h"
 #include "marker.h"

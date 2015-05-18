@@ -11,11 +11,6 @@
 #ifndef _XDR_RPCCLNT_H
 #define _XDR_RPCCLNT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 //#include <rpc/rpc.h>
 //#include <rpc/pmap_clnt.h>
 #include <arpa/inet.h>

@@ -11,11 +11,6 @@
 #ifndef _NFS_FH_H_
 #define _NFS_FH_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "xdr-nfs3.h"
 #include "iatt.h"

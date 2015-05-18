@@ -11,11 +11,6 @@
 #ifndef _GLFS_MESSAGE_ID_H_
 #define _GLFS_MESSAGE_ID_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 /* Base of all message IDs, all message IDs would be
  * greater than this */
 #define GLFS_MSGID_BASE         100000

@@ -9,11 +9,6 @@
 */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
 #include "byte-order.h"

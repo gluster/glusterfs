@@ -11,11 +11,6 @@
 #ifndef _TIER_H_
 #define _TIER_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 /******************************************************************************/
 /* This is from dht-rebalancer.c as we dont have dht-rebalancer.h */

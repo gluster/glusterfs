@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_VOLGEN_H_
 #define _GLUSTERD_VOLGEN_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
 #include <libxml/xmlwriter.h>

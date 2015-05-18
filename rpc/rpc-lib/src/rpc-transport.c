@@ -15,11 +15,6 @@
 #include <fnmatch.h>
 #include <stdint.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "logging.h"
 #include "rpc-transport.h"
 #include "glusterfs.h"

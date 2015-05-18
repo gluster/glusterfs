@@ -11,11 +11,6 @@
 #ifndef __COMPAT_ERRNO_H__
 #define __COMPAT_ERRNO_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <errno.h>
 
 #define GF_ERROR_CODE_SUCCESS         0

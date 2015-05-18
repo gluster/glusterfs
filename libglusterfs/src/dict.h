@@ -11,11 +11,6 @@
 #ifndef _DICT_H
 #define _DICT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <inttypes.h>
 #include <sys/uio.h>
 #include <pthread.h>

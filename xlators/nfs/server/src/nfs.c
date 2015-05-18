@@ -13,11 +13,6 @@
  */
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "defaults.h"
 #include "rpcsvc.h"
 #include "dict.h"

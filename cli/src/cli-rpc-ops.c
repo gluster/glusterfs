@@ -8,11 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 /* Widths of various columns in top read/write-perf output
  * Total width of top read/write-perf should be 80 chars
  * including one space between column

@@ -10,11 +10,6 @@
 #ifndef __ROT_13_H__
 #define __ROT_13_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 typedef struct {
 	gf_boolean_t encrypt_write;
 	gf_boolean_t decrypt_read;

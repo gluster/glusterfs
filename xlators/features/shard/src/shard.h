@@ -12,11 +12,6 @@
 #ifndef __SHARD_H__
 #define __SHARD_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 #include "compat-errno.h"
 

@@ -10,11 +10,6 @@
 #ifndef __CLEAR_H__
 #define __CLEAR_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "compat-errno.h"
 #include "stack.h"
 #include "call-stub.h"

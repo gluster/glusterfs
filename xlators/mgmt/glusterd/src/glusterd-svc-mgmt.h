@@ -11,11 +11,6 @@
 #ifndef _GLUSTERD_SVC_MGMT_H_
 #define _GLUSTERD_SVC_MGMT_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterd-proc-mgmt.h"
 #include "glusterd-conn-mgmt.h"
 

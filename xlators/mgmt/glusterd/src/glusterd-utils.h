@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_UTILS_H
 #define _GLUSTERD_UTILS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include <pthread.h>
 #include "compat-uuid.h"
 

@@ -11,11 +11,6 @@
 #ifndef __UPCALL_CACHE_INVALIDATION_H__
 #define __UPCALL_CACHE_INVALIDATION_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 /* The time period for which a client will be notified of cache_invalidation
  * events post its last access */
 #define CACHE_INVALIDATION_TIMEOUT "60"

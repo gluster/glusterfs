@@ -11,11 +11,6 @@
 #ifndef _MSG_NFS3_H_
 #define _MSG_NFS3_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xdr-nfs3.h"
 #include "nlm4-xdr.h"
 #include "acl3-xdr.h"

@@ -11,11 +11,6 @@
 #ifndef _GLUSTERD_QUOTAD_SVC_H_
 #define _GLUSTERD_QUOTAD_SVC_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterd-svc-mgmt.h"
 
 int

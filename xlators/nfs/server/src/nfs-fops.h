@@ -11,11 +11,6 @@
 #ifndef _NFS_FOPS_H_
 #define _NFS_FOPS_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "dict.h"
 #include "xlator.h"
 #include "iobuf.h"

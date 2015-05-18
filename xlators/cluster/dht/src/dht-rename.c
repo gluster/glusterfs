@@ -11,11 +11,6 @@
 /* TODO: link(oldpath, newpath) fails if newpath already exists. DHT should
  *       delete the newpath if it gets EEXISTS from link() call.
  */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include "dht-common.h"

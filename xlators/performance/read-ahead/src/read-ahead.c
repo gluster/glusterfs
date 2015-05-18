@@ -15,11 +15,6 @@
   - ensure efficient memory management in case of random seek
 */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"

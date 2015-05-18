@@ -11,11 +11,6 @@
 #ifndef RPC_DRC_H
 #define RPC_DRC_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "rpcsvc-common.h"
 #include "rpcsvc.h"
 #include "locking.h"

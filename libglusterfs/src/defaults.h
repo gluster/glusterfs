@@ -15,11 +15,6 @@
 #ifndef _DEFAULTS_H
 #define _DEFAULTS_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "xlator.h"
 
 typedef struct {

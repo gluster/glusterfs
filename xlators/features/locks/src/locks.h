@@ -10,11 +10,6 @@
 #ifndef __POSIX_LOCKS_H__
 #define __POSIX_LOCKS_H__
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "compat-errno.h"
 #include "stack.h"
 #include "call-stub.h"

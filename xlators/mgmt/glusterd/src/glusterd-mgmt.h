@@ -10,11 +10,6 @@
 #ifndef _GLUSTERD_MGMT_H_
 #define _GLUSTERD_MGMT_H_
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 void gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                                 char *op_errstr, int op_code, uuid_t peerid,
                                 u_char *uuid);

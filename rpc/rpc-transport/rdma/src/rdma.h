@@ -12,11 +12,6 @@
 #define _XPORT_RDMA_H
 
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
 #endif /* MAX_IOVEC */

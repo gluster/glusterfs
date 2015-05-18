@@ -11,11 +11,6 @@
 #ifndef _RPCSVC_H
 #define _RPCSVC_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "event.h"
 #include "rpc-transport.h"
 #include "logging.h"

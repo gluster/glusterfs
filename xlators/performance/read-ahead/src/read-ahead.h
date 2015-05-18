@@ -11,11 +11,6 @@
 #ifndef __READ_AHEAD_H
 #define __READ_AHEAD_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 
 #include "glusterfs.h"
 #include "logging.h"

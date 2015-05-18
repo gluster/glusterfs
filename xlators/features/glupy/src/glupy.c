@@ -12,11 +12,6 @@
 #include <sys/uio.h>
 #include <Python.h>
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
