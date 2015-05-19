@@ -164,18 +164,15 @@ glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
 {
         int                 ret     = -1;
 
-        if (glusterd_are_all_volumes_stopped ()) {
-                ret = svc->stop (svc, SIGKILL);
+        ret = svc->stop (svc, SIGKILL);
+        if (ret)
+                goto out;
 
-        } else {
-                ret = glusterd_nfssvc_create_volfile ();
-                if (ret)
-                        goto out;
+        ret = glusterd_nfssvc_create_volfile ();
+        if (ret)
+                goto out;
 
-                ret = svc->stop (svc, SIGKILL);
-                if (ret)
-                        goto out;
-
+        if (glusterd_nfssvc_need_start ()) {
                 ret = svc->start (svc, flags);
                 if (ret)
                         goto out;
@@ -193,8 +190,7 @@ out:
 int
 glusterd_nfssvc_start (glusterd_svc_t *svc, int flags)
 {
-        if (glusterd_nfssvc_need_start ())
-                return glusterd_svc_start (svc, flags, NULL);
+        return glusterd_svc_start (svc, flags, NULL);
 
         return 0;
 }

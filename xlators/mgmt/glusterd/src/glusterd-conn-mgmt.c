@@ -80,7 +80,6 @@ out:
 int
 glusterd_conn_term (glusterd_conn_t *conn)
 {
-        rpc_clnt_disable (conn->rpc);
         rpc_clnt_unref (conn->rpc);
         return 0;
 }
