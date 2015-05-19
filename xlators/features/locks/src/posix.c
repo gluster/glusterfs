@@ -44,6 +44,281 @@ static int format_brickname(char *);
 int pl_lockinfo_get_brickname (xlator_t *, inode_t *, int32_t *);
 static int fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
 
+#define PL_STACK_UNWIND(fop, xdata, frame, op_ret, params ...)          \
+        do {                                                            \
+                pl_local_t *__local = NULL;                             \
+                inode_t *__parent = NULL;                               \
+                inode_t *__inode = NULL;                                \
+                char    *__name = NULL;                                 \
+                dict_t  *__unref = NULL;                                \
+                                                                        \
+                __local = frame->local;                                 \
+                if (op_ret >= 0 && pl_needs_xdata_response (frame->local)) {\
+                        if (xdata)                                      \
+                                dict_ref (xdata);                       \
+                        else                                            \
+                                xdata = dict_new();                     \
+                        if (xdata) {                                    \
+                                __unref = xdata;                        \
+                                pl_get_xdata_rsp_args (__local,         \
+                                      #fop, &__parent, &__inode,        \
+                                      &__name);                         \
+                                pl_set_xdata_response (frame->this,     \
+                                    __local, __parent, __inode, __name, \
+                                    xdata);                             \
+                        }                                               \
+                }                                                       \
+                frame->local = NULL;                                    \
+                STACK_UNWIND_STRICT (fop, frame, op_ret, params);       \
+                if (__local) {                                          \
+                        if (__local->inodelk_dom_count_req)             \
+                                data_unref (__local->inodelk_dom_count_req);\
+                        loc_wipe (&__local->loc);                       \
+                        if (__local->fd)                                \
+                                fd_unref (__local->fd);                 \
+                        mem_put (__local);                              \
+                }                                                       \
+                if (__unref)                                            \
+                        dict_unref (__unref);                           \
+        } while (0)
+
+#define PL_LOCAL_GET_REQUESTS(frame, this, xdata, __fd, __loc)          \
+        do {                                                            \
+                if (pl_has_xdata_requests (xdata)) {                    \
+                        frame->local = mem_get0 (this->local_pool);     \
+                        pl_local_t *__local = frame->local;             \
+                        if (__local) {                                  \
+                                if (__fd)                               \
+                                        __local->fd = fd_ref (__fd);    \
+                                else                                    \
+                                        loc_copy (&__local->loc, __loc);\
+                                pl_get_xdata_requests (__local, xdata); \
+                        }                                               \
+                }                                                       \
+        } while (0)
+
+gf_boolean_t
+pl_has_xdata_requests (dict_t *xdata)
+{
+        char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT, GLUSTERFS_INODELK_COUNT,
+                        GLUSTERFS_INODELK_DOM_COUNT, GLUSTERFS_POSIXLK_COUNT,
+                        GLUSTERFS_PARENT_ENTRYLK, NULL};
+        int i = 0;
+
+        if (!xdata)
+                return _gf_false;
+
+        for (i = 0; reqs[i]; i++)
+                if (dict_get (xdata, reqs[i]))
+                        return _gf_true;
+
+        return _gf_false;
+}
+
+void
+pl_get_xdata_requests (pl_local_t *local, dict_t *xdata)
+{
+        if (!local || !xdata)
+                return;
+
+        if (dict_get (xdata, GLUSTERFS_ENTRYLK_COUNT)) {
+                local->entrylk_count_req = 1;
+                dict_del (xdata, GLUSTERFS_ENTRYLK_COUNT);
+        }
+        if (dict_get (xdata, GLUSTERFS_INODELK_COUNT)) {
+                local->inodelk_count_req = 1;
+                dict_del (xdata, GLUSTERFS_INODELK_COUNT);
+        }
+
+        local->inodelk_dom_count_req = dict_get (xdata, GLUSTERFS_INODELK_DOM_COUNT);
+        if (local->inodelk_dom_count_req) {
+                data_ref (local->inodelk_dom_count_req);
+                dict_del (xdata, GLUSTERFS_INODELK_DOM_COUNT);
+        }
+
+        if (dict_get (xdata, GLUSTERFS_POSIXLK_COUNT)) {
+                local->posixlk_count_req = 1;
+                dict_del (xdata, GLUSTERFS_POSIXLK_COUNT);
+        }
+
+        if (dict_get (xdata, GLUSTERFS_PARENT_ENTRYLK)) {
+                local->parent_entrylk_req = 1;
+                dict_del (xdata, GLUSTERFS_PARENT_ENTRYLK);
+        }
+}
+
+gf_boolean_t
+pl_needs_xdata_response (pl_local_t *local)
+{
+        if (!local)
+                return _gf_false;
+
+        if (local->parent_entrylk_req)
+                return _gf_true;
+
+        if (local->entrylk_count_req)
+                return _gf_true;
+
+        if (local->inodelk_dom_count_req)
+                return _gf_true;
+
+        if (local->inodelk_count_req)
+                return _gf_true;
+
+        if (local->posixlk_count_req)
+                return _gf_true;
+        return _gf_false;
+}
+
+void
+pl_get_xdata_rsp_args (pl_local_t *local, char *fop, inode_t **parent,
+                       inode_t **inode, char **name)
+{
+        if (strcmp (fop, "lookup") == 0) {
+                *parent = local->loc.parent;
+                *inode = local->loc.inode;
+                *name = (char *)local->loc.name;
+        } else {
+                if (local->fd) {
+                        *inode = local->fd->inode;
+                } else {
+                        *inode = local->loc.parent;
+                }
+        }
+}
+
+int32_t
+__get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
+{
+        posix_lock_t *lock   = NULL;
+        int32_t       count  = 0;
+
+        list_for_each_entry (lock, &pl_inode->ext_list, list) {
+
+                count++;
+        }
+
+        return count;
+}
+
+int32_t
+get_posixlk_count (xlator_t *this, inode_t *inode)
+{
+        pl_inode_t   *pl_inode = NULL;
+        uint64_t      tmp_pl_inode = 0;
+        int           ret      = 0;
+        int32_t       count    = 0;
+
+        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
+        if (ret != 0) {
+                goto out;
+        }
+
+        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                count = __get_posixlk_count (this, pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+out:
+        return count;
+}
+
+void
+pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
+                              char *basename, dict_t *dict)
+{
+        uint32_t         entrylk = 0;
+        int             ret     = -1;
+
+        if (!parent || !basename || !strlen (basename))
+                goto out;
+        entrylk = check_entrylk_on_basename (this, parent, basename);
+out:
+        ret = dict_set_uint32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_PARENT_ENTRYLK);
+        }
+}
+
+void
+pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
+{
+        int32_t     count = 0;
+        int         ret   = -1;
+
+        count = get_entrylk_count (this, inode);
+        ret = dict_set_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_ENTRYLK_COUNT);
+        }
+
+}
+
+void
+pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
+                       char *domname)
+{
+        int32_t     count = 0;
+        int         ret   = -1;
+
+
+        count = get_inodelk_count (this, inode, domname);
+
+        ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "Failed to set count for "
+                        "key %s", GLUSTERFS_INODELK_COUNT);
+        }
+
+        return;
+}
+
+void
+pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
+                       dict_t *dict)
+{
+        int32_t     count = 0;
+        int         ret   = -1;
+
+        count = get_posixlk_count (this, inode);
+        ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, count);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        " dict_set failed on key %s", GLUSTERFS_POSIXLK_COUNT);
+        }
+
+}
+
+void
+pl_set_xdata_response (xlator_t *this, pl_local_t *local, inode_t *parent,
+                       inode_t *inode, char *name, dict_t *xdata)
+{
+        if (!xdata || !local)
+                return;
+
+        if (local->parent_entrylk_req && parent && name && strlen (name))
+                pl_parent_entrylk_xattr_fill (this, parent, name, xdata);
+
+        if (local->entrylk_count_req && inode)
+                pl_entrylk_xattr_fill (this, inode, xdata);
+
+        if (local->inodelk_dom_count_req && inode)
+                pl_inodelk_xattr_fill (this, inode, xdata,
+                                    data_to_str (local->inodelk_dom_count_req));
+
+        if (local->inodelk_count_req && inode)
+                pl_inodelk_xattr_fill (this, inode, xdata, NULL);
+
+        if (local->posixlk_count_req && inode)
+                pl_posixlk_xattr_fill (this, inode, xdata);
+}
+
 static pl_fdctx_t *
 pl_new_fdctx ()
 {
@@ -905,12 +1180,8 @@ unwind:
 }
 
 int32_t
-pl_opendir_cbk (call_frame_t *frame,
-                void *cookie,
-                xlator_t *this,
-                int32_t op_ret,
-                int32_t op_errno,
-                fd_t *fd, dict_t *xdata)
+pl_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
         pl_fdctx_t *fdctx = NULL;
 
@@ -925,25 +1196,19 @@ pl_opendir_cbk (call_frame_t *frame,
         }
 
 unwind:
-        STACK_UNWIND_STRICT (opendir,
-                             frame,
-                             op_ret,
-                             op_errno,
-                             fd, xdata);
+        PL_STACK_UNWIND (opendir, xdata, frame, op_ret, op_errno, fd, xdata);
+
         return 0;
 }
 
 int32_t
 pl_opendir (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, fd_t *fd, dict_t *xdata)
+            loc_t *loc, fd_t *fd, dict_t *xdata)
 {
-        STACK_WIND (frame,
-                    pl_opendir_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->opendir,
-                    loc, fd, xdata);
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+        STACK_WIND (frame, pl_opendir_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
         return 0;
-
 }
 
 int
@@ -1023,7 +1288,6 @@ unwind:
         return 0;
 }
 
-
 int
 pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata)
@@ -1055,8 +1319,8 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
         }
 
 unwind:
-        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
-                             preparent, postparent, xdata);
+        PL_STACK_UNWIND (create, xdata, frame, op_ret, op_errno, fd, inode, buf,
+                         preparent, postparent, xdata);
 
         return 0;
 }
@@ -1067,12 +1331,32 @@ pl_create (call_frame_t *frame, xlator_t *this,
            loc_t *loc, int32_t flags, mode_t mode, mode_t umask, fd_t *fd,
            dict_t *xdata)
 {
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc);
         STACK_WIND (frame, pl_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
                     loc, flags, mode, umask, fd, xdata);
         return 0;
 }
 
+int32_t
+pl_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+               struct iatt *postparent, dict_t *xdata)
+{
+        PL_STACK_UNWIND (unlink, xdata, frame, op_ret, op_errno, preparent,
+                         postparent, xdata);
+        return 0;
+}
+
+int32_t
+pl_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
+           dict_t *xdata)
+{
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc);
+        STACK_WIND (frame, pl_unlink_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
+        return 0;
+}
 
 int
 pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1080,8 +1364,8 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               struct iovec *vector, int32_t count, struct iatt *stbuf,
               struct iobref *iobref, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
-                             vector, count, stbuf, iobref, xdata);
+        PL_STACK_UNWIND (readv, xdata, frame, op_ret, op_errno,
+                         vector, count, stbuf, iobref, xdata);
 
         return 0;
 }
@@ -1091,12 +1375,11 @@ pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
 {
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
-                             xdata);
+        PL_STACK_UNWIND (writev, xdata, frame, op_ret, op_errno, prebuf,
+                         postbuf, xdata);
 
         return 0;
 }
-
 
 void
 do_blocked_rw (pl_inode_t *pl_inode)
@@ -1176,6 +1459,8 @@ pl_readv (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         pl_inode = pl_inode_get (this, fd->inode);
+
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
 
         if (priv->mandatory && pl_inode->mandatory) {
                 region.fl_start   = offset;
@@ -1271,6 +1556,8 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         priv = this->private;
         pl_inode = pl_inode_get (this, fd->inode);
 
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
+
         if (priv->mandatory && pl_inode->mandatory) {
                 region.fl_start   = offset;
                 region.fl_end     = offset + iov_length (vector, count) - 1;
@@ -1322,10 +1609,11 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
 
-        if (wind_needed)
+        if (wind_needed) {
                 STACK_WIND (frame, pl_writev_cbk,
                             FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
                             fd, vector, count, offset, flags, iobref, xdata);
+        }
 
         if (op_ret == -1)
                 STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL,
@@ -1872,224 +2160,24 @@ out:
 }
 
 int32_t
-__get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
+pl_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
-        posix_lock_t *lock   = NULL;
-        int32_t       count  = 0;
-
-        list_for_each_entry (lock, &pl_inode->ext_list, list) {
-
-                count++;
-        }
-
-        return count;
-}
-
-int32_t
-get_posixlk_count (xlator_t *this, inode_t *inode)
-{
-        pl_inode_t   *pl_inode = NULL;
-        uint64_t      tmp_pl_inode = 0;
-        int           ret      = 0;
-        int32_t       count    = 0;
-
-        ret = inode_ctx_get (inode, this, &tmp_pl_inode);
-        if (ret != 0) {
-                goto out;
-        }
-
-        pl_inode = (pl_inode_t *)(long) tmp_pl_inode;
-
-        pthread_mutex_lock (&pl_inode->mutex);
-        {
-                count =__get_posixlk_count (this, pl_inode);
-        }
-        pthread_mutex_unlock (&pl_inode->mutex);
-
-out:
-        return count;
-}
-
-void
-pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
-                              char *basename, dict_t *dict)
-{
-        uint32_t         entrylk = 0;
-        int             ret     = -1;
-
-        if (!parent || !basename || !strlen (basename))
-                goto out;
-        entrylk = check_entrylk_on_basename (this, parent, basename);
-out:
-        ret = dict_set_uint32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        " dict_set failed on key %s", GLUSTERFS_PARENT_ENTRYLK);
-        }
-}
-
-void
-pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
-                       dict_t *dict)
-{
-        int32_t     count = 0;
-        int         ret   = -1;
-
-        count = get_entrylk_count (this, inode);
-        ret = dict_set_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, count);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        " dict_set failed on key %s", GLUSTERFS_ENTRYLK_COUNT);
-        }
-
-}
-
-void
-pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
-                       gf_boolean_t per_dom)
-{
-        int32_t     count = 0;
-        int         ret   = -1;
-        char        *domname = NULL;
-
-
-        if (per_dom){
-                ret = dict_get_str (dict, GLUSTERFS_INODELK_DOM_COUNT,
-                                    &domname);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
-                                "value for key %s",GLUSTERFS_INODELK_DOM_COUNT);
-                        goto out;
-                }
-        }
-
-        count = get_inodelk_count (this, inode, domname);
-
-        ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to set count for "
-                        "key %s", GLUSTERFS_INODELK_COUNT);
-        }
-
-out:
-        return;
-}
-
-void
-pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
-                       dict_t *dict)
-{
-        int32_t     count = 0;
-        int         ret   = -1;
-
-        count = get_posixlk_count (this, inode);
-        ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, count);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        " dict_set failed on key %s", GLUSTERFS_POSIXLK_COUNT);
-        }
-
-}
-
-int32_t
-pl_lookup_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    inode_t *inode,
-                    struct iatt *buf,
-                    dict_t *xdata,
-                    struct iatt *postparent)
-{
-        pl_local_t *local = NULL;
-
-        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
-
-        if (op_ret)
-                goto out;
-
-        local = frame->local;
-
-        if (local->parent_entrylk_req)
-                pl_parent_entrylk_xattr_fill (this, local->loc.parent,
-                                              (char*)local->loc.name, xdata);
-        if (local->entrylk_count_req)
-                pl_entrylk_xattr_fill (this, inode, xdata);
-        if (local->inodelk_count_req)
-                pl_inodelk_xattr_fill (this, inode, xdata, _gf_false);
-        if (local->inodelk_dom_count_req)
-                pl_inodelk_xattr_fill (this, inode, xdata, _gf_true);
-        if (local->posixlk_count_req)
-                pl_posixlk_xattr_fill (this, inode, xdata);
-
-
-out:
-        local = frame->local;
-        frame->local = NULL;
-
-        if (local != NULL) {
-                loc_wipe (&local->loc);
-                mem_put (local);
-        }
-
-        STACK_UNWIND_STRICT (
-                     lookup,
-                     frame,
-                     op_ret,
-                     op_errno,
-                     inode,
-                     buf,
-                     xdata,
-                     postparent);
+        PL_STACK_UNWIND (lookup, xdata, frame, op_ret, op_errno, inode, buf,
+                         xdata, postparent);
         return 0;
 }
 
 int32_t
-pl_lookup (call_frame_t *frame,
-           xlator_t *this,
-           loc_t *loc,
-           dict_t *xdata)
+pl_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        pl_local_t *local  = NULL;
-        int         ret    = -1;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (loc, out);
-
-        local = mem_get0 (this->local_pool);
-        GF_VALIDATE_OR_GOTO (this->name, local, out);
-
-        if (xdata) {
-                if (dict_get (xdata, GLUSTERFS_ENTRYLK_COUNT))
-                        local->entrylk_count_req = 1;
-                if (dict_get (xdata, GLUSTERFS_INODELK_COUNT))
-                        local->inodelk_count_req = 1;
-                if (dict_get (xdata, GLUSTERFS_INODELK_DOM_COUNT))
-                        local->inodelk_dom_count_req = 1;
-                if (dict_get (xdata, GLUSTERFS_POSIXLK_COUNT))
-                        local->posixlk_count_req = 1;
-                if (dict_get (xdata, GLUSTERFS_PARENT_ENTRYLK))
-                        local->parent_entrylk_req = 1;
-        }
-
-        frame->local = local;
-        loc_copy (&local->loc, loc);
-
-        STACK_WIND (frame,
-                    pl_lookup_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->lookup,
-                    loc, xdata);
-        ret = 0;
-out:
-        if (ret == -1)
-                STACK_UNWIND_STRICT (lookup, frame, -1, 0, NULL,
-                                     NULL, NULL, NULL);
-
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, NULL, loc);
+        STACK_WIND (frame, pl_lookup_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, loc, xdata);
         return 0;
 }
+
 int
 pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
@@ -2097,63 +2185,35 @@ pl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         pl_local_t *local  = NULL;
         gf_dirent_t *entry = NULL;
 
-        local = frame->local;
-
         if (op_ret <= 0)
                 goto unwind;
 
+        local = frame->local;
+        if (!local)
+                goto unwind;
+
         list_for_each_entry (entry, &entries->list, list) {
-                if (local->entrylk_count_req)
-                        pl_entrylk_xattr_fill (this, entry->inode, entry->dict);
-                if (local->inodelk_count_req)
-                        pl_inodelk_xattr_fill (this, entry->inode, entry->dict,
-                                               _gf_false);
-                if (local->inodelk_dom_count_req)
-                        pl_inodelk_xattr_fill (this, entry->inode, entry->dict,
-                                               _gf_true);
-                if (local->posixlk_count_req)
-                        pl_posixlk_xattr_fill (this, entry->inode, entry->dict);
+                pl_set_xdata_response (this, local, local->fd->inode,
+                                       entry->inode, entry->d_name,
+                                       entry->dict);
         }
 
 unwind:
-        frame->local = NULL;
-        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
-
-        if (local)
-                mem_put (local);
+        PL_STACK_UNWIND (readdirp, xdata, frame, op_ret, op_errno, entries,
+                         xdata);
 
         return 0;
 }
 
 int
 pl_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-             off_t offset, dict_t *dict)
+             off_t offset, dict_t *xdata)
 {
-        pl_local_t *local  = NULL;
-
-        local = mem_get0 (this->local_pool);
-        GF_VALIDATE_OR_GOTO (this->name, local, out);
-
-        if (dict) {
-                if (dict_get (dict, GLUSTERFS_ENTRYLK_COUNT))
-                        local->entrylk_count_req = 1;
-                if (dict_get (dict, GLUSTERFS_INODELK_COUNT))
-                        local->inodelk_count_req = 1;
-                if (dict_get (dict, GLUSTERFS_INODELK_DOM_COUNT))
-                        local->inodelk_dom_count_req = 1;
-                if (dict_get (dict, GLUSTERFS_POSIXLK_COUNT))
-                        local->posixlk_count_req = 1;
-        }
-
-        frame->local = local;
-
+        PL_LOCAL_GET_REQUESTS (frame, this, xdata, fd, NULL);
         STACK_WIND (frame, pl_readdirp_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
-                    fd, size, offset, dict);
+                    fd, size, offset, xdata);
 
-        return 0;
-out:
-        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL, NULL);
         return 0;
 }
 
