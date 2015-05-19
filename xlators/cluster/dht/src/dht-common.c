@@ -3310,13 +3310,12 @@ int
 dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, dict_t *xdata)
 {
-        int           ret  = -1;
-        dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
-        struct iatt  *stbuf = NULL;
-        inode_t      *inode = NULL;
-        xlator_t     *subvol = NULL;
-
+        int           ret     = -1;
+        dht_local_t  *local   = NULL;
+        call_frame_t *prev    = NULL;
+        struct iatt  *stbuf   = NULL;
+        inode_t      *inode   = NULL;
+        xlator_t     *subvol1 = NULL, *subvol2 = NULL;
 
         local = frame->local;
         prev = cookie;
@@ -3353,11 +3352,15 @@ dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Phase 1 of migration */
         if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
-                dht_inode_ctx_get1 (this, inode, &subvol);
-                if (subvol) {
-                        dht_setxattr2 (this, subvol, frame);
+
+                ret = dht_inode_ctx_get_mig_info (this, inode,
+                                                  &subvol1, &subvol2);
+                if (!dht_mig_info_is_invalid (local->cached_subvol,
+                                              subvol1, subvol2)) {
+                        dht_setxattr2 (this, subvol2, frame);
                         return 0;
                 }
+
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
                         return 0;
@@ -3821,13 +3824,12 @@ int
 dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, dict_t *xdata)
 {
-        int           ret  = -1;
-        dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
-        struct iatt  *stbuf = NULL;
-        inode_t      *inode = NULL;
-        xlator_t     *subvol = NULL;
-
+        int           ret     = -1;
+        dht_local_t  *local   = NULL;
+        call_frame_t *prev    = NULL;
+        struct iatt  *stbuf   = NULL;
+        inode_t      *inode   = NULL;
+        xlator_t     *subvol1 = NULL, *subvol2 = NULL;
 
         local = frame->local;
         prev = cookie;
@@ -3864,11 +3866,15 @@ dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Phase 1 of migration */
         if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
-                dht_inode_ctx_get1 (this, inode, &subvol);
-                if (subvol) {
-                        dht_removexattr2 (this, subvol, frame);
+
+                ret = dht_inode_ctx_get_mig_info (this, inode,
+                                                  &subvol1, &subvol2);
+                if (!dht_mig_info_is_invalid (local->cached_subvol,
+                                              subvol1, subvol2)) {
+                        dht_removexattr2 (this, subvol2, frame);
                         return 0;
                 }
+
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
                         return 0;
@@ -5236,7 +5242,8 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->rebalance.target_op_fn = dht_link2;
         /* Check if the rebalance phase2 is true */
         if (IS_DHT_MIGRATION_PHASE2 (stbuf)) {
-                ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+                ret = dht_inode_ctx_get_mig_info (this, local->loc.inode, NULL,
+                                                  &subvol);
                 if (!subvol) {
                         /* Phase 2 of migration */
                         ret = dht_rebalance_complete_check (this, frame);
@@ -5250,7 +5257,8 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
-                ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+                ret = dht_inode_ctx_get_mig_info (this, local->loc.inode, NULL,
+                                                  &subvol);
                 if (subvol) {
                         dht_link2 (this, subvol, frame);
                         return 0;

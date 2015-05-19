@@ -153,7 +153,7 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Check if the rebalance phase2 is true */
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
-                ret = dht_inode_ctx_get1 (this, inode, &subvol);
+                ret = dht_inode_ctx_get_mig_info (this, inode, NULL, &subvol);
                 if (!subvol) {
                         /* Phase 2 of migration */
                         local->rebalance.target_op_fn = dht_attr2;
@@ -377,7 +377,6 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t *local      = NULL;
         int          ret        = 0;
-        inode_t     *inode      = NULL;
         xlator_t    *subvol = 0;
 
         local = frame->local;
@@ -397,7 +396,8 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_errno = op_errno;
         if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (stbuf)) {
                 /* File would be migrated to other node */
-                ret = dht_inode_ctx_get1 (this, inode, &subvol);
+                ret = dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL,
+                                                  &subvol);
                 if (!subvol) {
                         local->rebalance.target_op_fn = dht_readv2;
                         ret = dht_rebalance_complete_check (this, frame);
@@ -612,7 +612,6 @@ dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int op_ret, int op_errno, dict_t *xdata)
 {
         dht_local_t  *local  = NULL;
-        inode_t      *inode  = NULL;
         xlator_t     *subvol = 0;
 
         local = frame->local;
@@ -623,7 +622,7 @@ dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
 
         /* If context is set, then send flush() it to the destination */
-        dht_inode_ctx_get1 (this, inode, &subvol);
+        dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
         if (subvol) {
                 dht_flush2 (this, subvol, frame);
                 return 0;
@@ -648,6 +647,7 @@ dht_flush2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 
         op_errno = local->op_errno;
 
+        dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
         if (subvol == NULL)
                 goto out;
 
@@ -735,7 +735,8 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
 
         local->op_errno = op_errno;
-        dht_inode_ctx_get1 (this, inode, &subvol);
+        inode = local->fd->inode;
+        dht_inode_ctx_get_mig_info (this, inode, NULL, &subvol);
         if (!subvol) {
                 local->rebalance.target_op_fn = dht_fsync2;
 

@@ -15,27 +15,81 @@
 #include "dht-helper.h"
 
 static inline int
-dht_inode_ctx_set1 (xlator_t *this, inode_t *inode, xlator_t *subvol)
+dht_inode_ctx_set_mig_info (xlator_t *this, inode_t *inode,
+                            xlator_t *src_subvol, xlator_t *dst_subvol)
 {
-        uint64_t tmp_subvol = 0;
+        dht_migrate_info_t *miginfo = NULL;
+        uint64_t            value   = 0;
+        int                 ret     = -1;
 
-        tmp_subvol = (long)subvol;
-        return inode_ctx_set1 (inode, this, &tmp_subvol);
-}
+        miginfo = GF_CALLOC (1, sizeof (*miginfo), gf_dht_mt_miginfo_t);
+        if (miginfo == NULL)
+                goto out;
 
-int
-dht_inode_ctx_get1 (xlator_t *this, inode_t *inode, xlator_t **subvol)
-{
-        int ret = -1;
-        uint64_t tmp_subvol = 0;
+        miginfo->src_subvol = src_subvol;
+        miginfo->dst_subvol = dst_subvol;
 
-        ret =  inode_ctx_get1 (inode, this, &tmp_subvol);
-        if (tmp_subvol && subvol)
-                *subvol = (xlator_t *)tmp_subvol;
+        value = (uint64_t) miginfo;
 
+        ret = inode_ctx_set1 (inode, this, &value);
+        if (ret < 0) {
+                GF_FREE (miginfo);
+        }
+
+out:
         return ret;
 }
 
+
+int
+dht_inode_ctx_get_mig_info (xlator_t *this, inode_t *inode,
+                            xlator_t **src_subvol, xlator_t **dst_subvol)
+{
+        int                 ret         = -1;
+        uint64_t            tmp_miginfo = 0;
+        dht_migrate_info_t *miginfo     = NULL;
+
+        ret =  inode_ctx_get1 (inode, this, &tmp_miginfo);
+        if ((ret < 0) || (tmp_miginfo == 0))
+                goto out;
+
+        miginfo = (dht_migrate_info_t *)tmp_miginfo;
+
+        if (src_subvol)
+                *src_subvol = miginfo->src_subvol;
+
+        if (dst_subvol)
+                *dst_subvol = miginfo->dst_subvol;
+
+out:
+        return ret;
+}
+
+gf_boolean_t
+dht_mig_info_is_invalid (xlator_t *current, xlator_t *src_subvol,
+                      xlator_t *dst_subvol)
+{
+
+/* Not set
+ */
+        if (!src_subvol || !dst_subvol)
+                return _gf_true;
+
+/* Invalid scenarios:
+ * The src_subvol does not match the subvol on which the current op was sent
+ * so the cached subvol has changed between the last mig_info_set and now.
+ * src_subvol == dst_subvol. The file was migrated without any FOP detecting
+ * a P2 so the old dst is now the current subvol.
+ *
+ * There is still one scenario where the info could be outdated - if
+ * file has undergone multiple migrations and ends up on the same src_subvol
+ * on which the mig_info was first set.
+ */
+        if ((current == dst_subvol) || (current != src_subvol))
+                return _gf_true;
+
+        return _gf_false;
+}
 
 int
 dht_frame_return (call_frame_t *frame)
@@ -840,20 +894,20 @@ out:
 int
 dht_migration_complete_check_task (void *data)
 {
-        int           ret      = -1;
-        xlator_t     *src_node = NULL;
-        xlator_t     *dst_node = NULL, *linkto_target = NULL;
-        dht_local_t  *local    = NULL;
-        dict_t       *dict     = NULL;
-        struct iatt   stbuf    = {0,};
-        xlator_t     *this     = NULL;
-        call_frame_t *frame    = NULL;
-        loc_t         tmp_loc  = {0,};
-        char         *path     = NULL;
-        dht_conf_t   *conf     = NULL;
-        inode_t      *inode    = NULL;
-        fd_t         *iter_fd  = NULL;
-        uint64_t      tmp_subvol = 0;
+        int           ret         = -1;
+        xlator_t     *src_node    = NULL;
+        xlator_t     *dst_node    = NULL, *linkto_target = NULL;
+        dht_local_t  *local       = NULL;
+        dict_t       *dict        = NULL;
+        struct iatt   stbuf       = {0,};
+        xlator_t     *this        = NULL;
+        call_frame_t *frame       = NULL;
+        loc_t         tmp_loc     = {0,};
+        char         *path        = NULL;
+        dht_conf_t   *conf        = NULL;
+        inode_t      *inode       = NULL;
+        fd_t         *iter_fd     = NULL;
+        uint64_t      tmp_miginfo = 0;
         int           open_failed = 0;
 
         this  = THIS;
@@ -945,9 +999,11 @@ dht_migration_complete_check_task (void *data)
         /* once we detect the migration complete, the inode-ctx2 is no more
            required.. delete the ctx and also, it means, open() already
            done on all the fd of inode */
-        ret = inode_ctx_reset1 (inode, this, &tmp_subvol);
-        if (tmp_subvol)
+        ret = inode_ctx_reset1 (inode, this, &tmp_miginfo);
+        if (tmp_miginfo) {
+                GF_FREE ((void *)tmp_miginfo);
                 goto out;
+        }
 
         if (list_empty (&inode->fd_list))
                 goto out;
@@ -1006,15 +1062,15 @@ dht_rebalance_complete_check (xlator_t *this, call_frame_t *frame)
                             dht_migration_complete_check_done,
                             frame, frame);
         return ret;
-}
 
+}
 /* During 'in-progress' state, both nodes should have the file */
 static int
 dht_inprogress_check_done (int op_ret, call_frame_t *frame, void *data)
 {
-        dht_local_t *local  = NULL;
-        xlator_t    *subvol = NULL;
-        inode_t     *inode  = NULL;
+        dht_local_t *local      = NULL;
+        xlator_t    *dst_subvol = NULL, *src_subvol = NULL;
+        inode_t     *inode      = NULL;
 
         local = frame->local;
 
@@ -1023,17 +1079,18 @@ dht_inprogress_check_done (int op_ret, call_frame_t *frame, void *data)
 
         inode = local->loc.inode ? local->loc.inode : local->fd->inode;
 
-        dht_inode_ctx_get1 (THIS, inode, &subvol);
-        if (!subvol) {
-                subvol = dht_subvol_get_cached (THIS, inode);
-                if (!subvol) {
+        dht_inode_ctx_get_mig_info (THIS, inode, &src_subvol, &dst_subvol);
+        if (dht_mig_info_is_invalid (local->cached_subvol,
+                                     src_subvol, dst_subvol)) {
+                dst_subvol = dht_subvol_get_cached (THIS, inode);
+                if (!dst_subvol) {
                         local->op_errno = EINVAL;
                         goto out;
                 }
         }
 
 out:
-        local->rebalance.target_op_fn (THIS, subvol, frame);
+        local->rebalance.target_op_fn (THIS, dst_subvol, frame);
 
         return 0;
 }
@@ -1165,7 +1222,7 @@ dht_rebalance_inprogress_task (void *data)
         }
 
 done:
-        ret = dht_inode_ctx_set1 (this, inode, dst_node);
+        ret = dht_inode_ctx_set_mig_info (this, inode, src_node, dst_node);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to set inode-ctx target file at %s",
