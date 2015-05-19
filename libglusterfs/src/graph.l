@@ -36,8 +36,6 @@ void append_string(const char *str, int size)
                         text = GF_REALLOC (text, new_size);
                 }
                 if (!text) {
-                        gf_log ("parser", GF_LOG_ERROR,
-                                "out of memory");
                         return;
                 }
 		text_asize = new_size;
