@@ -498,6 +498,11 @@ struct dir_dfmeta {
         int                     *fetch_entries;
 };
 
+typedef struct dht_migrate_info {
+        xlator_t *src_subvol;
+        xlator_t *dst_subvol;
+} dht_migrate_info_t;
+
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_revalidate(loc) (dht_inode_ctx_layout_get (loc->inode, this, NULL) == 0)
@@ -973,7 +978,11 @@ int32_t
 dht_inodectx_dump (xlator_t *this, inode_t *inode);
 
 int
-dht_inode_ctx_get1 (xlator_t *this, inode_t *inode, xlator_t **subvol);
+dht_inode_ctx_get_mig_info (xlator_t *this, inode_t *inode,
+                            xlator_t **src_subvol, xlator_t **dst_subvol);
+gf_boolean_t
+dht_mig_info_is_invalid (xlator_t *current, xlator_t *src_subvol,
+                         xlator_t *dst_subvol);
 
 int
 dht_subvol_status (dht_conf_t *conf, xlator_t *subvol);
