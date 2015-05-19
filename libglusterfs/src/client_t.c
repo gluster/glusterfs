@@ -601,7 +601,7 @@ clienttable_dump (clienttable_t *clienttable, char *prefix)
         {
                 if (ret) {
                         gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_GAIN_FAILED,
+                                LG_MSG_LOCK_FAILED,
                                 "Unable to acquire lock");
                         return;
                 }
@@ -699,7 +699,7 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
         {
                 if (ret) {
                         gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_GAIN_FAILED,
+                                LG_MSG_LOCK_FAILED,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -742,7 +742,7 @@ gf_client_dump_fdtables (xlator_t *this)
         {
                 if (ret) {
                         gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_GAIN_FAILED,
+                                LG_MSG_LOCK_FAILED,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -808,7 +808,7 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
         {
                 if (ret) {
                         gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_GAIN_FAILED,
+                                LG_MSG_LOCK_FAILED,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -870,7 +870,7 @@ gf_client_dump_inodes (xlator_t *this)
         {
                 if (ret) {
                         gf_msg ("client_t", GF_LOG_WARNING, 0,
-                                LG_MSG_LOCK_GAIN_FAILED,
+                                LG_MSG_LOCK_FAILED,
                                 "Unable to acquire lock");
                         goto out;
                 }

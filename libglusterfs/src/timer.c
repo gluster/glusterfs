@@ -18,6 +18,7 @@
 #include "common-utils.h"
 #include "globals.h"
 #include "timespec.h"
+#include "libglusterfs-messages.h"
 
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
@@ -32,7 +33,8 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
 
         if (ctx == NULL)
         {
-                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
 
@@ -41,14 +43,17 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
          * when cleanup_started is set after checking for it
          */
         if (ctx->cleanup_started) {
-                gf_log_callingfn ("timer", GF_LOG_INFO, "ctx cleanup started");
+                gf_msg_callingfn ("timer", GF_LOG_INFO, 0,
+                                  LG_MSG_CTX_CLEANUP_STARTED, "ctx cleanup "
+                                  "started");
                 return NULL;
         }
 
         reg = gf_timer_registry_init (ctx);
 
         if (!reg) {
-                gf_log_callingfn ("timer", GF_LOG_ERROR, "!reg");
+                gf_msg_callingfn ("timer", GF_LOG_ERROR, 0,
+                                  LG_MSG_TIMER_REGISTER_ERROR, "!reg");
                 return NULL;
         }
 
@@ -85,7 +90,8 @@ gf_timer_call_stale (gf_timer_registry_t *reg,
 {
         if (reg == NULL || event == NULL)
         {
-                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return 0;
         }
 
@@ -107,13 +113,15 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 
         if (ctx == NULL || event == NULL)
         {
-                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return 0;
         }
 
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
-                gf_log ("timer", GF_LOG_ERROR, "!reg");
+                gf_msg ("timer", GF_LOG_ERROR, 0, LG_MSG_INIT_TIMER_FAILED,
+                        "!reg");
                 GF_FREE (event);
                 return 0;
         }
@@ -145,13 +153,15 @@ gf_timer_proc (void *ctx)
 
         if (ctx == NULL)
         {
-                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
 
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
-                gf_log ("timer", GF_LOG_ERROR, "!reg");
+                gf_msg ("timer", GF_LOG_ERROR, 0, LG_MSG_INIT_TIMER_FAILED,
+                        "!reg");
                 return NULL;
         }
 
@@ -223,7 +233,8 @@ gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
         if (ctx == NULL) {
-                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
 
