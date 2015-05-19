@@ -36,13 +36,13 @@
  */
 
 #define GLFS_LG_BASE            GLFS_MSGID_COMP_LIBGLUSTERFS
-#define GLFS_LG_NUM_MESSAGES    228
+#define GLFS_LG_NUM_MESSAGES    201
 #define GLFS_LG_MSGID_END       (GLFS_LG_BASE + GLFS_LG_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_lg GLFS_LG_BASE, "Invalid: Start of messages"
 /*------------*/
 
-#define LG_MSG_BACK_POLL_EVENT                            (GLFS_LG_BASE + 1)
+#define LG_MSG_ASPRINTF_FAILED                            (GLFS_LG_BASE + 1)
 
 /*!
  * @messageid
@@ -50,7 +50,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_ASPRINTF_FAILED                            (GLFS_LG_BASE + 2)
+#define LG_MSG_INVALID_ENTRY                              (GLFS_LG_BASE + 2)
 
 /*!
  * @messageid
@@ -58,7 +58,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_ENTRY                              (GLFS_LG_BASE + 3)
+#define LG_MSG_COUNT_LESS_THAN_ZERO                       (GLFS_LG_BASE + 3)
 
 /*!
  * @messageid
@@ -66,7 +66,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_BUF_NULL                                   (GLFS_LG_BASE + 4)
+#define LG_MSG_COUNT_LESS_THAN_DATA_PAIRS                 (GLFS_LG_BASE + 4)
 
 /*!
  * @messageid
@@ -74,7 +74,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_COUNT_LESS_THAN_ZERO                       (GLFS_LG_BASE + 5)
+#define LG_MSG_VALUE_LENGTH_LESS_THAN_ZERO                (GLFS_LG_BASE + 5)
 
 /*!
  * @messageid
@@ -82,7 +82,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_COUNT_LESS_THAN_DATA_PAIRS                 (GLFS_LG_BASE + 6)
+#define LG_MSG_PAIRS_LESS_THAN_COUNT                      (GLFS_LG_BASE + 6)
 
 /*!
  * @messageid
@@ -90,7 +90,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_PAIR_KEY_NULL                              (GLFS_LG_BASE + 7)
+#define LG_MSG_KEY_OR_VALUE_NULL                          (GLFS_LG_BASE + 7)
 
 /*!
  * @messageid
@@ -98,7 +98,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_PAIR_VALUE_NULL                            (GLFS_LG_BASE + 8)
+#define LG_MSG_FAILED_TO_LOG_DICT                         (GLFS_LG_BASE + 8)
 
 /*!
  * @messageid
@@ -106,126 +106,14 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VALUE_LENGTH_LESS_THAN_ZERO                (GLFS_LG_BASE + 9)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_PAIRS_LESS_THAN_COUNT                      (GLFS_LG_BASE + 10)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_KEY_OR_VALUE_NULL                          (GLFS_LG_BASE + 11)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_FAILED_TO_LOG_DICT                         (GLFS_LG_BASE + 12)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_NULL_VALUE_IN_DICT                         (GLFS_LG_BASE + 13)
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_DIR_OP_FAILED                              (GLFS_LG_BASE + 14)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_STORE_HANDLE_CREATE_FAILED                 (GLFS_LG_BASE + 15)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_SYNC_FAILED                                (GLFS_LG_BASE + 16)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_RENAME_FAILED                              (GLFS_LG_BASE + 17)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_FILE_OP_FAILED                            (GLFS_LG_BASE + 18)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_STORE_KEY_VALUE_FAILED                     (GLFS_LG_BASE + 19)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_FFLUSH_FAILED                              (GLFS_LG_BASE + 20)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_FILE_STAT_FAILED                           (GLFS_LG_BASE + 21)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_LOCK_GAIN_FAILED                           (GLFS_LG_BASE + 22)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_LOCK_RELEASE_FAILED                        (GLFS_LG_BASE + 23)
-
+#define LG_MSG_NULL_VALUE_IN_DICT                         (GLFS_LG_BASE + 9)
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-#define LG_MSG_MOVE_FAILED                                (GLFS_LG_BASE + 24)
+#define LG_MSG_DIR_OP_FAILED                              (GLFS_LG_BASE + 10)
 
 /*!
  * @messageid
@@ -233,7 +121,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_SERIAL_FAILED                         (GLFS_LG_BASE + 25)
+#define LG_MSG_STORE_HANDLE_CREATE_FAILED                 (GLFS_LG_BASE + 11)
 
 /*!
  * @messageid
@@ -241,7 +129,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_UNSERIAL_FAILED                       (GLFS_LG_BASE + 26)
+#define LG_MSG_FILE_OP_FAILED                            (GLFS_LG_BASE + 12)
 
 /*!
  * @messageid
@@ -249,7 +137,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_NO_MEMORY                                  (GLFS_LG_BASE + 27)
+#define LG_MSG_FILE_STAT_FAILED                           (GLFS_LG_BASE + 13)
 
 /*!
  * @messageid
@@ -257,7 +145,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VOLUME_ERROR                               (GLFS_LG_BASE + 28)
+#define LG_MSG_LOCK_GAIN_FAILED                           (GLFS_LG_BASE + 14)
 
 /*!
  * @messageid
@@ -265,7 +153,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SUB_VOLUME_ERROR                           (GLFS_LG_BASE + 29)
+#define LG_MSG_LOCK_RELEASE_FAILED                        (GLFS_LG_BASE + 15)
 
 /*!
  * @messageid
@@ -273,7 +161,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SYNTAX_ERROR                               (GLFS_LG_BASE + 30)
+#define LG_MSG_DICT_SERIAL_FAILED                         (GLFS_LG_BASE + 16)
 
 /*!
  * @messageid
@@ -281,7 +169,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_BACKTICK_PARSE_FAILED                      (GLFS_LG_BASE + 31)
+#define LG_MSG_DICT_UNSERIAL_FAILED                       (GLFS_LG_BASE + 17)
 
 /*!
  * @messageid
@@ -289,7 +177,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_BUFFER_ERROR                               (GLFS_LG_BASE + 32)
+#define LG_MSG_NO_MEMORY                                  (GLFS_LG_BASE + 18)
 
 /*!
  * @messageid
@@ -297,7 +185,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_GETTIMEOFDAY_FUNCTION_FAILED               (GLFS_LG_BASE + 33)
+#define LG_MSG_VOLUME_ERROR                               (GLFS_LG_BASE + 19)
 
 /*!
  * @messageid
@@ -305,55 +193,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DUMP_CALL_POOL_FAILED                      (GLFS_LG_BASE + 34)
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-
-#define LG_MSG_STRDUP_ERROR                               (GLFS_LG_BASE + 35)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_HASH_FUNC_ERROR                            (GLFS_LG_BASE + 36)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_INIT_BUCKET_FAILED                         (GLFS_LG_BASE + 37)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_GET_ENTRY_FAILED                          (GLFS_LG_BASE + 38)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_GET_BUCKET_FAILED                         (GLFS_LG_BASE + 39)
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-
-#define LG_MSG_INSERT_FAILED                             (GLFS_LG_BASE + 40)
+#define LG_MSG_SUB_VOLUME_ERROR                           (GLFS_LG_BASE + 20)
 
 /*!
  * @messageid
@@ -361,7 +201,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INIT_ENTRY_FAILED                         (GLFS_LG_BASE + 41)
+#define LG_MSG_SYNTAX_ERROR                               (GLFS_LG_BASE + 21)
 
 /*!
  * @messageid
@@ -369,7 +209,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_OUT_OF_RANGE                              (GLFS_LG_BASE + 42)
+#define LG_MSG_BACKTICK_PARSE_FAILED                      (GLFS_LG_BASE + 22)
 
 /*!
  * @messageid
@@ -377,7 +217,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VALIDATE_RETURNS                          (GLFS_LG_BASE + 43)
+#define LG_MSG_BUFFER_ERROR                               (GLFS_LG_BASE + 23)
 
 /*!
  * @messageid
@@ -385,7 +225,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VALIDATE_REC_FAILED                       (GLFS_LG_BASE + 44)
+#define LG_MSG_STRDUP_ERROR                               (GLFS_LG_BASE + 24)
 
 /*!
  * @messageid
@@ -393,28 +233,23 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_HASH_FUNC_ERROR                            (GLFS_LG_BASE + 25)
 
-#define LG_MSG_RB_TABLE_CREATE_FAILED                    (GLFS_LG_BASE + 45)
-
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-
-
-#define LG_MSG_PATH_NOT_FOUND                            (GLFS_LG_BASE + 46)
-
+#define LG_MSG_GET_BUCKET_FAILED                         (GLFS_LG_BASE + 26)
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-
 
-#define LG_MSG_CONVERTION_FAILED                         (GLFS_LG_BASE + 47)
+#define LG_MSG_INSERT_FAILED                             (GLFS_LG_BASE + 27)
 
 /*!
  * @messageid
@@ -422,16 +257,15 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_OUT_OF_RANGE                              (GLFS_LG_BASE + 28)
 
-#define LG_MSG_EXPAND_FD_TABLE_FAILED                    (GLFS_LG_BASE + 48)
-
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-#define LG_MSG_MAPING_FAILED                             (GLFS_LG_BASE + 49)
+#define LG_MSG_VALIDATE_RETURNS                          (GLFS_LG_BASE + 29)
 
 /*!
  * @messageid
@@ -439,7 +273,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INIT_IOBUF_FAILED                         (GLFS_LG_BASE + 50)
+#define LG_MSG_VALIDATE_REC_FAILED                       (GLFS_LG_BASE + 30)
 
 /*!
  * @messageid
@@ -448,7 +282,7 @@
  *
  */
 
-#define LG_MSG_PAGE_SIZE_EXCEEDED                        (GLFS_LG_BASE + 51)
+#define LG_MSG_RB_TABLE_CREATE_FAILED                    (GLFS_LG_BASE + 31)
 
 /*!
  * @messageid
@@ -456,23 +290,9 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_ARENA_NOT_FOUND                           (GLFS_LG_BASE + 52)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_IOBUF_NOT_FOUND                           (GLFS_LG_BASE + 53)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_POOL_NOT_FOUND                            (GLFS_LG_BASE + 54)
+#define LG_MSG_PATH_NOT_FOUND                            (GLFS_LG_BASE + 32)
 
 /*!
  * @messageid
@@ -480,15 +300,8 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SET_ATTRIBUTE_FAILED                      (GLFS_LG_BASE + 55)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_READ_ATTRIBUTE_FAILED                     (GLFS_LG_BASE + 56)
+#define LG_MSG_EXPAND_FD_TABLE_FAILED                    (GLFS_LG_BASE + 33)
 
 /*!
  * @messageid
@@ -496,7 +309,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_UNMOUNT_FAILED                            (GLFS_LG_BASE + 57)
+#define LG_MSG_MAPPING_FAILED                            (GLFS_LG_BASE + 34)
 
 /*!
  * @messageid
@@ -504,7 +317,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_LATENCY_MEASUREMENT_STATE                 (GLFS_LG_BASE + 58)
+#define LG_MSG_INIT_IOBUF_FAILED                         (GLFS_LG_BASE + 35)
 
 /*!
  * @messageid
@@ -512,15 +325,8 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_NO_PERM                                   (GLFS_LG_BASE + 59)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_NO_KEY                                    (GLFS_LG_BASE + 60)
+#define LG_MSG_PAGE_SIZE_EXCEEDED                        (GLFS_LG_BASE + 36)
 
 /*!
  * @messageid
@@ -528,7 +334,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_NULL                                 (GLFS_LG_BASE + 61)
+#define LG_MSG_ARENA_NOT_FOUND                           (GLFS_LG_BASE + 37)
 
 /*!
  * @messageid
@@ -536,7 +342,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INIT_TIMER_FAILED                         (GLFS_LG_BASE + 62)
+#define LG_MSG_IOBUF_NOT_FOUND                           (GLFS_LG_BASE + 38)
 
 /*!
  * @messageid
@@ -544,7 +350,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_ANONYMOUS_FAILED                       (GLFS_LG_BASE + 63)
+#define LG_MSG_POOL_NOT_FOUND                            (GLFS_LG_BASE + 39)
 
 /*!
  * @messageid
@@ -552,7 +358,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_CREATE_FAILED                          (GLFS_LG_BASE + 64)
+#define LG_MSG_SET_ATTRIBUTE_FAILED                      (GLFS_LG_BASE + 40)
 
 /*!
  * @messageid
@@ -560,7 +366,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_BUFFER_FULL                               (GLFS_LG_BASE + 65)
+#define LG_MSG_READ_ATTRIBUTE_FAILED                     (GLFS_LG_BASE + 41)
 
 /*!
  * @messageid
@@ -568,7 +374,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FWRITE_FAILED                             (GLFS_LG_BASE + 66)
+#define LG_MSG_UNMOUNT_FAILED                            (GLFS_LG_BASE + 42)
 
 /*!
  * @messageid
@@ -576,7 +382,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_PRINT_FAILED                              (GLFS_LG_BASE + 67)
+#define LG_MSG_LATENCY_MEASUREMENT_STATE                 (GLFS_LG_BASE + 43)
 
 /*!
  * @messageid
@@ -584,7 +390,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_MEM_POOL_DESTROY                          (GLFS_LG_BASE + 68)
+#define LG_MSG_NO_PERM                                   (GLFS_LG_BASE + 44)
 
 /*!
  * @messageid
@@ -592,7 +398,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_EXPAND_CLIENT_TABLE_FAILED                (GLFS_LG_BASE + 69)
+#define LG_MSG_NO_KEY                                    (GLFS_LG_BASE + 45)
 
 /*!
  * @messageid
@@ -600,7 +406,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DISCONNECT_CLIENT                         (GLFS_LG_BASE + 70)
+#define LG_MSG_DICT_NULL                                 (GLFS_LG_BASE + 46)
 
 /*!
  * @messageid
@@ -608,7 +414,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_PIPE_CREATE_FAILED                        (GLFS_LG_BASE + 71)
+#define LG_MSG_INIT_TIMER_FAILED                         (GLFS_LG_BASE + 47)
 
 /*!
  * @messageid
@@ -616,7 +422,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SET_PIPE_FAILED                           (GLFS_LG_BASE + 72)
+#define LG_MSG_FD_ANONYMOUS_FAILED                       (GLFS_LG_BASE + 48)
 
 /*!
  * @messageid
@@ -624,7 +430,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_REGISTER_PIPE_FAILED                      (GLFS_LG_BASE + 73)
+#define LG_MSG_FD_CREATE_FAILED                          (GLFS_LG_BASE + 49)
 
 /*!
  * @messageid
@@ -632,7 +438,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_POLL_IGNORE_MULTIPLE_THREADS              (GLFS_LG_BASE + 74)
+#define LG_MSG_BUFFER_FULL                               (GLFS_LG_BASE + 50)
 
 /*!
  * @messageid
@@ -640,7 +446,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INDEX_NOT_FOUND                           (GLFS_LG_BASE + 75)
+#define LG_MSG_FWRITE_FAILED                             (GLFS_LG_BASE + 51)
 
 /*!
  * @messageid
@@ -648,7 +454,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_EPOLL_FD_CREATE_FAILED                    (GLFS_LG_BASE + 76)
+#define LG_MSG_PRINT_FAILED                              (GLFS_LG_BASE + 52)
 
 /*!
  * @messageid
@@ -656,7 +462,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SLOT_NOT_FOUND                            (GLFS_LG_BASE + 77)
+#define LG_MSG_MEM_POOL_DESTROY                          (GLFS_LG_BASE + 53)
 
 /*!
  * @messageid
@@ -664,7 +470,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_ADD_FAILED                             (GLFS_LG_BASE + 78)
+#define LG_MSG_EXPAND_CLIENT_TABLE_FAILED                (GLFS_LG_BASE + 54)
 
 /*!
  * @messageid
@@ -672,7 +478,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_DEL_FAILED                             (GLFS_LG_BASE + 79)
+#define LG_MSG_DISCONNECT_CLIENT                         (GLFS_LG_BASE + 55)
 
 /*!
  * @messageid
@@ -680,7 +486,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_MODIFY_FAILED                          (GLFS_LG_BASE + 80)
+#define LG_MSG_PIPE_CREATE_FAILED                        (GLFS_LG_BASE + 56)
 
 /*!
  * @messageid
@@ -688,7 +494,7 @@
  * @recommendedaction
  *
  */
- #define LG_MSG_STALE_FD_FOUND                            (GLFS_LG_BASE + 81)
+#define LG_MSG_SET_PIPE_FAILED                           (GLFS_LG_BASE + 57)
 
 /*!
  * @messageid
@@ -696,7 +502,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_GENERATION_MISMATCH                      (GLFS_LG_BASE + 82)
+#define LG_MSG_REGISTER_PIPE_FAILED                      (GLFS_LG_BASE + 58)
 
 /*!
  * @messageid
@@ -704,7 +510,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_STARTED_THREAD                            (GLFS_LG_BASE + 83)
+#define LG_MSG_POLL_IGNORE_MULTIPLE_THREADS              (GLFS_LG_BASE + 59)
 
 /*!
  * @messageid
@@ -712,7 +518,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_EXITED_THREAD                             (GLFS_LG_BASE + 84)
+#define LG_MSG_INDEX_NOT_FOUND                           (GLFS_LG_BASE + 60)
 
 /*!
  * @messageid
@@ -720,7 +526,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_START_THREAD_FAILED                       (GLFS_LG_BASE + 85)
+#define LG_MSG_EPOLL_FD_CREATE_FAILED                    (GLFS_LG_BASE + 61)
 
 /*!
  * @messageid
@@ -728,7 +534,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_PTHREAD_KEY_CREATE_FAILED                 (GLFS_LG_BASE + 86)
+#define LG_MSG_SLOT_NOT_FOUND                            (GLFS_LG_BASE + 62)
 
 /*!
  * @messageid
@@ -736,7 +542,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_TRANSLATOR_INIT_FAILED                    (GLFS_LG_BASE + 87)
+ #define LG_MSG_STALE_FD_FOUND                            (GLFS_LG_BASE + 63)
 
 /*!
  * @messageid
@@ -744,7 +550,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_UUID_BUF_INIT_FAILED                      (GLFS_LG_BASE + 88)
+#define LG_MSG_GENERATION_MISMATCH                       (GLFS_LG_BASE + 64)
 
 /*!
  * @messageid
@@ -752,7 +558,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_LKOWNER_BUF_INIT_FAILED                   (GLFS_LG_BASE + 89)
+#define LG_MSG_PTHREAD_KEY_CREATE_FAILED                 (GLFS_LG_BASE + 65)
 
 /*!
  * @messageid
@@ -760,7 +566,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SYNCTASK_INIT_FAILED                      (GLFS_LG_BASE + 90)
+#define LG_MSG_TRANSLATOR_INIT_FAILED                    (GLFS_LG_BASE + 66)
 
 /*!
  * @messageid
@@ -768,7 +574,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SYNCOPCTX_INIT_FAILED                     (GLFS_LG_BASE + 91)
+#define LG_MSG_UUID_BUF_INIT_FAILED                      (GLFS_LG_BASE + 67)
 
 /*!
  * @messageid
@@ -776,7 +582,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_GLOBAL_INIT_FAILED                        (GLFS_LG_BASE + 92)
+#define LG_MSG_LKOWNER_BUF_INIT_FAILED                   (GLFS_LG_BASE + 68)
 
 /*!
  * @messageid
@@ -784,7 +590,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_PTHREAD_FAILED                            (GLFS_LG_BASE + 93)
+#define LG_MSG_SYNCTASK_INIT_FAILED                      (GLFS_LG_BASE + 69)
 
 /*!
  * @messageid
@@ -792,7 +598,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DIR_IS_SYMLINK                            (GLFS_LG_BASE + 94)
+#define LG_MSG_SYNCOPCTX_INIT_FAILED                     (GLFS_LG_BASE + 70)
 
 /*!
  * @messageid
@@ -800,17 +606,15 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_GLOBAL_INIT_FAILED                        (GLFS_LG_BASE + 71)
 
-#define LG_MSG_RESOLVE_HOSTNAME_FAILED                   (GLFS_LG_BASE + 95)
-
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-
-#define LG_MSG_GETADDRINFO_FAILED                        (GLFS_LG_BASE + 96)
+#define LG_MSG_PTHREAD_FAILED                            (GLFS_LG_BASE + 72)
 
 /*!
  * @messageid
@@ -818,9 +622,8 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_DIR_IS_SYMLINK                            (GLFS_LG_BASE + 73)
 
-#define LG_MSG_GETNAMEINFO_FAILED                        (GLFS_LG_BASE + 97)
-
 /*!
  * @messageid
  * @diagnosis
@@ -828,7 +631,7 @@
  *
  */
 
-#define LG_MSG_PATH_ERROR                                (GLFS_LG_BASE + 98)
+#define LG_MSG_RESOLVE_HOSTNAME_FAILED                   (GLFS_LG_BASE + 74)
 
 /*!
  * @messageid
@@ -837,7 +640,7 @@
  *
  */
 
-#define LG_MSG_INET_PTON_FAILED                          (GLFS_LG_BASE + 99)
+#define LG_MSG_GETADDRINFO_FAILED                        (GLFS_LG_BASE + 75)
 
 /*!
  * @messageid
@@ -846,7 +649,7 @@
  *
  */
 
-#define LG_MSG_NEGATIVE_NUM_PASSED                       (GLFS_LG_BASE + 100)
+#define LG_MSG_GETNAMEINFO_FAILED                        (GLFS_LG_BASE + 76)
 
 /*!
  * @messageid
@@ -855,7 +658,7 @@
  *
  */
 
-#define LG_MSG_GETHOSTNAME_FAILED                        (GLFS_LG_BASE + 101)
+#define LG_MSG_PATH_ERROR                                (GLFS_LG_BASE + 77)
 
 /*!
  * @messageid
@@ -864,7 +667,7 @@
  *
  */
 
-#define LG_MSG_RESERVED_PORTS_ERROR                      (GLFS_LG_BASE + 102)
+#define LG_MSG_INET_PTON_FAILED                          (GLFS_LG_BASE + 78)
 
 /*!
  * @messageid
@@ -873,7 +676,7 @@
  *
  */
 
-#define LG_MSG_INVALID_PORT                              (GLFS_LG_BASE + 103)
+#define LG_MSG_NEGATIVE_NUM_PASSED                       (GLFS_LG_BASE + 79)
 
 /*!
  * @messageid
@@ -882,7 +685,7 @@
  *
  */
 
-#define LG_MSG_INVALID_FAMILY                            (GLFS_LG_BASE + 104)
+#define LG_MSG_GETHOSTNAME_FAILED                        (GLFS_LG_BASE + 80)
 
 /*!
  * @messageid
@@ -891,7 +694,7 @@
  *
  */
 
-#define LG_MSG_CONVERSION_FAILED                         (GLFS_LG_BASE + 105)
+#define LG_MSG_RESERVED_PORTS_ERROR                      (GLFS_LG_BASE + 81)
 
 /*!
  * @messageid
@@ -900,7 +703,7 @@
  *
  */
 
-#define LG_MSG_SKIP_HEADER_FAILED                        (GLFS_LG_BASE + 106)
+#define LG_MSG_INVALID_PORT                              (GLFS_LG_BASE + 82)
 
 /*!
  * @messageid
@@ -909,7 +712,7 @@
  *
  */
 
-#define LG_MSG_INVALID_LOG                               (GLFS_LG_BASE + 107)
+#define LG_MSG_INVALID_FAMILY                            (GLFS_LG_BASE + 83)
 
 /*!
  * @messageid
@@ -918,7 +721,7 @@
  *
  */
 
-#define LG_MSG_UTIMES_FAILED                             (GLFS_LG_BASE + 108)
+#define LG_MSG_CONVERSION_FAILED                         (GLFS_LG_BASE + 84)
 
 /*!
  * @messageid
@@ -927,7 +730,7 @@
  *
  */
 
-#define LG_MSG_BACKTRACE_SAVE_FAILED                     (GLFS_LG_BASE + 109)
+#define LG_MSG_SKIP_HEADER_FAILED                        (GLFS_LG_BASE + 85)
 
 /*!
  * @messageid
@@ -936,7 +739,7 @@
  *
  */
 
-#define LG_MSG_INIT_FAILED                               (GLFS_LG_BASE + 110)
+#define LG_MSG_INVALID_LOG                               (GLFS_LG_BASE + 86)
 
 /*!
  * @messageid
@@ -945,7 +748,7 @@
  *
  */
 
-#define LG_MSG_VALIDATION_FAILED                         (GLFS_LG_BASE + 111)
+#define LG_MSG_UTIMES_FAILED                             (GLFS_LG_BASE + 87)
 
 /*!
  * @messageid
@@ -954,7 +757,7 @@
  *
  */
 
-#define LG_MSG_GRAPH_ERROR                               (GLFS_LG_BASE + 112)
+#define LG_MSG_BACKTRACE_SAVE_FAILED                     (GLFS_LG_BASE + 88)
 
 /*!
  * @messageid
@@ -963,7 +766,7 @@
  *
  */
 
-#define LG_MSG_UNKNOWN_OPTIONS_FAILED                    (GLFS_LG_BASE + 113)
+#define LG_MSG_INIT_FAILED                               (GLFS_LG_BASE + 89)
 
 /*!
  * @messageid
@@ -972,7 +775,7 @@
  *
  */
 
-#define LG_MSG_NOTIFICATION_FAILED                       (GLFS_LG_BASE + 114)
+#define LG_MSG_VALIDATION_FAILED                         (GLFS_LG_BASE + 90)
 
 /*!
  * @messageid
@@ -981,7 +784,7 @@
  *
  */
 
-#define LG_MSG_CTX_NULL                                  (GLFS_LG_BASE + 115)
+#define LG_MSG_GRAPH_ERROR                               (GLFS_LG_BASE + 91)
 
 /*!
  * @messageid
@@ -990,7 +793,7 @@
  *
  */
 
-#define LG_MSG_CTX_ACTIVE_NULL                           (GLFS_LG_BASE + 116)
+#define LG_MSG_UNKNOWN_OPTIONS_FAILED                    (GLFS_LG_BASE + 92)
 
 /*!
  * @messageid
@@ -999,7 +802,7 @@
  *
  */
 
-#define LG_MSG_TMPFILE_CREATE_FAILED                     (GLFS_LG_BASE + 117)
+#define LG_MSG_CTX_NULL                                  (GLFS_LG_BASE + 93)
 
 /*!
  * @messageid
@@ -1008,7 +811,7 @@
  *
  */
 
-#define LG_MSG_DLOPEN_FAILED                             (GLFS_LG_BASE + 118)
+#define LG_MSG_TMPFILE_CREATE_FAILED                     (GLFS_LG_BASE + 94)
 
 /*!
  * @messageid
@@ -1017,7 +820,7 @@
  *
  */
 
-#define LG_MSG_LOAD_FAILED                               (GLFS_LG_BASE + 119)
+#define LG_MSG_DLOPEN_FAILED                             (GLFS_LG_BASE + 95)
 
 /*!
  * @messageid
@@ -1026,7 +829,7 @@
  *
  */
 
-#define LG_MSG_DLSYM_ERROR                               (GLFS_LG_BASE + 120)
+#define LG_MSG_LOAD_FAILED                               (GLFS_LG_BASE + 96)
 
 /*!
  * @messageid
@@ -1035,7 +838,7 @@
  *
  */
 
-#define LG_MSG_TREE_NOT_FOUND                            (GLFS_LG_BASE + 121)
+#define LG_MSG_DLSYM_ERROR                               (GLFS_LG_BASE + 97)
 
 /*!
  * @messageid
@@ -1044,7 +847,7 @@
  *
  */
 
-#define LG_MSG_PER_DENTRY                                (GLFS_LG_BASE + 122)
+#define LG_MSG_TREE_NOT_FOUND                            (GLFS_LG_BASE + 98)
 
 /*!
  * @messageid
@@ -1053,7 +856,7 @@
  *
  */
 
-#define LG_MSG_PARENT_NOT_FOUND                          (GLFS_LG_BASE + 123)
+#define LG_MSG_PER_DENTRY                                (GLFS_LG_BASE + 99)
 
 /*!
  * @messageid
@@ -1062,7 +865,7 @@
  *
  */
 
-#define LG_MSG_CYCLIC_LOOP                               (GLFS_LG_BASE + 124)
+#define LG_MSG_DENTRY                                    (GLFS_LG_BASE + 100)
 
 /*!
  * @messageid
@@ -1071,7 +874,7 @@
  *
  */
 
-#define LG_MSG_DENTRY                                    (GLFS_LG_BASE + 125)
+#define LG_MSG_GETIFADDRS_FAILED                         (GLFS_LG_BASE + 101)
 
 /*!
  * @messageid
@@ -1080,7 +883,7 @@
  *
  */
 
-#define LG_MSG_INFINITE_LOOP                             (GLFS_LG_BASE + 126)
+#define LG_MSG_REGEX_OP_FAILED                           (GLFS_LG_BASE + 102)
 
 /*!
  * @messageid
@@ -1089,7 +892,7 @@
  *
  */
 
-#define LG_MSG_GETIFADDRS_FAILED                         (GLFS_LG_BASE + 127)
+#define LG_MSG_FRAME_ERROR                               (GLFS_LG_BASE + 103)
 
 /*!
  * @messageid
@@ -1098,7 +901,7 @@
  *
  */
 
-#define LG_MSG_REGEX_OP_FAILED                           (GLFS_LG_BASE + 128)
+#define LG_MSG_SET_PARAM_FAILED                          (GLFS_LG_BASE + 104)
 
 /*!
  * @messageid
@@ -1107,7 +910,7 @@
  *
  */
 
-#define LG_MSG_FRAME_ERROR                               (GLFS_LG_BASE + 129)
+#define LG_MSG_GET_PARAM_FAILED                          (GLFS_LG_BASE + 105)
 
 /*!
  * @messageid
@@ -1116,7 +919,7 @@
  *
  */
 
-#define LG_MSG_SET_PARAM_FAILED                          (GLFS_LG_BASE + 130)
+#define LG_MSG_PREPARE_FAILED                            (GLFS_LG_BASE + 106)
 
 /*!
  * @messageid
@@ -1125,7 +928,7 @@
  *
  */
 
-#define LG_MSG_GET_PARAM_FAILED                          (GLFS_LG_BASE + 131)
+#define LG_MSG_EXEC_FAILED                               (GLFS_LG_BASE + 107)
 
 /*!
  * @messageid
@@ -1134,7 +937,7 @@
  *
  */
 
-#define LG_MSG_PREPARE_FAILED                            (GLFS_LG_BASE + 132)
+#define LG_MSG_BINDING_FAILED                            (GLFS_LG_BASE + 108)
 
 /*!
  * @messageid
@@ -1143,7 +946,7 @@
  *
  */
 
-#define LG_MSG_EXEC_FAILED                               (GLFS_LG_BASE + 133)
+#define LG_MSG_DELETE_FAILED                             (GLFS_LG_BASE + 109)
 
 /*!
  * @messageid
@@ -1152,7 +955,7 @@
  *
  */
 
-#define LG_MSG_BINDING_FAILED                            (GLFS_LG_BASE + 134)
+#define LG_MSG_GET_ID_FAILED                             (GLFS_LG_BASE + 110)
 
 /*!
  * @messageid
@@ -1161,7 +964,7 @@
  *
  */
 
-#define LG_MSG_DELETE_FAILED                             (GLFS_LG_BASE + 135)
+#define LG_MSG_CREATE_FAILED                             (GLFS_LG_BASE + 111)
 
 /*!
  * @messageid
@@ -1170,7 +973,7 @@
  *
  */
 
-#define LG_MSG_GET_ID_FAILED                             (GLFS_LG_BASE + 136)
+#define LG_MSG_PARSE_FAILED                              (GLFS_LG_BASE + 112)
 
 /*!
  * @messageid
@@ -1179,8 +982,8 @@
  *
  */
 
-#define LG_MSG_CREATE_FAILED                             (GLFS_LG_BASE + 137)
 
+#define LG_MSG_GETCONTEXT_FAILED                         (GLFS_LG_BASE + 113)
 /*!
  * @messageid
  * @diagnosis
@@ -1188,7 +991,7 @@
  *
  */
 
-#define LG_MSG_PARSE_FAILED                              (GLFS_LG_BASE + 138)
+#define LG_MSG_UPDATE_FAILED                             (GLFS_LG_BASE + 114)
 
 /*!
  * @messageid
@@ -1197,8 +1000,8 @@
  *
  */
 
+#define LG_MSG_QUERY_CALL_BACK_FAILED                    (GLFS_LG_BASE + 115)
 
-#define LG_MSG_GETCONTEXT_FAILED                         (GLFS_LG_BASE + 139)
 /*!
  * @messageid
  * @diagnosis
@@ -1206,7 +1009,7 @@
  *
  */
 
-#define LG_MSG_UPDATE_FAILED                             (GLFS_LG_BASE + 140)
+#define LG_MSG_GET_RECORD_FAILED                         (GLFS_LG_BASE + 116)
 
 /*!
  * @messageid
@@ -1215,7 +1018,7 @@
  *
  */
 
-#define LG_MSG_QUERY_CALL_BACK_FAILED                    (GLFS_LG_BASE + 141)
+#define LG_MSG_DB_ERROR                                  (GLFS_LG_BASE + 117)
 
 /*!
  * @messageid
@@ -1224,7 +1027,7 @@
  *
  */
 
-#define LG_MSG_GET_RECORD_FAILED                         (GLFS_LG_BASE + 142)
+#define LG_MSG_CONNECTION_ERROR                          (GLFS_LG_BASE + 118)
 
 /*!
  * @messageid
@@ -1233,7 +1036,7 @@
  *
  */
 
-#define LG_MSG_DB_ERROR                                  (GLFS_LG_BASE + 143)
+#define LG_MSG_NOT_MULTITHREAD_MODE                      (GLFS_LG_BASE + 119)
 
 /*!
  * @messageid
@@ -1242,7 +1045,7 @@
  *
  */
 
-#define LG_MSG_CONNECTION_ERROR                          (GLFS_LG_BASE + 144)
+#define LG_MSG_SKIP_PATH                                 (GLFS_LG_BASE + 120)
 
 /*!
  * @messageid
@@ -1251,7 +1054,7 @@
  *
  */
 
-#define LG_MSG_NOT_MULTITHREAD_MODE                      (GLFS_LG_BASE + 145)
+#define LG_MSG_INVALID_FOP                               (GLFS_LG_BASE + 121)
 
 /*!
  * @messageid
@@ -1260,7 +1063,7 @@
  *
  */
 
-#define LG_MSG_SKIP_PATH                                 (GLFS_LG_BASE + 146)
+#define LG_MSG_QUERY_FAILED                              (GLFS_LG_BASE + 122)
 
 /*!
  * @messageid
@@ -1269,7 +1072,7 @@
  *
  */
 
-#define LG_MSG_INVALID_FOP                               (GLFS_LG_BASE + 147)
+#define LG_MSG_CLEAR_COUNTER_FAILED                      (GLFS_LG_BASE + 123)
 
 /*!
  * @messageid
@@ -1278,7 +1081,7 @@
  *
  */
 
-#define LG_MSG_QUERY_FAILED                              (GLFS_LG_BASE + 148)
+#define LG_MSG_LOCK_LIST_FAILED                          (GLFS_LG_BASE + 124)
 
 /*!
  * @messageid
@@ -1287,7 +1090,7 @@
  *
  */
 
-#define LG_MSG_CLEAR_COUNTER_FAILED                      (GLFS_LG_BASE + 149)
+#define LG_MSG_UNLOCK_LIST_FAILED                        (GLFS_LG_BASE + 125)
 
 /*!
  * @messageid
@@ -1296,7 +1099,7 @@
  *
  */
 
-#define LG_MSG_LOCK_LIST_FAILED                          (GLFS_LG_BASE + 150)
+#define LG_MSG_ADD_TO_LIST_FAILED                        (GLFS_LG_BASE + 126)
 
 /*!
  * @messageid
@@ -1305,7 +1108,7 @@
  *
  */
 
-#define LG_MSG_UNLOCK_LIST_FAILED                        (GLFS_LG_BASE + 151)
+#define LG_MSG_INIT_DB_FAILED                            (GLFS_LG_BASE + 127)
 
 /*!
  * @messageid
@@ -1314,7 +1117,7 @@
  *
  */
 
-#define LG_MSG_ADD_TO_LIST_FAILED                        (GLFS_LG_BASE + 152)
+#define LG_MSG_DELETE_FROM_LIST_FAILED                   (GLFS_LG_BASE + 128)
 
 /*!
  * @messageid
@@ -1323,7 +1126,7 @@
  *
  */
 
-#define LG_MSG_INIT_DB_FAILED                            (GLFS_LG_BASE + 153)
+#define LG_MSG_CLOSE_CONNECTION_FAILED                   (GLFS_LG_BASE + 129)
 
 /*!
  * @messageid
@@ -1332,7 +1135,7 @@
  *
  */
 
-#define LG_MSG_DELETE_FROM_LIST_FAILED                   (GLFS_LG_BASE + 154)
+#define LG_MSG_INSERT_OR_UPDATE_FAILED                   (GLFS_LG_BASE + 130)
 
 /*!
  * @messageid
@@ -1341,7 +1144,7 @@
  *
  */
 
-#define LG_MSG_CLOSE_CONNECTION_FAILED                   (GLFS_LG_BASE + 155)
+#define LG_MSG_FIND_OP_FAILED                            (GLFS_LG_BASE + 131)
 
 /*!
  * @messageid
@@ -1350,7 +1153,7 @@
  *
  */
 
-#define LG_MSG_INSERT_OR_UPDATE_FAILED                   (GLFS_LG_BASE + 156)
+#define LG_MSG_CONNECTION_INIT_FAILED                    (GLFS_LG_BASE + 132)
 
 /*!
  * @messageid
@@ -1359,7 +1162,7 @@
  *
  */
 
-#define LG_MSG_FIND_OP_FAILED                            (GLFS_LG_BASE + 157)
+#define LG_MSG_COMPLETED_TASK                            (GLFS_LG_BASE + 133)
 
 /*!
  * @messageid
@@ -1368,7 +1171,7 @@
  *
  */
 
-#define LG_MSG_CONNECTION_INIT_FAILED                    (GLFS_LG_BASE + 158)
+#define LG_MSG_WAKE_UP_ZOMBIE                            (GLFS_LG_BASE + 134)
 
 /*!
  * @messageid
@@ -1377,7 +1180,7 @@
  *
  */
 
-#define LG_MSG_COMPLETED_TASK                            (GLFS_LG_BASE + 159)
+#define LG_MSG_REWAITING_TASK                            (GLFS_LG_BASE + 135)
 
 /*!
  * @messageid
@@ -1386,7 +1189,7 @@
  *
  */
 
-#define LG_MSG_WAKE_UP_ZOMBIE                            (GLFS_LG_BASE + 160)
+#define LG_MSG_SLEEP_ZOMBIE                              (GLFS_LG_BASE + 136)
 
 /*!
  * @messageid
@@ -1395,7 +1198,7 @@
  *
  */
 
-#define LG_MSG_REWAITING_TASK                            (GLFS_LG_BASE + 161)
+#define LG_MSG_SWAP_FAILED                               (GLFS_LG_BASE + 137)
 
 /*!
  * @messageid
@@ -1404,7 +1207,7 @@
  *
  */
 
-#define LG_MSG_SLEEP_ZOMBIE                              (GLFS_LG_BASE + 162)
+#define LG_MSG_UNSUPPORTED_PLUGIN                        (GLFS_LG_BASE + 138)
 
 /*!
  * @messageid
@@ -1413,7 +1216,7 @@
  *
  */
 
-#define LG_MSG_SWAP_FAILED                               (GLFS_LG_BASE + 163)
+#define LG_MSG_INVALID_DB_TYPE                           (GLFS_LG_BASE + 139)
 
 /*!
  * @messageid
@@ -1421,17 +1224,15 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_UNDERSIZED_BUF                            (GLFS_LG_BASE + 140)
 
-#define LG_MSG_UNSUPPORTED_PLUGIN                        (GLFS_LG_BASE + 164)
-
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-
-#define LG_MSG_INVALID_DB_TYPE                           (GLFS_LG_BASE + 165)
+#define LG_MSG_DATA_CONVERSION_ERROR                     (GLFS_LG_BASE + 141)
 
 /*!
  * @messageid
@@ -1439,7 +1240,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_NULL_INDEX_IN_BUF                         (GLFS_LG_BASE + 166)
+#define LG_MSG_DICT_ERROR                                (GLFS_LG_BASE + 142)
 
 /*!
  * @messageid
@@ -1447,16 +1248,15 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_IOBUFS_NOT_FOUND                          (GLFS_LG_BASE + 143)
 
-#define LG_MSG_DATA_NULL                                 (GLFS_LG_BASE + 167)
-
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_OR_KEY_NULL                          (GLFS_LG_BASE + 168)
+#define LG_MSG_ENTRIES_NULL                              (GLFS_LG_BASE + 144)
 
 /*!
  * @messageid
@@ -1464,7 +1264,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_OR_KEY_OR_DATA_NULL                     (GLFS_LG_BASE + 169)
+#define LG_MSG_FD_NOT_FOUND_IN_FDTABLE                   (GLFS_LG_BASE + 145)
 
 /*!
  * @messageid
@@ -1472,7 +1272,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_OR_KEY_VALUE_NULL                    (GLFS_LG_BASE + 170)
+#define LG_MSG_REALLOC_FOR_FD_PTR_FAILED                 (GLFS_LG_BASE + 146)
 
 /*!
  * @messageid
@@ -1480,7 +1280,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VALUE_NULL                                (GLFS_LG_BASE + 171)
+#define LG_MSG_DICT_SET_FAILED                           (GLFS_LG_BASE + 147)
 
 /*!
  * @messageid
@@ -1488,7 +1288,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_UNDERSIZED_BUF                            (GLFS_LG_BASE + 172)
+#define LG_MSG_NULL_PTR                                  (GLFS_LG_BASE + 148)
 
 /*!
  * @messageid
@@ -1496,7 +1296,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DATA_CONVERSION_ERROR                     (GLFS_LG_BASE + 173)
+#define LG_MSG_RBTHASH_INIT_BUCKET_FAILED                (GLFS_LG_BASE + 149)
 
 /*!
  * @messageid
@@ -1504,7 +1304,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_OR_MATCH_OR_ACTION_NULL              (GLFS_LG_BASE + 174)
+#define LG_MSG_ASSERTION_FAILED                          (GLFS_LG_BASE + 150)
 
 /*!
  * @messageid
@@ -1512,7 +1312,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_SIZE_ZERO                                 (GLFS_LG_BASE + 175)
+#define LG_MSG_HOSTNAME_NULL                             (GLFS_LG_BASE + 151)
 
 /*!
  * @messageid
@@ -1520,7 +1320,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FILL_NULL                                 (GLFS_LG_BASE + 176)
+#define LG_MSG_INVALID_IPV4_FORMAT                       (GLFS_LG_BASE + 152)
 
 /*!
  * @messageid
@@ -1528,7 +1328,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_UNDESIRED_BUFF                            (GLFS_LG_BASE + 177)
+#define LG_MSG_CTX_CLEANUP_STARTED                       (GLFS_LG_BASE + 153)
 
 /*!
  * @messageid
@@ -1536,15 +1336,8 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_ERROR                                (GLFS_LG_BASE + 178)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_IOBUFS_NOT_FOUND                          (GLFS_LG_BASE + 179)
+#define LG_MSG_TIMER_REGISTER_ERROR                      (GLFS_LG_BASE + 154)
 
 /*!
  * @messageid
@@ -1552,7 +1345,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_ENTRIES_NULL                              (GLFS_LG_BASE + 180)
+#define LG_MSG_PTR_HEADER_CORRUPTED                      (GLFS_LG_BASE + 155)
 
 /*!
  * @messageid
@@ -1560,7 +1353,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_COUNT_NULL                                (GLFS_LG_BASE + 181)
+#define LG_MSG_INVALID_UPLINK                            (GLFS_LG_BASE + 156)
 
 /*!
  * @messageid
@@ -1568,15 +1361,8 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_NOT_FOUND_IN_FDTABLE                   (GLFS_LG_BASE + 182)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_FD_NULL                                   (GLFS_LG_BASE + 183)
+#define LG_MSG_CLIENT_NULL                               (GLFS_LG_BASE + 157)
 
 /*!
  * @messageid
@@ -1584,7 +1370,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INODE_NULL                                (GLFS_LG_BASE + 184)
+#define LG_MSG_XLATOR_DOES_NOT_IMPLEMENT                 (GLFS_LG_BASE + 158)
 
 /*!
  * @messageid
@@ -1592,7 +1378,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_FD_OR_INODE_NULL                          (GLFS_LG_BASE + 185)
+#define LG_MSG_DENTRY_NOT_FOUND                          (GLFS_LG_BASE + 159)
 
 /*!
  * @messageid
@@ -1600,7 +1386,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_REALLOC_FOR_FD_PTR_FAILED                 (GLFS_LG_BASE + 186)
+#define LG_MSG_INODE_NOT_FOUND                           (GLFS_LG_BASE + 160)
 
 /*!
  * @messageid
@@ -1608,7 +1394,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_XLATOR_OR_FD_NULL                         (GLFS_LG_BASE + 187)
+#define LG_MSG_INODE_TABLE_NOT_FOUND                     (GLFS_LG_BASE + 161)
 
 /*!
  * @messageid
@@ -1616,7 +1402,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DICT_SET_FAILED                           (GLFS_LG_BASE + 188)
+#define LG_MSG_DENTRY_CREATE_FAILED                      (GLFS_LG_BASE + 162)
 
 /*!
  * @messageid
@@ -1624,7 +1410,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_READ_HEADER_FAILED                        (GLFS_LG_BASE + 189)
+#define LG_MSG_INODE_CONTEXT_FREED                       (GLFS_LG_BASE + 163)
 
 /*!
  * @messageid
@@ -1632,7 +1418,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_READ_FROM_QUOTA_FAILED                    (GLFS_LG_BASE + 190)
+#define LG_MSG_UNKNOWN_LOCK_TYPE                         (GLFS_LG_BASE + 164)
 
 /*!
  * @messageid
@@ -1640,7 +1426,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_ASSERTION_FAILED                          (GLFS_LG_BASE + 191)
+#define LG_MSG_UNLOCK_BEFORE_LOCK                        (GLFS_LG_BASE + 165)
 
 /*!
  * @messageid
@@ -1648,7 +1434,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_HOSTNAME_NULL                             (GLFS_LG_BASE + 192)
+#define LG_MSG_LOCK_OWNER_ERROR                          (GLFS_LG_BASE + 166)
 
 /*!
  * @messageid
@@ -1656,7 +1442,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_IPV4_FORMAT                       (GLFS_LG_BASE + 193)
+#define LG_MSG_MEMPOOL_PTR_NULL                          (GLFS_LG_BASE + 167)
 
 /*!
  * @messageid
@@ -1664,7 +1450,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_CTX_CLEANUP_STARTED                       (GLFS_LG_BASE + 194)
+#define LG_MSG_QUOTA_XATTRS_MISSING                      (GLFS_LG_BASE + 168)
 
 /*!
  * @messageid
@@ -1672,16 +1458,15 @@
  * @recommendedaction
  *
  */
+#define LG_MSG_INVALID_STRING                            (GLFS_LG_BASE + 169)
 
-#define LG_MSG_TIMER_REGISTER_ERROR                      (GLFS_LG_BASE + 195)
-
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-#define LG_MSG_PTR_HEADER_CORRUPTED                      (GLFS_LG_BASE + 196)
+#define LG_MSG_BIND_REF                                  (GLFS_LG_BASE + 170)
 
 /*!
  * @messageid
@@ -1689,7 +1474,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_UPLINK                            (GLFS_LG_BASE + 197)
+#define LG_MSG_REF_COUNT                                 (GLFS_LG_BASE + 171)
 
 /*!
  * @messageid
@@ -1697,8 +1482,7 @@
  * @recommendedaction
  *
  */
-
-#define LG_MSG_CLIENTTABLE_NULL                          (GLFS_LG_BASE + 198)
+#define LG_MSG_INVALID_ARG                               (GLFS_LG_BASE + 172)
 
 /*!
  * @messageid
@@ -1706,7 +1490,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_CLIENT_NULL                               (GLFS_LG_BASE + 199)
+#define LG_MSG_VOL_OPTION_ADD                            (GLFS_LG_BASE + 173)
 
 /*!
  * @messageid
@@ -1714,7 +1498,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_XLATOR_DOES_NOT_IMPLEMENT                 (GLFS_LG_BASE + 200)
+#define LG_MSG_XLATOR_OPTION_INVALID                     (GLFS_LG_BASE + 174)
 
 /*!
  * @messageid
@@ -1722,7 +1506,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DENTRY_NOT_FOUND                          (GLFS_LG_BASE + 201)
+#define LG_MSG_GETTIMEOFDAY_FAILED                       (GLFS_LG_BASE + 175)
 
 /*!
  * @messageid
@@ -1730,7 +1514,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INODE_NOT_FOUND                           (GLFS_LG_BASE + 202)
+#define LG_MSG_GRAPH_INIT_FAILED                         (GLFS_LG_BASE + 176)
 
 /*!
  * @messageid
@@ -1738,7 +1522,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INODE_OR_NAME_NOT_FOUND                   (GLFS_LG_BASE + 203)
+#define LG_MSG_EVENT_NOTIFY_FAILED                       (GLFS_LG_BASE + 177)
 
 /*!
  * @messageid
@@ -1746,7 +1530,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INODE_OR_PARENT_OR_NAME_NOT_FOUND         (GLFS_LG_BASE + 204)
+#define LG_MSG_ACTIVE_GRAPH_NULL                         (GLFS_LG_BASE + 178)
 
 /*!
  * @messageid
@@ -1754,7 +1538,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_TABLE_NOT_FOUND                           (GLFS_LG_BASE + 205)
+#define LG_MSG_VOLFILE_PARSE_ERROR                       (GLFS_LG_BASE + 179)
 
 /*!
  * @messageid
@@ -1762,7 +1546,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_TABLE_OR_PARENT_OR_NAME_NOT_FOUND         (GLFS_LG_BASE + 206)
+#define LG_MSG_FD_INODE_NULL                             (GLFS_LG_BASE + 180)
 
 /*!
  * @messageid
@@ -1770,7 +1554,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_DENTRY_CREATE_FAILED                      (GLFS_LG_BASE + 207)
+#define LG_MSG_INVALID_VOLFILE_ENTRY                     (GLFS_LG_BASE + 181)
 
 /*!
  * @messageid
@@ -1778,7 +1562,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INODE_CONTEXT_FREED                       (GLFS_LG_BASE + 208)
+#define LG_MSG_PER_DENTRY_FAILED                         (GLFS_LG_BASE + 182)
 
 /*!
  * @messageid
@@ -1786,7 +1570,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_UNKNOWN_LOCK_TYPE                         (GLFS_LG_BASE + 209)
+#define LG_MSG_PARENT_DENTRY_NOT_FOUND                   (GLFS_LG_BASE + 183)
 
 /*!
  * @messageid
@@ -1794,7 +1578,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_UNLOCK_BEFORE_LOCK                        (GLFS_LG_BASE + 210)
+#define LG_MSG_DENTRY_CYCLIC_LOOP                        (GLFS_LG_BASE + 184)
 
 /*!
  * @messageid
@@ -1802,15 +1586,8 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_LOCK_OWNER_ERROR                          (GLFS_LG_BASE + 211)
 
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
-#define LG_MSG_FDTABLE_NULL                              (GLFS_LG_BASE + 212)
+#define LG_MSG_INVALID_POLL_IN                           (GLFS_LG_BASE + 185)
 
 /*!
  * @messageid
@@ -1818,7 +1595,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_MEMPOOL_PTR_NULL                          (GLFS_LG_BASE + 213)
+#define LG_MSG_INVALID_POLL_OUT                         (GLFS_LG_BASE + 186)
 
 /*!
  * @messageid
@@ -1826,7 +1603,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_VERSION                           (GLFS_LG_BASE + 214)
+#define LG_MSG_EPOLL_FD_ADD_FAILED                       (GLFS_LG_BASE + 187)
 
 /*!
  * @messageid
@@ -1834,7 +1611,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_WRITE_TO_QUOTA_FAILED                     (GLFS_LG_BASE + 215)
+#define LG_MSG_EPOLL_FD_DEL_FAILED                        (GLFS_LG_BASE + 188)
 
 /*!
  * @messageid
@@ -1842,7 +1619,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_QUOTA_XATTRS_MISSING                      (GLFS_LG_BASE + 216)
+#define LG_MSG_EPOLL_FD_MODIFY_FAILED                     (GLFS_LG_BASE + 189)
 
 /*!
  * @messageid
@@ -1850,7 +1627,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_STRING                            (GLFS_LG_BASE + 217)
+#define LG_MSG_STARTED_EPOLL_THREAD                       (GLFS_LG_BASE + 190)
 
 /*!
  * @messageid
@@ -1858,7 +1635,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_BIND_REF                                  (GLFS_LG_BASE + 218)
+#define LG_MSG_EXITED_EPOLL_THREAD                        (GLFS_LG_BASE + 191)
 
 /*!
  * @messageid
@@ -1866,7 +1643,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_REF_COUNT                                 (GLFS_LG_BASE + 219)
+#define LG_MSG_START_EPOLL_THREAD_FAILED                  (GLFS_LG_BASE + 192)
 
 /*!
  * @messageid
@@ -1874,7 +1651,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_ARG                               (GLFS_LG_BASE + 220)
+#define LG_MSG_FALLBACK_TO_POLL                           (GLFS_LG_BASE + 193)
 
 /*!
  * @messageid
@@ -1882,7 +1659,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VOL_OPTION_ADD                            (GLFS_LG_BASE + 221)
+#define LG_MSG_QUOTA_CONF_ERROR                           (GLFS_LG_BASE + 194)
 
 /*!
  * @messageid
@@ -1890,7 +1667,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_XLATOR_OPTION_INVALID                     (GLFS_LG_BASE + 222)
+#define LG_MSG_RBTHASH_GET_ENTRY_FAILED                  (GLFS_LG_BASE + 195)
 
 /*!
  * @messageid
@@ -1898,7 +1675,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_GETTIMEOFDAY_FAILED                       (GLFS_LG_BASE + 223)
+#define LG_MSG_RBTHASH_GET_BUCKET_FAILED                 (GLFS_LG_BASE + 196)
 
 /*!
  * @messageid
@@ -1906,7 +1683,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_GRAPH_INIT_FAILED                         (GLFS_LG_BASE + 224)
+#define LG_MSG_RBTHASH_INSERT_FAILED                     (GLFS_LG_BASE + 197)
 
 /*!
  * @messageid
@@ -1914,15 +1691,14 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_EVENT_NOTIFY_FAILED                       (GLFS_LG_BASE + 225)
-
+#define LG_MSG_RBTHASH_INIT_ENTRY_FAILED                 (GLFS_LG_BASE + 198)
 /*!
  * @messageid
  * @diagnosis
  * @recommendedaction
  *
  */
-#define LG_MSG_ACTIVE_GRAPH_NULL                         (GLFS_LG_BASE + 226)
+#define LG_MSG_TMPFILE_DELETE_FAILED                     (GLFS_LG_BASE + 199)
 
 /*!
  * @messageid
@@ -1930,7 +1706,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_VOLFILE_PARSE_ERROR                       (GLFS_LG_BASE + 227)
+#define LG_MSG_MEMPOOL_INVALID_FREE                      (GLFS_LG_BASE + 200)
 
 /*!
  * @messageid
@@ -1938,7 +1714,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_INVALID_VOLFILE_ENTRY                     (GLFS_LG_BASE + 228)
+#define LG_MSG_LOCK_FAILURE                              (GLFS_LG_BASE + 201)
 
 /*!
  * @messageid

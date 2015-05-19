@@ -37,6 +37,8 @@ void trap (void);
 #include "locking.h"
 #include "mem-pool.h"
 #include "compat-uuid.h"
+#include "uuid.h"
+#include "libglusterfs-messages.h"
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)
@@ -172,9 +174,10 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define VALIDATE_OR_GOTO(arg,label)   do {				\
 		if (!arg) {						\
 			errno = EINVAL;					\
-			gf_log_callingfn ((this ? (this->name) :        \
+			gf_msg_callingfn ((this ? (this->name) :        \
                                            "(Govinda! Govinda!)"),      \
-                                          GF_LOG_WARNING,               \
+                                          GF_LOG_WARNING, EINVAL,       \
+                                          LG_MSG_INVALID_ARG,           \
                                           "invalid argument: " #arg);   \
 			goto label;					\
 		}							\
@@ -183,7 +186,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_VALIDATE_OR_GOTO(name,arg,label)   do {                      \
 		if (!arg) {                                             \
 			errno = EINVAL;                                 \
-			gf_log_callingfn (name, GF_LOG_ERROR,           \
+			gf_msg_callingfn (name, GF_LOG_ERROR, errno,    \
+                                          LG_MSG_INVALID_ARG,           \
                                           "invalid argument: " #arg);	\
 			goto label;                                     \
 		}                                                       \
@@ -192,7 +196,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
                 if (!arg) {                                                 \
                         errno = error;                                  \
-                        gf_log_callingfn (name, GF_LOG_ERROR,           \
+                        gf_msg_callingfn (name, GF_LOG_ERROR, EINVAL,   \
+                                          LG_MSG_INVALID_ARG,         \
                                           "invalid argument: " #arg);   \
                         goto label;                                     \
                 }                                                       \
@@ -208,7 +213,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_CHECK_ALLOC_AND_LOG(name, item, retval, msg, errlabel) do {  \
                 if (!(item)) {                                          \
                         (retval) = -ENOMEM;                             \
-                        gf_log (name, GF_LOG_CRITICAL, (msg));          \
+                        gf_msg (name, GF_LOG_CRITICAL, ENOMEM,          \
+                                LG_MSG_NO_MEMORY, (msg));               \
                         goto errlabel;                                  \
                 }                                                       \
         } while (0)
@@ -226,7 +232,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                 GF_VALIDATE_OR_GOTO (name, arg, label);                 \
                 if ((arg[0]) != '/') {                                  \
                         errno = EINVAL;                                 \
-			gf_log_callingfn (name, GF_LOG_ERROR,           \
+			gf_msg_callingfn (name, GF_LOG_ERROR, EINVAL,   \
+                                          LG_MSG_INVALID_ARG,           \
                                           "invalid argument: " #arg);	\
                         goto label;                                     \
                 }                                                       \
@@ -245,8 +252,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_REMOVE_INTERNAL_XATTR(pattern, dict)                         \
         do {                                                            \
                 if (!dict) {                                            \
-                        gf_log (this->name, GF_LOG_ERROR,               \
-                                "dict is null");                        \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                LG_MSG_DICT_NULL, "dict is null");      \
                         break;                                          \
                 }                                                       \
                 dict_foreach_fnmatch (dict, pattern,                    \
@@ -257,7 +264,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_IF_INTERNAL_XATTR_GOTO(pattern, dict, op_errno, label)       \
         do {                                                            \
                 if (!dict) {                                            \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                LG_MSG_DICT_NULL,                        \
                                 "setxattr dict is null");               \
                         goto label;                                     \
                 }                                                       \
@@ -265,7 +273,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
                                           dict_null_foreach_fn,         \
                                           NULL) > 0) {                  \
                         op_errno = EPERM;                               \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,     \
+                                LG_MSG_NO_PERM,                         \
                                 "attempt to set internal"               \
                                 " xattr: %s: %s", pattern,              \
                                 strerror (op_errno));                   \
@@ -276,13 +285,15 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_IF_NATIVE_XATTR_GOTO(pattern, key, op_errno, label)          \
         do {                                                            \
                 if (!key) {                                             \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                LG_MSG_NO_KEY,                          \
                                 "no key for removexattr");              \
                         goto label;                                     \
                 }                                                       \
                 if (!fnmatch (pattern, key, 0)) {                       \
                         op_errno = EPERM;                               \
-                        gf_log (this->name, GF_LOG_ERROR,               \
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,     \
+                                LG_MSG_NO_PERM,                         \
                                 "attempt to remove internal "           \
                                 "xattr: %s: %s", key,                   \
                                 strerror (op_errno));                   \
@@ -300,7 +311,8 @@ int  gf_set_log_ident (cmd_args_t *cmd_args);
 #define GF_ASSERT(x)                                                    \
         do {                                                            \
                 if (!(x)) {                                             \
-                        gf_log_callingfn ("", GF_LOG_ERROR,             \
+                        gf_msg_callingfn ("", GF_LOG_ERROR, 0,          \
+                                          LG_MSG_ASSERTION_FAILED,      \
                                           "Assertion failed: " #x);     \
                 }                                                       \
         } while (0)
