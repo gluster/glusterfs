@@ -61,12 +61,13 @@ str2argv (char *str, char ***argv)
 {
         char *p         = NULL;
         char *savetok   = NULL;
+        char *temp      = NULL;
         int argc        = 0;
         size_t argv_len = 32;
         int ret         = 0;
 
         assert (str);
-        str = strdup (str);
+        temp = str = strdup (str);
         if (!str)
                 return -1;
 
@@ -88,10 +89,12 @@ str2argv (char *str, char ***argv)
                 (*argv)[argc - 1] = p;
         }
 
+        free(temp);
         return argc;
 
  error:
         fprintf (stderr, "out of memory\n");
+        free(temp);
         return -1;
 }
 
@@ -407,5 +410,6 @@ main (int argc, char **argv)
         fprintf (stderr, "invoking %s in restricted SSH session is not allowed\n",
                  b);
 
+        free(argv);
         return 1;
 }
