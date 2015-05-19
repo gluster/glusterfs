@@ -1108,6 +1108,11 @@ rpc_clnt_start (struct rpc_clnt *rpc)
 
         conn = &rpc->conn;
 
+        pthread_mutex_lock (&conn->lock);
+        {
+                rpc->disabled = 0;
+        }
+        pthread_mutex_unlock (&conn->lock);
         rpc_clnt_reconnect (conn);
 
         return 0;
@@ -1758,6 +1763,7 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
 
         pthread_mutex_lock (&conn->lock);
         {
+                rpc->disabled = 1;
                 if (conn->timer) {
                         gf_timer_call_cancel (rpc->ctx, conn->timer);
                         conn->timer = NULL;
