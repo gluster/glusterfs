@@ -10,6 +10,7 @@
 
 #include "statedump.h"
 #include "stack.h"
+#include "libglusterfs-messages.h"
 
 call_frame_t *
 create_frame (xlator_t *xl, call_pool_t *pool)
@@ -44,8 +45,9 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 
         if (stack->ctx->measure_latency) {
                 if (gettimeofday (&stack->tv, NULL) == -1)
-                        gf_log ("stack", GF_LOG_ERROR, "gettimeofday () failed."
-                                " (%s)", strerror (errno));
+                        gf_msg ("stack", GF_LOG_ERROR, errno,
+                                LG_MSG_GETTIMEOFDAY_FAILED,
+                                "gettimeofday () failed");
                 memcpy (&frame->begin, &stack->tv, sizeof (stack->tv));
         }
 
@@ -388,8 +390,9 @@ gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool, dict_t *dict)
 
         ret = TRY_LOCK (&call_pool->lock);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "Unable to dump call pool"
-                        " to dict. errno: %d", errno);
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                        LG_MSG_LOCK_FAILURE, "Unable to dump call "
+                        "pool to dict.");
                 return;
         }
 

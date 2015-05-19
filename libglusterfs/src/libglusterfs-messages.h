@@ -145,7 +145,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_LOCK_GAIN_FAILED                           (GLFS_LG_BASE + 14)
+#define LG_MSG_LOCK_FAILED                               (GLFS_LG_BASE + 14)
 
 /*!
  * @messageid
@@ -153,7 +153,7 @@
  * @recommendedaction
  *
  */
-#define LG_MSG_LOCK_RELEASE_FAILED                        (GLFS_LG_BASE + 15)
+#define LG_MSG_UNLOCK_FAILED                             (GLFS_LG_BASE + 15)
 
 /*!
  * @messageid
@@ -1198,7 +1198,7 @@
  *
  */
 
-#define LG_MSG_SWAP_FAILED                               (GLFS_LG_BASE + 137)
+#define LG_MSG_SWAPCONTEXT_FAILED                        (GLFS_LG_BASE + 137)
 
 /*!
  * @messageid

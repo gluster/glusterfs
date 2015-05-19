@@ -25,6 +25,7 @@
 #define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
 
 #include "unittest/unittest.h"
+#include "libglusterfs-messages.h"
 
 void
 gf_mem_acct_enable_set (void *data)
@@ -350,7 +351,8 @@ mem_pool_new_fn (unsigned long sizeof_type,
         glusterfs_ctx_t  *ctx = NULL;
 
         if (!sizeof_type || !count) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
         padded_sizeof_type = sizeof_type + GF_MEM_POOL_PAD_BOUNDARY;
@@ -411,7 +413,8 @@ mem_get0 (struct mem_pool *mem_pool)
         void             *ptr = NULL;
 
         if (!mem_pool) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
 
@@ -432,7 +435,8 @@ mem_get (struct mem_pool *mem_pool)
         struct mem_pool **pool_ptr = NULL;
 
         if (!mem_pool) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return NULL;
         }
 
@@ -503,7 +507,8 @@ static int
 __is_member (struct mem_pool *pool, void *ptr)
 {
         if (!pool || !ptr) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return -1;
         }
 
@@ -528,21 +533,24 @@ mem_put (void *ptr)
         struct mem_pool *pool = NULL;
 
         if (!ptr) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return;
         }
 
         list = head = mem_pool_ptr2chunkhead (ptr);
         tmp = mem_pool_from_ptr (head);
         if (!tmp) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR,
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, 0,
+                                  LG_MSG_PTR_HEADER_CORRUPTED,
                                   "ptr header is corrupted");
                 return;
         }
 
         pool = *tmp;
         if (!pool) {
-                gf_log_callingfn ("mem-pool", GF_LOG_ERROR,
+                gf_msg_callingfn ("mem-pool", GF_LOG_ERROR, 0,
+                                  LG_MSG_MEMPOOL_PTR_NULL,
                                   "mem-pool ptr is NULL");
                 return;
         }
@@ -555,9 +563,12 @@ mem_put (void *ptr)
                         in_use = (head + GF_MEM_POOL_LIST_BOUNDARY +
                                   GF_MEM_POOL_PTR);
                         if (!is_mem_chunk_in_use(in_use)) {
-                                gf_log_callingfn ("mem-pool", GF_LOG_CRITICAL,
-                                                  "mem_put called on freed ptr %p of mem "
-                                                  "pool %p", ptr, pool);
+                                gf_msg_callingfn ("mem-pool", GF_LOG_CRITICAL,
+                                                  0,
+                                                  LG_MSG_MEMPOOL_INVALID_FREE,
+                                                  "mem_put called on freed ptr"
+                                                  " %p of mem pool %p", ptr,
+                                                  pool);
                                 break;
                         }
                         pool->hot_count--;
@@ -600,8 +611,9 @@ mem_pool_destroy (struct mem_pool *pool)
         if (!pool)
                 return;
 
-        gf_log (THIS->name, GF_LOG_INFO, "size=%lu max=%d total=%"PRIu64,
-                pool->padded_sizeof_type, pool->max_alloc, pool->alloc_count);
+        gf_msg (THIS->name, GF_LOG_INFO, 0, LG_MSG_MEM_POOL_DESTROY, "size=%lu "
+                "max=%d total=%"PRIu64, pool->padded_sizeof_type,
+                pool->max_alloc, pool->alloc_count);
 
         list_del (&pool->global_list);
 
