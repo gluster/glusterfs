@@ -70,8 +70,8 @@ __rpc_clnt_rearm_ping_timer (struct rpc_clnt *rpc, gf_timer_cbk_t cbk)
 }
 
 /* Must be called under conn->lock */
-static int
-__rpc_clnt_remove_ping_timer (struct rpc_clnt *rpc)
+int
+rpc_clnt_remove_ping_timer_locked (struct rpc_clnt *rpc)
 {
         rpc_clnt_connection_t *conn  = &rpc->conn;
         gf_timer_t            *timer = NULL;
@@ -117,7 +117,7 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
 
         pthread_mutex_lock (&conn->lock);
         {
-                unref = __rpc_clnt_remove_ping_timer (rpc);
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
 
                 gettimeofday (&current, NULL);
                 if (((current.tv_sec - conn->last_received.tv_sec) <
@@ -188,7 +188,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         pthread_mutex_lock (&conn->lock);
         {
                 if (req->rpc_status == -1) {
-                        unref = __rpc_clnt_remove_ping_timer (rpc);
+                        unref = rpc_clnt_remove_ping_timer_locked (rpc);
                         if (unref) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "socket or ib related error");
@@ -203,7 +203,7 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto unlock;
                 }
 
-                unref = __rpc_clnt_remove_ping_timer (rpc);
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
                 if (__rpc_clnt_rearm_ping_timer (rpc,
                                                  rpc_clnt_start_ping) == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -275,7 +275,7 @@ rpc_clnt_start_ping (void *rpc_ptr)
 
         pthread_mutex_lock (&conn->lock);
         {
-                unref = __rpc_clnt_remove_ping_timer (rpc);
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
 
                 if (conn->saved_frames) {
                         GF_ASSERT (conn->saved_frames->count >= 0);
