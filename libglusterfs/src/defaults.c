@@ -27,6 +27,7 @@
 
 #include "xlator.h"
 #include "defaults.h"
+#include "libglusterfs-messages.h"
 
 /* FAILURE_CBK function section */
 
@@ -2196,7 +2197,8 @@ default_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
 int32_t
 default_forget (xlator_t *this, inode_t *inode)
 {
-        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0,
+                          LG_MSG_XLATOR_DOES_NOT_IMPLEMENT, "xlator does not "
                           "implement forget_cbk");
         return 0;
 }
@@ -2205,7 +2207,8 @@ default_forget (xlator_t *this, inode_t *inode)
 int32_t
 default_releasedir (xlator_t *this, fd_t *fd)
 {
-        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0,
+                          LG_MSG_XLATOR_DOES_NOT_IMPLEMENT, "xlator does not "
                           "implement releasedir_cbk");
         return 0;
 }
@@ -2213,7 +2216,8 @@ default_releasedir (xlator_t *this, fd_t *fd)
 int32_t
 default_release (xlator_t *this, fd_t *fd)
 {
-        gf_log_callingfn (this->name, GF_LOG_WARNING, "xlator does not "
+        gf_msg_callingfn (this->name, GF_LOG_WARNING, 0,
+                          LG_MSG_XLATOR_DOES_NOT_IMPLEMENT, "xlator does not "
                           "implement release_cbk");
         return 0;
 }
