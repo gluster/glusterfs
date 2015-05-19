@@ -14,7 +14,7 @@
 #include "client_t.h"
 #include "list.h"
 #include "rpcsvc.h"
-
+#include "libglusterfs-messages.h"
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -28,7 +28,8 @@ gf_client_chain_client_entries (cliententry_t *entries, uint32_t startidx,
         uint32_t        i = 0;
 
         if (!entries) {
-                gf_log_callingfn ("client_t", GF_LOG_WARNING, "!entries");
+                gf_msg_callingfn ("client_t", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "!entries");
                 return -1;
         }
 
@@ -53,7 +54,8 @@ gf_client_clienttable_expand (clienttable_t *clienttable, uint32_t nr)
         int              ret            = -1;
 
         if (clienttable == NULL || nr <= clienttable->max_clients) {
-                gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 ret = EINVAL;
                 goto out;
         }
@@ -107,7 +109,8 @@ gf_clienttable_alloc (void)
         result = gf_client_clienttable_expand (clienttable,
                                                GF_CLIENTTABLE_INITIAL_SIZE);
         if (result != 0) {
-                gf_log ("client_t", GF_LOG_ERROR,
+                gf_msg ("client_t", GF_LOG_ERROR, 0,
+                        LG_MSG_EXPAND_CLIENT_TABLE_FAILED,
                         "gf_client_clienttable_expand failed");
                 GF_FREE (clienttable);
                 return NULL;
@@ -126,7 +129,8 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
         int32_t           i             = 0;
 
         if (!clienttable) {
-                gf_log_callingfn ("client_t", GF_LOG_WARNING, "!clienttable");
+                gf_msg_callingfn ("client_t", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "!clienttable");
                 return;
         }
 
@@ -168,7 +172,8 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
         unsigned int   i           = 0;
 
         if (this == NULL || client_uid == NULL) {
-                gf_log_callingfn ("client_t", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 errno = EINVAL;
                 return NULL;
         }
@@ -275,9 +280,10 @@ unlock:
         UNLOCK (&clienttable->lock);
 
         if (client)
-                gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, "
-                                  "ref: %d", client->client_uid,
-                                  client->ref.bind, client->ref.count);
+                gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_BIND_REF,
+                                  "%s: bind_ref: %d, ref: %d",
+                                  client->client_uid, client->ref.bind,
+                                  client->ref.count);
         return client;
 }
 
@@ -294,8 +300,9 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         if (bind_ref == 0)
                 unref = _gf_true;
 
-        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: bind_ref: %d, ref: %d,"
-                          " unref: %d", client->client_uid, client->ref.bind,
+        gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_BIND_REF, "%s: "
+                          "bind_ref: %d, ref: %d, unref: %d",
+                          client->client_uid, client->ref.bind,
                           client->ref.count, unref);
         if (unref) {
                 if (detached)
@@ -308,13 +315,15 @@ client_t *
 gf_client_ref (client_t *client)
 {
         if (!client) {
-                gf_log_callingfn ("client_t", GF_LOG_ERROR, "null client");
+                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "null client");
                 return NULL;
         }
 
         INCREMENT_ATOMIC (client->ref.lock, client->ref.count);
-        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
-                          client->client_uid, client->ref.count);
+        gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT, "%s: "
+                          "ref-count %d", client->client_uid,
+                          client->ref.count);
         return client;
 }
 
@@ -327,7 +336,8 @@ client_destroy (client_t *client)
         xlator_t          *xtrav       = NULL;
 
         if (client == NULL){
-                gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid argument");
+                gf_msg_callingfn ("xlator", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 goto out;
         }
 
@@ -389,16 +399,18 @@ gf_client_unref (client_t *client)
         int refcount;
 
         if (!client) {
-                gf_log_callingfn ("client_t", GF_LOG_ERROR, "client is NULL");
+                gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ARG, "client is NULL");
                 return;
         }
 
         refcount = DECREMENT_ATOMIC (client->ref.lock, client->ref.count);
-        gf_log_callingfn ("client_t", GF_LOG_DEBUG, "%s: ref-count %d",
-                          client->client_uid, (int)client->ref.count);
+        gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT, "%s: "
+                          "ref-count %d", client->client_uid,
+                          (int)client->ref.count);
         if (refcount == 0) {
-                gf_log (THIS->name, GF_LOG_INFO, "Shutting down connection %s",
-                        client->client_uid);
+                gf_msg (THIS->name, GF_LOG_INFO, 0, LG_MSG_DISCONNECT_CLIENT,
+                        "Shutting down connection %s", client->client_uid);
                 client_destroy (client);
         }
 }
@@ -582,7 +594,8 @@ clienttable_dump (clienttable_t *clienttable, char *prefix)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_log ("client_t", GF_LOG_WARNING,
+                        gf_msg ("client_t", GF_LOG_WARNING, 0,
+                                LG_MSG_LOCK_GAIN_FAILED,
                                 "Unable to acquire lock");
                         return;
                 }
@@ -679,7 +692,8 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_log ("client_t", GF_LOG_WARNING,
+                        gf_msg ("client_t", GF_LOG_WARNING, 0,
+                                LG_MSG_LOCK_GAIN_FAILED,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -721,7 +735,8 @@ gf_client_dump_fdtables (xlator_t *this)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_log ("client_t", GF_LOG_WARNING,
+                        gf_msg ("client_t", GF_LOG_WARNING, 0,
+                                LG_MSG_LOCK_GAIN_FAILED,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -786,7 +801,8 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_log ("client_t", GF_LOG_WARNING,
+                        gf_msg ("client_t", GF_LOG_WARNING, 0,
+                                LG_MSG_LOCK_GAIN_FAILED,
                                 "Unable to acquire lock");
                         return -1;
                 }
@@ -847,7 +863,8 @@ gf_client_dump_inodes (xlator_t *this)
         ret = TRY_LOCK (&clienttable->lock);
         {
                 if (ret) {
-                        gf_log ("client_t", GF_LOG_WARNING,
+                        gf_msg ("client_t", GF_LOG_WARNING, 0,
+                                LG_MSG_LOCK_GAIN_FAILED,
                                 "Unable to acquire lock");
                         goto out;
                 }
