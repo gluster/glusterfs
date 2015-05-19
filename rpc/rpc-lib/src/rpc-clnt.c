@@ -500,6 +500,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
 {
         struct saved_frames    *saved_frames = NULL;
         struct rpc_clnt         *clnt  = NULL;
+        int                     unref = 0;
 
         if (!conn) {
                 goto out;
@@ -521,12 +522,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
 
                 conn->connected = 0;
 
-                if (conn->ping_timer) {
-                        gf_timer_call_cancel (clnt->ctx, conn->ping_timer);
-                        conn->ping_timer = NULL;
-                        conn->ping_started = 0;
-                        rpc_clnt_unref (clnt);
-                }
+                unref = rpc_clnt_remove_ping_timer_locked (clnt);
                 /*reset rpc msgs stats*/
                 conn->pingcnt = 0;
                 conn->msgcnt = 0;
@@ -534,6 +530,8 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
         pthread_mutex_unlock (&conn->lock);
 
         saved_frames_destroy (saved_frames);
+        if (unref)
+                rpc_clnt_unref (clnt);
 
 out:
         return 0;
@@ -1731,6 +1729,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
 {
         rpc_clnt_connection_t *conn = NULL;
         rpc_transport_t       *trans = NULL;
+        int                    unref = 0;
 
         if (!rpc) {
                 goto out;
@@ -1753,12 +1752,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                 }
                 conn->connected = 0;
 
-                if (conn->ping_timer) {
-                        gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
-                        conn->ping_timer = NULL;
-                        conn->ping_started = 0;
-                        rpc_clnt_unref (rpc);
-                }
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
                 trans = conn->trans;
                 conn->trans = NULL;
 
@@ -1769,6 +1763,9 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
                 rpc_transport_disconnect (trans);
         }
 
+        if (unref)
+                rpc_clnt_unref (rpc);
+
 out:
         return;
 }
@@ -1778,6 +1775,7 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
 {
         rpc_clnt_connection_t *conn  = NULL;
         rpc_transport_t       *trans = NULL;
+        int                    unref = 0;
 
         if (!rpc)
                 goto out;
@@ -1798,11 +1796,7 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
                 }
                 conn->connected = 0;
 
-                if (conn->ping_timer) {
-                        gf_timer_call_cancel (rpc->ctx, conn->ping_timer);
-                        conn->ping_timer = NULL;
-                        conn->ping_started = 0;
-                }
+                unref = rpc_clnt_remove_ping_timer_locked (rpc);
                 trans = conn->trans;
         }
         pthread_mutex_unlock (&conn->lock);
@@ -1810,6 +1804,8 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
         if (trans) {
                 rpc_transport_disconnect (trans);
         }
+        if (unref)
+                rpc_clnt_unref (rpc);
 
 out:
         return;
