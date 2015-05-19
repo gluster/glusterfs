@@ -32,6 +32,7 @@ typedef struct call_pool call_pool_t;
 #include "globals.h"
 #include "lkowner.h"
 #include "client_t.h"
+#include "libglusterfs-messages.h"
 
 #define NFS_PID 1
 #define LOW_PRIO_PROC_PID -1
@@ -236,7 +237,6 @@ STACK_RESET (call_stack_t *stack)
                                                                         \
                 _new = mem_get0 (frame->root->pool->frame_mem_pool);    \
                 if (!_new) {                                            \
-                        gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
                 }                                                       \
                 typeof(fn##_cbk) tmp_cbk = rfn;                         \
@@ -287,7 +287,6 @@ STACK_RESET (call_stack_t *stack)
                                                                         \
                 _new = mem_get0 (frame->root->pool->frame_mem_pool);    \
                 if (!_new) {                                            \
-                        gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
                 }                                                       \
                 typeof(fn##_cbk) tmp_cbk = rfn;                         \
@@ -323,7 +322,8 @@ STACK_RESET (call_stack_t *stack)
                 call_frame_t *_parent = NULL;                           \
                 xlator_t     *old_THIS = NULL;                          \
                 if (!frame) {                                           \
-                        gf_log ("stack", GF_LOG_CRITICAL, "!frame");    \
+                        gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
+                                LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
                 }                                                       \
                 fn = frame->ret;                                        \
@@ -352,7 +352,8 @@ STACK_RESET (call_stack_t *stack)
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
                 if (!frame) {                                           \
-                        gf_log ("stack", GF_LOG_CRITICAL, "!frame");    \
+                        gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
+                                LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
                 }                                                       \
                 fn = (fop_##op##_cbk_t )frame->ret;                     \
@@ -456,8 +457,9 @@ copy_frame (call_frame_t *frame)
 
         if (newstack->ctx->measure_latency) {
                 if (gettimeofday (&newstack->tv, NULL) == -1)
-                        gf_log ("stack", GF_LOG_ERROR, "gettimeofday () failed."
-                                " (%s)", strerror (errno));
+                        gf_msg ("stack", GF_LOG_ERROR, errno,
+                                LG_MSG_GETTIMEOFDAY_FAILED,
+                                "gettimeofday () failed.");
                 memcpy (&newframe->begin, &newstack->tv,
                         sizeof (newstack->tv));
         }

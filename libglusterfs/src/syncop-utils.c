@@ -10,6 +10,7 @@
 
 #include "syncop.h"
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 
 int
 syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid)
@@ -22,9 +23,9 @@ syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid)
 
         dirfd = fd_create (loc->inode, pid);
         if (!dirfd) {
-                gf_log (subvol->name, GF_LOG_ERROR,
-                        "fd_create of %s failed: %s",
-                        uuid_utoa (loc->gfid), strerror(errno));
+                gf_msg (subvol->name, GF_LOG_ERROR, errno,
+                        LG_MSG_FD_CREATE_FAILED, "fd_create of %s",
+                        uuid_utoa (loc->gfid));
                 ret = -errno;
                 goto out;
         }
@@ -44,18 +45,18 @@ syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid)
                 fd_unref (dirfd);
                 dirfd = fd_anonymous (loc->inode);
                 if (!dirfd) {
-                        gf_log(subvol->name, GF_LOG_ERROR,
-                               "fd_anonymous of %s failed: %s",
-                               uuid_utoa (loc->gfid), strerror(errno));
+                        gf_msg (subvol->name, GF_LOG_ERROR, errno,
+                                LG_MSG_FD_ANONYMOUS_FAILED, "fd_anonymous of "
+                                "%s", uuid_utoa (loc->gfid));
                         ret = -errno;
                         goto out;
                 }
                 ret = 0;
 #else /* GF_LINUX_HOST_OS */
                 fd_unref (dirfd);
-                gf_log (subvol->name, GF_LOG_ERROR,
-                        "opendir of %s failed: %s",
-                        uuid_utoa (loc->gfid), strerror(errno));
+                gf_msg (subvol->name, GF_LOG_ERROR, errno,
+                        LG_MSG_DIR_OP_FAILED, "opendir of %s",
+                        uuid_utoa (loc->gfid));
                 goto out;
 #endif /* GF_LINUX_HOST_OS */
         }
@@ -299,7 +300,7 @@ syncop_is_subvol_local (xlator_t *this, loc_t *loc, gf_boolean_t *is_local)
 
         ret = glusterfs_is_local_pathinfo (pathinfo, is_local);
 
-        gf_log (this->name, GF_LOG_DEBUG, "subvol %s is %slocal",
+        gf_msg_debug (this->name, 0, "subvol %s is %slocal",
                 this->name, is_local ? "" : "not ");
 
 out:

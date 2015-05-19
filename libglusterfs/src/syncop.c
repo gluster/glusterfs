@@ -9,6 +9,7 @@
 */
 
 #include "syncop.h"
+#include "libglusterfs-messages.h"
 
 int
 syncopctx_setfsuid (void *uid)
@@ -257,20 +258,21 @@ __run (struct synctask *task)
         case SYNCTASK_SUSPEND:
                 break;
         case SYNCTASK_RUN:
-                gf_log (task->xl->name, GF_LOG_DEBUG,
-                        "re-running already running task");
+                gf_msg_debug (task->xl->name, 0, "re-running already running"
+                              " task");
                 env->runcount--;
                 break;
         case SYNCTASK_WAIT:
                 env->waitcount--;
                 break;
         case SYNCTASK_DONE:
-                gf_log (task->xl->name, GF_LOG_WARNING,
-                        "running completed task");
+                gf_msg (task->xl->name, GF_LOG_WARNING, 0,
+                        LG_MSG_COMPLETED_TASK, "running completed task");
 		return;
 	case SYNCTASK_ZOMBIE:
-		gf_log (task->xl->name, GF_LOG_WARNING,
-			"attempted to wake up zombie!!");
+		gf_msg (task->xl->name, GF_LOG_WARNING, 0,
+                        LG_MSG_WAKE_UP_ZOMBIE, "attempted to wake up "
+                        "zombie!!");
 		return;
         }
 
@@ -296,16 +298,19 @@ __wait (struct synctask *task)
                 env->runcount--;
                 break;
         case SYNCTASK_WAIT:
-                gf_log (task->xl->name, GF_LOG_WARNING,
-                        "re-waiting already waiting task");
+                gf_msg (task->xl->name, GF_LOG_WARNING, 0,
+                        LG_MSG_REWAITING_TASK, "re-waiting already waiting "
+                        "task");
                 env->waitcount--;
                 break;
         case SYNCTASK_DONE:
-                gf_log (task->xl->name, GF_LOG_WARNING,
+                gf_msg (task->xl->name, GF_LOG_WARNING, 0,
+                        LG_MSG_COMPLETED_TASK,
                         "running completed task");
                 return;
 	case SYNCTASK_ZOMBIE:
-		gf_log (task->xl->name, GF_LOG_WARNING,
+		gf_msg (task->xl->name, GF_LOG_WARNING, 0,
+                        LG_MSG_SLEEP_ZOMBIE,
 			"attempted to sleep a zombie!!");
 		return;
         }
@@ -331,8 +336,9 @@ synctask_yield (struct synctask *task)
                 (void) gf_backtrace_save (task->btbuf);
         }
         if (swapcontext (&task->ctx, &task->proc->sched) < 0) {
-                gf_log ("syncop", GF_LOG_ERROR,
-                        "swapcontext failed (%s)", strerror (errno));
+                gf_msg ("syncop", GF_LOG_ERROR, errno,
+                        LG_MSG_SWAPCONTEXT_FAILED, "swapcontext failed (%s)",
+                        strerror (errno));
         }
 
         THIS = oldTHIS;
@@ -483,16 +489,14 @@ synctask_create (struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
         INIT_LIST_HEAD (&newtask->waitq);
 
         if (getcontext (&newtask->ctx) < 0) {
-                gf_log ("syncop", GF_LOG_ERROR,
-                        "getcontext failed (%s)",
+                gf_msg ("syncop", GF_LOG_ERROR, errno,
+                        LG_MSG_GETCONTEXT_FAILED, "getcontext failed (%s)",
                         strerror (errno));
                 goto err;
         }
 
         newtask->stack = CALLOC (1, env->stacksize);
         if (!newtask->stack) {
-                gf_log ("syncop", GF_LOG_ERROR,
-                        "out of memory for stack");
                 goto err;
         }
 
@@ -643,8 +647,8 @@ synctask_switchto (struct synctask *task)
 #endif
 
         if (swapcontext (&task->proc->sched, &task->ctx) < 0) {
-                gf_log ("syncop", GF_LOG_ERROR,
-                        "swapcontext failed (%s)", strerror (errno));
+        gf_msg ("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
+                "swapcontext failed");
         }
 
         if (task->state == SYNCTASK_DONE) {
@@ -869,22 +873,25 @@ __synclock_lock (struct synclock *lock)
                 case LOCK_TASK:
                         if (task == lock->owner) {
                                 lock->lock++;
-                                gf_log ("", GF_LOG_TRACE, "Recursive lock called by "
-                                        "sync task.owner= %p,lock=%d", lock->owner, lock->lock);
+                                gf_msg_trace ("", 0, "Recursive lock called by"
+                                              " sync task.owner= %p,lock=%d",
+                                              lock->owner, lock->lock);
                                 return 0;
                         }
                         break;
                 case LOCK_THREAD:
                         if (pthread_self () == lock->owner_tid) {
                                 lock->lock++;
-                                gf_log ("", GF_LOG_TRACE, "Recursive lock called by "
-                                        "thread ,owner=%u lock=%d", (unsigned int) lock->owner_tid,
-                                         lock->lock);
+                                gf_msg_trace ("", 0, "Recursive lock called by"
+                                              " thread ,owner=%u lock=%d",
+                                              (unsigned int) lock->owner_tid,
+                                              lock->lock);
                                 return 0;
                         }
                         break;
                 default:
-                        gf_log ("", GF_LOG_CRITICAL, "unknown lock type");
+                        gf_msg ("", GF_LOG_CRITICAL, 0,
+                                LG_MSG_UNKNOWN_LOCK_TYPE, "unknown lock type");
                         break;
                 }
         }
@@ -969,7 +976,8 @@ __synclock_unlock (synclock_t *lock)
                return -1;
 
         if (lock->lock == 0) {
-                gf_log ("", GF_LOG_CRITICAL, "Unlock called  before lock ");
+                gf_msg ("", GF_LOG_CRITICAL, 0, LG_MSG_UNLOCK_BEFORE_LOCK,
+                        "Unlock called  before lock ");
                 return -1;
         }
         curr = synctask_get ();
@@ -981,23 +989,27 @@ __synclock_unlock (synclock_t *lock)
         case LOCK_TASK:
                 if (curr == lock->owner) {
                         lock->lock--;
-                        gf_log ("", GF_LOG_TRACE, "Unlock success %p, remaining"
-                                " locks=%d", lock->owner, lock->lock);
+                        gf_msg_trace ("", 0, "Unlock success %p, remaining"
+                                      " locks=%d", lock->owner, lock->lock);
                 } else {
-                        gf_log ("", GF_LOG_WARNING, "Unlock called by %p, but"
-                               " lock held by %p", curr, lock->owner);
+                        gf_msg ("", GF_LOG_WARNING, 0, LG_MSG_LOCK_OWNER_ERROR,
+                                "Unlock called by %p, but lock held by %p",
+                                curr, lock->owner);
                 }
 
                 break;
         case LOCK_THREAD:
                 if (pthread_self () == lock->owner_tid) {
                         lock->lock--;
-                        gf_log ("", GF_LOG_TRACE, "Unlock success %u, remaining"
-                                " locks=%d", (unsigned int)lock->owner_tid, lock->lock);
+                        gf_msg_trace ("", 0, "Unlock success %u, remaining "
+                                      "locks=%d",
+                                      (unsigned int)lock->owner_tid,
+                                      lock->lock);
                 } else {
-                        gf_log ("", GF_LOG_WARNING, "Unlock called by %u, but"
-                                " lock held by %u", (unsigned int) pthread_self(),
-                                 (unsigned int) lock->owner_tid);
+                        gf_msg ("", GF_LOG_WARNING, 0, LG_MSG_LOCK_OWNER_ERROR,
+                                "Unlock called by %u, but lock held by %u",
+                                (unsigned int) pthread_self(),
+                                (unsigned int) lock->owner_tid);
                 }
 
                 break;
@@ -1245,9 +1257,8 @@ syncop_readdirp_cbk (call_frame_t *frame,
                                 gf_dirent_free (&(args->entries));
                                 break;
                         }
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "adding entry=%s, count=%d",
-                                tmp->d_name, count);
+                        gf_msg_trace (this->name, 0, "adding entry=%s, "
+                                      "count=%d", tmp->d_name, count);
                         list_add_tail (&tmp->list, &(args->entries.list));
                         count++;
                 }
@@ -1321,9 +1332,9 @@ syncop_readdir_cbk (call_frame_t *frame,
                                 gf_dirent_free (&(args->entries));
                                 break;
                         }
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "adding entry=%s, count=%d",
-                                tmp->d_name, count);
+                        gf_msg_trace (this->name, 0, "adding "
+                                      "entry=%s, count=%d", tmp->d_name,
+                                      count);
                         list_add_tail (&tmp->list, &(args->entries.list));
                         count++;
                 }

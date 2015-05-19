@@ -15,7 +15,7 @@
 #include "store.h"
 #include "dict.h"
 #include "xlator.h"
-
+#include "libglusterfs-messages.h"
 int32_t
 gf_store_mkdir (char *path)
 {
@@ -24,8 +24,8 @@ gf_store_mkdir (char *path)
         ret = mkdir (path, 0777);
 
         if ((-1 == ret) && (EEXIST != errno)) {
-                gf_log ("", GF_LOG_ERROR, "mkdir() failed on path %s,"
-                        "errno: %s", path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED, "mkdir()"
+                        " failed on path %s.", path);
         } else {
                 ret = 0;
         }
@@ -44,8 +44,9 @@ gf_store_handle_create_on_absence (gf_store_handle_t **shandle,
                 ret = gf_store_handle_new (path, shandle);
 
                 if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to create store"
-                                " handle for path: %s", path);
+                        gf_msg ("", GF_LOG_ERROR, 0,
+                                LG_MSG_STORE_HANDLE_CREATE_FAILED, "Unable to"
+                                " create store handle for path: %s", path);
                 }
         }
         return ret;
@@ -62,8 +63,8 @@ gf_store_mkstemp (gf_store_handle_t *shandle)
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         shandle->tmp_fd = open (tmppath, O_RDWR | O_CREAT | O_TRUNC, 0600);
         if (shandle->tmp_fd < 0) {
-                gf_log ("", GF_LOG_ERROR, "Failed to open %s, error: %s",
-                        tmppath, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Failed to open %s.", tmppath);
         }
 out:
         return shandle->tmp_fd;
@@ -87,15 +88,15 @@ gf_store_sync_direntry (char *path)
         pdir = dirname (dir);
         dirfd = open (pdir, O_RDONLY);
         if (dirfd == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open directory "
-                        "%s, due to %s", pdir, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED,
+                        "Failed to open directory %s.", pdir);
                 goto out;
         }
 
         ret = fsync (dirfd);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to fsync %s, due to "
-                        "%s", pdir, strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        LG_MSG_DIR_OP_FAILED, "Failed to fsync %s.", pdir);
                 goto out;
         }
 
@@ -104,8 +105,8 @@ out:
         if (dirfd >= 0) {
                 ret = close (dirfd);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to close "
-                                "%s, due to %s", pdir, strerror (errno));
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                LG_MSG_DIR_OP_FAILED, "Failed to close %s", pdir);
                 }
         }
 
@@ -126,15 +127,16 @@ gf_store_rename_tmppath (gf_store_handle_t *shandle)
 
         ret = fsync (shandle->tmp_fd);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to fsync %s, "
-                        "error: %s", shandle->path, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Failed to fsync %s", shandle->path);
                 goto out;
         }
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         ret = rename (tmppath, shandle->path);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Failed to rename %s to %s, "
-                        "error: %s", tmppath, shandle->path, strerror (errno));
+                gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Failed to rename %s to %s", tmppath,
+                        shandle->path);
                 goto out;
         }
 
@@ -159,8 +161,9 @@ gf_store_unlink_tmppath (gf_store_handle_t *shandle)
         snprintf (tmppath, sizeof (tmppath), "%s.tmp", shandle->path);
         ret = unlink (tmppath);
         if (ret && (errno != ENOENT)) {
-                gf_log ("", GF_LOG_ERROR, "Failed to mv %s to %s, error: %s",
-                        tmppath, shandle->path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Failed to mv %s to %s", tmppath,
+                        shandle->path);
         } else {
                 ret = 0;
         }
@@ -243,8 +246,8 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 lseek (handle->fd, 0, SEEK_SET);
 
         if (handle->fd == -1) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
-                        handle->path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Unable to open file %s", handle->path);
                 goto out;
         }
         if (!handle->read)
@@ -253,15 +256,15 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                 fseek (handle->read, 0, SEEK_SET);
 
         if (!handle->read) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %s",
-                        handle->path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Unable to open file %s", handle->path);
                 goto out;
         }
 
         ret = fstat (handle->fd, &st);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "stat on file %s failed",
-                        handle->path);
+                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+                        "stat on file %s failed", handle->path);
                 ret = -1;
                 store_errno = GD_STORE_STAT_FAILED;
                 goto out;
@@ -287,16 +290,16 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                                                   &iter_key, &iter_val,
                                                   &store_errno);
                 if (ret < 0) {
-                        gf_log ("", GF_LOG_TRACE, "error while reading key "
-                                "'%s': %s", key,
-                                gf_store_strerror (store_errno));
+                        gf_msg_trace ("", 0, "error while reading key '%s': "
+                                      "%s", key,
+                                      gf_store_strerror (store_errno));
                         goto out;
                 }
 
-                gf_log ("", GF_LOG_TRACE, "key %s read", iter_key);
+                gf_msg_trace ("", 0, "key %s read", iter_key);
 
                 if (!strcmp (key, iter_key)) {
-                        gf_log ("", GF_LOG_DEBUG, "key %s found", key);
+                        gf_msg_debug ("", 0, "key %s found", key);
                         ret = 0;
                         if (iter_val)
                                 *value = gf_strdup (iter_val);
@@ -336,25 +339,25 @@ gf_store_save_value (int fd, char *key, char *value)
 
         fp = fdopen (dup_fd, "a+");
         if (fp == NULL) {
-                gf_log ("", GF_LOG_WARNING, "fdopen failed.");
+                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED, "fdopen "
+                        "failed.");
                 ret = -1;
                 goto out;
         }
 
         ret = fprintf (fp, "%s=%s\n", key, value);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "Unable to store key: %s,"
-                        "value: %s, error: %s", key, value,
-                        strerror (errno));
+                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+                        "Unable to store key: %s, value: %s.",
+                        key, value);
                 ret = -1;
                 goto out;
         }
 
         ret = fflush (fp);
         if (feof (fp)) {
-                gf_log ("", GF_LOG_WARNING,
-                        "fflush failed, error: %s",
-                        strerror (errno));
+                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+                        "fflush failed.");
                 ret = -1;
                 goto out;
         }
@@ -364,7 +367,7 @@ out:
         if (fp)
                 fclose (fp);
 
-        gf_log ("", GF_LOG_DEBUG, "returning: %d", ret);
+        gf_msg_debug ("", 0, "returning: %d", ret);
         return ret;
 }
 
@@ -386,8 +389,8 @@ gf_store_handle_new (const char *path, gf_store_handle_t **handle)
 
         fd = open (path, O_RDWR | O_CREAT | O_APPEND, 0600);
         if (fd < 0) {
-                gf_log ("", GF_LOG_ERROR, "Failed to open file: %s, error: %s",
-                        path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Failed to open file: %s.", path);
                 goto out;
         }
 
@@ -410,7 +413,7 @@ out:
                 GF_FREE (shandle);
         }
 
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -422,14 +425,13 @@ gf_store_handle_retrieve (char *path, gf_store_handle_t **handle)
 
         ret = stat (path, &statbuf);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Path corresponding to "
-                        "%s, returned error: (%s)",
-                        path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_PATH_NOT_FOUND, "Path "
+                        "corresponding to %s.", path);
                 goto out;
         }
         ret =  gf_store_handle_new (path, handle);
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
         return ret;
 }
 
@@ -450,7 +452,7 @@ gf_store_handle_destroy (gf_store_handle_t *handle)
         ret = 0;
 
 out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("", 0, "Returning %d", ret);
 
         return ret;
 }
@@ -467,8 +469,8 @@ gf_store_iter_new (gf_store_handle_t  *shandle, gf_store_iter_t  **iter)
 
         fp = fopen (shandle->path, "r");
         if (!fp) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %d",
-                        shandle->path, errno);
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Unable to open file %s", shandle->path);
                 goto out;
         }
 
@@ -491,7 +493,7 @@ out:
 
         GF_FREE (tmp_iter);
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -506,19 +508,21 @@ gf_store_validate_key_value (char *storepath, char *key, char *val,
 
         if ((key == NULL) && (val == NULL)) {
                 ret = -1;
-                gf_log ("", GF_LOG_ERROR, "Glusterd store may be corrupted, "
-                        "Invalid key and value (null) in %s", storepath);
+                gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "Glusterd "
+                        "store may be corrupted, Invalid key and value (null)"
+                        " in %s", storepath);
                 *op_errno = GD_STORE_KEY_VALUE_NULL;
         } else if (key == NULL) {
                 ret = -1;
-                gf_log ("", GF_LOG_ERROR, "Glusterd store may be corrupted, "
-                        "Invalid key (null) in %s", storepath);
+                gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "Glusterd "
+                        "store may be corrupted, Invalid key (null) in %s",
+                        storepath);
                 *op_errno = GD_STORE_KEY_NULL;
         } else if (val == NULL) {
                 ret = -1;
-                gf_log ("", GF_LOG_ERROR, "Glusterd store may be corrupted, "
-                        "Invalid value (null) for key %s in %s", key,
-                        storepath);
+                gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "Glusterd "
+                        "store may be corrupted, Invalid value (null) for key"
+                        " %s in %s", key, storepath);
                 *op_errno = GD_STORE_VALUE_NULL;
         } else {
                 ret = 0;
@@ -545,7 +549,8 @@ gf_store_iter_get_next (gf_store_iter_t *iter, char  **key, char **value,
 
         ret = stat (iter->filepath, &st);
         if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "stat on file failed");
+                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+                        "stat on file failed");
                 ret = -1;
                 store_errno = GD_STORE_STAT_FAILED;
                 goto out;
@@ -600,7 +605,7 @@ out:
         if (op_errno)
                 *op_errno = store_errno;
 
-        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_msg_debug ("", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -641,8 +646,9 @@ gf_store_iter_destroy (gf_store_iter_t *iter)
          * being NULL*/
         ret = fclose (iter->file);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "Unable to close file: %s, ret: %d, "
-                        "errno: %d" ,iter->filepath, ret, errno);
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED, "Unable"
+                        " to close file: %s, ret: %d" ,
+                        iter->filepath, ret);
 
         GF_FREE (iter);
         return ret;
@@ -680,15 +686,15 @@ gf_store_lock (gf_store_handle_t *sh)
 
         sh->fd = open (sh->path, O_RDWR);
         if (sh->fd == -1) {
-                gf_log ("", GF_LOG_ERROR, "Failed to open '%s': %s", sh->path,
-                        strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Failed to open '%s'", sh->path);
                 return -1;
         }
 
         ret = lockf (sh->fd, F_LOCK, 0);
         if (ret)
-                gf_log ("", GF_LOG_ERROR, "Failed to gain lock on '%s': %s",
-                        sh->path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_LOCK_FAILED,
+                        "Failed to gain lock on '%s'", sh->path);
         else
                 /* sh->locked is protected by the lockf(sh->fd) above */
                 sh->locked = F_LOCK;
@@ -706,8 +712,8 @@ gf_store_unlock (gf_store_handle_t *sh)
 
         /* does not matter if this fails, locks are released on close anyway */
         if (lockf (sh->fd, F_ULOCK, 0) == -1)
-                gf_log ("", GF_LOG_ERROR, "Failed to release lock on '%s': %s",
-                        sh->path, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_UNLOCK_FAILED,
+                        "Failed to release lock on '%s'", sh->path);
 
         close (sh->fd);
 }
