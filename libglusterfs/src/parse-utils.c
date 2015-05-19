@@ -20,6 +20,7 @@
 #include "parse-utils.h"
 #include "mem-pool.h"
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 
 /**
  * parser_init: Initialize a parser with the a string to parse and
@@ -46,8 +47,6 @@ parser_init (const char *regex)
 
         parser->regex = gf_strdup (regex);
         if (!parser->regex) {
-                gf_log (GF_PARSE, GF_LOG_INFO,
-                        "Failed to duplicate regex string!");
                 GF_FREE (parser);
                 parser = NULL;
                 goto out;
@@ -55,7 +54,7 @@ parser_init (const char *regex)
 
         rc = regcomp (&parser->preg, parser->regex, REG_EXTENDED);
         if (rc != 0) {
-                gf_log (GF_PARSE, GF_LOG_INFO,
+                gf_msg (GF_PARSE, GF_LOG_INFO, 0, LG_MSG_REGEX_OP_FAILED,
                         "Failed to compile regex pattern.");
                 parser_deinit (parser);
                 parser = NULL;
@@ -160,7 +159,7 @@ parser_get_next_match (struct parser *parser)
 
         rc = regexec (&parser->preg, parser->_rstr, 1, parser->pmatch, 0);
         if (rc != 0) {
-                gf_log (GF_PARSE, GF_LOG_DEBUG,
+                gf_msg_debug (GF_PARSE, 0,
                         "Could not match %s with regex %s",
                         parser->_rstr, parser->regex);
                 goto out;

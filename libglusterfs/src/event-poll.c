@@ -20,6 +20,7 @@
 #include "event.h"
 #include "mem-pool.h"
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 
 
 
@@ -50,9 +51,9 @@ __flush_fd (int fd, int idx, void *data,
         do {
                 ret = read (fd, buf, 64);
                 if (ret == -1 && errno != EAGAIN) {
-                        gf_log ("poll", GF_LOG_ERROR,
-                                "read on %d returned error (%s)",
-                                fd, strerror (errno));
+                        gf_msg ("poll", GF_LOG_ERROR, errno,
+                                LG_MSG_FILE_OP_FAILED, "read on %d returned "
+                                "error", fd);
                 }
         } while (ret == 64);
 
@@ -116,8 +117,8 @@ event_pool_new_poll (int count, int eventthreadcount)
         ret = pipe (event_pool->breaker);
 
         if (ret == -1) {
-                gf_log ("poll", GF_LOG_ERROR,
-                        "pipe creation failed (%s)", strerror (errno));
+                gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_PIPE_CREATE_FAILED,
+                        "pipe creation failed");
                 GF_FREE (event_pool->reg);
                 GF_FREE (event_pool);
                 return NULL;
@@ -125,9 +126,8 @@ event_pool_new_poll (int count, int eventthreadcount)
 
         ret = fcntl (event_pool->breaker[0], F_SETFL, O_NONBLOCK);
         if (ret == -1) {
-                gf_log ("poll", GF_LOG_ERROR,
-                        "could not set pipe to non blocking mode (%s)",
-                        strerror (errno));
+                gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
+                        "could not set pipe to non blocking mode");
                 close (event_pool->breaker[0]);
                 close (event_pool->breaker[1]);
                 event_pool->breaker[0] = event_pool->breaker[1] = -1;
@@ -139,9 +139,8 @@ event_pool_new_poll (int count, int eventthreadcount)
 
         ret = fcntl (event_pool->breaker[1], F_SETFL, O_NONBLOCK);
         if (ret == -1) {
-                gf_log ("poll", GF_LOG_ERROR,
-                        "could not set pipe to non blocking mode (%s)",
-                        strerror (errno));
+                gf_msg ("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED,
+                        "could not set pipe to non blocking mode");
 
                 close (event_pool->breaker[0]);
                 close (event_pool->breaker[1]);
@@ -155,7 +154,7 @@ event_pool_new_poll (int count, int eventthreadcount)
         ret = event_register_poll (event_pool, event_pool->breaker[0],
                                    __flush_fd, NULL, 1, 0);
         if (ret == -1) {
-                gf_log ("poll", GF_LOG_ERROR,
+                gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_REGISTER_PIPE_FAILED,
                         "could not register pipe fd with poll event loop");
                 close (event_pool->breaker[0]);
                 close (event_pool->breaker[1]);
@@ -167,9 +166,10 @@ event_pool_new_poll (int count, int eventthreadcount)
         }
 
         if (eventthreadcount > 1) {
-                gf_log ("poll", GF_LOG_INFO,
-                        "Currently poll does not use multiple event processing"
-                        " threads, thread count (%d) ignored", eventthreadcount);
+                gf_msg ("poll", GF_LOG_INFO, 0,
+                        LG_MSG_POLL_IGNORE_MULTIPLE_THREADS, "Currently poll "
+                        "does not use multiple event processing threads, "
+                        "thread count (%d) ignored", eventthreadcount);
         }
 
         return event_pool;
@@ -216,7 +216,8 @@ event_register_poll (struct event_pool *event_pool, int fd,
                         /* do nothing */
                         break;
                 default:
-                        gf_log ("poll", GF_LOG_ERROR,
+                        gf_msg ("poll", GF_LOG_ERROR, 0,
+                                LG_MSG_INVALID_POLL_IN,
                                 "invalid poll_in value %d", poll_in);
                         break;
                 }
@@ -232,7 +233,8 @@ event_register_poll (struct event_pool *event_pool, int fd,
                         /* do nothing */
                         break;
                 default:
-                        gf_log ("poll", GF_LOG_ERROR,
+                        gf_msg ("poll", GF_LOG_ERROR, 0,
+                                LG_MSG_INVALID_POLL_OUT,
                                 "invalid poll_out value %d", poll_out);
                         break;
                 }
@@ -260,7 +262,7 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
                 idx = __event_getindex (event_pool, fd, idx_hint);
 
                 if (idx == -1) {
-                        gf_log ("poll", GF_LOG_ERROR,
+                        gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
                                 "index not found for fd=%d (idx_hint=%d)",
                                 fd, idx_hint);
                         errno = ENOENT;
@@ -305,7 +307,7 @@ event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
                 idx = __event_getindex (event_pool, fd, idx_hint);
 
                 if (idx == -1) {
-                        gf_log ("poll", GF_LOG_ERROR,
+                        gf_msg ("poll", GF_LOG_ERROR, 0, LG_MSG_INDEX_NOT_FOUND,
                                 "index not found for fd=%d (idx_hint=%d)",
                                 fd, idx_hint);
                         errno = ENOENT;
@@ -370,9 +372,9 @@ event_dispatch_poll_handler (struct event_pool *event_pool,
                 idx = __event_getindex (event_pool, ufds[i].fd, i);
 
                 if (idx == -1) {
-                        gf_log ("poll", GF_LOG_ERROR,
-                                "index not found for fd=%d (idx_hint=%d)",
-                                ufds[i].fd, i);
+                        gf_msg ("poll", GF_LOG_ERROR, 0,
+                                LG_MSG_INDEX_NOT_FOUND, "index not found for "
+                                "fd=%d (idx_hint=%d)", ufds[i].fd, i);
                         goto unlock;
                 }
 
