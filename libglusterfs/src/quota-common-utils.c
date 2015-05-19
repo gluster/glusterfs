@@ -14,6 +14,7 @@
 #include "byte-order.h"
 #include "quota-common-utils.h"
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 
 int32_t
 quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta)
@@ -42,8 +43,9 @@ quota_data_to_meta (data_t *data, char *key, quota_meta_t *meta)
                  * Older version of glusterfs will not have inode count.
                  * Return failure, this will be healed as part of lookup
                  */
-                gf_log_callingfn ("quota", GF_LOG_DEBUG, "Object quota xattrs "
-                                  "missing: len = %d", data->len);
+                gf_msg_callingfn ("quota", GF_LOG_DEBUG, 0,
+                                  LG_MSG_QUOTA_XATTRS_MISSING, "Object quota "
+                                  "xattrs missing: len = %d", data->len);
                 ret = -2;
                 goto out;
         }
@@ -83,8 +85,6 @@ quota_dict_set_meta (dict_t *dict, char *key, const quota_meta_t *meta,
 
         value = GF_CALLOC (1, sizeof (quota_meta_t), gf_common_quota_meta_t);
         if (value == NULL) {
-                gf_log_callingfn ("quota", GF_LOG_ERROR,
-                                  "Memory allocation failed");
                 goto out;
         }
 
@@ -105,7 +105,8 @@ quota_dict_set_meta (dict_t *dict, char *key, const quota_meta_t *meta,
         }
 
         if (ret < 0) {
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "dict set failed");
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  LG_MSG_DICT_SET_FAILED, "dict set failed");
                 GF_FREE (value);
         }
 
@@ -133,7 +134,8 @@ quota_conf_read_header (int fd, char *buf)
 
 out:
         if (ret < 0)
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to read "
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  LG_MSG_QUOTA_CONF_ERROR, "failed to read "
                                   "header from a quota conf");
 
         return ret;
@@ -159,8 +161,9 @@ quota_conf_read_version (int fd, float *version)
         value = strtof ((buf + strlen(buf) - 3), &tail);
         if (tail[0] != '\0') {
                 ret = -1;
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "invalid quota conf "
-                                  "version");
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  LG_MSG_QUOTA_CONF_ERROR, "invalid quota conf"
+                                  " version");
                 goto out;
         }
 
@@ -170,8 +173,9 @@ out:
         if (ret >= 0)
                 *version = value;
         else
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to read "
-                                  "version from a quota conf header");
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  LG_MSG_QUOTA_CONF_ERROR, "failed to "
+                                  "read version from a quota conf header");
 
         return ret;
 }
@@ -203,8 +207,9 @@ quota_conf_read_gfid (int fd, void *buf, char *type, float version)
 
 out:
         if (ret < 0)
-                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to read "
-                                  "gfid from a quota conf");
+                gf_msg_callingfn ("quota", GF_LOG_ERROR, 0,
+                                  LG_MSG_QUOTA_CONF_ERROR, "failed to "
+                                  "read gfid from a quota conf");
 
         return ret;
 }
