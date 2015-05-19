@@ -2839,9 +2839,10 @@ out:
 gf_boolean_t
 gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
 {
-        gf_boolean_t    result   = _gf_false;
+        gf_boolean_t    result      = _gf_false;
         char            *range_port = NULL;
-        int16_t         tmp_port1, tmp_port2 = -1;
+        int16_t         tmp_port1   = -1;
+        int16_t         tmp_port2   = -1;
 
         if (strstr (blocked_port, "-") == NULL) {
                 /* get rid of the new line character*/
