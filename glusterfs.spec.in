@@ -862,11 +862,20 @@ if [ $? -eq 0 ]; then
 
     killall --wait glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
+
+    #Cleaning leftover glusterd socket file which is created by glusterd in
+    #rpm_script_t context.
+    rm -rf /var/run/glusterd.socket
+
     # glusterd _was_ running, we killed it, it exited after *.upgrade=on,
     # so start it again
     %_init_start glusterd
 else
     glusterd --xlator-option *.upgrade=on -N
+
+    #Cleaning leftover glusterd socket file which is created by glusterd in
+    #rpm_script_t context.
+    rm -rf /var/run/glusterd.socket
 fi
 
 ##-----------------------------------------------------------------------------
@@ -1192,6 +1201,9 @@ fi
 %changelog
 * Wed May 20 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - move libgf{db,changelog}.pc from -api-devel to -devel (#1223385)
+
+* Wed May 20 2015 Anand Nekkunti <anekkunt@redhat.com>
+- glusterd.socket file cleanup during post run upgrade (#1210404)
 
 * Tue May 05 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1195947)
