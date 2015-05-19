@@ -20,6 +20,7 @@
 #include "event.h"
 #include "mem-pool.h"
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -42,7 +43,7 @@ event_pool_new (int count, int eventthreadcount)
         if (event_pool) {
                 event_pool->ops = &event_ops_epoll;
         } else {
-                gf_log ("event", GF_LOG_WARNING,
+                gf_msg ("event", GF_LOG_WARNING, 0, LG_MSG_FALLBACK_TO_POLL,
                         "falling back to poll based event handling");
         }
 #endif
