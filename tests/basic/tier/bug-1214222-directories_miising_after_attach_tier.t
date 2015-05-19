@@ -57,11 +57,15 @@ TEST $CLI volume set $V0 features.ctr-enabled on
 TEST [ -d d1 ]
 TEST [ -e file1 ]
 
+cd
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0;
+
 TEST $CLI volume detach-tier $V0 start
 TEST $CLI volume detach-tier $V0 commit
 
 EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK_FIRST}
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "0" confirm_vol_stopped $V0
+
 
 cleanup

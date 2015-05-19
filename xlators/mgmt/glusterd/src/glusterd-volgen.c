@@ -3401,8 +3401,8 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
 
         volinfo->type  =  GF_CLUSTER_TYPE_TIER;
 
-        xl = volgen_graph_add_nolink (graph, "cluster/tier", "%s",
-                                      "tier-dht", 0);
+        xl = volgen_graph_add_nolink (graph, "cluster/tier", "%s-%s",
+                                      st_volname, "tier-dht");
         if (!xl)
                 goto out;
 
