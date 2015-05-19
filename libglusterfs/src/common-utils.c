@@ -45,6 +45,7 @@
 #include "lkowner.h"
 #include "syscall.h"
 #include <ifaddrs.h>
+#include "libglusterfs-messages.h"
 
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
@@ -90,8 +91,8 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
                 dir[i] = '\0';
                 ret = mkdir (dir, mode);
                 if (ret && errno != EEXIST) {
-                        gf_log ("", GF_LOG_ERROR, "Failed due to reason %s",
-                                strerror (errno));
+                        gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_DIR_OP_FAILED,
+                                "Failed due to reason %s", strerror (errno));
                         goto out;
                 }
 
@@ -102,8 +103,9 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
 
                         if (S_ISLNK (stbuf.st_mode)) {
                                 ret = -1;
-                                gf_log ("", GF_LOG_ERROR, "%s is a symlink",
-                                        dir);
+                                gf_msg ("", GF_LOG_ERROR, 0,
+                                        LG_MSG_DIR_IS_SYMLINK, "%s is a "
+                                        "symlink", dir);
                                 goto out;
                         }
                 }
@@ -114,8 +116,9 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
         ret = stat (dir, &stbuf);
         if (ret || !S_ISDIR (stbuf.st_mode)) {
                 ret = -1;
-                gf_log ("", GF_LOG_ERROR, "Failed to create directory, "
-                        "possibly some of the components were not directories");
+                gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_DIR_OP_FAILED, "Failed to "
+                        "create directory, possibly some of the components "
+                        "were not directories");
                 goto out;
         }
 
@@ -191,16 +194,17 @@ gf_rev_dns_lookup (const char *ip)
                           sizeof (host_addr), NULL, 0, 0);
 
         if (ret != 0) {
-                gf_log ("resolver", GF_LOG_INFO, "could not resolve hostname "
-                        "for %s: %s", ip, strerror (errno));
+                gf_msg ("resolver", GF_LOG_INFO, errno,
+                        LG_MSG_RESOLVE_HOSTNAME_FAILED, "could not resolve "
+                        "hostname for %s: %s", ip, strerror (errno));
                 goto out;
         }
 
         /* Get the FQDN */
         fqdn = gf_strdup (host_addr);
         if (!fqdn)
-                gf_log ("resolver", GF_LOG_CRITICAL, "Allocation failed for "
-                        "the host address");
+                gf_msg ("resolver", GF_LOG_CRITICAL, 0, LG_MSG_NO_MEMORY,
+                        "Allocation failed for the host address");
 
 out:
        return fqdn;
@@ -222,7 +226,8 @@ gf_resolve_path_parent (const char *path)
         GF_VALIDATE_OR_GOTO (THIS->name, path, out);
 
         if (strlen (path) <= 0) {
-                gf_log_callingfn (THIS->name, GF_LOG_DEBUG,
+                gf_msg_callingfn (THIS->name, GF_LOG_DEBUG, 0,
+                                  LG_MSG_INVALID_STRING,
                                   "invalid string for 'path'");
                 goto out;
         }
@@ -230,7 +235,7 @@ gf_resolve_path_parent (const char *path)
         /* dup the parameter, we don't want to modify it */
         pathc = strdupa (path);
         if (!pathc) {
-                gf_log (THIS->name, GF_LOG_CRITICAL,
+                gf_msg (THIS->name, GF_LOG_CRITICAL, 0, LG_MSG_NO_MEMORY,
                         "Allocation failed for the parent");
                 goto out;
         }
@@ -242,7 +247,7 @@ gf_resolve_path_parent (const char *path)
 
         parent = gf_strdup (tmp);
         if (!parent)
-                gf_log (THIS->name, GF_LOG_CRITICAL,
+                gf_msg (THIS->name, GF_LOG_CRITICAL, 0, LG_MSG_NO_MEMORY,
                         "Allocation failed for the parent");
 out:
         return parent;
@@ -261,7 +266,8 @@ gf_resolve_ip6 (const char *hostname,
         char service[NI_MAXSERV], host[NI_MAXHOST];
 
         if (!hostname) {
-                gf_log_callingfn ("resolver", GF_LOG_WARNING, "hostname is NULL");
+                gf_msg_callingfn ("resolver", GF_LOG_WARNING, 0,
+                                  LG_MSG_HOSTNAME_NULL, "hostname is NULL");
                 return -1;
         }
 
@@ -276,15 +282,13 @@ gf_resolve_ip6 (const char *hostname,
         if (cache->first && !cache->next) {
                 freeaddrinfo(cache->first);
                 cache->first = cache->next = NULL;
-                gf_log ("resolver", GF_LOG_TRACE,
-                        "flushing DNS cache");
+                gf_msg_trace ("resolver", 0, "flushing DNS cache");
         }
 
         if (!cache->first) {
                 char *port_str = NULL;
-                gf_log ("resolver", GF_LOG_TRACE,
-                        "DNS cache not present, freshly probing hostname: %s",
-                        hostname);
+                gf_msg_trace ("resolver", 0, "DNS cache not present, freshly "
+                              "probing hostname: %s", hostname);
 
                 memset(&hints, 0, sizeof(hints));
                 hints.ai_family   = family;
@@ -295,12 +299,14 @@ gf_resolve_ip6 (const char *hostname,
 
                 ret = gf_asprintf (&port_str, "%d", port);
                 if (-1 == ret) {
-                        gf_log ("resolver", GF_LOG_ERROR, "asprintf failed");
+                        gf_msg ("resolver", GF_LOG_ERROR, 0,
+                                LG_MSG_ASPRINTF_FAILED, "asprintf failed");
                         return -1;
                 }
                 if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) != 0) {
-                        gf_log ("resolver", GF_LOG_ERROR,
-                                "getaddrinfo failed (%s)", gai_strerror (ret));
+                        gf_msg ("resolver", GF_LOG_ERROR, ret,
+                                LG_MSG_GETADDRINFO_FAILED, "getaddrinfo failed"
+                                " (%s)", gai_strerror (ret));
 
                         GF_FREE (*dnscache);
                         *dnscache = NULL;
@@ -319,14 +325,15 @@ gf_resolve_ip6 (const char *hostname,
                                   service, sizeof (service),
                                   NI_NUMERICHOST);
                 if (ret != 0) {
-                        gf_log ("resolver", GF_LOG_ERROR,
-                                "getnameinfo failed (%s)", gai_strerror (ret));
+                        gf_msg ("resolver", GF_LOG_ERROR, 0,
+                                LG_MSG_GETNAMEINFO_FAILED, "getnameinfo failed"
+                                " (%s)", gai_strerror (ret));
                         goto err;
                 }
 
-                gf_log ("resolver", GF_LOG_DEBUG,
-                        "returning ip-%s (port-%s) for hostname: %s and port: %d",
-                        host, service, hostname, port);
+                gf_msg_debug ("resolver", 0, "returning ip-%s (port-%s) for "
+                              "hostname: %s and port: %d", host, service,
+                              hostname, port);
 
                 *addr_info = cache->next;
         }
@@ -340,13 +347,14 @@ gf_resolve_ip6 (const char *hostname,
                                   service, sizeof (service),
                                   NI_NUMERICHOST);
                 if (ret != 0) {
-                        gf_log ("resolver", GF_LOG_ERROR,
-                                "getnameinfo failed (%s)", gai_strerror (ret));
+                        gf_msg ("resolver", GF_LOG_ERROR, 0,
+                                LG_MSG_GETNAMEINFO_FAILED, "getnameinfo failed"
+                                " (%s)", gai_strerror (ret));
                         goto err;
                 }
 
-                gf_log ("resolver", GF_LOG_DEBUG,
-                        "next DNS query will return: ip-%s port-%s", host, service);
+                gf_msg_debug ("resolver", 0, "next DNS query will return: "
+                              "ip-%s port-%s", host, service);
         }
 
         return 0;
@@ -661,7 +669,8 @@ gf_strsplit (const char *str, const char *delim,
         int j = 0;
 
         if (str == NULL || delim == NULL || tokens == NULL || token_count == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 return -1;
         }
 
@@ -726,7 +735,8 @@ gf_strstr (const char *str, const char *delim, const char *match)
         tmp_str = strdup (str);
 
         if (str == NULL || delim == NULL || match == NULL || tmp_str == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 ret = -1;
                 goto out;
         }
@@ -756,7 +766,8 @@ gf_volume_name_validate (const char *volume_name)
         const char *vname = NULL;
 
         if (volume_name == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 return -1;
         }
 
@@ -781,7 +792,8 @@ gf_string2time (const char *str, uint32_t *n)
         const char *s = NULL;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -858,7 +870,8 @@ gf_string2percent (const char *str, double *n)
         const char *s = NULL;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -901,7 +914,8 @@ _gf_string2long (const char *str, long *n, int base)
         int old_errno = 0;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -935,7 +949,8 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
         const char *s = NULL;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -977,7 +992,8 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
         const char *s = NULL;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1018,7 +1034,8 @@ _gf_string2double (const char *str, double *n)
         int    old_errno = 0;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1051,7 +1068,8 @@ _gf_string2longlong (const char *str, long long *n, int base)
         int old_errno = 0;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1085,7 +1103,8 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
         const char *s = NULL;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1454,8 +1473,8 @@ gf_string2bytesize_range (const char *str, uint64_t *n, uint64_t max)
         gf_boolean_t  fraction   = _gf_false;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-                                  "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1570,8 +1589,8 @@ gf_string2percent_or_bytesize (const char *str, double *n,
         const char *s = NULL;
 
         if (str == NULL || n == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-				  "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1668,7 +1687,8 @@ int
 gf_string2boolean (const char *str, gf_boolean_t *b)
 {
         if (str == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 return -1;
         }
 
@@ -1786,8 +1806,8 @@ get_checksum_for_path (char *path, uint32_t *checksum)
         fd = open (path, O_RDWR);
 
         if (fd == -1) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Unable to open %s, errno: %d",
-                        path, errno);
+                gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_PATH_ERROR,
+                        "Unable to open %s, errno: %d", path, errno);
                 goto out;
         }
 
@@ -1820,7 +1840,8 @@ get_file_mtime (const char *path, time_t *stamp)
 
         ret = stat (path, &f_stat);
         if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "failed to stat %s: %s",
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        LG_MSG_FILE_STAT_FAILED, "failed to stat %s: %s",
                         path, strerror (errno));
                 goto out;
         }
@@ -1881,14 +1902,16 @@ gf_is_ip_in_net (const char *network, const char *ip_str)
         /* Convert IP address to a long */
         ret = inet_pton (family, ip_str, &ip_buf);
         if (ret < 0)
-                gf_log ("common-utils", GF_LOG_ERROR,
-                        "inet_pton() failed with %s", strerror (errno));
+                gf_msg ("common-utils", GF_LOG_ERROR, errno,
+                        LG_MSG_INET_PTON_FAILED, "inet_pton() failed with %s",
+                        strerror (errno));
 
         /* Convert network IP address to a long */
         ret = inet_pton (family, net_ip, &net_ip_buf);
         if (ret < 0) {
-                gf_log ("common-utils", GF_LOG_ERROR,
-                        "inet_pton() failed with %s", strerror (errno));
+                gf_msg ("common-utils", GF_LOG_ERROR, errno,
+                        LG_MSG_INET_PTON_FAILED, "inet_pton() failed with %s",
+                        strerror (errno));
                 goto out;
         }
 
@@ -2118,8 +2141,8 @@ valid_ipv4_subnetwork (const char *address)
         gf_boolean_t retv       = _gf_true;
 
         if (address == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-                                              "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 return _gf_false;
         }
 
@@ -2133,8 +2156,9 @@ valid_ipv4_subnetwork (const char *address)
          */
         slash = strchr(paddr, '/');
         if ((slash == NULL) || (slash[1] == '\0')) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-                                  "Invalid IPv4 subnetwork format");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INVALID_IPV4_FORMAT, "Invalid IPv4 "
+                                  "subnetwork format");
                 retv = _gf_false;
                 goto out;
         }
@@ -2142,7 +2166,8 @@ valid_ipv4_subnetwork (const char *address)
         *slash = '\0';
         retv = valid_ipv4_address (paddr, strlen(paddr), _gf_false);
         if (retv == _gf_false) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INVALID_IPV4_FORMAT,
                                   "Invalid IPv4 subnetwork address");
                 goto out;
         }
@@ -2150,7 +2175,8 @@ valid_ipv4_subnetwork (const char *address)
         prefixlen = strtol (slash + 1, &endptr, 10);
         if ((errno != 0) || (*endptr != '\0') ||
             (prefixlen < 0) || (prefixlen > IPv4_ADDR_SIZE)) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INVALID_IPV4_FORMAT,
                                   "Invalid IPv4 subnetwork mask");
                 retv = _gf_false;
                 goto out;
@@ -2225,7 +2251,8 @@ valid_internet_address (char *address, gf_boolean_t wildcard_acc)
         int length = 0;
 
         if (address == NULL) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 goto out;
         }
 
@@ -2265,8 +2292,8 @@ valid_mount_auth_address (char *address)
 
         /* 1. Check for "NULL and empty string */
         if ((address == NULL) || (address[0] == '\0')){
-                gf_log_callingfn (THIS->name,
-                                  GF_LOG_WARNING, "argument invalid");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "argument invalid");
                 return _gf_false;
         }
 
@@ -2313,8 +2340,8 @@ gf_sock_union_equal_addr (union gf_sock_union *a,
                           union gf_sock_union *b)
 {
         if (!a || !b) {
-                gf_log ("common-utils", GF_LOG_ERROR, "Invalid arguments"
-                        " to gf_sock_union_equal_addr");
+                gf_msg ("common-utils", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                        "Invalid arguments to gf_sock_union_equal_addr");
                 return _gf_false;
         }
 
@@ -2337,8 +2364,8 @@ gf_sock_union_equal_addr (union gf_sock_union *a,
                         return _gf_true;
 
         default:
-                gf_log ("common-utils", GF_LOG_DEBUG,
-                        "Unsupported/invalid address family");
+                gf_msg_debug ("common-utils", 0, "Unsupported/invalid address "
+                              "family");
                 break;
         }
 
@@ -2477,8 +2504,8 @@ gf_roundup_power_of_two (int32_t nr)
         int32_t result = 1;
 
         if (nr < 0) {
-                gf_log ("common-utils", GF_LOG_WARNING,
-                        "negative number passed");
+                gf_msg ("common-utils", GF_LOG_WARNING, 0,
+                        LG_MSG_NEGATIVE_NUM_PASSED, "negative number passed");
                 result = -1;
                 goto out;
         }
@@ -2501,8 +2528,8 @@ gf_roundup_next_power_of_two (int32_t nr)
         int32_t result = 1;
 
         if (nr < 0) {
-                gf_log ("common-utils", GF_LOG_WARNING,
-                        "negative number passed");
+                gf_msg ("common-utils", GF_LOG_WARNING, 0,
+                        LG_MSG_NEGATIVE_NUM_PASSED, "negative number passed");
                 result = -1;
                 goto out;
         }
@@ -2668,7 +2695,7 @@ gf_canonicalize_path (char *path)
 
  out:
         if (ret)
-                gf_log ("common-utils", GF_LOG_ERROR,
+                gf_msg ("common-utils", GF_LOG_ERROR, 0, LG_MSG_PATH_ERROR,
                         "Path manipulation failed");
 
         GF_FREE(tmppath);
@@ -2712,14 +2739,14 @@ generate_glusterfs_ctx_id (void)
         char           now_str[32];
 
         if (gettimeofday (&tv, NULL) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "gettimeofday: failed %s",
-                        strerror (errno));
+                gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
+                        LG_MSG_GETTIMEOFDAY_FAILED, "gettimeofday: "
+                        "failed %s", strerror (errno));
         }
 
         if (gethostname (hostname, 256) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "gethostname: failed %s",
+                gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
+                        LG_MSG_GETHOSTNAME_FAILED, "gethostname: failed %s",
                         strerror (errno));
         }
 
@@ -2752,18 +2779,19 @@ gf_get_reserved_ports ()
                  * continue with older method of using any of the available
                  * port? For now 2nd option is considered.
                  */
-                gf_log ("glusterfs", GF_LOG_WARNING, "could not open "
-                        "the file /proc/sys/net/ipv4/ip_local_reserved_ports "
-                        "for getting reserved ports info (%s)",
-                        strerror (errno));
+                gf_msg ("glusterfs", GF_LOG_WARNING, errno,
+                        LG_MSG_FILE_OP_FAILED, "could not open the file "
+                        "/proc/sys/net/ipv4/ip_local_reserved_ports for "
+                        "getting reserved ports info (%s)", strerror (errno));
                 goto out;
         }
 
         ret = read (proc_fd, buffer, sizeof (buffer));
         if (ret < 0) {
-                gf_log ("glusterfs", GF_LOG_WARNING, "could not "
-                        "read the file %s for getting reserved ports "
-                        "info (%s)", proc_file, strerror (errno));
+                gf_msg ("glusterfs", GF_LOG_WARNING, errno,
+                        LG_MSG_FILE_OP_FAILED, "could not read the file %s for"
+                        " getting reserved ports info (%s)", proc_file,
+                        strerror (errno));
                 goto out;
         }
         ports_info = gf_strdup (buffer);
@@ -2786,8 +2814,9 @@ gf_process_reserved_ports (gf_boolean_t *ports)
 
         ports_info = gf_get_reserved_ports ();
         if (!ports_info) {
-                gf_log ("glusterfs", GF_LOG_WARNING, "Not able to get reserved "
-                        "ports, hence there is a possibility that glusterfs "
+                gf_msg ("glusterfs", GF_LOG_WARNING, 0,
+                        LG_MSG_RESERVED_PORTS_ERROR, "Not able to get reserved"
+                        " ports, hence there is a possibility that glusterfs "
                         "may consume reserved port");
                 goto out;
         }
@@ -2821,18 +2850,20 @@ gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
                 if (gf_string2int16 (blocked_port, &tmp_port1) == 0) {
                         if (tmp_port1 > (GF_CLIENT_PORT_CEILING - 1)
                             || tmp_port1 < 0) {
-                                gf_log ("glusterfs-socket", GF_LOG_WARNING,
-                                        "invalid port %d", tmp_port1);
+                                gf_msg ("glusterfs-socket", GF_LOG_WARNING, 0,
+                                        LG_MSG_INVALID_PORT, "invalid port %d",
+                                        tmp_port1);
                                 result = _gf_true;
                                 goto out;
                         } else {
-                                gf_log ("glusterfs", GF_LOG_DEBUG,
-                                        "blocking port %d", tmp_port1);
+                                gf_msg_debug ("glusterfs", 0, "blocking port "
+                                              "%d", tmp_port1);
                                 ports[tmp_port1] = _gf_true;
                         }
                 } else {
-                        gf_log ("glusterfs-socket", GF_LOG_WARNING, "%s is "
-                                "not a valid port identifier", blocked_port);
+                        gf_msg ("glusterfs-socket", GF_LOG_WARNING, 0,
+                                LG_MSG_INVALID_PORT, "%s is not a valid port "
+                                "identifier", blocked_port);
                         result = _gf_true;
                         goto out;
                 }
@@ -2863,8 +2894,8 @@ gf_ports_reserved (char *blocked_port, gf_boolean_t *ports)
                         if (tmp_port2 < 0)
                                 tmp_port2 = 0;
                 }
-                gf_log ("glusterfs", GF_LOG_DEBUG, "lower: %d, higher: %d",
-                        tmp_port1, tmp_port2);
+                gf_msg_debug ("glusterfs", 0, "lower: %d, higher: %d",
+                              tmp_port1, tmp_port2);
                 for (; tmp_port1 <= tmp_port2; tmp_port1++)
                         ports[tmp_port1] = _gf_true;
         }
@@ -2929,9 +2960,9 @@ gf_get_hostname_from_ip (char *client_ip, char **hostname)
                            client_hostname, sizeof (client_hostname),
                            NULL, 0, 0);
         if (ret) {
-                gf_log ("common-utils", GF_LOG_ERROR,
-                        "Could not lookup hostname of %s : %s",
-                        client_ip, gai_strerror (ret));
+                gf_msg ("common-utils", GF_LOG_ERROR, 0,
+                        LG_MSG_GETNAMEINFO_FAILED, "Could not lookup hostname "
+                        "of %s : %s", client_ip, gai_strerror (ret));
                 ret = -1;
                 goto out;
         }
@@ -2960,8 +2991,8 @@ gf_interface_search (char *ip)
         ret = getifaddrs (&ifaddr);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "getifaddrs() failed: %s\n",
-                        gai_strerror(ret));
+                gf_msg (this->name, GF_LOG_ERROR, 0, LG_MSG_GETIFADDRS_FAILED,
+                        "getifaddrs() failed: %s\n", gai_strerror(ret));
                 goto out;
         }
 
@@ -2985,9 +3016,9 @@ gf_interface_search (char *ip)
                         host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
 
                 if (ret != 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "getnameinfo() failed: %s\n",
-                                gai_strerror(ret));
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                LG_MSG_GETNAMEINFO_FAILED, "getnameinfo() "
+                                "failed: %s\n", gai_strerror(ret));
                         goto out;
                 }
 
@@ -3003,9 +3034,8 @@ gf_interface_search (char *ip)
                 }
 
                 if (strncmp (ip, host, NI_MAXHOST) == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s is local address at interface %s",
-                                ip, ifa->ifa_name);
+                        gf_msg_debug (this->name, 0, "%s is local address at "
+                                      "interface %s", ip, ifa->ifa_name);
                         found = _gf_true;
                         goto out;
                 }
@@ -3037,12 +3067,14 @@ get_ip_from_addrinfo (struct addrinfo *addr, char **ip)
                         break;
 
                 default:
-                        gf_log ("glusterd", GF_LOG_ERROR, "Invalid family");
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                LG_MSG_INVALID_FAMILY, "Invalid family");
                         return NULL;
         }
 
         if (!inet_ntop(addr->ai_family, in_addr, buf, sizeof(buf))) {
-                gf_log ("glusterd", GF_LOG_ERROR, "String conversion failed");
+                gf_msg ("glusterd", GF_LOG_ERROR, 0, LG_MSG_CONVERSION_FAILED,
+                        "String conversion failed");
                 return NULL;
         }
 
@@ -3078,8 +3110,9 @@ gf_is_loopback_localhost (const struct sockaddr *sa, char *hostname)
 
                 default:
                         if (hostname)
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "unknown address family %d for %s",
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        LG_MSG_INVALID_FAMILY, "unknown "
+                                        "address family %d for %s",
                                         sa->sa_family, hostname);
                         break;
         }
@@ -3101,14 +3134,15 @@ gf_is_local_addr (char *hostname)
         ret = getaddrinfo (hostname, NULL, NULL, &result);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "error in getaddrinfo: %s\n",
-                        gai_strerror(ret));
+                gf_msg (this->name, GF_LOG_ERROR, ret,
+                        LG_MSG_GETADDRINFO_FAILED,
+                        "error in getaddrinfo: %s\n", gai_strerror(ret));
                 goto out;
         }
 
         for (res = result; res != NULL; res = res->ai_next) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s ",
-                        get_ip_from_addrinfo (res, &ip));
+                gf_msg_debug (this->name, 0, "%s ",
+                              get_ip_from_addrinfo (res, &ip));
 
                 found = gf_is_loopback_localhost (res->ai_addr, hostname)
                         || gf_interface_search (ip);
@@ -3124,7 +3158,7 @@ out:
                 freeaddrinfo (result);
 
         if (!found)
-                gf_log (this->name, GF_LOG_DEBUG, "%s is not local", hostname);
+                gf_msg_debug (this->name, 0, "%s is not local", hostname);
 
         return found;
 }
@@ -3141,15 +3175,17 @@ gf_is_same_address (char *name1, char *name2)
 
         gai_err = getaddrinfo(name1,NULL,NULL,&addr1);
         if (gai_err != 0) {
-                gf_log (name1, GF_LOG_WARNING,
-                        "error in getaddrinfo: %s\n", gai_strerror(gai_err));
+                gf_msg (name1, GF_LOG_WARNING, gai_err,
+                        LG_MSG_GETADDRINFO_FAILED, "error in getaddrinfo: "
+                        "%s\n", gai_strerror(gai_err));
                 goto out;
         }
 
         gai_err = getaddrinfo(name2,NULL,NULL,&addr2);
         if (gai_err != 0) {
-                gf_log (name2, GF_LOG_WARNING,
-                        "error in getaddrinfo: %s\n", gai_strerror(gai_err));
+                gf_msg (name2, GF_LOG_WARNING, gai_err,
+                        LG_MSG_GETADDRINFO_FAILED, "error in getaddrinfo: "
+                        "%s\n", gai_strerror(gai_err));
                 goto out;
         }
 
@@ -3331,8 +3367,8 @@ gf_skip_header_section (int fd, int header_len)
 
         ret = lseek (fd, header_len, SEEK_SET);
         if (ret == (off_t) -1) {
-                gf_log ("", GF_LOG_ERROR, "Failed to skip header "
-                        "section");
+                gf_msg ("", GF_LOG_ERROR, 0, LG_MSG_SKIP_HEADER_FAILED,
+                        "Failed to skip header section");
         } else {
                 ret = 0;
         }
@@ -3361,8 +3397,9 @@ gf_is_service_running (char *pidfile, int *pid)
 
         ret = fscanf (file, "%d", pid);
         if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s, %s",
-                        pidfile, strerror (errno));
+                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                        "Unable to read pidfile: %s, %s", pidfile,
+                        strerror (errno));
                 *pid = -1;
         }
 
@@ -3413,8 +3450,8 @@ gf_check_log_format (const char *value)
                 log_format = gf_logformat_withmsgid;
 
         if (log_format == -1)
-                gf_log (THIS->name, GF_LOG_ERROR, "Invalid log-format. "
-                        "possible values are "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
+                        "Invalid log-format. possible values are "
                         GF_LOG_FORMAT_NO_MSG_ID "|" GF_LOG_FORMAT_WITH_MSG_ID);
 
         return log_format;
@@ -3431,8 +3468,8 @@ gf_check_logger (const char *value)
                 logger = gf_logger_syslog;
 
         if (logger == -1)
-                gf_log (THIS->name, GF_LOG_ERROR, "Invalid logger. "
-                        "possible values are "
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
+                        "Invalid logger. possible values are "
                         GF_LOGGER_GLUSTER_LOG "|" GF_LOGGER_SYSLOG);
 
         return logger;
@@ -3491,7 +3528,8 @@ gf_set_timestamp  (const char *src, const char* dest)
 
         ret = stat (src, &sb);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "stat on %s failed: %s",
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        LG_MSG_FILE_STAT_FAILED, "stat on %s failed: %s",
                         src, strerror(errno));
                 goto out;
         }
@@ -3507,8 +3545,8 @@ gf_set_timestamp  (const char *src, const char* dest)
          */
         ret = utimes (dest, new_time);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "utimes on %s failed: %s",
-                        dest, strerror(errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno, LG_MSG_UTIMES_FAILED,
+                        "utimes on %s failed: %s", dest, strerror(errno));
         }
 out:
         return ret;
@@ -3626,7 +3664,8 @@ gf_backtrace_save (char *buf)
         if ((0 == gf_backtrace_fillframes (bt)))
                 return bt;
 
-        gf_log (THIS->name, GF_LOG_WARNING, "Failed to save the backtrace.");
+        gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_BACKTRACE_SAVE_FAILED,
+                "Failed to save the backtrace.");
         return NULL;
 }
 
@@ -3712,16 +3751,16 @@ gf_build_absolute_path (char *current_path, char *relative_path, char **path)
          */
         currentpath_len = strlen (current_path);
         if (current_path[0] != '/' || (currentpath_len > PATH_MAX)) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Wrong value for"
-                                   " current path %s", current_path);
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                        "Wrong value for current path %s", current_path);
                 ret = -EINVAL;
                 goto err;
         }
 
         relativepath_len = strlen (relative_path);
         if (relative_path[0] == '/' || (relativepath_len > PATH_MAX)) {
-                gf_log (THIS->name, GF_LOG_ERROR, "Wrong value for"
-                                   " relative path %s", relative_path);
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                        "Wrong value for relative path %s", relative_path);
                 ret = -EINVAL;
                 goto err;
         }
@@ -3821,8 +3860,8 @@ recursive_rmdir (const char *delete_path)
 
         dir = opendir (delete_path);
         if (!dir) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to open directory %s."
-                        " Reason : %s", delete_path, strerror (errno));
+                gf_msg_debug (this->name, 0, "Failed to open directory %s. "
+                              "Reason : %s", delete_path, strerror (errno));
                 ret = 0;
                 goto out;
         }
@@ -3832,8 +3871,8 @@ recursive_rmdir (const char *delete_path)
                 snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
                 ret = lstat (path, &st);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Failed to stat "
-                                "entry %s : %s", path, strerror (errno));
+                        gf_msg_debug (this->name, 0, "Failed to stat entry %s :"
+                                      " %s", path, strerror (errno));
                         goto out;
                 }
 
@@ -3843,27 +3882,26 @@ recursive_rmdir (const char *delete_path)
                         ret = unlink (path);
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_DEBUG, " Failed to remove "
-                                "%s. Reason : %s", path, strerror (errno));
+                        gf_msg_debug (this->name, 0, " Failed to remove %s. "
+                                      "Reason : %s", path, strerror (errno));
                 }
 
-                gf_log (this->name, GF_LOG_DEBUG, "%s %s",
-                                ret ? "Failed to remove":"Removed",
-                                entry->d_name);
+                gf_msg_debug (this->name, 0, "%s %s", ret ?
+                              "Failed to remove" : "Removed", entry->d_name);
 
                 GF_FOR_EACH_ENTRY_IN_DIR (entry, dir);
         }
 
         ret = closedir (dir);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to close dir %s. "
-                        "Reason : %s", delete_path, strerror (errno));
+                gf_msg_debug (this->name, 0, "Failed to close dir %s. Reason :"
+                              " %s", delete_path, strerror (errno));
         }
 
         ret = rmdir (delete_path);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to rmdir: %s,err: %s",
-                        delete_path, strerror (errno));
+                gf_msg_debug (this->name, 0, "Failed to rmdir: %s,err: %s",
+                              delete_path, strerror (errno));
         }
 
 out:
