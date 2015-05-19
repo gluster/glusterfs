@@ -198,7 +198,6 @@ function is_bad_test ()
     	      ./tests/basic/uss.t			\
               ./tests/bugs/snapshot/bug-1112559.t       \
               ./tests/basic/afr/entry-self-heal.t       \
-              ./tests/bugs/replicate/bug-976800.t       \
               ./tests/bugs/replicate/bug-1015990.t      \
               ./tests/bugs/quota/bug-1038598.t  \
               ./tests/basic/afr/arbiter.t       \
