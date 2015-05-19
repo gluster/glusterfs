@@ -87,7 +87,7 @@ function cleanup_mount_statedump {
 function snap_client_connected_status {
          local vol=$1
          local fpath=$(generate_mount_statedump $vol)
-         up=$(grep -A2 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
+         up=$(grep -a -A2 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
          rm -f $fpath
          echo "$up"
 }
@@ -98,7 +98,7 @@ function _afr_child_up_status {
         local brick_id=$2
         local gen_state_dump=$3
         local fpath=$($gen_state_dump $vol)
-        up=$(grep -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
+        up=$(grep -a -B1 trusted.afr.$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
         rm -f $fpath
         echo "$up"
 }
