@@ -17,6 +17,7 @@
 #include "logging.h"
 #include "gfdb_data_store_types.h"
 #include "gfdb_mem-types.h"
+#include "libglusterfs-messages.h"
 
 #define GF_STMT_SIZE_MAX        2048
 
@@ -132,7 +133,8 @@ typedef struct gf_sql_connection {
 do {\
         GF_VALIDATE_OR_GOTO(GFDB_STR_SQLITE3, sql_conn, out);\
         if (!sql_conn->sqlite3_db_conn) {\
-                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,\
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,\
+                        LG_MSG_CONNECTION_INIT_FAILED,\
                         "sqlite3 connection not initialized");\
                 goto out;\
         };\
@@ -145,7 +147,7 @@ do {\
         ret = sqlite3_exec (sql_conn->sqlite3_db_conn, sqlite3_config_str,\
                 NULL, NULL, NULL);\
         if (ret != SQLITE_OK) {\
-                gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,\
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_EXEC_FAILED,\
                         "Failed executing: %s : %s",\
                         sqlite3_config_str, sqlite3_errmsg\
                                                (sql_conn->sqlite3_db_conn));\

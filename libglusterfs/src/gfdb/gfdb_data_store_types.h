@@ -19,6 +19,7 @@
 #include "compat-uuid.h"
 #include "gfdb_mem-types.h"
 #include "dict.h"
+#include "libglusterfs-messages.h"
 
 typedef enum gf_db_operation {
         GFDB_INVALID_DB_OP = -1,
@@ -335,8 +336,9 @@ gfdb_query_record_init()
         gfdb_query_record = GF_CALLOC (1, sizeof(gfdb_query_record_t),
                                         gf_mt_gfdb_query_record_t);
         if (!gfdb_query_record) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                        "Error allocating memory to gfdb_query_record ");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ENOMEM,
+                        LG_MSG_NO_MEMORY, "Error allocating memory to "
+                        "gfdb_query_record ");
                 goto out;
         }
         ret = 0;
@@ -379,8 +381,9 @@ gfdb_link_info_init ()
         gfdb_link_info = GF_CALLOC (1, sizeof(gfdb_link_info_t),
                                         gf_mt_gfdb_link_info_t);
         if (!gfdb_link_info) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                        "Error allocating memory to gfdb_link_info ");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ENOMEM,
+                        LG_MSG_NO_MEMORY, "Error allocating memory to "
+                        "gfdb_link_info ");
         }
 
         return gfdb_link_info;
@@ -692,9 +695,9 @@ typedef struct gfdb_connection {
                         goto error;\
                 ret = dict_add (params_dict, param_key, data);\
                 if (ret) {\
-                        gf_log (comp_name, GF_LOG_ERROR,\
-                                "Failed setting %s to params dictionary",\
-                                param_key);\
+                        gf_msg (comp_name, GF_LOG_ERROR, 0,\
+                                LG_MSG_SET_PARAM_FAILED, "Failed setting %s "\
+                                "to params dictionary", param_key);\
                         goto error;\
                 };\
         } while (0)
@@ -706,8 +709,9 @@ typedef struct gfdb_connection {
                 data_t *data    = NULL;\
                 data = dict_get (params_dict, param_key);\
                 if (!data) {\
-                        gf_log (comp_name, GF_LOG_ERROR,\
-                                "Failed to retrieve %s from params", param_key);\
+                        gf_msg (comp_name, GF_LOG_ERROR, 0,\
+                                LG_MSG_GET_PARAM_FAILED, "Failed to retrieve "\
+                                "%s from params", param_key);\
                         goto error;\
                 } else {\
                         str_value = data->data;\
@@ -724,9 +728,9 @@ typedef struct gfdb_connection {
                 data = dict_get (params_dict, param_key);\
                 if (!data) {\
                         str_value = _default_v;\
-                        gf_log (comp_name, GF_LOG_WARNING,\
-                                "Failed to retrieve %s from params."\
-                                "Assigning default value: %s",\
+                        gf_msg (comp_name, GF_LOG_WARNING, 0,\
+                                LG_MSG_GET_PARAM_FAILED, "Failed to retrieve "\
+                                "%s from params.Assigning default value: %s",\
                                 param_key, _default_v);\
                 } else {\
                         str_value = data->data;\
