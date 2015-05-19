@@ -13,7 +13,7 @@
 
 #include "call-stub.h"
 #include "mem-types.h"
-
+#include "libglusterfs-messages.h"
 
 static call_stub_t *
 stub_new (call_frame_t *frame,
@@ -2280,9 +2280,9 @@ call_resume_wind (call_stub_t *stub)
                 break;
 
         default:
-                gf_log_callingfn ("call-stub", GF_LOG_ERROR,
-                                  "Invalid value of FOP (%d)",
-                                  stub->fop);
+                gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ENTRY, "Invalid value of FOP"
+                                  " (%d)", stub->fop);
                 break;
         }
 out:
@@ -2490,9 +2490,9 @@ call_resume_unwind (call_stub_t *stub)
                 break;
 
         default:
-                gf_log_callingfn ("call-stub", GF_LOG_ERROR,
-                                  "Invalid value of FOP (%d)",
-                                  stub->fop);
+                gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
+                                  LG_MSG_INVALID_ENTRY, "Invalid value of FOP"
+                                  " (%d)", stub->fop);
                 break;
         }
 out:
