@@ -30,7 +30,8 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t *local = NULL;
         int          ret   = -1;
-        xlator_t    *subvol = NULL;
+        xlator_t    *subvol1 = NULL;
+        xlator_t    *subvol2 = NULL;
 
         if (op_ret == -1 && !dht_inode_missing(op_errno)) {
                 goto out;
@@ -67,9 +68,11 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
 
-                ret = dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-                if (subvol) {
-                        dht_writev2 (this, subvol, frame);
+                ret = dht_inode_ctx_get_mig_info (this, local->fd->inode,
+                                                  &subvol1, &subvol2);
+                if (!dht_mig_info_is_invalid (local->cached_subvol,
+                                              subvol1, subvol2)) {
+                        dht_writev2 (this, subvol2, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -177,7 +180,8 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
-        xlator_t    *subvol = NULL;
+        xlator_t    *src_subvol = NULL;
+        xlator_t    *dst_subvol = NULL;
         inode_t      *inode = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
@@ -221,9 +225,12 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
-                dht_inode_ctx_get1 (this, inode, &subvol);
-                if (subvol) {
-                        dht_truncate2 (this, subvol, frame);
+
+                dht_inode_ctx_get_mig_info (this, inode, &src_subvol,
+                                            &dst_subvol);
+                if (!dht_mig_info_is_invalid (local->cached_subvol,
+                                              src_subvol, dst_subvol)) {
+                        dht_truncate2 (this, dst_subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -368,7 +375,8 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
-        xlator_t    *subvol = NULL;
+        xlator_t    *src_subvol = NULL;
+        xlator_t    *dst_subvol = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -408,9 +416,12 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-                if (subvol) {
-                        dht_fallocate2 (this, subvol, frame);
+
+                dht_inode_ctx_get_mig_info (this, local->fd->inode, &src_subvol,
+                                            &dst_subvol);
+                if (!dht_mig_info_is_invalid (local->cached_subvol,
+                                              src_subvol, dst_subvol)) {
+                        dht_fallocate2 (this, dst_subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -508,7 +519,8 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         call_frame_t *prev = NULL;
         int           ret = -1;
-        xlator_t    *subvol = NULL;
+        xlator_t    *src_subvol = NULL;
+        xlator_t    *dst_subvol = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -548,9 +560,12 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-                if (subvol) {
-                        dht_discard2 (this, subvol, frame);
+
+                dht_inode_ctx_get_mig_info (this, local->fd->inode, &src_subvol,
+                                            &dst_subvol);
+                if (!dht_mig_info_is_invalid(local->cached_subvol,
+                                             src_subvol, dst_subvol)) {
+                        dht_discard2 (this, dst_subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -642,10 +657,10 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
-        dht_local_t  *local  = NULL;
-        call_frame_t *prev   = NULL;
-        int           ret    = -1;
-        xlator_t     *subvol = NULL;
+        dht_local_t  *local   = NULL;
+        call_frame_t *prev    = NULL;
+        int           ret     = -1;
+        xlator_t     *subvol1 = NULL, *subvol2 = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -683,9 +698,12 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-                if (subvol) {
-                        dht_zerofill2 (this, subvol, frame);
+
+                ret = dht_inode_ctx_get_mig_info (this, local->fd->inode,
+                                                  &subvol1, &subvol2);
+                if (!dht_mig_info_is_invalid (local->cached_subvol,
+                                              subvol1, subvol2)) {
+                        dht_zerofill2 (this, subvol2, frame);
                         return 0;
                 }
 

@@ -5207,7 +5207,8 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->rebalance.target_op_fn = dht_link2;
         /* Check if the rebalance phase2 is true */
         if (IS_DHT_MIGRATION_PHASE2 (stbuf)) {
-                ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+                ret = dht_inode_ctx_get_mig_info (this, local->loc.inode, NULL,
+                                                  &subvol);
                 if (!subvol) {
                         /* Phase 2 of migration */
                         ret = dht_rebalance_complete_check (this, frame);
@@ -5221,7 +5222,8 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
-                ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
+                ret = dht_inode_ctx_get_mig_info (this, local->loc.inode, NULL,
+                                                  &subvol);
                 if (subvol) {
                         dht_link2 (this, subvol, frame);
                         return 0;
