@@ -18,6 +18,7 @@
 #include "list.h"
 #include <time.h>
 #include <assert.h>
+#include "libglusterfs-messages.h"
 
 /* TODO:
    move latest accessed dentry to list_head of inode
@@ -80,7 +81,8 @@ __dentry_hash (dentry_t *dentry)
         int              hash = 0;
 
         if (!dentry) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_DENTRY_NOT_FOUND, "dentry not found");
                 return;
         }
 
@@ -97,7 +99,8 @@ static int
 __is_dentry_hashed (dentry_t *dentry)
 {
         if (!dentry) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_DENTRY_NOT_FOUND, "dentry not found");
                 return 0;
         }
 
@@ -109,7 +112,8 @@ static void
 __dentry_unhash (dentry_t *dentry)
 {
         if (!dentry) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_DENTRY_NOT_FOUND, "dentry not found");
                 return;
         }
 
@@ -121,7 +125,8 @@ static void
 __dentry_unset (dentry_t *dentry)
 {
         if (!dentry) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_DENTRY_NOT_FOUND, "dentry not found");
                 return;
         }
 
@@ -152,19 +157,24 @@ __foreach_ancestor_dentry (dentry_t *dentry,
         int       ret = 0;
 
         if (!dentry) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "dentry not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_DENTRY_NOT_FOUND, "dentry not found");
                 return 0;
         }
 
         ret = per_dentry_fn (dentry, data);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_WARNING, "per dentry fn returned %d", ret);
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        LG_MSG_PER_DENTRY_FAILED, "per dentry fn returned %d",
+                        ret);
                 goto out;
         }
 
         parent = dentry->parent;
         if (!parent) {
-                gf_log (THIS->name, GF_LOG_WARNING, "parent not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        LG_MSG_PARENT_DENTRY_NOT_FOUND,
+                        "parent not found");
                 goto out;
         }
 
@@ -207,10 +217,10 @@ __is_dentry_cyclic (dentry_t *dentry)
                 if (dentry->name)
                         name = dentry->name;
 
-                gf_log (dentry->inode->table->name, GF_LOG_CRITICAL,
-                        "detected cyclic loop formation during inode linkage."
-                        " inode (%s) linking under itself as %s",
-                        uuid_utoa (inode->gfid), name);
+                gf_msg (dentry->inode->table->name, GF_LOG_CRITICAL, 0,
+                        LG_MSG_DENTRY_CYCLIC_LOOP, "detected cyclic loop "
+                        "formation during inode linkage. inode (%s) linking "
+                        "under itself as %s", uuid_utoa (inode->gfid), name);
         }
 
         return ret;
@@ -221,7 +231,8 @@ static void
 __inode_unhash (inode_t *inode)
 {
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
@@ -233,7 +244,8 @@ static int
 __is_inode_hashed (inode_t *inode)
 {
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return 0;
         }
 
@@ -248,7 +260,8 @@ __inode_hash (inode_t *inode)
         int            hash = 0;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
@@ -267,7 +280,9 @@ __dentry_search_for_inode (inode_t *inode, uuid_t pargfid, const char *name)
         dentry_t *tmp = NULL;
 
         if (!inode || !name) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode || name not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG,
+                                  "inode || name not found");
                 return NULL;
         }
 
@@ -297,12 +312,14 @@ __inode_ctx_free (inode_t *inode)
         xlator_t    *old_THIS = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
         if (!inode->_ctx) {
-                gf_log (THIS->name, GF_LOG_WARNING, "_ctx not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL,
+                        "_ctx not found");
                 goto noctx;
         }
 
@@ -328,7 +345,8 @@ static void
 __inode_destroy (inode_t *inode)
 {
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
@@ -347,12 +365,14 @@ inode_ctx_merge (fd_t *fd, inode_t *inode, inode_t *linked_inode)
         xlator_t *old_THIS = NULL;
 
         if (!fd || !inode || !linked_inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "invalid inode");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid inode");
                 return;
         }
 
         if (!inode->_ctx || !linked_inode->_ctx) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG,
                                   "invalid inode context");
                 return;
         }
@@ -389,7 +409,8 @@ __inode_passivate (inode_t *inode)
         dentry_t      *t = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
@@ -410,7 +431,8 @@ __inode_retire (inode_t *inode)
         dentry_t      *t = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
@@ -531,7 +553,8 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
         dentry_t      *newd = NULL;
 
         if (!inode || !parent || !name) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG,
                                   "inode || parent || name not found");
                 return NULL;
         }
@@ -568,7 +591,9 @@ __inode_create (inode_table_t *table)
         inode_t  *newi = NULL;
 
         if (!table) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "table not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_TABLE_NOT_FOUND, "table not "
+                                  "found");
                 return NULL;
         }
 
@@ -611,7 +636,9 @@ inode_new (inode_table_t *table)
         inode_t *inode = NULL;
 
         if (!table) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_TABLE_NOT_FOUND, "inode not "
+                                  "found");
                 return NULL;
         }
 
@@ -722,8 +749,9 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
         dentry_t  *dentry = NULL;
 
         if (!table || !parent || !name) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-                                  "table || parent || name not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "table || parent || name"
+                                  " not found");
                 return NULL;
         }
 
@@ -795,8 +823,9 @@ inode_grep_for_gfid (inode_table_t *table, inode_t *parent, const char *name,
         int        ret = -1;
 
         if (!table || !parent || !name) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING,
-                                  "table || parent || name not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "table || parent || name"
+                                  " not found");
                 return ret;
         }
 
@@ -843,7 +872,9 @@ __inode_find (inode_table_t *table, uuid_t gfid)
         int        hash = 0;
 
         if (!table) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "table not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_TABLE_NOT_FOUND, "table not "
+                                  "found");
                 goto out;
         }
 
@@ -870,7 +901,9 @@ inode_find (inode_table_t *table, uuid_t gfid)
         inode_t   *inode = NULL;
 
         if (!table) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "table not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_TABLE_NOT_FOUND, "table not "
+                                  "found");
                 return NULL;
         }
 
@@ -971,7 +1004,8 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
                 if (!old_dentry || old_dentry->inode != link_inode) {
                         dentry = __dentry_create (link_inode, parent, name);
                         if (!dentry) {
-                                gf_log_callingfn (THIS->name, GF_LOG_ERROR,
+                                gf_msg_callingfn (THIS->name, GF_LOG_ERROR, 0,
+                                                  LG_MSG_DENTRY_CREATE_FAILED,
                                                   "dentry create failed on "
                                                   "inode %s with parent %s",
                                                   uuid_utoa (link_inode->gfid),
@@ -1001,7 +1035,8 @@ inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_t       *linked_inode = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return NULL;
         }
 
@@ -1028,7 +1063,8 @@ inode_lookup (inode_t *inode)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return -1;
         }
 
@@ -1050,7 +1086,8 @@ inode_ref_reduce_by_n (inode_t *inode, uint64_t nref)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return -1;
         }
 
@@ -1074,7 +1111,8 @@ inode_forget (inode_t *inode, uint64_t nlookup)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return -1;
         }
 
@@ -1104,7 +1142,8 @@ inode_invalidate(inode_t *inode)
 	xlator_t *old_THIS = NULL;
 
 	if (!inode) {
-		gf_log_callingfn(THIS->name, GF_LOG_WARNING, "inode not found");
+		gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+                                 LG_MSG_INODE_NOT_FOUND, "inode not found");
 		return -1;
 	}
 
@@ -1156,8 +1195,9 @@ __inode_unlink (inode_t *inode, inode_t *parent, const char *name)
         if (dentry) {
                 __dentry_unset (dentry);
         } else {
-                gf_log ("inode", GF_LOG_WARNING, "%s/%s: dentry not "
-                        "found in %s", uuid_utoa_r (parent->gfid, pgfid), name,
+                gf_msg ("inode", GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
+                        "%s/%s: dentry not found in %s",
+                        uuid_utoa_r (parent->gfid, pgfid), name,
                         uuid_utoa_r (inode->gfid, gfid));
         }
 
@@ -1170,7 +1210,8 @@ inode_unlink (inode_t *inode, inode_t *parent, const char *name)
         inode_table_t *table = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return;
         }
 
@@ -1192,7 +1233,8 @@ inode_rename (inode_table_t *table, inode_t *srcdir, const char *srcname,
               struct iatt *iatt)
 {
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return -1;
         }
 
@@ -1246,7 +1288,8 @@ inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
         dentry_t      *dentry = NULL;
 
         if (!inode) {
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "inode not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_INODE_NOT_FOUND, "inode not found");
                 return NULL;
         }
 
@@ -1285,7 +1328,8 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
 
         if (!inode || gf_uuid_is_null (inode->gfid)) {
                 GF_ASSERT (0);
-                gf_log_callingfn (THIS->name, GF_LOG_WARNING, "invalid inode");
+                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid inode");
                 return -EINVAL;
         }
 
@@ -1298,9 +1342,10 @@ __inode_path (inode_t *inode, const char *name, char **bufp)
                 i ++; /* "/" */
                 i += strlen (trav->name);
                 if (i > PATH_MAX) {
-                        gf_log (table->name, GF_LOG_CRITICAL,
-                                "possible infinite loop detected, "
-                                "forcing break. name=(%s)", name);
+                        gf_msg (table->name, GF_LOG_CRITICAL, 0,
+                                LG_MSG_DENTRY_CYCLIC_LOOP, "possible infinite "
+                                "loop detected, forcing break. name=(%s)",
+                                name);
                         ret = -ENOENT;
                         goto out;
                 }
@@ -1618,12 +1663,13 @@ inode_table_ctx_free (inode_table_t *table)
 
         ret = purge_count + lru_count + active_count;
         itable_size = table->active_size + table->lru_size + table->purge_size;
-        gf_log_callingfn (this->name, GF_LOG_INFO, "total %d (itable size: %d) "
-                        "inode contexts have been freed (active: %d, "
-                        "(active size: %d), lru: %d, (lru size: %d), "
-                        " purge: %d, (purge size: %d))", ret, itable_size,
-                        active_count, table->active_size, lru_count,
-                        table->lru_size, purge_count, table->purge_size);
+        gf_msg_callingfn (this->name, GF_LOG_INFO, 0,
+                          LG_MSG_INODE_CONTEXT_FREED, "total %d (itable size: "
+                          "%d) inode contexts have been freed (active: %d, ("
+                          "active size: %d), lru: %d, (lru size: %d),  purge: "
+                          "%d, (purge size: %d))", ret, itable_size,
+                          active_count, table->active_size, lru_count,
+                          table->lru_size, purge_count, table->purge_size);
         return ret;
 }
 
