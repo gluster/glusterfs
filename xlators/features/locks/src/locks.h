@@ -164,15 +164,15 @@ typedef struct {
 typedef struct {
         gf_boolean_t   entrylk_count_req;
         gf_boolean_t   inodelk_count_req;
-        gf_boolean_t   inodelk_dom_count_req;
         gf_boolean_t   posixlk_count_req;
         gf_boolean_t   parent_entrylk_req;
+        data_t        *inodelk_dom_count_req;
 
+        dict_t  *xdata;
         /* used by {f,}truncate */
         loc_t  loc;
         fd_t  *fd;
         off_t  offset;
-        dict_t *xdata;
         enum {TRUNCATE, FTRUNCATE} op;
 } pl_local_t;
 
