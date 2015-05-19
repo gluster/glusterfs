@@ -11,6 +11,7 @@
 #include "gfdb_sqlite3.h"
 #include "gfdb_data_store.h"
 #include "list.h"
+#include "libglusterfs-messages.h"
 
 /******************************************************************************
  *
@@ -89,8 +90,9 @@ add_connection_node (gfdb_conn_node_t *_conn_node) {
         /*Lock the list*/
         ret = pthread_mutex_lock (&db_conn_mutex);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                "Failed lock db connection list %s", strerror(ret));
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ret,
+                        LG_MSG_LOCK_LIST_FAILED, "Failed lock db connection "
+                        "list %s", strerror(ret));
                 ret = -1;
                 goto out;
         }
@@ -105,8 +107,9 @@ add_connection_node (gfdb_conn_node_t *_conn_node) {
         /*unlock the list*/
         ret = pthread_mutex_unlock (&db_conn_mutex);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                "Failed unlock db connection list %s", strerror(ret));
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ret,
+                        LG_MSG_UNLOCK_LIST_FAILED, "Failed unlock db "
+                        "connection list %s", strerror(ret));
                 ret = -1;
                 /*TODO What if the unlock fails.
                 * Will it lead to deadlock?
@@ -131,8 +134,9 @@ delete_conn_node (gfdb_conn_node_t *_conn_node)
         /*Lock of the list*/
         ret = pthread_mutex_lock (&db_conn_mutex);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                        "Failed lock on db connection list %s", strerror(ret));
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ret,
+                        LG_MSG_LOCK_LIST_FAILED, "Failed lock on db connection"
+                        " list %s", strerror(ret));
                 goto out;
         }
 
@@ -153,9 +157,9 @@ delete_conn_node (gfdb_conn_node_t *_conn_node)
         /*Release the list lock*/
         ret =  pthread_mutex_unlock (&db_conn_mutex);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_WARNING,
-                                "Failed unlock on db connection"
-                                " list %s", strerror(ret));
+                gf_msg (GFDB_DATA_STORE, GF_LOG_WARNING, ret,
+                        LG_MSG_UNLOCK_LIST_FAILED, "Failed unlock on db "
+                        "connection list %s", strerror(ret));
                 /*TODO What if the unlock fails.
                 * Will it lead to deadlock?
                 * Most of the gluster code
@@ -190,11 +194,13 @@ init_db_operations (gfdb_db_type_t gfdb_db_type,
         case GFDB_HYPERDEX:
         case GFDB_HASH_FILE_STORE:
         case GFDB_ROCKS_DB:
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR, "Plugin not supported");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_UNSUPPORTED_PLUGIN, "Plugin not supported");
                 break;
         case GFDB_INVALID_DB:
         case GFDB_DB_END:
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR, "Invalid DB Type");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_INVALID_DB_TYPE, "Invalid DB Type");
                 break;
         }
         return ret;
@@ -228,8 +234,9 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
         _conn_node = GF_CALLOC (1, sizeof(gfdb_conn_node_t),
                                         gf_mt_db_conn_node_t);
         if (!_conn_node) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Failed mem alloc for gfdb_conn_node_t!");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, ENOMEM,
+                        LG_MSG_NO_MEMORY, "Failed mem alloc for "
+                        "gfdb_conn_node_t!");
                 goto alloc_failed;
         }
 
@@ -240,8 +247,9 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
         /*Add created connection node to the list*/
         ret = add_connection_node (_conn_node);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                       "Failed to add connection node to list");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_ADD_TO_LIST_FAILED, "Failed to add connection "
+                        "node to list");
                 goto _conn_failed;
         }
 
@@ -250,8 +258,9 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
         /*init the db ops object of db connection object*/
         ret = init_db_operations(gfdb_db_type, db_operations_t);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                       "Failed initializing database operation failed.");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_INIT_DB_FAILED, "Failed initializing database "
+                        "operation failed.");
                 ret = -1;
                 goto init_db_failed;
         }
@@ -261,8 +270,8 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
         ret = db_operations_t->init_db_op (args, &_conn_node->gfdb_connection.
                                                 gf_db_connection);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                       "Failed initializing database");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_INIT_DB_FAILED, "Failed initializing database");
                 ret = -1;
                 goto init_db_failed;
         }
@@ -278,8 +287,9 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
 init_db_failed:
         ret = delete_conn_node (_conn_node);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Failed deleting connection node from list");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_DELETE_FROM_LIST_FAILED, "Failed deleting "
+                        "connection node from list");
         }
         return NULL;
         /*if adding to the list failed free connection node*/
@@ -316,15 +326,17 @@ fini_db (gfdb_conn_node_t *_conn_node)
         ret = db_operations_t->fini_db_op(&_conn_node->gfdb_connection.
                                                         gf_db_connection);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                       "Failed close the db connection");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_CLOSE_CONNECTION_FAILED, "Failed close the db "
+                        "connection");
                 goto out;
         }
 
         ret = delete_conn_node (_conn_node);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Failed deleting connection node from list");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        LG_MSG_DELETE_FROM_LIST_FAILED, "Failed deleting "
+                        "connection node from list");
         }
 empty:
         ret = 0;
@@ -370,8 +382,9 @@ insert_record (gfdb_conn_node_t *_conn_node,
                 ret = db_operations_t->insert_record_op (gf_db_connection,
                                                         gfdb_db_record);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Insert/Update operation failed!");
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_INSERT_OR_UPDATE_FAILED, "Insert/Update"
+                                " operation failed!");
                 }
         }
 
@@ -409,8 +422,9 @@ delete_record (gfdb_conn_node_t *_conn_node,
                 ret = db_operations_t->delete_record_op (gf_db_connection,
                                                         gfdb_db_record);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Delete operation failed!");
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_DELETE_FAILED, "Delete operation "
+                                "failed!");
                 }
 
         }
@@ -448,8 +462,9 @@ find_all(gfdb_conn_node_t *_conn_node, gf_query_callback_t query_callback,
                                                 query_callback,
                                                 _query_cbk_args);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Find all operation failed!");
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_FIND_OP_FAILED, "Find all operation "
+                                "failed!");
                 }
 
         }
@@ -494,8 +509,9 @@ find_unchanged_for_time(gfdb_conn_node_t *_conn_node,
                                                         _query_cbk_args,
                                                         for_time);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Find unchanged operation failed!");
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_FIND_OP_FAILED, "Find unchanged "
+                                "operation failed!");
                 }
 
         }
@@ -538,7 +554,8 @@ find_recently_changed_files(gfdb_conn_node_t *_conn_node,
                                                         _query_cbk_args,
                                                         from_time);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_FIND_OP_FAILED,
                                 "Find changed operation failed!");
                 }
 
@@ -594,7 +611,8 @@ find_unchanged_for_time_freq(gfdb_conn_node_t *_conn_node,
                                                         read_freq_thresold,
                                                         _clear_counters);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_FIND_OP_FAILED,
                                 "Find unchanged with freq operation failed!");
                 }
 
@@ -649,7 +667,8 @@ find_recently_changed_files_freq(gfdb_conn_node_t *_conn_node,
                                                         read_freq_thresold,
                                                         _clear_counters);
                 if (ret) {
-                        gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+                        gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                                LG_MSG_FIND_OP_FAILED,
                                 "Find changed with freq operation failed!");
                 }
 
