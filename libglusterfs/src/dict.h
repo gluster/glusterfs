@@ -16,6 +16,7 @@
 #include <pthread.h>
 
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 
 typedef struct _data data_t;
 typedef struct _dict dict_t;
@@ -30,7 +31,8 @@ typedef struct _data_pair data_pair_t;
                                                                         \
                 ret = dict_allocate_and_serialize (from_dict, to, &len);\
                 if (ret < 0) {                                          \
-                        gf_log (this->name, GF_LOG_WARNING,             \
+                        gf_msg (this->name, GF_LOG_WARNING, 0,          \
+                                LG_MSG_DICT_SERIAL_FAILED,            \
                                 "failed to get serialized dict (%s)",   \
                                 (#from_dict));                          \
                         ope = EINVAL;                                   \
@@ -45,9 +47,10 @@ typedef struct _data_pair data_pair_t;
                 to = dict_new();                                        \
                 GF_VALIDATE_OR_GOTO (xl->name, to, labl);               \
                                                                         \
-                ret = dict_unserialize (buff, len, &to);                 \
+                ret = dict_unserialize (buff, len, &to);                \
                 if (ret < 0) {                                          \
-                        gf_log (xl->name, GF_LOG_WARNING,               \
+                        gf_msg (xl->name, GF_LOG_WARNING, 0,            \
+                                LG_MSG_DICT_UNSERIAL_FAILED,            \
                                 "failed to unserialize dictionary (%s)", \
                                 (#to));                                 \
                                                                         \
