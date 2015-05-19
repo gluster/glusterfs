@@ -19,7 +19,7 @@
 #include "xlator.h"
 #include "common-utils.h"
 #include "statedump.h"
-
+#include "libglusterfs-messages.h"
 
 void
 gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void *fn)
@@ -182,7 +182,8 @@ gf_latency_toggle (int signum, glusterfs_ctx_t *ctx)
 {
         if (ctx) {
                 ctx->measure_latency = !ctx->measure_latency;
-                gf_log ("[core]", GF_LOG_INFO,
+                gf_msg ("[core]", GF_LOG_INFO, 0,
+                        LG_MSG_LATENCY_MEASUREMENT_STATE,
                         "Latency measurement turned %s",
                         ctx->measure_latency ? "on" : "off");
         }

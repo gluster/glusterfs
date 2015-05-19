@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <fnmatch.h>
 #include "defaults.h"
+#include "libglusterfs-messages.h"
 
 #define SET_DEFAULT_FOP(fn) do {			\
                 if (!xl->fops->fn)			\
@@ -29,7 +30,8 @@ static void
 fill_defaults (xlator_t *xl)
 {
         if (xl == NULL)	{
-                gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
+                gf_msg_callingfn ("xlator", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "invalid argument");
                 return;
         }
 
@@ -123,23 +125,23 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
         ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xlator_type);
         if (-1 == ret) {
-                gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 goto out;
         }
 
         ret = -1;
 
-        gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
+        gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
 
         handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
         if (!handle) {
-                gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
+                        "%s", dlerror ());
                 goto out;
         }
 
         if (!(opt_list->given_opt = dlsym (handle, "options"))) {
                 dlerror ();
-                gf_log ("xlator", GF_LOG_ERROR,
+                gf_msg ("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED,
                         "Failed to load xlator opt table");
                 goto out;
         }
@@ -153,7 +155,7 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
         if (handle)
                 dlclose (handle);
 
-        gf_log ("xlator", GF_LOG_DEBUG, "Returning %d", ret);
+        gf_msg_debug ("xlator", 0, "Returning %d", ret);
         return ret;
 
 }
@@ -174,30 +176,30 @@ xlator_dynload (xlator_t *xl)
 
         ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
         if (-1 == ret) {
-                gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 goto out;
         }
 
         ret = -1;
 
-        gf_log ("xlator", GF_LOG_TRACE, "attempt to load file %s", name);
+        gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
 
         handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
         if (!handle) {
-                gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
+                        "%s", dlerror ());
                 goto out;
         }
         xl->dlhandle = handle;
 
         if (!(xl->fops = dlsym (handle, "fops"))) {
-                gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
-                        dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
+                        "dlsym(fops) on %s", dlerror ());
                 goto out;
         }
 
         if (!(xl->cbks = dlsym (handle, "cbks"))) {
-                gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
-                        dlerror ());
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
+                        "dlsym(cbks) on %s", dlerror ());
                 goto out;
         }
 
@@ -215,39 +217,38 @@ xlator_dynload (xlator_t *xl)
         }
         else {
                 if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
-                        gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
+                        gf_msg ("xlator", GF_LOG_WARNING, 0,
+                                LG_MSG_DLSYM_ERROR, "dlsym(init) on %s",
                                 dlerror ());
                         goto out;
                 }
 
                 if (!(*VOID(&(xl->fini)) = dlsym (handle, "fini"))) {
-                        gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
+                        gf_msg ("xlator", GF_LOG_WARNING, 0,
+                                LG_MSG_DLSYM_ERROR, "dlsym(fini) on %s",
                                 dlerror ());
                         goto out;
                 }
                 if (!(*VOID(&(xl->reconfigure)) = dlsym (handle,
                                                          "reconfigure"))) {
-                        gf_log ("xlator", GF_LOG_TRACE,
-                                "dlsym(reconfigure) on %s -- neglecting",
-                                dlerror());
+                        gf_msg_trace ("xlator", 0, "dlsym(reconfigure) on %s "
+                                      "-- neglecting", dlerror());
                 }
                 if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
-                        gf_log ("xlator", GF_LOG_TRACE,
-                                "dlsym(notify) on %s -- neglecting",
-                                dlerror ());
+                        gf_msg_trace ("xlator", 0, "dlsym(notify) on %s -- "
+                                      "neglecting", dlerror ());
                 }
 
         }
 
         if (!(xl->dumpops = dlsym (handle, "dumpops"))) {
-                gf_log ("xlator", GF_LOG_TRACE,
-                        "dlsym(dumpops) on %s -- neglecting", dlerror ());
+                gf_msg_trace ("xlator", 0, "dlsym(dumpops) on %s -- "
+                              "neglecting", dlerror ());
         }
 
         if (!(*VOID(&(xl->mem_acct_init)) = dlsym (handle, "mem_acct_init"))) {
-                gf_log (xl->name, GF_LOG_TRACE,
-                        "dlsym(mem_acct_init) on %s -- neglecting",
-                        dlerror ());
+                gf_msg_trace (xl->name, 0, "dlsym(mem_acct_init) on %s -- "
+                              "neglecting", dlerror ());
         }
 
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
@@ -259,8 +260,8 @@ xlator_dynload (xlator_t *xl)
 
         if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
                 dlerror ();
-                gf_log (xl->name, GF_LOG_TRACE,
-                        "Strict option validation not enforced -- neglecting");
+                gf_msg_trace (xl->name, 0, "Strict option validation not "
+                              "enforced -- neglecting");
         }
         INIT_LIST_HEAD (&vol_opt->list);
         list_add_tail (&vol_opt->list, &xl->volume_options);
@@ -294,8 +295,9 @@ xlator_set_inode_lru_limit (xlator_t *this, void *data)
 
         if (this->itable) {
                 if (!data) {
-                        gf_log (this->name, GF_LOG_WARNING, "input data is "
-                                "NULL. Cannot update the lru limit of the inode"
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                LG_MSG_INVALID_ENTRY, "input data is NULL. "
+                                "Cannot update the lru limit of the inode"
                                 " table. Continuing with older value");
                         goto out;
                 }
@@ -408,17 +410,17 @@ xlator_init (xlator_t *xl)
                 xl->mem_acct_init (xl);
 
         if (!xl->init) {
-                gf_log (xl->name, GF_LOG_WARNING, "No init() found");
+                gf_msg (xl->name, GF_LOG_WARNING, 0, LG_MSG_INIT_FAILED,
+                        "No init() found");
                 goto out;
         }
 
         ret = __xlator_init (xl);
 
         if (ret) {
-                gf_log (xl->name, GF_LOG_ERROR,
+                gf_msg (xl->name, GF_LOG_ERROR, 0, LG_MSG_VOLUME_ERROR,
                         "Initialization of volume '%s' failed,"
-                        " review your volfile again",
-                        xl->name);
+                        " review your volfile again", xl->name);
                 goto out;
         }
 
@@ -446,7 +448,7 @@ xlator_fini_rec (xlator_t *xl)
                 }
 
                 xlator_fini_rec (trav->xlator);
-                gf_log (trav->xlator->name, GF_LOG_DEBUG, "fini done");
+                gf_msg_debug (trav->xlator->name, 0, "fini done");
                 trav = trav->next;
         }
 
@@ -462,7 +464,7 @@ xlator_fini_rec (xlator_t *xl)
 
                         THIS = old_THIS;
                 } else {
-                        gf_log (xl->name, GF_LOG_DEBUG, "No fini() found");
+                        gf_msg_debug (xl->name, 0, "No fini() found");
                 }
                 xl->init_succeeded = 0;
         }
@@ -641,7 +643,8 @@ xlator_tree_free_members (xlator_t *tree)
         xlator_t *prev = tree;
 
         if (!tree) {
-                gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
+                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_TREE_NOT_FOUND,
+                        "Translator tree not found");
                 return -1;
         }
 
@@ -661,7 +664,8 @@ xlator_tree_free_memacct (xlator_t *tree)
         xlator_t *prev = tree;
 
         if (!tree) {
-                gf_log ("parser", GF_LOG_ERROR, "Translator tree not found");
+                gf_msg ("parser", GF_LOG_ERROR, 0, LG_MSG_TREE_NOT_FOUND,
+                        "Translator tree not found");
                 return -1;
         }
 
@@ -1037,8 +1041,9 @@ glusterd_check_log_level (const char *value)
         }
 
         if (log_level == -1)
-                gf_log (THIS->name, GF_LOG_ERROR, "Invalid log-level. possible values "
-                        "are DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_FAILED,
+                        "Invalid log-level. possible values are "
+                        "DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
 
         return log_level;
 }

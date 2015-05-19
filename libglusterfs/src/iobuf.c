@@ -12,7 +12,7 @@
 #include "iobuf.h"
 #include "statedump.h"
 #include <stdio.h>
-
+#include "libglusterfs-messages.h"
 
 /*
   TODO: implement destroy margins and prefetching of arenas
@@ -119,7 +119,8 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
         iobuf_cnt  = iobuf_arena->page_count;
 
         if (!iobuf_arena->iobufs) {
-                gf_log_callingfn (THIS->name, GF_LOG_ERROR, "iobufs not found");
+                gf_msg_callingfn (THIS->name, GF_LOG_ERROR, 0,
+                                  LG_MSG_IOBUFS_NOT_FOUND, "iobufs not found");
                 return;
         }
 
@@ -192,7 +193,8 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size,
                                       PROT_READ|PROT_WRITE,
                                       MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         if (iobuf_arena->mem_base == MAP_FAILED) {
-                gf_log (THIS->name, GF_LOG_WARNING, "maping failed");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED,
+                        "mapping failed");
                 goto err;
         }
 
@@ -205,7 +207,8 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool, size_t page_size,
 
         __iobuf_arena_init_iobufs (iobuf_arena);
         if (!iobuf_arena->iobufs) {
-                gf_log (THIS->name, GF_LOG_ERROR, "init failed");
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_IOBUF_FAILED,
+                        "init failed");
                 goto err;
         }
 
@@ -232,9 +235,9 @@ __iobuf_arena_unprune (struct iobuf_pool *iobuf_pool, size_t page_size)
 
         index = gf_iobuf_get_arena_index (page_size);
         if (index == -1) {
-                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
-                        "iobufs in arena being added is greater than max "
-                        "available", page_size);
+                gf_msg ("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
+                        "page_size (%zu) of iobufs in arena being added is "
+                        "greater than max available", page_size);
                 return NULL;
         }
 
@@ -257,9 +260,9 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size,
 
         index = gf_iobuf_get_arena_index (page_size);
         if (index == -1) {
-                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
-                        "iobufs in arena being added is greater than max "
-                        "available", page_size);
+                gf_msg ("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
+                        "page_size (%zu) of iobufs in arena being added is "
+                        "greater than max available", page_size);
                 return NULL;
         }
 
@@ -270,7 +273,8 @@ __iobuf_pool_add_arena (struct iobuf_pool *iobuf_pool, size_t page_size,
                                                    num_pages);
 
         if (!iobuf_arena) {
-                gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
+                        "arena not found");
                 return NULL;
         }
         list_add (&iobuf_arena->list, &iobuf_pool->arenas[index]);
@@ -499,9 +503,9 @@ __iobuf_select_arena (struct iobuf_pool *iobuf_pool, size_t page_size)
 
         index = gf_iobuf_get_arena_index (page_size);
         if (index == -1) {
-                gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
-                        "iobufs in arena being added is greater than max "
-                        "available", page_size);
+                gf_msg ("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
+                        "page_size (%zu) of iobufs in arena being added is "
+                        "greater than max available", page_size);
                 return NULL;
         }
 
@@ -570,8 +574,9 @@ __iobuf_get (struct iobuf_arena *iobuf_arena, size_t page_size)
         if (iobuf_arena->passive_cnt == 0) {
                 index = gf_iobuf_get_arena_index (page_size);
                 if (index == -1) {
-                        gf_log ("iobuf", GF_LOG_ERROR, "page_size (%zu) of "
-                                "iobufs in arena being added is greater "
+                        gf_msg ("iobuf", GF_LOG_ERROR, 0,
+                                LG_MSG_PAGE_SIZE_EXCEEDED, "page_size (%zu) of"
+                                " iobufs in arena being added is greater "
                                 "than max available", page_size);
                         goto out;
                 }
@@ -645,7 +650,7 @@ iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size)
                    memory allocations */
                 iobuf = iobuf_get_from_stdalloc (iobuf_pool, page_size);
 
-                gf_log ("iobuf", GF_LOG_DEBUG, "request for iobuf of size %zu "
+                gf_msg_debug ("iobuf", 0, "request for iobuf of size %zu "
                         "is serviced using standard calloc() (%p) as it "
                         "exceeds the maximum available buffer size",
                         page_size, iobuf);
@@ -687,14 +692,16 @@ iobuf_get (struct iobuf_pool *iobuf_pool)
                 iobuf_arena = __iobuf_select_arena (iobuf_pool,
                                                     iobuf_pool->default_page_size);
                 if (!iobuf_arena) {
-                        gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                LG_MSG_ARENA_NOT_FOUND, "arena not found");
                         goto unlock;
                 }
 
                 iobuf = __iobuf_get (iobuf_arena,
                                      iobuf_pool->default_page_size);
                 if (!iobuf) {
-                        gf_log (THIS->name, GF_LOG_WARNING, "iobuf not found");
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                LG_MSG_IOBUF_NOT_FOUND, "iobuf not found");
                         goto unlock;
                 }
 
@@ -720,7 +727,7 @@ __iobuf_put (struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 
         index = gf_iobuf_get_arena_index (iobuf_arena->page_size);
         if (index == -1) {
-                gf_log ("iobuf", GF_LOG_DEBUG, "freeing the iobuf (%p) "
+                gf_msg_debug ("iobuf", 0, "freeing the iobuf (%p) "
                         "allocated with standard calloc()", iobuf);
 
                 /* free up properly without bothering about lists and all */
@@ -761,13 +768,15 @@ iobuf_put (struct iobuf *iobuf)
 
         iobuf_arena = iobuf->iobuf_arena;
         if (!iobuf_arena) {
-                gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
+                        "arena not found");
                 return;
         }
 
         iobuf_pool = iobuf_arena->iobuf_pool;
         if (!iobuf_pool) {
-                gf_log (THIS->name, GF_LOG_WARNING, "iobuf pool not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        LG_MSG_POOL_NOT_FOUND, "iobuf pool not found");
                 return;
         }
 
@@ -1040,12 +1049,14 @@ iobuf_size (struct iobuf *iobuf)
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
         if (!iobuf->iobuf_arena) {
-                gf_log (THIS->name, GF_LOG_WARNING, "arena not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND,
+                        "arena not found");
                 goto out;
         }
 
         if (!iobuf->iobuf_arena->iobuf_pool) {
-                gf_log (THIS->name, GF_LOG_WARNING, "pool not found");
+                gf_msg (THIS->name, GF_LOG_WARNING, 0, LG_MSG_POOL_NOT_FOUND,
+                        "pool not found");
                 goto out;
         }
 

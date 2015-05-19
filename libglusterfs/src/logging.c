@@ -39,6 +39,7 @@
 #include "defaults.h"
 #include "glusterfs.h"
 #include "timer.h"
+#include "libglusterfs-messages.h"
 
 /* Do not replace gf_log in TEST_LOG with gf_msg, as there is a slight chance
  * that it could lead to an infinite recursion.*/
@@ -376,17 +377,18 @@ gf_log_rotate(glusterfs_ctx_t *ctx)
                 fd = open (ctx->log.filename,
                            O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
                 if (fd < 0) {
-                        gf_log ("logrotate", GF_LOG_ERROR,
-                                "%s", strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_ERROR, errno,
+                                LG_MSG_FILE_OP_FAILED, "failed to open "
+                                "logfile");
                         return;
                 }
                 close (fd);
 
                 new_logfile = fopen (ctx->log.filename, "a");
                 if (!new_logfile) {
-                        gf_log ("logrotate", GF_LOG_CRITICAL,
-                                "failed to open logfile %s (%s)",
-                                ctx->log.filename, strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_CRITICAL, errno,
+                                LG_MSG_FILE_OP_FAILED, "failed to open logfile"
+                                " %s", ctx->log.filename);
                         return;
                 }
 
@@ -2185,17 +2187,19 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                 fd = open (ctx->log.filename,
                            O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
                 if (fd < 0) {
-                        gf_log ("logrotate", GF_LOG_ERROR,
-                                "%s", strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_ERROR, errno,
+                                LG_MSG_FILE_OP_FAILED,
+                                "failed to open logfile");
                         return -1;
                 }
                 close (fd);
 
                 new_logfile = fopen (ctx->log.filename, "a");
                 if (!new_logfile) {
-                        gf_log ("logrotate", GF_LOG_CRITICAL,
-                                "failed to open logfile %s (%s)",
-                                ctx->log.filename, strerror (errno));
+                        gf_msg ("logrotate", GF_LOG_CRITICAL, errno,
+                                LG_MSG_FILE_OP_FAILED,
+                                "failed to open logfile %s",
+                                ctx->log.filename);
                         goto log;
                 }
 
@@ -2340,15 +2344,13 @@ gf_cmd_log_init (const char *filename)
                 return -1;
 
         if (!filename){
-                gf_log (this->name, GF_LOG_CRITICAL, "gf_cmd_log_init: no "
-                        "filename specified\n");
+                gf_msg (this->name, GF_LOG_CRITICAL, 0, LG_MSG_INVALID_ENTRY,
+                        "gf_cmd_log_init: no filename specified\n");
                 return -1;
         }
 
         ctx->log.cmd_log_filename = gf_strdup (filename);
         if (!ctx->log.cmd_log_filename) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "gf_cmd_log_init: strdup error\n");
                 return -1;
         }
         /* close and reopen cmdlogfile for log rotate*/
@@ -2360,17 +2362,18 @@ gf_cmd_log_init (const char *filename)
         fd = open (ctx->log.cmd_log_filename,
                    O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
         if (fd < 0) {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "%s", strerror (errno));
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        LG_MSG_FILE_OP_FAILED, "failed to open cmd_log_file");
                 return -1;
         }
         close (fd);
 
         ctx->log.cmdlogfile = fopen (ctx->log.cmd_log_filename, "a");
         if (!ctx->log.cmdlogfile){
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_msg (this->name, GF_LOG_CRITICAL, errno,
+                        LG_MSG_FILE_OP_FAILED,
                         "gf_cmd_log_init: failed to open logfile \"%s\" "
-                        "(%s)\n", ctx->log.cmd_log_filename, strerror (errno));
+                        "\n", ctx->log.cmd_log_filename);
                 return -1;
         }
         return 0;
@@ -2399,7 +2402,7 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
 
 
         if (!domain || !fmt) {
-                gf_log ("glusterd", GF_LOG_TRACE,
+                gf_msg_trace ("glusterd", 0,
                         "logging: invalid argument\n");
                 return -1;
         }
