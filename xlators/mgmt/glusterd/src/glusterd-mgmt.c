@@ -341,6 +341,8 @@ gd_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
 out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
                                    GLUSTERD_MGMT_V3_LOCK, *peerid, rsp.uuid);
+        GF_FREE (peerid);
+
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
         STACK_DESTROY (frame->root);
@@ -366,7 +368,7 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         glusterd_conf_t         *conf = THIS->private;
         int32_t                  ret  = -1;
         xlator_t                *this = NULL;
-        uuid_t                  peerid = {0,};
+        uuid_t                  *peerid = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -383,9 +385,11 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
                                         gd_mgmt_v3_lock_cbk,
@@ -620,6 +624,7 @@ out:
 
         if (rsp.op_errstr)
                 free (rsp.op_errstr);
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -644,7 +649,7 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_pre_val_req  req   = {{0},};
         glusterd_conf_t         *conf  = THIS->private;
         xlator_t                *this  = NULL;
-        uuid_t                  peerid = {0,};
+        uuid_t                  *peerid = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -661,9 +666,11 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_PRE_VALIDATE,
                                         gd_mgmt_v3_pre_validate_cbk,
@@ -879,6 +886,7 @@ out:
 
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -903,7 +911,7 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_brick_op_req  req  = {{0},};
         glusterd_conf_t          *conf = THIS->private;
         xlator_t                 *this = NULL;
-        uuid_t                    peerid = {0,};
+        uuid_t                   *peerid = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -920,9 +928,11 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_BRICK_OP,
                                         gd_mgmt_v3_brick_op_cbk,
@@ -1122,7 +1132,7 @@ out:
 
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                   GLUSTERD_MGMT_V3_COMMIT, *peerid, rsp.uuid);
-
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -1147,7 +1157,7 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_commit_req   req  = {{0},};
         glusterd_conf_t         *conf = THIS->private;
         xlator_t                *this = NULL;
-        uuid_t                  peerid = {0,};
+        uuid_t                  *peerid = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1164,9 +1174,11 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_COMMIT,
                                         gd_mgmt_v3_commit_cbk,
@@ -1345,6 +1357,7 @@ out:
 
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -1369,7 +1382,7 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         gd1_mgmt_v3_post_val_req  req  = {{0},};
         glusterd_conf_t          *conf = THIS->private;
         xlator_t                 *this = NULL;
-        uuid_t                   peerid = {0,};
+        uuid_t                   *peerid = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1387,9 +1400,11 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         req.op = op;
         req.op_ret = op_ret;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE,
                                         gd_mgmt_v3_post_validate_cbk,
@@ -1558,6 +1573,7 @@ out:
                                   GLUSTERD_MGMT_V3_UNLOCK, *peerid, rsp.uuid);
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -1582,7 +1598,7 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
         gd1_mgmt_v3_unlock_req   req  = {{0},};
         glusterd_conf_t         *conf = THIS->private;
         xlator_t                *this = NULL;
-        uuid_t                  peerid = {0,};
+        uuid_t                  *peerid = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1599,9 +1615,11 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_UNLOCK,
                                         gd_mgmt_v3_unlock_cbk,
