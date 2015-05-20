@@ -320,15 +320,10 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, 0);
+            ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
             ec_lock(fop);
 
-            return EC_STATE_GET_SIZE_AND_VERSION;
-
-        case EC_STATE_GET_SIZE_AND_VERSION:
-	    ec_get_size_version(fop);
-
-	    return EC_STATE_DISPATCH;
+            return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
             ec_flush_size_version(fop);
@@ -361,8 +356,10 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 2,
                                     cbk->count);
 
-                    cbk->iatt[0].ia_size = fop->pre_size;
-                    cbk->iatt[1].ia_size = fop->post_size;
+                    /* This shouldn't fail because we have the inode locked. */
+                    GF_ASSERT(ec_get_inode_size(fop, fop->fd->inode,
+                                                &cbk->iatt[0].ia_size));
+                    cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
                 }
             }
             else
@@ -388,7 +385,6 @@ int32_t ec_manager_fsync(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
-        case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
@@ -705,7 +701,6 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 {
     ec_cbk_data_t * ans = NULL;
     ec_inode_t * ctx = NULL;
-    ec_lock_t * lock = NULL;
     data_t * data = NULL;
     uint8_t * buff = NULL;
     uint64_t size = 0;
@@ -729,14 +724,14 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
     LOCK(&cbk->inode->lock);
 
     ctx = __ec_inode_get(cbk->inode, fop->xl);
-    if ((ctx != NULL) && (ctx->inode_lock != NULL))
+    if (ctx != NULL)
     {
-        lock = ctx->inode_lock;
-        cbk->version[0] = lock->version[0];
-        cbk->version[1] = lock->version[1];
-        if (lock->have_size)
-        {
-            size = lock->size;
+        if (ctx->have_version) {
+            cbk->version[0] = ctx->post_version[0];
+            cbk->version[1] = ctx->post_version[1];
+        }
+        if (ctx->have_size) {
+            size = ctx->post_size;
             have_size = 1;
         }
     }
@@ -1304,8 +1299,8 @@ out:
 
 /* FOP: xattrop */
 
-int32_t ec_combine_xattrop(ec_fop_data_t * fop, ec_cbk_data_t * dst,
-                           ec_cbk_data_t * src)
+int32_t ec_combine_xattrop(ec_fop_data_t *fop, ec_cbk_data_t *dst,
+                           ec_cbk_data_t *src)
 {
     if (!ec_dict_compare(dst->dict, src->dict))
     {
@@ -1325,9 +1320,9 @@ ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         ec_fop_data_t *fop = NULL;
         ec_cbk_data_t *cbk = NULL;
+        data_t *data;
+        uint64_t *version;
         int32_t idx = (int32_t)(uintptr_t)cookie;
-        uint64_t version = 0;
-        uint64_t *version_xattr = 0;
 
         VALIDATE_OR_GOTO (this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
@@ -1347,12 +1342,19 @@ ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 cbk->dict = dict_ref (xattr);
 
-                if (dict_get_bin (xattr, EC_XATTR_VERSION,
-                                  (void **)&version_xattr) == 0) {
-                        version = ntoh64(version_xattr[0]);
-                        if ((version >> EC_SELFHEAL_BIT) & 1)
-                                fop->healing |= (1ULL<<idx);
+                data = dict_get(cbk->dict, EC_XATTR_VERSION);
+                if ((data != NULL) && (data->len >= sizeof(uint64_t))) {
+                    version = (uint64_t *)data->data;
+
+                    if (((ntoh64(version[0]) >> EC_SELFHEAL_BIT) & 1) != 0) {
+                            LOCK(&fop->lock);
+
+                            fop->healing |= 1ULL << idx;
+
+                            UNLOCK(&fop->lock);
+                    }
                 }
+
                 ec_dict_del_array (xattr, EC_XATTR_DIRTY, cbk->dirty,
                                    EC_VERSION_SIZE);
         }
@@ -1386,13 +1388,10 @@ int32_t ec_manager_xattrop(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            if (fop->fd == NULL)
-            {
-                ec_lock_prepare_inode(fop, &fop->loc[0], 1);
-            }
-            else
-            {
-                ec_lock_prepare_fd(fop, fop->fd, 1);
+            if (fop->fd == NULL) {
+                ec_lock_prepare_inode(fop, &fop->loc[0], EC_UPDATE_META);
+            } else {
+                ec_lock_prepare_fd(fop, fop->fd, EC_UPDATE_META);
             }
             ec_lock(fop);
 

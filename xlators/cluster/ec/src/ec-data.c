@@ -130,6 +130,8 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     INIT_LIST_HEAD(&fop->cbk_list);
     INIT_LIST_HEAD(&fop->answer_list);
     INIT_LIST_HEAD(&fop->pending_list);
+    INIT_LIST_HEAD(&fop->locks[0].wait_list);
+    INIT_LIST_HEAD(&fop->locks[1].wait_list);
 
     fop->xl = this;
     fop->req_frame = frame;
@@ -222,10 +224,24 @@ ec_handle_last_pending_fop_completion (ec_fop_data_t *fop, gf_boolean_t *notify)
         }
 }
 
+void
+ec_fop_cleanup(ec_fop_data_t *fop)
+{
+        ec_cbk_data_t *cbk, *tmp;
+
+        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list) {
+            list_del_init(&cbk->answer_list);
+
+            ec_cbk_data_destroy(cbk);
+        }
+        INIT_LIST_HEAD(&fop->cbk_list);
+
+        fop->answer = NULL;
+}
+
 void ec_fop_data_release(ec_fop_data_t * fop)
 {
     ec_t *ec = NULL;
-    ec_cbk_data_t * cbk, * tmp;
     int32_t refs;
     gf_boolean_t notify = _gf_false;
 
@@ -272,12 +288,7 @@ void ec_fop_data_release(ec_fop_data_t * fop)
 
         ec_resume_parent(fop, fop->error);
 
-        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list)
-        {
-            list_del_init(&cbk->answer_list);
-
-            ec_cbk_data_destroy(cbk);
-        }
+        ec_fop_cleanup(fop);
 
         ec = fop->xl->private;
         ec_handle_last_pending_fop_completion (fop, &notify);

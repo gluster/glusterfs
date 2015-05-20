@@ -38,19 +38,20 @@ typedef enum {
 #define EC_MINIMUM_MIN   -2
 #define EC_MINIMUM_ALL   -3
 
-#define EC_LOCK_ENTRY   0
-#define EC_LOCK_INODE   1
+#define EC_UPDATE_DATA   1
+#define EC_UPDATE_META   2
+#define EC_QUERY_INFO    4
+#define EC_INODE_SIZE    8
 
 #define EC_STATE_START                        0
 #define EC_STATE_END                          0
 #define EC_STATE_INIT                         1
 #define EC_STATE_LOCK                         2
-#define EC_STATE_GET_SIZE_AND_VERSION         3
-#define EC_STATE_DISPATCH                     4
-#define EC_STATE_PREPARE_ANSWER               5
-#define EC_STATE_REPORT                       6
-#define EC_STATE_LOCK_REUSE                   7
-#define EC_STATE_UNLOCK                       8
+#define EC_STATE_DISPATCH                     3
+#define EC_STATE_PREPARE_ANSWER               4
+#define EC_STATE_REPORT                       5
+#define EC_STATE_LOCK_REUSE                   6
+#define EC_STATE_UNLOCK                       7
 
 #define EC_STATE_DELAYED_START              100
 
@@ -84,16 +85,21 @@ void ec_update_bad(ec_fop_data_t * fop, uintptr_t good);
 
 void ec_fop_set_error(ec_fop_data_t * fop, int32_t error);
 
-void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, int32_t update);
-void ec_lock_prepare_entry(ec_fop_data_t *fop, loc_t *loc, int32_t update);
-void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, int32_t update);
+void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags);
+void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
+                                  uint32_t flags);
+void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags);
 void ec_lock(ec_fop_data_t * fop);
 void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
 void ec_unlock_force(ec_fop_data_t *fop);
 
-void ec_get_size_version(ec_fop_data_t * fop);
-void ec_prepare_update(ec_fop_data_t *fop);
+gf_boolean_t ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                               uint64_t *size);
+gf_boolean_t ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                               uint64_t size);
+void ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode);
+
 void ec_flush_size_version(ec_fop_data_t * fop);
 
 void ec_dispatch_all(ec_fop_data_t * fop);

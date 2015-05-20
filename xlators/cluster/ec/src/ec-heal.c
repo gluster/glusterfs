@@ -119,9 +119,8 @@ void ec_heal_lookup_resume(ec_fop_data_t * fop)
                 heal->version[0] = cbk->version[0];
                 heal->version[1] = cbk->version[1];
                 heal->raw_size = cbk->size;
-                heal->fop->pre_size = cbk->iatt[0].ia_size;
-                heal->fop->post_size = cbk->iatt[0].ia_size;
-                heal->fop->have_size = 1;
+
+                GF_ASSERT(ec_set_inode_size(fop, cbk->inode, cbk->size));
 
                 if (ec_loc_update(heal->xl, &heal->loc, cbk->inode,
                                   &cbk->iatt[0]) != 0)
@@ -547,25 +546,8 @@ out:
     return error;
 }
 
-void ec_heal_entrylk(ec_heal_t * heal, entrylk_cmd cmd)
-{
-    loc_t loc;
-
-    if (ec_loc_parent(heal->xl, &heal->loc, &loc) != 0) {
-        gf_log("ec", GF_LOG_NOTICE, "ec_loc_parent() failed");
-        ec_fop_set_error(heal->fop, EIO);
-
-        return;
-    }
-
-    ec_entrylk(heal->fop->frame, heal->xl, -1, EC_MINIMUM_ALL, NULL, NULL,
-               heal->xl->name, &loc, NULL, cmd, ENTRYLK_WRLCK, NULL);
-
-    loc_wipe(&loc);
-}
-
-void ec_heal_inodelk(ec_heal_t * heal, int32_t type, int32_t use_fd,
-                     off_t offset, size_t size)
+void ec_heal_lock(ec_heal_t *heal, int32_t type, fd_t *fd, loc_t *loc,
+                  off_t offset, size_t size)
 {
     struct gf_flock flock;
 
@@ -576,18 +558,45 @@ void ec_heal_inodelk(ec_heal_t * heal, int32_t type, int32_t use_fd,
     flock.l_pid = 0;
     flock.l_owner.len = 0;
 
-    if (use_fd)
+    /* Remove inode size information before unlocking it. */
+    if ((type == F_UNLCK) && (heal->loc.inode != NULL)) {
+        ec_clear_inode_info(heal->fop, heal->loc.inode);
+    }
+
+    if (fd != NULL)
     {
         ec_finodelk(heal->fop->frame, heal->xl, heal->fop->mask,
-                    EC_MINIMUM_ALL, NULL, NULL, heal->xl->name, heal->fd,
+                    EC_MINIMUM_ALL, NULL, NULL, heal->xl->name, fd,
                     F_SETLKW, &flock, NULL);
     }
     else
     {
         ec_inodelk(heal->fop->frame, heal->xl, heal->fop->mask, EC_MINIMUM_ALL,
-                   NULL, NULL, heal->xl->name, &heal->loc, F_SETLKW, &flock,
+                   NULL, NULL, heal->xl->name, loc, F_SETLKW, &flock,
                    NULL);
     }
+}
+
+void ec_heal_entrylk(ec_heal_t *heal, int32_t type)
+{
+    loc_t loc;
+
+    if (ec_loc_parent(heal->xl, &heal->loc, &loc) != 0) {
+        ec_fop_set_error(heal->fop, EIO);
+
+        return;
+    }
+
+    ec_heal_lock(heal, type, NULL, &loc, 0, 0);
+
+    loc_wipe(&loc);
+}
+
+void ec_heal_inodelk(ec_heal_t *heal, int32_t type, int32_t use_fd,
+                     off_t offset, size_t size)
+{
+    ec_heal_lock(heal, type, use_fd ? heal->fd : NULL, &heal->loc, offset,
+                 size);
 }
 
 void ec_heal_lookup(ec_heal_t *heal, uintptr_t mask)
@@ -1297,13 +1306,10 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
 
         case EC_STATE_DISPATCH:
             if (heal->done != 0) {
-                gf_log("ec", GF_LOG_NOTICE, "heal already done");
                 return EC_STATE_HEAL_DISPATCH;
             }
 
-            gf_log("ec", GF_LOG_NOTICE, "heal before entrylk");
-            ec_heal_entrylk(heal, ENTRYLK_LOCK);
-            gf_log("ec", GF_LOG_NOTICE, "heal after entrylk");
+            ec_heal_entrylk(heal, F_WRLCK);
 
             return EC_STATE_HEAL_ENTRY_LOOKUP;
 
@@ -1331,7 +1337,7 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
             /* Only heal data/metadata if enough information is supplied. */
             if (gf_uuid_is_null(heal->loc.gfid))
             {
-                ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
+                ec_heal_entrylk(heal, F_UNLCK);
 
                 return EC_STATE_HEAL_DISPATCH;
             }
@@ -1387,7 +1393,7 @@ ec_manager_heal (ec_fop_data_t * fop, int32_t state)
         case -EC_STATE_HEAL_UNLOCK_ENTRY:
         case EC_STATE_HEAL_UNLOCK_ENTRY:
             if (heal->nameheal)
-                    ec_heal_entrylk(heal, ENTRYLK_UNLOCK);
+                    ec_heal_entrylk(heal, F_UNLCK);
 
             heal->bad = ec_heal_needs_data_rebuild(heal);
             if (heal->bad != 0)
@@ -2557,9 +2563,9 @@ ec_heal_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         EC_REPLIES_ALLOC (replies, ec->nodes);
         output = alloca0 (ec->nodes);
         locked_on = alloca0 (ec->nodes);
-        ret = cluster_entrylk (ec->xl_list, participants, ec->nodes, replies,
+        ret = cluster_inodelk (ec->xl_list, participants, ec->nodes, replies,
                                locked_on, frame, ec->xl, ec->xl->name, parent,
-                               NULL);
+                               0, 0);
         {
                 if (ret <= ec->fragments) {
                         gf_log (ec->xl->name, GF_LOG_DEBUG, "%s/%s: Skipping "
@@ -2573,8 +2579,8 @@ ec_heal_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
                 ret = __ec_heal_name (frame, ec, parent, name, participants);
         }
 unlock:
-        cluster_unentrylk (ec->xl_list, locked_on, ec->nodes, replies, output,
-                           frame, ec->xl, ec->xl->name, parent, NULL);
+        cluster_uninodelk (ec->xl_list, locked_on, ec->nodes, replies, output,
+                           frame, ec->xl, ec->xl->name, parent, 0, 0);
 out:
         cluster_replies_wipe (replies, ec->nodes);
         loc_wipe (&loc);
@@ -2658,9 +2664,9 @@ __ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
         dirty = alloca0 (ec->nodes * sizeof (*dirty));
 
         EC_REPLIES_ALLOC (replies, ec->nodes);
-        ret = cluster_entrylk (ec->xl_list, heal_on, ec->nodes, replies,
+        ret = cluster_inodelk (ec->xl_list, heal_on, ec->nodes, replies,
                                locked_on, frame, ec->xl, ec->xl->name, inode,
-                               NULL);
+                               0, 0);
         {
                 if (ret <= ec->fragments) {
                         gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
@@ -2675,8 +2681,8 @@ __ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
                 source = ret;
         }
 unlock:
-        cluster_unentrylk (ec->xl_list, locked_on, ec->nodes, replies, output,
-                           frame, ec->xl, ec->xl->name, inode, NULL);
+        cluster_uninodelk (ec->xl_list, locked_on, ec->nodes, replies, output,
+                           frame, ec->xl, ec->xl->name, inode, 0, 0);
         if (ret < 0)
                 goto out;
 
@@ -2723,9 +2729,9 @@ ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
         sprintf (selfheal_domain, "%s:self-heal", ec->xl->name);
         ec_mask_to_char_array (ec->xl_up, up_subvols, ec->nodes);
         /*If other processes are already doing the heal, don't block*/
-        ret = cluster_entrylk (ec->xl_list, up_subvols, ec->nodes, replies,
+        ret = cluster_inodelk (ec->xl_list, up_subvols, ec->nodes, replies,
                                locked_on, frame, ec->xl, selfheal_domain, inode,
-                               NULL);
+                               0, 0);
         {
                 if (ret <= ec->fragments) {
                         gf_log (ec->xl->name, GF_LOG_DEBUG, "%s: Skipping heal "
@@ -2738,8 +2744,8 @@ ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
                                        sources, healed_sinks);
         }
 unlock:
-        cluster_unentrylk (ec->xl_list, locked_on, ec->nodes, replies, output,
-                           frame, ec->xl, selfheal_domain, inode, NULL);
+        cluster_uninodelk (ec->xl_list, locked_on, ec->nodes, replies, output,
+                           frame, ec->xl, selfheal_domain, inode, 0, 0);
         cluster_replies_wipe (replies, ec->nodes);
         return ret;
 }
@@ -3081,8 +3087,8 @@ ec_heal_block (call_frame_t *frame, xlator_t *this, uintptr_t target,
     if (fop == NULL)
         goto out;
 
-    fop->pre_size = fop->post_size = heal->total_size;
-    fop->have_size = 1;
+    GF_ASSERT(ec_set_inode_size(fop, heal->fd->inode, heal->total_size));
+
     error = 0;
 
 out:

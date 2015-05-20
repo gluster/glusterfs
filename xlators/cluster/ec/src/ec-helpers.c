@@ -738,3 +738,41 @@ ec_filter_internal_xattrs (dict_t *xattr)
         dict_foreach_match (xattr, ec_is_internal_xattr, NULL,
                             dict_remove_foreach_fn, NULL);
 }
+
+gf_boolean_t
+ec_is_data_fop (glusterfs_fop_t fop)
+{
+        switch (fop) {
+        case GF_FOP_WRITE:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_DISCARD:
+        case GF_FOP_ZEROFILL:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}
+/*
+gf_boolean_t
+ec_is_metadata_fop (int32_t lock_kind, glusterfs_fop_t fop)
+{
+        if (lock_kind == EC_LOCK_ENTRY) {
+                return _gf_false;
+        }
+
+        switch (fop) {
+        case GF_FOP_SETATTR:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
+                return _gf_true;
+        default:
+                return _gf_false;
+        }
+        return _gf_false;
+}*/
