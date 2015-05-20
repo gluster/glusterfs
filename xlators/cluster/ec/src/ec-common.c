@@ -1767,21 +1767,7 @@ void __ec_manager(ec_fop_data_t * fop, int32_t error)
         }
 
         if ((fop->state == EC_STATE_END) || (fop->state == -EC_STATE_END)) {
-            gf_boolean_t notify;
-
-            LOCK(&ec->lock);
-
-            list_del_init(&fop->pending_list);
-            notify = list_empty(&ec->pending_fops);
-
-            UNLOCK(&ec->lock);
-
             ec_fop_data_release(fop);
-
-            if (notify) {
-                ec_pending_fops_completed(ec);
-            }
-
             break;
         }
 
