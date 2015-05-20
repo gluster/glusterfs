@@ -19,9 +19,10 @@
 #include "glusterd-nfs-svc.h"
 #include "glusterd-bitd-svc.h"
 #include "glusterd-scrub-svc.h"
+#include "glusterd-svc-helper.h"
 
 int
-glusterd_svcs_reconfigure (glusterd_volinfo_t *volinfo)
+glusterd_svcs_reconfigure ()
 {
         int              ret  = 0;
         xlator_t        *this = THIS;
@@ -36,23 +37,17 @@ glusterd_svcs_reconfigure (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        if (volinfo && !glusterd_is_shd_compatible_volume (volinfo)) {
-                ; /* Do nothing */
-        } else {
-                ret = glusterd_shdsvc_reconfigure ();
-                if (ret)
-                        goto out;
-        }
+        ret = glusterd_shdsvc_reconfigure ();
+        if (ret)
+                goto out;
+
         if (conf->op_version == GD_OP_VERSION_MIN)
                 goto out;
 
-        if (volinfo && !glusterd_is_volume_quota_enabled (volinfo)) {
-               /*Do nothing */
-        } else {
-                ret = glusterd_quotadsvc_reconfigure ();
-                if (ret)
-                        goto out;
-        }
+        ret = glusterd_quotadsvc_reconfigure ();
+        if (ret)
+                goto out;
+
         ret = glusterd_bitdsvc_reconfigure ();
         if (ret)
                 goto out;
@@ -153,3 +148,107 @@ out:
 }
 
 
+int
+glusterd_svc_check_volfile_identical (char *svc_name,
+                                      glusterd_graph_builder_t builder,
+                                      gf_boolean_t *identical)
+{
+        char            orgvol[PATH_MAX]        = {0,};
+        char            tmpvol[PATH_MAX]        = {0,};
+        glusterd_conf_t *conf                   = NULL;
+        xlator_t        *this                   = NULL;
+        int             ret                     = -1;
+        int             need_unlink             = 0;
+        int             tmp_fd                  = -1;
+
+        this = THIS;
+
+        GF_ASSERT (this);
+        GF_ASSERT (identical);
+        conf = this->private;
+
+        glusterd_svc_build_volfile_path (svc_name, conf->workdir,
+                                         orgvol, sizeof (orgvol));
+
+        snprintf (tmpvol, sizeof (tmpvol), "/tmp/g%s-XXXXXX", svc_name);
+
+        tmp_fd = mkstemp (tmpvol);
+        if (tmp_fd < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
+                        " %s:(%s)", tmpvol, strerror (errno));
+                goto out;
+        }
+
+        need_unlink = 1;
+
+        ret = glusterd_create_global_volfile (builder,
+                                              tmpvol, NULL);
+        if (ret)
+                goto out;
+
+        ret = glusterd_check_files_identical (orgvol, tmpvol,
+                                              identical);
+        if (ret)
+                goto out;
+
+out:
+        if (need_unlink)
+                unlink (tmpvol);
+
+        if (tmp_fd >= 0)
+                close (tmp_fd);
+
+        return ret;
+}
+
+int
+glusterd_svc_check_topology_identical (char *svc_name,
+                                       glusterd_graph_builder_t builder,
+                                       gf_boolean_t *identical)
+{
+        char            orgvol[PATH_MAX]        = {0,};
+        char            tmpvol[PATH_MAX]        = {0,};
+        glusterd_conf_t *conf                   = NULL;
+        xlator_t        *this                   = THIS;
+        int             ret                     = -1;
+        int             tmpclean                = 0;
+        int             tmpfd                   = -1;
+
+        if ((!identical) || (!this) || (!this->private))
+                goto out;
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        /* Fetch the original volfile */
+        glusterd_svc_build_volfile_path (svc_name, conf->workdir,
+                                         orgvol, sizeof (orgvol));
+
+        /* Create the temporary volfile */
+        snprintf (tmpvol, sizeof (tmpvol), "/tmp/g%s-XXXXXX", svc_name);
+        tmpfd = mkstemp (tmpvol);
+        if (tmpfd < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
+                        " %s:(%s)", tmpvol, strerror (errno));
+                goto out;
+        }
+
+        tmpclean = 1; /* SET the flag to unlink() tmpfile */
+
+        ret = glusterd_create_global_volfile (builder,
+                                              tmpvol, NULL);
+        if (ret)
+                goto out;
+
+        /* Compare the topology of volfiles */
+        ret = glusterd_check_topology_identical (orgvol, tmpvol,
+                                                 identical);
+out:
+        if (tmpfd >= 0)
+                close (tmpfd);
+        if (tmpclean)
+                unlink (tmpvol);
+        return ret;
+}

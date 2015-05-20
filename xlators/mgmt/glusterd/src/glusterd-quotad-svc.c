@@ -15,6 +15,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-quotad-svc.h"
 #include "glusterd-messages.h"
+#include "glusterd-svc-helper.h"
 
 char *quotad_svc_name = "quotad";
 
@@ -36,13 +37,6 @@ int glusterd_quotadsvc_init (glusterd_svc_t *svc)
         if (ret)
                 goto out;
 
-        /* glusterd_svc_build_volfile_path () doesn't put correct quotad volfile
-         * path in proc object at service initialization. Re-initialize
-         * the correct path
-         */
-        glusterd_quotadsvc_build_volfile_path (quotad_svc_name, conf->workdir,
-                                               volfile, sizeof (volfile));
-        snprintf (svc->proc.volfile, sizeof (svc->proc.volfile), "%s", volfile);
 out:
         return ret;
 }
@@ -53,8 +47,8 @@ glusterd_quotadsvc_create_volfile ()
         char             filepath[PATH_MAX] = {0,};
         glusterd_conf_t *conf               = THIS->private;
 
-        glusterd_quotadsvc_build_volfile_path (quotad_svc_name, conf->workdir,
-                                               filepath, sizeof (filepath));
+        glusterd_svc_build_volfile_path (quotad_svc_name, conf->workdir,
+                                         filepath, sizeof (filepath));
         return glusterd_create_global_volfile (build_quotad_graph,
                                                filepath, NULL);
 }
@@ -162,17 +156,67 @@ out:
 int
 glusterd_quotadsvc_reconfigure ()
 {
-        return glusterd_svc_reconfigure (glusterd_quotadsvc_create_volfile);
-}
+        int              ret             = -1;
+        xlator_t        *this            = NULL;
+        glusterd_conf_t *priv            = NULL;
+        gf_boolean_t     identical       = _gf_false;
 
-void
-glusterd_quotadsvc_build_volfile_path (char *server, char *workdir,
-                                       char *volfile, size_t len)
-{
-        char  dir[PATH_MAX] = {0,};
+        this = THIS;
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
 
-        GF_ASSERT (len == PATH_MAX);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        glusterd_svc_build_svcdir (server, workdir, dir, sizeof (dir));
-        snprintf (volfile, len, "%s/%s.vol", dir, server);
+        if (glusterd_all_volumes_with_quota_stopped ())
+                goto manager;
+
+        /*
+         * Check both OLD and NEW volfiles, if they are SAME by size
+         * and cksum i.e. "character-by-character". If YES, then
+         * NOTHING has been changed, just return.
+         */
+        ret = glusterd_svc_check_volfile_identical (priv->quotad_svc.name,
+                                                    build_quotad_graph,
+                                                    &identical);
+        if (ret)
+                goto out;
+
+        if (identical) {
+                ret = 0;
+                goto out;
+        }
+
+        /*
+         * They are not identical. Find out if the topology is changed
+         * OR just the volume options. If just the options which got
+         * changed, then inform the xlator to reconfigure the options.
+         */
+        identical = _gf_false; /* RESET the FLAG */
+        ret = glusterd_svc_check_topology_identical (priv->quotad_svc.name,
+                                                     build_quotad_graph,
+                                                     &identical);
+        if (ret)
+                goto out;
+
+        /* Topology is not changed, but just the options. But write the
+         * options to quotad volfile, so that quotad will be reconfigured.
+         */
+        if (identical) {
+                ret = glusterd_quotadsvc_create_volfile ();
+                if (ret == 0) {/* Only if above PASSES */
+                        ret = glusterd_fetchspec_notify (THIS);
+                }
+                goto out;
+        }
+manager:
+        /*
+         * quotad volfile's topology has been changed. quotad server needs
+         * to be RESTARTED to ACT on the changed volfile.
+         */
+        ret = priv->quotad_svc.manager (&(priv->quotad_svc), NULL,
+                                        PROC_START_NO_WAIT);
+
+out:
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        return ret;
 }

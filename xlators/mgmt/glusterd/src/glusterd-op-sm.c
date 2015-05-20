@@ -1866,6 +1866,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         data_t                  *value = NULL;
         char                    *key_fixed = NULL;
         xlator_t                *this = NULL;
+        glusterd_svc_t          *svc  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1901,6 +1902,12 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
         }
 
         gd_update_volume_op_versions (volinfo);
+        if (!volinfo->is_snap_volume) {
+                svc = &(volinfo->snapd.svc);
+                ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
+                if (ret)
+                        goto out;
+        }
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
@@ -1917,7 +1924,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                ret = glusterd_svcs_reconfigure (volinfo);
+                ret = glusterd_svcs_reconfigure ();
                 if (ret)
                         goto out;
         }
@@ -2600,7 +2607,7 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                         goto out;
 
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                        ret = glusterd_svcs_reconfigure (volinfo);
+                        ret = glusterd_svcs_reconfigure ();
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_SVC_RESTART_FAIL,
@@ -2638,7 +2645,7 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                                 goto out;
 
                         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                                ret = glusterd_svcs_reconfigure (volinfo);
+                                ret = glusterd_svcs_reconfigure ();
                                 if (ret) {
                                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                                 GD_MSG_NFS_SERVER_START_FAIL,
@@ -2854,7 +2861,7 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
-                ret = glusterd_svcs_reconfigure (volinfo);
+                ret = glusterd_svcs_reconfigure ();
 
         ret = 0;
 
