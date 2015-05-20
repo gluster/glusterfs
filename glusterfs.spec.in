@@ -980,8 +980,6 @@ fi
 
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
-%{_libdir}/pkgconfig/libgfchangelog.pc
-%{_libdir}/pkgconfig/libgfdb.pc
 %{_libdir}/libgfapi.so
 %{_includedir}/glusterfs/api/*
 
@@ -1000,6 +998,8 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/debug-trace.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
+%{_libdir}/pkgconfig/libgfchangelog.pc
+%{_libdir}/pkgconfig/libgfdb.pc
 
 %files client-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
@@ -1206,6 +1206,9 @@ fi
 
 
 %changelog
+* Wed Jun 3 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- move libgf{db,changelog}.pc from -api-devel to -devel (#1223390)
+
 * Mon Jun 1 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - python-gluster should be noarch (#1219953)
 
