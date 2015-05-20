@@ -171,8 +171,10 @@ void ec_iatt_rebuild(ec_t * ec, struct iatt * iatt, int32_t count,
 gf_boolean_t
 ec_xattr_match (dict_t *dict, char *key, data_t *value, void *arg)
 {
-        if (fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0)
+        if ((fnmatch(GF_XATTR_STIME_PATTERN, key, 0) == 0) ||
+            (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0)) {
                 return _gf_false;
+        }
 
         return _gf_true;
 }
@@ -185,6 +187,8 @@ ec_value_ignore (char *key)
             (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0) ||
             (strcmp(key, GF_XATTR_LOCKINFO_KEY) == 0) ||
             (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) ||
+            (strcmp(key, GLUSTERFS_INODELK_COUNT) == 0) ||
+            (strcmp(key, GLUSTERFS_ENTRYLK_COUNT) == 0) ||
             (strncmp(key, GF_XATTR_CLRLK_CMD,
                      strlen (GF_XATTR_CLRLK_CMD)) == 0) ||
             (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
@@ -225,15 +229,9 @@ int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,
 
         dict = (which == EC_COMBINE_XDATA) ? ans->xdata : ans->dict;
         list[i] = dict_get(dict, key);
-        if (list[i] == NULL)
-        {
-            gf_log(cbk->fop->xl->name, GF_LOG_ERROR, "Unexpected missing "
-                                                     "dictionary entry");
-
-            return 0;
+        if (list[i] != NULL) {
+            i++;
         }
-
-        i++;
     }
 
     *count = i;
@@ -471,11 +469,6 @@ int32_t ec_dict_data_max32(ec_cbk_data_t *cbk, int32_t which, char *key)
         return -1;
     }
 
-    if (num <= 1)
-    {
-        return 0;
-    }
-
     max = data_to_uint32(data[0]);
     for (i = 1; i < num; i++)
     {
@@ -505,10 +498,6 @@ int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
     num = cbk->count;
     if (!ec_dict_list(data, &num, cbk, which, key)) {
         return -1;
-    }
-
-    if (num <= 1) {
-        return 0;
     }
 
     max = data_to_uint64(data[0]);
@@ -628,6 +617,10 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
 
     if (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0)
     {
+        return ec_dict_data_max32(data->cbk, data->which, key);
+    }
+    if ((strcmp(key, GLUSTERFS_INODELK_COUNT) == 0) ||
+        (strcmp(key, GLUSTERFS_ENTRYLK_COUNT) == 0)) {
         return ec_dict_data_max32(data->cbk, data->which, key);
     }
 
@@ -831,6 +824,8 @@ void ec_combine (ec_cbk_data_t *newcbk, ec_combine_f combine)
 
     LOCK(&fop->lock);
 
+    fop->received |= newcbk->mask;
+
     item = fop->cbk_list.prev;
     list_for_each_entry(cbk, &fop->cbk_list, list)
     {
@@ -868,7 +863,9 @@ void ec_combine (ec_cbk_data_t *newcbk, ec_combine_f combine)
     }
 
     cbk = list_entry(fop->cbk_list.next, ec_cbk_data_t, list);
-    needed = fop->minimum - cbk->count - fop->winds + 1;
+    if ((fop->mask ^ fop->remaining) == fop->received) {
+        needed = fop->minimum - cbk->count;
+    }
 
     UNLOCK(&fop->lock);
 

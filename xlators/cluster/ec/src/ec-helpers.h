@@ -59,4 +59,11 @@ ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data);
 
 void
 ec_filter_internal_xattrs (dict_t *xattr);
+
+gf_boolean_t
+ec_is_data_fop (glusterfs_fop_t fop);
+/*
+gf_boolean_t
+ec_is_metadata_fop (glusterfs_fop_t fop);
+*/
 #endif /* __EC_HELPERS_H__ */

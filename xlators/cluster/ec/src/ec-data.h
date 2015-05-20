@@ -67,10 +67,20 @@ struct _ec_fd
 struct _ec_inode
 {
     uintptr_t         bad;
-    ec_lock_t        *entry_lock;
     ec_lock_t        *inode_lock;
+    gf_boolean_t      have_info;
+    gf_boolean_t      have_config;
+    gf_boolean_t      have_version;
+    gf_boolean_t      have_size;
+    gf_boolean_t      have_dirty;
+    ec_config_t       config;
+    uint64_t          pre_version[2];
+    uint64_t          post_version[2];
+    uint64_t          pre_size;
+    uint64_t          post_size;
+    uint64_t          pre_dirty[2];
+    uint64_t          post_dirty[2];
     struct list_head  heal;
-
 };
 
 typedef int32_t (* fop_heal_cbk_t)(call_frame_t *, void * cookie, xlator_t *,
@@ -79,7 +89,6 @@ typedef int32_t (* fop_heal_cbk_t)(call_frame_t *, void * cookie, xlator_t *,
 typedef int32_t (* fop_fheal_cbk_t)(call_frame_t *, void * cookie, xlator_t *,
                                     int32_t, int32_t, uintptr_t, uintptr_t,
                                     uintptr_t, dict_t *);
-
 
 union _ec_cbk
 {
@@ -132,21 +141,21 @@ union _ec_cbk
 
 struct _ec_lock
 {
-    ec_lock_t        **plock;
+    ec_inode_t        *ctx;
     gf_timer_t        *timer;
-    struct list_head   waiting;
+    struct list_head   waiting; /* Queue of requests being serviced. */
+    struct list_head   frozen;  /* Queue of requests that will be serviced in
+                                   the next unlock/lock cycle. */
     uintptr_t          mask;
     uintptr_t          good_mask;
-    int32_t            kind;
     int32_t            refs;
-    int32_t            acquired;
-    int32_t            have_size;
-    uint64_t           size;
-    uint64_t           size_delta;
-    uint64_t           version[2];
-    uint64_t           version_delta[2];
-    gf_boolean_t       is_dirty[2];
+    int32_t            refs_frozen;
+    int32_t            inserted;
+    gf_boolean_t       acquired;
+    gf_boolean_t       release;
+    gf_boolean_t       query;
     ec_fop_data_t     *owner;
+    fd_t              *fd;
     loc_t              loc;
     union
     {
@@ -157,9 +166,12 @@ struct _ec_lock
 
 struct _ec_lock_link
 {
-    ec_lock_t *      lock;
-    ec_fop_data_t *  fop;
-    struct list_head wait_list;
+    ec_lock_t        *lock;
+    ec_fop_data_t    *fop;
+    struct list_head  wait_list;
+    gf_boolean_t      update[2];
+    loc_t            *base;
+    uint64_t          size;
 };
 
 struct _ec_fop_data
@@ -183,12 +195,8 @@ struct _ec_fop_data
     int32_t            lock_count;
     int32_t            locked;
     ec_lock_link_t     locks[2];
-    int32_t            locks_update;
-    int32_t            have_size;
-    uint64_t           pre_size;
-    uint64_t           post_size;
+    int32_t            first_lock;
     gf_lock_t          lock;
-    ec_config_t        config;
 
     uint32_t           flags;
     uint32_t           first;
@@ -197,6 +205,7 @@ struct _ec_fop_data
                                   if fop->minimum number of subvolumes succeed
                                   which are not healing*/
     uintptr_t          remaining;
+    uintptr_t          received; /* Mask of responses */
     uintptr_t          good;
     uintptr_t          bad;
 
@@ -299,5 +308,7 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
                                      ec_cbk_t cbks, void * data);
 void ec_fop_data_acquire(ec_fop_data_t * fop);
 void ec_fop_data_release(ec_fop_data_t * fop);
+
+void ec_fop_cleanup(ec_fop_data_t *fop);
 
 #endif /* __EC_DATA_H__ */

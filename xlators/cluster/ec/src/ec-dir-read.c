@@ -128,13 +128,8 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_entry(fop, &fop->loc[0], 0);
+            ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO);
             ec_lock(fop);
-
-            return EC_STATE_GET_SIZE_AND_VERSION;
-
-        case EC_STATE_GET_SIZE_AND_VERSION:
-            ec_get_size_version(fop);
 
             return EC_STATE_DISPATCH;
 
@@ -195,7 +190,6 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
 
         case -EC_STATE_INIT:
         case -EC_STATE_LOCK:
-        case -EC_STATE_GET_SIZE_AND_VERSION:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_PREPARE_ANSWER:
         case -EC_STATE_REPORT:
