@@ -180,6 +180,9 @@ glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len);
 struct rpc_clnt*
 glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node);
 
+void
+glusterd_pending_node_put_rpc (glusterd_pending_node_t *pending_node);
+
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
                               char *remote_host, int len);
@@ -650,6 +653,13 @@ void
 glusterd_list_add_order (struct cds_list_head *new, struct cds_list_head *head,
                         int (*compare)(struct cds_list_head *,
                                        struct cds_list_head *));
+
+struct rpc_clnt*
+glusterd_defrag_rpc_get (glusterd_defrag_info_t *defrag);
+
+struct rpc_clnt*
+glusterd_defrag_rpc_put (glusterd_defrag_info_t *defrag);
+
 int
 glusterd_disallow_op_for_tier (glusterd_volinfo_t *volinfo, glusterd_op_t op,
                                int cmd);

@@ -196,7 +196,6 @@ function is_bad_test ()
     local name=$1
     for bt in ./tests/basic/uss.t                       \
               ./tests/basic/tier/tier.t \
-              ./tests/bugs/glusterd/bug-974007.t        \
               ./tests/basic/quota-anon-fd-nfs.t \
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
