@@ -415,6 +415,10 @@ This package provides the base GlusterFS libraries
 %package -n python-gluster
 Summary:          GlusterFS python library
 Group:            Development/Tools
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 || 0%{?sles_version} ) )
+# EL5 does not support noarch sub-packages
+BuildArch:        noarch
+%endif
 Requires:         python
 
 %description -n python-gluster
@@ -1199,6 +1203,9 @@ fi
 
 
 %changelog
+* Wed May 20 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- python-gluster should be 'noarch' (#1219954)
+
 * Wed May 20 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - move libgf{db,changelog}.pc from -api-devel to -devel (#1223385)
 
