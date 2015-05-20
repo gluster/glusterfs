@@ -967,8 +967,6 @@ fi
 
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
-%{_libdir}/pkgconfig/libgfchangelog.pc
-%{_libdir}/pkgconfig/libgfdb.pc
 %{_libdir}/libgfapi.so
 %{_includedir}/glusterfs/api/*
 
@@ -987,6 +985,8 @@ fi
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/debug-trace.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
+%{_libdir}/pkgconfig/libgfchangelog.pc
+%{_libdir}/pkgconfig/libgfdb.pc
 
 %files client-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
@@ -1190,6 +1190,9 @@ fi
 
 
 %changelog
+* Wed May 20 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- move libgf{db,changelog}.pc from -api-devel to -devel (#1223385)
+
 * Tue May 05 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1195947)
 
