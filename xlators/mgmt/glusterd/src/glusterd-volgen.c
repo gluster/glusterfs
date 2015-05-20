@@ -5443,8 +5443,7 @@ out:
 }
 
 int
-glusterd_create_global_volfile (int (*builder) (volgen_graph_t *graph,
-                                                dict_t *set_dict),
+glusterd_create_global_volfile (glusterd_graph_builder_t builder,
                                 char *filepath, dict_t  *mod_dict)
 {
         volgen_graph_t graph = {0,};

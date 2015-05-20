@@ -61,6 +61,9 @@ struct volgen_graph {
 };
 typedef struct volgen_graph volgen_graph_t;
 
+typedef int (*glusterd_graph_builder_t) (volgen_graph_t *graph,
+                                         dict_t *mod_dict);
+
 #define COMPLETE_OPTION(key, completion, ret)                           \
         do {                                                            \
                 if (!strchr (key, '.')) {                               \
@@ -159,8 +162,7 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
                                     glusterd_volinfo_t *volinfo);
 
 int
-glusterd_create_global_volfile (int (*builder) (volgen_graph_t *graph,
-                                                dict_t *set_dict),
+glusterd_create_global_volfile (glusterd_graph_builder_t builder,
                                 char *filepath, dict_t  *mod_dict);
 
 int
@@ -262,12 +264,6 @@ end_sethelp_xml_doc (xmlTextWriterPtr writer);
 
 char*
 glusterd_get_trans_type_rb (gf_transport_type ttype);
-
-int
-glusterd_check_nfs_volfile_identical (gf_boolean_t *identical);
-
-int
-glusterd_check_nfs_topology_identical (gf_boolean_t *identical);
 
 uint32_t
 glusterd_get_op_version_for_key (char *key);
