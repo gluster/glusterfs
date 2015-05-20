@@ -39,6 +39,16 @@
                 synclock_lock (&conf->big_lock);                               \
         } while (0)
 
+#define GD_ALLOC_COPY_UUID(dst_ptr, uuid, ret) do {                            \
+        dst_ptr = GF_CALLOC (1, sizeof (*dst_ptr), gf_common_mt_uuid_t);       \
+        if (dst_ptr) {                                                         \
+                gf_uuid_copy (*dst_ptr, uuid);                                 \
+                ret = 0;                                                       \
+        } else {                                                               \
+                ret = -1;                                                      \
+        }                                                                      \
+} while (0)
+
 int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req, void *local,
                               void *cookie, rpc_clnt_prog_t *prog, int procnum,
                               fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);

@@ -322,7 +322,7 @@ out:
 
 int32_t
 gd_syncop_mgmt_v3_lock_cbk_fn (struct rpc_req *req, struct iovec *iov,
-                                 int count, void *myframe)
+                               int count, void *myframe)
 {
         int                         ret           = -1;
         struct syncargs            *args          = NULL;
@@ -366,6 +366,8 @@ out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
                                    GLUSTERD_MGMT_V3_LOCK, *peerid, rsp.uuid);
 
+        GF_FREE (peerid);
+
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -388,7 +390,7 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         int                      ret  = -1;
         gd1_mgmt_v3_lock_req     req  = {{0},};
         glusterd_conf_t         *conf = THIS->private;
-        uuid_t                  peerid = {0,};
+        uuid_t                  *peerid = NULL;
 
         GF_ASSERT(op_ctx);
         GF_ASSERT(peerinfo);
@@ -404,9 +406,11 @@ gd_syncop_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
         gf_uuid_copy (req.txn_id, txn_id);
         req.op = op;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
                                         gd_syncop_mgmt_v3_lock_cbk,
@@ -463,6 +467,8 @@ out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, NULL,
                                    GLUSTERD_MGMT_V3_UNLOCK, *peerid, rsp.uuid);
 
+        GF_FREE (peerid);
+
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -484,7 +490,7 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         int                          ret  = -1;
         gd1_mgmt_v3_unlock_req       req  = {{0},};
         glusterd_conf_t             *conf = THIS->private;
-        uuid_t                      peerid = {0,};
+        uuid_t                      *peerid = NULL;
 
         GF_ASSERT(op_ctx);
         GF_ASSERT(peerinfo);
@@ -499,9 +505,11 @@ gd_syncop_mgmt_v3_unlock (dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         gf_uuid_copy (req.uuid, my_uuid);
         gf_uuid_copy (req.txn_id, txn_id);
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_UNLOCK,
                                         gd_syncop_mgmt_v3_unlock_cbk,
@@ -569,6 +577,8 @@ out:
         gd_collate_errors (args, op_ret, op_errno, NULL,
                            GLUSTERD_MGMT_CLUSTER_LOCK, *peerid, rsp.uuid);
 
+        GF_FREE (peerid);
+
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -589,16 +599,19 @@ gd_syncop_mgmt_lock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         int                       ret = -1;
         gd1_mgmt_cluster_lock_req req  = {{0},};
         glusterd_conf_t           *conf = THIS->private;
-        uuid_t                    peerid = {0,};
+        uuid_t                    *peerid = NULL;
 
         gf_uuid_copy (req.uuid, my_uuid);
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_LOCK,
                                         gd_syncop_mgmt_lock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
+out:
         return ret;
 }
 
@@ -657,6 +670,8 @@ out:
         gd_collate_errors (args, op_ret, op_errno, NULL,
                            GLUSTERD_MGMT_CLUSTER_UNLOCK, *peerid, rsp.uuid);
 
+        GF_FREE (peerid);
+
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
         return 0;
@@ -678,16 +693,19 @@ gd_syncop_mgmt_unlock (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         int                         ret     = -1;
         gd1_mgmt_cluster_unlock_req req     = {{0},};
         glusterd_conf_t             *conf   = THIS->private;
-        uuid_t                      peerid = {0,};
+        uuid_t                      *peerid = NULL;
 
         gf_uuid_copy (req.uuid, my_uuid);
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, peerid,
                                         &gd_mgmt_prog,
                                         GLUSTERD_MGMT_CLUSTER_UNLOCK,
                                         gd_syncop_mgmt_unlock_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_cluster_lock_req);
+out:
         return ret;
 }
 
@@ -779,6 +797,7 @@ out:
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -802,7 +821,7 @@ gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         gd1_mgmt_stage_op_req *req  = NULL;
         glusterd_conf_t       *conf = THIS->private;
         int                   ret   = -1;
-        uuid_t                peerid = {0,};
+        uuid_t                *peerid = NULL;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_stage_req_t);
         if (!req)
@@ -816,9 +835,11 @@ gd_syncop_mgmt_stage_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         if (ret)
                 goto out;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, req, args, peerid,
                                         &gd_mgmt_prog, GLUSTERD_MGMT_STAGE_OP,
                                         gd_syncop_stage_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_stage_op_req);
@@ -1058,6 +1079,7 @@ out:
                            GLUSTERD_MGMT_COMMIT_OP, *peerid, rsp.uuid);
         if (rsp_dict)
                 dict_unref (rsp_dict);
+        GF_FREE (peerid);
 
         STACK_DESTROY (frame->root);
         synctask_barrier_wake(args);
@@ -1082,7 +1104,7 @@ gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         glusterd_conf_t        *conf = THIS->private;
         gd1_mgmt_commit_op_req *req  = NULL;
         int                    ret  = -1;
-        uuid_t                 peerid = {0,};
+        uuid_t                 *peerid = NULL;
 
         req = GF_CALLOC (1, sizeof (*req), gf_gld_mt_mop_commit_req_t);
         if (!req)
@@ -1096,9 +1118,11 @@ gd_syncop_mgmt_commit_op (glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         if (ret)
                 goto out;
 
-        gf_uuid_copy (peerid, peerinfo->uuid);
+        GD_ALLOC_COPY_UUID (peerid, peerinfo->uuid, ret);
+        if (ret)
+                goto out;
 
-        ret = gd_syncop_submit_request (peerinfo->rpc, req, args, &peerid,
+        ret = gd_syncop_submit_request (peerinfo->rpc, req, args, peerid,
                                         &gd_mgmt_prog, GLUSTERD_MGMT_COMMIT_OP,
                                         gd_syncop_commit_op_cbk,
                                         (xdrproc_t) xdr_gd1_mgmt_commit_op_req);
@@ -1837,13 +1861,13 @@ local_locking_done:
 out:
         op_ret = ret;
         if (txn_id) {
-                if (volname)
-                        (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
-                                                   op_errstr, volname, is_acquired,
-                                                   *txn_id, &txn_opinfo);
                 if (global)
                         (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
                                                    op_errstr, global, is_acquired,
+                                                   *txn_id, &txn_opinfo);
+                else
+                        (void) gd_unlock_op_phase (conf, op, &op_ret, req, op_ctx,
+                                                   op_errstr, volname, is_acquired,
                                                    *txn_id, &txn_opinfo);
 
 
