@@ -166,7 +166,6 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                         goto err;
                 }
                 args->args.mkdir.umask = ntoh32 (*(uint32_t *)blob);
-                blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
                 if (blob_len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -188,7 +187,6 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                         goto err;
 
                 memcpy (args->args.symlink.linkpath, blob, (len + 1));
-                blob += (len + 1);
                 blob_len -= (len + 1);
         } else {
                 if (blob_len < sizeof (uint32_t)) {
@@ -218,7 +216,6 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                         goto err;
                 }
                 args->args.mknod.umask = ntoh32 (*(uint32_t *)blob);
-                blob += sizeof (uint32_t);
                 blob_len -= sizeof (uint32_t);
         }
 
