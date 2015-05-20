@@ -600,10 +600,11 @@ class Server(object):
             if not matching_disk_gfid(gfid, entry):
                 return
 
-            er = errno_wrap(os.unlink, [entry], [ENOENT, EISDIR])
+            er = errno_wrap(os.unlink, [entry], [ENOENT, ESTALE, EISDIR])
             if isinstance(er, int):
                 if er == EISDIR:
-                    er = errno_wrap(os.rmdir, [entry], [ENOENT, ENOTEMPTY])
+                    er = errno_wrap(os.rmdir, [entry], [ENOENT, ESTALE,
+                                                        ENOTEMPTY])
                     if er == ENOTEMPTY:
                         return er
 
@@ -654,7 +655,8 @@ class Server(object):
                 fullname = os.path.join(path, name)
                 if not matching_disk_gfid(gfid, entry):
                     return
-                er = errno_wrap(os.remove, [fullname], [ENOENT, EISDIR])
+                er = errno_wrap(os.remove, [fullname], [ENOENT, ESTALE,
+                                                        EISDIR])
 
                 if er == EISDIR:
                     recursive_rmdir(gfid, entry, fullname)
@@ -662,7 +664,7 @@ class Server(object):
             if not matching_disk_gfid(gfid, entry):
                 return
 
-            errno_wrap(os.rmdir, [path], [ENOENT])
+            errno_wrap(os.rmdir, [path], [ENOENT, ESTALE])
 
         for e in entries:
             blob = None
