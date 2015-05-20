@@ -28,7 +28,4 @@ glusterd_quotadsvc_manager (glusterd_svc_t *svc, void *data, int flags);
 int
 glusterd_quotadsvc_reconfigure ();
 
-void
-glusterd_quotadsvc_build_volfile_path (char *server, char *workdir,
-                                       char *volfile, size_t len);
 #endif

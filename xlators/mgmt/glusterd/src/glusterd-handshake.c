@@ -211,14 +211,9 @@ build_volfile_path (char *volume_id, char *path,
                 }
                 volid_ptr++;
 
-                if (strcmp (volid_ptr, "quotad") == 0)
-                        glusterd_quotadsvc_build_volfile_path (volid_ptr,
-                                                               priv->workdir,
-                                                               path, path_len);
-                else
-                        glusterd_svc_build_volfile_path (volid_ptr,
-                                                         priv->workdir,
-                                                         path, path_len);
+                glusterd_svc_build_volfile_path (volid_ptr,
+                                                 priv->workdir,
+                                                 path, path_len);
                 ret = 0;
                 goto out;
 

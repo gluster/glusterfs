@@ -15,6 +15,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-messages.h"
+#include "glusterd-svc-helper.h"
 
 char *nfs_svc_name = "nfs";
 
@@ -64,107 +65,6 @@ glusterd_nfssvc_create_volfile ()
                                          filepath, sizeof (filepath));
         return glusterd_create_global_volfile (build_nfs_graph,
                                                filepath, NULL);
-}
-
-static int
-glusterd_nfssvc_check_volfile_identical (gf_boolean_t *identical)
-{
-        char            nfsvol[PATH_MAX]        = {0,};
-        char            tmpnfsvol[PATH_MAX]     = {0,};
-        glusterd_conf_t *conf                   = NULL;
-        xlator_t        *this                   = NULL;
-        int             ret                     = -1;
-        int             need_unlink             = 0;
-        int             tmp_fd                  = -1;
-
-        this = THIS;
-
-        GF_ASSERT (this);
-        GF_ASSERT (identical);
-        conf = this->private;
-
-        glusterd_svc_build_volfile_path (nfs_svc_name, conf->workdir,
-                                         nfsvol, sizeof (nfsvol));
-
-        snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
-
-        tmp_fd = mkstemp (tmpnfsvol);
-        if (tmp_fd < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
-                        " %s:(%s)", tmpnfsvol, strerror (errno));
-                goto out;
-        }
-
-        need_unlink = 1;
-
-        ret = glusterd_create_global_volfile (build_nfs_graph,
-                                              tmpnfsvol, NULL);
-        if (ret)
-                goto out;
-
-        ret = glusterd_check_files_identical (nfsvol, tmpnfsvol,
-                                              identical);
-        if (ret)
-                goto out;
-
-out:
-        if (need_unlink)
-                unlink (tmpnfsvol);
-
-        if (tmp_fd >= 0)
-                close (tmp_fd);
-
-        return ret;
-}
-
-static int
-glusterd_nfssvc_check_topology_identical (gf_boolean_t *identical)
-{
-        char            nfsvol[PATH_MAX]        = {0,};
-        char            tmpnfsvol[PATH_MAX]     = {0,};
-        glusterd_conf_t *conf                   = NULL;
-        xlator_t        *this                   = THIS;
-        int             ret                     = -1;
-        int             tmpclean                = 0;
-        int             tmpfd                   = -1;
-
-        if ((!identical) || (!this) || (!this->private))
-                goto out;
-
-        conf = (glusterd_conf_t *) this->private;
-        GF_ASSERT (conf);
-
-        /* Fetch the original NFS volfile */
-        glusterd_svc_build_volfile_path (conf->nfs_svc.name, conf->workdir,
-                                         nfsvol, sizeof (nfsvol));
-
-        /* Create the temporary NFS volfile */
-        snprintf (tmpnfsvol, sizeof (tmpnfsvol), "/tmp/gnfs-XXXXXX");
-        tmpfd = mkstemp (tmpnfsvol);
-        if (tmpfd < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
-                        " %s: (%s)", tmpnfsvol, strerror (errno));
-                goto out;
-        }
-
-        tmpclean = 1; /* SET the flag to unlink() tmpfile */
-
-        ret = glusterd_create_global_volfile (build_nfs_graph,
-                                              tmpnfsvol, NULL);
-        if (ret)
-                goto out;
-
-        /* Compare the topology of volfiles */
-        ret = glusterd_check_topology_identical (nfsvol, tmpnfsvol,
-                                                 identical);
-out:
-        if (tmpfd >= 0)
-                close (tmpfd);
-        if (tmpclean)
-                unlink (tmpnfsvol);
-        return ret;
 }
 
 int
@@ -246,17 +146,18 @@ glusterd_nfssvc_reconfigure ()
         gf_boolean_t     identical       = _gf_false;
 
         this = THIS;
-        GF_ASSERT (this);
+        GF_VALIDATE_OR_GOTO (this->name, this, out);
 
         priv = this->private;
-        GF_ASSERT (priv);
-
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
         /*
          * Check both OLD and NEW volfiles, if they are SAME by size
          * and cksum i.e. "character-by-character". If YES, then
          * NOTHING has been changed, just return.
          */
-        ret = glusterd_nfssvc_check_volfile_identical (&identical);
+        ret = glusterd_svc_check_volfile_identical (priv->nfs_svc.name,
+                                                    build_nfs_graph,
+                                                    &identical);
         if (ret)
                 goto out;
 
@@ -271,7 +172,9 @@ glusterd_nfssvc_reconfigure ()
          * changed, then inform the xlator to reconfigure the options.
          */
         identical = _gf_false; /* RESET the FLAG */
-        ret = glusterd_nfssvc_check_topology_identical (&identical);
+        ret = glusterd_svc_check_topology_identical (priv->nfs_svc.name,
+                                                     build_nfs_graph,
+                                                     &identical);
         if (ret)
                 goto out;
 
@@ -294,6 +197,7 @@ glusterd_nfssvc_reconfigure ()
                                      PROC_START_NO_WAIT);
 
 out:
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 
 }

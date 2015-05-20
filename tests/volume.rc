@@ -601,3 +601,12 @@ function quota_hl_exceeded()
 
 }
 
+function get_nfs_count {
+        ps auxww | grep glusterfs | grep nfs.pid | grep -v grep | wc -l
+}
+
+function get_snapd_count {
+        ps auxww | grep glusterfs | grep snapd.pid | grep -v grep | wc -l
+}
+
+
