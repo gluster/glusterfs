@@ -415,6 +415,10 @@ This package provides the base GlusterFS libraries
 %package -n python-gluster
 Summary:          GlusterFS python library
 Group:            Development/Tools
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 || 0%{?sles_version} ) )
+# EL5 does not support noarch sub-packages
+BuildArch:        noarch
+%endif
 Requires:         python
 
 %description -n python-gluster
@@ -1202,6 +1206,9 @@ fi
 
 
 %changelog
+* Mon Jun 1 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- python-gluster should be noarch (#1219953)
+
 * Sun May 31 2015 Milind Changire <mchangir@redhat.com>
 - Move file peer_add_secret_pub to the server RPM to support glusterfind (#1225552)
 
