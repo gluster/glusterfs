@@ -1658,10 +1658,15 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                         goto out;
 
                 brick_count++;
+                glusterd_pending_node_put_rpc (pending_node);
         }
 
+        pending_node = NULL;
         ret = 0;
 out:
+        if (pending_node)
+                glusterd_pending_node_put_rpc (pending_node);
+
         if (rsp_dict)
                 dict_unref (rsp_dict);
         gf_log (this->name, GF_LOG_DEBUG, "Sent op req to %d bricks",
