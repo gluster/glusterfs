@@ -20,6 +20,9 @@ typedef enum {
         EC_METADATA_TXN
 } ec_txn_t;
 
+#define EC_FOP_HEAL     -1
+#define EC_FOP_FHEAL    -2
+
 #define EC_CONFIG_VERSION 0
 
 #define EC_CONFIG_ALGORITHM 0

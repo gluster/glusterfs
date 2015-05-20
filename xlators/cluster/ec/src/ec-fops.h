@@ -16,9 +16,6 @@
 #include "ec-data.h"
 #include "ec-common.h"
 
-#define EC_FOP_HEAL     -1
-#define EC_FOP_FHEAL    -2
-
 void ec_access(call_frame_t * frame, xlator_t * this, uintptr_t target,
                int32_t minimum, fop_access_cbk_t func, void *data, loc_t * loc,
                int32_t mask, dict_t * xdata);
