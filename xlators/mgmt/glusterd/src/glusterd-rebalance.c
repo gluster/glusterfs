@@ -149,10 +149,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
 
                 glusterd_store_perform_node_state_store (volinfo);
 
-                if (defrag->rpc) {
-                        glusterd_rpc_clnt_unref (priv, defrag->rpc);
-                        defrag->rpc = NULL;
-                }
+                glusterd_defrag_rpc_put (defrag);
                 if (defrag->cbk_fn)
                         defrag->cbk_fn (volinfo,
                                         volinfo->rebal.defrag_status);
@@ -339,8 +336,9 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
                 goto out;
 
         //rpc obj for rebalance process already in place.
-        if (defrag->rpc) {
+        if (glusterd_defrag_rpc_get (defrag)) {
                 ret = 0;
+                glusterd_defrag_rpc_put (defrag);
                 goto out;
         }
         GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo);

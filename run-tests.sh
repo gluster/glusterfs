@@ -204,7 +204,6 @@ function is_bad_test ()
               ./tests/bugs/quota/bug-1035576.t  \
               ./tests/basic/uss.t       \
               ./tests/bugs/glusterfs/bug-867253.t       \
-              ./tests/bugs/glusterd/bug-974007.t        \
               ./tests/basic/volume-snapshot-clone.t     \
               ./tests/basic/quota-anon-fd-nfs.t \
               ./tests/bugs/snapshot/bug-1112559.t       \

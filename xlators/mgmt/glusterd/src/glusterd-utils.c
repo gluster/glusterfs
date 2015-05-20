@@ -3523,8 +3523,9 @@ gd_check_and_update_rebalance_info (glusterd_volinfo_t *old_volinfo,
         new = &(new_volinfo->rebal);
 
         //Disconnect from rebalance process
-        if (old->defrag && old->defrag->rpc) {
+        if (glusterd_defrag_rpc_get (old->defrag)) {
                 rpc_transport_disconnect (old->defrag->rpc->conn.trans);
+                glusterd_defrag_rpc_put (old->defrag);
         }
 
         if (!gf_uuid_is_null (old->rebalance_id) &&
@@ -3806,6 +3807,39 @@ out:
 }
 
 struct rpc_clnt*
+glusterd_defrag_rpc_get (glusterd_defrag_info_t *defrag)
+{
+        struct rpc_clnt *rpc = NULL;
+
+        if (!defrag)
+                return NULL;
+
+        LOCK (&defrag->lock);
+        {
+                rpc = rpc_clnt_ref (defrag->rpc);
+        }
+        UNLOCK (&defrag->lock);
+        return rpc;
+}
+
+struct rpc_clnt*
+glusterd_defrag_rpc_put (glusterd_defrag_info_t *defrag)
+{
+        struct rpc_clnt *rpc = NULL;
+
+        if (!defrag)
+                return NULL;
+
+        LOCK (&defrag->lock);
+        {
+                rpc = rpc_clnt_unref (defrag->rpc);
+                defrag->rpc = rpc;
+        }
+        UNLOCK (&defrag->lock);
+        return rpc;
+}
+
+struct rpc_clnt*
 glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
 {
         struct rpc_clnt *rpc = NULL;
@@ -3827,8 +3861,8 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
                 rpc = svc->conn.rpc;
         } else if (pending_node->type == GD_NODE_REBALANCE) {
                 volinfo = pending_node->node;
-                if (volinfo->rebal.defrag)
-                        rpc = volinfo->rebal.defrag->rpc;
+                rpc = glusterd_defrag_rpc_get (volinfo->rebal.defrag);
+
         } else if (pending_node->type == GD_NODE_SNAPD) {
                 volinfo = pending_node->node;
                 rpc = volinfo->snapd.svc.conn.rpc;
@@ -3838,6 +3872,23 @@ glusterd_pending_node_get_rpc (glusterd_pending_node_t *pending_node)
 
 out:
         return rpc;
+}
+
+void
+glusterd_pending_node_put_rpc (glusterd_pending_node_t *pending_node)
+{
+        glusterd_volinfo_t      *volinfo = NULL;
+
+        switch (pending_node->type) {
+        case GD_NODE_REBALANCE:
+                volinfo = pending_node->node;
+                glusterd_defrag_rpc_put (volinfo->rebal.defrag);
+                break;
+
+        default:
+                break;
+        }
+
 }
 
 int32_t

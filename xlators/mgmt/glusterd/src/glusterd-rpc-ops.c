@@ -2173,6 +2173,8 @@ glusterd_brick_op (call_frame_t *frame, xlator_t *this,
                 }
                 if (!ret)
                         pending_bricks++;
+
+                glusterd_pending_node_put_rpc (pending_node);
         }
 
         gf_log (this->name, GF_LOG_DEBUG, "Sent brick op req for operation "
