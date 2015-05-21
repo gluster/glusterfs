@@ -153,6 +153,9 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 #define FH_TO_FD(fh) ((_FH_TO_FD (fh))?(fd_ref (_FH_TO_FD (fh))):((fd_t *) 0))
 
+/* Use the same logic as the Linux NFS-client */
+#define GF_FUSE_SQUASH_INO(ino) (((uint32_t) ino) ^ (ino >> 32))
+
 #define FUSE_FOP(state, ret, op_num, fop, args ...)                     \
         do {                                                            \
                 xlator_t     *xl     = NULL;                            \
