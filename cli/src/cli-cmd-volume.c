@@ -2691,7 +2691,7 @@ struct cli_cmd volume_cmds[] = {
         },
         {"volume bitrot <VOLNAME> {enable|disable} |\n"
          "volume bitrot <volname> scrub-throttle {lazy|normal|aggressive} |\n"
-         "volume bitrot <volname> scrub-frequency {daily|weekly|biweekly"
+         "volume bitrot <volname> scrub-frequency {hourly|daily|weekly|biweekly"
          "|monthly} |\n"
          "volume bitrot <volname> scrub {pause|resume}",
          cli_cmd_bitrot_cbk,
