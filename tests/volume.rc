@@ -209,7 +209,11 @@ function check_option_help_presence {
 function afr_get_changelog_xattr {
         local file=$1
         local xkey=$2
-        getfattr -n $xkey -e hex $file 2>/dev/null | grep "$xkey" | cut -f2 -d'='
+        local xval=$(getfattr -n $xkey -e hex $file 2>/dev/null | grep "$xkey" | cut -f2 -d'=')
+        if [ -z $xval ]; then
+                xval="0x000000000000000000000000"
+        fi
+        echo $xval
 }
 
 function afr_get_pending_heal_count {

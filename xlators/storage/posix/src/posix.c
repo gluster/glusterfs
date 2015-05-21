@@ -4691,22 +4691,34 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                         goto unlock;
                 }
 
+                /* We only write back the xattr if it has been really modified
+                 * (i.e. v->data is not all 0's). Otherwise we return its value
+                 * but we don't update anything.
+                 *
+                 * If the xattr does not exist, a value of all 0's is returned
+                 * without creating it. */
+                size = v->len;
+                if (mem_0filled(v->data, v->len) == 0)
+                        goto unlock;
+
                 switch (optype) {
 
                 case GF_XATTROP_ADD_ARRAY:
-                        __add_array ((int32_t *) array, (int32_t *) v->data,
-                                     v->len / 4);
+                        __add_array ((int32_t *) array,
+                                     (int32_t *) v->data, v->len / 4);
                         break;
 
                 case GF_XATTROP_ADD_ARRAY64:
-                        __add_long_array ((int64_t *) array, (int64_t *) v->data,
+                        __add_long_array ((int64_t *) array,
+                                          (int64_t *) v->data,
                                           v->len / 8);
                         break;
 
                 default:
                         gf_log (this->name, GF_LOG_ERROR,
-                                "Unknown xattrop type (%d) on %s. Please send "
-                                "a bug report to gluster-devel@gluster.org",
+                                "Unknown xattrop type (%d) on %s. "
+                                "Please send a bug report to "
+                                "gluster-devel@gluster.org",
                                 optype, filler->real_path);
                         op_ret = -1;
                         op_errno = EINVAL;
@@ -4714,12 +4726,14 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                 }
 
                 if (filler->real_path) {
-                        size = sys_lsetxattr (filler->real_path, k, array,
-                                              v->len, 0);
+                        size = sys_lsetxattr (filler->real_path, k,
+                                              array, v->len, 0);
                 } else {
-                        size = sys_fsetxattr (filler->fdnum, k, (char *)array,
+                        size = sys_fsetxattr (filler->fdnum, k,
+                                              (char *)array,
                                               v->len, 0);
                 }
+                op_errno = errno;
         }
 unlock:
         UNLOCK (&inode->lock);
@@ -4727,7 +4741,6 @@ unlock:
         if (op_ret == -1)
                 goto out;
 
-        op_errno = errno;
         if (size == -1) {
                 if (filler->real_path)
                         gf_log (this->name, GF_LOG_ERROR,
