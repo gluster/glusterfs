@@ -162,7 +162,7 @@ Vendor:           Fedora Project
 Name:             @PACKAGE_NAME@
 Version:          @PACKAGE_VERSION@
 Release:          0.@PACKAGE_RELEASE@%{?dist}
-Vendor:           glusterfs.org
+Vendor:           Gluster Community
 %endif
 License:          GPLv2 or LGPLv3+
 Group:            System Environment/Base
