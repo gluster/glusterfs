@@ -1135,12 +1135,21 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
         INIT_LIST_HEAD (&fsscan->queued);
         INIT_LIST_HEAD (&fsscan->ready);
 
+        /* init scheduler related variables */
+        fsscan->kick = _gf_false;
+        pthread_mutex_init (&fsscan->wakelock, NULL);
+        pthread_cond_init (&fsscan->wakecond, NULL);
+
         ret = gf_thread_create (&child->thread, NULL, br_fsscanner, child);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ALERT, "failed to spawn bitrot "
                         "scrubber daemon [Brick: %s]", child->brick_path);
                 goto error_return;
         }
+
+        ret = br_fsscan_schedule (this, child, fsscan, fsscrub);
+        if (ret)
+                goto error_return;
 
         /**
          * Everything has been setup.. add this subvolume to scrubbers
@@ -1407,13 +1416,6 @@ br_init_signer (xlator_t *this, br_private_t *priv)
         if (ret)
                 goto out;
 
-        priv->timer_wheel = glusterfs_global_timer_wheel (this);
-        if (!priv->timer_wheel) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "global timer wheel unavailable");
-                goto out;
-        }
-
         pthread_cond_init (&priv->object_cond, NULL);
 
         priv->obj_queue = GF_CALLOC (1, sizeof (*priv->obj_queue),
@@ -1568,6 +1570,13 @@ init (xlator_t *this)
                 INIT_LIST_HEAD (&priv->children[i].list);
         INIT_LIST_HEAD (&priv->bricks);
 
+        priv->timer_wheel = glusterfs_global_timer_wheel (this);
+        if (!priv->timer_wheel) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "global timer wheel unavailable");
+                goto cleanup_mutex;
+        }
+
 	this->private = priv;
 
         if (!priv->iamscrubber) {
@@ -1633,12 +1642,55 @@ fini (xlator_t *this)
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-        br_private_t *priv = this->private;
+        int i = 0;
+        int32_t ret = -1;
+        br_child_t *child = NULL;
+        br_private_t *priv = NULL;
+        struct br_scanfs *fsscan = NULL;
+        struct br_scrubber *fsscrub = NULL;
+
+        priv = this->private;
 
         if (!priv->iamscrubber)
                 return 0;
 
-        return br_scrubber_handle_options (this, priv, options);
+        ret = br_scrubber_handle_options (this, priv, options);
+        if (ret)
+                goto err;
+
+        fsscrub = &priv->fsscrub;
+
+        /* reschedule all _up_ subvolume(s) */
+        pthread_mutex_lock (&priv->lock);
+        {
+                for (; i < priv->child_count; i++) {
+                        child = &priv->children[i];
+                        if (!child->child_up) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Brick %s is offline, skipping "
+                                        "rescheduling (scrub would auto- "
+                                        "schedule when brick is back online).",
+                                        child->brick_path);
+                                continue;
+                        }
+
+                        fsscan = &child->fsscan;
+                        ret = br_fsscan_reschedule (this, child,
+                                                    fsscan, fsscrub, _gf_true);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "Could not "
+                                        "reschedule scrubber for brick: %s. "
+                                        "Scubbing will continue according to "
+                                        "old frequency.", child->brick_path);
+                        }
+                }
+        }
+        pthread_mutex_unlock (&priv->lock);
+
+        return 0;
+
+ err:
+        return -1;
 }
 
 struct xlator_fops fops;

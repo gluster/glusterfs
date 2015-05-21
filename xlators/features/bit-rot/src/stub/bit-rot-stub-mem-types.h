@@ -29,6 +29,7 @@ enum br_mem_types {
         gf_br_mt_br_scrubber_t,
         gf_br_mt_br_fsscan_entry_t,
         gf_br_stub_mt_br_stub_fd_t,
+        gf_br_stub_mt_br_scanner_freq_t,
         gf_br_stub_mt_end,
 };
 
