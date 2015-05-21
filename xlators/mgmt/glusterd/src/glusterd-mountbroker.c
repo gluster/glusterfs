@@ -232,6 +232,7 @@ parse_mount_pattern_desc (gf_mount_spec_t *mspec, char *pdesc)
 const char *georep_mnt_desc_template =
         "SUP("
                 "aux-gfid-mount "
+                "acl "
                 "volfile-server=localhost "
                 "client-pid=%d "
                 "user-map-root=%s "
