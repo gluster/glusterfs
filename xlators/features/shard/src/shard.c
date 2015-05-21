@@ -782,7 +782,8 @@ shard_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         uint64_t           block_size = 0;
         shard_local_t     *local      = NULL;
 
-        if (IA_ISDIR (loc->inode->ia_type)) {
+        if ((IA_ISDIR (loc->inode->ia_type)) ||
+            (IA_ISLNK (loc->inode->ia_type))) {
                 STACK_WIND (frame, default_stat_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->stat, loc, xdata);
                 return 0;
@@ -832,7 +833,8 @@ shard_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         uint64_t           block_size = 0;
         shard_local_t     *local      = NULL;
 
-        if (IA_ISDIR (fd->inode->ia_type)) {
+        if ((IA_ISDIR (fd->inode->ia_type)) ||
+            (IA_ISLNK (fd->inode->ia_type))) {
                 STACK_WIND (frame, default_fstat_cbk, FIRST_CHILD(this),
                             FIRST_CHILD (this)->fops->fstat, fd, xdata);
                 return 0;
@@ -1856,7 +1858,7 @@ shard_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         shard_local_t  *local      = NULL;
 
         ret = shard_inode_ctx_get_block_size (loc->inode, this, &block_size);
-        if (ret) {
+        if ((ret) && (!IA_ISLNK(loc->inode->ia_type))) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
                         "from inode ctx of %s", uuid_utoa (loc->inode->gfid));
                 goto err;
@@ -1981,7 +1983,8 @@ shard_rename_src_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->postoldparent = *postoldparent;
         local->prenewparent = *prenewparent;
         local->postnewparent = *postnewparent;
-        local->xattr_rsp = dict_ref (xdata);
+        if (xdata)
+                local->xattr_rsp = dict_ref (xdata);
 
         /* Now the base file is looked up to gather the ia_size and ia_blocks.*/
 
@@ -2046,8 +2049,15 @@ shard_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         uint64_t        dst_block_size = 0;
         shard_local_t  *local          = NULL;
 
+        if (IA_ISDIR (oldloc->inode->ia_type)) {
+                STACK_WIND (frame, default_rename_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->rename, oldloc, newloc,
+                            xdata);
+                return 0;
+        }
+
         ret = shard_inode_ctx_get_block_size (oldloc->inode, this, &block_size);
-        if (ret) {
+        if ((ret) && (!IA_ISLNK (oldloc->inode->ia_type))) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to get block size "
                         "from inode ctx of %s",
                         uuid_utoa (oldloc->inode->gfid));
