@@ -197,7 +197,6 @@ function is_bad_test ()
     for bt in ./tests/basic/uss.t                       \
               ./tests/bugs/replicate/bug-1015990.t      \
               ./tests/basic/ec/quota.t  \
-              ./tests/basic/tier/tier.t \
               ./tests/basic/quota-nfs.t \
               ./tests/bugs/quota/bug-1035576.t  \
               ./tests/bugs/glusterfs/bug-867253.t       \
