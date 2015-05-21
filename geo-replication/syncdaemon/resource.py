@@ -956,13 +956,9 @@ class SlaveRemote(object):
         logging.debug("files: " + ", ".join(files))
         (host, rdir) = slaveurl.split(':')
         tar_cmd = ["tar"] + \
-            (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
-            (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ["-cf", "-", "--files-from", "-"]
         ssh_cmd = gconf.ssh_command_tar.split() + \
             [host, "tar"] + \
-            (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
-            (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ["--overwrite", "-xf", "-", "-C", rdir]
         p0 = Popen(tar_cmd, stdout=subprocess.PIPE,
                    stdin=subprocess.PIPE, stderr=subprocess.PIPE)
