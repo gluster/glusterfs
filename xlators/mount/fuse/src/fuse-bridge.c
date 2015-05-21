@@ -2760,7 +2760,12 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		fde = (struct fuse_direntplus *)(buf + size);
 		feo = &fde->entry_out;
-		fde->dirent.ino = entry->d_ino;
+
+		if (priv->enable_ino32)
+			fde->dirent.ino = GF_FUSE_SQUASH_INO(entry->d_ino);
+		else
+			fde->dirent.ino = entry->d_ino;
+
 		fde->dirent.off = entry->d_off;
 		fde->dirent.type = entry->d_type;
 		fde->dirent.namelen = strlen (entry->d_name);

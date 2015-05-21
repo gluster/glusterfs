@@ -455,9 +455,6 @@ fail:
         return ret;
 }
 
-/* Use the same logic as the Linux NFS-client */
-#define GF_FUSE_SQUASH_INO(ino) ((uint32_t) ino) ^ (ino >> 32)
-
 /* courtesy of folly */
 void
 gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa, gf_boolean_t enable_ino32)
