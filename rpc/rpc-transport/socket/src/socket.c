@@ -3567,8 +3567,21 @@ socket_throttle (rpc_transport_t *this, gf_boolean_t onoff)
            will never read() any more data until throttling
            is turned off.
         */
-        priv->idx = event_select_on (this->ctx->event_pool, priv->sock,
-                                     priv->idx, (int) !onoff, -1);
+        pthread_mutex_lock (&priv->lock);
+        {
+
+                /* Throttling is useless on a disconnected transport. In fact,
+                 * it's dangerous since priv->idx and priv->sock are set to -1
+                 * on a disconnected transport, which breaks epoll's event to
+                 * registered fd mapping. */
+
+                if (priv->connected == 1)
+                        priv->idx = event_select_on (this->ctx->event_pool,
+                                                     priv->sock,
+                                                     priv->idx, (int) !onoff,
+                                                     -1);
+        }
+        pthread_mutex_unlock (&priv->lock);
         return 0;
 }
 
