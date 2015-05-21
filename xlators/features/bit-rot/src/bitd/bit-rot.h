@@ -46,6 +46,14 @@ typedef enum scrub_throttle {
         BR_SCRUB_THROTTLE_STALLED    = 3,
 } scrub_throttle_t;
 
+typedef enum scrub_freq {
+        BR_FSSCRUB_FREQ_HOURLY = 1,
+        BR_FSSCRUB_FREQ_DAILY,
+        BR_FSSCRUB_FREQ_WEEKLY,
+        BR_FSSCRUB_FREQ_BIWEEKLY,
+        BR_FSSCRUB_FREQ_MONTHLY,
+} scrub_freq_t;
+
 #define signature_size(hl) (sizeof (br_isignature_t) + hl + 1)
 
 struct br_scanfs {
@@ -57,6 +65,15 @@ struct br_scanfs {
         unsigned int     entries;
         struct list_head queued;
         struct list_head ready;
+
+        /* scheduler */
+        uint32_t boot;
+        gf_boolean_t kick;
+
+        pthread_mutex_t wakelock;
+        pthread_cond_t  wakecond;
+
+        struct gf_tw_timer_list *timer;
 };
 
 struct br_child {
@@ -98,13 +115,21 @@ struct br_scrubber {
 
         scrub_throttle_t throttle;
 
+        /**
+         * frequency of scanning for this subvolume. this should
+         * normally be per-child, but since all childs follow the
+         * same frequency for a volume, this option ends up here
+         * instead of br_child_t.
+         */
+        scrub_freq_t frequency;
+
         pthread_mutex_t mutex;
         pthread_cond_t  cond;
 
         unsigned int nr_scrubbers;
         struct list_head scrubbers;
 
-        /*
+        /**
          * list of "rotatable" subvolume(s) undergoing scrubbing
          */
         struct list_head scrublist;
@@ -139,11 +164,6 @@ struct br_private {
 
         gf_boolean_t iamscrubber;         /* function as a fs scrubber */
         struct br_scrubber fsscrub;       /* scrubbers for this subvolume */
-
-        char    *scrub_freq;              /* Scrubber frequency*/
-
-        struct  timeval  tv_before_scrub; /* time before starting scrubbing*/
-        struct  timeval  tv_after_scrub;  /* time after  scrubbing completion*/
 };
 
 typedef struct br_private br_private_t;
