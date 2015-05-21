@@ -55,6 +55,16 @@ do {\
         GF_ASSERT (_conn_node->gfdb_connection.gf_db_connection);\
 } while (0)
 
+/* Checks the sanity of the connection node and goto */
+#define CHECK_CONN_NODE_GOTO(_conn_node, label)\
+do {\
+        if (!_conn_node) {\
+                goto label;\
+        };\
+        if (!_conn_node->gfdb_connection.gf_db_connection) {\
+                goto label;\
+        };\
+} while (0)
 
 /*Check if the conn node is first in the list*/
 #define IS_FIRST_NODE(db_conn_list, _conn_node)\
@@ -297,7 +307,7 @@ fini_db (gfdb_conn_node_t *_conn_node)
         int ret = -1;
         gfdb_db_operations_t *db_operations_t   = NULL;
 
-        CHECK_CONN_NODE(_conn_node);
+        CHECK_CONN_NODE_GOTO (_conn_node, empty);
 
         db_operations_t = &_conn_node->gfdb_connection.gfdb_db_operations;
 
@@ -316,7 +326,7 @@ fini_db (gfdb_conn_node_t *_conn_node)
                 gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
                                 "Failed deleting connection node from list");
         }
-
+empty:
         ret = 0;
 out:
         return ret;

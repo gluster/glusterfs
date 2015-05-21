@@ -436,9 +436,9 @@ gf_sqlite3_init (dict_t *args, void **db_conn) {
         }
 
         /* If the file exist we skip the config part
-         * and create the schema if NOT Present*/
+         * and creation of the schema */
         if (is_dbfile_exist)
-                goto create_table;
+                goto db_exists;
 
 
         /*Apply sqlite3 params to database*/
@@ -450,17 +450,16 @@ gf_sqlite3_init (dict_t *args, void **db_conn) {
                 goto out;
         }
 
-/*Create the schema if NOT present*/
-create_table:
-
+        /*Create the schema if NOT present*/
         ret = create_filetable (sql_conn->sqlite3_db_conn);
         if (ret) {
                 gf_log (GFDB_STR_SQLITE3, GF_LOG_ERROR,
                         "Failed Creating %s Table", GF_FILE_TABLE);
                goto out;
         }
-        ret = 0;
 
+db_exists:
+        ret = 0;
 out:
         if (ret) {
                 gf_sqlite3_fini ((void **)&sql_conn);
