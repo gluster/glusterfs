@@ -886,7 +886,8 @@ class GMasterChangelogMixin(GMasterCommon):
                 elif ec[1] == 'SETXATTR':
                     # To sync xattr/acls use rsync/tar, --xattrs and --acls
                     # switch to rsync and tar
-                    if boolify(gconf.sync_xattrs) or boolify(gconf.sync_acls):
+                    if not boolify(gconf.use_tarssh) and \
+                       (boolify(gconf.sync_xattrs) or boolify(gconf.sync_acls)):
                         datas.add(os.path.join(pfx, ec[0]))
             else:
                 logging.warn('got invalid changelog type: %s' % (et))
