@@ -5166,12 +5166,12 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
         int             ret                   = -1;
         int32_t         pid                   = -1;
-        int32_t         brick_online          = -1;
         char            key[1024]             = {0};
         char            base_key[1024]        = {0};
         char            pidfile[PATH_MAX]     = {0};
         xlator_t        *this                 = NULL;
         glusterd_conf_t *priv                 = NULL;
+        gf_boolean_t    brick_online          = _gf_false;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -5226,7 +5226,9 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
 
-        brick_online = gf_is_service_running (pidfile, &pid);
+        if (glusterd_is_brick_started (brickinfo)) {
+                brick_online = gf_is_service_running (pidfile, &pid);
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
