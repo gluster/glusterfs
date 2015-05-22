@@ -1987,7 +1987,6 @@ pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
         int ret = -1;
         char *acl_s = NULL;
         const char *acl_key = NULL;
-        ssize_t acl_len = 0;
 
         DECLARE_OLD_THIS;
 
@@ -2007,7 +2006,8 @@ pub_glfs_h_acl_set (struct glfs *fs, struct glfs_object *object,
         if (!acl_s)
                 goto out;
 
-        ret = pub_glfs_h_setxattrs (fs, object, acl_key, acl_s, acl_len, 0);
+        ret = pub_glfs_h_setxattrs (fs, object, acl_key, acl_s,
+                                    strlen (acl_s) + 1, 0);
 
         acl_free (acl_s);
 
