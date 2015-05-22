@@ -1241,7 +1241,6 @@ cleanup_and_exit (int signum)
 
         glusterfs_pidfile_cleanup (ctx);
 
-        exit (0);
 #if 0
         /* TODO: Properly do cleanup_and_exit(), with synchronization */
         if (ctx->mgmt) {
@@ -1249,19 +1248,27 @@ cleanup_and_exit (int signum)
                 rpc_clnt_connection_cleanup (&ctx->mgmt->conn);
                 rpc_clnt_unref (ctx->mgmt);
         }
+#endif
 
         /* call fini() of each xlator */
-        trav = NULL;
-        if (ctx->active)
-                trav = ctx->active->top;
-        while (trav) {
-                if (trav->fini) {
-                        THIS = trav;
-                        trav->fini (trav);
+
+        /*call fini for glusterd xlator */
+        /* TODO : Invoke fini for rest of the xlators */
+        if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
+
+                trav = NULL;
+                if (ctx->active)
+                        trav = ctx->active->top;
+                while (trav) {
+                        if (trav->fini) {
+                                THIS = trav;
+                                trav->fini (trav);
+                        }
+                        trav = trav->next;
                 }
-                trav = trav->next;
+
         }
-#endif
+        exit(0);
 }
 
 
