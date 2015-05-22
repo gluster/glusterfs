@@ -16,6 +16,8 @@
 #define GF_QUOTA_CONF_VERSION 1.2
 #define QUOTA_CONF_HEADER                           \
         "GlusterFS Quota conf | version: v1.2\n"
+#define QUOTA_CONF_HEADER_1_1                       \
+        "GlusterFS Quota conf | version: v1.1\n"
 
 typedef enum {
         GF_QUOTA_CONF_TYPE_USAGE = 1,
@@ -50,12 +52,6 @@ quota_conf_read_header (int fd, char *buf);
 
 int32_t
 quota_conf_read_version (int fd, float *version);
-
-int32_t
-quota_conf_write_header (int fd);
-
-int32_t
-quota_conf_write_gfid (int fd, void *buf, char type);
 
 int32_t
 quota_conf_read_gfid (int fd, void *buf, char *type, float version);
