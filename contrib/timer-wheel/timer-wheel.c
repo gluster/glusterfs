@@ -85,11 +85,12 @@ apply_slack(struct tvec_base *base, struct gf_tw_timer_list *timer)
 }
 
 static inline void
-gf_tw_detach_timer (struct gf_tw_timer_list *timer)
+__gf_tw_detach_timer (struct gf_tw_timer_list *timer)
 {
         struct list_head *entry = &timer->entry;
 
         list_del (entry);
+        entry->next = NULL;
 }
 
 static inline int
@@ -141,7 +142,7 @@ run_timers (struct tvec_base *base)
                         fn = timer->function;
                         data = timer->data;
 
-                        gf_tw_detach_timer (timer);
+                        __gf_tw_detach_timer (timer);
                         fn (timer, data, call_time);
                 }
         }
@@ -166,6 +167,38 @@ void *runner (void *arg)
 
 }
 
+static inline int timer_pending (struct gf_tw_timer_list *timer)
+{
+        struct list_head *entry = &timer->entry;
+
+        return (entry->next != NULL);
+}
+
+static inline int __detach_if_pending (struct gf_tw_timer_list *timer)
+{
+        if (!timer_pending (timer))
+                return 0;
+
+        __gf_tw_detach_timer (timer);
+        return 1;
+}
+
+static inline int __mod_timer (struct tvec_base *base,
+                               struct gf_tw_timer_list *timer, int pending_only)
+{
+        int ret = 0;
+
+        ret = __detach_if_pending (timer);
+        if (!ret && pending_only)
+                goto done;
+
+        ret = 1;
+        __gf_tw_add_timer (base, timer);
+
+ done:
+        return ret;
+}
+
 /* interface */
 
 /**
@@ -185,9 +218,54 @@ void gf_tw_add_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
 /**
  * Remove a timer from the timer wheel
  */
-void gf_tw_del_timer (struct gf_tw_timer_list *timer)
+void gf_tw_del_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
 {
-        gf_tw_detach_timer (timer);
+        pthread_spin_lock (&base->lock);
+        {
+                if (timer_pending (timer))
+                        __gf_tw_detach_timer (timer);
+        }
+        pthread_spin_lock (&base->lock);
+}
+
+int gf_tw_mod_timer_pending (struct tvec_base *base,
+                             struct gf_tw_timer_list *timer,
+                             unsigned long expires)
+{
+        int ret = 1;
+
+        pthread_spin_lock (&base->lock);
+        {
+                timer->expires = expires + base->timer_sec;
+                timer->expires = apply_slack (base, timer);
+
+                ret = __mod_timer (base, timer, 1);
+        }
+        pthread_spin_unlock (&base->lock);
+
+        return ret;
+}
+
+int gf_tw_mod_timer (struct tvec_base *base,
+                     struct gf_tw_timer_list *timer, unsigned long expires)
+{
+        int ret = 1;
+
+        pthread_spin_lock (&base->lock);
+        {
+                /* fast path optimization */
+                if (timer_pending (timer) && timer->expires == expires)
+                        goto unblock;
+
+                timer->expires = expires + base->timer_sec;
+                timer->expires = apply_slack (base, timer);
+
+                ret = __mod_timer (base, timer, 0);
+        }
+ unblock:
+        pthread_spin_unlock (&base->lock);
+
+        return ret;
 }
 
 int gf_tw_cleanup_timers (struct tvec_base *base)
