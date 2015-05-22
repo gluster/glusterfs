@@ -2998,7 +2998,7 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
         if (ret)
                 goto out;
 
-        ret = quota_conf_write_header (fd);
+        ret = glusterd_quota_conf_write_header (fd);
         if (ret)
                 goto out;
 
@@ -3018,7 +3018,8 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
                         gfid_type = GF_QUOTA_CONF_TYPE_USAGE;
 
                 gf_uuid_parse (gfid_str, gfid);
-                ret = quota_conf_write_gfid (fd, gfid, (char)gfid_type);
+                ret = glusterd_quota_conf_write_gfid (fd, gfid,
+                                                      (char)gfid_type);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_CRITICAL, "Unable to write "
                                 "gfid %s into quota.conf for %s", gfid_str,
