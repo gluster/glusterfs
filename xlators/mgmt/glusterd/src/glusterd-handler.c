@@ -4791,6 +4791,9 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
                 peerinfo->quorum_action = _gf_true;
+                peerinfo->generation = uatomic_add_return
+                                                   (&conf->generation, 1);
+                peerctx->peerinfo_gen = peerinfo->generation;
 
                 ret = glusterd_peer_dump_version (this, rpc, peerctx);
                 if (ret)
