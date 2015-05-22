@@ -41,6 +41,7 @@
 
 #include "rpc-clnt.h"
 #include "common-utils.h"
+#include "quota-common-utils.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -4299,5 +4300,81 @@ out:
         if ((ret < 0) && (fd > 0))
                 gf_store_unlink_tmppath (shandle);
         gf_store_handle_destroy (shandle);
+        return ret;
+}
+
+int32_t
+glusterd_quota_conf_write_header (int fd)
+{
+        int                 header_len    = 0;
+        int                 ret           = -1;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *conf          = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("quota", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+
+        if (conf->op_version < GD_OP_VERSION_3_7_0) {
+                header_len = strlen (QUOTA_CONF_HEADER_1_1);
+                ret = gf_nwrite (fd, QUOTA_CONF_HEADER_1_1, header_len);
+        } else {
+                header_len = strlen (QUOTA_CONF_HEADER);
+                ret = gf_nwrite (fd, QUOTA_CONF_HEADER, header_len);
+        }
+
+        if (ret != header_len) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (ret < 0)
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to write "
+                                  "header to a quota conf");
+
+        return ret;
+}
+
+int32_t
+glusterd_quota_conf_write_gfid (int fd, void *buf, char type)
+{
+        int                 ret        = -1;
+        xlator_t           *this       = NULL;
+        glusterd_conf_t    *conf       = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("quota", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+
+        ret = gf_nwrite (fd, buf, 16);
+        if (ret != 16) {
+                ret = -1;
+                goto out;
+        }
+
+        if (conf->op_version >= GD_OP_VERSION_3_7_0) {
+                ret = gf_nwrite (fd, &type, 1);
+                if (ret != 1) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        if (ret < 0)
+                gf_log_callingfn ("quota", GF_LOG_ERROR, "failed to write "
+                                  "gfid %s to a quota conf", uuid_utoa (buf));
+
         return ret;
 }

@@ -87,6 +87,15 @@ glusterd_is_quota_supported (int32_t type, char **op_errstr)
             (type > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS))
                 goto out;
 
+        /* Quota Operations that change quota.conf shouldn't
+         * be allowed as the quota.conf format changes in 3.7
+         */
+        if ((conf->op_version < GD_OP_VERSION_3_7_0) &&
+            (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
+             type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
+             type == GF_QUOTA_OPTION_TYPE_REMOVE))
+                goto out;
+
         supported = _gf_true;
 
 out:
@@ -635,14 +644,60 @@ glusterd_update_quota_conf_version (glusterd_volinfo_t *volinfo)
  * and continue the search.
  */
 static gf_boolean_t
-glusterd_find_gfid_match (uuid_t gfid, char gfid_type, unsigned char *buf,
-                          size_t bytes_read, int opcode,
-                          size_t *write_byte_count)
+glusterd_find_gfid_match_3_6 (uuid_t gfid, unsigned char *buf,
+                              size_t bytes_read, int opcode,
+                              size_t *write_byte_count)
 {
         int           gfid_index  = 0;
         int           shift_count = 0;
         unsigned char tmp_buf[17] = {0,};
-        char          type        = 0;
+
+        /* This function if for backward compatibility */
+
+        while (gfid_index != bytes_read) {
+                memcpy ((void *)tmp_buf, (void *)&buf[gfid_index], 16);
+                if (!gf_uuid_compare (gfid, tmp_buf)) {
+                        if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE) {
+                                shift_count = bytes_read - (gfid_index + 16);
+                                memmove ((void *)&buf[gfid_index],
+                                         (void *)&buf[gfid_index+16],
+                                         shift_count);
+                                *write_byte_count = bytes_read - 16;
+                        } else {
+                                *write_byte_count = bytes_read;
+                        }
+                        return _gf_true;
+                } else {
+                        gfid_index += 16;
+                }
+        }
+        if (gfid_index == bytes_read)
+                *write_byte_count = bytes_read;
+
+        return _gf_false;
+}
+
+static gf_boolean_t
+glusterd_find_gfid_match (uuid_t gfid, char gfid_type, unsigned char *buf,
+                          size_t bytes_read, int opcode,
+                          size_t *write_byte_count)
+{
+        int                 gfid_index  = 0;
+        int                 shift_count = 0;
+        unsigned char       tmp_buf[17] = {0,};
+        char                type        = 0;
+        xlator_t           *this        = NULL;
+        glusterd_conf_t    *conf        = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        if (conf->op_version < GD_OP_VERSION_3_7_0)
+                return glusterd_find_gfid_match_3_6 (gfid, buf, bytes_read,
+                                                     opcode, write_byte_count);
 
         while (gfid_index != bytes_read) {
                 memcpy ((void *)tmp_buf, (void *)&buf[gfid_index], 16);
@@ -666,6 +721,8 @@ glusterd_find_gfid_match (uuid_t gfid, char gfid_type, unsigned char *buf,
         }
         if (gfid_index == bytes_read)
                 *write_byte_count = bytes_read;
+
+out:
 
         return _gf_false;
 }
@@ -737,7 +794,7 @@ glusterd_store_quota_conf_upgrade (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        ret = quota_conf_write_header (fd);
+        ret = glusterd_quota_conf_write_header (fd);
         if (ret)
                 goto out;
 
@@ -748,7 +805,7 @@ glusterd_store_quota_conf_upgrade (glusterd_volinfo_t *volinfo)
                 else if (ret < 0)
                         goto out;
 
-                ret = quota_conf_write_gfid (fd, gfid,
+                ret = glusterd_quota_conf_write_gfid (fd, gfid,
                                              GF_QUOTA_CONF_TYPE_USAGE);
                 if (ret < 0)
                         goto out;
@@ -803,6 +860,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         glusterd_conf_t   *conf                  = NULL;
         float              version               = 0.0f;
         char               type                  = 0;
+        int                quota_conf_line_sz    = 16;
 
         this = THIS;
         GF_ASSERT (this);
@@ -821,7 +879,8 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         if (ret)
                 goto out;
 
-        if (version < 1.2f) {
+        if (version < 1.2f && conf->op_version >= GD_OP_VERSION_3_7_0) {
+                /* Upgrade quota.conf file to newer format */
                 close (conf_fd);
                 ret = glusterd_store_quota_conf_upgrade(volinfo);
                 if (ret)
@@ -838,13 +897,20 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                         goto out;
         }
 
+        /* If op-ver is gt 3.7, then quota.conf will be upgraded, and 17 bytes
+         * storted in the new format. 16 bytes uuid and
+         * 1 byte type (usage/object)
+         */
+        if (conf->op_version >= GD_OP_VERSION_3_7_0)
+                quota_conf_line_sz++;
+
         fd = gf_store_mkstemp (volinfo->quota_conf_shandle);
         if (fd < 0) {
                 ret = -1;
                 goto out;
         }
 
-        ret = quota_conf_write_header (fd);
+        ret = glusterd_quota_conf_write_header (fd);
         if (ret)
                 goto out;
 
@@ -882,7 +948,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                                 is_file_empty = _gf_true;
                         break;
                 }
-                if ((bytes_read % 17) != 0) {
+                if ((bytes_read % quota_conf_line_sz) != 0) {
                         gf_log (this->name, GF_LOG_ERROR, "quota.conf "
                                 "corrupted");
                         ret = -1;
@@ -915,7 +981,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         switch (opcode) {
         case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
                 if (!found) {
-                        ret = quota_conf_write_gfid (fd, gfid,
+                        ret = glusterd_quota_conf_write_gfid (fd, gfid,
                                                      GF_QUOTA_CONF_TYPE_USAGE);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -929,7 +995,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 break;
         case GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS:
                 if (!found) {
-                        ret = quota_conf_write_gfid (fd, gfid,
+                        ret = glusterd_quota_conf_write_gfid (fd, gfid,
                                                    GF_QUOTA_CONF_TYPE_OBJECTS);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,

@@ -181,4 +181,10 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap);
 int
 glusterd_restore_op_version (xlator_t *this);
 
+int32_t
+glusterd_quota_conf_write_header (int fd);
+
+int32_t
+glusterd_quota_conf_write_gfid (int fd, void *buf, char type);
+
 #endif
