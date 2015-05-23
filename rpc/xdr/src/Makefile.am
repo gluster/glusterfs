@@ -15,13 +15,16 @@ libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION)
 
-libgfxdr_la_SOURCES =  $(XDRSOURCES) xdr-generic.c xdr-nfs3.c msg-nfs3.c
+libgfxdr_la_SOURCES = xdr-generic.c xdr-nfs3.c msg-nfs3.c
+nodist_libgfxdr_la_SOURCES = $(XDRSOURCES)
 
-noinst_HEADERS = $(XDRHEADERS) xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h
+noinst_HEADERS = xdr-generic.h xdr-nfs3.h msg-nfs3.h glusterfs3.h
 
-CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
+BUILT_SOURCES = $(XDRSOURCES) $(XDRHEADERS)
 
 EXTRA_DIST = $(XDRGENFILES)
+
+CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
 
 xdrsrc=$(top_srcdir)/rpc/xdr/src
 glusterfs3-xdr.c: glusterfs3-xdr.x glusterfs3-xdr.h
