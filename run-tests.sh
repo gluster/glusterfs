@@ -196,7 +196,6 @@ function is_bad_test ()
     local name=$1
     for bt in ./tests/basic/volume-snapshot-clone.t	\
     	      ./tests/basic/uss.t			\
-              ./tests/basic/afr/entry-self-heal.t       \
               ./tests/bugs/replicate/bug-1015990.t      \
               ./tests/basic/ec/quota.t  \
               ./tests/basic/tier/tier.t \
