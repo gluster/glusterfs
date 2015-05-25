@@ -19,6 +19,10 @@
 
 cleanup;
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/../../basic/quota.c -o $QDD
+
 #1
 ## Step 1
 TEST glusterd
@@ -54,11 +58,11 @@ TEST $CLI volume quota $V0 limit-usage /$QUOTA_LIMIT_DIR 100KB
 
 #16
 ## Step 3 and 4
-TEST dd if=/dev/urandom of=$N0/$QUOTA_LIMIT_DIR/95KB_file bs=1k count=95
+TEST $QDD $N0/$QUOTA_LIMIT_DIR/95KB_file 1 95
 #Uncomment below TEST once the bug# 1202292 is fixed
 #TEST grep -e "\"Usage crossed soft limit:.*used by /$QUOTA_LIMIT_DIR\"" -- $BRICK_LOG_DIR/*
 
-TEST dd if=/dev/urandom of=$N0/100KB_file bs=1k count=100
+TEST $QDD $N0/100KB_file 1 100
 #Uncomment below TEST once the bug# 1202292 is fixed
 #TEST grep -e "\"Usage crossed soft limit:.*used by /\"" -- $BRICK_LOG_DIR/*
 
@@ -67,11 +71,11 @@ TEST dd if=/dev/urandom of=$N0/100KB_file bs=1k count=100
 TEST sleep 10
 
 ## Step 6
-TEST dd if=/dev/urandom of=$N0/$QUOTA_LIMIT_DIR/1KB_file bs=1k count=1
+TEST $QDD $N0/$QUOTA_LIMIT_DIR/1KB_file 1 1
 TEST grep -e "\"Usage is above soft limit:.*used by /$QUOTA_LIMIT_DIR\"" -- $BRICK_LOG_DIR/*
 
 #23
-TEST dd if=/dev/urandom of=$N0/1KB_file bs=1k count=1
+TEST $QDD $N0/1KB_file 1 1
 TEST grep -e "\"Usage is above soft limit:.*used by /\"" -- $BRICK_LOG_DIR/*
 
 #25
@@ -80,4 +84,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
+
+rm -f $QDD
+
 cleanup;

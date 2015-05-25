@@ -4,6 +4,10 @@
 
 cleanup;
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/../../basic/quota.c -o $QDD
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
@@ -59,12 +63,12 @@ TEST $CLI volume quota $V0 limit-usage /test_dir 10MB 50
 EXPECT "10.0MB" hard_limit "/test_dir";
 EXPECT "50%" soft_limit "/test_dir";
 
-TEST dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=4
+TEST $QDD $M0/test_dir/file1.txt 256 16
 EXPECT "4.0MB" usage "/test_dir";
 EXPECT 'No' sl_exceeded "/test_dir";
 EXPECT 'No' hl_exceeded "/test_dir";
 
-TEST dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=6
+TEST $QDD $M0/test_dir/file1.txt 256 24
 EXPECT "6.0MB" usage "/test_dir";
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'No' hl_exceeded "/test_dir";
@@ -73,10 +77,12 @@ EXPECT 'No' hl_exceeded "/test_dir";
 TEST $CLI volume set $V0 features.hard-timeout 0
 TEST $CLI volume set $V0 features.soft-timeout 0
 
-TEST ! dd if=/dev/zero of=$M0/test_dir/file1.txt bs=1024k count=15
+TEST ! $QDD $M0/test_dir/file1.txt 256 60
 EXPECT 'Yes' sl_exceeded "/test_dir";
 EXPECT 'Yes' hl_exceeded "/test_dir";
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
+
+rm -f $QDD
 
 cleanup;

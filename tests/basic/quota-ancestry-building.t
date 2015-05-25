@@ -8,6 +8,10 @@ cleanup;
 # This tests quota enforcing on an inode without any path information.
 # This should cover anon-fd type of workload as well.
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/quota.c -o $QDD
+
 TESTS_EXPECTED_IN_LOOP=8
 TEST glusterd
 TEST pidof glusterd
@@ -37,7 +41,7 @@ TEST fd_open 5 'w' "$M0/$deep/file3"
 TEST fd_open 6 'w' "$M0/$deep/file4"
 
 # consume all quota
-TEST ! dd if=/dev/zero of="$M0/$deep/file" bs=1000000 count=1
+TEST ! $QDD $M0/$deep/file 256 4
 
 # simulate name-less lookups for re-open where the parent information is lost.
 # Stopping and starting the bricks will trigger client re-open which happens on
@@ -62,4 +66,6 @@ exec 6>&-
 
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
+
+rm -f $QDD
 cleanup;

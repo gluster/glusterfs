@@ -198,10 +198,8 @@ function is_bad_test ()
     	      ./tests/basic/uss.t			\
               ./tests/basic/afr/entry-self-heal.t       \
               ./tests/bugs/replicate/bug-1015990.t      \
-              ./tests/bugs/quota/bug-1038598.t  \
               ./tests/basic/afr/read-subvol-entry.t     \
               ./tests/basic/ec/quota.t  \
-              ./tests/bugs/distribute/bug-1161156.t     \
               ./tests/basic/tier/tier.t \
               ./tests/basic/quota-nfs.t \
               ./tests/bugs/quota/bug-1035576.t  \
