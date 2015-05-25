@@ -1502,7 +1502,7 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if ((op_ret < 0) || (local == NULL)) {
+        if ((op_ret < 0) || (local == NULL) || (postbuf == NULL)) {
                 goto out;
         }
 
