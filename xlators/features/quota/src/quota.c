@@ -14,6 +14,7 @@
 #include "defaults.h"
 #include "statedump.h"
 #include "quota-common-utils.h"
+#include "quota-messages.h"
 
 struct volume_options options[];
 
@@ -40,9 +41,9 @@ __quota_init_inode_ctx (inode_t *inode, xlator_t *this,
 
         ret = __inode_ctx_put (inode, this, (uint64_t )(long)ctx);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "cannot set quota context in inode (gfid:%s)",
-                        uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_INODE_CTX_SET_FAILED, "cannot set quota context "
+                        "in inode (gfid:%s)", uuid_utoa (inode->gfid));
         }
 out:
         return ret;
@@ -124,22 +125,21 @@ quota_inode_loc_fill (inode_t *inode, loc_t *loc)
 
         parent = inode_parent (inode, 0, NULL);
         if (!parent) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "cannot find parent for inode (gfid:%s)",
-                        uuid_utoa (inode->gfid));
+                gf_msg_debug (this->name, 0, "cannot find parent for "
+                              "inode (gfid:%s)", uuid_utoa (inode->gfid));
         }
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "cannot construct path for inode (gfid:%s)",
-                        uuid_utoa (inode->gfid));
+                gf_msg_debug (this->name, 0, "cannot construct path for "
+                              "inode (gfid:%s)",  uuid_utoa (inode->gfid));
         }
 
         ret = quota_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "cannot fill loc");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
+                        "cannot fill loc");
                 goto err;
         }
 
@@ -260,7 +260,9 @@ quota_inode_parent (inode_t *inode, uuid_t pargfid, const char *name)
 
         parent = __quota_inode_parent (inode, pargfid, name);
         if (!parent)
-                gf_log_callingfn (THIS->name, GF_LOG_ERROR, "Failed to find "
+                gf_msg_callingfn (THIS->name, GF_LOG_ERROR, 0,
+                                  Q_MSG_PARENT_NULL,
+                                  "Failed to find "
                                   "ancestor for inode (%s)",
                                   uuid_utoa(inode->gfid));
 
@@ -349,7 +351,8 @@ check_ancestory_continue (struct list_head *parents, inode_t *inode,
         local = frame->local;
 
         if (parents && list_empty (parents)) {
-                gf_log (THIS->name, GF_LOG_WARNING,
+                gf_msg (THIS->name, GF_LOG_WARNING, EIO,
+                        Q_MSG_ANCESTRY_BUILD_FAILED,
                         "Couldn't build ancestry for inode (gfid:%s). "
                         "Without knowing ancestors till root, quota "
                         "cannot be enforced. "
@@ -413,7 +416,8 @@ check_ancestory_2_cbk (struct list_head *parents, inode_t *inode,
                 goto out;
 
         if (parents == NULL || list_empty (parents)) {
-                gf_log (THIS->name, GF_LOG_WARNING,
+                gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                        Q_MSG_ENFORCEMENT_FAILED,
                         "Couldn't build ancestry for inode (gfid:%s). "
                         "Without knowing ancestors till root, quota "
                         "cannot be enforced.",
@@ -558,8 +562,9 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "quota context is not present in inode (gfid:%s)",
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+			Q_MSG_INODE_CTX_GET_FAILED, "quota context is"
+			" not present in  inode (gfid:%s)",
                         uuid_utoa (local->validate_loc.inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
@@ -567,8 +572,9 @@ quota_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_dict_get_meta (xdata, QUOTA_SIZE_KEY, &size);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "dict get failed "
-                        "on quota size");
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+			Q_MSG_SIZE_KEY_MISSING, "quota size key not present "
+                        "in dict");
                 op_errno = EINVAL;
         }
 
@@ -662,7 +668,8 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         parent = inode_parent (local->loc.inode, 0, NULL);
         if (parent == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "parent is NULL");
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        Q_MSG_PARENT_NULL, "parent is NULL");
                 op_errno = EINVAL;
                 goto err;
         }
@@ -855,8 +862,9 @@ quota_validate (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
                 ret = quota_inode_loc_fill (inode, &local->validate_loc);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "cannot fill loc for inode (gfid:%s), hence "
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                Q_MSG_ENFORCEMENT_FAILED,
+				"cannot fill loc for inode (gfid:%s), hence "
                                 "aborting quota-checks and continuing with fop",
                                 uuid_utoa (inode->gfid));
                 }
@@ -876,14 +884,16 @@ quota_validate (call_frame_t *frame, inode_t *inode, xlator_t *this,
 
         ret = dict_set_int8 (xdata, QUOTA_SIZE_KEY, 1);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "dict set failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "dict set failed");
                 ret = -ENOMEM;
                 goto err;
         }
 
         ret = dict_set_str (xdata, "volume-uuid", priv->volume_uuid);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "dict set failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "dict set failed");
                 ret = -ENOMEM;
                 goto err;
         }
@@ -919,12 +929,13 @@ quota_check_limit_continuation (struct list_head *parents, inode_t *inode,
 
         if ((op_ret < 0) || list_empty (parents)) {
                 if (op_ret >= 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, EIO,
+				Q_MSG_ANCESTRY_BUILD_FAILED,
                                 "Couldn't build ancestry for inode (gfid:%s). "
-                                "Without knowing ancestors till root, quota "
+				"Without knowing ancestors till root, quota"
                                 "cannot be enforced. "
                                 "Hence, failing fop with EIO",
-                                uuid_utoa (inode->gfid));
+				uuid_utoa (inode->gfid));
                         op_errno = EIO;
                 }
 
@@ -1184,7 +1195,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         goto done;
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to check "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                Q_MSG_ENFORCEMENT_FAILED, "Failed to check "
                                 "quota object limit");
                         goto err;
                 }
@@ -1196,7 +1208,8 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         goto done;
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to check "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                Q_MSG_ENFORCEMENT_FAILED, "Failed to check "
                                 "quota size limit");
                         goto err;
                 }
@@ -1334,9 +1347,9 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
 
         ret = quota_inode_ctx_get (inode, this, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
-                        "context in inode(gfid:%s)",
-                        uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        Q_MSG_INODE_CTX_GET_FAILED, "cannot create quota "
+                        "context in inode(gfid:%s)", uuid_utoa (inode->gfid));
                 ret = -1;
                 *op_errno = ENOMEM;
                 goto out;
@@ -1374,11 +1387,12 @@ quota_fill_inodectx (xlator_t *this, inode_t *inode, dict_t *dict,
                                                      loc->parent->gfid);
                         if (dentry == NULL) {
                                 /*
-                                  gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot create a new dentry (par:%"
-                                        PRId64", name:%s) for inode(ino:%"
-                                        PRId64", gfid:%s)",
-                                        uuid_utoa (local->loc.inode->gfid));
+                                  gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+					  Q_MSG_ENOMEM,
+                                          "cannot create a new dentry (par:%"
+-                                          PRId64", name:%s) for inode(ino:%"
+-                                          PRId64", gfid:%s)",
+-                                          uuid_utoa (local->loc.inode->gfid));
                                 */
                                 ret = -1;
                                 *op_errno = ENOMEM;
@@ -1457,14 +1471,15 @@ quota_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = dict_set_int8 (xattr_req, QUOTA_LIMIT_KEY, 1);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "dict set of key for hard-limit failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "dict set of key for "
+                        "hard-limit failed");
                 goto err;
         }
 
         ret = dict_set_int8 (xattr_req, QUOTA_LIMIT_OBJECTS_KEY, 1);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
                         "dict set of key for quota object limit failed");
                 goto err;
         }
@@ -1509,15 +1524,17 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = inode_ctx_get (local->loc.inode, this, &ctx_int);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to get the context", local->loc.path);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_INODE_CTX_GET_FAILED, "%s: failed to get the "
+			"context", local->loc.path);
                 goto out;
         }
 
         ctx = (quota_inode_ctx_t *)(unsigned long) ctx_int;
 
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+			Q_MSG_INODE_CTX_GET_FAILED,
                         "quota context not set in %s (gfid:%s)",
                         local->loc.path, uuid_utoa (local->loc.inode->gfid));
                 goto out;
@@ -1551,10 +1568,8 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
         priv = this->private;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
@@ -1633,11 +1648,10 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = quota_inode_ctx_get (fd->inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (fd->inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (fd->inode->gfid));
         }
 
         stub = fop_writev_stub (frame, quota_writev_helper, fd, vector, count,
@@ -1719,10 +1733,8 @@ quota_mkdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int32_t        op_errno = EINVAL;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         op_errno = local->op_errno;
 
@@ -1767,7 +1779,8 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         ret = loc_copy (&local->loc, loc);
         if (ret) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto err;
         }
 
@@ -1822,9 +1835,9 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_inode_ctx_get (inode, this, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
-                        "context in inode(gfid:%s)",
-                        uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        Q_MSG_INODE_CTX_GET_FAILED, "cannot create quota "
+                        "context in inode(gfid:%s)", uuid_utoa (inode->gfid));
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1837,9 +1850,9 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
                                              local->loc.parent->gfid);
                 if (dentry == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "cannot create a new dentry (name:%s) for "
-                                "inode(gfid:%s)", local->loc.name,
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                Q_MSG_ENOMEM, "cannot create a new dentry "
+                                "(name:%s) for inode(gfid:%s)", local->loc.name,
                                 uuid_utoa (local->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1867,12 +1880,10 @@ quota_create_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         local = frame->local;
 
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
+
         priv = this->private;
 
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
 
         if (local->op_ret == -1) {
                 op_errno = local->op_errno;
@@ -1917,7 +1928,8 @@ quota_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         ret = loc_copy (&local->loc, loc);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -1973,8 +1985,9 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
 
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in inode (gfid:%s)",
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+			Q_MSG_INODE_CTX_GET_FAILED,
+			"quota context not set inode (gfid:%s)",
                         uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -2022,7 +2035,8 @@ quota_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         ret = loc_copy (&local->loc, loc);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto err;
         }
 
@@ -2065,11 +2079,10 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_inode_ctx_get (inode, this, &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -2079,13 +2092,15 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if ((strcmp (dentry->name, local->loc.name) == 0) &&
                             (gf_uuid_compare (local->loc.parent->gfid,
                                            dentry->par) == 0)) {
-                                found = 1;
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "new entry being linked (name:%s) for "
-                                        "inode (gfid:%s) is already present "
-                                        "in inode-dentry-list", dentry->name,
-                                        uuid_utoa (local->loc.inode->gfid));
-                                break;
+                               found = 1;
+
+                               gf_msg_debug (this->name, 0, "new entry being"
+                                            " linked (name:%s) for inode "
+                                            "(gfid:%s) is already present "
+                                            "in inode-dentry-list",
+                                            dentry->name,
+                                           uuid_utoa (local->loc.inode->gfid));
+                               break;
                         }
                 }
 
@@ -2094,9 +2109,10 @@ quota_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                      (char *)local->loc.name,
                                                      local->loc.parent->gfid);
                         if (dentry == NULL) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot create a new dentry (name:%s) "
-                                        "for inode(gfid:%s)", local->loc.name,
+                                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                        Q_MSG_ENOMEM,
+					"cannot create a new dentry (name:%s)"
+					"for inode(gfid:%s)", local->loc.name,
                                         uuid_utoa (local->loc.inode->gfid));
                                 op_ret = -1;
                                 op_errno = ENOMEM;
@@ -2128,10 +2144,8 @@ quota_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         priv = this->private;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         op_errno = local->op_errno;
 
@@ -2178,7 +2192,8 @@ quota_link_continue (call_frame_t *frame)
                                                   local->newloc.parent,
                                                   &common_ancestor);
                 if (ret < 0 || gf_uuid_is_null(common_ancestor)) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to get "
+                        gf_msg (this->name, GF_LOG_ERROR, ESTALE,
+                                Q_MSG_ANCESTRY_BUILD_FAILED, "failed to get "
                                 "common_ancestor for %s and %s",
                                 local->oldloc.path, local->newloc.path);
                         op_errno = ESTALE;
@@ -2209,11 +2224,10 @@ quota_link_continue (call_frame_t *frame)
 
         quota_inode_ctx_get (local->oldloc.inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->oldloc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->oldloc.inode->gfid));
         }
 
         LOCK (&local->lock);
@@ -2260,9 +2274,9 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         /* No need to check quota limit if src and dst parents are same */
         if (oldloc->parent && newloc->parent &&
             !gf_uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
-                gf_log (this->name, GF_LOG_DEBUG, "link %s -> %s are "
-                        "in the same directory, so skip check limit",
-                        oldloc->path, newloc->path);
+                gf_msg_debug (this->name, GF_LOG_DEBUG, "link %s -> %s are "
+                              "in the same directory, so skip check limit",
+                              oldloc->path, newloc->path);
                 goto off;
         }
 
@@ -2278,19 +2292,22 @@ quota_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         ret = loc_copy (&local->loc, newloc);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto err;
         }
 
         ret = loc_copy (&local->oldloc, oldloc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
+                        "loc_copy failed");
                 goto err;
         }
 
         ret = loc_copy (&local->newloc, newloc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
+                        "loc_copy failed");
                 goto err;
         }
 
@@ -2345,12 +2362,8 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                op_ret = -1;
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         if (QUOTA_REG_OR_LNK_FILE (local->oldloc.inode->ia_type)) {
                 size = buf->ia_blocks * 512;
@@ -2362,11 +2375,10 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_inode_ctx_get (local->oldloc.inode, this, &ctx, 0);
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->oldloc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->oldloc.inode->gfid));
 
                 goto out;
         }
@@ -2383,10 +2395,9 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    (gf_uuid_compare (local->newloc.parent->gfid,
                                                   dentry->par) == 0)) {
                                 new_dentry_found = 1;
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "new entry being linked (name:%s) for "
-                                        "inode (gfid:%s) is already present "
-                                        "in inode-dentry-list", dentry->name,
+                                gf_msg_debug (this->name, 0, "new entry being "
+                                       "linked (name:%s) for inode (gfid:%s) "
+                                       "is in inode-dentry-list", dentry->name,
                                         uuid_utoa (local->oldloc.inode->gfid));
                         }
 
@@ -2397,9 +2408,9 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (old_dentry != NULL) {
                         __quota_dentry_free (old_dentry);
                 } else {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "dentry corresponding to the path just renamed "
-                                "(name:%s) is not present", local->oldloc.name);
+                        gf_msg_debug (this->name, 0, "dentry corresponding"
+                                     "the path just renamed (name:%s) is not"
+                                     " present", local->oldloc.name);
                 }
 
                 if (!new_dentry_found) {
@@ -2407,11 +2418,12 @@ quota_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                      (char *)local->newloc.name,
                                                      local->newloc.parent->gfid);
                         if (dentry == NULL) {
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "cannot create a new dentry (name:%s) "
-                                        "for inode(gfid:%s)",
-                                        local->newloc.name,
-                                        uuid_utoa (local->oldloc.inode->gfid));
+                                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                        Q_MSG_ENOMEM,
+					"cannot create a new dentry (name:%s) "
+					"for inode(gfid:%s)",
+					local->newloc.name,
+                                        uuid_utoa (local->newloc.inode->gfid));
                                 op_ret = -1;
                                 op_errno = ENOMEM;
                                 goto unlock;
@@ -2442,10 +2454,8 @@ quota_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         priv = this->private;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         op_errno = local->op_errno;
 
@@ -2491,8 +2501,8 @@ quota_rename_get_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dict_get_bin (xdata, QUOTA_SIZE_KEY, (void **) &size);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "size key not present in dict");
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+			Q_MSG_SIZE_KEY_MISSING, "size key not present in dict");
                 op_errno = EINVAL;
                 goto out;
         }
@@ -2528,7 +2538,8 @@ quota_rename_continue (call_frame_t *frame)
                                           local->newloc.parent,
                                           &common_ancestor);
         if (ret < 0 || gf_uuid_is_null(common_ancestor)) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get "
+                gf_msg (this->name, GF_LOG_ERROR, ESTALE,
+                        Q_MSG_ANCESTRY_BUILD_FAILED, "failed to get "
                         "common_ancestor for %s and %s",
                         local->oldloc.path, local->newloc.path);
                 op_errno = ESTALE;
@@ -2545,11 +2556,14 @@ quota_rename_continue (call_frame_t *frame)
         if (QUOTA_REG_OR_LNK_FILE (local->oldloc.inode->ia_type)) {
                 ret = quota_inode_ctx_get (local->oldloc.inode, this, &ctx, 0);
                 if (ctx == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                Q_MSG_INODE_CTX_GET_FAILED,
                                 "quota context not set in inode (gfid:%s), "
                                 "considering file size as zero while enforcing "
                                 "quota on new ancestry",
                                 uuid_utoa (local->oldloc.inode->gfid));
+
+
                         local->delta = 0;
                 } else {
 
@@ -2605,9 +2619,9 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         /* No need to check quota limit if src and dst parents are same */
         if (oldloc->parent && newloc->parent &&
             !gf_uuid_compare(oldloc->parent->gfid, newloc->parent->gfid)) {
-                gf_log (this->name, GF_LOG_DEBUG, "rename %s -> %s are "
-                        "in the same directory, so skip check limit",
-                        oldloc->path, newloc->path);
+                gf_msg_debug (this->name, 0, "rename %s -> %s are "
+                              "in the same directory, so skip check limit",
+                              oldloc->path, newloc->path);
                 goto off;
         }
 
@@ -2620,13 +2634,15 @@ quota_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         ret = loc_copy (&local->oldloc, oldloc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
+                        "loc_copy failed");
                 goto err;
         }
 
         ret = loc_copy (&local->newloc, newloc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
+                        "loc_copy failed");
                 goto err;
         }
 
@@ -2683,11 +2699,10 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 1);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
 
                 goto out;
         }
@@ -2699,10 +2714,11 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
                                              local->loc.parent->gfid);
                 if (dentry == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "cannot create a new dentry (name:%s) for "
-                                "inode(gfid:%s)", local->loc.name,
-                                uuid_utoa (local->loc.inode->gfid));
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                Q_MSG_ENOMEM, "cannot create "
+				"a new dentry (name:%s) for inode(gfid:%s)",
+				local->loc.name,
+				uuid_utoa (local->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = ENOMEM;
                 }
@@ -2726,10 +2742,8 @@ quota_symlink_helper (call_frame_t *frame, xlator_t *this, const char *linkpath,
         quota_priv_t  *priv     = NULL;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         priv = this->private;
 
@@ -2773,7 +2787,8 @@ quota_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         ret = loc_copy (&local->loc, loc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto err;
         }
 
@@ -2821,18 +2836,15 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
@@ -2870,7 +2882,8 @@ quota_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
         ret =  loc_copy (&local->loc, loc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto err;
         }
 
@@ -2903,18 +2916,15 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
@@ -3004,7 +3014,7 @@ dict_set:
         if (ret < 0)
                 goto out;
 
-        gf_log (this->name, GF_LOG_DEBUG, "str = %s", dir_limit);
+        gf_msg_debug (this->name, 0, "str = %s", dir_limit);
 
         QUOTA_STACK_UNWIND (getxattr, frame, 0, 0, dict, NULL);
 
@@ -3069,19 +3079,15 @@ quota_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
                 if (!IA_ISDIR (buf->ia_type)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "quota context is NULL on "
-                                "inode (%s). "
-                                "If quota is not enabled recently and crawler "
-                                "has finished crawling, its an error",
+                  gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                                " (%s). If quota is not enabled recently and "
+                                "crawler has finished crawling, its an error",
                                 uuid_utoa (local->loc.inode->gfid));
                 }
 
@@ -3120,7 +3126,8 @@ quota_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         frame->local = local;
         ret = loc_copy (&local->loc, loc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto unwind;
         }
 
@@ -3154,19 +3161,15 @@ quota_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
                 if (!IA_ISDIR (buf->ia_type)) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "quota context is NULL on "
-                                "inode (%s). "
-                                "If quota is not enabled recently and crawler "
-                                "has finished crawling, its an error",
+                  gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                                " (%s). If quota is not enabled recently and "
+                                "crawler has finished crawling, its an error",
                                 uuid_utoa (local->loc.inode->gfid));
                 }
 
@@ -3235,18 +3238,15 @@ quota_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
@@ -3284,7 +3284,8 @@ quota_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
 
         ret = loc_copy (&local->loc, loc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto unwind;
         }
 
@@ -3319,18 +3320,15 @@ quota_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
@@ -3398,18 +3396,15 @@ quota_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is NULL on "
-                        "inode (%s). "
-                        "If quota is not enabled recently and crawler has "
-                        "finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
 
@@ -3476,18 +3471,15 @@ quota_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
                 if (!IA_ISDIR (statpost->ia_type)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "quota context is "
-                                "NULL on inode (%s). "
-                                "If quota is not enabled recently and crawler "
-                                "has finished crawling, its an error",
+                  gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                                " (%s). If quota is not enabled recently and "
+                                "crawler has finished crawling, its an error",
                                 uuid_utoa (local->loc.inode->gfid));
                 }
 
@@ -3529,7 +3521,8 @@ quota_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = loc_copy (&local->loc, loc);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto unwind;
         }
 
@@ -3563,18 +3556,15 @@ quota_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto out;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, out);
 
         quota_inode_ctx_get (local->loc.inode, this, &ctx, 0);
         if (ctx == NULL) {
                 if (!IA_ISDIR (statpost->ia_type)) {
-                        gf_log (this->name, GF_LOG_DEBUG, "quota context is "
-                                "NULL on inode (%s). "
-                                "If quota is not enabled recently and crawler "
-                                "has finished crawling, its an error",
+                  gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                                " (%s). If quota is not enabled recently and "
+                                "crawler has finished crawling, its an error",
                                 uuid_utoa (local->loc.inode->gfid));
                 }
 
@@ -3649,8 +3639,10 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_inode_ctx_get (inode, this, &ctx, 1);
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING, "cannot create quota "
-                        "context in inode (gfid:%s)", uuid_utoa (inode->gfid));
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_INODE_CTX_GET_FAILED,
+                        "cannot create quota context in "
+                        "inode(gfid:%s)", uuid_utoa (inode->gfid));
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3663,10 +3655,10 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dentry = __quota_dentry_new (ctx, (char *)local->loc.name,
                                              local->loc.parent->gfid);
                 if (dentry == NULL) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "cannot create a new dentry (name:%s) for "
-                                "inode(gfid:%s)", local->loc.name,
-                                uuid_utoa (local->loc.inode->gfid));
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                Q_MSG_ENOMEM, "cannot create a new dentry "
+                                "(name:%s) for inode(gfid:%s)", local->loc.name,
+				uuid_utoa (local->loc.inode->gfid));
                         op_ret = -1;
                         op_errno = ENOMEM;
                         goto unlock;
@@ -3691,10 +3683,8 @@ quota_mknod_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         quota_priv_t  *priv     = NULL;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         priv = this->private;
 
@@ -3739,7 +3729,8 @@ quota_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         ret = loc_copy (&local->loc, loc);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+			Q_MSG_ENOMEM, "loc_copy failed");
                 goto err;
         }
 
@@ -4097,11 +4088,8 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	 * cookie, and it would only do so if the value was non-NULL.  This
 	 * check is therefore just routine defensive coding.
 	 */
-	if (!inode) {
-		gf_log(this->name,GF_LOG_WARNING,
-		       "null inode, cannot adjust for quota");
-		goto unwind;
-	}
+
+        GF_VALIDATE_OR_GOTO ("quota", inode, unwind);
 
         inode_ctx_get (inode, this, &value);
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
@@ -4135,8 +4123,9 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dict_set_int8 (xdata, "quota-deem-statfs", 1);
         if (-1 == ret)
-                gf_log (this->name, GF_LOG_ERROR, "Dict set failed, "
-                        "deem-statfs option may have no effect");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        Q_MSG_ENOMEM, "Dict set failed, deem-statfs option may "
+                        "have no effect");
 
 unwind:
         QUOTA_STACK_UNWIND (statfs, frame, op_ret, op_errno, buf, xdata);
@@ -4201,8 +4190,9 @@ quota_statfs_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ctx = (quota_inode_ctx_t *)(unsigned long)value;
         if ((ret == -1) || (ctx == NULL)) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "quota context is not present in inode (gfid:%s)",
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+			Q_MSG_INODE_CTX_GET_FAILED,
+			"quota context is not present in inode (gfid:%s)",
                         uuid_utoa (local->validate_loc.inode->gfid));
                 op_errno = EINVAL;
                 goto resume;
@@ -4210,8 +4200,9 @@ quota_statfs_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = quota_dict_get_meta (xdata, QUOTA_SIZE_KEY, &size);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "dict get failed "
-                        "on quota size");
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+			Q_MSG_SIZE_KEY_MISSING, "size key not present in "
+                        "dict");
                 op_errno = EINVAL;
         }
 
@@ -4245,7 +4236,8 @@ quota_get_limit_dir_continuation (struct list_head *parents, inode_t *inode,
 
         if ((op_ret < 0) || list_empty (parents)) {
                 if (op_ret >= 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
+                        gf_msg (this->name, GF_LOG_WARNING, EIO,
+                                Q_MSG_ANCESTRY_BUILD_FAILED,
                                 "Couldn't build ancestry for inode (gfid:%s). "
                                 "Without knowing ancestors till root, quota "
                                 "cannot be enforced. "
@@ -4331,8 +4323,8 @@ quota_get_limit_dir (call_frame_t *frame, inode_t *cur_inode, xlator_t *this)
         return;
 
 off:
-        gf_log (this->name, GF_LOG_DEBUG,
-                "No limit set on the inode or it's parents.");
+        gf_msg_debug (this->name, 0,
+                      "No limit set on the inode or it's parents.");
 
         QUOTA_STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                                FIRST_CHILD(this)->fops->statfs,
@@ -4415,7 +4407,6 @@ quota_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Missing inode, can't adjust for quota");
 
-
 off:
         STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                          FIRST_CHILD(this)->fops->statfs, loc, xdata);
@@ -4496,8 +4487,9 @@ quota_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (dict) {
                 ret = dict_set_int8 (dict, QUOTA_LIMIT_KEY, 1);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "dict set of key for hard-limit failed");
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+				Q_MSG_ENOMEM,
+				"dict set of key for hard-limit");
                         goto err;
                 }
         }
@@ -4505,8 +4497,9 @@ quota_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (dict) {
                 ret = dict_set_int8 (dict, QUOTA_LIMIT_OBJECTS_KEY, 1);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "dict set of key for hard-limit failed");
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                Q_MSG_ENOMEM, "dict set of key for hard-limit "
+                                "failed");
                         goto err;
                 }
         }
@@ -4554,16 +4547,18 @@ quota_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = inode_ctx_get (local->loc.inode, this, &ctx_int);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "%s: failed to get the context", local->loc.path);
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_INODE_CTX_GET_FAILED,
+			"%s: failed to get the context", local->loc.path);
                 goto out;
         }
 
         ctx = (quota_inode_ctx_t *)(unsigned long) ctx_int;
 
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "quota context not set in %s (gfid:%s)",
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+			Q_MSG_INODE_CTX_GET_FAILED,
+			"quota context not set in %s (gfid:%s)",
                         local->loc.path, uuid_utoa (local->loc.inode->gfid));
                 goto out;
         }
@@ -4591,10 +4586,8 @@ quota_fallocate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
         quota_priv_t  *priv     = NULL;
 
         local = frame->local;
-        if (local == NULL) {
-                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
-                goto unwind;
-        }
+
+        GF_VALIDATE_OR_GOTO ("quota", local, unwind);
 
         priv = this->private;
 
@@ -4646,11 +4639,10 @@ quota_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
 
         ret = quota_inode_ctx_get (fd->inode, this, &ctx, 0);
         if (ctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG, "quota context is "
-                        "NULL on inode (%s). "
-                        "If quota is not enabled recently and crawler "
-                        "has finished crawling, its an error",
-                        uuid_utoa (local->loc.inode->gfid));
+                gf_msg_debug (this->name, 0, "quota context is NULL on inode"
+                              " (%s). If quota is not enabled recently and "
+                              "crawler has finished crawling, its an error",
+                              uuid_utoa (local->loc.inode->gfid));
         }
 
         stub = fop_fallocate_stub(frame, quota_fallocate_helper, fd, mode,
@@ -4718,8 +4710,9 @@ quota_log_helper (char **usage_str, int64_t cur_size, inode_t *inode,
 
         *usage_str = gf_uint64_2human_readable (cur_size);
         if (!(*usage_str))
-                gf_log (this->name, GF_LOG_ERROR, "integer to string "
-                        "conversion failed Reason:\"Cannot allocate memory\"");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, Q_MSG_ENOMEM,
+                        "integer to string conversion failed Reason"
+                        ":\"Cannot allocate memory\"");
 
         inode_path (inode, NULL, path);
         if (!(*path))
@@ -4754,8 +4747,9 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
                 quota_log_helper (&usage_str, cur_size, inode,
                                   &path, &cur_time);
 
-                gf_log (this->name, GF_LOG_ALERT, "Usage crossed "
-                        "soft limit: %s used by %s", usage_str, path);
+                gf_msg (this->name, GF_LOG_ALERT, 0,
+                        Q_MSG_CROSSED_SOFT_LIMIT, "Usage crossed soft limit: "
+                        "%s used by %s", usage_str, path);
                 ctx->prev_log = cur_time;
         }
         /* Usage is above soft limit */
@@ -4765,8 +4759,9 @@ quota_log_usage (xlator_t *this, quota_inode_ctx_t *ctx, inode_t *inode,
                 quota_log_helper (&usage_str, cur_size, inode,
                                   &path, &cur_time);
 
-                gf_log (this->name, GF_LOG_ALERT, "Usage is above "
-                        "soft limit: %s used by %s", usage_str, path);
+                gf_msg (this->name, GF_LOG_ALERT, 0, Q_MSG_CROSSED_SOFT_LIMIT,
+                        "Usage is above soft limit: %s used by %s",
+                        usage_str, path);
                 ctx->prev_log = cur_time;
         }
 
@@ -4785,8 +4780,8 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_quota_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_WARNING, "Memory accounting"
-                        "init failed");
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM, Q_MSG_ENOMEM,
+                        "Memory accounting init failed");
                 return ret;
         }
 
@@ -4834,14 +4829,16 @@ init (xlator_t *this)
 
         if ((this->children == NULL)
             || this->children->next) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        Q_MSG_INVALID_VOLFILE,
                         "FATAL: quota (%s) not configured with "
                         "exactly one child", this->name);
                 return -1;
         }
 
         if (this->parents == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_INVALID_VOLFILE,
                         "dangling volume. check volfile");
         }
 
@@ -4863,8 +4860,8 @@ init (xlator_t *this)
         this->local_pool = mem_pool_new (quota_local_t, 64);
         if (!this->local_pool) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "failed to create local_t's memory pool");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+			Q_MSG_ENOMEM, "failed to create local_t's memory pool");
                 goto err;
         }
 
@@ -4872,8 +4869,9 @@ init (xlator_t *this)
                 rpc = quota_enforcer_init (this, this->options);
                 if (rpc == NULL) {
                         ret = -1;
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "quota enforcer rpc init failed");
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+				Q_MSG_QUOTA_ENFORCER_RPC_INIT_FAILED,
+				"quota enforcer rpc init failed");
                         goto err;
                 }
 
@@ -4917,8 +4915,9 @@ reconfigure (xlator_t *this, dict_t *options)
                                                       this->options);
                 if (priv->rpc_clnt == NULL) {
                         ret = -1;
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "quota enforcer rpc init failed");
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+				Q_MSG_QUOTA_ENFORCER_RPC_INIT_FAILED,
+				"quota enforcer rpc init failed");
                         goto out;
                 }
 

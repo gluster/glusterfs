@@ -31,6 +31,7 @@
 #include "compat-errno.h"
 #include "protocol-common.h"
 #include "quota-common-utils.h"
+#include "quota-messages.h"
 
 #define DIRTY                   "dirty"
 #define SIZE                    "size"
@@ -74,8 +75,9 @@
                 var = GF_CALLOC (sizeof (type), 1,      \
                                  gf_quota_mt_##type);   \
                 if (!var) {                             \
-                        gf_log ("", GF_LOG_ERROR,       \
-                                "out of memory");    \
+                        gf_msg ("", GF_LOG_ERROR,       \
+                                ENOMEM, Q_MSG_ENOMEM,   \
+				"out of memory");       \
                         ret = -1;                       \
                         goto label;                     \
                 }                                       \
