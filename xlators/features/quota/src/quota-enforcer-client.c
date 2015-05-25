@@ -39,6 +39,7 @@
 #endif
 
 #include "quota.h"
+#include "quota-messages.h"
 
 extern struct rpc_clnt_program quota_enforcer_clnt;
 
@@ -144,7 +145,9 @@ quota_enforcer_lookup_cbk (struct rpc_req *req, struct iovec *iov,
 
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfs3_lookup_rsp);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "XDR decoding failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        Q_MSG_XDR_DECODING_FAILED,
+                        "XDR decoding failed");
                 rsp.op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -165,8 +168,8 @@ quota_enforcer_lookup_cbk (struct rpc_req *req, struct iovec *iov,
 
         if ((!gf_uuid_is_null (inode->gfid))
             && (gf_uuid_compare (stbuf.ia_gfid, inode->gfid) != 0)) {
-                gf_log (frame->this->name, GF_LOG_DEBUG,
-                        "gfid changed for %s", local->validate_loc.path);
+                gf_msg_debug (frame->this->name, ESTALE,
+                              "gfid changed for %s", local->validate_loc.path);
                 rsp.op_ret = -1;
                 op_errno = ESTALE;
                 goto out;
@@ -221,14 +224,14 @@ out:
         if (rsp.op_ret == -1) {
                 /* any error other than ENOENT */
                 if (rsp.op_errno != ENOENT)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "remote operation failed: %s. Path: %s (%s)",
-                                strerror (rsp.op_errno),
-                                local->validate_loc.path,
+                        gf_msg (this->name, GF_LOG_WARNING, rsp.op_errno,
+                                Q_MSG_LOOKUP_FAILED,
+                                "Getting cluster-wide size of directory failed "
+                                "(path: %s gfid:%s)", local->validate_loc.path,
                                 loc_gfid_utoa (&local->validate_loc));
                 else
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "not found on remote node");
+                        gf_msg_trace (this->name, ENOENT,
+                                      "not found on remote node");
 
         } else if (local->quotad_conn_retry) {
                 gf_log (this->name, GF_LOG_DEBUG, "connected to quotad after "
@@ -258,6 +261,7 @@ _quota_enforcer_lookup (void *data)
         call_frame_t           *frame      = NULL;
         loc_t                  *loc        = NULL;
         xlator_t               *this       = NULL;
+        char                   *dir_path       = NULL;
 
         frame = data;
         local = frame->local;
@@ -286,6 +290,11 @@ _quota_enforcer_lookup (void *data)
         else
                 req.bname = "";
 
+        if (loc->path)
+                dir_path = (char *)loc->path;
+        else
+                dir_path = "";
+
         ret = quota_enforcer_submit_request (&req, frame,
                                              priv->quota_enforcer,
                                              GF_AGGREGATOR_LOOKUP,
@@ -294,7 +303,10 @@ _quota_enforcer_lookup (void *data)
                                              (xdrproc_t)xdr_gfs3_lookup_req);
 
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+			Q_MSG_RPC_SUBMIT_FAILED, "Couldn't send the request to "
+                        "fetch cluster wide size of directory (path:%s gfid:%s)"
+                        , dir_path, req.gfid);
         }
 
         GF_FREE (req.xdata.xdata_val);
@@ -346,19 +358,19 @@ quota_enforcer_notify (struct rpc_clnt *rpc, void *mydata,
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
-                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_CONNECT");
+                gf_msg_trace (this->name, 0, "got RPC_CLNT_CONNECT");
                 break;
         }
 
         case RPC_CLNT_DISCONNECT:
         {
-                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
+                gf_msg_trace (this->name, 0, "got RPC_CLNT_DISCONNECT");
                 break;
         }
 
         default:
-                gf_log (this->name, GF_LOG_TRACE,
-                        "got some other RPC event %d", event);
+                gf_msg_trace (this->name, 0,
+                              "got some other RPC event %d", event);
                 ret = 0;
                 break;
         }
@@ -444,7 +456,9 @@ quota_enforcer_init (xlator_t *this, dict_t *options)
 
         ret = rpc_clnt_register_notify (rpc, quota_enforcer_notify, this);
         if (ret) {
-                gf_log ("cli", GF_LOG_ERROR, "failed to register notify");
+                gf_msg ("quota", GF_LOG_ERROR, 0,
+                        Q_MSG_RPCCLNT_REGISTER_NOTIFY_FAILED,
+                        "failed to register notify");
                 goto out;
         }
 
@@ -461,7 +475,7 @@ out:
         }
 
         return rpc;
-}
+        }
 
 struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] = {
         [GF_AGGREGATOR_NULL]     = {"NULL", NULL},

@@ -90,7 +90,8 @@ quotad_aggregator_submit_reply (call_frame_t *frame, rpcsvc_request_t *req,
 
         iob = quotad_serialize_reply (req, arg, &rsp, xdrproc);
         if (!iob) {
-                gf_log ("", GF_LOG_ERROR, "Failed to serialize reply");
+                gf_msg ("", GF_LOG_ERROR, 0, Q_MSG_DICT_SERIALIZE_FAIL,
+                        "Failed to serialize reply");
                 goto ret;
         }
 
@@ -148,7 +149,9 @@ quotad_aggregator_getlimit_cbk (xlator_t *this, call_frame_t *frame,
 out:
         rsp->op_ret = ret;
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to unserialize "
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        Q_MSG_DICT_UNSERIALIZE_FAIL,
+                        "failed to unserialize "
                         "nameless lookup rsp");
                 goto reply;
         }
@@ -193,7 +196,8 @@ quotad_aggregator_getlimit (rpcsvc_request_t *req)
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0)  {
                 //failed to decode msg;
-                gf_log ("", GF_LOG_ERROR, "xdr decoding error");
+                gf_msg ("this->name", GF_LOG_ERROR, 0, Q_MSG_XDR_DECODE_ERROR,
+                        "xdr decoding error");
                 req->rpc_err = GARBAGE_ARGS;
                 goto err;
         }
@@ -203,8 +207,10 @@ quotad_aggregator_getlimit (rpcsvc_request_t *req)
                 ret = dict_unserialize (cli_req.dict.dict_val,
                                         cli_req.dict.dict_len, &dict);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to "
-                                "unserialize req-buffer to dictionary");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                Q_MSG_DICT_UNSERIALIZE_FAIL,
+                                "Failed to unserialize req-buffer to "
+                                "dictionary");
                         goto err;
                 }
         }
@@ -230,8 +236,8 @@ quotad_aggregator_getlimit (rpcsvc_request_t *req)
 
         ret = dict_set_int32 (state->xdata, QUOTA_LIMIT_OBJECTS_KEY, 42);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to set "
-                        "QUOTA_LIMIT_OBJECTS_KEY");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, Q_MSG_ENOMEM,
+                        "Failed to set QUOTA_LIMIT_OBJECTS_KEY");
                 goto err;
         }
 
@@ -384,7 +390,8 @@ quotad_aggregator_init (xlator_t *this)
         /* RPC related */
         priv->rpcsvc = rpcsvc_init (this, this->ctx, this->options, 0);
         if (priv->rpcsvc == NULL) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_RPCSVC_INIT_FAILED,
                         "creation of rpcsvc failed");
                 ret = -1;
                 goto out;
@@ -393,7 +400,8 @@ quotad_aggregator_init (xlator_t *this)
         ret = rpcsvc_create_listeners (priv->rpcsvc, this->options,
                                        this->name);
         if (ret < 1) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_RPCSVC_LISTENER_CREATION_FAILED,
                         "creation of listener failed");
                 ret = -1;
                 goto out;
@@ -404,7 +412,8 @@ quotad_aggregator_init (xlator_t *this)
 
         ret = rpcsvc_program_register (priv->rpcsvc, &quotad_aggregator_prog);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        Q_MSG_RPCSVC_REGISTER_FAILED,
                         "registration of program (name:%s, prognum:%d, "
                         "progver:%d) failed", quotad_aggregator_prog.progname,
                         quotad_aggregator_prog.prognum,
