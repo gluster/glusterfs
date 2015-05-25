@@ -13,6 +13,10 @@ function usage()
 
 cleanup;
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/../../basic/quota.c -o $QDD
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
@@ -30,7 +34,7 @@ mydir="dir"
 TEST mkdir -p $N0/$mydir
 TEST mkdir -p $N0/newdir
 
-TEST dd if=/dev/zero of=$N0/$mydir/file bs=1k count=10240
+TEST $QDD $N0/$mydir/file 256 40
 
 TEST $CLI volume quota $V0 enable
 TEST $CLI volume quota $V0 limit-usage / 20MB
@@ -38,10 +42,10 @@ TEST $CLI volume quota $V0 limit-usage /newdir 5MB
 TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
 
-TEST dd if=/dev/zero of=$N0/$mydir/newfile_1 bs=512 count=10240
+TEST $QDD $N0/$mydir/newfile_1 256 20
 # wait for write behind to complete.
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "15.0MB" usage "/"
-TEST ! dd if=/dev/zero of=$N0/$mydir/newfile_2 bs=1k count=10240 conv=fdatasync
+TEST ! $QDD $N0/$mydir/newfile_2 256 40
 
 # Test rename within a directory. It should pass even when the
 # corresponding directory quota is filled.
@@ -53,4 +57,7 @@ TEST ! mv $N0/dir/newfile_3 $N0/newdir/
 umount_nfs $N0
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
+
+rm -f $QDD
+
 cleanup;

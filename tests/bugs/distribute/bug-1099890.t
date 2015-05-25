@@ -10,6 +10,10 @@
 
 cleanup;
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/../../basic/quota.c -o $QDD
+
 TEST   glusterd;
 TEST   pidof glusterd;
 
@@ -49,14 +53,14 @@ EXPECT "150M" echo `df -h $M0 -P | tail -1 | awk {'print $2'}`
 
 # Create a new file 'foo' under the root of the volume, which hashes to subvol-0
 # of DHT, that consumes 40M
-TEST   dd if=/dev/zero of=$M0/foo bs=5120k count=8
+TEST $QDD $M0/foo 256 160
 
 TEST   stat $B0/${V0}1/foo
 TEST ! stat $B0/${V0}2/foo
 
 # Create a new file 'bar' under the root of the volume, which hashes to subvol-1
 # of DHT, that consumes 40M
-TEST   dd if=/dev/zero of=$M0/bar bs=5120k count=8
+TEST $QDD $M0/bar 256 160
 
 TEST ! stat $B0/${V0}1/bar
 TEST   stat $B0/${V0}2/bar
@@ -84,7 +88,7 @@ TEST   touch $M0/empty1;
 # If this bug is fixed, then DHT should be routing the creation to subvol-1 only
 # as it has more than min-free-disk space available.
 
-TEST   dd if=/dev/zero of=$M0/file bs=1k count=1
+TEST $QDD $M0/file 1 1
 sleep 1;
 TEST ! stat $B0/${V0}1/file
 TEST   stat $B0/${V0}2/file
@@ -96,7 +100,7 @@ TEST touch $M0/empty2;
 
 # Now I create a new file that hashes to subvol-0, at the end of which, there
 # will be less than min-free-disk space available on it.
-TEST   dd if=/dev/zero of=$M0/fil bs=5120k count=4
+TEST $QDD $M0/fil 256 80
 sleep 1;
 TEST   stat $B0/${V0}1/fil
 TEST ! stat $B0/${V0}2/fil
@@ -108,7 +112,7 @@ TEST   touch $M0/empty3;
 # Now I create a file that hashes to subvol-0 but since it has less than
 # min-free-disk space available, its data will be cached on subvol-1.
 
-TEST   dd if=/dev/zero of=$M0/zz bs=5120k count=1
+TEST $QDD $M0/zz 256 20
 
 TEST   stat $B0/${V0}1/zz
 TEST   stat $B0/${V0}2/zz
@@ -123,4 +127,5 @@ EXPECT "1" get_aux
 UMOUNT_LOOP ${B0}/${V0}{1,2}
 rm -f ${B0}/brick{1,2}
 
+rm -f $QDD
 cleanup

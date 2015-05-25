@@ -20,6 +20,10 @@ function quota_object_list_field () {
 
 cleanup;
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/../../basic/quota.c -o $QDD
+
 TESTS_EXPECTED_IN_LOOP=9
 
 TEST glusterd
@@ -81,18 +85,14 @@ EXPECT "10" quota_object_list_field "/test_dir" 2
 # Check the quota enforcement mechanism for usage
 #-----------------------------------------------------
 
-# Compile the program which basically created a file
-# of required size
-TEST $CC $(dirname $0)/../../basic/quota.c -o $(dirname $0)/quota
-
 # try creating a 8MB file and it should fail
-TEST $(dirname $0)/quota $M0/test_dir/test1.txt '8388608'
+TEST $QDD $M0/test_dir/test1.txt 256 32
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quota_list_field "/test_dir" 2
 TEST rm -f $M0/test_dir/test1.txt
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quota_list_field "/test_dir" 2
 
 # try creating a 15MB file and it should succeed
-TEST ! $(dirname $0)/quota $M0/test_dir/test2.txt '15728640'
+TEST ! $QDD $M0/test_dir/test2.txt 256 60
 TEST rm -f $M0/test_dir/test2.txt
 
 
@@ -130,4 +130,5 @@ TEST $CLI volume stop $V0
 EXPECT "1" get_aux
 TEST $CLI volume delete $V0
 
+rm -f $QDD
 cleanup;

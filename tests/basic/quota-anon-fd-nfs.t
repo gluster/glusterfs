@@ -7,6 +7,10 @@
 
 cleanup;
 
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/quota.c -o $QDD
+
 TESTS_EXPECTED_IN_LOOP=16
 TEST glusterd
 TEST pidof glusterd
@@ -62,10 +66,8 @@ echo "World" >> $N0/$deep/new_file_1
 echo 1 >> $N0/$deep/new_file_1
 echo 2 >> $N0/$deep/new_file_1
 
-# compile the test write program and run it
-build_tester $(dirname $0)/quota.c -o $(dirname $0)/quota;
 # Try to create a 1M file which should fail
-TEST ! $(dirname $0)/quota $N0/$deep/new_file_2 "1048576"
+TEST ! $QDD $N0/$deep/new_file_2 256 4
 
 
 # At the end of each fop in server, reference count of the
@@ -96,4 +98,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
+
+rm -f $QDD
+
 cleanup;
