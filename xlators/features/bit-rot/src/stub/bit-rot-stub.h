@@ -66,7 +66,8 @@ typedef struct br_stub_local {
         } u;
 } br_stub_local_t;
 
-#define BR_STUB_INCREMENTAL_VERSIONING (1<<1)
+#define BR_STUB_NO_VERSIONING (1 << 0)
+#define BR_STUB_INCREMENTAL_VERSIONING (1 << 1)
 
 typedef struct br_stub_private {
         gf_boolean_t go;
