@@ -2425,6 +2425,10 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                         goto out;
         }
 
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                glusterd_restart_rebalance_for_volume (volinfo);
+        }
+
         ret = glusterd_svcs_manager (volinfo);
 
 out:

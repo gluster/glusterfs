@@ -220,6 +220,10 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *brickinfo,
                      gf_boolean_t del_brick);
 
+gf_boolean_t
+glusterd_is_tier_daemon_running (glusterd_volinfo_t *volinfo);
+
+
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);
 
@@ -356,6 +360,9 @@ glusterd_get_trusted_client_filepath (char *filepath,
                                       gf_transport_type type);
 int
 glusterd_restart_rebalance (glusterd_conf_t *conf);
+
+void
+glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
