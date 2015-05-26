@@ -194,8 +194,7 @@ function run_tests()
 function is_bad_test ()
 {
     local name=$1
-    for bt in ./tests/basic/uss.t                       \
-              ./tests/bugs/replicate/bug-1015990.t      \
+    for bt in ./tests/bugs/replicate/bug-1015990.t      \
               ./tests/basic/ec/quota.t  \
               ./tests/basic/quota-nfs.t \
               ./tests/bugs/quota/bug-1035576.t  \
