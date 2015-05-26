@@ -409,6 +409,11 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
 	}
 
+        if (dict_get (xdata, GLUSTERFS_BAD_INODE)) {
+                qr_inode_prune (this, inode);
+                goto out;
+        }
+
 	if (dict_get (xdata, "sh-failed")) {
 		qr_inode_prune (this, inode);
 		goto out;

@@ -153,6 +153,34 @@
  * @recommendedaction
  *
  */
+#define BRS_MSG_BAD_OBJ_MARK_FAIL           (GLFS_BITROT_STUB_BASE + 16)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_NON_SCRUB_BAD_OBJ_MARK      (GLFS_BITROT_STUB_BASE + 17)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_REMOVE_BAD_OBJECT_XATTR     (GLFS_BITROT_STUB_BASE + 18)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define BRS_MSG_BAD_OBJECT_ACCESS           (GLFS_BITROT_STUB_BASE + 20)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_BITROT_STUB_MESSAGES_H_ */
