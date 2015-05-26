@@ -182,8 +182,5 @@ br_prepare_loc (xlator_t *, br_child_t *, loc_t *, gf_dirent_t *, loc_t *);
 gf_boolean_t
 bitd_is_bad_file (xlator_t *, br_child_t *, loc_t *, fd_t *);
 
-void
-br_trigger_sign (xlator_t *this, br_child_t *child, inode_t *linked_inode,
-                 loc_t *loc, dict_t *xdata);
 
 #endif /* __BIT_ROT_H__ */

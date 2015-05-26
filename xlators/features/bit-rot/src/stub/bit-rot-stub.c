@@ -255,7 +255,7 @@ br_stub_fill_local (br_stub_local_t *local,
         local->fopstub = stub;
         local->versioningtype = versioningtype;
         local->u.context.version = memversion;
-        if (fd && !local->u.context.fd)
+        if (fd)
                 local->u.context.fd = fd_ref (fd);
         if (inode)
                 local->u.context.inode = inode_ref (inode);
@@ -277,6 +277,126 @@ br_stub_cleanup_local (br_stub_local_t *local)
                 local->u.context.inode = NULL;
         }
         memset (local->u.context.gfid, '\0', sizeof (uuid_t));
+}
+
+static int
+br_stub_need_versioning (xlator_t *this,
+                         fd_t *fd, gf_boolean_t *versioning,
+                         gf_boolean_t *modified, br_stub_inode_ctx_t **ctx)
+{
+        int32_t ret      = -1;
+        uint64_t ctx_addr = 0;
+        br_stub_inode_ctx_t *c = NULL;
+
+        *versioning = _gf_false;
+        *modified = _gf_false;
+
+        ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
+                        "context for the inode %s",
+                        uuid_utoa (fd->inode->gfid));
+                goto error_return;
+        }
+
+        c = (br_stub_inode_ctx_t *) (long) ctx_addr;
+
+        LOCK (&fd->inode->lock);
+        {
+                if (__br_stub_is_inode_dirty (c))
+                        *versioning = _gf_true;
+                if (__br_stub_is_inode_modified (c))
+                        *modified = _gf_true;
+        }
+        UNLOCK (&fd->inode->lock);
+
+        if (ctx)
+                *ctx = c;
+        return 0;
+
+ error_return:
+        return -1;
+}
+
+static int32_t
+br_stub_anon_fd_ctx (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
+{
+        int32_t  ret = -1;
+        br_stub_fd_t *br_stub_fd = NULL;
+
+        br_stub_fd = br_stub_fd_ctx_get (this, fd);
+        if (!br_stub_fd) {
+                ret = br_stub_add_fd_to_inode (this, fd, ctx);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "add fd to the inode (gfid: %s)",
+                                uuid_utoa (fd->inode->gfid));
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+br_stub_versioning_prep (call_frame_t *frame,
+                         xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
+{
+        int32_t          ret = -1;
+        br_stub_local_t *local   = NULL;
+
+        local = br_stub_alloc_local (this);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR, "local allocation failed "
+                        "(gfid: %s)", uuid_utoa (fd->inode->gfid));
+                goto error_return;
+        }
+
+        if (fd_is_anonymous (fd)) {
+                ret = br_stub_anon_fd_ctx (this, fd, ctx);
+                if (ret)
+                        goto free_local;
+        }
+
+        frame->local = local;
+
+        return 0;
+
+ free_local:
+        br_stub_dealloc_local (local);
+ error_return:
+        return -1;
+}
+
+static int
+br_stub_mark_inode_modified (xlator_t *this, br_stub_local_t *local)
+{
+        fd_t                *fd       = NULL;
+        int32_t              ret      = 0;
+        uint64_t             ctx_addr = 0;
+        br_stub_inode_ctx_t *ctx      = NULL;
+
+        fd = local->u.context.fd;
+
+        ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
+        if (ret < 0)
+                goto error_return;
+
+        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
+
+        LOCK (&fd->inode->lock);
+        {
+                __br_stub_set_inode_modified (ctx);
+        }
+        UNLOCK (&fd->inode->lock);
+
+        return 0;
+
+ error_return:
+        return -1;
 }
 
 /**
@@ -379,7 +499,6 @@ br_stub_fd_versioning (xlator_t *this, call_frame_t *frame,
                             fd->inode, fd->inode->gfid,
                             versioningtype, memversion);
 
-        frame->local = local;
         STACK_WIND (frame, callback,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fsetxattr,
                     fd, dict, flags, xdata);
@@ -409,7 +528,6 @@ br_stub_perform_incversioning (xlator_t *this,
 
         writeback_version = __br_stub_writeback_version (ctx);
 
-        /* inode requires writeback to disk */
         op_errno = ENOMEM;
         dict = dict_new ();
         if (!dict)
@@ -518,54 +636,160 @@ br_stub_prepare_signature (xlator_t *this, dict_t *dict,
         return -1;
 }
 
-int
-br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
-                   fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
+static void
+br_stub_handle_object_signature (call_frame_t *frame,
+                                 xlator_t *this, fd_t *fd, dict_t *dict,
+                                 br_isignature_t *sign, dict_t *xdata)
 {
-        int32_t          ret  = 0;
-        br_isignature_t *sign = NULL;
-        gf_boolean_t     xref = _gf_false;
+        int32_t      ret  = -1;
+        gf_boolean_t xref = _gf_false;
 
-        if (!IA_ISREG (fd->inode->ia_type))
-                goto wind;
-        ret = dict_get_bin (dict, GLUSTERFS_SET_OBJECT_SIGNATURE,
-                            (void **) &sign);
-        if (ret < 0)
-                goto wind;
         if (frame->root->pid != GF_CLIENT_PID_BITD)
-                goto unwind;
+                goto dofop;
 
         ret = br_stub_prepare_signature (this, dict, fd->inode, sign);
         if (ret)
-                goto unwind;
+                goto dofop;
         dict_del (dict, GLUSTERFS_SET_OBJECT_SIGNATURE);
 
+        ret = -1;
         if (!xdata) {
                 xdata = dict_new ();
                 if (!xdata)
-                        goto unwind;
+                        goto dofop;
         } else {
                 dict_ref (xdata);
         }
 
         xref = _gf_true;
         ret = dict_set_int32 (xdata, GLUSTERFS_DURABLE_OP, 0);
+
+ dofop:
+        if (ret)
+                STACK_UNWIND_STRICT (fsetxattr, frame, -1, EINVAL, NULL);
+        else {
+                gf_log (this->name, GF_LOG_DEBUG, "SIGNED VERSION: %lu",
+                        sign->signedversion);
+
+                STACK_WIND (frame, default_setxattr_cbk, FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fsetxattr, fd, dict, 0,
+                            xdata);
+        }
+
+        if (xref)
+                dict_unref (xdata);
+}
+
+int32_t
+br_stub_fsetxattr_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        int32_t ret = -1;
+        br_stub_local_t *local = NULL;
+
+        local = frame->local;
+        frame->local = NULL;
+
+        ret = br_stub_mark_inode_modified (this, local);
+        if (ret) {
+                op_ret = -1;
+                op_errno = EINVAL;
+        }
+
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, xdata);
+
+        br_stub_cleanup_local (local);
+        br_stub_dealloc_local (local);
+
+        return 0;
+}
+
+static void
+br_stub_handle_object_reopen (call_frame_t *frame,
+                              xlator_t *this, fd_t *fd, uint32_t val)
+{
+        int32_t              ret         = -1;
+        int32_t              op_ret      = -1;
+        int32_t              op_errno    = EINVAL;
+        call_stub_t         *stub        = NULL;
+        gf_boolean_t         inc_version = _gf_false;
+        gf_boolean_t         modified    = _gf_false;
+        br_stub_inode_ctx_t *ctx         = NULL;
+        br_stub_local_t     *local       = NULL;
+
+        ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
         if (ret)
                 goto unwind;
 
-        gf_log (this->name, GF_LOG_DEBUG, "SIGNED VERSION: %lu",
-                sign->signedversion);
+        LOCK (&fd->inode->lock);
+        {
+                (void) __br_stub_inode_sign_state (ctx, GF_FOP_FSETXATTR, fd);
+        }
+        UNLOCK (&fd->inode->lock);
+
+        if ((val == BR_OBJECT_RESIGN) || !inc_version) {
+                op_ret = op_errno = 0;
+                goto unwind;
+        }
+
+        ret = br_stub_versioning_prep (frame, this, fd, ctx);
+        if (ret)
+                goto unwind;
+        local = frame->local;
+
+        stub = fop_fsetxattr_cbk_stub (frame, br_stub_fsetxattr_resume,
+                                       0, 0, NULL);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
+                        "fsetxattr fop (gfid: %s), unwinding",
+                        uuid_utoa (fd->inode->gfid));
+                goto cleanup_local;
+        }
+
+        (void) br_stub_perform_incversioning (this, frame, stub, fd, ctx);
+        return;
+
+ cleanup_local:
+        br_stub_cleanup_local (local);
+        br_stub_dealloc_local (local);
+
+ unwind:
+        frame->local = NULL;
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
+}
+
+int
+br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
+                   fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
+{
+        int32_t          ret  = 0;
+        uint32_t val = 0;
+        br_isignature_t *sign = NULL;
+
+        if (!IA_ISREG (fd->inode->ia_type))
+                goto wind;
+
+        /* object signature request */
+        ret = dict_get_bin (dict, GLUSTERFS_SET_OBJECT_SIGNATURE,
+                            (void **) &sign);
+        if (!ret) {
+                br_stub_handle_object_signature (frame, this,
+                                                 fd, dict, sign, xdata);
+                goto done;
+        }
+
+        /* object reopen request */
+        ret = dict_get_uint32 (dict, BR_REOPEN_SIGN_HINT_KEY, &val);
+        if (!ret) {
+                br_stub_handle_object_reopen (frame, this, fd, val);
+                goto done;
+        }
+
  wind:
         STACK_WIND (frame, default_setxattr_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fsetxattr, fd,
                     dict, flags, xdata);
-        goto done;
-
- unwind:
-        STACK_UNWIND_STRICT (setxattr, frame, -1, EINVAL, NULL);
  done:
-        if (xref)
-                dict_unref (xdata);
         return 0;
 }
 
@@ -812,110 +1036,29 @@ br_stub_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
-        int32_t              ret         = 0;
-        uint64_t             ctx_addr    = 0;
-        br_stub_inode_ctx_t *ctx         = NULL;
-        br_stub_local_t     *local       = NULL;
+        int32_t          ret   = 0;
+        br_stub_local_t *local = NULL;
 
-        if (frame->local) {
-                local = frame->local;
-                frame->local = NULL;
-        }
+        local = frame->local;
+        frame->local = NULL;
 
         if (op_ret < 0)
                 goto unwind;
 
-        ret = br_stub_get_inode_ctx (this, local->u.context.fd->inode,
-                                     &ctx_addr);
-        if (ret < 0)
-                goto unwind;
-
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
-
-        /* Mark the flag to indicate the inode has been modified */
-        LOCK (&local->u.context.fd->inode->lock);
-        {
-                if (!__br_stub_is_inode_modified (ctx))
-                        __br_stub_set_inode_modified (ctx);
+        ret = br_stub_mark_inode_modified (this, local);
+        if (ret) {
+                op_ret = -1;
+                op_errno = EINVAL;
         }
-        UNLOCK (&local->u.context.fd->inode->lock);
-
 
 unwind:
-        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf,
-                             xdata);
+        STACK_UNWIND_STRICT (writev, frame,
+                             op_ret, op_errno, prebuf, postbuf, xdata);
+
         br_stub_cleanup_local (local);
         br_stub_dealloc_local (local);
+
         return 0;
-}
-
-/**
- * Ongoing version is increased only for the first modify operation.
- * First modify version means the first write or truncate call coming on the
- * first fd in the list of inodes.
- * For anonymous fds open would not have come, so check if its the first write
- * by doing both inode dirty check and ensuring list of fds is empty
- */
-static inline gf_boolean_t
-br_stub_inc_version (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
-{
-        gf_boolean_t inc_version = _gf_false;
-
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
-
-        LOCK (&fd->inode->lock);
-        {
-                if (__br_stub_is_inode_dirty (ctx))
-                        inc_version = _gf_true;
-        }
-        UNLOCK (&fd->inode->lock);
-
-out:
-        return inc_version;
-}
-
-/**
- * Since NFS does not do open, writes from NFS are sent over an anonymous
- * fd. It means each write fop might come on a different anonymous fd and
- * will lead to very large number of notifications being sent. It might
- * affect the perfromance as, there will too many sign requests.
- * To avoid that whenever the last fd released from an inode (logical release)
- * is an anonymous fd the release notification is sent with a flag being set
- * __br_stub_anon_release (ctx);
- * BitD checks for the flag and if set, it will send a dummy write request
- * (again on an anonymous fd) instead of triggering sign.
- * Bit-rot-stub should identify such dummy writes and should send success to
- * them instead of winding them downwards.
- */
-gf_boolean_t
-br_stub_dummy_write (call_frame_t *frame)
-{
-        return (frame->root->pid == GF_CLIENT_PID_BITD)
-                        ? _gf_true : _gf_false;
-}
-
-int32_t
-br_stub_anon_fd_ctx (xlator_t *this, fd_t *fd, br_stub_inode_ctx_t *ctx)
-{
-        int32_t  ret = -1;
-        br_stub_fd_t *br_stub_fd = NULL;
-
-        br_stub_fd = br_stub_fd_ctx_get (this, fd);
-        if (!br_stub_fd) {
-                ret = br_stub_add_fd_to_inode (this, fd, ctx);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to "
-                                "add fd to the inode (gfid: %s)",
-                                uuid_utoa (fd->inode->gfid));
-                        goto out;
-                }
-        }
-
-        ret = 0;
-
-out:
-        return ret;
 }
 
 int32_t
@@ -923,107 +1066,71 @@ br_stub_writev_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
                        struct iovec *vector, int32_t count, off_t offset,
                        uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
-        if (frame->root->pid == GF_CLIENT_PID_BITD)
-                br_stub_writev_cbk (frame, NULL, this, vector->iov_len, 0,
-                                    NULL, NULL, NULL);
-        else
-                STACK_WIND (frame, br_stub_writev_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->writev, fd, vector, count,
-                            offset, flags, iobref, xdata);
+        STACK_WIND (frame, br_stub_writev_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->writev, fd, vector, count,
+                    offset, flags, iobref, xdata);
         return 0;
 }
 
 /**
-   TODO: If possible add pictorial represention of below comment.
-
-   Before sending writev on the ANONYMOUS FD, increase the ongoing
-   version first. This brings anonymous fd write closer to the regular
-   fd write by having the ongoing version increased before doing the
-   write (In regular fd, after open the ongoing version is incremented).
-   Do following steps to handle writes on anonymous fds:
-   1) Increase the on-disk ongoing version
-   2) Once versioning is successfully done send write operation. If versioning
-      fails, then fail the write fop.
-   3) In writev_cbk do below things:
-      a) Increase in-memory version
-      b) set the fd context (so that br_stub_release is invoked)
-      c) add the fd to the list of fds maintained in the inode context of
-         bitrot-stub.
-      d) Mark inode as non dirty
-      e) Mard inode as modified (in the inode context)
-**/
+ * This is probably the most crucial part about the whole versioning thing.
+ * There's absolutely no differentiation as such between an anonymous fd
+ * and a regular fd except the fd context initialization. Object versioning
+ * is perfomed when the inode is dirty. Parallel write operations are no
+ * special with each write performing object versioning followed by marking
+ * the inode as non-dirty (synced). This is followed by the actual operation
+ * (writev() in this case) which on a success marks the inode as modified.
+ * This prevents signing of objects that have not been modified.
+ */
 int32_t
 br_stub_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 struct iovec *vector, int32_t count, off_t offset,
                 uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
-        br_stub_local_t     *local       = NULL;
         call_stub_t         *stub        = NULL;
         int32_t              op_ret      = -1;
         int32_t              op_errno    = EINVAL;
         gf_boolean_t         inc_version = _gf_false;
+        gf_boolean_t         modified    = _gf_false;
         br_stub_inode_ctx_t *ctx         = NULL;
-        uint64_t             ctx_addr    = 0;
         int32_t              ret         = -1;
+        fop_writev_cbk_t     cbk         = default_writev_cbk;
+        br_stub_local_t     *local       = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-        local = br_stub_alloc_local (this);
-        if (!local) {
-                gf_log (this->name, GF_LOG_ERROR, "local allocation failed "
-                        "(gfid: %s)", uuid_utoa (fd->inode->gfid));
-                op_ret = -1;
-                op_errno = ENOMEM;
+        ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
+        if (ret)
                 goto unwind;
-        }
-
-        local->u.context.fd = fd_ref (fd);
-        frame->local = local;
-
-        ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
-                        "context for the inode %s",
-                        uuid_utoa (fd->inode->gfid));
-                goto unwind;
-        }
-
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
-        if (fd_is_anonymous (fd)) {
-                ret = br_stub_anon_fd_ctx (this, fd, ctx);
-                if (ret)
-                        goto unwind;
-        }
-
-        /* TODO: Better to do a dummy fsetxattr instead of write. Keep write
-           simple */
-        if (br_stub_dummy_write (frame)) {
-                LOCK (&fd->inode->lock);
-                {
-                        (void) __br_stub_inode_sign_state
-                                             (ctx, GF_FOP_WRITE, fd);
-                }
-                UNLOCK (&fd->inode->lock);
-
-                if (xdata && dict_get (xdata, "br-fd-reopen")) {
-                        op_ret = vector->iov_len;
-                        op_errno = 0;
-                        goto unwind;
-                }
-        }
 
         /**
-         * Check whether this is the first write on this inode since the last
-         * sign notification has been sent. If so, do versioning. Otherwise
-         * go ahead with the fop.
+         * The inode is not dirty and also witnessed atleast one successful
+         * modification operation. Therefore, subsequent operations need not
+         * perform any special tracking.
          */
-        inc_version = br_stub_inc_version (this, fd, ctx);
-        if (!inc_version)
+        if (!inc_version && modified)
                 goto wind;
 
-        /* Create the stub for the write fop */
+        /**
+         * okay.. so, either the inode needs versioning or the modification
+         * needs to be tracked. ->cbk is set to the appropriate callback
+         * routine for this.
+         * NOTE: ->local needs to be deallocated on failures from here on.
+         */
+        ret = br_stub_versioning_prep (frame, this, fd, ctx);
+        if (ret)
+                goto unwind;
+
+        local = frame->local;
+        if (!inc_version) {
+                br_stub_fill_local (local, NULL, fd, fd->inode,
+                                    fd->inode->gfid, BR_STUB_NO_VERSIONING, 0);
+                cbk = br_stub_writev_cbk;
+                goto wind;
+        }
+
         stub = fop_writev_stub (frame, br_stub_writev_resume, fd, vector, count,
                                 offset, flags, iobref, xdata);
 
@@ -1031,24 +1138,27 @@ br_stub_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
                         "write fop (gfid: %s), unwinding",
                         uuid_utoa (fd->inode->gfid));
-                goto unwind;
+                goto cleanup_local;
         }
 
         /* Perform Versioning */
         return br_stub_perform_incversioning (this, frame, stub, fd, ctx);
 
-wind:
-        STACK_WIND (frame, br_stub_writev_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->writev, fd, vector, count, offset,
-                    flags, iobref, xdata);
+ wind:
+        STACK_WIND (frame, cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->writev,
+                    fd, vector, count, offset, flags, iobref, xdata);
         return 0;
 
-unwind:
+ cleanup_local:
+        br_stub_cleanup_local (local);
+        br_stub_dealloc_local (local);
+
+ unwind:
         frame->local = NULL;
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, NULL, NULL,
                              NULL);
-        br_stub_cleanup_local (local);
-        br_stub_dealloc_local (local);
+
         return 0;
 }
 
@@ -1057,40 +1167,28 @@ br_stub_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
 {
-        int32_t              ret         = 0;
-        uint64_t             ctx_addr    = 0;
-        br_stub_inode_ctx_t *ctx         = NULL;
-        br_stub_local_t     *local       = NULL;
+        int32_t          ret   = -1;
+        br_stub_local_t *local = NULL;
 
-        if (frame->local) {
-                local = frame->local;
-                frame->local = NULL;
-        }
+        local = frame->local;
+        frame->local = NULL;
 
         if (op_ret < 0)
                 goto unwind;
 
-        ret = br_stub_get_inode_ctx (this, local->u.context.fd->inode,
-                                     &ctx_addr);
-        if (ret < 0)
-                goto unwind;
-
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
-
-        /* Mark the flag to indicate the inode has been modified */
-        LOCK (&local->u.context.fd->inode->lock);
-        {
-                if (!__br_stub_is_inode_modified (ctx))
-                        __br_stub_set_inode_modified (ctx);
+        ret = br_stub_mark_inode_modified (this, local);
+        if (ret) {
+                op_ret = -1;
+                op_errno = EINVAL;
         }
-        UNLOCK (&local->u.context.fd->inode->lock);
-
 
 unwind:
-        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
-                             xdata);
+        STACK_UNWIND_STRICT (ftruncate, frame,
+                             op_ret, op_errno, prebuf, postbuf, xdata);
+
         br_stub_cleanup_local (local);
         br_stub_dealloc_local (local);
+
         return 0;
 }
 
@@ -1103,6 +1201,7 @@ br_stub_ftruncate_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+/* c.f. br_stub_writev() for explanation */
 int32_t
 br_stub_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                    off_t offset, dict_t *xdata)
@@ -1112,72 +1211,59 @@ br_stub_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int32_t              op_ret      = -1;
         int32_t              op_errno    = EINVAL;
         gf_boolean_t         inc_version = _gf_false;
+        gf_boolean_t         modified    = _gf_false;
         br_stub_inode_ctx_t *ctx         = NULL;
-        uint64_t             ctx_addr    = 0;
         int32_t              ret         = -1;
+        fop_ftruncate_cbk_t  cbk         = default_ftruncate_cbk;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
-        local = br_stub_alloc_local (this);
-        if (!local) {
-                gf_log (this->name, GF_LOG_ERROR, "local allocation failed "
-                        "(gfid: %s)", uuid_utoa (fd->inode->gfid));
-                op_ret = -1;
-                op_errno = ENOMEM;
+        ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
+        if (ret)
                 goto unwind;
-        }
 
-        local->u.context.fd = fd_ref (fd);
-        frame->local = local;
-
-        ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
-                        "context for the inode %s",
-                        uuid_utoa (fd->inode->gfid));
-                goto unwind;
-        }
-
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
-        if (fd_is_anonymous (fd)) {
-                ret = br_stub_anon_fd_ctx (this, fd, ctx);
-                if (ret)
-                        goto unwind;
-        }
-
-        /**
-         * c.f. br_stub_writev()
-         */
-        inc_version = br_stub_inc_version (this, fd, ctx);
-        if (!inc_version)
+        if (!inc_version && modified)
                 goto wind;
 
-        /* Create the stub for the ftruncate fop */
+        ret = br_stub_versioning_prep (frame, this, fd, ctx);
+        if (ret)
+                goto unwind;
+
+        local = frame->local;
+        if (!inc_version) {
+                br_stub_fill_local (local, NULL, fd, fd->inode,
+                                    fd->inode->gfid, BR_STUB_NO_VERSIONING, 0);
+                cbk = br_stub_ftruncate_cbk;
+                goto wind;
+        }
+
         stub = fop_ftruncate_stub (frame, br_stub_ftruncate_resume, fd, offset,
                                    xdata);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
                         "ftruncate fop (gfid: %s), unwinding",
                         uuid_utoa (fd->inode->gfid));
-                goto unwind;
+                goto cleanup_local;
         }
 
-        /* Perform Versioning */
         return br_stub_perform_incversioning (this, frame, stub, fd, ctx);
 
-wind:
-        STACK_WIND (frame, br_stub_ftruncate_cbk, FIRST_CHILD(this),
+ wind:
+        STACK_WIND (frame, cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
 
-unwind:
+ cleanup_local:
+        br_stub_cleanup_local (local);
+        br_stub_dealloc_local (local);
+
+ unwind:
         frame->local = NULL;
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, NULL, NULL,
                              NULL);
-        br_stub_cleanup_local (local);
-        br_stub_dealloc_local (local);
+
         return 0;
 }
 
@@ -1186,34 +1272,20 @@ br_stub_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
 {
-        int32_t              ret         = 0;
-        uint64_t             ctx_addr    = 0;
-        br_stub_inode_ctx_t *ctx         = NULL;
-        br_stub_local_t     *local       = NULL;
+        int32_t          ret   = 0;
+        br_stub_local_t *local = NULL;
 
-        if (frame->local) {
-                local = frame->local;
-                frame->local = NULL;
-        }
+        local = frame->local;
+        frame->local = NULL;
 
         if (op_ret < 0)
                 goto unwind;
 
-        ret = br_stub_get_inode_ctx (this, local->u.context.fd->inode,
-                                     &ctx_addr);
-        if (ret < 0)
-                goto unwind;
-
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
-
-        /* Mark the flag to indicate the inode has been modified */
-        LOCK (&local->u.context.fd->inode->lock);
-        {
-                if (!__br_stub_is_inode_modified (ctx))
-                        __br_stub_set_inode_modified (ctx);
+        ret = br_stub_mark_inode_modified (this, local);
+        if (ret) {
+                op_ret = -1;
+                op_errno = EINVAL;
         }
-        UNLOCK (&local->u.context.fd->inode->lock);
-
 
 unwind:
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1243,6 +1315,8 @@ br_stub_truncate_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
  * on an anonymous fd. The fd will be valid till the completion of the
  * truncate call. It guarantees that release on this anonymous fd will happen
  * after the truncate call and notification is sent after the truncate call.
+ *
+ * c.f. br_writev_cbk() for explanation
  */
 int32_t
 br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
@@ -1253,10 +1327,11 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int32_t              op_ret      = -1;
         int32_t              op_errno    = EINVAL;
         gf_boolean_t         inc_version = _gf_false;
+        gf_boolean_t         modified    = _gf_false;
         br_stub_inode_ctx_t *ctx         = NULL;
-        uint64_t             ctx_addr    = 0;
         int32_t              ret         = -1;
         fd_t                *fd          = NULL;
+        fop_truncate_cbk_t   cbk         = default_truncate_cbk;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
@@ -1270,63 +1345,50 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto unwind;
         }
 
-        local = br_stub_alloc_local (this);
-        if (!local) {
-                gf_log (this->name, GF_LOG_ERROR, "local allocation failed "
-                        "(gfid: %s)", uuid_utoa (loc->inode->gfid));
-                op_ret = -1;
-                op_errno = ENOMEM;
-                goto unwind;
-        }
-
-        local->u.context.fd = fd;
-        frame->local = local;
-
-        ret = br_stub_get_inode_ctx (this, loc->inode, &ctx_addr);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
-                        "context for the inode %s",
-                        uuid_utoa (fd->inode->gfid));
-                goto unwind;
-        }
-
-        ctx = (br_stub_inode_ctx_t *) (long) ctx_addr;
-        ret = br_stub_anon_fd_ctx (this, local->u.context.fd, ctx);
+        ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
         if (ret)
                 goto unwind;
 
-        /**
-         * c.f. br_stub_writev()
-         */
-        inc_version = br_stub_inc_version (this, fd, ctx);
-        if (!inc_version)
+        if (!inc_version && modified)
                 goto wind;
 
-        /* Create the stub for the truncate fop */
+        ret = br_stub_versioning_prep (frame, this, fd, ctx);
+        if (ret)
+                goto unwind;
+
+        local = frame->local;
+        if (!inc_version) {
+                br_stub_fill_local (local, NULL, fd, fd->inode,
+                                    fd->inode->gfid, BR_STUB_NO_VERSIONING, 0);
+                cbk = br_stub_truncate_cbk;
+                goto wind;
+        }
+
         stub = fop_truncate_stub (frame, br_stub_truncate_resume, loc, offset,
                                   xdata);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to allocate stub for "
                         "truncate fop (gfid: %s), unwinding",
                         uuid_utoa (fd->inode->gfid));
-                goto unwind;
+                goto cleanup_local;
         }
 
-        /* Perform Versioning */
-        return br_stub_perform_incversioning (this, frame, stub,
-                                              local->u.context.fd, ctx);
+        return br_stub_perform_incversioning (this, frame, stub, fd, ctx);
 
-wind:
-        STACK_WIND (frame, br_stub_truncate_cbk, FIRST_CHILD(this),
+ wind:
+        STACK_WIND (frame, cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
 
-unwind:
+ cleanup_local:
+        br_stub_cleanup_local (local);
+        br_stub_dealloc_local (local);
+
+ unwind:
         frame->local = NULL;
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, NULL, NULL,
                              NULL);
-        br_stub_cleanup_local (local);
-        br_stub_dealloc_local (local);
+
         return 0;
 }
 
@@ -1810,7 +1872,7 @@ __br_stub_inode_sign_state (br_stub_inode_ctx_t *ctx,
 
         switch (fop) {
 
-        case GF_FOP_WRITE:
+        case GF_FOP_FSETXATTR:
                 sign_info = ctx->info_sign = BR_SIGN_QUICK;
                 break;
 
