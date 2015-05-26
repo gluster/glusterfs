@@ -5432,11 +5432,32 @@ out:
         return ret;
 }
 
+gf_boolean_t
+glusterd_is_tier_daemon_running (glusterd_volinfo_t *volinfo)
+{
+        if (volinfo->type != GF_CLUSTER_TYPE_TIER)
+                return _gf_false;
+
+        if (volinfo->rebal.defrag &&
+             volinfo->rebal.defrag_cmd == GF_DEFRAG_CMD_START_TIER) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+
+}
+
+
 int
 glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
 {
-        /* Defrag is never enabled for tiered volumes. */
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+        /*
+         * Do not need to consider tier daemon as a rebalance
+         * daemon and with current design rebalance is not supported
+         * on a tiered volume.
+         */
+
+        if (glusterd_is_tier_daemon_running (volinfo))
                 return 0;
 
         return (volinfo->rebal.defrag != NULL);
@@ -6759,21 +6780,27 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         return ret;
 }
+void
+glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
+{
 
+        char          op_errstr[PATH_MAX];
+
+        if (!volinfo->rebal.defrag_cmd)
+                return;
+        if (!gd_should_i_start_rebalance (volinfo))
+                return;
+        glusterd_volume_defrag_restart (volinfo, op_errstr, PATH_MAX,
+                                volinfo->rebal.defrag_cmd, NULL);
+}
 int
 glusterd_restart_rebalance (glusterd_conf_t *conf)
 {
         glusterd_volinfo_t       *volinfo = NULL;
         int                      ret = 0;
-        char                     op_errstr[256];
 
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                if (!volinfo->rebal.defrag_cmd)
-                        continue;
-                if (!gd_should_i_start_rebalance (volinfo))
-                        continue;
-                glusterd_volume_defrag_restart (volinfo, op_errstr, 256,
-                                        volinfo->rebal.defrag_cmd, NULL);
+                glusterd_restart_rebalance_for_volume (volinfo);
         }
         return ret;
 }

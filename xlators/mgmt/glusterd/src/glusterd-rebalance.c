@@ -135,7 +135,8 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                 UNLOCK (&defrag->lock);
 
                 if (!gf_is_service_running (pidfile, NULL)) {
-                        if (volinfo->rebal.defrag_status ==
+                        if (volinfo->type != GF_CLUSTER_TYPE_TIER &&
+                            volinfo->rebal.defrag_status ==
                                                 GF_DEFRAG_STATUS_STARTED) {
                                 volinfo->rebal.defrag_status =
                                                    GF_DEFRAG_STATUS_FAILED;
@@ -198,9 +199,6 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         GF_ASSERT (volinfo);
         GF_ASSERT (op_errstr);
 
-        if ((cmd == GF_OP_CMD_DETACH_START) &&
-            (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED))
-                return 0;
 
         ret = glusterd_defrag_start_validate (volinfo, op_errstr, len, op);
         if (ret)
@@ -604,6 +602,13 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
                         gf_asprintf (op_errstr, "volume %s is not a tier "
                                      "volume.", volinfo->volname);
+                        ret = -1;
+                        goto out;
+                }
+                if (glusterd_is_tier_daemon_running (volinfo)) {
+                        ret = gf_asprintf (op_errstr, "A Tier daemon is "
+                                           "already running on volume %s",
+                                           volname);
                         ret = -1;
                         goto out;
                 }

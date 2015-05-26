@@ -63,10 +63,11 @@ TEST [ $ENTRY_COUNT -eq 2 ]
 
 # Heat-up the file
 uuidgen > file1
-TEST $CLI volume rebalance $V0 tier start
 sleep 5
 
 #Check if the file is promoted
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier file1
+
+cd;
 
 cleanup
