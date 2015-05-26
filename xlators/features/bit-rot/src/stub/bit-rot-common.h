@@ -36,12 +36,23 @@ typedef enum br_sign_state {
 } br_sign_state_t;
 
 static inline br_vxattr_status_t
-br_version_xattr_state (dict_t *xattr,
-                        br_version_t **obuf, br_signature_t **sbuf)
+br_version_xattr_state (dict_t *xattr, br_version_t **obuf,
+                        br_signature_t **sbuf, gf_boolean_t *objbad)
 {
         int32_t             ret    = 0;
         int32_t             vxattr = 0;
         br_vxattr_status_t  status;
+        void               *data   = NULL;
+
+        /**
+         * The key being present in the dict indicates the xattr was set on
+         * disk. The presence of xattr itself as of now is suffecient to say
+         * the the object is bad.
+         */
+        *objbad = _gf_false;
+        ret = dict_get_bin (xattr, BITROT_OBJECT_BAD_KEY, (void **)&data);
+        if (!ret)
+                *objbad = _gf_true;
 
         ret = dict_get_bin (xattr, BITROT_CURRENT_VERSION_KEY, (void **)obuf);
         if (ret)

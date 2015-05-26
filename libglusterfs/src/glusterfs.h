@@ -122,6 +122,9 @@
 #define BITROT_CURRENT_VERSION_KEY  "trusted.bit-rot.version"
 #define BITROT_SIGNING_VERSION_KEY  "trusted.bit-rot.signature"
 
+/* globally usable bad file marker */
+#define GLUSTERFS_BAD_INODE         "glusterfs.bad-inode"
+
 /* on-disk size of signing xattr (not the signature itself) */
 #define BITROT_SIGNING_XATTR_SIZE_KEY  "trusted.glusterfs.bit-rot.size"
 

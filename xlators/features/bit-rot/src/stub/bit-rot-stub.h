@@ -32,6 +32,7 @@ typedef struct br_stub_inode_ctx {
         int            info_sign;
         struct list_head fd_list; /* list of open fds or fds participating in
                                      write operations */
+        gf_boolean_t bad_object;
 } br_stub_inode_ctx_t;
 
 typedef struct br_stub_fd {
@@ -79,6 +80,18 @@ typedef struct br_stub_private {
 
         struct mem_pool *local_pool;
 } br_stub_private_t;
+
+static inline gf_boolean_t
+__br_stub_is_bad_object (br_stub_inode_ctx_t *ctx)
+{
+        return ctx->bad_object;
+}
+
+static inline void
+__br_stub_mark_object_bad (br_stub_inode_ctx_t *ctx)
+{
+        ctx->bad_object = _gf_true;
+}
 
 /* inode writeback helpers */
 static inline void
@@ -365,10 +378,91 @@ static inline void
 br_stub_remove_vxattrs (dict_t *xattr)
 {
         if (xattr) {
+                dict_del (xattr, BITROT_OBJECT_BAD_KEY);
                 dict_del (xattr, BITROT_CURRENT_VERSION_KEY);
                 dict_del (xattr, BITROT_SIGNING_VERSION_KEY);
                 dict_del (xattr, BITROT_SIGNING_XATTR_SIZE_KEY);
         }
+}
+
+#define BR_STUB_HANDLE_BAD_OBJECT(this, inode, op_ret, op_errno, label) \
+        do {                                                            \
+                if (br_stub_is_bad_object (this, inode)) {              \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,            \
+                                 BRS_MSG_BAD_OBJECT_ACCESS,             \
+                                 "%s is a bad object. Returning",       \
+                                 uuid_utoa (inode->gfid));              \
+                        op_ret = -1;                                    \
+                        op_errno = EIO;                                 \
+                        goto label;                                     \
+                }                                                       \
+        } while (0)
+
+static inline gf_boolean_t
+br_stub_is_bad_object (xlator_t *this, inode_t *inode)
+{
+        gf_boolean_t         bad_object = _gf_false;
+        uint64_t             ctx_addr   = 0;
+        br_stub_inode_ctx_t *ctx        = NULL;
+        int32_t              ret        = -1;
+
+        ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_SET_CONTEXT_FAILED,
+                        "failed to get the inode context for the inode %s",
+                        uuid_utoa (inode->gfid));
+                goto out;
+        }
+
+        ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
+
+        LOCK (&inode->lock);
+        {
+                bad_object = __br_stub_is_bad_object (ctx);
+        }
+        UNLOCK (&inode->lock);
+
+out:
+        return bad_object;
+}
+
+static inline int32_t
+br_stub_mark_object_bad (xlator_t *this, inode_t *inode)
+{
+        int32_t  ret = -1;
+        uint64_t ctx_addr = 0;
+        br_stub_inode_ctx_t *ctx = NULL;
+
+        ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to get the "
+                        "inode context for the inode %s",
+                        uuid_utoa (inode->gfid));
+               goto out;
+        }
+
+        ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
+
+        LOCK (&inode->lock);
+        {
+                __br_stub_mark_object_bad (ctx);
+        }
+        UNLOCK (&inode->lock);
+
+out:
+        return ret;
+}
+
+static inline int32_t
+br_stub_mark_xdata_bad_object (xlator_t *this, inode_t *inode, dict_t *xdata)
+{
+        int32_t    ret = 0;
+
+        if (br_stub_is_bad_object (this, inode))
+                ret = dict_set_int32 (xdata, GLUSTERFS_BAD_INODE, 1);
+
+        return ret;
 }
 
 int32_t
