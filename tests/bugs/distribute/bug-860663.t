@@ -1,5 +1,6 @@
 #!/bin/bash
 
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../include.rc
 
 cleanup;
@@ -36,13 +37,17 @@ TEST [ $ORIG_FILE_COUNT -ge 10000 ]
 # Kill a brick process
 kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
 
+TEST ! $CLI volume rebalance $V0 fix-layout start
+
+TEST $CLI volume start $V0 force
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+
 TEST $CLI volume rebalance $V0 fix-layout start
 
-sleep 30;
+EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" rebalance_status_field $V0;
 
 TEST ! $(dirname $0)/bug-860663 $M0/files 10000
 
-TEST $CLI volume start $V0 force
 
 sleep 5;
 
