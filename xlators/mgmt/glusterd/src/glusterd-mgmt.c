@@ -384,6 +384,9 @@ gd_mgmt_v3_lock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_LOCK,
@@ -661,6 +664,9 @@ gd_mgmt_v3_pre_validate_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_PRE_VALIDATE,
@@ -920,6 +926,9 @@ gd_mgmt_v3_brick_op_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_BRICK_OP,
@@ -1164,6 +1173,9 @@ gd_mgmt_v3_commit_req (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_COMMIT,
@@ -1387,6 +1399,9 @@ gd_mgmt_v3_post_validate_req (glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
         ret = gd_syncop_submit_request (peerinfo->rpc, &req, args, &peerid,
                                         &gd_mgmt_v3_prog,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE,
@@ -1596,6 +1611,9 @@ gd_mgmt_v3_unlock (glusterd_op_t op, dict_t *op_ctx,
 
         gf_uuid_copy (req.uuid, my_uuid);
         req.op = op;
+
+        gf_uuid_copy (peerid, peerinfo->uuid);
+
 
         gf_uuid_copy (peerid, peerinfo->uuid);
 
