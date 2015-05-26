@@ -485,94 +485,72 @@ br_log_object_path (xlator_t *this, char *op,
 }
 
 static void
-br_send_dummy_write (xlator_t *this, fd_t *fd, br_child_t *child,
-                     dict_t *xdata)
+br_trigger_sign (xlator_t *this, br_child_t *child,
+                 inode_t *linked_inode, loc_t *loc, gf_boolean_t need_reopen)
 {
-        struct iovec   iov    = {0, };
-        struct iobref *iobref = NULL;
-        struct iobuf  *iobuf  = NULL;
-        char          *msg    = NULL;
-        size_t         size   = 0;
-        int32_t        ret    = -1;
+        fd_t     *fd   = NULL;
+        int32_t   ret  = -1;
+        uint32_t  val  = 0;
+        dict_t   *dict = NULL;
+        pid_t     pid  = GF_CLIENT_PID_BITD;
 
-        GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
-        GF_VALIDATE_OR_GOTO (this->name, fd, out);
-        GF_VALIDATE_OR_GOTO (this->name, child, out);
+        syncopctx_setfspid (&pid);
 
-        msg = gf_strdup ("GLUSTERFS");
-        if (!msg)
+        val = (need_reopen == _gf_true) ? BR_OBJECT_REOPEN : BR_OBJECT_RESIGN;
+
+        dict = dict_new ();
+        if (!dict)
                 goto out;
 
-        size = strlen (msg);
+        ret = dict_set_uint32 (dict, BR_REOPEN_SIGN_HINT_KEY, val);
+        if (ret)
+                goto cleanup_dict;
 
-        iov.iov_base = msg;
-        iov.iov_len = size;
-
-        iobref = iobref_new ();
-        if (!iobref)
-                goto free_msg;
-
-        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
-        if (!iobuf)
-                goto free_iobref;
-
-        iobref_add (iobref, iobuf);
-
-        iov_unload (iobuf_ptr (iobuf), &iov, 1);  /* FIXME!!! */
-
-        iov.iov_base = iobuf_ptr (iobuf);
-        iov.iov_len = size;
-
-        ret = syncop_writev (child->xl, fd, &iov, 1, 0, iobref, 0, xdata, NULL);
-        if (ret <= 0) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "dummy write failed (%s)", strerror (errno));
-                goto free_iobuf;
+        ret = -1;
+        fd = fd_create (linked_inode, 0);
+        if (!fd) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to create fd "
+                        "[GFID %s]", uuid_utoa (linked_inode->gfid));
+                goto cleanup_dict;
         }
 
-        /* iobref_unbref() takes care of iobuf unref */
-        ret = 0;
+        ret = syncop_open (child->xl, loc, O_RDWR, fd, NULL, NULL);
+	if (ret) {
+                br_log_object (this, "open", linked_inode->gfid, -ret);
+                goto unref_fd;
+	}
 
- free_iobuf:
-        iobuf_unref (iobuf);
- free_iobref:
-        iobref_unref (iobref);
- free_msg:
-        GF_FREE (msg);
+        fd_bind (fd);
+
+        ret = syncop_fsetxattr (child->xl, fd, dict, 0, NULL, NULL);
+        if (ret)
+                br_log_object (this, "fsetxattr", linked_inode->gfid, -ret);
+
+        /* passthough: fd_unref() */
+
+ unref_fd:
+        fd_unref (fd);
+ cleanup_dict:
+        dict_unref (dict);
  out:
-        return;
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Could not trigger signingd for %s (reopen hint: %d)",
+                        uuid_utoa (linked_inode->gfid), val);
+        }
 }
 
 static void
-br_object_handle_reopen (xlator_t *this,
-                         br_object_t *object, inode_t *linked_inode)
+br_object_resign (xlator_t *this,
+                  br_object_t *object, inode_t *linked_inode)
 {
-        int32_t  ret  = -1;
-        dict_t  *dict = NULL;
-        loc_t    loc  = {0, };
-
-        /**
-         * Here dict is purposefully not checked for NULL, because at any cost
-         * sending a re-open should not be missed. This re-open is an indication
-         * for the stub to properly mark inode's status.
-         */
-        dict = dict_new ();
-        if (dict) {
-                /* TODO: Make it a #define */
-                ret = dict_set_int32 (dict, "br-fd-reopen", 1);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Object reopen would trigger versioning.");
-        }
+        loc_t loc = {0, };
 
         loc.inode = inode_ref (linked_inode);
         gf_uuid_copy (loc.gfid, linked_inode->gfid);
 
-        br_trigger_sign (this, object->child, linked_inode, &loc, dict);
+        br_trigger_sign (this, object->child, linked_inode, &loc, _gf_false);
 
-        if (dict)
-                dict_unref (dict);
         loc_wipe (&loc);
 }
 
@@ -618,7 +596,7 @@ static inline int32_t br_sign_object (br_object_t *object)
          * actual signing of the object.
          */
         if (sign_info == BR_SIGN_REOPEN_WAIT) {
-                br_object_handle_reopen (this, object, linked_inode);
+                br_object_resign (this, object, linked_inode);
                 goto unref_inode;
         }
 
@@ -903,41 +881,7 @@ out:
         return need_sign;
 }
 
-void
-br_trigger_sign (xlator_t *this, br_child_t *child, inode_t *linked_inode,
-                 loc_t *loc, dict_t *xdata)
-{
-        fd_t      *fd = NULL;
-        int32_t    ret = -1;
-        pid_t      pid = GF_CLIENT_PID_BITD;
 
-        syncopctx_setfspid (&pid);
-
-        fd = fd_create (linked_inode, 0);
-        if (!fd) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to create fd [GFID %s]",
-                        uuid_utoa (linked_inode->gfid));
-                goto out;
-        }
-
-        ret = syncop_open (child->xl, loc, O_RDWR, fd, NULL, NULL);
-	if (ret) {
-                br_log_object (this, "open", linked_inode->gfid, -ret);
-		fd_unref (fd);
-		fd = NULL;
-	} else {
-		fd_bind (fd);
-	}
-
-        if (fd) {
-                br_send_dummy_write (this, fd, child, xdata);
-                syncop_close (fd);
-        }
-
-out:
-        return;
-}
 
 int32_t
 br_prepare_loc (xlator_t *this, br_child_t *child, loc_t *parent,
@@ -1076,7 +1020,7 @@ bitd_oneshot_crawl (xlator_t *subvol,
         gf_log (this->name, GF_LOG_INFO,
                 "Triggering signing for %s [GFID: %s | Brick: %s]",
                 loc.path, uuid_utoa (linked_inode->gfid), child->brick_path);
-        br_trigger_sign (this, child, linked_inode, &loc, NULL);
+        br_trigger_sign (this, child, linked_inode, &loc, _gf_true);
 
         ret = 0;
 

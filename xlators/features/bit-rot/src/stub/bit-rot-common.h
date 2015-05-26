@@ -119,6 +119,11 @@ typedef enum {
 /* BitRot stub start time (virtual xattr) */
 #define GLUSTERFS_GET_BR_STUB_INIT_TIME  "trusted.glusterfs.bit-rot.stub-init"
 
+/* signing/reopen hint */
+#define BR_OBJECT_RESIGN 0
+#define BR_OBJECT_REOPEN  1
+#define BR_REOPEN_SIGN_HINT_KEY  "trusted.glusterfs.bit-rot.reopen-hint"
+
 static inline int
 br_is_signature_type_valid (int8_t signaturetype)
 {
