@@ -214,6 +214,7 @@ function is_bad_test ()
               ./tests/basic/mount-nfs-auth.t            \
               ./tests/performance/open-behind.t         \
               ./tests/basic/ec/ec-5-1.t                 \
+              ./tests/basic/ec/ec.t                     \
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
