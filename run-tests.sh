@@ -222,7 +222,7 @@ function is_bad_test ()
               ./tests/bugs/disperse/bug-1187474.t       \
               ./tests/basic/afr/sparse-file-self-heal.t \
               ./tests/basic/afr/data-self-heal.t        \
-	      ./tests/features/glupy.t; do
+	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
     return 1				  # bash: non-zero means false/failure
