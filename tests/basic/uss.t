@@ -323,7 +323,7 @@ TEST ls $M0/.history;
 
 EXPECT_WITHIN 30 "6" count_snaps $M0;
 
-TEST stat $M0/.history/snap6/aaa
+EXPECT_WITHIN 10 "Y" lookup $M0/.history/snap6/aaa
 
 TEST rm -f $M0/aaa;
 
