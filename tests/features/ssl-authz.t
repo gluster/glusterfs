@@ -48,7 +48,7 @@ ln $SSL_CERT $SSL_CA
 TEST $CLI volume create $V0 $H0:$B0/1
 TEST $CLI volume set $V0 server.ssl on
 TEST $CLI volume set $V0 client.ssl on
-#EST $CLI volume set $V0 ssl.cipher-list $(valid_ciphers)
+TEST $CLI volume set $V0 ssl.cipher-list $(valid_ciphers)
 TEST $CLI volume start $V0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" online_brick_count
 
