@@ -895,8 +895,8 @@ class GMasterChangelogMixin(GMasterCommon):
 
         # Increment counters for Status
         self.status.inc_value("entry", len(entries))
-        self.files_in_batch = len(datas)
-        self.status.inc_value("data", self.files_in_batch)
+        self.files_in_batch += len(datas)
+        self.status.inc_value("data", len(datas))
 
         # sync namespace
         if entries:
@@ -930,6 +930,7 @@ class GMasterChangelogMixin(GMasterCommon):
         tries = 0
         retry = False
         self.unlinked_gfids = []
+        self.files_in_batch = 0
 
         while True:
             self.skipped_gfid_list = []
@@ -983,6 +984,8 @@ class GMasterChangelogMixin(GMasterCommon):
                     self.status.set_last_synced(xtl, checkpoint_time)
                     map(self.changelog_done_func, changes)
                     self.archive_and_purge_changelogs(changes)
+
+                # Reset Data counter after sync
                 self.status.dec_value("data", self.files_in_batch)
                 self.files_in_batch = 0
                 break
@@ -999,7 +1002,10 @@ class GMasterChangelogMixin(GMasterCommon):
                 logging.warn('SKIPPED GFID = %s' %
                              ','.join(self.skipped_gfid_list))
 
+                # Reset data counter on failure
+                self.status.dec_value("data", self.files_in_batch)
                 self.files_in_batch = 0
+
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
@@ -1022,6 +1028,10 @@ class GMasterChangelogMixin(GMasterCommon):
             # TODO: remove entry retries when it's gets fixed.
             logging.warn('incomplete sync, retrying changelogs: %s' %
                          ' '.join(map(os.path.basename, changes)))
+
+            # Reset the Data counter before Retry
+            self.status.dec_value("data", self.files_in_batch)
+            self.files_in_batch = 0
             time.sleep(0.5)
 
     def upd_stime(self, stime, path=None):
