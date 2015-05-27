@@ -169,6 +169,24 @@ meta_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	return 0;
 }
 
+int32_t
+meta_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+            dict_t *xdata)
+{
+	META_FOP (fd->inode, fsync, frame, this, fd, flags, xdata);
+
+        return 0;
+}
+
+int32_t
+meta_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+               dict_t *xdata)
+{
+	META_FOP (fd->inode, fsyncdir, frame, this, fd, flags, xdata);
+
+        return 0;
+}
+
 int
 meta_forget (xlator_t *this, inode_t *inode)
 {
@@ -235,19 +253,21 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
-	.lookup = meta_lookup,
-	.opendir = meta_opendir,
-	.open = meta_open,
-	.readv = meta_readv,
-	.flush = meta_flush,
-	.stat = meta_stat,
-	.fstat = meta_fstat,
-	.readdir = meta_readdir,
-	.readdirp = meta_readdirp,
-	.readlink = meta_readlink,
-	.writev = meta_writev,
-	.truncate = meta_truncate,
-	.ftruncate = meta_ftruncate
+	.lookup    = meta_lookup,
+	.opendir   = meta_opendir,
+	.open      = meta_open,
+	.readv     = meta_readv,
+	.flush     = meta_flush,
+	.stat      = meta_stat,
+	.fstat     = meta_fstat,
+	.readdir   = meta_readdir,
+	.readdirp  = meta_readdirp,
+	.readlink  = meta_readlink,
+	.writev    = meta_writev,
+	.truncate  = meta_truncate,
+	.ftruncate = meta_ftruncate,
+        .fsync     = meta_fsync,
+        .fsyncdir  = meta_fsyncdir
 };
 
 

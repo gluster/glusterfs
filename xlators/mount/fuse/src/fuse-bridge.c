@@ -4420,17 +4420,21 @@ fuse_migrate_fd (xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
         }
 
         if (oldfd->inode->table->xl == old_subvol) {
-                ret = syncop_fsync (old_subvol, oldfd, 0, NULL, NULL);
+                if (IA_ISDIR (oldfd->inode->ia_type))
+                        ret = syncop_fsyncdir (old_subvol, oldfd, 0, NULL,
+                                               NULL);
+                else
+                        ret = syncop_fsync (old_subvol, oldfd, 0, NULL, NULL);
+
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "syncop_fsync failed (%s) on fd (%p)"
+                                "syncop_fsync(dir) failed (%s) on fd (%p)"
                                 "(basefd:%p basefd-inode.gfid:%s) "
                                 "(old-subvolume:%s-%d new-subvolume:%s-%d)",
                                 strerror (-ret), oldfd, basefd,
                                 uuid_utoa (basefd->inode->gfid),
                                 old_subvol->name, old_subvol->graph->id,
                                 new_subvol->name, new_subvol->graph->id);
-                        ret = -1;
                 }
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
