@@ -363,10 +363,7 @@ setup_create_resources()
 
     while [[ ${1} ]]; do
 
-        # ipaddr=$(grep ^${1} ${HA_CONFIG_FILE} | cut -d = -f 2)
-        ipaddrx="VIP_${1//-/_}"
-
-        ipaddr=${!ipaddrx}
+        ipaddr=$(grep "^VIP_${1}=" ${HA_CONFDIR}/ganesha-ha.conf | cut -d = -f 2)
 
         pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
         if [ $? -ne 0 ]; then
@@ -460,9 +457,7 @@ recreate_resources()
     local cibfile=${1}; shift
 
     while [[ ${1} ]]; do
-        ipaddrx="VIP_${1//-/_}"
-
-        ipaddr=${!ipaddrx}
+        ipaddr=$(grep "VIP_${1}=" ${HA_CONFDIR}/ganesha-ha.conf | cut -d = -f 2)
 
         pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
         if [ $? -ne 0 ]; then
@@ -679,43 +674,52 @@ setup_state_volume()
     local longname=""
     local shortname=""
     local dname=""
+    local dirname=""
 
     longname=$(hostname)
     dname=${longname#$(hostname -s)}
 
     while [[ ${1} ]]; do
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname} ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}
+
+        if [[ ${1} == *${dname} ]]; then
+            dirname=${1}
+        else
+            dirname=${1}${dname}
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs
+
+
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname} ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha
         fi
-        touch ${mnt}/nfs-ganesha/${1}${dname}/nfs/state
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/v4recov ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/v4recov
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/v4old ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/v4old
+        touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/sm ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/sm
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4old ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4old
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/sm.bak ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/sm.bak
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
         fi
-        if [ ! -d ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/state ]; then
-            mkdir ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/state
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
+        fi
+        if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
+            mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
         fi
         for server in ${HA_SERVERS} ; do
-            if [ ${server} != ${1}${dname} ]; then
-                ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${1}${dname}/nfs/ganesha/${server}
-                ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${1}${dname}/nfs/statd/${server}
+            if [ ${server} != ${dirname} ]; then
+                ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/${server}
+                ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${dirname}/nfs/statd/${server}
             fi
         done
         shift
@@ -728,10 +732,16 @@ main()
 {
     local cmd=${1}; shift
     HA_CONFDIR=${1}; shift
+    local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
     local node=""
     local vip=""
 
-    . ${HA_CONFDIR}/ganesha-ha.conf
+    ha_name=$(grep ^HA_NAME= ${ha_conf} | cut -d = -f 2)
+    HA_NAME=${ha_name//\"/}
+    ha_vol_server=$(grep ^HA_VOL_SERVER= ${ha_conf} | cut -d = -f 2)
+    HA_VOL_SERVER=${ha_vol_server//\"/}
+    ha_cluster_nodes=$(grep ^HA_CLUSTER_NODES= ${ha_conf} | cut -d = -f 2)
+    HA_CLUSTER_NODES=${ha_cluster_nodes//\"/}
 
     if [ -e /etc/os-release ]; then
         RHEL6_PCS_CNAME_OPTION=""
