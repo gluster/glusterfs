@@ -1,4 +1,4 @@
-dnl  Copyright (c) 2006-2012 Red Hat, Inc. <http://www.redhat.com>
+dnl  Copyright (c) 2006-2016 Red Hat, Inc. <http://www.redhat.com>
 dnl  This file is part of GlusterFS.
 dnl
 dnl  This file is licensed to you under your choice of the GNU Lesser
@@ -171,6 +171,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/bit-rot/src/Makefile
                 xlators/features/bit-rot/src/stub/Makefile
                 xlators/features/bit-rot/src/bitd/Makefile
+                xlators/features/leases/Makefile
+                xlators/features/leases/src/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile

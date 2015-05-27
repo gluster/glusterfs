@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2015-2016 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -174,6 +174,11 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
 #define GLFS_MSGID_COMP_DC                     GLFS_MSGID_COMP_PL_END
 #define GLFS_MSGID_COMP_DC_END                 (GLFS_MSGID_COMP_PL_END+\
                                                  GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_LEASES             GLFS_MSGID_COMP_DC_END
+#define GLFS_MSGID_COMP_LEASES_END         (GLFS_MSGID_COMP_LEASES +\
+                                           GLFS_MSGID_SEGMENT)
+
 /* --- new segments for messages goes above this line --- */
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */
