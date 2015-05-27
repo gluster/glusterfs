@@ -1,12 +1,26 @@
 # Name of the HA cluster created.
+# must be unique within the subnet
 HA_NAME="ganesha-ha-360"
-# The server from which you intend to mount
-# the shared volume.
+#
+# The gluster server from which to mount the shared data volume.
 HA_VOL_SERVER="server1"
+#
+# N.B. you may use short names, long names, or IP addresses. Once you
+# select one, stay with it as it will be mildly unpleasant to clean up
+# if you switch later on. Ensure that all names - short and/or long -
+# are in DNS or /etc/hosts on all machines in the cluster.
+#
 # The subset of nodes of the Gluster Trusted Pool
 # that forms the ganesha HA cluster. IP/Hostname
 # is specified.
 HA_CLUSTER_NODES="server1,server2,..."
-# Virtual IPs of each of the nodes specified above.
-VIP_server1="10.x.x.x"
-VIP_server2="10.x.x.x"
+#HA_CLUSTER_NODES="server1.lab.redhat.com,server2.lab.redhat.com,..."
+#HA_CLUSTER_NODES="10.0.1.1,10.0.1.2,..."
+#
+# Virtual IPs for each of the nodes specified above.
+VIP_server1="10.0.2.1"
+VIP_server2="10.0.2.2"
+#VIP_server1.lab.redhat.com="10.0.2.1"
+#VIP_server2.lab.redhat.com="10.0.2.2"
+#VIP_10.0.1.1="10.0.2.1"
+#VIP_10.0.1.2="10.0.2.2"
