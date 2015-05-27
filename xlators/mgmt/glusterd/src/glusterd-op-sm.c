@@ -1594,6 +1594,13 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
         gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
                 key, value->data);
         dict_del (this, key);
+        /**Delete scrubber (pause/resume) option from the dictionary if bitrot
+         * option is going to be reset
+         * */
+        if (!strncmp (key, VKEY_FEATURES_BITROT,
+             strlen (VKEY_FEATURES_BITROT))) {
+                dict_del (this, VKEY_FEATURES_SCRUB);
+        }
 out:
         return 0;
 }

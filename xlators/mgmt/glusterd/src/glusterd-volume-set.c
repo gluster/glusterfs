@@ -1846,6 +1846,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype    = "features/bitrot",
           .option     = "scrubber",
           .op_version = GD_OP_VERSION_3_7_0,
+          .flags      = OPT_FLAG_FORCE,
           .type       = NO_DOC,
         },
         /* Upcall translator options */
