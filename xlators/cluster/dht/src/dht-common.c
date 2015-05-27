@@ -29,7 +29,7 @@
 #include <libgen.h>
 #include <signal.h>
 
-int dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret);
+int dht_link2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
 
 int
 dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
@@ -4884,7 +4884,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (!ret)
                                 return 0;
                 } else {
-                        dht_link2 (this, frame, 0);
+                        dht_link2 (this, subvol, frame);
                         return 0;
                 }
         }
@@ -4893,7 +4893,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
                 ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
                 if (subvol) {
-                        dht_link2 (this, frame, 0);
+                        dht_link2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -4911,10 +4911,9 @@ out:
 
 
 int
-dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
         dht_local_t *local  = NULL;
-        xlator_t    *subvol = NULL;
         int          op_errno = EINVAL;
 
         local = frame->local;
@@ -4922,16 +4921,9 @@ dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret)
                 goto err;
 
         op_errno = local->op_errno;
-        if (op_ret == -1)
+        if (subvol == NULL) {
+                op_errno = EINVAL;
                 goto err;
-
-        dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
-        if (!subvol) {
-                subvol = local->cached_subvol;
-                if (!subvol) {
-                        op_errno = EINVAL;
-                        goto err;
-                }
         }
 
         /* Second call to create link file could result in EEXIST as the
