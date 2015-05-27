@@ -179,6 +179,11 @@ def get_nodes(volume):
                          logger=logger)
     tree = etree.fromstring(data)
 
+    # Test to check if volume has been deleted after session creation
+    count_el = tree.find('volInfo/volumes/count')
+    if int(count_el.text) == 0:
+        fail("Unable to get volume details", logger=logger)
+
     nodes = []
     volume_el = tree.find('volInfo/volumes/volume')
     try:
@@ -505,6 +510,11 @@ def main():
 
     if not os.path.exists(session_dir) and args.mode not in ["create", "list"]:
         fail("Invalid session %s" % args.session)
+
+    vol_dir = os.path.join(session_dir, args.volume)
+    if not os.path.exists(vol_dir) and args.mode not in ["create", "list"]:
+        fail("Session %s not created with volume %s" %
+            (args.session, args.volume))
 
     mkdirp(os.path.join(conf.get_opt("log_dir"), args.session, args.volume),
            exit_on_err=True)
