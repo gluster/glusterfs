@@ -1197,12 +1197,18 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+# Extra utility script
+%{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
+
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
 
 
 %changelog
+* Wed May 27 2015 Aravinda VK <avishwan@redhat.com>
+- Added stop-all-gluster-processes.sh in glusterfs-server section (#1204641)
+
 * Wed May 20 2015 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - python-gluster should be 'noarch' (#1219954)
 
