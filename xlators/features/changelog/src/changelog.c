@@ -1958,6 +1958,7 @@ notify (xlator_t *this, int event, void *data, ...)
         int                     barrier         = DICT_DEFAULT;
         gf_boolean_t            bclean_req      = _gf_false;
         int                     ret             = 0;
+        int                     ret1            = 0;
         struct list_head        queue           = {0, };
 
         INIT_LIST_HEAD (&queue);
@@ -2108,13 +2109,17 @@ notify (xlator_t *this, int event, void *data, ...)
                                                                           out,
                                                                     bclean_req);
                                 }
+                                if (priv->bn.bnotify_error == _gf_true) {
+                                        ret = -1;
+                                        priv->bn.bnotify_error = _gf_false;
+                                }
                         }
-                        ret = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
-                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret, out, bclean_req);
+                        ret1 = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
+                        CHANGELOG_PTHREAD_ERROR_HANDLE_1 (ret1, out,
+                                                          bclean_req);
                         gf_log (this->name, GF_LOG_INFO,
                                 "Woke up: bnotify conditional wait");
 
-                        ret = 0;
                         goto out;
 
                 case DICT_DEFAULT:
@@ -2632,6 +2637,7 @@ init (xlator_t *this)
 
         /* Mutex is not needed as threads are not spawned yet */
         priv->bn.bnotify = _gf_false;
+        priv->bn.bnotify_error = _gf_false;
         ret = changelog_barrier_pthread_init (this, priv);
         if (ret)
                 goto cleanup_options;

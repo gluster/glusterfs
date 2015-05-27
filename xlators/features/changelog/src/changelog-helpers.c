@@ -493,30 +493,33 @@ changelog_rollover_changelog (xlator_t *this,
                 ev.ev_type = CHANGELOG_OP_TYPE_JOURNAL;
                 memcpy (ev.u.journal.path, nfile, strlen (nfile) + 1);
                 changelog_dispatch_event (this, priv, &ev);
-
-                /* If this is explicit rollover initiated by snapshot,
-                 * wakeup reconfigure thread waiting for changelog to
-                 * rollover
-                 */
-                if (priv->explicit_rollover) {
-                        priv->explicit_rollover = _gf_false;
-
-                        ret = pthread_mutex_lock (&priv->bn.bnotify_mutex);
-                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
-                        {
-                                priv->bn.bnotify = _gf_false;
-                                ret = pthread_cond_signal
-                                        (&priv->bn.bnotify_cond);
-                                CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "Changelog published: %s signalled"
-                                        " bnotify", nfile);
-                        }
-                        ret = pthread_mutex_unlock (&priv->bn.bnotify_mutex);
-                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret, out);
-                }
         }
  out:
+        /* If this is explicit rollover initiated by snapshot,
+         * wakeup reconfigure thread waiting for changelog to
+         * rollover. This should happen even in failure cases as
+         * well otherwise snapshot will timeout and fail. Hence
+         * moved under out.
+         */
+        if (priv->explicit_rollover) {
+                priv->explicit_rollover = _gf_false;
+
+                pthread_mutex_lock (&priv->bn.bnotify_mutex);
+                {
+                        if (ret) {
+                                priv->bn.bnotify_error = _gf_true;
+                                gf_log (this->name, GF_LOG_ERROR, "Fail "
+                                        "snapshot because of previous errors");
+                        } else {
+                                gf_log (this->name, GF_LOG_INFO, "Explicit "
+                                        "rollover changelog: %s signaling "
+                                        "bnotify", nfile);
+                        }
+                        priv->bn.bnotify = _gf_false;
+                        pthread_cond_signal (&priv->bn.bnotify_cond);
+                }
+                pthread_mutex_unlock (&priv->bn.bnotify_mutex);
+        }
         return ret;
 }
 
