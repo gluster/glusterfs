@@ -152,6 +152,7 @@ typedef struct barrier_notify {
          pthread_mutex_t        bnotify_mutex;
          pthread_cond_t         bnotify_cond;
          gf_boolean_t           bnotify;
+         gf_boolean_t           bnotify_error;
 } barrier_notify_t;
 
 /* Two separate mutex and conditional variable set is used
