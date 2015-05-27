@@ -512,6 +512,12 @@ function cleanup_georep {
     $CLI volume geo-rep $GMV0 $H0::$GSV0 delete
 }
 
+function num_graphs
+{
+    local mountpoint=$1
+    echo `ls $mountpoint/.meta/graphs/ | grep -v active | wc -l`
+}
+
 function get_aux()
 {
 ##Check if a auxiliary mount is there
