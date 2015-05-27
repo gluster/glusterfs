@@ -37,7 +37,8 @@ TEST setfattr -n user.name -v value2  $M0/file
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST `echo "B2 is down, B3 is the only source, writes will fail" >> $M0/file`
+echo "B2 is down, B3 is the only source, writes will fail" >> $M0/file
+EXPECT_NOT "0" echo $?
 TEST ! cat $M0/file
 # Metadata I/O should still succeed.
 TEST getfattr -n user.name $M0/file
@@ -46,12 +47,17 @@ TEST setfattr -n user.name -v value3 $M0/file
 #shd should not data self-heal from arbiter to the sinks.
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT '1' echo $(count_sh_entries $B0/$V0"1")
 EXPECT_WITHIN $HEAL_TIMEOUT '1' echo $(count_sh_entries $B0/$V0"2")
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST $CLI volume heal $V0
 EXPECT 0 afr_get_pending_heal_count $V0
