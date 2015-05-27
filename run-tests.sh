@@ -195,7 +195,6 @@ function is_bad_test ()
 {
     local name=$1
     for bt in ./tests/basic/uss.t                       \
-              ./tests/bugs/replicate/bug-976800.t       \
               ./tests/bugs/replicate/bug-1015990.t      \
               ./tests/bugs/quota/bug-1038598.t  \
               ./tests/basic/afr/read-subvol-entry.t     \
