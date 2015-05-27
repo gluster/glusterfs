@@ -1093,6 +1093,7 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2008-2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2008-2016 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -164,6 +164,7 @@ enum gf_common_mem_types_ {
         /*used for compound fops*/
         gf_mt_compound_req_t,
         gf_mt_compound_rsp_t,
+        gf_common_mt_tw_timer_list,
         gf_common_mt_end
 };
 #endif
