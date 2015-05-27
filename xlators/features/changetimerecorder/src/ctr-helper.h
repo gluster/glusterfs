@@ -29,6 +29,7 @@
 
 #include "gfdb_data_store.h"
 #include "ctr-xlator-ctx.h"
+#include "ctr-messages.h"
 
 /*CTR Xlator Private structure*/
 typedef struct gf_ctr_private {
@@ -103,7 +104,8 @@ init_ctr_local_t (xlator_t *this) {
 
         ctr_local = mem_get0 (this->local_pool);
         if (!ctr_local) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        CTR_MSG_CREATE_CTR_LOCAL_ERROR_WIND,
                         "Error while creating ctr local");
                 goto out;
         }
@@ -346,7 +348,8 @@ ctr_insert_wind (call_frame_t                    *frame,
         if (_priv->ctr_record_wind && ctr_inode_cx->ia_type != IA_IFDIR) {
                 frame->local = init_ctr_local_t (this);
                 if (!frame->local) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CTR_MSG_CREATE_CTR_LOCAL_ERROR_WIND,
                                 "WIND: Error while creating ctr local");
                         goto out;
                 };
@@ -378,7 +381,8 @@ ctr_insert_wind (call_frame_t                    *frame,
                 /*Fill the db record for insertion*/
                 ret = fill_db_record_for_wind (this, ctr_local, ctr_inode_cx);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CTR_MSG_FILL_CTR_LOCAL_ERROR_WIND,
                                 "WIND: Error filling  ctr local");
                         goto out;
                 }
@@ -387,7 +391,8 @@ ctr_insert_wind (call_frame_t                    *frame,
                 ret = insert_record (_priv->_db_conn,
                                 &ctr_local->gfdb_db_record);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CTR_MSG_INSERT_RECORD_WIND_FAILED,
                                 "WIND: Inserting of record failed!");
                         goto out;
                 }
@@ -443,16 +448,18 @@ ctr_insert_unwind (call_frame_t          *frame,
                 ret = fill_db_record_for_unwind(this, ctr_local, fop_type,
                                                fop_path);
                 if (ret == -1) {
-                        gf_log(this->name, GF_LOG_ERROR, "UNWIND: Error"
-                                "filling ctr local");
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               CTR_MSG_FILL_CTR_LOCAL_ERROR_UNWIND,
+                               "UNWIND: Error filling ctr local");
                         goto out;
                 }
 
                 ret = insert_record(_priv->_db_conn,
                                         &ctr_local->gfdb_db_record);
                 if (ret == -1) {
-                        gf_log(this->name, GF_LOG_ERROR, "UNWIND: Error"
-                                "filling ctr local");
+                        gf_msg(this->name, GF_LOG_ERROR, 0,
+                               CTR_MSG_FILL_CTR_LOCAL_ERROR_UNWIND,
+                               "UNWIND: Error filling ctr local");
                         goto out;
                 }
         }
@@ -486,7 +493,8 @@ add_hard_link_ctx (call_frame_t *frame,
 
         ctr_xlator_ctx  = init_ctr_xlator_ctx (this, inode);
         if (!ctr_xlator_ctx) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_ACCESS_CTR_INODE_CONTEXT_FAILED,
                         "Failed accessing ctr inode context");
                 goto out;
         }
@@ -510,7 +518,8 @@ add_hard_link_ctx (call_frame_t *frame,
                         CTR_DB_REC(ctr_local).pargfid,
                         CTR_DB_REC(ctr_local).file_name);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_ADD_HARDLINK_TO_CTR_INODE_CONTEXT_FAILED,
                         "Failed to add hardlink to the ctr inode context");
                 goto unlock;
         }
@@ -551,7 +560,9 @@ delete_hard_link_ctx (call_frame_t *frame,
                         CTR_DB_REC(ctr_local).pargfid,
                         CTR_DB_REC(ctr_local).file_name);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to delete hard link");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_DELETE_HARDLINK_FAILED,
+                        "Failed to delete hard link");
                 goto out;
         }
 
@@ -581,7 +592,8 @@ update_hard_link_ctx (call_frame_t *frame,
 
         ctr_xlator_ctx  = init_ctr_xlator_ctx (this, inode);
         if (!ctr_xlator_ctx) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_ACCESS_CTR_INODE_CONTEXT_FAILED,
                         "Failed accessing ctr inode context");
                 goto out;
         }
@@ -592,7 +604,9 @@ update_hard_link_ctx (call_frame_t *frame,
                         CTR_DB_REC(ctr_local).old_pargfid,
                         CTR_DB_REC(ctr_local).old_file_name);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to delete hard link");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_DELETE_HARDLINK_FAILED,
+                        "Failed to delete hard link");
                 goto out;
         }
 

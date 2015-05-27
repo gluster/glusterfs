@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2015 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -10,11 +10,6 @@
 
 #ifndef _GLFS_MESSAGE_ID_H_
 #define _GLFS_MESSAGE_ID_H_
-
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
 
 /* Base of all message IDs, all message IDs would be
  * greater than this */
@@ -111,6 +106,10 @@
 #define GLFS_MSGID_COMP_QUOTA           GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END
 #define GLFS_MSGID_COMP_QUOTA_END       (GLFS_MSGID_COMP_QUOTA +\
                                         GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_CTR                GLFS_MSGID_COMP_QUOTA_END
+#define GLFS_MSGID_COMP_CTR_END            (GLFS_MSGID_COMP_CTR+\
+                                           GLFS_MSGID_SEGMENT)
 
 /* --- new segments for messages goes above this line --- */
 

@@ -10,7 +10,7 @@
 
 #include "gfdb_sqlite3.h"
 #include "ctr-helper.h"
-
+#include "ctr-messages.h"
 
 /*******************************************************************************
  *
@@ -35,8 +35,8 @@ fill_db_record_for_unwind(xlator_t              *this,
 
         /*If not unwind path error*/
         if (!isunwindpath(fop_path)) {
-                gf_log (this->name, GF_LOG_ERROR, "Wrong fop_path."
-                        "Should be unwind");
+                gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_WRONG_FOP_PATH,
+                        "Wrong fop_path. Should be unwind");
                 goto out;
         }
 
@@ -46,8 +46,9 @@ fill_db_record_for_unwind(xlator_t              *this,
 
         ret = gettimeofday (ctr_uwtime, NULL);
         if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Error filling unwind time record %s",
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                CTR_MSG_FILL_UNWIND_TIME_REC_ERROR, "Error "
+                                "filling unwind time record %s",
                                 strerror(errno));
                         goto out;
                 }
@@ -89,7 +90,8 @@ fill_db_record_for_wind (xlator_t               *this,
 
         /*if not wind path error!*/
         if (!iswindpath(ctr_inode_cx->fop_path)) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_WRONG_FOP_PATH,
                         "Wrong fop_path. Should be wind");
                 goto out;
         }
@@ -101,7 +103,8 @@ fill_db_record_for_wind (xlator_t               *this,
 
         ret = gettimeofday (ctr_wtime, NULL);
         if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                CTR_MSG_FILL_UNWIND_TIME_REC_ERROR,
                                 "Error filling wind time record %s",
                                 strerror(errno));
                         goto out;
@@ -182,8 +185,9 @@ extract_sql_params(xlator_t *this, dict_t *params_dict)
         /*Construct full path of the db*/
         ret = gf_asprintf(&db_full_path, "%s/%s", db_path, db_name);
         if (ret < 0) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Construction of full db path failed!");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        CTR_MSG_CONSTRUCT_DB_PATH_FAILED,
+                        "Construction of full db path failed!");
                 goto out;
         }
 
@@ -194,8 +198,9 @@ extract_sql_params(xlator_t *this, dict_t *params_dict)
         /*Extact rest of the sql params*/
         ret = gfdb_set_sql_params(this->name, this->options, params_dict);
         if (ret) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "Failed setting values to sql param dict!");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        CTR_MSG_SET_VALUE_TO_SQL_PARAM_FAILED,
+                        "Failed setting values to sql param dict!");
         }
 
         ret = 0;
@@ -246,8 +251,9 @@ int extract_ctr_options (xlator_t *this, gf_ctr_private_t *_priv) {
         _priv->enabled = _gf_false;
         GF_OPTION_INIT ("ctr-enabled", _priv->enabled, bool, out);
         if (!_priv->enabled) {
-                gf_log (GFDB_DATA_STORE, GF_LOG_ERROR,
-                                "CTR Xlator is disabled.");
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
+                        CTR_MSG_XLATOR_DISABLED,
+                        "CTR Xlator is disabled.");
                 ret = 0;
                 goto out;
         }

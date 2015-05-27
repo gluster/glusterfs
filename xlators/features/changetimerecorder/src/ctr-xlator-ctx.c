@@ -9,6 +9,7 @@
 */
 
 #include "ctr-xlator-ctx.h"
+#include "ctr-messages.h"
 
 #define IS_THE_ONLY_HARDLINK(ctr_hard_link)\
         (ctr_hard_link->list.next == ctr_hard_link->list.prev)
@@ -79,8 +80,9 @@ ctr_add_hard_link (xlator_t           *this,
         ctr_hard_link = GF_CALLOC (1, sizeof (*ctr_hard_link),
                                         gf_ctr_mt_hard_link_t);
         if (!ctr_hard_link) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed allocating "
-                                                "ctr_hard_link");
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        CTR_MSG_CALLOC_FAILED, "Failed allocating "
+                        "ctr_hard_link");
                 goto out;
         }
 
@@ -90,8 +92,9 @@ ctr_add_hard_link (xlator_t           *this,
         gf_uuid_copy (ctr_hard_link->pgfid, pgfid);
         ret = gf_asprintf(&ctr_hard_link->base_name, "%s", base_name);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed copying basename"
-                                        "to ctr_hard_link");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_COPY_FAILED, "Failed copying basename"
+                        "to ctr_hard_link");
                 goto error;
         }
 
@@ -139,8 +142,9 @@ ctr_delete_hard_link (xlator_t                *this,
         ctr_hard_link = ctr_search_hard_link_ctx (this, ctr_xlator_ctx,
                                                         pgfid, base_name);
         if (!ctr_hard_link) {
-                gf_log (this->name, GF_LOG_ERROR, "Hard link doesnt exist"
-                                              " in the list");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_HARDLINK_MISSING_IN_LIST,
+                        "Hard link doesnt exist in the list");
                 goto out;
         }
 
@@ -178,15 +182,16 @@ ctr_update_hard_link (xlator_t                *this,
         ctr_hard_link = ctr_search_hard_link_ctx (this, ctr_xlator_ctx,
                                                 old_pgfid, old_base_name);
         if (!ctr_hard_link) {
-                gf_log (this->name, GF_LOG_TRACE, "Hard link doesnt exist"
-                                              " in the list");
+                gf_msg_trace (this->name, 0, "Hard link doesnt exist"
+                              " in the list");
                 /* Since the hard link is not present in the list
                  * we add it to the list */
                 ret = ctr_add_hard_link (this, ctr_xlator_ctx,
                                         pgfid, base_name);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed adding"
-                                        "hard link to the list");
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CTR_MSG_ADD_HARDLINK_TO_LIST_FAILED,
+                                "Failed adding hard link to the list");
                         goto out;
                 }
                 ret = 0;
@@ -198,7 +203,8 @@ ctr_update_hard_link (xlator_t                *this,
         GF_FREE (&ctr_hard_link->base_name);
         ret = gf_asprintf(&ctr_hard_link->base_name, "%s", base_name);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed copying basename"
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_COPY_FAILED, "Failed copying basename"
                                         "to ctr_hard_link");
                 /* delete the corrupted entry */
                 __delete_hard_link_from_list (&ctr_hard_link);
@@ -296,8 +302,9 @@ init_ctr_xlator_ctx (xlator_t *this,
 
                 ret = LOCK_INIT (&ctr_xlator_ctx->lock);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                        "Failed init lock %s", strerror(ret));
+                        gf_msg (this->name, GF_LOG_ERROR, ret,
+                                CTR_MSG_INIT_LOCK_FAILED,
+                                "Failed init lock %s", strerror(ret));
                         goto out;
                 }
                 _addr = (uint64_t) ctr_xlator_ctx;
@@ -342,8 +349,9 @@ fini_ctr_xlator_ctx (xlator_t *this,
 
         ret = ctr_delete_all_hard_link (this, ctr_xlator_ctx);
         if (ret) {
-                gf_log (this->name, GF_LOG_WARNING , "Failed deleting all hard"
-                                              " links from inode context");
+                gf_msg (this->name, GF_LOG_WARNING , 0,
+                        CTR_MSG_DELETE_HARDLINK_FAILED, "Failed deleting all "
+                        "hard links from inode context");
         }
 
         LOCK_DESTROY (&ctr_xlator_ctx->lock);
