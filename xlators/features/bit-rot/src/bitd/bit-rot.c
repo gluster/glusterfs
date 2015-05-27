@@ -853,7 +853,6 @@ br_check_object_need_sign (xlator_t *this, dict_t *xattr, br_child_t *child)
 {
         int32_t              ret       = -1;
         gf_boolean_t         need_sign = _gf_false;
-        struct timeval       tv        = {0,};
         br_isignature_out_t *sign      = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
@@ -868,11 +867,8 @@ br_check_object_need_sign (xlator_t *this, dict_t *xattr, br_child_t *child)
                 goto out;
         }
 
-        tv.tv_sec  = ntohl (sign->time[0]);
-        tv.tv_usec = ntohl (sign->time[1]);
-
         /* Object has been opened and hence dirty. Do not sign it */
-        if (sign->stale && !br_time_equal (child, &tv))
+        if (sign->stale)
                 need_sign = _gf_true;
 
 out:
@@ -1002,7 +998,11 @@ bitd_oneshot_crawl (xlator_t *subvol,
                 op_errno = -ret;
                 br_log_object (this, "getxattr", linked_inode->gfid, op_errno);
 
-                if (op_errno == ENODATA)
+                /**
+                 * No need to sign the zero byte objects as the signing
+                 * happens upon first modification of the object.
+                 */
+                if (op_errno == ENODATA && (iatt.ia_size != 0))
                         need_signing = _gf_true;
                 if (op_errno == EINVAL)
                         gf_log (this->name, GF_LOG_WARNING, "Partial version "
@@ -1231,7 +1231,7 @@ br_brick_connect (xlator_t *this, br_child_t *child)
 
         memcpy (child->brick_path, stub->export, strlen (stub->export) + 1);
         child->tv.tv_sec = ntohl (stub->timebuf[0]);
-        child->tv.tv_usec = ntohl (stub->timebuf[0]);
+        child->tv.tv_usec = ntohl (stub->timebuf[1]);
 
         if (priv->iamscrubber)
                 ret = br_enact_scrubber (this, child);
