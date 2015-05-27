@@ -1229,9 +1229,15 @@ fi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
 %{_libexecdir}/glusterfs/peer_add_secret_pub
+%{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
+%exclude %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyc
+%exclude %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.pyo
 
 
 %changelog
+* Tue Jun 02 2015 Aravinda VK <avishwan@redhat.com>
+- Added post hook for volume delete as part of glusterfind (#1225465)
+
 * Wed May 27 2015 Aravinda VK <avishwan@redhat.com>
 - Added stop-all-gluster-processes.sh in glusterfs-server section (#1204641)
 
