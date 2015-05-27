@@ -1624,7 +1624,7 @@ afr_final_errno (afr_local_t *local, afr_private_t *priv)
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
 			continue;
-		if (local->replies[i].op_ret == 0)
+		if (local->replies[i].op_ret >= 0)
 			continue;
 		tmp_errno = local->replies[i].op_errno;
 		op_errno = afr_higher_errno (op_errno, tmp_errno);
