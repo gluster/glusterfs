@@ -107,6 +107,9 @@
 #define GLFS_MSGID_COMP_QUOTA_END       (GLFS_MSGID_COMP_QUOTA +\
                                         GLFS_MSGID_SEGMENT)
 
+#define GLFS_MSGID_COMP_CTR                GLFS_MSGID_COMP_QUOTA_END
+#define GLFS_MSGID_COMP_CTR_END            (GLFS_MSGID_COMP_CTR+\
+                                           GLFS_MSGID_SEGMENT)
 
 /* --- new segments for messages goes above this line --- */
 
