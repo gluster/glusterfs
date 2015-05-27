@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include "xlator.h"
 #include "gf-dirent.h"
+#include "posix-messages.h"
 
 /* From Open Group Base Specifications Issue 6 */
 #ifndef _XOPEN_PATH_MAX
@@ -45,9 +46,9 @@
                                 flags);                                 \
         if (op_ret == -1) {                                             \
                 op_errno = errno;                                       \
-                gf_log (this->name, GF_LOG_WARNING,                     \
-                        "setting xattr failed on %s: key = %s (%s)",    \
-                        path, key, strerror (op_errno));                \
+                gf_msg (this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP, \
+                        "setting xattr failed on %s: key = %s ",        \
+                        path, key);                                     \
                 goto label;                                             \
         }                                                               \
         } while (0)
@@ -62,9 +63,10 @@
                                 SET_PGFID_XATTR (path, key, value, flags,      \
                                                  op_ret, this, label);         \
                         } else {                                               \
-                                gf_log(this->name, GF_LOG_WARNING, "getting "  \
-                                       "xattr failed on %s: key = %s (%s)",    \
-                                       path, key, strerror (op_errno));        \
+                                gf_msg (this->name, GF_LOG_WARNING, op_errno,  \
+                                       P_MSG_PGFID_OP, "getting xattr "    \
+                                       "failed on %s: key = %s ",              \
+                                       path, key);                             \
                         }                                                      \
                 }                                                              \
         } while (0)
@@ -73,9 +75,10 @@
        op_ret = sys_lremovexattr (path, key);                           \
        if (op_ret == -1) {                                              \
                op_errno = errno;                                        \
-               gf_log (this->name, GF_LOG_WARNING, "removing xattr "    \
-                       "failed on %s: key = %s (%s)", path, key,        \
-                       strerror (op_errno));                            \
+               gf_msg (this->name, GF_LOG_WARNING, op_errno,                   \
+                       P_MSG_PGFID_OP,                                     \
+                       "removing xattr failed"                                 \
+                       "on %s: key = %s", path, key);                          \
                goto label;                                              \
        }                                                                \
        } while (0)
@@ -88,9 +91,9 @@
                if (op_errno == ENOATTR || op_errno == ENODATA) {        \
                        value = 1;                                       \
                } else {                                                 \
-                       gf_log (this->name, GF_LOG_WARNING,"getting xattr " \
-                               "failed on %s: key = %s (%s)", path, key, \
-                               strerror (op_errno));                    \
+                       gf_msg (this->name, GF_LOG_WARNING, errno,       \
+                               P_MSG_PGFID_OP, "getting xattr "      \
+                               "failed on %s: key = %s ", path, key);      \
                        goto label;                                      \
                }                                                        \
        } else {                                                         \
@@ -105,8 +108,9 @@
        op_ret = sys_lgetxattr (path, key, &value, sizeof (value));  \
        if (op_ret == -1) {                                              \
                op_errno = errno;                                        \
-               gf_log (this->name, GF_LOG_WARNING, "getting xattr failed on " \
-                       "%s: key = %s (%s)", path, key, strerror (op_errno)); \
+               gf_msg (this->name, GF_LOG_WARNING, errno,               \
+                      P_MSG_PGFID_OP, "getting xattr failed on " \
+                       "%s: key = %s ", path, key);                     \
                goto label;                                              \
        } else {                                                         \
                value = ntoh32 (value);                                  \
@@ -177,7 +181,8 @@
 
 #define MAKE_INODE_HANDLE(rpath, this, loc, iatt_p) do {                \
         if (gf_uuid_is_null (loc->gfid)) {                              \
-                gf_log (this->name, GF_LOG_ERROR,                       \
+                gf_msg (this->name, GF_LOG_ERROR, 0,                    \
+                        P_MSG_INODE_HANDLE_CREATE,                      \
                         "null gfid for path %s", (loc)->path);          \
                 break;                                                  \
         }                                                               \
@@ -189,12 +194,13 @@
         errno = 0;                                                      \
         op_ret = posix_istat (this, loc->gfid, NULL, iatt_p);           \
         if (errno != ELOOP) {                                           \
-                MAKE_HANDLE_PATH (rpath, this, (loc)->gfid, NULL);        \
+                MAKE_HANDLE_PATH (rpath, this, (loc)->gfid, NULL);      \
                 if (!rpath) {                                           \
                         op_ret = -1;                                    \
-                        gf_log (this->name, GF_LOG_ERROR,               \
-                        "Failed to create inode handle "                \
-                        "for path %s", (loc)->path);                      \
+                        gf_msg (this->name, GF_LOG_ERROR, errno,        \
+                                P_MSG_INODE_HANDLE_CREATE,            \
+                                "Failed to create inode handle "        \
+                                "for path %s", (loc)->path);            \
                 }                                                       \
                 break;                                                  \
         }                                                               \
@@ -206,7 +212,7 @@
         char *__parp;                                                   \
                                                                         \
         if (gf_uuid_is_null (loc->pargfid) || !loc->name) {             \
-                gf_log (this->name, GF_LOG_ERROR,                       \
+                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_ENTRY_HANDLE_CREATE,\
                         "null pargfid/name for path %s", loc->path);    \
                 break;                                                  \
         }                                                               \
@@ -224,9 +230,10 @@
                 MAKE_HANDLE_PATH (parp, this, loc->pargfid, NULL);      \
                 MAKE_HANDLE_PATH (entp, this, loc->pargfid, loc->name); \
                 if (!parp || !entp) {                                   \
-                        gf_log (this->name, GF_LOG_ERROR,               \
-                        "Failed to create entry handle "                \
-                        "for path %s", loc->path);                      \
+                        gf_msg (this->name, GF_LOG_ERROR, errno,        \
+                                P_MSG_ENTRY_HANDLE_CREATE,      \
+                                "Failed to create entry handle "        \
+                                "for path %s", loc->path);              \
                 }                                                       \
                 break;                                                  \
         }                                                               \

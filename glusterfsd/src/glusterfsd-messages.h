@@ -36,7 +36,7 @@
  */
 
 #define GLFS_COMP_BASE          GLFS_MSGID_COMP_GLUSTERFSD
-#define GLFS_NUM_MESSAGES       33
+#define GLFS_NUM_MESSAGES       34
 #define GLFS_MSGID_END          (GLFS_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_COMP_BASE, "Invalid: Start of messages"

@@ -11,6 +11,7 @@
 #include "glusterfs.h"
 #include "posix.h"
 #include <sys/uio.h>
+#include "posix-messages.h"
 
 #ifdef HAVE_LIBAIO
 #include <libaio.h>
@@ -50,9 +51,9 @@ __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 	}
 
 	if (ret) {
-		gf_log (THIS->name, GF_LOG_WARNING,
-			"fcntl() failed (%s). fd=%d flags=%d pfd->odirect=%d",
-			strerror (errno), pfd->fd, flags, pfd->odirect);
+		gf_msg (THIS->name, GF_LOG_WARNING, errno, P_MSG_FCNTL_FAILED,
+			"fcntl() failed. fd=%d flags=%d pfd->odirect=%d",
+			 pfd->fd, flags, pfd->odirect);
 	}
 }
 
@@ -96,11 +97,11 @@ posix_aio_readv_complete (struct posix_aio_cb *paiocb, int res, int res2)
         if (res < 0) {
                 op_ret = -1;
                 op_errno = -res;
-		gf_log (this->name, GF_LOG_ERROR,
-			"readv(async) failed fd=%d,size=%lu,offset=%llu (%d/%s)",
+		gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_READV_FAILED,
+			"readv(async) failed fd=%d,size=%lu,offset=%llu (%d)",
 			_fd, paiocb->iocb.u.c.nbytes,
 			(unsigned long long) paiocb->offset,
-			res, strerror (op_errno));
+			res);
                 goto out;
         }
 
@@ -108,9 +109,8 @@ posix_aio_readv_complete (struct posix_aio_cb *paiocb, int res, int res2)
 	if (ret != 0) {
 		op_ret = -1;
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "fstat failed on fd=%d: %s", _fd,
-                        strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
+                        "fstat failed on fd=%d", _fd);
                 goto out;
 	}
 
@@ -177,7 +177,7 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
                 goto err;
         }
@@ -185,7 +185,8 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (!size) {
                 op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_WARNING, "size=%"GF_PRI_SIZET, size);
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        P_MSG_INVALID_ARGUMENT, "size=%"GF_PRI_SIZET, size);
                 goto err;
         }
 
@@ -227,9 +228,10 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	UNLOCK (&fd->lock);
 
         if (ret != 1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "io_submit() returned %d", ret);
                 op_errno = -ret;
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        P_MSG_IO_SUBMIT_FAILED,
+                        "io_submit() returned %d", ret);
                 goto err;
         }
 
@@ -269,10 +271,10 @@ posix_aio_writev_complete (struct posix_aio_cb *paiocb, int res, int res2)
         if (res < 0) {
                 op_ret = -1;
                 op_errno = -res;
-		gf_log (this->name, GF_LOG_ERROR,
-			"writev(async) failed fd=%d,offset=%llu (%d/%s)",
-			_fd, (unsigned long long) paiocb->offset, res,
-			strerror (op_errno));
+		gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        P_MSG_WRITEV_FAILED,
+			"writev(async) failed fd=%d,offset=%llu (%d)",
+			_fd, (unsigned long long) paiocb->offset, res);
 
                 goto out;
         }
@@ -281,9 +283,8 @@ posix_aio_writev_complete (struct posix_aio_cb *paiocb, int res, int res2)
 	if (ret != 0) {
 		op_ret = -1;
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "fstat failed on fd=%d: %s", _fd,
-                        strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
+                        "fstat failed on fd=%d", _fd);
                 goto out;
 	}
 
@@ -334,7 +335,7 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = posix_fd_ctx_get (fd, this, &pfd);
         if (ret < 0) {
                 op_errno = -ret;
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
                 goto err;
         }
@@ -366,9 +367,8 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = posix_fdstat (this, _fd, &paiocb->prebuf);
 	if (ret != 0) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "fstat failed on fd=%p: %s", fd,
-                        strerror (op_errno));
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
+                        "fstat failed on fd=%p", fd);
                 goto err;
 	}
 
@@ -383,9 +383,11 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	UNLOCK (&fd->lock);
 
         if (ret != 1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "io_submit() returned %d", ret);
                 op_errno = -ret;
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        P_MSG_IO_SUBMIT_FAILED,
+                        "io_submit() returned %d,gfid=%s", ret,
+                        uuid_utoa(fd->inode->gfid));
                 goto err;
         }
 
@@ -423,7 +425,8 @@ posix_aio_thread (void *data)
                 ret = io_getevents (priv->ctxp, 1, POSIX_AIO_MAX_NR_GETEVENTS,
 				    &events[0], NULL);
                 if (ret <= 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                P_MSG_IO_GETEVENTS_FAILED,
                                 "io_getevents() returned %d", ret);
                         if (ret == -EINTR)
                                 continue;
@@ -445,7 +448,8 @@ posix_aio_thread (void *data)
 							   event->res2);
 				break;
 			default:
-				gf_log (this->name, GF_LOG_ERROR,
+				gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        P_MSG_UNKNOWN_OP,
 					"unknown op %d found in piocb",
 					paiocb->op);
 				break;
@@ -467,7 +471,7 @@ posix_aio_init (xlator_t *this)
 
         ret = io_setup (POSIX_AIO_MAX_NR_EVENTS, &priv->ctxp);
         if ((ret == -1 && errno == ENOSYS) || ret == -ENOSYS) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_AIO_UNAVAILABLE,
                         "Linux AIO not available at run-time."
 			" Continuing with synchronous IO");
                 ret = 0;
@@ -475,9 +479,10 @@ posix_aio_init (xlator_t *this)
         }
 
         if (ret < 0) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"io_setup() failed. ret=%d, errno=%d",
-			ret, errno);
+		gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        P_MSG_IO_SETUP_FAILED,
+			"io_setup() failed. ret=%d",
+			ret);
                 goto out;
 	}
 
@@ -536,7 +541,7 @@ posix_aio_off (xlator_t *this)
 int
 posix_aio_on (xlator_t *this)
 {
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, P_MSG_AIO_UNAVAILABLE,
                 "Linux AIO not available at build-time."
 		" Continuing with synchronous IO");
         return 0;
@@ -545,7 +550,7 @@ posix_aio_on (xlator_t *this)
 int
 posix_aio_off (xlator_t *this)
 {
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, P_MSG_AIO_UNAVAILABLE,
                 "Linux AIO not available at build-time."
 		" Continuing with synchronous IO");
         return 0;
@@ -556,9 +561,10 @@ __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
                         off_t offset, size_t size)
 {
         xlator_t        *this = THIS;
-        gf_log (this->name, GF_LOG_INFO,
+        gf_msg (this->name, GF_LOG_INFO, 0, P_MSG_AIO_UNAVAILABLE,
                 "Linux AIO not available at build-time."
                 " Continuing with synchronous IO");
         return;
 }
+
 #endif
