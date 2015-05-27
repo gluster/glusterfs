@@ -194,17 +194,8 @@ function run_tests()
 function is_bad_test ()
 {
     local name=$1
-    for bt in ./tests/bugs/replicate/bug-1015990.t      \
-              ./tests/basic/ec/quota.t  \
-              ./tests/basic/quota-nfs.t \
-              ./tests/bugs/quota/bug-1035576.t  \
-              ./tests/bugs/glusterfs/bug-867253.t       \
-              ./tests/basic/quota-anon-fd-nfs.t \
-              ./tests/bugs/disperse/bug-1187474.t       \
-              ./tests/basic/afr/sparse-file-self-heal.t \
-              ./tests/basic/mount-nfs-auth.t            \
-              ./tests/basic/ec/ec-5-1.t                 \
-              ./tests/basic/ec/ec.t                     \
+    for bt in ./tests/basic/quota-anon-fd-nfs.t \
+              ./tests/basic/mount-nfs-auth.t\
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
