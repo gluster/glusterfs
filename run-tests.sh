@@ -204,7 +204,6 @@ function is_bad_test ()
               ./tests/bugs/disperse/bug-1187474.t       \
               ./tests/basic/afr/sparse-file-self-heal.t \
               ./tests/basic/mount-nfs-auth.t            \
-              ./tests/performance/open-behind.t         \
               ./tests/basic/ec/ec-5-1.t                 \
               ./tests/basic/ec/ec.t                     \
 	      ; do
