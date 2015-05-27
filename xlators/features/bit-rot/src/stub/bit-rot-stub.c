@@ -944,6 +944,79 @@ br_stub_listxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+/**
+ * ONE SHOT CRAWLER from BitD signs the objects that it encounters while
+ * crawling, if the object is identified as stale by the stub. Stub follows
+ * the below logic to mark an object as stale or not.
+ * If the ongoing version and the signed_version match, then the object is not
+ * stale. Just return. Otherwise if they does not match, then it means one
+ * of the below things.
+ * 1) If the inode does not need write back of the version and the sign state is
+ *    is NORMAL, then some active i/o is going on the object. So skip it.
+ *    A notification will be sent to trigger the sign once the release is
+ *    received on the object.
+ * 2) If inode does not need writeback of the version and the sign state is
+ *    either reopen wait or quick sign, then it means:
+ *    A) BitD restarted and it is not sure whether the object it encountered
+ *       while crawling is in its timer wheel or not. Since there is no way to
+ *       scan the timer wheel as of now, ONE SHOT CRAWLER just goes ahead and
+ *       signs the object. Since the inode does not need writeback, version will
+ *       not be incremented and directly the object will be signed.
+ * 3) If the inode needs writeback, then it means the inode was forgotten after
+ *    the versioning and it has to be signed now.
+ *
+ * This is the algorithm followed:
+ * if (ongoing_version == signed_version); then
+ *     object_is_not_stale;
+ *     return;
+ * else; then
+ *      if (!inode_needs_writeback && inode_sign_state != NORMAL); then
+ *            object_is_stale;
+ *      if (inode_needs_writeback); then
+ *            object_is_stale;
+ *
+ * For SCRUBBER, no need to check for the sign state and inode writeback.
+ * If the ondisk ongoingversion and the ondisk signed version does not match,
+ * then treat the object as stale.
+ */
+char
+br_stub_is_object_stale (xlator_t *this, call_frame_t *frame, inode_t *inode,
+                         br_version_t *obuf, br_signature_t *sbuf)
+{
+        uint64_t   ctx_addr = 0;
+        br_stub_inode_ctx_t *ctx = NULL;
+        int32_t  ret = -1;
+        char stale = 0;
+
+        if (obuf->ongoingversion == sbuf->signedversion)
+                goto out;
+
+        if (frame->root->pid == GF_CLIENT_PID_SCRUB) {
+                stale = 1;
+                goto out;
+        }
+
+        ret = br_stub_get_inode_ctx (this, inode, &ctx_addr);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
+                        "context for %s", uuid_utoa (inode->gfid));
+                goto out;
+        }
+
+        ctx = (br_stub_inode_ctx_t *)(long)ctx_addr;
+
+        LOCK (&inode->lock);
+        {
+                if ((!__br_stub_is_inode_dirty (ctx) &&
+                     ctx->info_sign != BR_SIGN_NORMAL) ||
+                    __br_stub_is_inode_dirty (ctx))
+                        stale = 1;
+        }
+        UNLOCK (&inode->lock);
+
+out:
+        return stale;
+}
 
 int
 br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -956,11 +1029,17 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         br_signature_t      *sbuf         = NULL;
         br_isignature_out_t *sign         = NULL;
         br_vxattr_status_t   status;
+        br_stub_local_t     *local        = NULL;
+        inode_t             *inode        = NULL;
 
         if (op_ret < 0)
                 goto unwind;
         if (cookie != (void *) BR_STUB_REQUEST_COOKIE)
                 goto unwind;
+
+        local = frame->local;
+        frame->local = NULL;
+        inode = local->u.context.inode;
 
         op_ret   = -1;
         status = br_version_xattr_state (xattr, &obuf, &sbuf);
@@ -1000,7 +1079,7 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Object's dirty state & current signed version */
         sign->version = sbuf->signedversion;
-        sign->stale = (obuf->ongoingversion != sbuf->signedversion) ? 1 : 0;
+        sign->stale = br_stub_is_object_stale (this, frame, inode, obuf, sbuf);
 
         /* Object's signature */
         sign->signaturelen  = signaturelen;
@@ -1020,6 +1099,10 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
  unwind:
         STACK_UNWIND (frame, op_ret, op_errno, xattr, xdata);
+        if (local) {
+                br_stub_cleanup_local (local);
+                br_stub_dealloc_local (local);
+        }
         return 0;
 }
 
@@ -1065,9 +1148,16 @@ int
 br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, const char *name, dict_t *xdata)
 {
-        void *cookie = NULL;
-        uuid_t rootgfid = {0, };
-        fop_getxattr_cbk_t cbk = br_stub_getxattr_cbk;
+        void               *cookie   = NULL;
+        uuid_t              rootgfid = {0, };
+        fop_getxattr_cbk_t  cbk      = br_stub_getxattr_cbk;
+        int32_t             op_ret   = -1;
+        int32_t             op_errno = EINVAL;
+        br_stub_local_t    *local    = NULL;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, unwind);
 
         rootgfid[15] = 1;
 
@@ -1076,10 +1166,8 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
         }
 
-        if (br_stub_is_internal_xattr (name)) {
-                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
-                return 0;
-        }
+        if (br_stub_is_internal_xattr (name))
+                goto unwind;
 
         /**
          * this special extended attribute is allowed only on root
@@ -1099,6 +1187,18 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
         if (name && (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
                               strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
                 cookie = (void *) BR_STUB_REQUEST_COOKIE;
+
+                local = br_stub_alloc_local (this);
+                if (!local) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                br_stub_fill_local (local, NULL, NULL, loc->inode,
+                                    loc->inode->gfid,
+                                    BR_STUB_NO_VERSIONING, 0);
+                frame->local = local;
         }
 
  wind:
@@ -1106,6 +1206,9 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                       (frame, cbk, cookie, FIRST_CHILD (this),
                        FIRST_CHILD (this)->fops->getxattr, loc, name, xdata);
         return 0;
+unwind:
+        STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+                return 0;
 }
 
 int
@@ -1115,6 +1218,9 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         void *cookie = NULL;
         uuid_t rootgfid = {0, };
         fop_fgetxattr_cbk_t cbk = br_stub_getxattr_cbk;
+        int32_t op_ret = -1;
+        int32_t op_errno = EINVAL;
+        br_stub_local_t *local = NULL;
 
         rootgfid[15] = 1;
 
@@ -1123,10 +1229,8 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
         }
 
-        if (br_stub_is_internal_xattr (name)) {
-                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
-                return 0;
-        }
+        if (br_stub_is_internal_xattr (name))
+                goto unwind;
 
         /**
          * this special extended attribute is allowed only on root
@@ -1145,12 +1249,27 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (name && (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
                               strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
                 cookie = (void *) BR_STUB_REQUEST_COOKIE;
+
+                local = br_stub_alloc_local (this);
+                if (!local) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                br_stub_fill_local (local, NULL, fd, fd->inode,
+                                    fd->inode->gfid,
+                                    BR_STUB_NO_VERSIONING, 0);
+                frame->local = local;
         }
 
  wind:
         STACK_WIND_COOKIE
                       (frame, cbk, cookie, FIRST_CHILD (this),
                        FIRST_CHILD (this)->fops->fgetxattr, fd, name, xdata);
+        return 0;
+unwind:
+        STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
         return 0;
 }
 
