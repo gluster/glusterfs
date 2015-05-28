@@ -20,7 +20,8 @@ typedef int32_t (* ec_combine_f)(ec_fop_data_t * fop, ec_cbk_data_t * dst,
 void ec_iatt_rebuild(ec_t * ec, struct iatt * iatt, int32_t count,
                      int32_t answers);
 
-int32_t ec_iatt_combine(struct iatt * dst, struct iatt * src, int32_t count);
+int32_t ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
+                        int32_t count);
 int32_t ec_dict_compare(dict_t * dict1, dict_t * dict2);
 int32_t ec_vector_compare(struct iovec * dst_vector, int32_t dst_count,
                           struct iovec * src_vector, int32_t src_count);

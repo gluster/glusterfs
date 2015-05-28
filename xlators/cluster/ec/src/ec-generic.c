@@ -235,8 +235,7 @@ out:
 int32_t ec_combine_fsync(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                          ec_cbk_data_t * src)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 2))
-    {
+    if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 2)) {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
                                              "answers of 'GF_FOP_FSYNC'");
 
@@ -813,8 +812,7 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 int32_t ec_combine_lookup(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                           ec_cbk_data_t * src)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 2))
-    {
+    if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 2)) {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
                                              "answers of 'GF_FOP_LOOKUP'");
 

@@ -936,8 +936,7 @@ out:
 int32_t ec_combine_readlink(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                             ec_cbk_data_t * src)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 1))
-    {
+    if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 1)) {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
                                              "answers of 'GF_FOP_READLINK'");
 
@@ -1210,8 +1209,7 @@ int32_t ec_combine_readv(ec_fop_data_t * fop, ec_cbk_data_t * dst,
         return 0;
     }
 
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 1))
-    {
+    if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 1)) {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
                                              "answers of 'GF_FOP_READ'");
 
@@ -1493,8 +1491,7 @@ out:
 int32_t ec_combine_stat(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                         ec_cbk_data_t * src)
 {
-    if (!ec_iatt_combine(dst->iatt, src->iatt, 1))
-    {
+    if (!ec_iatt_combine(fop, dst->iatt, src->iatt, 1)) {
         gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
                                              "answers of 'GF_FOP_STAT'");
 
