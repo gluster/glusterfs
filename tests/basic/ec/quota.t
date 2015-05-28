@@ -22,6 +22,9 @@ function usage()
 }
 
 cleanup
+QDD=$(dirname $0)/quota
+# compile the test write program and run it
+build_tester $(dirname $0)/../quota.c -o $QDD
 
 TEST glusterd
 TEST pidof glusterd
@@ -44,13 +47,12 @@ EXPECT "80%" soft_limit "/test";
 TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
 
-TEST ! dd if=/dev/urandom of=$M0/test/file1.txt bs=1024k count=12
-sleep 5
+TEST ! $QDD $M0/test/file1.txt 256 48
 TEST rm $M0/test/file1.txt
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test"
 
-TEST dd if=/dev/urandom of=$M0/test/file2.txt bs=1024k count=8
+TEST $QDD $M0/test/file2.txt 256 32
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" usage "/test"
 
 TEST rm $M0/test/file2.txt
@@ -58,4 +60,5 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" usage "/test"
 TEST $CLI volume stop $V0
 EXPECT "1" get_aux
 
+rm -f $QDD
 cleanup;
