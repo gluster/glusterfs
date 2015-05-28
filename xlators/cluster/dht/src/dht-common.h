@@ -34,9 +34,9 @@
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
                                        xlator_t     *this,
                                        int32_t       op_ret, int32_t op_errno,
-                                       dict_t *xdata);
-typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, call_frame_t *frame,
-                                    int              ret);
+                                       dict_t       *xdata);
+typedef int (*dht_defrag_cbk_fn_t) (xlator_t        *this, xlator_t *dst_node,
+                                    call_frame_t    *frame);
 
 
 struct dht_layout {

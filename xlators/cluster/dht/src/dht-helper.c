@@ -815,11 +815,23 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 static int
 dht_migration_complete_check_done (int op_ret, call_frame_t *frame, void *data)
 {
-        dht_local_t *local = NULL;
+        dht_local_t *local  = NULL;
+        xlator_t    *subvol = NULL;
 
         local = frame->local;
 
-        local->rebalance.target_op_fn (THIS, frame, op_ret);
+        if (op_ret == -1)
+                goto out;
+
+        if (local->cached_subvol == NULL) {
+                local->op_errno = EINVAL;
+                goto out;
+        }
+
+        subvol = local->cached_subvol;
+
+out:
+        local->rebalance.target_op_fn (THIS, subvol, frame);
 
         return 0;
 }
@@ -998,13 +1010,30 @@ dht_rebalance_complete_check (xlator_t *this, call_frame_t *frame)
 
 /* During 'in-progress' state, both nodes should have the file */
 static int
-dht_inprogress_check_done (int op_ret, call_frame_t *sync_frame, void *data)
+dht_inprogress_check_done (int op_ret, call_frame_t *frame, void *data)
 {
-        dht_local_t *local = NULL;
+        dht_local_t *local  = NULL;
+        xlator_t    *subvol = NULL;
+        inode_t     *inode  = NULL;
 
-        local = sync_frame->local;
+        local = frame->local;
 
-        local->rebalance.target_op_fn (THIS, sync_frame, op_ret);
+        if (op_ret == -1)
+                goto out;
+
+        inode = local->loc.inode ? local->loc.inode : local->fd->inode;
+
+        dht_inode_ctx_get1 (THIS, inode, &subvol);
+        if (!subvol) {
+                subvol = dht_subvol_get_cached (THIS, inode);
+                if (!subvol) {
+                        local->op_errno = EINVAL;
+                        goto out;
+                }
+        }
+
+out:
+        local->rebalance.target_op_fn (THIS, subvol, frame);
 
         return 0;
 }

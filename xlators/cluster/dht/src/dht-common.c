@@ -26,13 +26,13 @@
 
 int run_defrag = 0;
 
-int dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret);
+int dht_link2 (xlator_t *this, xlator_t *dst_node, call_frame_t *frame);
 
 int
-dht_removexattr2 (xlator_t *this, call_frame_t *frame, int op_ret);
+dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
 
 int
-dht_setxattr2 (xlator_t *this, call_frame_t *frame, int op_ret);
+dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
 
 
 int
@@ -3355,7 +3355,7 @@ dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
                 dht_inode_ctx_get1 (this, inode, &subvol);
                 if (subvol) {
-                        dht_setxattr2 (this, frame, 0);
+                        dht_setxattr2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -3522,30 +3522,15 @@ out:
 
 
 int
-dht_setxattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
         dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
         int          op_errno = EINVAL;
-        inode_t      *inode = NULL;
+
+        if (!frame || !frame->local || !subvol)
+                goto err;
 
         local = frame->local;
-
-        inode = (local->fd) ? local->fd->inode : local->loc.inode;
-
-        dht_inode_ctx_get1 (this, inode, &subvol);
-
-        /* In phase2, dht_migration_complete_check_task will
-         * reset inode_ctx_reset1 and update local->cached_subvol
-         * with the dst subvol.
-         */
-        if (!subvol)
-                subvol = local->cached_subvol;
-
-        if (!subvol) {
-                op_errno = EINVAL;
-                goto err;
-        }
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -3881,7 +3866,7 @@ dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
                 dht_inode_ctx_get1 (this, inode, &subvol);
                 if (subvol) {
-                        dht_removexattr2 (this, frame, 0);
+                        dht_removexattr2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -3900,32 +3885,15 @@ out:
 }
 
 int
-dht_removexattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
+        dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
-        inode_t      *inode = NULL;
 
-        local = frame->local;
-
-        inode = (local->fd) ? local->fd->inode : local->loc.inode;
-
-        dht_inode_ctx_get1 (this, inode, &subvol);
-
-        /* In phase2, dht_migration_complete_check_task will
-         * reset inode_ctx_reset1 and update local->cached_subvol
-         * with the dst subvol.
-         */
-        if (!subvol)
-                subvol = local->cached_subvol;
-
-        if (!subvol) {
-                op_errno = EINVAL;
+        if (!frame || !frame->local || !subvol)
                 goto err;
 
-        }
-
+        local = frame->local;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -3942,7 +3910,7 @@ dht_removexattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
         return 0;
 
 err:
-        DHT_STACK_UNWIND (removexattr, frame, local->op_ret, op_errno, NULL);
+        DHT_STACK_UNWIND (removexattr, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -5275,7 +5243,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (!ret)
                                 return 0;
                 } else {
-                        dht_link2 (this, frame, 0);
+                        dht_link2 (this, subvol, frame);
                         return 0;
                 }
         }
@@ -5284,7 +5252,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (stbuf)) {
                 ret = dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
                 if (subvol) {
-                        dht_link2 (this, frame, 0);
+                        dht_link2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -5302,10 +5270,9 @@ out:
 
 
 int
-dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
         dht_local_t *local  = NULL;
-        xlator_t    *subvol = NULL;
         int          op_errno = EINVAL;
 
         local = frame->local;
@@ -5313,16 +5280,9 @@ dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret)
                 goto err;
 
         op_errno = local->op_errno;
-        if (op_ret == -1)
+        if (subvol == NULL) {
+                op_errno = EINVAL;
                 goto err;
-
-        dht_inode_ctx_get1 (this, local->loc.inode, &subvol);
-        if (!subvol) {
-                subvol = local->cached_subvol;
-                if (!subvol) {
-                        op_errno = EINVAL;
-                        goto err;
-                }
         }
 
         /* Second call to create link file could result in EEXIST as the
