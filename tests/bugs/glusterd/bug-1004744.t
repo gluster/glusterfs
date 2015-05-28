@@ -36,7 +36,7 @@ TEST $CLI volume add-brick $V0 $H0:$B0/${V0}{3,4};
 #perform rebalance fix-layout
 TEST $CLI volume rebalance $V0 fix-layout start
 
-EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" rebalance_status_field $V0;
+EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" fix-layout_status_field $V0;
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0

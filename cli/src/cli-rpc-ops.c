@@ -1561,13 +1561,32 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 goto out;
         }
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "status-1");
 
-        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "Node",
-                 "Rebalanced-files", "size", "scanned", "failures", "skipped",
-                 "status", "run time in h:m:s");
-        cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s", "---------",
-                 "-----------", "-----------", "-----------", "-----------",
-                 "-----------", "------------", "--------------");
+        ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
+        if (ret) {
+                gf_log ("cli", GF_LOG_TRACE, "count %d %d", count, 1);
+                gf_log ("cli", GF_LOG_TRACE, "failed to get status");
+                goto out;
+        }
+
+        if (status_rcd >= GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
+                cli_out ("%10s %40s %18s", "Node", "status",
+                         "run time in h:m:s");
+                cli_out ("%10s %40s %18s", "---------", "-----------",
+                         "------------");
+        } else {
+                cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s",
+                         "Node", "Rebalanced-files", "size", "scanned",
+                         "failures", "skipped", "status", "run time in"
+                         " h:m:s");
+                cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s",
+                         "---------", "-----------", "-----------",
+                         "-----------", "-----------", "-----------",
+                         "------------", "--------------");
+        }
+
         for (i = 1; i <= count; i++) {
                 /* Reset the variables to prevent carryover of values */
                 node_name = NULL;
@@ -1664,16 +1683,23 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 min = ((int) elapsed % 3600) / 60;
                 sec = ((int) elapsed % 3600) % 60;
 
-                if (size_str) {
-                        cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64 " %13"
-                                 PRIu64" %13"PRIu64 " %20s %8d:%d:%d",
-                                 node_name, files, size_str, lookup, failures,
-                                 skipped, status_str, hrs, min, sec);
+                if (status_rcd >= GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
+                        cli_out ("%10s %40s %8d:%d:%d", node_name, status_str,
+                                 hrs, min, sec);
                 } else {
-                        cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"PRIu64
-                                 " %13"PRIu64" %13"PRIu64 " %20s %8d:%d:%d",
-                                 node_name, files, size, lookup, failures,
-                                 skipped, status_str, hrs, min, sec);
+                        if (size_str) {
+                                cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64
+                                          " %13" PRIu64" %13"PRIu64 " %20s "
+                                         "%8d:%d:%d", node_name, files,
+                                         size_str, lookup, failures, skipped,
+                                         status_str, hrs, min, sec);
+                        } else {
+                                cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"
+                                         PRIu64 " %13"PRIu64" %13"PRIu64 " %20s"
+                                         " %8d:%d:%d", node_name, files, size,
+                                         lookup, failures, skipped, status_str,
+                                         hrs, min, sec);
+                        }
                 }
                 GF_FREE(size_str);
         }
