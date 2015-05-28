@@ -11,12 +11,12 @@
 
 #include "dht-common.h"
 
-int dht_writev2 (xlator_t *this, call_frame_t *frame, int ret);
-int dht_truncate2 (xlator_t *this, call_frame_t *frame, int ret);
-int dht_setattr2 (xlator_t *this, call_frame_t *frame, int ret);
-int dht_fallocate2(xlator_t *this, call_frame_t *frame, int op_ret);
-int dht_discard2(xlator_t *this, call_frame_t *frame, int op_ret);
-int dht_zerofill2(xlator_t *this, call_frame_t *frame, int op_ret);
+int dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+int dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+int dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+int dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+int dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
+int dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame);
 
 int
 dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -64,7 +64,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 ret = dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
                 if (subvol) {
-                        dht_writev2 (this, frame, 0);
+                        dht_writev2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -83,17 +83,19 @@ out:
 }
 
 int
-dht_writev2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if ((frame == NULL) || (frame->local == NULL))
+                goto out;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
-        dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-
-        if (!subvol)
-                subvol = local->cached_subvol;
+        if (subvol == NULL)
+                goto out;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -102,6 +104,11 @@ dht_writev2 (xlator_t *this, call_frame_t *frame, int op_ret)
                     local->fd, local->rebalance.vector, local->rebalance.count,
                     local->rebalance.offset, local->rebalance.flags,
                     local->rebalance.iobref, NULL);
+
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL, NULL);
 
         return 0;
 }
@@ -211,7 +218,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
                 dht_inode_ctx_get1 (this, inode, &subvol);
                 if (subvol) {
-                        dht_truncate2 (this, frame, 0);
+                        dht_truncate2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -230,19 +237,19 @@ err:
 
 
 int
-dht_truncate2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
-        inode_t      *inode = NULL;
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if (!frame || !frame->local)
+                goto out;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
-        inode = local->fd ? local->fd->inode : local->loc.inode;
-
-        dht_inode_ctx_get1 (this, inode, &subvol);
-        if (!subvol)
-                subvol = local->cached_subvol;
+        if (subvol == NULL)
+                goto out;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -256,6 +263,10 @@ dht_truncate2 (xlator_t *this, call_frame_t *frame, int op_ret)
                             local->rebalance.offset, NULL);
         }
 
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -394,7 +405,7 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
                 dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
                 if (subvol) {
-                        dht_fallocate2 (this, frame, 0);
+                        dht_fallocate2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -412,17 +423,19 @@ err:
 }
 
 int
-dht_fallocate2(xlator_t *this, call_frame_t *frame, int op_ret)
+dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if (!frame || !frame->local)
+                goto out;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
-        dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-
-        if (!subvol)
-                subvol = local->cached_subvol;
+        if (subvol == NULL)
+                goto out;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -430,6 +443,10 @@ dht_fallocate2(xlator_t *this, call_frame_t *frame, int op_ret)
 		   local->fd, local->rebalance.flags, local->rebalance.offset,
 		   local->rebalance.size, NULL);
 
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (fallocate, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -528,7 +545,7 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
                 dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
                 if (subvol) {
-                        dht_discard2 (this, frame, 0);
+                        dht_discard2 (this, subvol, frame);
                         return 0;
                 }
                 ret = dht_rebalance_in_progress_check (this, frame);
@@ -546,17 +563,19 @@ err:
 }
 
 int
-dht_discard2(xlator_t *this, call_frame_t *frame, int op_ret)
+dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if (!frame || !frame->local)
+                goto out;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
-        dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
-
-        if (!subvol)
-                subvol = local->cached_subvol;
+        if (subvol == NULL)
+                goto out;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -564,6 +583,10 @@ dht_discard2(xlator_t *this, call_frame_t *frame, int op_ret)
 		   local->fd, local->rebalance.offset, local->rebalance.size,
 		   NULL);
 
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (discard, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -614,9 +637,10 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno, struct iatt *prebuf,
                 struct iatt *postbuf, dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        call_frame_t *prev  = NULL;
-        int           ret   = -1;
+        dht_local_t  *local  = NULL;
+        call_frame_t *prev   = NULL;
+        int           ret    = -1;
+        xlator_t     *subvol = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -654,11 +678,12 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
                 dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
                 dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
-                ret = fd_ctx_get (local->fd, this, NULL);
-                if (!ret) {
-                        dht_zerofill2 (this, frame, 0);
+                dht_inode_ctx_get1 (this, local->fd->inode, &subvol);
+                if (subvol) {
+                        dht_zerofill2 (this, subvol, frame);
                         return 0;
                 }
+
                 ret = dht_rebalance_in_progress_check (this, frame);
                 if (!ret)
                         return 0;
@@ -674,22 +699,20 @@ err:
 }
 
 int
-dht_zerofill2(xlator_t *this, call_frame_t *frame, int op_ret)
+dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local          = NULL;
-        xlator_t     *subvol         = NULL;
-        uint64_t      tmp_subvol     = 0;
-        int           ret            = -1;
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if (!frame || !frame->local)
+                goto out;
 
         local = frame->local;
 
-        if (local->fd)
-                ret = fd_ctx_get (local->fd, this, &tmp_subvol);
-        if (!ret)
-                subvol = (xlator_t *)(long)tmp_subvol;
+        op_errno = local->op_errno;
 
-        if (!subvol)
-                subvol = local->cached_subvol;
+        if (subvol == NULL)
+                goto out;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -697,6 +720,10 @@ dht_zerofill2(xlator_t *this, call_frame_t *frame, int op_ret)
                    local->fd, local->rebalance.offset, local->rebalance.size,
                    NULL);
 
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (zerofill, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -791,20 +818,19 @@ out:
 }
 
 int
-dht_setattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
+dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame)
 {
-        dht_local_t  *local  = NULL;
-        xlator_t     *subvol = NULL;
-        inode_t      *inode = NULL;
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if (!frame || !frame->local)
+                goto out;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
-        inode = (local->fd) ? local->fd->inode : local->loc.inode;
-
-        dht_inode_ctx_get1 (this, inode, &subvol);
-
-        if (!subvol)
-                subvol = local->cached_subvol;
+        if (subvol == NULL)
+                goto out;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -820,6 +846,10 @@ dht_setattr2 (xlator_t *this, call_frame_t *frame, int op_ret)
                             NULL);
         }
 
+        return 0;
+
+out:
+        DHT_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
 
