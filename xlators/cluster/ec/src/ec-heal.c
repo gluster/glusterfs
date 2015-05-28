@@ -546,10 +546,25 @@ out:
     return error;
 }
 
+int32_t ec_heal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+    ec_heal_t *heal = fop->data;
+
+    if (op_ret >= 0) {
+        GF_ASSERT(ec_set_inode_size(heal->fop, heal->fd->inode,
+                                    heal->total_size));
+    }
+
+    return 0;
+}
+
 void ec_heal_lock(ec_heal_t *heal, int32_t type, fd_t *fd, loc_t *loc,
                   off_t offset, size_t size)
 {
     struct gf_flock flock;
+    fop_inodelk_cbk_t cbk = NULL;
 
     flock.l_type = type;
     flock.l_whence = SEEK_SET;
@@ -558,22 +573,28 @@ void ec_heal_lock(ec_heal_t *heal, int32_t type, fd_t *fd, loc_t *loc,
     flock.l_pid = 0;
     flock.l_owner.len = 0;
 
-    /* Remove inode size information before unlocking it. */
-    if ((type == F_UNLCK) && (heal->loc.inode != NULL)) {
-        ec_clear_inode_info(heal->fop, heal->loc.inode);
+    if (type == F_UNLCK) {
+        /* Remove inode size information before unlocking it. */
+        if (fd == NULL) {
+            ec_clear_inode_info(heal->fop, heal->loc.inode);
+        } else {
+            ec_clear_inode_info(heal->fop, heal->fd->inode);
+        }
+    } else {
+        /* Otherwise use the callback to update size information. */
+        cbk = ec_heal_lock_cbk;
     }
 
     if (fd != NULL)
     {
         ec_finodelk(heal->fop->frame, heal->xl, heal->fop->mask,
-                    EC_MINIMUM_ALL, NULL, NULL, heal->xl->name, fd,
-                    F_SETLKW, &flock, NULL);
+                    EC_MINIMUM_ALL, cbk, heal, heal->xl->name, fd, F_SETLKW,
+                    &flock, NULL);
     }
     else
     {
         ec_inodelk(heal->fop->frame, heal->xl, heal->fop->mask, EC_MINIMUM_ALL,
-                   NULL, NULL, heal->xl->name, loc, F_SETLKW, &flock,
-                   NULL);
+                   cbk, heal, heal->xl->name, loc, F_SETLKW, &flock, NULL);
     }
 }
 

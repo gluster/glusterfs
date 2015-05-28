@@ -84,7 +84,7 @@ ec_combine_write (ec_fop_data_t *fop, ec_cbk_data_t *dst,
                 break;
         }
 
-        if (!ec_iatt_combine(dst->iatt, src->iatt, valid)) {
+        if (!ec_iatt_combine(fop, dst->iatt, src->iatt, valid)) {
                 gf_log(fop->xl->name, GF_LOG_NOTICE, "Mismatching iatt in "
                        "answers of '%s'", gf_fop_list[fop->id]);
 
@@ -104,23 +104,78 @@ void ec_iatt_time_merge(uint32_t * dst_sec, uint32_t * dst_nsec,
     }
 }
 
-int32_t ec_iatt_combine(struct iatt * dst, struct iatt * src, int32_t count)
+static
+uint64_t
+gfid_to_ino(uuid_t gfid)
+{
+    uint64_t ino = 0;
+    int32_t i;
+
+    for (i = 8; i < 16; i++) {
+        ino <<= 8;
+        ino += (uint8_t)gfid[i];
+    }
+
+    return ino;
+}
+
+static
+gf_boolean_t
+ec_iatt_is_trusted(ec_fop_data_t *fop, struct iatt *iatt)
+{
+    uint64_t ino;
+    int32_t i;
+
+    /* Only the top level fop will have fop->locks filled. */
+    while (fop->parent != NULL) {
+        fop = fop->parent;
+    }
+
+    /* Check if the iatt references an inode locked by the current fop */
+    for (i = 0; i < fop->lock_count; i++) {
+        ino = gfid_to_ino(fop->locks[i].lock->loc.inode->gfid);
+        if (iatt->ia_ino == ino) {
+            return _gf_true;
+        }
+    }
+
+    return _gf_false;
+}
+
+int32_t ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
+                        int32_t count)
 {
     int32_t i;
+    gf_boolean_t failed = _gf_false;
 
     for (i = 0; i < count; i++)
     {
+        /* Check for basic fields. These fields must be equal always, even if
+         * the inode is not locked because in these cases the parent inode
+         * will be locked and differences in these fields require changes in
+         * the parent directory. */
         if ((dst[i].ia_ino != src[i].ia_ino) ||
-            (dst[i].ia_uid != src[i].ia_uid) ||
-            (dst[i].ia_gid != src[i].ia_gid) ||
             (((dst[i].ia_type == IA_IFBLK) || (dst[i].ia_type == IA_IFCHR)) &&
              (dst[i].ia_rdev != src[i].ia_rdev)) ||
-            ((dst[i].ia_type == IA_IFREG) &&
-             (dst[i].ia_size != src[i].ia_size)) ||
-            (st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type) !=
-             st_mode_from_ia(src[i].ia_prot, src[i].ia_type)) ||
-            (gf_uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0))
-        {
+            (gf_uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0)) {
+            failed = _gf_true;
+        }
+        /* Check for not so stable fields. These fields can change if the
+         * inode is not locked. */
+        if (!failed && ((dst[i].ia_uid != src[i].ia_uid) ||
+                        (dst[i].ia_gid != src[i].ia_gid) ||
+                        ((dst[i].ia_type == IA_IFREG) &&
+                         (dst[i].ia_size != src[i].ia_size)) ||
+                        (st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type) !=
+                         st_mode_from_ia(src[i].ia_prot, src[i].ia_type)))) {
+            if (!ec_iatt_is_trusted(fop, dst)) {
+                /* If the iatt contains information from an inode that is not
+                 * locked, we ignore these differences and don't care which
+                 * data is returned. */
+                failed = _gf_false;
+            }
+        }
+        if (failed) {
             gf_log(THIS->name, GF_LOG_WARNING,
                    "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "
                    "uid: %u-%u, gid: %u-%u, rdev: %lu-%lu, size: %lu-%lu, "
