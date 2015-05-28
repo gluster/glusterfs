@@ -1748,8 +1748,17 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                         }
                 }
 
-                if (glusterd_is_local_brick (THIS, volinfo, brickinfo))
+                if (glusterd_is_local_brick (THIS, volinfo, brickinfo)) {
+                        if (cmd == GF_OP_CMD_START &&
+                            brickinfo->status != GF_BRICK_STARTED) {
+                                snprintf (msg, sizeof (msg), "Found stopped "
+                                          "brick %s", brick);
+                                *errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
                         continue;
+                }
 
                 rcu_read_lock ();
                 peerinfo = glusterd_peerinfo_find_by_uuid

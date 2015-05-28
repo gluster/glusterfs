@@ -19,6 +19,14 @@ function online_brick_count ()
     pgrep glusterfsd | wc -l
 }
 
+function brick_up_status {
+        local vol=$1
+        local host=$2
+        local brick=$3
+        brick_pid=$(get_brick_pid $vol $host $brick)
+        gluster volume status | grep $brick_pid | awk '{print $4}'
+}
+
 function volume_option()
 {
         local vol=$1
