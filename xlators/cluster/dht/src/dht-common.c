@@ -24,6 +24,8 @@
 #include <libgen.h>
 #include <signal.h>
 
+int run_defrag = 0;
+
 int dht_link2 (xlator_t *this, call_frame_t *frame, int op_ret);
 
 int
@@ -6892,11 +6894,16 @@ unlock:
                         }
                 }
 
-                /* rebalance is started with assert_no_child_down. So we do
+                /* Rebalance is started with assert_no_child_down. So we do
                  * not need to handle CHILD_DOWN event here.
+                 *
+                 * If there is a graph switch, we should not restart the
+                 * rebalance daemon. Use 'run_defrag' to indicate if the
+                 * thread has already started.
                  */
-                if (conf->defrag) {
+                 if (conf->defrag && !run_defrag) {
                         if (methods->migration_needed(this)) {
+                                run_defrag = 1;
                                 ret = gf_thread_create(&conf->defrag->th,
                                                        NULL,
                                                        gf_defrag_start, this);
