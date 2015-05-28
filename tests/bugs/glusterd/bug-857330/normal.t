@@ -46,6 +46,8 @@ TEST $CLI volume replace-brick $V0 $REP_BRICK_PAIR commit force;
 ##################
 ## Remove-brick ##
 ##################
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" brick_up_status $V0 $H0 $B0/${V0}3
+
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 start"
 PATTERN="ID:"
 TEST check-and-store-task-id
