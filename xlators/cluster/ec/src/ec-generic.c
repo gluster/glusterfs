@@ -698,12 +698,9 @@ out:
 
 void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 {
-    ec_cbk_data_t * ans = NULL;
     ec_inode_t * ctx = NULL;
-    data_t * data = NULL;
-    uint8_t * buff = NULL;
     uint64_t size = 0;
-    int32_t i = 0, have_size = 0;
+    int32_t have_size = 0;
 
     if (cbk->op_ret < 0)
     {
@@ -739,72 +736,11 @@ void ec_lookup_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
 
     if (cbk->iatt[0].ia_type == IA_IFREG)
     {
-        uint8_t * blocks[cbk->count];
-        uint32_t values[cbk->count];
-
         cbk->size = cbk->iatt[0].ia_size;
         ec_dict_del_number(cbk->xdata, EC_XATTR_SIZE, &cbk->iatt[0].ia_size);
         if (have_size)
         {
             cbk->iatt[0].ia_size = size;
-        }
-
-        size = UINT64_MAX;
-        for (i = 0, ans = cbk; (ans != NULL) && (i < ec->fragments);
-             ans = ans->next)
-        {
-                data = dict_get(ans->xdata, GF_CONTENT_KEY);
-                if (data != NULL)
-                {
-                    values[i] = ans->idx;
-                    blocks[i] = (uint8_t *)data->data;
-                    if (size > data->len) {
-                        size = data->len;
-                    }
-                    i++;
-                }
-        }
-
-        if (i >= ec->fragments)
-        {
-            size -= size % ec->fragment_size;
-            if (size > 0)
-            {
-                buff = GF_MALLOC(size * ec->fragments, gf_common_mt_char);
-                if (buff != NULL)
-                {
-                    size = ec_method_decode(size, ec->fragments, values,
-                                            blocks, buff);
-                    if (size > fop->size)
-                    {
-                        size = fop->size;
-                    }
-                    if (size > cbk->iatt[0].ia_size)
-                    {
-                        size = cbk->iatt[0].ia_size;
-                    }
-
-                    if (dict_set_bin(cbk->xdata, GF_CONTENT_KEY, buff,
-                                     size) != 0)
-                    {
-                        GF_FREE(buff);
-                        buff = NULL;
-                        gf_log(fop->xl->name, GF_LOG_WARNING, "Lookup "
-                                                              "read-ahead "
-                                                              "failed");
-                    }
-                }
-                else
-                {
-                    gf_log(fop->xl->name, GF_LOG_WARNING, "Lookup read-ahead "
-                                                          "failed");
-                }
-            }
-        }
-
-        if (buff == NULL)
-        {
-            dict_del(cbk->xdata, GF_CONTENT_KEY);
         }
     }
 }
@@ -904,16 +840,14 @@ void ec_wind_lookup(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 
 int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
 {
-    ec_cbk_data_t * cbk;
+    ec_cbk_data_t *cbk;
 
     switch (state)
     {
         case EC_STATE_INIT:
-            if (fop->xdata == NULL)
-            {
+            if (fop->xdata == NULL) {
                 fop->xdata = dict_new();
-                if (fop->xdata == NULL)
-                {
+                if (fop->xdata == NULL) {
                     gf_log(fop->xl->name, GF_LOG_ERROR, "Unable to prepare "
                                                         "lookup request");
 
@@ -921,21 +855,9 @@ int32_t ec_manager_lookup(ec_fop_data_t * fop, int32_t state)
 
                     return EC_STATE_REPORT;
                 }
-            }
-            else
-            {
-                uint64_t size;
-
-                if (dict_get_uint64(fop->xdata, GF_CONTENT_KEY, &size) == 0)
-                {
-                    fop->size = size;
-                    size = ec_adjust_size(fop->xl->private, size, 1);
-                    if (dict_set_uint64(fop->xdata, GF_CONTENT_KEY, size) != 0)
-                    {
-                        gf_log("ec", GF_LOG_DEBUG, "Unable to update lookup "
-                                                   "content size");
-                    }
-                }
+            } else {
+                /*TODO: To be handled once we have 'syndromes' */
+                dict_del (fop->xdata, GF_CONTENT_KEY);
             }
             if ((dict_set_uint64(fop->xdata, EC_XATTR_SIZE, 0) != 0) ||
                 (dict_set_uint64(fop->xdata, EC_XATTR_VERSION, 0) != 0) ||
