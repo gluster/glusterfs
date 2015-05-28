@@ -9,6 +9,10 @@ GMV0=${GMV0:=master};	      # master volume name to use in geo-rep tests
 GSV0=${GSV0:=slave};	      # slave volume name to use in geo-rep tests
 B0=${B0:=/d/backends};        # top level of brick directories
 WORKDIRS="$B0 $M0 $M1 $M2 $N0 $N1" 
+
+META_VOL=${META_VOL:=gluster_shared_storage}; # shared gluster storage volume used by snapshot scheduler, nfs ganesha and geo-rep.
+META_MNT=${META_MNT:=/var/run/gluster/shared_storage}; # Mount point of shared gluster volume.
+
 CC=cc
 OSTYPE=$(uname -s)
 
