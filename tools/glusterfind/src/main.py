@@ -31,6 +31,7 @@ ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
 
 logger = logging.getLogger()
 node_outfiles = []
+vol_statusStr = "Stopped"
 
 
 class StoreAbsPath(Action):
@@ -87,6 +88,10 @@ def run_cmd_nodes(task, args, **kwargs):
                                     "tmp_output_%s" % num)
 
         if task == "pre":
+            if vol_statusStr == "Stopped":
+                fail("Volume %s is in stopped state" % args.volume,
+                    logger=logger)
+
             # If Full backup is requested or start time is zero, use brickfind
             change_detector = conf.get_change_detector("changelog")
             if args.full:
@@ -123,6 +128,10 @@ def run_cmd_nodes(task, args, **kwargs):
                    args.session,
                    args.volume] + (["--debug"] if args.debug else [])
         elif task == "create":
+            if vol_statusStr == "Stopped":
+                fail("Volume %s is in stopped state" % args.volume,
+                    logger=logger)
+
             # When glusterfind create, create session directory in
             # each brick nodes
             cmd = [conf.get_opt("nodeagent"),
@@ -173,6 +182,8 @@ def get_nodes(volume):
     Get the gluster volume info xml output and parse to get
     the brick details.
     """
+    global vol_statusStr;
+
     cmd = ["gluster", 'volume', 'info', volume, "--xml"]
     _, data, _ = execute(cmd,
                          exit_msg="Failed to Run Gluster Volume Info",
@@ -183,6 +194,9 @@ def get_nodes(volume):
     count_el = tree.find('volInfo/volumes/count')
     if int(count_el.text) == 0:
         fail("Unable to get volume details", logger=logger)
+
+    # this status is used in caller: run_cmd_nodes
+    vol_statusStr = tree.find('volInfo/volumes/volume/statusStr').text
 
     nodes = []
     volume_el = tree.find('volInfo/volumes/volume')
