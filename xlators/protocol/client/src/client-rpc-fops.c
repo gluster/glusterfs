@@ -158,13 +158,15 @@ client3_3_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                /* no need to print the gfid, because it will be null, since
-                 * symlink operation failed.
-                 */
-                gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s. Path: (%s to %s)",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        local->loc.path, local->loc2.path);
+                if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
+                        /* no need to print the gfid, because it will be null,
+                         * since symlink operation failed.
+                         */
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "remote operation failed: %s. Path: (%s to %s)",
+                                strerror (gf_error_to_errno (rsp.op_errno)),
+                                local->loc.path, local->loc2.path);
+                }
         }
 
         CLIENT_STACK_UNWIND (symlink, frame, rsp.op_ret,
@@ -2663,10 +2665,12 @@ client3_3_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "remote operation failed: %s (%s -> %s)",
-                        strerror (gf_error_to_errno (rsp.op_errno)),
-                        local->loc.path, local->loc2.path);
+                if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "remote operation failed: %s (%s -> %s)",
+                                strerror (gf_error_to_errno (rsp.op_errno)),
+                                local->loc.path, local->loc2.path);
+                }
         }
 
         CLIENT_STACK_UNWIND (link, frame, rsp.op_ret,
