@@ -41,12 +41,16 @@ function volume_option()
 }
 
 function rebalance_status_field {
-        #The rebalance status can be upto 3 words, (ex:'fix-layout in progress'), hence the awk-print $7 thru $9.
+        $CLI volume rebalance $1 status | awk '{print $7}' | sed -n 3p
+}
+
+function fix-layout_status_field {
+        #The fix-layout status can be upto 3 words, (ex:'fix-layout in progress'), hence the awk-print $2 thru $4.
         #But if the status is less than 3 words, it also prints the next field i.e the run_time_in_secs.(ex:'completed 3.00').
         #So we trim the numbers out with  `tr`. Finally remove the trailing white spaces with sed. What we get is one of the
         #strings in the 'cli_vol_task_status_str' char array of cli-rpc-ops.c
 
-        $CLI volume rebalance $1 status | awk '{print $7,$8,$9}' |sed -n 3p |tr -d '[^0-9+\.]'|sed 's/ *$//g'
+        $CLI volume rebalance $1 status | awk '{print $2,$3,$4}' |sed -n 3p |tr -d '[^0-9+\.]'|sed 's/ *$//g'
 }
 
 function detach_tier_status_field {
