@@ -232,6 +232,42 @@ posix_handle_relpath (xlator_t *this, uuid_t gfid, const char *basename,
 /*
   TODO: explain how this pump fixes ELOOP
 */
+gf_boolean_t
+posix_is_malformed_link (xlator_t *this, char *base_str, char *linkname,
+                         size_t len)
+{
+        if ((len == 8) && strcmp (linkname, "../../..")) /*for root*/
+                goto err;
+
+        if (len < 50 || len >= 512)
+                goto err;
+
+        if (memcmp (linkname, "../../", 6) != 0)
+                goto err;
+
+        if ((linkname[2] != '/') ||
+            (linkname[5] != '/') ||
+            (linkname[8] != '/') ||
+            (linkname[11] != '/') ||
+            (linkname[48] != '/')) {
+                goto err;
+        }
+
+        if ((linkname[20] != '-') ||
+            (linkname[25] != '-') ||
+            (linkname[30] != '-') ||
+            (linkname[35] != '-')) {
+                goto err;
+        }
+
+        return _gf_false;
+
+err:
+        gf_log_callingfn (this->name, GF_LOG_ERROR, "malformed internal link "
+                          "%s for %s", linkname, base_str);
+        return _gf_true;
+}
+
 int
 posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
                    char *base_str, int base_len, int pfx_len)
@@ -262,40 +298,8 @@ posix_handle_pump (xlator_t *this, char *buf, int len, int maxlen,
                 goto out;
         }
 
-        if (ret < 50 || ret >= 512) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_LINK_FAILED,
-                        "malformed internal link %s for %s",
-                        linkname, base_str);
+        if (posix_is_malformed_link (this, base_str, linkname, ret))
                 goto err;
-        }
-
-        if (memcmp (linkname, "../../", 6) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_HANDLEPATH_FAILED,
-                        "malformed internal link %s for %s",
-                        linkname, base_str);
-                goto err;
-        }
-
-        if ((linkname[2] != '/') ||
-            (linkname[5] != '/') ||
-            (linkname[8] != '/') ||
-            (linkname[11] != '/') ||
-            (linkname[48] != '/')) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_HANDLEPATH_FAILED,
-                        "malformed internal link %s for %s",
-                        linkname, base_str);
-                goto err;
-        }
-
-        if ((linkname[20] != '-') ||
-            (linkname[25] != '-') ||
-            (linkname[30] != '-') ||
-            (linkname[35] != '-')) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_HANDLEPATH_FAILED,
-                        "malformed internal link %s for %s",
-                        linkname, base_str);
-                goto err;
-        }
 
         blen = link_len - 48;
 
@@ -774,6 +778,12 @@ posix_handle_soft (xlator_t *this, const char *real_path, loc_t *loc,
         }
 
         if (ret == -1 && errno == ENOENT) {
+                if (posix_is_malformed_link (this, newpath, oldpath,
+                                             strlen (oldpath))) {
+                        GF_ASSERT (!"Malformed link");
+                        errno = EINVAL;
+                        return -1;
+                }
                 ret = posix_handle_mkdir_hashes (this, newpath);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
