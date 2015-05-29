@@ -70,6 +70,12 @@ typedef struct br_stub_private {
         uint32_t boot[2];
         char export[PATH_MAX];
 
+        pthread_mutex_t lock;
+        pthread_cond_t  cond;
+
+        struct list_head squeue;      /* ordered signing queue */
+        pthread_t signth;
+
         struct mem_pool *local_pool;
 } br_stub_private_t;
 
