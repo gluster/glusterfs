@@ -862,11 +862,20 @@ if [ $? -eq 0 ]; then
 
     killall --wait glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
+
+    #Cleaning leftover glusterd socket file which is created by glusterd in
+    #rpm_script_t context.
+    rm -rf /var/run/glusterd.socket
+
     # glusterd _was_ running, we killed it, it exited after *.upgrade=on,
     # so start it again
     %_init_start glusterd
 else
     glusterd --xlator-option *.upgrade=on -N
+
+    #Cleaning leftover glusterd socket file which is created by glusterd in
+    #rpm_script_t context.
+    rm -rf /var/run/glusterd.socket
 fi
 
 ##-----------------------------------------------------------------------------
@@ -1195,6 +1204,9 @@ fi
 %changelog
 * Sat May 31 2015 Aravinda VK <avishwan@redhat.com>
 - Added stop-all-gluster-processes.sh in glusterfs-server section (#1225331)
+
+* Fri May 29 2015 Anand Nekkunti <anekkunt@redhat.com>
+- glusterd.socket file cleanup during post run upgrade (#1222869)
 
 * Fri May 08 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1219089)
