@@ -16,6 +16,7 @@
 #include "logging.h"
 #include "changelog.h"
 #include "compat-errno.h"
+#include "call-stub.h"
 
 #include "bit-rot-stub.h"
 #include "bit-rot-stub-mem-types.h"
@@ -23,6 +24,16 @@
 #include "bit-rot-common.h"
 
 #define BR_STUB_REQUEST_COOKIE  0x1
+
+void *br_stub_signth (void *);
+
+struct br_stub_signentry {
+        unsigned long v;
+
+        call_stub_t *stub;
+
+        struct list_head list;
+};
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -46,6 +57,7 @@ mem_acct_init (xlator_t *this)
 int32_t
 init (xlator_t *this)
 {
+        int32_t ret = 0;
         char *tmp = NULL;
         struct timeval tv = {0,};
 	br_stub_private_t *priv = NULL;
@@ -74,10 +86,22 @@ init (xlator_t *this)
         priv->boot[0] = htonl (tv.tv_sec);
         priv->boot[1] = htonl (tv.tv_usec);
 
+        pthread_mutex_init (&priv->lock, NULL);
+        pthread_cond_init (&priv->cond, NULL);
+        INIT_LIST_HEAD (&priv->squeue);
+
+        ret = gf_thread_create (&priv->signth, NULL, br_stub_signth, priv);
+        if (ret != 0)
+                goto cleanup_lock;
+
         gf_log (this->name, GF_LOG_DEBUG, "bit-rot stub loaded");
 	this->private = priv;
+
         return 0;
 
+ cleanup_lock:
+        pthread_cond_destroy (&priv->cond);
+        pthread_mutex_destroy (&priv->lock);
  free_mempool:
         mem_pool_destroy (priv->local_pool);
  free_priv:
@@ -89,13 +113,36 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+        int32_t ret = 0;
 	br_stub_private_t *priv = this->private;
+        struct br_stub_signentry *sigstub = NULL;
 
         if (!priv)
                 return;
+
+        ret = gf_thread_cleanup_xint (priv->signth);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not cancel sign serializer thread");
+                goto out;
+        }
+
+        while (!list_empty (&priv->squeue)) {
+                sigstub = list_first_entry (&priv->squeue,
+                                            struct br_stub_signentry, list);
+                list_del_init (&sigstub->list);
+
+                call_stub_destroy (sigstub->stub);
+                GF_FREE (sigstub);
+        }
+
+        pthread_mutex_destroy (&priv->lock);
+        pthread_cond_destroy (&priv->cond);
+
         this->private = NULL;
 	GF_FREE (priv);
 
+ out:
 	return;
 }
 
@@ -562,13 +609,66 @@ br_stub_perform_incversioning (xlator_t *this,
 
 /* fsetxattr() */
 
-static inline int
-br_stub_compare_sign_version (xlator_t *this, inode_t *inode,
-                              br_signature_t *sbuf, dict_t *dict)
+int32_t
+br_stub_perform_objsign (call_frame_t *frame, xlator_t *this,
+                         fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
 {
-        int32_t ret = -1;
-        br_stub_inode_ctx_t *ctx = NULL;
-        uint64_t tmp_ctx = 0;
+        STACK_WIND (frame, default_setxattr_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->fsetxattr, fd,
+                    dict, flags, xdata);
+
+        dict_unref (xdata);
+        return 0;
+}
+
+void *
+br_stub_signth (void *arg)
+{
+        br_stub_private_t *priv = arg;
+        struct br_stub_signentry *sigstub = NULL;
+
+        while (1) {
+                pthread_mutex_lock (&priv->lock);
+                {
+                        while (list_empty (&priv->squeue))
+                                pthread_cond_wait (&priv->cond, &priv->lock);
+
+                        sigstub = list_first_entry
+                                (&priv->squeue, struct br_stub_signentry, list);
+                        list_del_init (&sigstub->list);
+                }
+                pthread_mutex_unlock (&priv->lock);
+
+                call_resume (sigstub->stub);
+
+                GF_FREE (sigstub);
+        }
+
+        return NULL;
+}
+
+int
+orderq (struct list_head *elem1, struct list_head *elem2)
+{
+        struct br_stub_signentry *s1 = NULL;
+        struct br_stub_signentry *s2 = NULL;
+
+        s1 = list_entry (elem1, struct br_stub_signentry, list);
+        s2 = list_entry (elem2, struct br_stub_signentry, list);
+
+        return (s1->v > s2->v);
+}
+
+static inline int
+br_stub_compare_sign_version (xlator_t *this,
+                              inode_t *inode,
+                              br_signature_t *sbuf,
+                              dict_t *dict, int *fakesuccess)
+{
+        int32_t              ret     = -1;
+        uint64_t             tmp_ctx = 0;
+        gf_boolean_t         invalid = _gf_false;
+        br_stub_inode_ctx_t *ctx     = NULL;
 
         GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
@@ -581,28 +681,36 @@ br_stub_compare_sign_version (xlator_t *this, inode_t *inode,
                 goto out;
         }
 
-        ret = -1;
         ctx = (br_stub_inode_ctx_t *)(long)tmp_ctx;
 
         LOCK (&inode->lock);
         {
-                if (ctx->currentversion == sbuf->signedversion)
-                        ret = 0;
-                else
-                        gf_log (this->name, GF_LOG_WARNING, "current version "
-                                "%lu and version of the signature %lu are not "
-                                "same", ctx->currentversion,
-                                sbuf->signedversion);
+                if (ctx->currentversion < sbuf->signedversion) {
+                        invalid = _gf_true;
+                } else if (ctx->currentversion > sbuf->signedversion) {
+                        gf_log (this->name, GF_LOG_DEBUG, "\"Signing version\" "
+                                "(%lu) lower than \"Current version \" (%lu)",
+                                ctx->currentversion, sbuf->signedversion);
+                        *fakesuccess = 1;
+                }
         }
         UNLOCK (&inode->lock);
 
-out:
+        if (invalid) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Signing version exceeds current version [%lu > %lu]",
+                        sbuf->signedversion, ctx->currentversion);
+        }
+
+ out:
         return ret;
 }
 
 static inline int
-br_stub_prepare_signature (xlator_t *this, dict_t *dict,
-                           inode_t *inode, br_isignature_t *sign)
+br_stub_prepare_signature (xlator_t *this,
+                           dict_t *dict, inode_t *inode,
+                           br_isignature_t *sign, int *fakesuccess)
 {
         int32_t ret = 0;
         size_t signaturelen = 0;
@@ -619,7 +727,8 @@ br_stub_prepare_signature (xlator_t *this, dict_t *dict,
         if (ret)
                 goto dealloc_versions;
 
-        ret = br_stub_compare_sign_version (this, inode, sbuf, dict);
+        ret = br_stub_compare_sign_version (this, inode,
+                                            sbuf, dict, fakesuccess);
         if (ret)
                 goto dealloc_versions;
 
@@ -636,15 +745,27 @@ br_stub_handle_object_signature (call_frame_t *frame,
                                  xlator_t *this, fd_t *fd, dict_t *dict,
                                  br_isignature_t *sign, dict_t *xdata)
 {
-        int32_t      ret  = -1;
-        gf_boolean_t xref = _gf_false;
+        int32_t                   ret         = -1;
+        int32_t                   op_ret      = -1;
+        int32_t                   op_errno    = EINVAL;
+        int                       fakesuccess = 0;
+        br_stub_private_t        *priv        = NULL;
+        struct br_stub_signentry *sigstub     = NULL;
+
+        priv = this->private;
 
         if (frame->root->pid != GF_CLIENT_PID_BITD)
                 goto dofop;
 
-        ret = br_stub_prepare_signature (this, dict, fd->inode, sign);
+        ret = br_stub_prepare_signature (this, dict,
+                                         fd->inode, sign, &fakesuccess);
         if (ret)
                 goto dofop;
+        if (fakesuccess) {
+                op_ret = op_errno = 0;
+                goto dofop;
+        }
+
         dict_del (dict, GLUSTERFS_SET_OBJECT_SIGNATURE);
 
         ret = -1;
@@ -656,23 +777,37 @@ br_stub_handle_object_signature (call_frame_t *frame,
                 dict_ref (xdata);
         }
 
-        xref = _gf_true;
         ret = dict_set_int32 (xdata, GLUSTERFS_DURABLE_OP, 0);
-
- dofop:
         if (ret)
-                STACK_UNWIND_STRICT (fsetxattr, frame, -1, EINVAL, NULL);
-        else {
-                gf_log (this->name, GF_LOG_DEBUG, "SIGNED VERSION: %lu",
-                        sign->signedversion);
+                goto unref_dict;
 
-                STACK_WIND (frame, default_setxattr_cbk, FIRST_CHILD (this),
-                            FIRST_CHILD (this)->fops->fsetxattr, fd, dict, 0,
-                            xdata);
+        /* prepare dispatch stub to order object signing */
+        sigstub = GF_CALLOC (1, sizeof (*sigstub), gf_br_stub_mt_sigstub_t);
+        if (!sigstub)
+                goto unref_dict;
+
+        INIT_LIST_HEAD (&sigstub->list);
+        sigstub->v = ntohl (sign->signedversion);
+        sigstub->stub = fop_fsetxattr_stub (frame, br_stub_perform_objsign,
+                                            fd, dict, 0, xdata);
+        if (!sigstub->stub)
+                goto cleanup_stub;
+
+        pthread_mutex_lock (&priv->lock);
+        {
+                list_add_order (&sigstub->list, &priv->squeue, orderq);
+                pthread_cond_signal (&priv->cond);
         }
+        pthread_mutex_unlock (&priv->lock);
 
-        if (xref)
-                dict_unref (xdata);
+        return;
+
+ cleanup_stub:
+        GF_FREE (sigstub);
+ unref_dict:
+        dict_unref (xdata);
+ dofop:
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, NULL);
 }
 
 int32_t
