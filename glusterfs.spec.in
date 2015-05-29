@@ -571,10 +571,7 @@ This package provides the translators needed on any GlusterFS client.
 %setup -q -n %{name}-%{version}%{?prereltag}
 
 %build
-# For whatever reason, install-sh is sometimes missing. When this gets fixed,
-# there is no need to run ./autogen or have a BuildRequires for automake.
-[ -e 'install-sh' -o -e 'install.sh' ] || ./autogen.sh
-%configure \
+./autogen.sh && %configure \
         %{?_with_tmpfilesdir} \
         %{?_without_rdma} \
         %{?_without_epoll} \
