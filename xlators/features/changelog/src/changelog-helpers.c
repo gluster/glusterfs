@@ -100,7 +100,7 @@ changelog_selector_index (unsigned int selector)
         return (ffs (selector) - 1);
 }
 
-inline int
+int
 changelog_ev_selected (xlator_t *this,
                        changelog_ev_selector_t *selection,
                        unsigned int selector)
@@ -116,7 +116,7 @@ changelog_ev_selected (xlator_t *this,
                  && (selection->ref[idx] > 0));
 }
 
-inline void
+void
 changelog_select_event (xlator_t *this,
                         changelog_ev_selector_t *selection,
                         unsigned int selector)
@@ -138,7 +138,7 @@ changelog_select_event (xlator_t *this,
         UNLOCK (&selection->reflock);
 }
 
-inline void
+void
 changelog_deselect_event (xlator_t *this,
                           changelog_ev_selector_t *selection,
                           unsigned int selector)
@@ -160,7 +160,7 @@ changelog_deselect_event (xlator_t *this,
         UNLOCK (&selection->reflock);
 }
 
-inline int
+int
 changelog_init_event_selection (xlator_t *this,
                                 changelog_ev_selector_t *selection)
 {
@@ -182,7 +182,7 @@ changelog_init_event_selection (xlator_t *this,
         return 0;
 }
 
-inline int
+int
 changelog_cleanup_event_selection (xlator_t *this,
                                    changelog_ev_selector_t *selection)
 {
@@ -221,7 +221,7 @@ changelog_perform_dispatch (xlator_t *this,
         rbuf_write_complete (opaque);
 }
 
-inline void
+void
 changelog_dispatch_event (xlator_t *this,
                           changelog_priv_t *priv, changelog_event_t *ev)
 {
