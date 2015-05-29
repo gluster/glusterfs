@@ -671,7 +671,7 @@ gf_changelog_process (void *data)
         return NULL;
 }
 
-inline void
+void
 gf_changelog_queue_journal (gf_changelog_processor_t *jnl_proc,
                             changelog_event_t *event)
 {

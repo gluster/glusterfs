@@ -486,17 +486,17 @@ changelog_fill_entry_buf (call_frame_t *frame, xlator_t *this,
                           loc_t *loc, changelog_local_t **local);
 
 /* event selection routines */
-inline void changelog_select_event (xlator_t *,
+void changelog_select_event (xlator_t *,
                                     changelog_ev_selector_t *, unsigned int);
-inline void changelog_deselect_event (xlator_t *,
+void changelog_deselect_event (xlator_t *,
                                       changelog_ev_selector_t *, unsigned int);
-inline int changelog_init_event_selection (xlator_t *,
+int changelog_init_event_selection (xlator_t *,
                                            changelog_ev_selector_t *);
-inline int changelog_cleanup_event_selection (xlator_t *,
+int changelog_cleanup_event_selection (xlator_t *,
                                               changelog_ev_selector_t *);
-inline int changelog_ev_selected (xlator_t *,
+int changelog_ev_selected (xlator_t *,
                                   changelog_ev_selector_t *, unsigned int);
-inline void
+void
 changelog_dispatch_event (xlator_t *, changelog_priv_t *, changelog_event_t *);
 
 changelog_inode_ctx_t *
