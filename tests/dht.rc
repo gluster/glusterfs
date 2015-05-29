@@ -93,7 +93,6 @@ function remove_brick_completed()
        fi
 
        echo $val
-       return $val
 }
 
 function dht_get_linkto_target()
