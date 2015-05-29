@@ -197,7 +197,7 @@ gf_changelog_reborp_init_rpc_listner (xlator_t *this,
  *
  * @FIXME: cleanup this bugger once server filters events.
  */
-inline void
+void
 gf_changelog_invoke_callback (gf_changelog_t *entry,
                               struct iovec **vec, int payloadcnt)
 {
@@ -236,7 +236,7 @@ __is_expected_sequence (struct gf_event_list *ev, struct gf_event *event)
         return (ev->next_seq == event->seq);
 }
 
-inline int
+int
 __can_process_event (struct gf_event_list *ev, struct gf_event **event)
 {
         *event = list_first_entry (&ev->events, struct gf_event, list);
