@@ -195,17 +195,9 @@ function is_bad_test ()
 {
     local name=$1
     for bt in ./tests/basic/uss.t                       \
-              ./tests/bugs/replicate/bug-1015990.t      \
-              ./tests/basic/afr/read-subvol-entry.t     \
-              ./tests/basic/ec/quota.t  \
               ./tests/basic/tier/tier.t \
-              ./tests/basic/quota-nfs.t \
-              ./tests/bugs/quota/bug-1035576.t  \
-              ./tests/bugs/glusterfs/bug-867253.t       \
               ./tests/bugs/glusterd/bug-974007.t        \
               ./tests/basic/quota-anon-fd-nfs.t \
-              ./tests/bugs/disperse/bug-1187474.t       \
-              ./tests/basic/afr/sparse-file-self-heal.t \
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
