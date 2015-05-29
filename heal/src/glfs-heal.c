@@ -674,6 +674,21 @@ out:
         return ret;
 }
 
+static void
+cleanup (glfs_t *fs)
+{
+        if (!fs)
+                return;
+#ifdef DEBUG
+        /* glfs fini path is still racy and crashing the program. Since
+         * this program any way has to die, we are not gonna call fini
+         * in the released versions. i.e. final builds. For all
+         * internal testing lets enable this so that glfs_fini code
+         * path becomes stable. */
+        glfs_fini (fs);
+#endif
+}
+
 int
 main (int argc, char **argv)
 {
@@ -818,15 +833,14 @@ main (int argc, char **argv)
 
         loc_wipe (&rootloc);
         glfs_subvol_done (fs, top_subvol);
-        glfs_fini (fs);
+        cleanup (fs);
 
         return ret;
 out:
         if (fs && top_subvol)
                 glfs_subvol_done (fs, top_subvol);
         loc_wipe (&rootloc);
-        if (fs)
-                glfs_fini (fs);
+        cleanup (fs);
 
         return ret;
 }
