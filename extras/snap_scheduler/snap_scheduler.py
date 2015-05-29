@@ -38,6 +38,21 @@ tasks = {}
 longest_field = 12
 current_scheduler = ""
 
+INTERNAL_ERROR = 2
+SHARED_STORAGE_DIR_DOESNT_EXIST = 3
+SHARED_STORAGE_NOT_MOUNTED = 4
+ANOTHER_TRANSACTION_IN_PROGRESS = 5
+INIT_FAILED = 6
+SCHEDULING_ALREADY_DISABLED = 7
+SCHEDULING_ALREADY_ENABLED = 8
+NODE_NOT_INITIALISED = 9
+ANOTHER_SCHEDULER_ACTIVE = 10
+JOB_ALREADY_EXISTS = 11
+JOB_NOT_FOUND = 12
+INVALID_JOBNAME = 13
+INVALID_VOLNAME = 14
+INVALID_SCHEDULE = 15
+INVALID_ARG = 16
 
 def output(msg):
     print("%s: %s" % (SCRIPT_NAME, msg))
@@ -66,7 +81,7 @@ def initLogger():
 
 
 def scheduler_status():
-    success = False
+    ret = INTERNAL_ERROR
     global scheduler_enabled
     try:
         f = os.path.realpath(GCRON_TASKS)
@@ -76,33 +91,32 @@ def scheduler_status():
         else:
             log.info("Snapshot scheduler is currently enabled.")
             scheduler_enabled = True
-        success = True
+        ret = 0
     except:
         log.error("Failed to enable snapshot scheduling. Error: "
                   "Failed to check the status of %s.", GCRON_DISABLED)
 
-    return success
+    return ret
 
 def enable_scheduler():
     ret = scheduler_status()
-    if ret:
+    if ret == 0:
         if not scheduler_enabled:
 
             # Check if another scheduler is active.
             ret = get_current_scheduler()
-            if ret:
+            if ret == 0:
                 if (current_scheduler != "none"):
                     print_str = "Failed to enable snapshot scheduling. " \
                                 "Error: Another scheduler is active."
                     log.error(print_str)
                     output(print_str)
-                    ret = False
+                    ret = ANOTHER_SCHEDULER_ACTIVE
                     return ret
             else:
                 print_str = "Failed to get current scheduler info."
                 log.error(print_str)
                 output(print_str)
-                ret = False
                 return ret
 
             log.info("Enabling snapshot scheduler.")
@@ -118,23 +132,24 @@ def enable_scheduler():
                 except IOError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
                               GCRON_ENABLED, strerror)
-                    ret = False
+                    ret = INTERNAL_ERROR
                     return ret
                 os.symlink(GCRON_ENABLED, GCRON_TASKS)
                 update_current_scheduler("cli")
                 log.info("Snapshot scheduling is enabled")
                 output("Snapshot scheduling is enabled")
+                ret = 0
             except IOError as (errno, strerror):
                 print_str = "Failed to enable snapshot scheduling. Error: "+strerror
                 log.error(print_str)
                 output(print_str)
-                ret = False
+                ret = INTERNAL_ERROR
         else:
             print_str = "Failed to enable snapshot scheduling. " \
                         "Error: Snapshot scheduling is already enabled."
             log.error(print_str)
             output(print_str)
-            ret = False
+            ret = SCHEDULING_ALREADY_ENABLED
     else:
         print_str = "Failed to enable snapshot scheduling. " \
                     "Error: Failed to check scheduler status."
@@ -146,14 +161,14 @@ def enable_scheduler():
 
 def disable_scheduler():
     ret = scheduler_status()
-    if ret:
+    if ret == 0:
         if scheduler_enabled:
             log.info("Disabling snapshot scheduler.")
             try:
                 # Check if another scheduler is active. If not, then
                 # update current scheduler to "none". Else do nothing.
                 ret = get_current_scheduler()
-                if ret:
+                if ret == 0:
                     if (current_scheduler == "cli"):
                         update_current_scheduler("none")
                 else:
@@ -161,7 +176,6 @@ def disable_scheduler():
                                 "Error: Failed to get current scheduler info."
                     log.error(print_str)
                     output(print_str)
-                    ret = False
                     return ret
 
                 if os.path.exists(GCRON_DISABLED):
@@ -173,22 +187,24 @@ def disable_scheduler():
                 os.symlink(GCRON_DISABLED, GCRON_TASKS)
                 log.info("Snapshot scheduling is disabled")
                 output("Snapshot scheduling is disabled")
+                ret = 0
             except IOError as (errno, strerror):
                 print_str = "Failed to disable snapshot scheduling. Error: "+strerror
                 log.error(print_str)
                 output(print_str)
-                ret = False
+                ret = INTERNAL_ERROR
         else:
             print_str = "Failed to disable scheduling. " \
                         "Error: Snapshot scheduling is already disabled."
             log.error(print_str)
             output(print_str)
-            ret = False
+            ret = SCHEDULING_ALREADY_DISABLED
     else:
         print_str = "Failed to disable snapshot scheduling. " \
                     "Error: Failed to check scheduler status."
         log.error(print_str)
         output(print_str)
+        ret = INTERNAL_ERROR
 
     return ret
 
@@ -211,10 +227,10 @@ def load_tasks_from_file():
                                     len(schedule))
                 tasks[jobname] = schedule+":"+volname
             f.close()
-        ret = True
+        ret = 0
     except IOError as (errno, strerror):
         log.error("Failed to open %s. Error: %s.", GCRON_ENABLED, strerror)
-        ret = False
+        ret = INTERNAL_ERROR
 
     return ret
 
@@ -225,10 +241,10 @@ def get_current_scheduler():
         with open(CURRENT_SCHEDULER, 'r') as f:
             current_scheduler = f.readline().rstrip('\n')
             f.close()
-        ret = True
+        ret = 0
     except IOError as (errno, strerror):
         log.error("Failed to open %s. Error: %s.", CURRENT_SCHEDULER, strerror)
-        ret = False
+        ret = INTERNAL_ERROR
 
     return ret
 
@@ -236,7 +252,7 @@ def get_current_scheduler():
 def list_schedules():
     log.info("Listing snapshot schedules.")
     ret = load_tasks_from_file()
-    if ret:
+    if ret == 0:
         if len(tasks) == 0:
             output("No snapshots scheduled")
         else:
@@ -255,6 +271,7 @@ def list_schedules():
                           longest_field + 5)
                 operation = "Snapshot Create".ljust(longest_field+5)
                 print(jobname+schedule+operation+volname)
+            ret = 0
     else:
         print_str = "Failed to list snapshot schedules. " \
                     "Error: Failed to load tasks from "+GCRON_ENABLED
@@ -265,7 +282,6 @@ def list_schedules():
 
 
 def write_tasks_to_file():
-    ret = False
     try:
         with open(TMP_FILE, "w", 0644) as f:
             # If tasks is empty, just create an empty tmp file
@@ -282,16 +298,15 @@ def write_tasks_to_file():
             f.close()
     except IOError as (errno, strerror):
         log.error("Failed to open %s. Error: %s.", TMP_FILE, strerror)
-        ret = False
+        ret = INTERNAL_ERROR
         return ret
 
     shutil.move(TMP_FILE, GCRON_ENABLED)
-    ret = True
+    ret = 0
 
     return ret
 
 def update_current_scheduler(data):
-    ret = False
     try:
         with open(TMP_FILE, "w", 0644) as f:
             f.write("%s" % data)
@@ -300,11 +315,11 @@ def update_current_scheduler(data):
             f.close()
     except IOError as (errno, strerror):
         log.error("Failed to open %s. Error: %s.", TMP_FILE, strerror)
-        ret = False
+        ret = INTERNAL_ERROR
         return ret
 
     shutil.move(TMP_FILE, CURRENT_SCHEDULER)
-    ret = True
+    ret = 0
 
     return ret
 
@@ -312,17 +327,17 @@ def update_current_scheduler(data):
 def add_schedules(jobname, schedule, volname):
     log.info("Adding snapshot schedules.")
     ret = load_tasks_from_file()
-    if ret:
+    if ret == 0:
         if jobname in tasks:
             print_str = ("%s already exists in schedule. Use "
                          "'edit' to modify %s" % (jobname, jobname))
             log.error(print_str)
             output(print_str)
-            ret = False
+            ret = JOB_ALREADY_EXISTS
         else:
             tasks[jobname] = schedule + ":" + volname
             ret = write_tasks_to_file()
-            if ret:
+            if ret == 0:
                 # Create a LOCK_FILE for the job
                 job_lockfile = LOCK_FILE_DIR + jobname
                 try:
@@ -331,10 +346,11 @@ def add_schedules(jobname, schedule, volname):
                 except IOError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
                               job_lockfile, strerror)
-                    ret = False
+                    ret = INTERNAL_ERROR
                     return ret
                 log.info("Successfully added snapshot schedule %s" % jobname)
                 output("Successfully added snapshot schedule")
+                ret = 0
     else:
         print_str = "Failed to add snapshot schedule. " \
                     "Error: Failed to load tasks from "+GCRON_ENABLED
@@ -347,11 +363,11 @@ def add_schedules(jobname, schedule, volname):
 def delete_schedules(jobname):
     log.info("Delete snapshot schedules.")
     ret = load_tasks_from_file()
-    if ret:
+    if ret == 0:
         if jobname in tasks:
             del tasks[jobname]
             ret = write_tasks_to_file()
-            if ret:
+            if ret == 0:
                 # Delete the LOCK_FILE for the job
                 job_lockfile = LOCK_FILE_DIR+jobname
                 try:
@@ -359,15 +375,18 @@ def delete_schedules(jobname):
                 except IOError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
                               job_lockfile, strerror)
+                    ret = INTERNAL_ERROR
+                    return ret
                 log.info("Successfully deleted snapshot schedule %s"
                          % jobname)
                 output("Successfully deleted snapshot schedule")
+                ret = 0
         else:
             print_str = ("Failed to delete %s. Error: No such "
                          "job scheduled" % jobname)
             log.error(print_str)
             output(print_str)
-            ret = False
+            ret = JOB_NOT_FOUND
     else:
         print_str = "Failed to delete snapshot schedule. " \
                     "Error: Failed to load tasks from "+GCRON_ENABLED
@@ -380,11 +399,11 @@ def delete_schedules(jobname):
 def edit_schedules(jobname, schedule, volname):
     log.info("Editing snapshot schedules.")
     ret = load_tasks_from_file()
-    if ret:
+    if ret == 0:
         if jobname in tasks:
             tasks[jobname] = schedule+":"+volname
             ret = write_tasks_to_file()
-            if ret:
+            if ret == 0:
                 log.info("Successfully edited snapshot schedule %s" % jobname)
                 output("Successfully edited snapshot schedule")
         else:
@@ -392,7 +411,7 @@ def edit_schedules(jobname, schedule, volname):
                          "job scheduled" % jobname)
             log.error(print_str)
             output(print_str)
-            ret = False
+            ret = JOB_NOT_FOUND
     else:
         print_str = "Failed to edit snapshot schedule. " \
                     "Error: Failed to load tasks from "+GCRON_ENABLED
@@ -413,7 +432,7 @@ def initialise_scheduler():
             f.close()
     except IOError as (errno, strerror):
         log.error("Failed to open /tmp/crontab. Error: %s.", strerror)
-        ret = False
+        ret = INIT_FAILED
         return ret
 
     shutil.move("/tmp/crontab", GCRON_UPDATE_TASK)
@@ -424,7 +443,7 @@ def initialise_scheduler():
             f.close()
         except IOError as (errno, strerror):
             log.error("Failed to open %s. Error: %s.", GCRON_TASKS, strerror)
-            ret = False
+            ret = INIT_FAILED
             return ret
 
     if os.path.lexists(GCRON_CROND_TASK):
@@ -435,22 +454,22 @@ def initialise_scheduler():
     log.info("Successfully inited snapshot scheduler for this node")
     output("Successfully inited snapshot scheduler for this node")
 
-    ret = True
+    ret = 0
     return ret
 
 
 def syntax_checker(args):
-    ret = False
-
     if hasattr(args, 'jobname'):
         if (len(args.jobname.split()) != 1):
             output("Invalid Jobname. Jobname should not be empty and should not contain \" \" character.")
+            ret = INVALID_JOBNAME
             return ret
         args.jobname=args.jobname.strip()
 
     if hasattr(args, 'volname'):
         if (len(args.volname.split()) != 1):
             output("Invalid Volname. Volname should not be empty and should not contain \" \" character.")
+            ret = INVALID_VOLNAME
             return ret
         args.volname=args.volname.strip()
 
@@ -464,26 +483,25 @@ def syntax_checker(args):
             print ("| | +-------- Day of the Month  (range: 1-31)")
             print ("| +---------- Hour              (range: 0-23)")
             print ("+------------ Minute            (range: 0-59)")
+            ret = INVALID_SCHEDULE
             return ret
 
-    ret = True
+    ret = 0
     return ret
 
 
 def perform_operation(args):
-    ret = False
-
     # Initialise snapshot scheduler on local node
     if args.action == "init":
         ret = initialise_scheduler()
-        if not ret:
+        if ret != 0:
             output("Failed to initialise snapshot scheduling")
         return ret
 
     # Disable snapshot scheduler
     if args.action == "disable_force":
         ret = disable_scheduler()
-        if ret:
+        if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
         return ret
 
@@ -495,12 +513,13 @@ def perform_operation(args):
                      "the snap scheduler for the local node.")
         log.error(print_str)
         output(print_str)
+        ret = NODE_NOT_INITIALISED
         return ret
 
     # Check status of snapshot scheduler.
     if args.action == "status":
         ret = scheduler_status()
-        if ret:
+        if ret == 0:
             if scheduler_enabled:
                 output("Snapshot scheduling status: Enabled")
             else:
@@ -512,14 +531,14 @@ def perform_operation(args):
     # Enable snapshot scheduler
     if args.action == "enable":
         ret = enable_scheduler()
-        if ret:
+        if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
         return ret
 
     # Disable snapshot scheduler
     if args.action == "disable":
         ret = disable_scheduler()
-        if ret:
+        if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
         return ret
 
@@ -531,33 +550,34 @@ def perform_operation(args):
     # Add snapshot schedules
     if args.action == "add":
         ret = syntax_checker(args)
-        if not ret:
+        if ret != 0:
             return ret
         ret = add_schedules(args.jobname, args.schedule, args.volname)
-        if ret:
+        if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
         return ret
 
     # Delete snapshot schedules
     if args.action == "delete":
         ret = syntax_checker(args)
-        if not ret:
+        if ret != 0:
             return ret
         ret = delete_schedules(args.jobname)
-        if ret:
+        if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
         return ret
 
     # Edit snapshot schedules
     if args.action == "edit":
         ret = syntax_checker(args)
-        if not ret:
+        if ret != 0:
             return ret
         ret = edit_schedules(args.jobname, args.schedule, args.volname)
-        if ret:
+        if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
         return ret
 
+    ret = INVALID_ARG
     return ret
 
 
@@ -601,11 +621,11 @@ def main():
 
     if not os.path.exists(SHARED_STORAGE_DIR):
         output("Failed: "+SHARED_STORAGE_DIR+" does not exist.")
-        return ret
+        return SHARED_STORAGE_DIR_DOESNT_EXIST
 
     if not os.path.ismount(SHARED_STORAGE_DIR):
         output("Failed: Shared storage is not mounted at "+SHARED_STORAGE_DIR)
-        return ret
+        return SHARED_STORAGE_NOT_MOUNTED
 
     if not os.path.exists(SHARED_STORAGE_DIR+"/snaps/"):
         try:
@@ -615,6 +635,7 @@ def main():
                 log.error("Failed to create %s : %s", SHARED_STORAGE_DIR+"/snaps/", strerror)
                 output("Failed to create %s. Error: %s"
                        % (SHARED_STORAGE_DIR+"/snaps/", strerror))
+                return INTERNAL_ERROR
 
     if not os.path.exists(GCRON_ENABLED):
         f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK, 0644)
@@ -628,6 +649,7 @@ def main():
                 log.error("Failed to create %s : %s", LOCK_FILE_DIR, strerror)
                 output("Failed to create %s. Error: %s"
                        % (LOCK_FILE_DIR, strerror))
+                return INTERNAL_ERROR
 
     if not os.path.exists(CURRENT_SCHEDULER):
         update_current_scheduler("none")
@@ -637,19 +659,17 @@ def main():
         try:
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             ret = perform_operation(args)
-            if not ret:
-                ret = 1
-            else:
-                ret = 0
             fcntl.flock(f, fcntl.LOCK_UN)
         except IOError as (errno, strerror):
             log.info("%s is being processed by another agent.", LOCK_FILE)
             output("Another snap_scheduler command is running. "
                    "Please try again after some time.")
+            return ANOTHER_TRANSACTION_IN_PROGRESS
         os.close(f)
     except IOError as (errno, strerror):
         log.error("Failed to open %s : %s", LOCK_FILE, strerror)
         output("Failed to open %s. Error: %s" % (LOCK_FILE, strerror))
+        return INTERNAL_ERROR
 
     return ret
 
