@@ -1561,6 +1561,9 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
         replies = local->replies;
         priv = this->private;
 
+        if (!priv->metadata_self_heal)
+                return _gf_false;
+
         for (i = 0; i < priv->child_count; i++) {
                 if(!replies[i].valid || replies[i].op_ret == -1)
                         continue;
@@ -4439,7 +4442,12 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 dict = afr_set_heal_info ("split-brain");
         } else if (ret == -EAGAIN) {
                 dict = afr_set_heal_info ("possibly-healing");
-        } else if (ret == 0) {
+        } else if (ret >= 0) {
+                /* value of ret = source index
+                 * so ret >= 0 and at least one of the 3 booleans set to
+                 * true means a source is identified; heal is required.
+                 */
+
                 if (!data_selfheal && !entry_selfheal &&
                     !metadata_selfheal) {
                         dict = afr_set_heal_info ("no-heal");
@@ -4447,6 +4455,11 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         dict = afr_set_heal_info ("heal");
                 }
         } else if (ret < 0) {
+                /* Apart from above checked -ve ret values, there are other
+                 * possible ret values like ENOTCONN (returned when number of
+                 * valid replies received are less than 2) in which case heal is
+                 * required when one of the selfheal booleans is set.
+                 */
                 if (data_selfheal || entry_selfheal ||
                     metadata_selfheal) {
                         dict = afr_set_heal_info ("heal");
