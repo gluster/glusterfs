@@ -1752,6 +1752,9 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
         replies = local->replies;
         priv = this->private;
 
+        if (!priv->metadata_self_heal)
+                return _gf_false;
+
         for (i = 0; i < priv->child_count; i++) {
                 if(!replies[i].valid || replies[i].op_ret == -1)
                         continue;
