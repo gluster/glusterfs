@@ -1049,7 +1049,6 @@ fi
 %{_libexecdir}/glusterfs/python/syncdaemon/*
 %{_libexecdir}/glusterfs/gverify.sh
 %{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
-%{_libexecdir}/glusterfs/peer_add_secret_pub
 %{_libexecdir}/glusterfs/peer_gsec_create
 %{_libexecdir}/glusterfs/peer_mountbroker
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
@@ -1199,9 +1198,13 @@ fi
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
+%{_libexecdir}/glusterfs/peer_add_secret_pub
 
 
 %changelog
+* Sun May 31 2015 Milind Changire <mchangir@redhat.com>
+- Move file peer_add_secret_pub to the server RPM to support glusterfind (#1225552)
+
 * Sat May 31 2015 Aravinda VK <avishwan@redhat.com>
 - Added stop-all-gluster-processes.sh in glusterfs-server section (#1225331)
 
