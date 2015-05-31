@@ -9,6 +9,10 @@
 ## All argument definitions should be placed here and keep them sorted
 ##
 
+# if you wish to compile an rpm with debugging...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with debug
+%{?_with_debug:%global _with_debug --enable-debug}
+
 # if you wish to compile an rpm with cmocka unit testing...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with cmocka
 %{?_with_cmocka:%global _with_cmocka --enable-cmocka}
@@ -584,6 +588,7 @@ This package provides the translators needed on any GlusterFS client.
 %build
 ./autogen.sh && %configure \
         %{?_with_cmocka} \
+        %{?_with_debug} \
         %{?_with_tmpfilesdir} \
         %{?_without_bd} \
         %{?_without_epoll} \
