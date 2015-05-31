@@ -1184,12 +1184,18 @@ fi
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
+# Extra utility script
+%{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
+
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
 
 
 %changelog
+* Sat May 31 2015 Aravinda VK <avishwan@redhat.com>
+- Added stop-all-gluster-processes.sh in glusterfs-server section (#1225331)
+
 * Fri May 08 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1219089)
 
