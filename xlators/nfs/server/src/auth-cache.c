@@ -11,6 +11,7 @@
    cases as published by the Free Software Foundation.
 */
 
+#include "refcount.h"
 #include "auth-cache.h"
 #include "nfs3.h"
 #include "exports.h"
@@ -23,7 +24,10 @@ enum auth_cache_lookup_results {
 };
 
 struct auth_cache_entry {
-        time_t timestamp;
+        GF_REF_DECL;                    /* refcounting */
+        data_t             *data;       /* data_unref() on refcount == 0 */
+
+        time_t              timestamp;
         struct export_item *item;
 };
 
@@ -82,6 +86,29 @@ out:
         return cache;
 }
 
+/* auth_cache_entry_free -- called by refcounting subsystem on refcount == 0
+ *
+ * @to_free: auth_cache_entry that has refcount == 0 and needs to get free'd
+ */
+void
+auth_cache_entry_free (void *to_free)
+{
+        struct auth_cache_entry *entry      = to_free;
+        data_t                  *entry_data = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS, entry, out);
+        GF_VALIDATE_OR_GOTO (GF_NFS, entry->data, out);
+
+        entry_data = entry->data;
+        /* set data_t->data to NULL, otherwise data_unref() tries to free it */
+        entry_data->data = NULL;
+        data_unref (entry_data);
+
+        GF_FREE (entry);
+out:
+        return;
+}
+
 /**
  * auth_cache_entry_init -- Initialize an auth cache entry
  *
@@ -97,6 +124,8 @@ auth_cache_entry_init ()
         if (!entry)
                 gf_msg (GF_NFS, GF_LOG_WARNING, ENOMEM, NFS_MSG_NO_MEMORY,
                         "failed to allocate entry");
+        else
+                GF_REF_INIT (entry, auth_cache_entry_free);
 
         return entry;
 }
@@ -116,10 +145,23 @@ auth_cache_add (struct auth_cache *cache, char *hashkey,
         GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
 
-        entry_data = bin_to_data (entry, sizeof (*entry));
-        if (!entry_data) {
+        ret = GF_REF_GET (entry);
+        if (ret == 0) {
+                /* entry does not have any references */
+                ret = -1;
                 goto out;
         }
+
+        entry_data = bin_to_data (entry, sizeof (*entry));
+        if (!entry_data) {
+                ret = -1;
+                GF_REF_PUT (entry);
+                goto out;
+        }
+
+        /* we'll take an extra ref on the data_t, it gets unref'd when the
+         * auth_cache_entry is released */
+        entry->data = data_ref (entry_data);
 
         LOCK (&cache->lock);
         {
@@ -127,6 +169,10 @@ auth_cache_add (struct auth_cache *cache, char *hashkey,
         }
         UNLOCK (&cache->lock);
 
+        if (ret) {
+                /* adding to dict failed */
+                GF_REF_PUT (entry);
+        }
 out:
         return ret;
 }
@@ -167,6 +213,7 @@ auth_cache_get (struct auth_cache *cache, char *hashkey,
 
         GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
+        GF_VALIDATE_OR_GOTO (GF_NFS, hashkey, out);
 
         LOCK (&cache->lock);
         {
@@ -174,8 +221,13 @@ auth_cache_get (struct auth_cache *cache, char *hashkey,
                 if (!entry_data)
                         goto unlock;
 
-                /* TODO: refcount++ on lookup_res */
                 lookup_res = (struct auth_cache_entry *)(entry_data->data);
+                if (GF_REF_GET (lookup_res) == 0) {
+                        /* entry has been free'd */
+                        ret = ENTRY_EXPIRED;
+                        goto unlock;
+                }
+
                 if (_auth_cache_expired (cache, lookup_res)) {
                         ret = ENTRY_EXPIRED;
 
@@ -239,7 +291,7 @@ auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
         case ENTRY_FOUND:
                 *timestamp = lookup_res->timestamp;
                 *can_write = lookup_res->item->opts->rw;
-                /* TODO: refcount-- lookup_res */
+                GF_REF_PUT (lookup_res);
                 break;
 
         case ENTRY_NOT_FOUND:
@@ -257,6 +309,28 @@ out:
         GF_FREE (hashkey);
 
         return ret;
+}
+
+/* auth_cache_entry_purge -- free up the auth_cache_entry
+ *
+ * This gets called through dict_foreach() by auth_cache_purge(). Each
+ * auth_cache_entry has a refcount which needs to be decremented. Once the
+ * auth_cache_entry reaches refcount == 0, auth_cache_entry_free() will call
+ * data_unref() to free the associated data_t.
+ *
+ * @d: dict that gets purged by auth_cache_purge()
+ * @k: hashkey of the current entry
+ * @v: data_t of the current entry
+ */
+int
+auth_cache_entry_purge (dict_t *d, char *k, data_t *v, void *_unused)
+{
+        struct auth_cache_entry *entry = (struct auth_cache_entry *) v->data;
+
+        if (entry)
+                GF_REF_PUT (entry);
+
+        return 0;
 }
 
 /**
@@ -277,11 +351,13 @@ auth_cache_purge (struct auth_cache *cache)
         LOCK (&cache->lock);
         {
                 old_cache_dict = cache->cache_dict;
-                (void) __sync_lock_test_and_set (&cache->cache_dict,
-                                                 new_cache_dict);
-                dict_unref (old_cache_dict);
+                cache->cache_dict = new_cache_dict;
         }
         UNLOCK (&cache->lock);
+
+        /* walk all entries and refcount-- with GF_REF_PUT() */
+        dict_foreach (old_cache_dict, auth_cache_entry_purge, NULL);
+        dict_unref (old_cache_dict);
 out:
         return;
 }
@@ -399,12 +475,13 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
         entry->item = export_item;
 
         ret = auth_cache_add (cache, hashkey, entry);
-        if (ret) {
-                GF_FREE (entry);
+        GF_REF_PUT (entry);
+        if (ret)
                 goto out;
-        }
+
         gf_msg_trace (GF_NFS, 0, "Caching file-handle (%s)", host_addr);
         ret = 0;
+
 out:
         GF_FREE (hashkey);
 
