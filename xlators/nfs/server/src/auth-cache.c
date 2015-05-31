@@ -27,12 +27,12 @@ struct auth_cache_entry {
         struct export_item *item;
 };
 
-/* Given a filehandle and an ip, creates a colon delimited hashkey that is
- * allocated on the stack.
+/* Given a filehandle and an ip, creates a colon delimited hashkey.
  */
-static inline void
-make_hashkey(char *hashkey, struct nfs3_fh *fh, const char *host)
+static char*
+make_hashkey(struct nfs3_fh *fh, const char *host)
 {
+        char   *hashkey          = NULL;
         char    exportid[256]    = {0, };
         char    gfid[256]        = {0, };
         char    mountid[256]     = {0, };
@@ -41,11 +41,17 @@ make_hashkey(char *hashkey, struct nfs3_fh *fh, const char *host)
         gf_uuid_unparse (fh->exportid, exportid);
         gf_uuid_unparse (fh->gfid, gfid);
         gf_uuid_unparse (fh->mountid, mountid);
+
         nbytes = strlen (exportid) + strlen (gfid) + strlen (host)
                  + strlen (mountid) + 5;
-        hashkey = alloca (nbytes);
+        hashkey = GF_MALLOC (nbytes, gf_common_mt_char);
+        if (!hashkey)
+                return NULL;
+
         snprintf (hashkey, nbytes, "%s:%s:%s:%s", exportid, gfid,
                   mountid, host);
+
+        return hashkey;
 }
 
 /**
@@ -127,7 +133,11 @@ auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
         GF_VALIDATE_OR_GOTO (GF_NFS, timestamp, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, can_write, out);
 
-        make_hashkey (hashkey, fh, host_addr);
+        hashkey = make_hashkey (fh, host_addr);
+        if (!hashkey) {
+                ret = -ENOMEM;
+                goto out;
+        }
 
         entry_data = dict_get (cache->cache_dict, hashkey);
         if (!entry_data) {
@@ -155,6 +165,8 @@ auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
 
         ret = ENTRY_FOUND;
 out:
+        GF_FREE (hashkey);
+
         return ret;
 }
 
@@ -277,7 +289,11 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
                 goto out;
         }
 
-        make_hashkey (hashkey, fh, host_addr);
+        hashkey = make_hashkey (fh, host_addr);
+        if (!hashkey) {
+                ret = -ENOMEM;
+                goto out;
+        }
 
         entry = auth_cache_entry_init ();
         if (!entry) {
@@ -305,5 +321,7 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
         gf_msg_trace (GF_NFS, 0, "Caching file-handle (%s)", host_addr);
         ret = 0;
 out:
+        GF_FREE (hashkey);
+
         return ret;
 }
