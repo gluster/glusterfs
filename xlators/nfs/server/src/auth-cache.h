@@ -22,6 +22,7 @@
 #include "nfs3.h"
 
 struct auth_cache {
+        gf_lock_t lock;          /* locking for the dict (and entries) */
         dict_t *cache_dict;      /* Dict holding fh -> authcache_entry */
         time_t ttl_sec;          /* TTL of the auth cache in seconds */
 };

@@ -76,6 +76,7 @@ auth_cache_init (time_t ttl_sec)
                 goto out;
         }
 
+        LOCK_INIT (&cache->lock);
         cache->ttl_sec = ttl_sec;
 out:
         return cache;
@@ -87,7 +88,7 @@ out:
  * @return: Pointer to an allocated auth cache entry, NULL if allocation
  *          failed.
  */
-struct auth_cache_entry *
+static struct auth_cache_entry *
 auth_cache_entry_init ()
 {
         struct auth_cache_entry *entry = NULL;
@@ -98,6 +99,102 @@ auth_cache_entry_init ()
                         "failed to allocate entry");
 
         return entry;
+}
+
+/**
+ * auth_cache_add -- Add an auth_cache_entry to the cache->dict
+ *
+ * @return: 0 on success, non-zero otherwise.
+ */
+static int
+auth_cache_add (struct auth_cache *cache, char *hashkey,
+                struct auth_cache_entry *entry)
+{
+        int      ret        = -1;
+        data_t  *entry_data = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
+        GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
+
+        entry_data = bin_to_data (entry, sizeof (*entry));
+        if (!entry_data) {
+                goto out;
+        }
+
+        LOCK (&cache->lock);
+        {
+                ret = dict_set (cache->cache_dict, hashkey, entry_data);
+        }
+        UNLOCK (&cache->lock);
+
+out:
+        return ret;
+}
+
+/**
+ * _auth_cache_expired -- Check if the auth_cache_entry has expired
+ *
+ * The auth_cache->lock should have been taken when this function is called.
+ *
+ * @return: true when the auth_cache_entry is expired, false otherwise.
+ */
+static inline int
+_auth_cache_expired (struct auth_cache *cache, struct auth_cache_entry *entry)
+{
+        return ((time (NULL) - entry->timestamp) > cache->ttl_sec);
+}
+
+/**
+ * auth_cache_get -- Get the @hashkey entry from the cache->cache_dict
+ *
+ * @cache: The auth_cache that should contain the @entry.
+ * @haskkey: The key associated with the auth_cache_entry.
+ * @entry: The found auth_cache_entry, unmodified if not found/expired.
+ *
+ * The using the cache->dict requires locking, this function takes care of
+ * that. When the entry is found, but has expired, it will be removed from the
+ * cache_dict.
+ *
+ * @return: 0 when found, ENTRY_NOT_FOUND or ENTRY_EXPIRED otherwise.
+ */
+static enum auth_cache_lookup_results
+auth_cache_get (struct auth_cache *cache, char *hashkey,
+                struct auth_cache_entry **entry)
+{
+        enum auth_cache_lookup_results  ret        = ENTRY_NOT_FOUND;
+        data_t                         *entry_data = NULL;
+        struct auth_cache_entry        *lookup_res = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
+        GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
+
+        LOCK (&cache->lock);
+        {
+                entry_data = dict_get (cache->cache_dict, hashkey);
+                if (!entry_data)
+                        goto unlock;
+
+                /* TODO: refcount++ on lookup_res */
+                lookup_res = (struct auth_cache_entry *)(entry_data->data);
+                if (_auth_cache_expired (cache, lookup_res)) {
+                        ret = ENTRY_EXPIRED;
+
+                        /* free entry and remove from the cache */
+                        GF_FREE (lookup_res);
+                        entry_data->data = NULL;
+                        dict_del (cache->cache_dict, hashkey);
+
+                        goto unlock;
+                }
+
+                *entry = lookup_res;
+                ret = ENTRY_FOUND;
+        }
+unlock:
+        UNLOCK (&cache->lock);
+
+out:
+        return ret;
 }
 
 /**
@@ -121,13 +218,11 @@ auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
                    const char *host_addr, time_t *timestamp,
                    gf_boolean_t *can_write)
 {
-        char                    *hashkey    = NULL;
-        data_t                  *entry_data = NULL;
-        struct auth_cache_entry *lookup_res = NULL;
-        int                      ret        = ENTRY_NOT_FOUND;
+        char                           *hashkey    = NULL;
+        struct auth_cache_entry        *lookup_res = NULL;
+        enum auth_cache_lookup_results  ret        = ENTRY_NOT_FOUND;
 
         GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, fh, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, host_addr, out);
         GF_VALIDATE_OR_GOTO (GF_NFS, timestamp, out);
@@ -139,31 +234,25 @@ auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
                 goto out;
         }
 
-        entry_data = dict_get (cache->cache_dict, hashkey);
-        if (!entry_data) {
+        ret = auth_cache_get (cache, hashkey, &lookup_res);
+        switch (ret) {
+        case ENTRY_FOUND:
+                *timestamp = lookup_res->timestamp;
+                *can_write = lookup_res->item->opts->rw;
+                /* TODO: refcount-- lookup_res */
+                break;
+
+        case ENTRY_NOT_FOUND:
                 gf_msg_debug (GF_NFS, 0, "could not find entry for %s",
                               host_addr);
-                goto out;
-        }
+                break;
 
-        lookup_res = (struct auth_cache_entry *)(entry_data->data);
-
-        if ((time (NULL) - lookup_res->timestamp) > cache->ttl_sec) {
+        case ENTRY_EXPIRED:
                 gf_msg_debug (GF_NFS, 0, "entry for host %s has expired",
                               host_addr);
-                GF_FREE (lookup_res);
-                entry_data->data = NULL;
-                /* Remove from the cache */
-                dict_del (cache->cache_dict, hashkey);
-
-                ret = ENTRY_EXPIRED;
-                goto out;
+                break;
         }
 
-        *timestamp = lookup_res->timestamp;
-        *can_write = lookup_res->item->opts->rw;
-
-        ret = ENTRY_FOUND;
 out:
         GF_FREE (hashkey);
 
@@ -180,14 +269,19 @@ void
 auth_cache_purge (struct auth_cache *cache)
 {
         dict_t *new_cache_dict = dict_new ();
-        dict_t *old_cache_dict = cache->cache_dict;
+        dict_t *old_cache_dict = NULL;
 
-        if (!cache)
+        if (!cache || !new_cache_dict)
                 goto out;
 
-        (void)__sync_lock_test_and_set (&cache->cache_dict, new_cache_dict);
-
-        dict_unref (old_cache_dict);
+        LOCK (&cache->lock);
+        {
+                old_cache_dict = cache->cache_dict;
+                (void) __sync_lock_test_and_set (&cache->cache_dict,
+                                                 new_cache_dict);
+                dict_unref (old_cache_dict);
+        }
+        UNLOCK (&cache->lock);
 out:
         return;
 }
@@ -304,17 +398,8 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
         entry->timestamp = time (NULL);
         entry->item = export_item;
 
-        /* The cache entry will simply be the time that the entry
-         * was cached.
-         */
-        entry_data = bin_to_data (entry, sizeof (*entry));
-        if (!entry_data) {
-                GF_FREE (entry);
-                goto out;
-        }
-
-        ret = dict_set (cache->cache_dict, hashkey, entry_data);
-        if (ret == -1) {
+        ret = auth_cache_add (cache, hashkey, entry);
+        if (ret) {
                 GF_FREE (entry);
                 goto out;
         }
