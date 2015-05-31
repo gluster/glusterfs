@@ -131,6 +131,15 @@ ec_iatt_is_trusted(ec_fop_data_t *fop, struct iatt *iatt)
         fop = fop->parent;
     }
 
+    /* Lookups are special requests always done without locks taken but they
+     * require to be able to identify differences between bricks. Special
+     * handling of these differences is already done in lookup specific code
+     * so we shouldn't ignore any difference here and consider all iatt
+     * structures as trusted. */
+    if (fop->id == GF_FOP_LOOKUP) {
+        return _gf_true;
+    }
+
     /* Check if the iatt references an inode locked by the current fop */
     for (i = 0; i < fop->lock_count; i++) {
         ino = gfid_to_ino(fop->locks[i].lock->loc.inode->gfid);
@@ -168,15 +177,20 @@ int32_t ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
                          (dst[i].ia_size != src[i].ia_size)) ||
                         (st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type) !=
                          st_mode_from_ia(src[i].ia_prot, src[i].ia_type)))) {
-            if (!ec_iatt_is_trusted(fop, dst)) {
-                /* If the iatt contains information from an inode that is not
-                 * locked, we ignore these differences and don't care which
+            if (ec_iatt_is_trusted(fop, dst)) {
+                /* If the iatt contains information from an inode that is
+                 * locked, these differences are real problems, so we need to
+                 * report them. Otherwise we ignore them and don't care which
                  * data is returned. */
-                failed = _gf_false;
+                failed = _gf_true;
+            } else {
+                gf_log(fop->xl->name, GF_LOG_DEBUG,
+                       "Ignoring iatt differences because inode is not "
+                       "locked");
             }
         }
         if (failed) {
-            gf_log(THIS->name, GF_LOG_WARNING,
+            gf_log(fop->xl->name, GF_LOG_WARNING,
                    "Failed to combine iatt (inode: %lu-%lu, links: %u-%u, "
                    "uid: %u-%u, gid: %u-%u, rdev: %lu-%lu, size: %lu-%lu, "
                    "mode: %o-%o)",
