@@ -22,7 +22,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/rbtree/rb.c rbthash.c store.c latency.c \
 	graph.c syncop.c graph-print.c trie.c run.c options.c fd-lk.c \
 	circ-buff.c event-history.c gidcache.c ctx.c client_t.c event-poll.c \
-	event-epoll.c syncop-utils.c cluster-syncop.c \
+	event-epoll.c syncop-utils.c cluster-syncop.c refcount.c \
 	$(CONTRIBDIR)/libgen/basename_r.c \
 	$(CONTRIBDIR)/libgen/dirname_r.c $(CONTRIBDIR)/stdlib/gf_mkostemp.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
@@ -40,7 +40,7 @@ noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h timespec.
 	gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h \
 	checksum.h daemon.h $(CONTRIBDIR)/rbtree/rb.h store.h\
 	rbthash.h iatt.h latency.h mem-types.h syncop.h cluster-syncop.h \
-	graph-utils.h trie.h \
+	graph-utils.h trie.h refcount.h \
 	run.h options.h lkowner.h fd-lk.h circ-buff.h event-history.h \
 	gidcache.h client_t.h glusterfs-acl.h glfs-message-id.h \
 	template-component-messages.h strfd.h syncop-utils.h parse-utils.h \
