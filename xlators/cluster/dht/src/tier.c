@@ -544,7 +544,7 @@ out:
         return ret;
 }
 
-inline int
+static inline int
 tier_build_migration_qfile (demotion_args_t *args,
                             query_cbk_args_t *query_cbk_args,
                             gf_boolean_t is_promotion)
@@ -593,7 +593,7 @@ out:
         return ret;
 }
 
-inline int
+static inline int
 tier_migrate_files_using_qfile (demotion_args_t *comp,
                                 query_cbk_args_t *query_cbk_args,
                                 char *qfile)
