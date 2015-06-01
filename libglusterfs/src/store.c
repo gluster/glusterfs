@@ -339,15 +339,15 @@ gf_store_save_value (int fd, char *key, char *value)
 
         fp = fdopen (dup_fd, "a+");
         if (fp == NULL) {
-                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED, "fdopen "
-                        "failed.");
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                        LG_MSG_FILE_OP_FAILED, "fdopen failed.");
                 ret = -1;
                 goto out;
         }
 
         ret = fprintf (fp, "%s=%s\n", key, value);
         if (ret < 0) {
-                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+                gf_msg (THIS->name, GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
                         "Unable to store key: %s, value: %s.",
                         key, value);
                 ret = -1;
@@ -355,8 +355,8 @@ gf_store_save_value (int fd, char *key, char *value)
         }
 
         ret = fflush (fp);
-        if (feof (fp)) {
-                gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
                         "fflush failed.");
                 ret = -1;
                 goto out;
@@ -367,7 +367,7 @@ out:
         if (fp)
                 fclose (fp);
 
-        gf_msg_debug ("", 0, "returning: %d", ret);
+        gf_msg_debug (THIS->name, 0, "returning: %d", ret);
         return ret;
 }
 
