@@ -5445,12 +5445,18 @@ stripe_vgetxattr_cbk (call_frame_t *frame, void *cookie,
                 }
 
         unwind:
+                /*
+                 * Among other things, STRIPE_STACK_UNWIND will free "local"
+                 * for us.  That means we can't dereference it afterward.
+                 * Fortunately, the actual result is in stripe_xattr now, so we
+                 * can simply clean up before unwinding.
+                 */
+                ret = stripe_free_xattr_str (local);
+                GF_FREE (local->xattr_list);
+                local->xattr_list = NULL;
+
                 STRIPE_STACK_UNWIND (getxattr, frame, op_ret, op_errno,
                                      stripe_xattr, NULL);
-
-                ret = stripe_free_xattr_str (local);
-
-                GF_FREE (local->xattr_list);
 
                 if (stripe_xattr)
                         dict_unref (stripe_xattr);
