@@ -4916,8 +4916,14 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 _fd = pfd->fd;
         }
 
-        if (loc && !gf_uuid_is_null (loc->gfid))
+        if (loc && !gf_uuid_is_null (loc->gfid)) {
                 MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+                if (!real_path) {
+                        op_ret = -1;
+                        op_errno = ESTALE;
+                        goto out;
+                }
+        }
 
         if (real_path) {
                 inode = loc->inode;
