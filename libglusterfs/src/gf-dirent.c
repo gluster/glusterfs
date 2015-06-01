@@ -177,7 +177,7 @@ gf_dirent_entry_free (gf_dirent_t *entry)
         if (entry->inode)
                 inode_unref (entry->inode);
 
-        list_del (&entry->list);
+        list_del_init (&entry->list);
         GF_FREE (entry);
 }
 
@@ -204,14 +204,20 @@ entry_copy (gf_dirent_t *source)
         gf_dirent_t *sink = NULL;
 
         sink = gf_dirent_for_name (source->d_name);
+        if (!sink)
+                return NULL;
 
         sink->d_off = source->d_off;
         sink->d_ino = source->d_ino;
         sink->d_type = source->d_type;
         sink->d_stat = source->d_stat;
+        sink->d_len  = source->d_len;
 
 	if (source->inode)
 		sink->inode = inode_ref (source->inode);
+
+	if (source->dict)
+		sink->dict = dict_ref (source->dict);
         return sink;
 }
 
