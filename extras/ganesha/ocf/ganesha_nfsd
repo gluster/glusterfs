@@ -105,9 +105,9 @@ ganesha_nfsd_stop()
 
 		if [ -d /var/lib/nfs ]; then
 			mv /var/lib/nfs /var/lib/nfs.backup
-			ln -s $OCF_RESKEY_ha_vol_mnt/${long_host}/nfs /var/lib/nfs
+			ln -s $OCF_RESKEY_ha_vol_mnt/nfs-ganesha/${long_host}/nfs /var/lib/nfs
 			if [ $? -ne 0 ]; then
-				logger "warning: ln -s $OCF_RESKEY_ha_vol_mnt/${long_host}/nfs /var/lib/nfs failed"
+				logger "warning: ln -s $OCF_RESKEY_ha_vol_mnt/nfs-ganesha/${long_host}/nfs /var/lib/nfs failed"
 			fi
 
 		fi
