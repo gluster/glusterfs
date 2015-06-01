@@ -195,7 +195,6 @@ function is_bad_test ()
 {
     local name=$1
     for bt in ./tests/basic/quota-anon-fd-nfs.t \
-              ./tests/basic/mount-nfs-auth.t\
 	      ; do
         [ x"$name" = x"$bt" ] && return 0 # bash: zero means true/success
     done
