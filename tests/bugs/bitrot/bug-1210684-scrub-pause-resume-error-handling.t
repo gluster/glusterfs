@@ -24,6 +24,10 @@ TEST $CLI volume bitrot $V0 enable
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count
 
+## sleep 5 second so that timer can initialize and bitrot can reconfigure that
+## timer value.
+sleep 5;
+
 ## Pause scrubber operation on volume $V0
 TEST $CLI volume bitrot $V0 scrub pause
 
