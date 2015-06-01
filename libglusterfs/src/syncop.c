@@ -1244,6 +1244,12 @@ syncop_readdirp_cbk (call_frame_t *frame,
         if (op_ret >= 0) {
                 list_for_each_entry (entry, &entries->list, list) {
                         tmp = entry_copy (entry);
+                        if (!tmp) {
+                                args->op_ret = -1;
+                                args->op_errno = ENOMEM;
+                                gf_dirent_free (&(args->entries));
+                                break;
+                        }
                         gf_log (this->name, GF_LOG_TRACE,
                                 "adding entry=%s, count=%d",
                                 tmp->d_name, count);
@@ -1274,7 +1280,8 @@ syncop_readdirp (xlator_t *subvol,
 
         if (entries)
                 list_splice_init (&args.entries.list, &entries->list);
-        /* TODO: need to free all the 'args.entries' in 'else' case */
+        else
+                gf_dirent_free (&args.entries);
 
         if (xdata_out)
                 *xdata_out = args.xdata;
@@ -1313,6 +1320,12 @@ syncop_readdir_cbk (call_frame_t *frame,
         if (op_ret >= 0) {
                 list_for_each_entry (entry, &entries->list, list) {
                         tmp = entry_copy (entry);
+                        if (!tmp) {
+                                args->op_ret = -1;
+                                args->op_errno = ENOMEM;
+                                gf_dirent_free (&(args->entries));
+                                break;
+                        }
                         gf_log (this->name, GF_LOG_TRACE,
                                 "adding entry=%s, count=%d",
                                 tmp->d_name, count);
@@ -1343,7 +1356,8 @@ syncop_readdir (xlator_t *subvol,
 
         if (entries)
                 list_splice_init (&args.entries.list, &entries->list);
-        /* TODO: need to free all the 'args.entries' in 'else' case */
+        else
+                gf_dirent_free (&args.entries);
 
         if (xdata_out)
                 *xdata_out = args.xdata;
