@@ -64,7 +64,7 @@ function netgroup_deny_this_host () {
 }
 
 function create_vol () {
-        TEST $CLI vol create $V0 replica 3 $H0:$B0/b0 $H0:$B0/b1 $H0:$B0/b2
+        $CLI vol create $V0 $H0:$B0/b0
 }
 
 function setup_cluster() {
@@ -143,9 +143,7 @@ function restart_nfs () {
 setup_cluster
 
 # run preliminary tests
-TEST $CLI vol set $V0 cluster.self-heal-daemon off
 TEST $CLI vol set $V0 nfs.disable off
-TEST $CLI vol set $V0 cluster.choose-local off
 TEST $CLI vol start $V0
 
 # Get NFS state directory
@@ -209,7 +207,10 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 TEST export_deny_this_host
 TEST netgroup_allow_this_host
 
-EXPECT_WITHIN $AUTH_REFRESH_INTERVAL "Y" check_mount_success $V0
+# wait for the mount authentication to rebuild
+sleep $[$AUTH_REFRESH_INTERVAL + 1]
+
+EXPECT "Y" check_mount_success $V0
 EXPECT "Y" small_write
 TEST big_write
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
