@@ -59,6 +59,8 @@ syncop_dirfd (xlator_t *subvol, loc_t *loc, fd_t **fd, int pid)
                         uuid_utoa (loc->gfid));
                 goto out;
 #endif /* GF_LINUX_HOST_OS */
+        } else {
+                fd_bind (dirfd);
         }
 out:
         if (ret == 0)

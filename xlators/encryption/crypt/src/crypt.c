@@ -1828,7 +1828,9 @@ static int32_t truncate_begin(call_frame_t *frame,
 				    op_ret,
 				    op_errno, NULL, NULL, NULL);
 		return 0;
-	}
+	} else {
+	        fd_bind (fd);
+        }
 	/*
 	 * crypt_truncate() is implemented via crypt_ftruncate(),
 	 * so the crypt xlator does STACK_WIND to itself here
@@ -3090,7 +3092,7 @@ static int32_t do_linkop(call_frame_t *frame,
 		   &lock,
 		   NULL);
 	return 0;
- error:		
+ error:
 	unwind_fn(frame);
 	return 0;
 }
@@ -3120,11 +3122,14 @@ static int32_t linkop_begin(call_frame_t *frame,
 	unwind_fn = linkop_unwind_dispatch(local->fop);
 	mop = linkop_mtdop_dispatch(local->fop);
 
-	if (op_ret < 0)
+	if (op_ret < 0) {
 		/*
 		 * verification failed
 		 */
 		goto error;
+        } else {
+                fd_bind (fd);
+        }
 
 	old_mtd = dict_get(xdata, CRYPTO_FORMAT_PREFIX);
 	if (!old_mtd) {

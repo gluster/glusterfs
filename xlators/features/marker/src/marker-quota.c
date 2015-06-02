@@ -773,8 +773,10 @@ mq_dirty_inode_readdir (call_frame_t *frame,
                 return 0;
         }
 
-        if (local->fd == NULL)
+        if (local->fd == NULL) {
+                fd_bind (fd);
                 local->fd = fd_ref (fd);
+        }
 
         STACK_WIND (frame,
                     mq_readdir_cbk,
@@ -3488,6 +3490,7 @@ mq_update_dirty_inode_task (void *opaque)
                 goto out;
         }
 
+        fd_bind (fd);
         INIT_LIST_HEAD (&entries.list);
         while ((ret = syncop_readdirp (this, fd, 131072, offset, &entries,
                                        NULL, NULL)) != 0) {

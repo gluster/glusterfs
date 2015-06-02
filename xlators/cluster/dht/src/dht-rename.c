@@ -244,6 +244,7 @@ dht_rename_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
+        fd_bind (fd);
         STACK_WIND (frame, dht_rename_readdir_cbk,
                     prev->this, prev->this->fops->readdir,
                     local->fd, 4096, 0, NULL);
