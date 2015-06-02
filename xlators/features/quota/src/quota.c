@@ -385,6 +385,7 @@ check_ancestory (call_frame_t *frame, inode_t *inode)
                 if (!parent) {
                         quota_build_ancestry (cur_inode,
                                               check_ancestory_continue, frame);
+                        inode_unref (cur_inode);
                         return;
                 }
                 inode_unref (cur_inode);
