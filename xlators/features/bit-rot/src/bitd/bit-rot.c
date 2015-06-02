@@ -25,6 +25,18 @@
 
 #define BR_HASH_CALC_READ_SIZE  (128 * 1024)
 
+typedef int32_t (br_child_handler)(xlator_t *, br_child_t *);
+
+struct br_child_event {
+        xlator_t *this;
+
+        br_child_t *child;
+
+        br_child_handler *call;
+
+        struct list_head list;
+};
+
 static int
 br_find_child_index (xlator_t *this, xlator_t *child)
 {
@@ -47,26 +59,6 @@ br_find_child_index (xlator_t *this, xlator_t *child)
 
 out:
         return index;
-}
-
-static void
-br_free_children (xlator_t *this)
-{
-        br_private_t *priv = NULL;
-        int32_t       i    = 0;
-        br_child_t   *child = NULL;
-
-        priv = this->private;
-
-        for (i = 0; i < priv->child_count; i++) {
-                child = &priv->children[i];
-                mem_pool_destroy (child->timer_pool);
-                list_del_init (&priv->children[i].list);
-        }
-
-        GF_FREE (priv->children);
-
-        priv->children = NULL;
 }
 
 br_child_t *
@@ -1085,6 +1077,16 @@ br_oneshot_signer (void *arg)
         return NULL;
 }
 
+static void
+br_set_child_state (br_child_t *child, br_child_state_t state)
+{
+        LOCK (&child->lock);
+        {
+                _br_set_child_state (child, state);
+        }
+        UNLOCK (&child->lock);
+}
+
 /**
  * At this point a thread is spawned to crawl the filesystem (in
  * tortoise pace) to sign objects that were not signed in previous run(s).
@@ -1172,7 +1174,12 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
                 goto error_return;
         }
 
-        ret = br_fsscan_schedule (this, child, fsscan, fsscrub);
+        /* this needs to be serialized with reconfigure() */
+        pthread_mutex_lock (&priv->lock);
+        {
+                ret = br_fsscan_schedule (this, child, fsscan, fsscrub);
+        }
+        pthread_mutex_unlock (&priv->lock);
         if (ret)
                 goto error_return;
 
@@ -1197,6 +1204,30 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
         return -1;
 }
 
+static int32_t
+br_child_enaction (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
+{
+        int32_t ret = -1;
+        br_private_t *priv = this->private;
+
+        LOCK (&child->lock);
+        {
+                if (priv->iamscrubber)
+                        ret = br_enact_scrubber (this, child);
+                else
+                        ret = br_enact_signer (this, child, stub);
+
+                if (!ret) {
+                        _br_set_child_state (child, BR_CHILD_STATE_CONNECTED);
+                        gf_log (this->name, GF_LOG_INFO,
+                                "Connected to brick %s..", child->brick_path);
+                }
+        }
+        UNLOCK (&child->lock);
+
+        return ret;
+}
+
 /**
  * This routine fetches various attributes associated with a child which
  * is basically a subvolume. Attributes include brick path and the stub
@@ -1204,7 +1235,7 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
  * by getxattr() on a virtual key. Depending on the configuration, the
  * process either acts as a signer or a scrubber.
  */
-static inline int32_t
+int32_t
 br_brick_connect (xlator_t *this, br_child_t *child)
 {
         int32_t         ret      = -1;
@@ -1213,14 +1244,13 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         struct iatt     parent   = {0, };
         br_stub_init_t *stub     = NULL;
         dict_t         *xattr    = NULL;
-        br_private_t   *priv     = NULL;
         int             op_errno = 0;
 
         GF_VALIDATE_OR_GOTO ("bit-rot", this, out);
         GF_VALIDATE_OR_GOTO (this->name, child, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
-        priv = this->private;
+        br_set_child_state (child, BR_CHILD_STATE_INITIALIZING);
 
         loc.inode = inode_ref (child->table->root);
         gf_uuid_copy (loc.gfid, loc.inode->gfid);
@@ -1257,20 +1287,15 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         child->tv.tv_sec = ntohl (stub->timebuf[0]);
         child->tv.tv_usec = ntohl (stub->timebuf[1]);
 
-        if (priv->iamscrubber)
-                ret = br_enact_scrubber (this, child);
-        else
-                ret = br_enact_signer (this, child, stub);
-
-        if (!ret)
-                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_CONNECTED_TO_BRICK,
-                        "Connected to brick %s..", child->brick_path);
+        ret = br_child_enaction (this, child, stub);
 
  free_dict:
         dict_unref (xattr);
  wipeloc:
         loc_wipe (&loc);
  out:
+        if (ret)
+                br_set_child_state (child, BR_CHILD_STATE_CONNFAILED);
         return ret;
 }
 
@@ -1285,7 +1310,8 @@ br_handle_events (void *arg)
         int32_t       ret   = 0;
         xlator_t     *this  = NULL;
         br_private_t *priv  = NULL;
-        br_child_t   *child = NULL;
+        br_child_t *child = NULL;
+        struct br_child_event *childev = NULL;
 
         this = arg;
         priv = this->private;
@@ -1304,17 +1330,20 @@ br_handle_events (void *arg)
                         while (list_empty (&priv->bricks))
                                 pthread_cond_wait (&priv->cond, &priv->lock);
 
-                        child = list_first_entry
-                                          (&priv->bricks, br_child_t, list);
-                        list_del_init (&child->list);
+                        childev = list_first_entry
+                                   (&priv->bricks, struct br_child_event, list);
+                        list_del_init (&childev->list);
                 }
                 pthread_mutex_unlock (&priv->lock);
 
-                ret = br_brick_connect (this, child);
+                child = childev->child;
+                ret = childev->call (this, child);
                 if (ret)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                BRB_MSG_SUBVOL_CONNECT_FAILED, "failed to "
-                                "connect to subvolume %s", child->xl->name);
+                                BRB_MSG_SUBVOL_CONNECT_FAILED,
+                                "callback handler for subvolume [%s] failed",
+                                child->xl->name);
+                GF_FREE (childev);
         }
 
         return NULL;
@@ -1337,6 +1366,29 @@ mem_acct_init (xlator_t *this)
         }
 
         return ret;
+}
+
+static void
+_br_qchild_event (xlator_t *this, br_child_t *child, br_child_handler *call)
+{
+        br_private_t *priv = NULL;
+        struct br_child_event *childev = NULL;
+
+        priv = this->private;
+
+        childev = GF_CALLOC (1, sizeof (*childev), gf_br_mt_br_child_event_t);
+        if (!childev) {
+                gf_log (this->name, GF_LOG_ERROR, "Event unhandled for "
+                        "child.. [Brick: %s]", child->xl->name);
+                return;
+        }
+
+        INIT_LIST_HEAD (&childev->list);
+        childev->this  = this;
+        childev->child = child;
+        childev->call  = call;
+
+        list_add_tail (&childev->list, &priv->bricks);
 }
 
 int
@@ -1368,14 +1420,14 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         child = &priv->children[idx];
                         if (child->child_up == 1)
                                 goto unblock;
+                        priv->up_children++;
 
                         child->child_up = 1;
                         child->xl = subvol;
-                        child->table = inode_table_new (4096, subvol);
+                        if (!child->table)
+                                child->table = inode_table_new (4096, subvol);
 
-                        priv->up_children++;
-
-                        list_add_tail (&child->list, &priv->bricks);
+                        _br_qchild_event (this, child, br_brick_connect);
                         pthread_cond_signal (&priv->cond);
                 }
         unblock:
@@ -1405,6 +1457,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 if (priv->up_children == 0)
                         default_notify (this, event, data);
                 break;
+
         default:
                 default_notify (this, event, data);
         }
@@ -1558,59 +1611,94 @@ br_signer_init (xlator_t *this, br_private_t *priv)
 
 }
 
+static void
+br_free_children (xlator_t *this, br_private_t *priv, int count)
+{
+        br_child_t *child = NULL;
+
+        for (--count; count >= 0; count--) {
+                child = &priv->children[count];
+                mem_pool_destroy (child->timer_pool);
+                LOCK_DESTROY (&child->lock);
+        }
+
+        GF_FREE (priv->children);
+        priv->children = NULL;
+}
+
+static int
+br_init_children (xlator_t *this, br_private_t *priv)
+{
+        int i = 0;
+        br_child_t *child = NULL;
+        xlator_list_t *trav = NULL;
+
+        priv->child_count = xlator_subvolume_count (this);
+        priv->children = GF_CALLOC (priv->child_count, sizeof (*priv->children),
+                                    gf_br_mt_br_child_t);
+        if (!priv->children)
+                goto err;
+
+        trav = this->children;
+        while (trav) {
+                child = &priv->children[i];
+
+                LOCK_INIT (&child->lock);
+                br_set_child_state (child, BR_CHILD_STATE_DISCONNECTED);
+
+                child->this = this;
+                child->xl = trav->xlator;
+
+                child->timer_pool = mem_pool_new
+                                    (struct gf_tw_timer_list,  4096);
+                if (!child->timer_pool) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to allocate mem-pool for timer");
+                        errno = ENOMEM;
+                        goto freechild;
+                }
+
+                INIT_LIST_HEAD (&child->list);
+
+                i++;
+                trav = trav->next;
+        }
+
+        return 0;
+
+ freechild:
+        br_free_children (this, priv, i);
+ err:
+        return -1;
+}
+
 int32_t
 init (xlator_t *this)
 {
-        int            i    = 0;
-        int32_t        ret  = -1;
-        br_private_t  *priv = NULL;
-        xlator_list_t *trav = NULL;
+        int32_t       ret  = -1;
+	br_private_t *priv = NULL;
 
-        if (!this->children) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_NO_CHILD,
-                        "FATAL: no children");
-                goto out;
-        }
+	if (!this->children) {
+		gf_log (this->name, GF_LOG_ERROR, "FATAL: no children");
+		goto out;
+	}
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_br_mt_br_private_t);
         if (!priv) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
+                gf_log (this->name, GF_LOG_ERROR,
                         "failed to allocate memory (->priv)");
                 goto out;
         }
 
         GF_OPTION_INIT ("scrubber", priv->iamscrubber, bool, out);
 
-        priv->child_count = xlator_subvolume_count (this);
-        priv->children = GF_CALLOC (priv->child_count, sizeof (*priv->children),
-                                    gf_br_mt_br_child_t);
-        if (!priv->children)
+        ret = br_init_children (this, priv);
+        if (ret)
                 goto free_priv;
-
-        trav = this->children;
-        while (trav) {
-                priv->children[i].this = this;
-                priv->children[i].xl = trav->xlator;
-
-                priv->children[i].timer_pool =
-                                  mem_pool_new (struct gf_tw_timer_list,  4096);
-                if (!priv->children[i].timer_pool) {
-                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                BRB_MSG_NO_MEMORY, "failed to allocate mem-pool"
-                                " for timer");
-                        errno = ENOMEM;
-                        goto free_children;
-                }
-
-                i++;
-                trav = trav->next;
-        }
 
         pthread_mutex_init (&priv->lock, NULL);
         pthread_cond_init (&priv->cond, NULL);
 
-        for (i = 0; i < priv->child_count; i++)
-                INIT_LIST_HEAD (&priv->children[i].list);
         INIT_LIST_HEAD (&priv->bricks);
         INIT_LIST_HEAD (&priv->signing);
 
@@ -1619,7 +1707,7 @@ init (xlator_t *this)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         BRB_MSG_TIMER_WHEEL_UNAVAILABLE,
                         "global timer wheel unavailable");
-                goto cleanup_mutex;
+                goto cleanup;
         }
 
 	this->private = priv;
@@ -1635,7 +1723,7 @@ init (xlator_t *this)
         }
 
         if (ret)
-                goto cleanup_mutex;
+                goto cleanup;
 
         ret = gf_thread_create (&priv->thread, NULL, br_handle_events, this);
         if (ret != 0) {
@@ -1651,16 +1739,12 @@ init (xlator_t *this)
                 return 0;
         }
 
- cleanup_mutex:
+ cleanup:
         (void) pthread_cond_destroy (&priv->cond);
         (void) pthread_mutex_destroy (&priv->lock);
- free_children:
-        for (i = 0; i < priv->child_count; i++) {
-                if (priv->children[i].timer_pool)
-                        mem_pool_destroy (priv->children[i].timer_pool);
-        }
 
-        GF_FREE (priv->children);
+        br_free_children (this, priv, priv->child_count);
+
  free_priv:
         GF_FREE (priv);
  out:
@@ -1678,7 +1762,7 @@ fini (xlator_t *this)
 
         if (!priv->iamscrubber)
                 br_fini_signer (this, priv);
-        br_free_children (this);
+        br_free_children (this, priv, priv->child_count);
 
         this->private = NULL;
 	GF_FREE (priv);
@@ -1686,64 +1770,96 @@ fini (xlator_t *this)
 	return;
 }
 
-int
-reconfigure (xlator_t *this, dict_t *options)
+static void
+br_reconfigure_child (xlator_t *this,
+                      br_child_t *child, struct br_scrubber *fsscrub)
 {
-        int i = 0;
-        int32_t ret = -1;
-        br_child_t *child = NULL;
-        br_private_t *priv = NULL;
-        struct br_scanfs *fsscan = NULL;
+        int32_t ret = 0;
+        struct br_scanfs *fsscan = &child->fsscan;
+
+        ret = br_fsscan_reschedule (this, child, fsscan, fsscrub, _gf_true);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not reschedule scrubber for brick: %s. "
+                        "Scubbing will continue according to old frequency.",
+                        child->brick_path);
+        }
+}
+
+static int
+br_reconfigure_scrubber (xlator_t *this, dict_t *options)
+{
+        int                 i       = 0;
+        int32_t             ret     = -1;
+        br_child_t         *child   = NULL;
+        br_private_t       *priv    = NULL;
         struct br_scrubber *fsscrub = NULL;
 
         priv = this->private;
-
-        if (!priv->iamscrubber) {
-                ret = br_signer_handle_options (this, priv, options);
-                if (ret)
-                        goto err;
-                return 0;
-        }
-
-        ret = br_scrubber_handle_options (this, priv, options);
-        if (ret)
-                goto err;
-
         fsscrub = &priv->fsscrub;
 
-        /* reschedule all _up_ subvolume(s) */
         pthread_mutex_lock (&priv->lock);
         {
-                for (; i < priv->child_count; i++) {
-                        child = &priv->children[i];
-                        if (!child->child_up) {
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        BRB_MSG_BRICK_INFO, "Brick %s is "
-                                        "offline, skipping rescheduling (scrub"
-                                        " would auto- schedule when brick is "
-                                        "back online).", child->brick_path);
-                                continue;
-                        }
-
-                        fsscan = &child->fsscan;
-                        ret = br_fsscan_reschedule (this, child,
-                                                    fsscan, fsscrub, _gf_true);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
-                                        "Could not reschedule scrubber for "
-                                        "brick: %s. Scubbing will continue "
-                                        "according to old frequency.",
-                                        child->brick_path);
-                        }
-                }
+                ret = br_scrubber_handle_options (this, priv, options);
         }
         pthread_mutex_unlock (&priv->lock);
 
-        return 0;
+        if (ret)
+                goto err;
+
+        /* reschedule all _up_ subvolume(s) */
+        for (; i < priv->child_count; i++) {
+                child = &priv->children[i];
+
+                LOCK (&child->lock);
+                {
+                        if (_br_child_failed_conn (child)) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Scrubber for brick [%s] failed "
+                                        "initialization, rescheduling is "
+                                        "skipped", child->brick_path);
+                                goto unblock;
+                        }
+
+                        if (_br_is_child_connected (child))
+                                br_reconfigure_child (this, child, fsscrub);
+
+                        /**
+                         * for the rest.. either the child is in initialization
+                         * phase or is disconnected. either way, updated values
+                         * would be reflected on successful connection.
+                         */
+                }
+        unblock:
+                UNLOCK (&child->lock);
+        }
 
  err:
-        return -1;
+        return ret;
+}
+
+static int
+br_reconfigure_signer (xlator_t *this, dict_t *options)
+{
+        br_private_t *priv = this->private;
+
+        return br_signer_handle_options (this, priv, options);
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        int ret = 0;
+        br_private_t *priv = NULL;
+
+        priv = this->private;
+
+        if (priv->iamscrubber)
+                ret = br_reconfigure_scrubber (this, options);
+        else
+                ret = br_reconfigure_signer (this, options);
+
+        return ret;
 }
 
 struct xlator_fops fops;

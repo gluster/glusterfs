@@ -71,7 +71,18 @@ struct br_scanfs {
         struct gf_tw_timer_list *timer;
 };
 
+/* just need three states to track child status */
+typedef enum br_child_state {
+        BR_CHILD_STATE_CONNECTED = 1,
+        BR_CHILD_STATE_INITIALIZING,
+        BR_CHILD_STATE_CONNFAILED,
+        BR_CHILD_STATE_DISCONNECTED,
+} br_child_state_t;
+
 struct br_child {
+        gf_lock_t lock;
+        br_child_state_t c_state;
+
         char child_up;                /* Indicates whether this child is
                                          up or not */
         xlator_t *xl;                 /* client xlator corresponding to
@@ -135,8 +146,8 @@ typedef struct br_obj_n_workers br_obj_n_workers_t;
 struct br_private {
         pthread_mutex_t lock;
 
-        struct list_head bricks;          /* list of bricks from which CHILD_UP
-                                             has been received */
+        struct list_head bricks;          /* list of bricks from which enents
+                                             have been received */
 
         struct list_head signing;
 
@@ -202,5 +213,22 @@ br_prepare_loc (xlator_t *, br_child_t *, loc_t *, gf_dirent_t *, loc_t *);
 gf_boolean_t
 bitd_is_bad_file (xlator_t *, br_child_t *, loc_t *, fd_t *);
 
+static inline void
+_br_set_child_state (br_child_t *child, br_child_state_t state)
+{
+        child->c_state = state;
+}
+
+static inline int
+_br_is_child_connected (br_child_t *child)
+{
+        return (child->c_state == BR_CHILD_STATE_CONNECTED);
+}
+
+static inline int
+_br_child_failed_conn (br_child_t *child)
+{
+        return (child->c_state == BR_CHILD_STATE_CONNFAILED);
+}
 
 #endif /* __BIT_ROT_H__ */
