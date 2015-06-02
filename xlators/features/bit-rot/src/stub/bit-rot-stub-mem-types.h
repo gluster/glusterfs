@@ -31,6 +31,7 @@ enum br_mem_types {
         gf_br_stub_mt_br_stub_fd_t,
         gf_br_stub_mt_br_scanner_freq_t,
         gf_br_stub_mt_sigstub_t,
+        gf_br_mt_br_child_event_t,
         gf_br_stub_mt_end,
 };
 
