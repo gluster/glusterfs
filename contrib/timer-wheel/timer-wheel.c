@@ -225,7 +225,7 @@ void gf_tw_del_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
                 if (timer_pending (timer))
                         __gf_tw_detach_timer (timer);
         }
-        pthread_spin_lock (&base->lock);
+        pthread_spin_unlock (&base->lock);
 }
 
 int gf_tw_mod_timer_pending (struct tvec_base *base,
