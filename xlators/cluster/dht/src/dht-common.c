@@ -7265,6 +7265,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->op_ret == -1)
                 goto err;
 
+        fd_bind (fd);
         dict = dict_new ();
         if (!dict) {
                 local->op_ret = -1;

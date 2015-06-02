@@ -1244,6 +1244,8 @@ trash_truncate_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        fd_bind (fd);
+
         local->cur_offset = 0;
 
         STACK_WIND (frame, trash_truncate_readv_cbk,
@@ -1333,6 +1335,7 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        fd_bind (fd);
         flags = O_RDONLY;
 
         /* fd which represents source file for reading and writing from it */

@@ -474,16 +474,12 @@ __fd_unref (fd_t *fd)
 
         --fd->refcount;
 
-        if (fd->refcount == 0) {
-                list_del_init (&fd->inode_list);
-        }
-
         return fd;
 }
 
 
 static void
-fd_destroy (fd_t *fd)
+fd_destroy (fd_t *fd, gf_boolean_t bound)
 {
         xlator_t    *xl = NULL;
         int          i = 0;
@@ -531,11 +527,14 @@ fd_destroy (fd_t *fd)
         LOCK_DESTROY (&fd->lock);
 
         GF_FREE (fd->_ctx);
-        LOCK (&fd->inode->lock);
-        {
-                fd->inode->fd_count--;
+        if (bound) {
+                /*Decrease the count only after close happens on file*/
+                LOCK (&fd->inode->lock);
+                {
+                        fd->inode->fd_count--;
+                }
+                UNLOCK (&fd->inode->lock);
         }
-        UNLOCK (&fd->inode->lock);
         inode_unref (fd->inode);
         fd->inode = NULL;
         fd_lk_ctx_unref (fd->lk_ctx);
@@ -549,6 +548,7 @@ void
 fd_unref (fd_t *fd)
 {
         int32_t refcount = 0;
+        gf_boolean_t bound = _gf_false;
 
         if (!fd) {
                 gf_msg_callingfn ("fd", GF_LOG_ERROR, EINVAL,
@@ -560,11 +560,18 @@ fd_unref (fd_t *fd)
         {
                 __fd_unref (fd);
                 refcount = fd->refcount;
+                if (refcount == 0) {
+                        if (!list_empty (&fd->inode_list)) {
+                                list_del_init (&fd->inode_list);
+                                bound = _gf_true;
+                        }
+                }
+
         }
         UNLOCK (&fd->inode->lock);
 
         if (refcount == 0) {
-                fd_destroy (fd);
+                fd_destroy (fd, bound);
         }
 
         return ;

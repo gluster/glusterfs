@@ -509,6 +509,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         }
 
 
+        fd_bind (fd);
         /*Reason of doing lookup after create again:
          *In the create, there is some time-gap between opening fd at the
          *server (posix_layer) and binding it in server (incrementing fd count),
@@ -782,6 +783,7 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                 goto out;
         }
 
+        fd_bind (fd);
         ret = -1;
         dict = dict_new ();
         if (!dict)
@@ -2281,6 +2283,7 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 goto out;
         }
 
+        fd_bind (fd);
         dir_dfmeta = GF_CALLOC (1, sizeof (*dir_dfmeta),
                                                 gf_common_mt_pointer);
         if (!dir_dfmeta) {
@@ -2581,6 +2584,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 goto out;
         }
 
+        fd_bind (fd);
         INIT_LIST_HEAD (&entries.list);
         while ((ret = syncop_readdirp (this, fd, 131072, offset, &entries,
                                        NULL, NULL)) != 0)
