@@ -1630,10 +1630,16 @@ rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
         if (!rpc)
                 return;
 
+        /* reading conn->trans outside conn->lock is OK, since this is the last
+         * ref*/
         conn = &rpc->conn;
         trans = conn->trans;
-        rpc_clnt_disable (rpc);
-        rpc_transport_unref (trans);
+        rpc_clnt_disconnect (rpc);
+
+        /* This is to account for rpc_clnt_disable that might have been called
+         * before rpc_clnt_unref */
+        if (trans)
+                rpc_transport_unref (trans);
 }
 
 static void
