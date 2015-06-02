@@ -881,6 +881,7 @@ int32_t ec_truncate_open_cbk(call_frame_t * frame, void * cookie,
     int32_t err;
 
     if (op_ret >= 0) {
+        fd_bind (fd);
         err = ec_truncate_write(fop->parent, fop->answer->mask);
         if (err != 0) {
             fop->error = -err;
