@@ -2967,11 +2967,10 @@ out:
 
 /* Figure out the brick mount path, from the brick path */
 int32_t
-glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
-                                char **brick_mount_path)
+glusterd_find_brick_mount_path (char *brick_path, char **brick_mount_path)
 {
-        char                     brick_num[PATH_MAX] = "";
         char                    *ptr                 = NULL;
+        char                    *save_ptr            = NULL;
         int32_t                  ret                 = -1;
         xlator_t                *this                = NULL;
 
@@ -2986,12 +2985,10 @@ glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
                 goto out;
         }
 
-        snprintf (brick_num, sizeof(brick_num), "brick%d", brick_count);
-
         /* Finding the pointer to the end of
          * /var/run/gluster/snaps/<snap-uuid>
          */
-        ptr = strstr (*brick_mount_path, brick_num);
+        ptr = strstr (*brick_mount_path, "brick");
         if (!ptr) {
                 /* Snapshot bricks must have brick num as part
                  * of the brickpath
@@ -3006,8 +3003,13 @@ glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
          * /var/run/gluster/snaps/<snap-uuid>/<brick_num>
          * and assigning '\0' to it.
          */
-        ptr += strlen(brick_num);
-        *ptr = '\0';
+        while ((*ptr != '\0') && (*ptr != '/'))
+                ptr++;
+
+        if (*ptr == '/') {
+                ptr++;
+                *ptr = '\0';
+        }
 
         ret = 0;
 out:
@@ -3091,15 +3093,12 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
         char                    *brick_mount_path    = NULL;
         glusterd_brickinfo_t    *brickinfo           = NULL;
         int32_t                  ret                 = -1;
-        int32_t                  brick_count         = -1;
         struct stat              st_buf              = {0, };
 
         GF_ASSERT (this);
         GF_ASSERT (volinfo);
 
-        brick_count = 0;
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                brick_count++;
                 /* If the brick is not of this node, or its
                  * snapshot is pending, or the brick is not
                  * a snapshotted brick, we continue
@@ -3111,7 +3110,6 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
 
                 /* Fetch the brick mount path from the brickinfo->path */
                 ret = glusterd_find_brick_mount_path (brickinfo->path,
-                                                      brick_count,
                                                       &brick_mount_path);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,

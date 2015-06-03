@@ -2716,7 +2716,6 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
 
                 /* Fetch the brick mount path from the brickinfo->path */
                 ret = glusterd_find_brick_mount_path (brickinfo->path,
-                                                      brick_count + 1,
                                                       &brick_mount_path);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
