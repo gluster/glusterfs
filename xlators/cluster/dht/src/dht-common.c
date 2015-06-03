@@ -6964,9 +6964,6 @@ unlock:
                                         conf->defrag = NULL;
                                         kill (getpid(), SIGTERM);
                                 }
-                        } else {
-                                GF_FREE (conf->defrag);
-                                conf->defrag = NULL;
                         }
                 }
         }
