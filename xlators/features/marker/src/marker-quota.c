@@ -660,12 +660,10 @@ mq_readdir_cbk (call_frame_t *frame,
                             &loc, dict);
 
                 offset = entry->d_off;
-
-                loc_wipe (&loc);
-
                 newframe = NULL;
 
         out:
+                loc_wipe (&loc);
                 if (dict) {
                         dict_unref (dict);
                         dict = NULL;
