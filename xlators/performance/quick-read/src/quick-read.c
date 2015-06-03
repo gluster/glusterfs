@@ -614,7 +614,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	if (!qr_inode)
 		goto wind;
 
-	if (qr_readv_cached (frame, qr_inode, size, offset, flags, xdata) <= 0)
+	if (qr_readv_cached (frame, qr_inode, size, offset, flags, xdata) < 0)
 		goto wind;
 
 	return 0;
