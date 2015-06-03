@@ -3,16 +3,6 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
-function get-task-status()
-{
-        $CLI $COMMAND | grep -o $PATTERN
-        if [ ${PIPESTATUS[0]} -ne 0 ];
-        then
-                return 1
-        fi
-        return 0
-}
-
 cleanup;
 
 TEST glusterd

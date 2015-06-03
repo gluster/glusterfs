@@ -34,7 +34,7 @@ EXPECT $TASK_ID get-task-id
 
 COMMAND="volume rebalance $V0 status"
 PATTERN="completed"
-EXPECT_WITHIN 300 $PATTERN get-task-status
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" get-task-status $PATTERN
 
 ###################
 ## Replace-brick ##
@@ -56,7 +56,7 @@ EXPECT $TASK_ID get-task-id
 
 COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"
 PATTERN="completed"
-EXPECT_WITHIN 300 $PATTERN get-task-status
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" get-task-status $PATTERN
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3 commit
 
