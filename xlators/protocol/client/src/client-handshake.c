@@ -319,16 +319,6 @@ out:
         return local;
 }
 
-void
-clnt_mark_fd_bad (clnt_conf_t *conf, clnt_fd_ctx_t *fdctx)
-{
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx->remote_fd = -1;
-        }
-        pthread_mutex_unlock (&conf->lock);
-}
-
 int
 clnt_release_reopen_fd_cbk (struct rpc_req *req, struct iovec *iov,
                             int count, void *myframe)
