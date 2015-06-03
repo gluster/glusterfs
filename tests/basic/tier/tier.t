@@ -73,6 +73,9 @@ TEST $CLI volume set $V0 features.ctr-enabled on
 #Not a tier volume
 TEST ! $CLI volume set $V0 cluster.tier-demote-frequency 4
 
+#testing bug #1228112, glusterd crashed when trying to detach-tier commit force on a non-tiered volume.
+TEST ! $CLI volume detach-tier $V0 commit force
+
 TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 
 #Tier options expect non-negative value
