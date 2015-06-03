@@ -577,8 +577,8 @@ int
 glusterd_unlink_file (char *sock_file_path);
 
 int32_t
-glusterd_find_brick_mount_path (char *brick_path, int32_t brick_count,
-                                char **brick_mount_path);
+glusterd_find_brick_mount_path (char *brick_path, char **brick_mount_path);
+
 /*
  * Function to retrieve list of snap volnames and their uuids
  */
