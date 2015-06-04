@@ -129,7 +129,7 @@ def enable_scheduler():
                     f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK,
                                 0644)
                     os.close(f)
-                except IOError as (errno, strerror):
+                except OSError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
                               GCRON_ENABLED, strerror)
                     ret = INTERNAL_ERROR
@@ -139,7 +139,7 @@ def enable_scheduler():
                 log.info("Snapshot scheduling is enabled")
                 output("Snapshot scheduling is enabled")
                 ret = 0
-            except IOError as (errno, strerror):
+            except OSError as (errno, strerror):
                 print_str = "Failed to enable snapshot scheduling. Error: "+strerror
                 log.error(print_str)
                 output(print_str)
@@ -188,7 +188,7 @@ def disable_scheduler():
                 log.info("Snapshot scheduling is disabled")
                 output("Snapshot scheduling is disabled")
                 ret = 0
-            except IOError as (errno, strerror):
+            except OSError as (errno, strerror):
                 print_str = "Failed to disable snapshot scheduling. Error: "+strerror
                 log.error(print_str)
                 output(print_str)
@@ -343,7 +343,7 @@ def add_schedules(jobname, schedule, volname):
                 try:
                     f = os.open(job_lockfile, os.O_CREAT | os.O_NONBLOCK, 0644)
                     os.close(f)
-                except IOError as (errno, strerror):
+                except OSError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
                               job_lockfile, strerror)
                     ret = INTERNAL_ERROR
@@ -372,7 +372,7 @@ def delete_schedules(jobname):
                 job_lockfile = LOCK_FILE_DIR+jobname
                 try:
                     os.remove(job_lockfile)
-                except IOError as (errno, strerror):
+                except OSError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
                               job_lockfile, strerror)
                     ret = INTERNAL_ERROR
@@ -630,7 +630,7 @@ def main(argv):
     if not os.path.exists(SHARED_STORAGE_DIR+"/snaps/"):
         try:
             os.makedirs(SHARED_STORAGE_DIR+"/snaps/")
-        except IOError as (errno, strerror):
+        except OSError as (errno, strerror):
             if errno != EEXIST:
                 log.error("Failed to create %s : %s", SHARED_STORAGE_DIR+"/snaps/", strerror)
                 output("Failed to create %s. Error: %s"
@@ -644,7 +644,7 @@ def main(argv):
     if not os.path.exists(LOCK_FILE_DIR):
         try:
             os.makedirs(LOCK_FILE_DIR)
-        except IOError as (errno, strerror):
+        except OSError as (errno, strerror):
             if errno != EEXIST:
                 log.error("Failed to create %s : %s", LOCK_FILE_DIR, strerror)
                 output("Failed to create %s. Error: %s"
@@ -666,7 +666,7 @@ def main(argv):
                    "Please try again after some time.")
             return ANOTHER_TRANSACTION_IN_PROGRESS
         os.close(f)
-    except IOError as (errno, strerror):
+    except OSError as (errno, strerror):
         log.error("Failed to open %s : %s", LOCK_FILE, strerror)
         output("Failed to open %s. Error: %s" % (LOCK_FILE, strerror))
         return INTERNAL_ERROR
