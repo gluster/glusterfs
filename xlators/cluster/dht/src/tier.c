@@ -920,7 +920,8 @@ tier_migration_needed (xlator_t *this)
 
         defrag = conf->defrag;
 
-        if (defrag->cmd == GF_DEFRAG_CMD_START_TIER)
+        if ((defrag->cmd == GF_DEFRAG_CMD_START_TIER) ||
+            (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER))
                 ret = 1;
 out:
         return ret;
@@ -962,9 +963,11 @@ tier_search (xlator_t *this, dht_layout_t *layout, const char *name)
 {
         xlator_t                *subvol = NULL;
         void                    *value;
-        int                      search_first_subvol = 0;
+        int                      search_subvol = 0;
         dht_conf_t              *conf   = NULL;
         gf_defrag_info_t        *defrag = NULL;
+        int                      layout_cold = 0;
+        int                      layout_hot = 1;
 
         GF_VALIDATE_OR_GOTO("tier", this, out);
         GF_VALIDATE_OR_GOTO(this->name, layout, out);
@@ -973,27 +976,41 @@ tier_search (xlator_t *this, dht_layout_t *layout, const char *name)
 
         conf = this->private;
 
-        defrag = conf->defrag;
-        if (defrag && defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
-                search_first_subvol = 1;
-
-        else if (!dict_get_ptr (this->options, "rule", &value) &&
-                 !strcmp(layout->list[0].xlator->name, value)) {
-                search_first_subvol = 1;
+        /* The first subvolume in the graph is always cold. */
+        /* Find the position of the cold subvolume in the layout. */
+        layout_cold = 0;
+        layout_hot = 1;
+        if (conf->subvolumes[0] != layout->list[0].xlator) {
+                layout_cold = 1;
+                layout_hot = 0;
         }
 
-        if ((layout->list[0].err > 0) && (layout->list[0].err != ENOTCONN))
-                search_first_subvol = 0;
+        search_subvol = layout_hot;
 
-        if (search_first_subvol)
-                subvol = layout->list[0].xlator;
-        else
-                subvol = layout->list[1].xlator;
+        defrag = conf->defrag;
+        if (defrag && defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER)
+                search_subvol = layout_cold;
 
-out:
+        /* "decommission_subvols_cnt" can only be non-zero on detach. */
+        /* This will change once brick add/remove is supported for */
+        /* tiered volumes. */
+        else if (conf->decommission_subvols_cnt) {
+                search_subvol = layout_cold;
+        }
+        else if (!dict_get_ptr (this->options, "rule", &value) &&
+                 !strcmp(layout->list[layout_cold].xlator->name, value)) {
+                search_subvol = layout_cold;
+        }
+
+        if ((layout->list[search_subvol].err > 0) &&
+            (layout->list[search_subvol].err != ENOTCONN))
+                search_subvol = layout_cold;
+
+        subvol = layout->list[search_subvol].xlator;
+ out:
+
         return subvol;
 }
-
 
 dht_methods_t tier_methods = {
         .migration_get_dst_subvol = tier_migration_get_dst,
