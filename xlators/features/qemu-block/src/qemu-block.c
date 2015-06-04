@@ -1083,7 +1083,8 @@ fini (xlator_t *this)
 
         this->private = NULL;
 
-	conf->root_inode = NULL;
+        /* No need to do inode_unref of conf->root_inode as ref/unref doesn't
+         * apply for it*/
         GF_FREE (conf);
 
 	return;
