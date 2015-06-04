@@ -134,7 +134,7 @@ function main()
         exit 1;
     fi;
 
-    ssh -oNumberOfPasswordPrompts=0 $2@$3 "echo Testing_Passwordless_SSH";
+    ssh -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "echo Testing_Passwordless_SSH";
     if [ $? -ne 0 ]; then
         echo "FORCE_BLOCKER|Passwordless ssh login has not been setup with $3 for user $2." > $log_file
         exit 1;
