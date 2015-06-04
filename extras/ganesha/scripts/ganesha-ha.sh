@@ -246,7 +246,8 @@ teardown_clean_etccluster()
     if [ -e /var/lib/glusterd/nfs/secret.pem ]; then
         while [[ ${1} ]]; do
             if [ ${short_host} != ${1} ]; then
-                ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/nfs/secret.pem ${1} rm -f /etc/cluster/cluster.*
+                ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/nfs/secret.pem ${1} \
+rm -f /etc/cluster/cluster.*  rm -f /var/lib/pacemaker/cib/*
                 if [ $? -ne 0 ]; then
                     logger "warning: ssh ${1} rm -f /etc/cluster/cluster.* failed"
                 fi
