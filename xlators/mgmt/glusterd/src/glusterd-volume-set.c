@@ -1863,7 +1863,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         /* Upcall translator options */
         { .key         = "features.cache-invalidation",
           .voltype     = "features/upcall",
-          .value      = "off",
+          .value       = "off",
           .op_version  = GD_OP_VERSION_3_7_0,
         },
         { .key         = "features.cache-invalidation-timeout",

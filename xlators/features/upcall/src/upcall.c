@@ -1581,8 +1581,8 @@ upcall_local_wipe (xlator_t *this, upcall_local_t *local)
 {
         if (local) {
                 inode_unref (local->inode);
-                mem_put (local);
                 loc_wipe (&local->rename_oldloc);
+                mem_put (local);
         }
 }
 
@@ -1634,6 +1634,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                 " Disabling cache_invalidation",
                                 strerror(errno));
                 }
+                priv->reaper_init_done = 1;
         }
 
 out:
@@ -1680,6 +1681,7 @@ init (xlator_t *this)
                                 " Disabling cache_invalidation",
                                 strerror(errno));
                 }
+                priv->reaper_init_done = 1;
         }
 out:
         if (ret) {
