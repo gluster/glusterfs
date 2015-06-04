@@ -1334,7 +1334,7 @@ marker_do_rename (call_frame_t *frame, void *cookie, xlator_t *this,
 
         STACK_WIND (frame, marker_rename_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rename, &oplocal->loc,
-                    &local->loc, NULL);
+                    &local->loc, local->xdata);
 
         return 0;
 
@@ -1590,6 +1590,8 @@ marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         lock.l_start  = 0;
         lock.l_type   = F_WRLCK;
         lock.l_whence = SEEK_SET;
+
+        local->xdata = dict_ref (xdata);
 
         STACK_WIND (frame,
                     marker_rename_inodelk_cbk,
