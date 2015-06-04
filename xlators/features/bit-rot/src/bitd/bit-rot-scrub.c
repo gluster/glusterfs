@@ -393,6 +393,14 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
 }
 
 static void
+_br_lock_cleaner (void *arg)
+{
+        pthread_mutex_t *mutex = arg;
+
+        pthread_mutex_unlock (mutex);
+}
+
+static void
 wait_for_scrubbing (xlator_t *this, struct br_scanfs *fsscan)
 {
         br_private_t *priv = NULL;
@@ -401,8 +409,10 @@ wait_for_scrubbing (xlator_t *this, struct br_scanfs *fsscan)
         priv = this->private;
         fsscrub = &priv->fsscrub;
 
+        pthread_cleanup_push (_br_lock_cleaner, &fsscan->waitlock);
         pthread_mutex_lock (&fsscan->waitlock);
         {
+                pthread_cleanup_push (_br_lock_cleaner, &fsscrub->mutex);
                 pthread_mutex_lock (&fsscrub->mutex);
                 {
                         list_replace_init (&fsscan->queued, &fsscan->ready);
@@ -411,12 +421,14 @@ wait_for_scrubbing (xlator_t *this, struct br_scanfs *fsscan)
                         pthread_cond_broadcast (&fsscrub->cond);
                 }
                 pthread_mutex_unlock (&fsscrub->mutex);
+                pthread_cleanup_pop (0);
 
                 while (fsscan->entries != 0)
                         pthread_cond_wait
                                     (&fsscan->waitcond, &fsscan->waitlock);
         }
         pthread_mutex_unlock (&fsscan->waitlock);
+        pthread_cleanup_pop (0);
 }
 
 static inline void
@@ -465,6 +477,8 @@ br_fsscanner_handle_entry (xlator_t *subvol,
         this = child->this;
         fsscan = &child->fsscan;
 
+        _mask_cancellation ();
+
         fsentry = GF_CALLOC (1, sizeof (*fsentry), gf_br_mt_br_fsscan_entry_t);
         if (!fsentry)
                 goto error_return;
@@ -498,6 +512,8 @@ br_fsscanner_handle_entry (xlator_t *subvol,
                         scrub = 1;
         }
         UNLOCK (&fsscan->entrylock);
+
+        _unmask_cancellation ();
 
         if (scrub)
                 wait_for_scrubbing (this, fsscan);
@@ -535,6 +551,7 @@ br_fsscanner_log_time (xlator_t *this, br_child_t *child, const char *sfx)
 static void
 br_fsscanner_wait_until_kicked (struct br_scanfs *fsscan)
 {
+        pthread_cleanup_push (_br_lock_cleaner, &fsscan->wakelock);
         pthread_mutex_lock (&fsscan->wakelock);
         {
                 while (!fsscan->kick)
@@ -543,6 +560,7 @@ br_fsscanner_wait_until_kicked (struct br_scanfs *fsscan)
                 fsscan->kick = _gf_false;
         }
         pthread_mutex_unlock (&fsscan->wakelock);
+        pthread_cleanup_pop (0);
 }
 
 void *
@@ -778,13 +796,6 @@ br_scrubber_calc_scale (xlator_t *this,
 
 }
 
-static void
-br_scrubber_cleanup_handler (void *arg)
-{
-        struct br_scrubber *fsscrub = arg;
-        pthread_mutex_unlock (&fsscrub->mutex);
-}
-
 static inline br_child_t *
 _br_scrubber_get_next_child (struct br_scrubber *fsscrub)
 {
@@ -844,7 +855,7 @@ static void
 br_scrubber_pick_entry (struct br_scrubber *fsscrub,
                         struct br_fsscan_entry **fsentry)
 {
-        pthread_cleanup_push (br_scrubber_cleanup_handler, fsscrub);
+        pthread_cleanup_push (_br_lock_cleaner, &fsscrub->mutex);
 
         pthread_mutex_lock (&fsscrub->mutex);
         {

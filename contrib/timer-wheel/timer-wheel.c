@@ -218,14 +218,20 @@ void gf_tw_add_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
 /**
  * Remove a timer from the timer wheel
  */
-void gf_tw_del_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
+int gf_tw_del_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
 {
+        int ret = 0;
+
         pthread_spin_lock (&base->lock);
         {
-                if (timer_pending (timer))
+                if (timer_pending (timer)) {
+                        ret = 1;
                         __gf_tw_detach_timer (timer);
+                }
         }
         pthread_spin_unlock (&base->lock);
+
+        return ret;
 }
 
 int gf_tw_mod_timer_pending (struct tvec_base *base,
