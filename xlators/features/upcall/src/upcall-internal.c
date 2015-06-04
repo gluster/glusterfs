@@ -201,10 +201,13 @@ __upcall_inode_ctx_set (inode_t *inode, xlator_t *this)
         INIT_LIST_HEAD (&inode_ctx->client_list);
         inode_ctx->destroy = 0;
 
-        ret = __inode_ctx_set (inode, this, (uint64_t *) inode_ctx);
-        if (ret)
+        ctx = (long) inode_ctx;
+        ret = __inode_ctx_set (inode, this, &ctx);
+        if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set inode ctx (%p)", inode);
+                goto out;
+        }
 
         /* add this inode_ctx to the global list */
         LOCK (&priv->inode_ctx_lk);
@@ -236,7 +239,7 @@ __upcall_inode_ctx_get (inode_t *inode, xlator_t *this)
                         goto out;
         }
 
-        inode_ctx = (upcall_inode_ctx_t *)(long) ctx;
+        inode_ctx = (upcall_inode_ctx_t *) (long) (ctx);
 
 out:
         return inode_ctx;
@@ -372,10 +375,10 @@ upcall_cleanup_inode_ctx (xlator_t *this, inode_t *inode)
                 }
                 pthread_mutex_unlock (&inode_ctx->client_list_lock);
 
-                pthread_mutex_destroy (&inode_ctx->client_list_lock);
-
                 /* Mark the inode_ctx to be destroyed */
                 inode_ctx->destroy = 1;
+                gf_msg_debug ("upcall", 0, "set upcall_inode_ctx (%p) to destroy mode",
+                              inode_ctx);
         }
 
 out:
@@ -417,8 +420,12 @@ upcall_reaper_thread (void *data)
                         LOCK (&priv->inode_ctx_lk);
                         {
                                 /* client list would have been cleaned up*/
+                                gf_msg_debug ("upcall", 0, "Freeing upcall_inode_ctx (%p)",
+                                              inode_ctx);
                                 list_del_init (&inode_ctx->inode_ctx_list);
+                                pthread_mutex_destroy (&inode_ctx->client_list_lock);
                                 GF_FREE (inode_ctx);
+                                inode_ctx = NULL;
                         }
                         UNLOCK (&priv->inode_ctx_lk);
                 }
@@ -468,6 +475,14 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
 
         if (!is_cache_invalidation_enabled(this))
                 return;
+
+        /* server-side generated fops like quota/marker will not have any
+         * client associated with them. Ignore such fops.
+         */
+        if (!client) {
+                gf_msg_debug ("upcall", 0, "Internal fop - client NULL");
+                return;
+        }
 
         up_inode_ctx = ((upcall_local_t *)frame->local)->upcall_inode_ctx;
 
