@@ -4019,3 +4019,14 @@ out:
         return ret;
 }
 
+void
+_mask_cancellation (void)
+{
+        (void) pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+}
+
+void
+_unmask_cancellation (void)
+{
+        (void) pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+}

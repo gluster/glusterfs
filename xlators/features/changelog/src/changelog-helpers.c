@@ -22,28 +22,6 @@
 #include "changelog-rpc-common.h"
 #include <pthread.h>
 
-static inline void
-__mask_cancellation (xlator_t *this)
-{
-        int ret = 0;
-
-        ret = pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to disable thread cancellation");
-}
-
-static inline void
-__unmask_cancellation (xlator_t *this)
-{
-        int ret = 0;
-
-        ret = pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-        if (ret)
-                gf_log (this->name, GF_LOG_WARNING,
-                        "failed to enable thread cancellation");
-}
-
 static void
 changelog_cleanup_free_mutex (void *arg_mutex)
 {
@@ -1333,7 +1311,7 @@ changelog_rollover (void *data)
                         continue;
                 }
 
-                __mask_cancellation (this);
+                _mask_cancellation ();
 
                 LOCK (&priv->lock);
                 {
@@ -1343,7 +1321,7 @@ changelog_rollover (void *data)
                 }
                 UNLOCK (&priv->lock);
 
-                __unmask_cancellation (this);
+                _unmask_cancellation ();
         }
 
         return NULL;
@@ -1371,14 +1349,14 @@ changelog_fsync_thread (void *data)
                 if (ret)
                         continue;
 
-                __mask_cancellation (this);
+                _mask_cancellation ();
 
                 ret = changelog_inject_single_event (this, priv, &cld);
                 if (ret)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to inject fsync event");
 
-                __unmask_cancellation (this);
+                _unmask_cancellation ();
         }
 
         return NULL;

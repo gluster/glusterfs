@@ -1098,7 +1098,7 @@ br_set_child_state (br_child_t *child, br_child_state_t state)
  * Also, we register to the changelog library to subscribe for event
  * notifications.
  */
-static inline int32_t
+static int32_t
 br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
 {
         int32_t ret = 0;
@@ -1140,32 +1140,16 @@ br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
         return -1;
 }
 
-static inline int32_t
-br_enact_scrubber (xlator_t *this, br_child_t *child)
+static int32_t
+br_launch_scrubber (xlator_t *this, br_child_t *child,
+                    struct br_scanfs *fsscan, struct br_scrubber *fsscrub)
 {
-        int32_t ret = 0;
+        int32_t ret = -1;
         br_private_t *priv = NULL;
-        struct br_scanfs *fsscan = NULL;
-        struct br_scrubber *fsscrub = NULL;
 
         priv = this->private;
 
-        fsscan = &child->fsscan;
-        fsscrub = &priv->fsscrub;
-
-        LOCK_INIT (&fsscan->entrylock);
-        pthread_mutex_init (&fsscan->waitlock, NULL);
-        pthread_cond_init (&fsscan->waitcond, NULL);
-
-        fsscan->entries = 0;
-        INIT_LIST_HEAD (&fsscan->queued);
-        INIT_LIST_HEAD (&fsscan->ready);
-
-        /* init scheduler related variables */
         fsscan->kick = _gf_false;
-        pthread_mutex_init (&fsscan->wakelock, NULL);
-        pthread_cond_init (&fsscan->wakecond, NULL);
-
         ret = gf_thread_create (&child->thread, NULL, br_fsscanner, child);
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_SPAWN_FAILED,
@@ -1181,7 +1165,7 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
         }
         pthread_mutex_unlock (&priv->lock);
         if (ret)
-                goto error_return;
+                goto cleanup_thread;
 
         /**
          * Everything has been setup.. add this subvolume to scrubbers
@@ -1193,6 +1177,50 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
                 pthread_cond_broadcast (&fsscrub->cond);
         }
         pthread_mutex_unlock (&fsscrub->mutex);
+
+        return 0;
+
+ cleanup_thread:
+        (void) gf_thread_cleanup_xint (child->thread);
+ error_return:
+        return -1;
+}
+
+static int32_t
+br_enact_scrubber (xlator_t *this, br_child_t *child)
+{
+        int32_t ret = 0;
+        br_private_t *priv = NULL;
+        struct br_scanfs *fsscan = NULL;
+        struct br_scrubber *fsscrub = NULL;
+
+        priv = this->private;
+
+        fsscan = &child->fsscan;
+        fsscrub = &priv->fsscrub;
+
+        /**
+         * if this child already witnesses a successfull connection earlier
+         * there's no need to initialize mutexes, condvars, etc..
+         */
+        if (_br_child_witnessed_connection (child))
+                return br_launch_scrubber (this, child, fsscan, fsscrub);
+
+        LOCK_INIT (&fsscan->entrylock);
+        pthread_mutex_init (&fsscan->waitlock, NULL);
+        pthread_cond_init (&fsscan->waitcond, NULL);
+
+        fsscan->entries = 0;
+        INIT_LIST_HEAD (&fsscan->queued);
+        INIT_LIST_HEAD (&fsscan->ready);
+
+        /* init scheduler related variables */
+        pthread_mutex_init (&fsscan->wakelock, NULL);
+        pthread_cond_init (&fsscan->wakecond, NULL);
+
+        ret = br_launch_scrubber (this, child, fsscan, fsscrub);
+        if (ret)
+                goto error_return;
 
         return 0;
 
@@ -1218,6 +1246,7 @@ br_child_enaction (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
                         ret = br_enact_signer (this, child, stub);
 
                 if (!ret) {
+                        child->witnessed = 1;
                         _br_set_child_state (child, BR_CHILD_STATE_CONNECTED);
                         gf_log (this->name, GF_LOG_INFO,
                                 "Connected to brick %s..", child->brick_path);
@@ -1297,6 +1326,100 @@ br_brick_connect (xlator_t *this, br_child_t *child)
         if (ret)
                 br_set_child_state (child, BR_CHILD_STATE_CONNFAILED);
         return ret;
+}
+
+/* TODO: cleanup signer */
+static int32_t
+br_cleanup_signer (xlator_t *this, br_child_t *child)
+{
+        return 0;
+}
+
+static int32_t
+br_cleanup_scrubber (xlator_t *this, br_child_t *child)
+{
+        int32_t ret = 0;
+        br_private_t *priv = NULL;
+        struct br_scanfs *fsscan = NULL;
+        struct br_scrubber *fsscrub = NULL;
+
+        priv    = this->private;
+        fsscan  = &child->fsscan;
+        fsscrub = &priv->fsscrub;
+
+        /**
+         * 0x0: child (brick) goes out of rotation
+         *
+         * This is fully safe w.r.t. entries for this child being actively
+         * scrubbed. Each of the scrubber thread(s) would finish scrubbing
+         * the entry (probably failing due to disconnection) and either
+         * putting the entry back into the queue or continuing further.
+         * Either way, pending entries for this child's queue need not be
+         * drained; entries just sit there in the queued/ready list to be
+         * consumed later upon re-connection.
+         */
+        pthread_mutex_lock (&fsscrub->mutex);
+        {
+                list_del_init (&child->list);
+        }
+        pthread_mutex_unlock (&fsscrub->mutex);
+
+        /**
+         * 0x1: cleanup scanner thread
+         *
+         * The pending timer needs to be removed _after_ cleaning up the
+         * filesystem scanner (scheduling the next scrub time is not a
+         * cancellation point).
+         */
+        ret = gf_thread_cleanup_xint (child->thread);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Error cleaning up scanner thread");
+
+        /**
+         * 0x2: free()up resources
+         */
+        if (fsscan->timer) {
+                (void) gf_tw_del_timer (priv->timer_wheel, fsscan->timer);
+
+                GF_FREE (fsscan->timer);
+                fsscan->timer = NULL;
+        }
+
+        gf_log (this->name, GF_LOG_INFO,
+                "Cleaned up scrubber for brick [%s]", child->brick_path);
+
+        return 0;
+}
+
+/**
+ * OK.. this child has made it's mind to go down the drain. So,
+ * let's clean up what it touched. (NOTE: there's no need to clean
+ * the inode table, it's just reused taking care of stale inodes)
+ */
+int32_t
+br_brick_disconnect (xlator_t *this, br_child_t *child)
+{
+        int32_t ret = 0;
+        br_private_t *priv = this->private;
+
+        LOCK (&child->lock);
+        {
+                if (!_br_is_child_connected (child))
+                        goto unblock;
+
+                /* child is on death row.. */
+                _br_set_child_state (child, BR_CHILD_STATE_DISCONNECTED);
+
+                if (priv->iamscrubber)
+                        ret = br_cleanup_scrubber (this, child);
+                else
+                        ret = br_cleanup_signer (this, child);
+        }
+ unblock:
+        UNLOCK (&child->lock);
+
+         return ret;
 }
 
 /**
@@ -1419,7 +1542,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 {
                         child = &priv->children[idx];
                         if (child->child_up == 1)
-                                goto unblock;
+                                goto unblock_0;
                         priv->up_children++;
 
                         child->child_up = 1;
@@ -1430,7 +1553,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         _br_qchild_event (this, child, br_brick_connect);
                         pthread_cond_signal (&priv->cond);
                 }
-        unblock:
+        unblock_0:
                 pthread_mutex_unlock (&priv->lock);
 
                 if (priv->up_children == priv->child_count)
@@ -1447,11 +1570,17 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                 pthread_mutex_lock (&priv->lock);
                 {
-                        if (priv->children[idx].child_up == 1) {
-                                priv->children[idx].child_up = 0;
-                                priv->up_children--;
-                        }
+                        child = &priv->children[idx];
+                        if (child->child_up == 0)
+                                goto unblock_1;
+
+                        child->child_up = 0;
+                        priv->up_children--;
+
+                        _br_qchild_event (this, child, br_brick_disconnect);
+                        pthread_cond_signal (&priv->cond);
                 }
+        unblock_1:
                 pthread_mutex_unlock (&priv->lock);
 
                 if (priv->up_children == 0)
@@ -1644,6 +1773,7 @@ br_init_children (xlator_t *this, br_private_t *priv)
                 child = &priv->children[i];
 
                 LOCK_INIT (&child->lock);
+                child->witnessed = 0;
                 br_set_child_state (child, BR_CHILD_STATE_DISCONNECTED);
 
                 child->this = this;
