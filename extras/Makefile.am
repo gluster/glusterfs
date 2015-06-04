@@ -22,7 +22,7 @@ EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
 	disk_usage_sync.sh clear_xattrs.sh glusterd-sysconfig glusterd.vol \
 	post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh \
 	command-completion/gluster.bash command-completion/Makefile \
-	command-completion/README stop-all-gluster-processes.sh
+	command-completion/README stop-all-gluster-processes.sh clang-checker.sh
 
 install-data-local:
 	if [ -n "$(tmpfilesdir)" ]; then \

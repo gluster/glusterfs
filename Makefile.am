@@ -47,7 +47,10 @@ dist-hook: gen-VERSION gen-ChangeLog
 	-cp -f $(top_srcdir)/build-aux/config.sub.dist $(distdir)/config.sub
 	-cp -f $(top_srcdir)/build-aux/config.guess.dist $(distdir)/config.guess
 
-.PHONY: gen-VERSION gen-ChangeLog
+.PHONY: gen-VERSION gen-ChangeLog clang-check
+
+clang-check:
+	@$(top_srcdir)/extras/clang-checker.sh
 
 gen-ChangeLog:
 	(cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog
