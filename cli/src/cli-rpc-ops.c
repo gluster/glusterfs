@@ -1779,7 +1779,7 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                   rsp.op_errstr);
                 }
         }
-        if (cmd == GF_DEFRAG_CMD_STATUS) {
+        if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STATUS_TIER) {
                 if (rsp.op_ret == -1) {
                         if (strcmp (rsp.op_errstr, ""))
                                 snprintf (msg, sizeof (msg),

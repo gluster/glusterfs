@@ -1805,6 +1805,13 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
                 break;
 
         case GF_OP_CMD_DETACH_COMMIT_FORCE:
+                if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                        snprintf (msg, sizeof(msg), "volume %s is not a tier "
+                                  "volume", volinfo->volname);
+                        errstr = gf_strdup (msg);
+                        gf_log (this->name, GF_LOG_ERROR, "%s", errstr);
+                        goto out;
+                }
         case GF_OP_CMD_COMMIT_FORCE:
                 break;
         }

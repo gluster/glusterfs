@@ -592,9 +592,15 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 goto out;
         }
         switch (cmd) {
+        case GF_DEFRAG_CMD_START_TIER:
+                if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
+                        gf_asprintf (op_errstr, "volume %s is not a tier "
+                                     "volume.", volinfo->volname);
+                        ret = -1;
+                        goto out;
+                }
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
-        case GF_DEFRAG_CMD_START_TIER:
                 /* Check if the connected clients are all of version
                  * glusterfs-3.6 and higher. This is needed to prevent some data
                  * loss issues that could occur when older clients are connected
@@ -651,6 +657,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                         goto out;
                 }
                 break;
+        case GF_DEFRAG_CMD_STATUS_TIER:
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
         case GF_DEFRAG_CMD_STOP_DETACH_TIER:
