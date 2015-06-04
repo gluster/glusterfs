@@ -1548,6 +1548,9 @@ int32_t
 br_stub_truncate_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                           off_t offset, dict_t *xdata)
 {
+        br_stub_local_t *local = frame->local;
+
+        fd_unref (local->u.context.fd);
         STACK_WIND (frame, br_stub_ftruncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
@@ -1596,14 +1599,14 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = br_stub_need_versioning (this, fd, &inc_version, &modified, &ctx);
         if (ret)
-                goto unwind;
+                goto cleanup_fd;
 
         if (!inc_version && modified)
                 goto wind;
 
         ret = br_stub_versioning_prep (frame, this, fd, ctx);
         if (ret)
-                goto unwind;
+                goto cleanup_fd;
 
         local = frame->local;
         if (!inc_version) {
@@ -1627,12 +1630,14 @@ br_stub_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
  wind:
         STACK_WIND (frame, cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
+        fd_unref (fd);
         return 0;
 
  cleanup_local:
         br_stub_cleanup_local (local);
         br_stub_dealloc_local (local);
-
+ cleanup_fd:
+        fd_unref (fd);
  unwind:
         frame->local = NULL;
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, NULL, NULL,
