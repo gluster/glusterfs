@@ -7097,7 +7097,8 @@ int32_t dht_migration_needed(xlator_t *this)
 
         defrag = conf->defrag;
 
-        if (defrag->cmd != GF_DEFRAG_CMD_START_TIER)
+        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
+            (defrag->cmd != GF_DEFRAG_CMD_START_DETACH_TIER))
                 ret = 1;
 
 out:

@@ -2041,6 +2041,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         char                    *brick_tmpstr  = NULL;
         int                      start_remove  = 0;
         uint32_t                 commit_hash   = 0;
+        int                      defrag_cmd    = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2311,9 +2312,12 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         volinfo->rebal.commit_hash = commit_hash;
                 }
                 /* perform the rebalance operations */
+                defrag_cmd = GF_DEFRAG_CMD_START_FORCE;
+                if (cmd == GF_OP_CMD_DETACH_START)
+                        defrag_cmd = GF_DEFRAG_CMD_START_DETACH_TIER;
                 ret = glusterd_handle_defrag_start
                         (volinfo, err_str, sizeof (err_str),
-                         GF_DEFRAG_CMD_START_FORCE,
+                         defrag_cmd,
                          glusterd_remove_brick_migrate_cbk, GD_OP_REMOVE_BRICK);
 
                 if (!ret)
