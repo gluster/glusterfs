@@ -884,14 +884,6 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 
     ctx->have_version = _gf_true;
 
-    if (ec_dict_del_array(dict, EC_XATTR_DIRTY, ctx->pre_dirty,
-                          EC_VERSION_SIZE) == 0) {
-        ctx->post_dirty[0] += ctx->pre_dirty[0];
-        ctx->post_dirty[1] += ctx->pre_dirty[1];
-
-        ctx->have_dirty = _gf_true;
-    }
-
     if (lock->loc.inode->ia_type == IA_IFREG) {
         if (ec_dict_del_number(dict, EC_XATTR_SIZE, &ctx->pre_size) != 0) {
             gf_log(this->name, GF_LOG_ERROR, "Unable to get size xattr");
@@ -1107,14 +1099,12 @@ void ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode)
     ctx->have_config = _gf_false;
     ctx->have_version = _gf_false;
     ctx->have_size = _gf_false;
-    ctx->have_dirty = _gf_false;
 
     memset(&ctx->config, 0, sizeof(ctx->config));
     memset(ctx->pre_version, 0, sizeof(ctx->pre_version));
     memset(ctx->post_version, 0, sizeof(ctx->post_version));
     ctx->pre_size = ctx->post_size = 0;
-    memset(ctx->pre_dirty, 0, sizeof(ctx->pre_dirty));
-    memset(ctx->post_dirty, 0, sizeof(ctx->post_dirty));
+    memset(ctx->dirty, 0, sizeof(ctx->dirty));
 
 unlock:
     UNLOCK(&inode->lock);
@@ -1472,13 +1462,6 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
 
             ctx->have_size = _gf_true;
         }
-        if (ec_dict_del_array(xattr, EC_XATTR_DIRTY, ctx->post_dirty,
-                              EC_VERSION_SIZE) == 0) {
-            ctx->pre_dirty[0] = ctx->post_dirty[0];
-            ctx->pre_dirty[1] = ctx->post_dirty[1];
-
-            ctx->have_dirty = _gf_true;
-        }
         if ((ec_dict_del_config(xdata, EC_XATTR_CONFIG, &ctx->config) == 0) &&
             ec_config_check(fop->parent, &ctx->config)) {
             ctx->have_config = _gf_true;
@@ -1541,7 +1524,7 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
 
     /* If we don't have dirty information or it has been modified, we update
      * it. */
-    if (!ctx->have_dirty || (dirty[0] != 0) || (dirty[1] != 0)) {
+    if ((dirty[0] != 0) || (dirty[1] != 0)) {
         if (ec_dict_set_array(dict, EC_XATTR_DIRTY, dirty,
                               EC_VERSION_SIZE) != 0) {
             goto out;
@@ -1606,9 +1589,10 @@ ec_update_info(ec_lock_link_t *link)
 
     size = ctx->post_size - ctx->pre_size;
 
-    /* pre_dirty[*] will be 0 if have_dirty is false */
-    dirty[0] = ctx->post_dirty[0] - ctx->pre_dirty[0];
-    dirty[1] = ctx->post_dirty[1] - ctx->pre_dirty[1];
+    dirty[0] = ctx->dirty[0];
+    dirty[1] = ctx->dirty[1];
+    /*Dirty is not combined so just reset it right here*/
+    memset(ctx->dirty, 0, sizeof(ctx->dirty));
 
     if ((version[0] != 0) || (version[1] != 0) ||
         (dirty[0] != 0) || (dirty[1] != 0)) {
@@ -1817,13 +1801,13 @@ void ec_lock_reuse(ec_fop_data_t *fop)
             if (link->update[0]) {
                 ctx->post_version[0]++;
                 if (ec->node_mask & ~fop->mask) {
-                    ctx->post_dirty[0]++;
+                    ctx->dirty[0]++;
                 }
             }
             if (link->update[1]) {
                 ctx->post_version[1]++;
                 if (ec->node_mask & ~fop->mask) {
-                    ctx->post_dirty[1]++;
+                    ctx->dirty[1]++;
                 }
             }
         }

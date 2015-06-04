@@ -72,14 +72,12 @@ struct _ec_inode
     gf_boolean_t      have_config;
     gf_boolean_t      have_version;
     gf_boolean_t      have_size;
-    gf_boolean_t      have_dirty;
     ec_config_t       config;
     uint64_t          pre_version[2];
     uint64_t          post_version[2];
     uint64_t          pre_size;
     uint64_t          post_size;
-    uint64_t          pre_dirty[2];
-    uint64_t          post_dirty[2];
+    uint64_t          dirty[2];
     struct list_head  heal;
 };
 
