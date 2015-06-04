@@ -760,4 +760,7 @@ gf_nread (int fd, void *buf, size_t count);
 ssize_t
 gf_nwrite (int fd, const void *buf, size_t count);
 
+void _mask_cancellation (void);
+void _unmask_cancellation (void);
+
 #endif /* _COMMON_UTILS_H */

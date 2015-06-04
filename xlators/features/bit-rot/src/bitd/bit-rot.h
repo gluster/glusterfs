@@ -80,8 +80,10 @@ typedef enum br_child_state {
 } br_child_state_t;
 
 struct br_child {
-        gf_lock_t lock;
-        br_child_state_t c_state;
+        gf_lock_t lock;               /* protects child state */
+        char witnessed;               /* witnessed at least one succesfull
+                                         connection */
+        br_child_state_t c_state;     /* current state of this child */
 
         char child_up;                /* Indicates whether this child is
                                          up or not */
@@ -229,6 +231,12 @@ static inline int
 _br_child_failed_conn (br_child_t *child)
 {
         return (child->c_state == BR_CHILD_STATE_CONNFAILED);
+}
+
+static inline int
+_br_child_witnessed_connection (br_child_t *child)
+{
+        return (child->witnessed == 1);
 }
 
 #endif /* __BIT_ROT_H__ */
