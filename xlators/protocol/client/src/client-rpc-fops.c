@@ -471,7 +471,6 @@ client3_3_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xlator_t *this       = NULL;
         dict_t  *xdata       = NULL;
 
-
         this = THIS;
 
         frame = myframe;
@@ -499,7 +498,11 @@ client3_3_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (rsp.op_ret == -1) {
-                gf_log (this->name, GF_LOG_WARNING, "remote operation failed: %s",
+                /* stale filehandles are possible during normal operations, no
+                 * need to spam the logs with these */
+                gf_log (this->name,
+                        rsp.op_errno == ESTALE ? GF_LOG_DEBUG : GF_LOG_WARNING,
+                        "remote operation failed: %s",
                         strerror (gf_error_to_errno (rsp.op_errno)));
         }
 
