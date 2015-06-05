@@ -3708,7 +3708,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr)
 {
         int                     ret = -1;

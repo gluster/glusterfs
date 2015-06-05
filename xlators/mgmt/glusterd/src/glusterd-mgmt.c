@@ -169,6 +169,16 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
 
                 break;
 
+        case GD_OP_REPLACE_BRICK:
+                ret = glusterd_op_stage_replace_brick (dict, op_errstr,
+                                                       rsp_dict);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Replace-brick prevalidation failed.");
+                        goto out;
+                }
+                break;
+
         default:
                 break;
         }
@@ -242,6 +252,17 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                        }
                        break;
                }
+                case GD_OP_REPLACE_BRICK:
+                {
+                        ret = glusterd_op_replace_brick (dict, rsp_dict);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "Replace-brick commit failed.");
+                                goto out;
+                        }
+                        break;
+                }
                default:
                        break;
         }
@@ -519,6 +540,16 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
         switch (op) {
         case GD_OP_SNAP:
                 ret = glusterd_snap_pre_validate_use_rsp_dict (aggr, rsp);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
+                                "Failed to aggregate prevalidate "
+                                "response dictionaries.");
+                        goto out;
+                }
+                break;
+        case GD_OP_REPLACE_BRICK:
+                ret = glusterd_rb_use_rsp_dict (aggr, rsp);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_PRE_VALIDATION_FAIL,
@@ -809,6 +840,7 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
         int32_t                 ret      = -1;
         dict_t                 *req_dict = NULL;
         xlator_t               *this     = NULL;
+        char                   *volname  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -823,6 +855,26 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
         switch (op) {
                 case GD_OP_SNAP:
                         dict_copy (dict, req_dict);
+                        break;
+                case GD_OP_REPLACE_BRICK:
+                {
+                        ret = dict_get_str (dict, "volname", &volname);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_CRITICAL,
+                                        "volname is not present in "
+                                        "operation ctx");
+                                goto out;
+                        }
+
+                        if (strcasecmp (volname, "all")) {
+                                ret = glusterd_dict_set_volid (dict,
+                                                               volname,
+                                                             op_errstr);
+                                if (ret)
+                                        goto out;
+                        }
+                        dict_copy (dict, req_dict);
+                }
                         break;
                 default:
                         break;
