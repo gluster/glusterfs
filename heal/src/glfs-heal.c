@@ -679,7 +679,7 @@ cleanup (glfs_t *fs)
 {
         if (!fs)
                 return;
-#ifdef DEBUG
+#if 0
         /* glfs fini path is still racy and crashing the program. Since
          * this program any way has to die, we are not gonna call fini
          * in the released versions. i.e. final builds. For all
