@@ -568,6 +568,7 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
 {
         char         msg[1024] = {0,};
         char         timestr[64] = {0,};
+        call_stack_t *stack = NULL;
 
         /* Now every gf_log call will just write to a buffer and when the
          * buffer becomes full, its written to the log-file. Suppose the process
@@ -583,23 +584,19 @@ gf_print_trace (int32_t signum, glusterfs_ctx_t *ctx)
         /* Pending frames, (if any), list them in order */
         gf_msg_plain_nomem (GF_LOG_ALERT, "pending frames:");
         {
-                struct list_head *trav =
-                                ((call_pool_t *)ctx->pool)->all_frames.next;
-                while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
-                        call_frame_t *tmp =
-                                (call_frame_t *)(&((call_stack_t *)trav)->frames);
-                        if (tmp->root->type == GF_OP_TYPE_FOP)
+                /* FIXME: traversing stacks outside pool->lock */
+                list_for_each_entry (stack, &ctx->pool->all_frames,
+                                     all_frames) {
+                        if (stack->type == GF_OP_TYPE_FOP)
                                 sprintf (msg,"frame : type(%d) op(%s)",
-                                         tmp->root->type,
-                                         gf_fop_list[tmp->root->op]);
+                                         stack->type,
+                                         gf_fop_list[stack->op]);
                         else
                                 sprintf (msg,"frame : type(%d) op(%d)",
-                                         tmp->root->type,
-                                         tmp->root->op);
+                                         stack->type,
+                                         stack->op);
 
                         gf_msg_plain_nomem (GF_LOG_ALERT, msg);
-
-                        trav = trav->next;
                 }
         }
 
