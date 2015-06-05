@@ -748,8 +748,11 @@ br_initialize_timer (xlator_t *this, br_object_t *object, br_child_t *child,
                 goto out;
         INIT_LIST_HEAD (&timer->entry);
 
+        timer->expires  = (priv->expiry_time >> 1);
+        if (!timer->expires)
+                timer->expires = 1;
+
         timer->data     = object;
-        timer->expires  = priv->expiry_time;
         timer->function = br_add_object_to_queue;
         gf_tw_add_timer (priv->timer_wheel, timer);
 
@@ -1486,12 +1489,28 @@ br_rate_limit_signer (xlator_t *this, int child_count, int numbricks)
 }
 
 static int32_t
+br_signer_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
+{
+        if (options)
+                GF_OPTION_RECONF ("expiry-time", priv->expiry_time,
+                                  options, uint32, error_return);
+        else
+                GF_OPTION_INIT ("expiry-time", priv->expiry_time,
+                                uint32, error_return);
+
+        return 0;
+
+error_return:
+        return -1;
+}
+
+static int32_t
 br_signer_init (xlator_t *this, br_private_t *priv)
 {
         int32_t ret = 0;
         int numbricks = 0;
 
-        GF_OPTION_INIT ("expiry-time", priv->expiry_time, int32, error_return);
+        GF_OPTION_INIT ("expiry-time", priv->expiry_time, uint32, error_return);
         GF_OPTION_INIT ("brick-count", numbricks, int32, error_return);
 
         ret = br_rate_limit_signer (this, priv->child_count, numbricks);
@@ -1576,6 +1595,8 @@ init (xlator_t *this)
 
         if (!priv->iamscrubber) {
                 ret = br_signer_init (this, priv);
+                if (!ret)
+                        ret = br_signer_handle_options (this, priv, NULL);
         } else {
                 ret = br_scrubber_init (this, priv);
                 if (!ret)
@@ -1646,8 +1667,12 @@ reconfigure (xlator_t *this, dict_t *options)
 
         priv = this->private;
 
-        if (!priv->iamscrubber)
+        if (!priv->iamscrubber) {
+                ret = br_signer_handle_options (this, priv, options);
+                if (ret)
+                        goto err;
                 return 0;
+        }
 
         ret = br_scrubber_handle_options (this, priv, options);
         if (ret)
@@ -1695,10 +1720,8 @@ struct xlator_cbks cbks;
 struct volume_options options[] = {
         { .key = {"expiry-time"},
           .type = GF_OPTION_TYPE_INT,
-          /* Let the default timer be half the value of the wait time for
-           * sining (which is 120 as of now) */
-          .default_value = "60",
-          .description = "default time duration for which an object waits "
+          .default_value = SIGNING_TIMEOUT,
+          .description = "Waiting time for an object on which it waits "
                          "before it is signed",
         },
         { .key = {"brick-count"},

@@ -3738,6 +3738,33 @@ gd_get_matching_option (char **options, char *option)
 }
 
 static int
+bitrot_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                       void *param)
+{
+        xlator_t           *xl                 = NULL;
+        char               *bitrot_option      = NULL;
+        int                 ret                = 0;
+        glusterd_volinfo_t *volinfo            = NULL;
+
+        volinfo = param;
+
+        xl = first_of (graph);
+
+        if (!strcmp (vme->option, "expiry-time")) {
+                ret = gf_asprintf (&bitrot_option, "expiry-time");
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, bitrot_option, vme->value);
+                        GF_FREE (bitrot_option);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        return ret;
+}
+
+static int
 scrubber_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
@@ -4975,6 +5002,12 @@ build_bitd_volume_graph (volgen_graph_t *graph,
                 ret = -1;
                 goto out;
         }
+
+        ret = volgen_graph_set_options_generic (&cgraph, set_dict,
+                                                volinfo,
+                                                bitrot_option_handler);
+        if (ret)
+                goto out;
 
         ret = volgen_graph_merge_sub (graph, &cgraph, clusters);
         if (ret)

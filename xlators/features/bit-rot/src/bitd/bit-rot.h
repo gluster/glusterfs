@@ -157,7 +157,7 @@ struct br_private {
                                              and ready to be picked up for
                                              signing and the workers which sign
                                              the objects */
-        int32_t expiry_time;              /* objects "wait" time */
+        uint32_t expiry_time;              /* objects "wait" time */
 
         br_tbf_t *tbf;                    /* token bucket filter */
 

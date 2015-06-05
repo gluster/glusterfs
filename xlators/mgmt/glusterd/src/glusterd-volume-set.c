@@ -1935,6 +1935,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags      = OPT_FLAG_FORCE,
           .type       = NO_DOC,
         },
+        { .key        = "features.expiry-time",
+          .voltype    = "features/bitrot",
+          .value      = SIGNING_TIMEOUT,
+          .option     = "expiry-time",
+          .op_version = GD_OP_VERSION_3_7_0,
+          .type       = NO_DOC,
+        },
         /* Upcall translator options */
         { .key         = "features.cache-invalidation",
           .voltype     = "features/upcall",
