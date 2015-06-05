@@ -4994,8 +4994,8 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
         char               *volname               = NULL;
         char               *opwords[]             = {"enable", "disable",
                                                      "scrub-throttle",
-                                                     "scrub-frequency",
-                                                     "scrub", NULL};
+                                                     "scrub-frequency", "scrub",
+                                                     "signing-time", NULL};
         char               *scrub_throt_values[]  = {"lazy", "normal",
                                                      "aggressive", NULL};
         char               *scrub_freq_values[]   = {"hourly",
@@ -5006,6 +5006,7 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                                                       NULL};
         dict_t             *dict                  = NULL;
         gf_bitrot_type     type                   = GF_BITROT_OPTION_TYPE_NONE;
+        int32_t            expiry_time            = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -5015,7 +5016,7 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                 goto out;
 
         if (wordcount < 4 || wordcount > 5) {
-                gf_log ("", GF_LOG_ERROR, "Invalid syntax");
+                gf_log ("cli", GF_LOG_ERROR, "Invalid syntax");
                 goto out;
         }
 
@@ -5142,6 +5143,33 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
                                 }
                                 goto set_type;
                         }
+                }
+        }
+
+        if (!strcmp (words[3], "signing-time")) {
+                if (!words[4]) {
+                        cli_err ("Missing signing-time value for bitrot "
+                                 "option");
+                        ret = -1;
+                        goto out;
+                } else {
+                        type = GF_BITROT_OPTION_TYPE_EXPIRY_TIME;
+
+                        expiry_time = strtol (words[4], NULL, 0);
+                        if (expiry_time < 1) {
+                                cli_err ("Expiry time  value should not be less"
+                                         " than 1");
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = dict_set_uint32 (dict, "expiry-time",
+                                               (unsigned int) expiry_time);
+                        if (ret) {
+                                cli_out ("Failed to set dict for bitrot");
+                                goto out;
+                        }
+                        goto set_type;
                 }
         } else {
                 cli_err ("Invalid option %s for bitrot. Please enter valid "

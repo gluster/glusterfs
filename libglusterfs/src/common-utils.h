@@ -90,6 +90,9 @@ void trap (void);
 /* Default timeout for both barrier and changelog translator */
 #define BARRIER_TIMEOUT "120"
 
+/* Default value of signing waiting time to sign a file for bitrot */
+#define SIGNING_TIMEOUT "120"
+
 enum _gf_boolean
 {
 	_gf_false = 0,

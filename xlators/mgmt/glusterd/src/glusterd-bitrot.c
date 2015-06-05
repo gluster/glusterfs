@@ -32,6 +32,7 @@ const char *gd_bitrot_op_list[GF_BITROT_OPTION_TYPE_MAX] = {
         [GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE]  = "scrub-throttle",
         [GF_BITROT_OPTION_TYPE_SCRUB_FREQ]      = "scrub-frequency",
         [GF_BITROT_OPTION_TYPE_SCRUB]           = "scrub",
+        [GF_BITROT_OPTION_TYPE_EXPIRY_TIME]     = "expiry-time",
 };
 
 int
@@ -238,6 +239,44 @@ glusterd_bitrot_scrub (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
+out:
+        return ret;
+}
+
+static int
+glusterd_bitrot_expiry_time (glusterd_volinfo_t *volinfo, dict_t *dict,
+                             char *key, char **op_errstr)
+{
+        int32_t        ret                  = -1;
+        uint32_t       expiry_time          = 0;
+        xlator_t       *this                = NULL;
+        char           dkey[1024]           = {0,};
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = dict_get_uint32 (dict, "expiry-time", &expiry_time);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Unable to get bitrot expiry"
+                        " timer value.");
+                goto out;
+        }
+
+        snprintf (dkey, sizeof (dkey), "%d", expiry_time);
+
+        ret = dict_set_dynstr_with_alloc (volinfo->dict, key, dkey);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to set option %s",
+                        key);
+                goto out;
+        }
+
+        ret = glusterd_bitdsvc_reconfigure ();
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to reconfigure bitrot"
+                         "services");
+                goto out;
+        }
 out:
         return ret;
 }
@@ -467,6 +506,14 @@ glusterd_op_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_BITROT_OPTION_TYPE_SCRUB:
                 ret = glusterd_bitrot_scrub (volinfo, dict, "features.scrub",
                                              op_errstr);
+                if (ret)
+                        goto out;
+                break;
+
+        case GF_BITROT_OPTION_TYPE_EXPIRY_TIME:
+                ret = glusterd_bitrot_expiry_time (volinfo, dict,
+                                                   "features.expiry-time",
+                                                   op_errstr);
                 if (ret)
                         goto out;
                 break;
