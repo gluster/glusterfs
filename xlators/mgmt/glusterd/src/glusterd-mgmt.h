@@ -45,4 +45,33 @@ glusterd_snap_pre_validate_use_rsp_dict (dict_t *dst, dict_t *src);
 
 int32_t
 glusterd_set_barrier_value (dict_t *dict, char *option);
+int
+
+glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
+                                    char **op_errstr, uint32_t *op_errno,
+                                    gf_boolean_t  *is_acquired,
+                                    uint32_t txn_generation);
+
+int
+glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
+                                glusterd_op_t op);
+
+int
+glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
+                               char **op_errstr, uint32_t *op_errno,
+                               uint32_t txn_generation);
+
+int
+glusterd_mgmt_v3_commit (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
+                         char **op_errstr, uint32_t *op_errno,
+                         uint32_t txn_generation);
+
+int
+glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
+                                     int32_t op_ret, char **op_errstr,
+                                     gf_boolean_t  is_acquired,
+                                     uint32_t txn_generation);
+
+int32_t
+glusterd_multiple_mgmt_v3_unlock (dict_t *dict, uuid_t uuid);
 #endif /* _GLUSTERD_MGMT_H_ */

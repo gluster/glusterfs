@@ -1039,7 +1039,6 @@ int glusterd_op_stage_barrier (dict_t *dict, char **op_errstr);
 int glusterd_op_barrier (dict_t *dict, char **op_errstr);
 
 /* misc */
-void glusterd_do_replace_brick (void *data);
 int glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
                                       int force, int *need_migrate);
 int glusterd_op_stop_volume_args_get (dict_t *dict, char** volname, int *flags);

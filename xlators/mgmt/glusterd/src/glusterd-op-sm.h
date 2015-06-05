@@ -229,9 +229,6 @@ glusterd_check_option_exists(char *optstring, char **completion);
 int
 set_xlator_option (dict_t *dict, char *key, char *value);
 
-void
-glusterd_do_replace_brick (void *data);
-
 char*
 glusterd_op_sm_state_name_get (int state);
 
@@ -293,4 +290,7 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id);
 
 void
 glusterd_set_opinfo (char *errstr, int32_t op_errno, int32_t op_ret);
+
+int
+glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr);
 #endif
