@@ -24,18 +24,26 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct iatt *postbuf, dict_t *xdata)
 {
         dht_local_t *local = NULL;
+        call_frame_t *prev = NULL;
         int          ret   = -1;
         xlator_t    *subvol1 = NULL;
         xlator_t    *subvol2 = NULL;
 
-        if (op_ret == -1 && !dht_inode_missing(op_errno)) {
-                goto out;
-        }
-
         local = frame->local;
+        prev = cookie;
+
         if (!local) {
                 op_ret = -1;
                 op_errno = EINVAL;
+                goto out;
+        }
+
+        if (op_ret == -1 && !dht_inode_missing(op_errno)) {
+                local->op_errno = op_errno;
+                local->op_ret = -1;
+                gf_msg_debug (this->name, 0,
+                              "subvolume %s returned -1 (%s)",
+                              prev->this->name, strerror (op_errno));
                 goto out;
         }
 
@@ -52,7 +60,7 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_errno = op_errno;
         /* Phase 2 of migration */
-        if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
                 ret = dht_rebalance_complete_check (this, frame);
                 if (!ret)
                         return 0;
