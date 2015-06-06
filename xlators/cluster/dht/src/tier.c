@@ -730,7 +730,7 @@ tier_get_bricklist (xlator_t *xl, dict_t *bricklist)
                         if (!db_path) {
                                 gf_msg ("tier", GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_STATUS,
-                                        "Failed to allocate memory for bricklist");
+                                        "Faile. to allocate memory for bricklist");
                                 goto out;
                         }
 
@@ -761,9 +761,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         dict_t       *bricklist_cold = NULL;
         dict_t       *bricklist_hot = NULL;
         dht_conf_t   *conf     = NULL;
-        int tick = 0;
-        int next_demote = 0;
-        int next_promote = 0;
+        gfdb_time_t  current_time;
         int freq_promote = 0;
         int freq_demote = 0;
         promotion_args_t promotion_args = { 0 };
@@ -773,6 +771,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         int ret = 0;
         pthread_t promote_thread;
         pthread_t demote_thread;
+        gf_boolean_t  is_promotion_triggered = _gf_false;
+        gf_boolean_t  is_demotion_triggered = _gf_false;
 
         conf   = this->private;
 
@@ -787,25 +787,15 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         tier_get_bricklist (conf->subvolumes[0], bricklist_cold);
         tier_get_bricklist (conf->subvolumes[1], bricklist_hot);
 
-        freq_promote = defrag->tier_promote_frequency;
-        freq_demote  = defrag->tier_demote_frequency;
-
-        next_promote = defrag->tier_promote_frequency % TIMER_SECS;
-        next_demote  = defrag->tier_demote_frequency % TIMER_SECS;
-
-
         gf_msg (this->name, GF_LOG_INFO, 0,
-                DHT_MSG_LOG_TIER_STATUS, "Begin run tier promote %d demote %d",
-                next_promote, next_demote);
+                DHT_MSG_LOG_TIER_STATUS, "Begin run tier promote %d"
+                        " demote %d", freq_promote, freq_demote);
 
         defrag->defrag_status = GF_DEFRAG_STATUS_STARTED;
 
         while (1) {
 
                 sleep(1);
-
-                ret_promotion = -1;
-                ret_demotion = -1;
 
                 if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                         ret = 1;
@@ -818,7 +808,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
 
                 if (defrag->cmd == GF_DEFRAG_CMD_START_DETACH_TIER) {
                         ret = 0;
-                        defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
+                        defrag->defrag_status =
+                                        GF_DEFRAG_STATUS_COMPLETE;
                         gf_msg (this->name, GF_LOG_DEBUG, 0,
                                 DHT_MSG_LOG_TIER_ERROR,
                                 "defrag->defrag_cmd == "
@@ -826,49 +817,72 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         goto out;
                 }
 
-                tick = (tick + 1) % TIMER_SECS;
+                freq_promote = defrag->tier_promote_frequency;
+                freq_demote  = defrag->tier_demote_frequency;
 
-                if (freq_promote != defrag->tier_promote_frequency)
-                        next_promote = tick;
-                if (freq_demote != defrag->tier_demote_frequency)
-                        next_demote = tick;
 
-                if ((next_demote != tick) && (next_promote != tick))
+                /* To have proper synchronization amongst all
+                 * brick holding nodes, so that promotion and demotions
+                 * start atomicly w.r.t promotion/demotion frequency
+                 * period, all nodes should have thier system time
+                 * in-sync with each other either manually set or
+                 * using a NTP server*/
+                ret = gettimeofday (&current_time, NULL);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to get current time");
+                        goto out;
+                }
+
+                is_demotion_triggered = ((current_time.tv_sec %
+                                        freq_demote) == 0) ? _gf_true :
+                                        _gf_false;
+                is_promotion_triggered = ((current_time.tv_sec %
+                                        freq_promote) == 0) ? _gf_true :
+                                        _gf_false;
+
+                /* If no promotion and no demotion is
+                 * scheduled/triggered skip a iteration */
+                if (!is_promotion_triggered && !is_demotion_triggered)
                         continue;
 
-                if (next_demote >= tick) {
+
+                ret_promotion = -1;
+                ret_demotion = -1;
+
+                if (is_demotion_triggered) {
                         demotion_args.this = this;
                         demotion_args.brick_list = bricklist_hot;
                         demotion_args.defrag = defrag;
                         demotion_args.freq_time = freq_demote;
-                        ret_demotion = pthread_create (&demote_thread, NULL,
-                                        &tier_demote, &demotion_args);
+                        ret_demotion = pthread_create (&demote_thread,
+                                                NULL, &tier_demote,
+                                                &demotion_args);
                         if (ret_demotion) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed starting Demotion thread!");
+                                        "Failed starting Demotion "
+                                        "thread!");
                         }
-                        freq_demote = defrag->tier_demote_frequency;
-                        next_demote = (tick + freq_demote) % TIMER_SECS;
                 }
 
-                if (next_promote >= tick) {
+                if (is_promotion_triggered) {
                         promotion_args.this = this;
                         promotion_args.brick_list = bricklist_cold;
                         promotion_args.defrag = defrag;
                         promotion_args.freq_time = freq_promote;
-                        ret_promotion = pthread_create (&promote_thread, NULL,
-                                                &tier_promote, &promotion_args);
+                        ret_promotion = pthread_create (&promote_thread,
+                                                NULL, &tier_promote,
+                                                &promotion_args);
                         if (ret_promotion) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_ERROR,
-                                        "Failed starting Promotion thread!");
+                                        "Failed starting Promotion "
+                                        "thread!");
                         }
-                        freq_promote = defrag->tier_promote_frequency;
-                        next_promote = (tick + freq_promote) % TIMER_SECS;
                 }
 
-                if (ret_demotion == 0) {
+                if (is_promotion_triggered && (ret_demotion == 0)) {
                         pthread_join (demote_thread, NULL);
                         if (demotion_args.return_value) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -878,7 +892,7 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         ret_demotion = demotion_args.return_value;
                 }
 
-                if (ret_promotion == 0) {
+                if (is_demotion_triggered && (ret_promotion == 0)) {
                         pthread_join (promote_thread, NULL);
                         if (promotion_args.return_value) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -888,10 +902,15 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
                         ret_promotion = promotion_args.return_value;
                 }
 
-                /*Collect previous and current cummulative status */
-                ret = ret | ret_demotion | ret_promotion;
+                /* Collect previous and current cummulative status */
+                /* If demotion was not triggered just pass 0 to ret */
+                ret = (is_demotion_triggered) ? ret_demotion : 0;
+                /* If promotion was not triggered just pass 0 to ret */
+                ret = ret | (is_promotion_triggered) ?
+                                ret_promotion : 0;
 
-                /*reseting promotion and demotion arguments for next iteration*/
+                /* reseting promotion and demotion arguments for
+                 * next iteration*/
                 memset (&demotion_args, 0, sizeof(demotion_args_t));
                 memset (&promotion_args, 0, sizeof(promotion_args_t));
 
