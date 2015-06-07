@@ -1226,11 +1226,6 @@ out:
 
         rcu_read_unlock ();
 
-        switch (rsp.op) {
-        case GD_OP_REPLACE_BRICK:
-                glusterd_rb_use_rsp_dict (NULL, dict);
-                break;
-        }
 
         ret = glusterd_op_sm_inject_event (event_type, txn_id, NULL);
 
@@ -1263,7 +1258,7 @@ int32_t
 __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
 {
-        gd1_mgmt_commit_op_rsp         rsp   = {{0},};
+        gd1_mgmt_commit_op_rsp        rsp   = {{0},};
         int                           ret   = -1;
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
@@ -1274,6 +1269,7 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         xlator_t                      *this = NULL;
         glusterd_conf_t               *priv = NULL;
         uuid_t                        *txn_id = NULL;
+        glusterd_op_info_t            txn_op_info = {{0},};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1343,6 +1339,14 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         gf_msg_debug (this->name, 0, "transaction ID = %s",
                 uuid_utoa (*txn_id));
 
+        ret = glusterd_get_txn_opinfo (txn_id, &txn_op_info);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_OPINFO_GET_FAIL,
+                        "Failed to get txn_op_info "
+                        "for txn_id = %s", uuid_utoa (*txn_id));
+        }
+
         rcu_read_lock ();
         peerinfo = glusterd_peerinfo_find (rsp.uuid, NULL);
         if (peerinfo == NULL) {
@@ -1372,49 +1376,21 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
-                switch (rsp.op) {
-                case GD_OP_REPLACE_BRICK:
-                        ret = glusterd_rb_use_rsp_dict (NULL, dict);
-                        if (ret)
-                                goto unlock;
-                break;
+                GF_ASSERT (rsp.op == txn_op_info.op);
 
-                case GD_OP_SYNC_VOLUME:
-                        ret = glusterd_sync_use_rsp_dict (NULL, dict);
-                        if (ret)
-                                goto unlock;
-                break;
+                switch (rsp.op) {
 
                 case GD_OP_PROFILE_VOLUME:
-                        ret = glusterd_profile_volume_use_rsp_dict (NULL, dict);
-                        if (ret)
-                                goto unlock;
-                break;
-
-                case GD_OP_GSYNC_SET:
-                        ret = glusterd_gsync_use_rsp_dict (NULL, dict, rsp.op_errstr);
-                        if (ret)
-                                goto unlock;
-                break;
-
-                case GD_OP_STATUS_VOLUME:
-                        ret = glusterd_volume_status_copy_to_op_ctx_dict (NULL, dict);
+                        ret = glusterd_profile_volume_use_rsp_dict (txn_op_info.op_ctx, dict);
                         if (ret)
                                 goto unlock;
                 break;
 
                 case GD_OP_REBALANCE:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
-                        ret = glusterd_volume_rebalance_use_rsp_dict (NULL, dict);
+                        ret = glusterd_volume_rebalance_use_rsp_dict (txn_op_info.op_ctx, dict);
                         if (ret)
                                 goto unlock;
-                break;
-
-                case GD_OP_HEAL_VOLUME:
-                        ret = glusterd_volume_heal_use_rsp_dict (NULL, dict);
-                        if (ret)
-                                goto unlock;
-
                 break;
 
                 default:

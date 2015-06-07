@@ -4091,9 +4091,6 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        if (op == GD_OP_REPLACE_BRICK)
-                glusterd_rb_use_rsp_dict (NULL, rsp_dict);
-
         rcu_read_lock ();
         cds_list_for_each_entry_rcu (peerinfo, &priv->peers, uuid_list) {
                 /* Only send requests to peers who were available before the

@@ -7532,23 +7532,26 @@ glusterd_profile_volume_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         int32_t brick_count = 0;
         int32_t count = 0;
         dict_t  *ctx_dict = NULL;
-        glusterd_op_t   op = GD_OP_NONE;
+        xlator_t *this    = NULL;
 
         GF_ASSERT (rsp_dict);
+        this = THIS;
+        GF_ASSERT (this);
 
         ret = dict_get_int32 (rsp_dict, "count", &brick_count);
         if (ret) {
                 ret = 0; //no bricks in the rsp
                 goto out;
         }
-
-        op = glusterd_op_get_op ();
-        GF_ASSERT (GD_OP_PROFILE_VOLUME == op);
         if (aggr) {
                 ctx_dict = aggr;
 
         } else {
-                ctx_dict = glusterd_op_get_ctx ();
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_OPCTX_GET_FAIL,
+                        "Operation Context is not present");
+                ret = -1;
+                goto out;
         }
 
         ret = dict_get_int32 (ctx_dict, "count", &count);
@@ -7971,7 +7974,6 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         dict_t              *ctx_dict      = NULL;
         double               elapsed_time  = 0;
         glusterd_conf_t     *conf          = NULL;
-        glusterd_op_t        op            = GD_OP_NONE;
         glusterd_peerinfo_t *peerinfo      = NULL;
         glusterd_volinfo_t  *volinfo       = NULL;
         int                  ret           = 0;
@@ -7981,20 +7983,21 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         int32_t              value32       = 0;
         uint64_t             value         = 0;
         char                *peer_uuid_str = NULL;
+        xlator_t            *this           = NULL;
 
         GF_ASSERT (rsp_dict);
-        conf = THIS->private;
-
-        op = glusterd_op_get_op ();
-        GF_ASSERT ((GD_OP_REBALANCE == op) ||
-                   (GD_OP_DEFRAG_BRICK_VOLUME == op));
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
 
         if (aggr) {
                 ctx_dict = aggr;
 
         } else {
-                ctx_dict = glusterd_op_get_ctx (op);
-
+                 gf_msg (this->name, GF_LOG_ERROR, 0,
+                         GD_MSG_OPCTX_GET_FAIL,
+                         "Operation Context is not present");
+                goto out;
         }
 
         if (!ctx_dict)
