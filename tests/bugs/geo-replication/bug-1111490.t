@@ -24,7 +24,7 @@ EXPECT "$uuid" getfattr --only-values -n glusterfs.gfid.string $M0/file0
 
 # unmount and mount again so as to start with a fresh inode table
 # or use another mount...
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0 --aux-gfid-mount
 
 # touch the file again (gfid-access.py handles errno)

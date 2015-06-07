@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../snapshot.rc
 
 cleanup;
@@ -23,7 +24,7 @@ TEST $CLI volume set $V0 snapshot-directory snaps
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" STAT $M0/snaps/snaps/testfile
 
-umount -f $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 #Clean up
 TEST $CLI snapshot delete snaps

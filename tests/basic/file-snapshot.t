@@ -39,9 +39,8 @@ echo '1234567890' > $M0/data-file2
 TEST dd if=$M0/data-file2 of=$M0/big-file conv=notrunc;
 TEST setfattr -n trusted.glusterfs.block-snapshot-create -v image2 $M0/big-file;
 
-# big-file may still be in kernel page cache, this will fail to umount
-# but it will purge vnode and therefore invalidate the cache.
-( cd $M0 && umount $M0 )
+# big-file may still be in kernel page cache
+drop_cache $M0
 
 TEST setfattr -n trusted.glusterfs.block-snapshot-goto -v image1 $M0/big-file;
 TEST dd if=$M0/big-file of=$M0/out-file1 bs=11 count=1;

@@ -13,7 +13,7 @@ TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 TEST ! stat $M0/.meta/graphs/active/$V0-replicate-0/options/arbiter-count
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 
@@ -66,5 +66,5 @@ EXPECT 0 afr_get_pending_heal_count $V0
 TEST cat $M0/file
 TEST getfattr -n user.name $M0/file
 TEST `echo append>> $M0/file`
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 cleanup

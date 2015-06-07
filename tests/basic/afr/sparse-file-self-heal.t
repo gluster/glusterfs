@@ -54,7 +54,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 #If the file system of bricks is XFS and speculative preallocation is on,
 #dropping cahce should be done to free speculatively pre-allocated blocks
 #by XFS.
-( cd $M0 ; umount $M0  ) # fail but drops kernel cache
+drop_cache $M0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')
@@ -124,7 +124,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "0" afr_get_pending_heal_count $V0
 #If the file system of bricks is XFS and speculative preallocation is on,
 #dropping cahce should be done to free speculatively pre-allocated blocks
 #by XFS.
-( cd $M0 ; umount $M0  ) # fail but drops kernel cache
+drop_cache $M0
 
 big_md5sum_0=$(md5sum $B0/${V0}0/big | awk '{print $1}')
 small_md5sum_0=$(md5sum $B0/${V0}0/small | awk '{print $1}')

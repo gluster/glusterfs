@@ -65,6 +65,6 @@ function mount_nfs ()
 }
 
 function umount_nfs {
-        umount -f $1
+        ${UMOUNT_F} $1
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }

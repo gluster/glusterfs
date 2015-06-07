@@ -63,7 +63,7 @@ EXPECT 'Started' volinfo_field $V0 'Status'
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 TEST mkdir $M0/dir
 TEST touch_files
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # Add a brick and do the fix-layout part of rebalance to update directory layouts
 # (including their directory commit hashes).
@@ -82,7 +82,7 @@ TEST setfattr -x trusted.glusterfs.dht.commithash $B0/${V0}3
 # correctly skipped the broadcast lookup that would have found them.
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 TEST [ $(count_files) -ne 100 ]
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # Do the fix-layout again to generate a new volume commit hash.
 TEST $CLI volume rebalance $V0 fix-layout start
@@ -92,7 +92,7 @@ TEST wait_for_rebalance
 # the mismatch and did the broadcast lookup this time.
 TEST $GFS -s $H0 --volfile-id $V0 $M0
 TEST [ $(count_files) -eq 100 ]
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
 # Do a *full* rebalance and verify that the directory commit hash changed.
 old_val=$(get_xattr $B0/${V0}1/dir)
