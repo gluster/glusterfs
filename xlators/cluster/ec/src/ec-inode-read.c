@@ -35,7 +35,7 @@ int32_t ec_access_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     ec_trace("CBK", fop, "idx=%d, frame=%p, op_ret=%d, op_errno=%d", idx,
              frame, op_ret, op_errno);
 
-    if (!ec_dispatch_one_retry(fop, idx, op_ret, op_errno))
+    if (!ec_dispatch_one_retry(fop, idx, op_ret))
     {
         if (fop->cbks.access != NULL)
         {
@@ -73,13 +73,13 @@ int32_t ec_manager_access(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_REPORT;
 
         case -EC_STATE_INIT:
-        case -EC_STATE_REPORT:
             if (fop->cbks.access != NULL)
             {
                 fop->cbks.access(fop->req_frame, fop, fop->xl, -1, fop->error,
                                  NULL);
             }
 
+        case -EC_STATE_REPORT:
         case EC_STATE_REPORT:
             return EC_STATE_END;
 
@@ -968,7 +968,7 @@ int32_t ec_readlink_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         ec_iatt_rebuild(fop->xl->private, buf, 1, 1);
     }
 
-    if (!ec_dispatch_one_retry(fop, idx, op_ret, op_errno))
+    if (!ec_dispatch_one_retry(fop, idx, op_ret))
     {
         if (fop->cbks.readlink != NULL)
         {
@@ -1006,7 +1006,6 @@ int32_t ec_manager_readlink(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_REPORT;
 
         case -EC_STATE_INIT:
-        case -EC_STATE_REPORT:
             if (fop->cbks.readlink != NULL)
             {
                 fop->cbks.readlink(fop->req_frame, fop, fop->xl, -1,
@@ -1014,6 +1013,7 @@ int32_t ec_manager_readlink(ec_fop_data_t * fop, int32_t state)
             }
 
         case EC_STATE_REPORT:
+        case -EC_STATE_REPORT:
             return EC_STATE_END;
 
         default:
