@@ -361,7 +361,7 @@ int32_t ec_readdir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         ec_adjust_readdir(fop->xl->private, idx, entries);
     }
 
-    if (!ec_dispatch_one_retry(fop, idx, op_ret, op_errno))
+    if (!ec_dispatch_one_retry(fop, idx, op_ret))
     {
         if (fop->cbks.readdir != NULL)
         {
@@ -429,6 +429,8 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
 
             if (fop->offset != 0)
             {
+            /* Non-zero offset is irrecoverable error as the offset may not be
+             * valid on other bricks*/
                 int32_t idx = -1;
 
                 idx = ec_deitransform (fop->xl, fop->offset);
@@ -448,7 +450,6 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_REPORT;
 
         case -EC_STATE_INIT:
-        case -EC_STATE_REPORT:
             if (fop->id == GF_FOP_READDIR)
             {
                 if (fop->cbks.readdir != NULL)
@@ -467,6 +468,7 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
             }
 
         case EC_STATE_REPORT:
+        case -EC_STATE_REPORT:
             return EC_STATE_END;
 
         default:
@@ -564,7 +566,7 @@ int32_t ec_readdirp_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         ec_adjust_readdir(fop->xl->private, idx, entries);
     }
 
-    if (!ec_dispatch_one_retry(fop, idx, op_ret, op_errno))
+    if (!ec_dispatch_one_retry(fop, idx, op_ret))
     {
         if (fop->cbks.readdirp != NULL)
         {

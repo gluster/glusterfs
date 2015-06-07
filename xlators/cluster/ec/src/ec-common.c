@@ -535,11 +535,9 @@ void ec_dispatch_one(ec_fop_data_t * fop)
     }
 }
 
-int32_t ec_dispatch_one_retry(ec_fop_data_t * fop, int32_t idx, int32_t op_ret,
-                              int32_t op_errno)
+int32_t ec_dispatch_one_retry(ec_fop_data_t *fop, int32_t idx, int32_t op_ret)
 {
-    if ((op_ret < 0) && (op_errno == ENOTCONN))
-    {
+    if (op_ret < 0) {
         return (ec_dispatch_next(fop, idx) >= 0);
     }
 
