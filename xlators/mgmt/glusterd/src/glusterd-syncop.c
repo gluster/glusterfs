@@ -257,12 +257,6 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                         goto out;
         break;
 
-        case GD_OP_PROFILE_VOLUME:
-                ret = glusterd_profile_volume_use_rsp_dict (aggr, rsp);
-                if (ret)
-                        goto out;
-        break;
-
         case GD_OP_GSYNC_CREATE:
         break;
 
@@ -278,12 +272,6 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
                         goto out;
         break;
 
-        case GD_OP_REBALANCE:
-        case GD_OP_DEFRAG_BRICK_VOLUME:
-                ret = glusterd_volume_rebalance_use_rsp_dict (aggr, rsp);
-                if (ret)
-                        goto out;
-        break;
 
         case GD_OP_HEAL_VOLUME:
                 ret = glusterd_volume_heal_use_rsp_dict (aggr, rsp);
