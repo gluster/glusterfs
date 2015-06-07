@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../snapshot.rc
 
 cleanup;
@@ -35,7 +36,7 @@ TEST $CLI volume stop $V0
 TEST $CLI snapshot restore snap2
 TEST $CLI volume start $V0
 
-umount -f $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 
 #Dir xyz exists in snap1

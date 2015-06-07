@@ -33,5 +33,5 @@ EXPECT "6" echo $(ls | wc -l)
 TEST ! cat FILE
 TEST `echo hello>hello.txt`
 cd -
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 cleanup

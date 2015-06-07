@@ -435,7 +435,7 @@ function path_exists {
 }
 
 function force_umount {
-        umount -f $*
+        ${UMOUNT_F} $*
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
 
@@ -543,3 +543,15 @@ function get_scrubd_count {
         ps auxw | grep glusterfs | grep scrub.pid | grep -v grep | wc -l
 }
 
+
+function drop_cache() {
+	case $OSTYPE in
+	Linux)
+		echo 3 > /proc/sys/vm/drop_caches
+		;;
+	*)
+		# fail but flush caches
+		( cd $1 && umount $1 2>/dev/null )
+		;;
+	esac
+}

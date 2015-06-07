@@ -85,8 +85,8 @@ TEST move_files $M1
 EXPECT_WITHIN 120 "done" cat $M0/status_0
 EXPECT_WITHIN 120 "done" cat $M1/status_1
 
-TEST umount $M0
-TEST umount $M1
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 TEST check_files $M0
 

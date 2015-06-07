@@ -22,7 +22,7 @@ function get_file_count {
 
 function reset {
     $CLI volume stop $V0
-    umount $1
+    ${UMOUNT_F} $1
     $CLI volume delete $V0
 }
 

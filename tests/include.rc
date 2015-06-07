@@ -35,6 +35,7 @@ H0=${H0:=`hostname`}; # hostname
 MOUNT_TYPE_FUSE="fuse.glusterfs"
 GREP_MOUNT_OPT_RO="grep (ro"
 GREP_MOUNT_OPT_RW="grep (rw"
+UMOUNT_F="umount -f"
 
 PATH=$PATH:${PWD}/tests/utils
 
@@ -46,6 +47,7 @@ NetBSD)
   MOUNT_TYPE_FUSE="puffs|perfuse|fuse.glusterfs"
   GREP_MOUNT_OPT_RO="grep (read-only"
   GREP_MOUNT_OPT_RW="grep -v (read-only"
+  UMOUNT_F="umount -f -R"
   ;;
 *)
   ;;
@@ -456,7 +458,10 @@ function cleanup()
         Linux)
                 flag="-l"
                 ;;
-        NetBSD|FreeBSD|Darwin)
+        NetBSD)
+                flag="-f -R"
+                ;;
+        FreeBSD|Darwin)
                 flag="-f"
                 ;;
         *)

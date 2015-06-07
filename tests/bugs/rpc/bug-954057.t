@@ -8,7 +8,7 @@
 # Note on re-reading $M0/new after enabling root-squash:
 # Since we have readen it once, the file is present in various caches.
 # In order to actually fail on second attempt we must:
-# 1) drop kernel cache, by ( cd $M0 ; umount $M0 )
+# 1) drop kernel cache
 # 2) make sure FUSE does not cache the entry. This is also
 #    in the kernel, but not flushed by a failed umount.
 #    Using $GFS enforces this because it sets --entry-timeout=0
@@ -33,7 +33,7 @@ TEST cat $M0/new
 
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 server.root-squash enable
-( cd $M0 ; umount $M0 ) # fails but drops kernel cache
+drop_cache $M0
 TEST ! mkdir $M0/other
 TEST mkdir $M0/nobody/other
 TEST cat $M0/file

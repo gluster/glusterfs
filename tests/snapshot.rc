@@ -127,7 +127,7 @@ function _cleanup_lvm() {
 function _cleanup_lvm_again() {
     local file
 
-    mount | grep $LVM_PREFIX | awk '{print $3}' | xargs -r umount -f
+    mount | grep $LVM_PREFIX | awk '{print $3}' | xargs -r ${UMOUNT_F}
 
     /sbin/vgs | grep $LVM_PREFIX | awk '{print $1}' | xargs -r vgremove -f
 
@@ -182,7 +182,7 @@ function _umount_lv() {
     local num=$1
     local l="L$num"
 
-    umount -f ${!l} 2>/dev/null || true
+    ${UMOUNT_F} ${!l} 2>/dev/null || true
     rmdir ${!l} 2>/dev/null || true
 }
 

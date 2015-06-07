@@ -63,7 +63,7 @@ dd if=/dev/urandom of=$M0/dir1/FILE2 bs=64k count=10240
 TEST mv $M0/dir1/FILE2 $M0/dir1/FILE1
 
 # unmount and remount the volume
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 # Start the rebalance

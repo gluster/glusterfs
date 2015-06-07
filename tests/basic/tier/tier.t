@@ -110,7 +110,7 @@ sleep 12
 uuidgen >> d1/data2.txt
 
 # Check promotion on read to slow tier
-( cd $M0 ; umount -l $M0 ) # fail but drops kernel cache
+drop_cache $M0
 cat d1/data3.txt
 sleep 5
 EXPECT_WITHIN $PROMOTE_TIMEOUT "0" file_on_fast_tier d1/data2.txt
