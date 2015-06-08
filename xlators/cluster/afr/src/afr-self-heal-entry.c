@@ -178,6 +178,13 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (!replies[source].valid)
 		return -EIO;
 
+        /* Skip healing this entry if the last lookup on it failed for reasons
+         * other than ENOENT.
+         */
+        if ((replies[source].op_ret < 0) &&
+            (replies[source].op_errno != ENOENT))
+                return -replies[source].op_errno;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (!healed_sinks[i])
 			continue;
@@ -193,7 +200,7 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			ret = afr_selfheal_recreate_entry (this, i, source,
 							   fd->inode, name, inode,
 							   replies, newentry);
-		}
+                }
 		if (ret < 0)
 			break;
 	}
