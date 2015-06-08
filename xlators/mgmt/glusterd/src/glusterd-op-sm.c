@@ -443,6 +443,54 @@ glusterd_op_sm_inject_all_acc (uuid_t *txn_id)
 }
 
 static int
+glusterd_check_bitrot_cmd (char *key, char *value, char *errstr, size_t size)
+{
+        int     ret = -1;
+
+        if ((!strncmp (key, "bitrot", strlen ("bitrot"))) ||
+            (!strncmp (key, "features.bitrot", strlen ("features.bitrot")))) {
+                snprintf (errstr, size, " 'gluster volume set <VOLNAME> %s' "
+                          "is invalid command. Use 'gluster volume bitrot "
+                          "<VOLNAME> {enable|disable}' instead.", key);
+                ret = -1;
+                goto out;
+        } else if ((!strncmp (key, "scrub-freq", strlen ("scrub-freq"))) ||
+                   (!strncmp (key, "features.scrub-freq",
+                    strlen ("features.scrub-freq")))) {
+                snprintf (errstr, size, " 'gluster volume "
+                          "set <VOLNAME> %s' is invalid command. Use 'gluster "
+                          "volume bitrot <VOLNAME> scrub-frequency"
+                          " {hourly|daily|weekly|biweekly|monthly}' instead.",
+                          key);
+                ret = -1;
+                goto out;
+        } else if ((!strncmp (key, "scrub", strlen ("scrub"))) ||
+                  (!strncmp (key, "features.scrub",
+                   strlen ("features.scrub")))) {
+                snprintf (errstr, size, " 'gluster volume set <VOLNAME> %s' is "
+                          "invalid command. Use 'gluster volume bitrot "
+                          "<VOLNAME> scrub {pause|resume}' instead.", key);
+                ret = -1;
+                goto out;
+        } else if ((!strncmp (key, "scrub-throttle",
+                     strlen ("scrub-throttle"))) ||
+                   (!strncmp (key, "features.scrub-throttle",
+                     strlen ("features.scrub-throttle")))) {
+                snprintf (errstr, size, " 'gluster volume set <VOLNAME> %s' is "
+                          "invalid command. Use 'gluster volume bitrot "
+                          "<VOLNAME> scrub-throttle {lazy|normal|aggressive}' "
+                          "instead.",
+                          key);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
 glusterd_check_quota_cmd (char *key, char *value, char *errstr, size_t size)
 {
         int                ret = -1;
@@ -966,6 +1014,11 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 goto out;
                         }
                 }
+
+                ret = glusterd_check_bitrot_cmd (key, value, errstr,
+                                                 sizeof (errstr));
+                if (ret)
+                        goto out;
 
                 ret = glusterd_check_quota_cmd (key, value, errstr, sizeof (errstr));
                 if (ret)
