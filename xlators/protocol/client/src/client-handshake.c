@@ -365,7 +365,6 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
                                         clnt_release_reopen_fd_cbk, NULL,
                                         NULL, 0, NULL, 0, NULL,
                                         (xdrproc_t)xdr_gfs3_releasedir_req);
-        return 0;
  out:
         if (ret) {
                 clnt_fd_lk_reacquire_failed (this, fdctx, conf);
