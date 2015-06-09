@@ -9,11 +9,11 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
                  -I$(CONTRIBDIR)/timer-wheel \
                  -I$(top_srcdir)/xlators/features/bit-rot/src/stub
 
-bit_rot_la_SOURCES = bit-rot.c bit-rot-scrub.c bit-rot-tbf.c
+bit_rot_la_SOURCES = bit-rot.c bit-rot-scrub.c bit-rot-tbf.c bit-rot-ssm.c
 bit_rot_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
                     $(top_builddir)/xlators/features/changelog/lib/src/libgfchangelog.la
 
-noinst_HEADERS = bit-rot.h bit-rot-scrub.h bit-rot-tbf.h bit-rot-bitd-messages.h
+noinst_HEADERS = bit-rot.h bit-rot-scrub.h bit-rot-tbf.h bit-rot-bitd-messages.h bit-rot-ssm.h
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

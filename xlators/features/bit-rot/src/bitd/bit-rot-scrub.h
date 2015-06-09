@@ -16,11 +16,10 @@
 
 void *br_fsscanner (void *);
 
-int32_t br_fsscan_schedule (xlator_t *, br_child_t *,
-                            struct br_scanfs *, struct br_scrubber *);
-int32_t br_fsscan_reschedule (xlator_t *this,
-                              br_child_t *child, struct br_scanfs *,
-                              struct br_scrubber *, gf_boolean_t);
+int32_t br_fsscan_schedule (xlator_t *, br_child_t *);
+int32_t br_fsscan_reschedule (xlator_t *, br_child_t *);
+int32_t br_fsscan_activate (xlator_t *, br_child_t *);
+int32_t br_fsscan_deactivate (xlator_t *, br_child_t *);
 
 int32_t br_scrubber_handle_options (xlator_t *, br_private_t *, dict_t *);
 
