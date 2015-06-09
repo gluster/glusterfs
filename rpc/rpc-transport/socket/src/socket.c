@@ -4000,7 +4000,7 @@ socket_init (rpc_transport_t *this)
                         goto err;
                 }
 
-#if defined(TLS1_2_VERSION)
+#if HAVE_TLSV1_2_METHOD
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 #else /* old openssl */
 #warning TLSv1.2 is not available, using insecure TLSv1 support
