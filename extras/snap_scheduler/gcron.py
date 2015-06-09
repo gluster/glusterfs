@@ -21,6 +21,7 @@ import fcntl
 
 GCRON_TASKS = "/var/run/gluster/shared_storage/snaps/glusterfs_snap_cron_tasks"
 GCRON_CROND_TASK = "/etc/cron.d/glusterfs_snap_cron_tasks"
+GCRON_RELOAD_FLAG = "/var/run/gluster/crond_task_reload_flag"
 LOCK_FILE_DIR = "/var/run/gluster/shared_storage/snaps/lock_files/"
 log = logging.getLogger("gcron-logger")
 start_time = 0.0
@@ -121,8 +122,40 @@ def main():
     global start_time
     if sys.argv[1] == "--update":
         if not os.path.exists(GCRON_TASKS):
+            # Create a flag in /var/run/gluster which indicates that this nodes
+            # doesn't have access to GCRON_TASKS right now, so that
+            # when the mount is available and GCRON_TASKS is available
+            # the flag will tell this routine to reload GCRON_CROND_TASK
+            try:
+                f = os.open(GCRON_RELOAD_FLAG, os.O_CREAT | os.O_NONBLOCK, 0644)
+                os.close(f)
+            except OSError as (errno, strerror):
+                if errno != EEXIST:
+                    log.error("Failed to create %s : %s",
+                              GCRON_RELOAD_FLAG, strerror)
+                    output("Failed to create %s. Error: %s"
+                           % (GCRON_RELOAD_FLAG, strerror))
             return
+
         if not os.path.exists(GCRON_CROND_TASK):
+            return
+
+        # As GCRON_TASKS exists now, we should check if GCRON_RELOAD_FLAG
+        # also exists. If so we should touch GCRON_CROND_TASK and remove
+        # the GCRON_RELOAD_FLAG
+        if os.path.exists(GCRON_RELOAD_FLAG):
+            try:
+                os.remove(GCRON_RELOAD_FLAG);
+                process = subprocess.Popen(["touch", "-h", GCRON_CROND_TASK],
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE)
+                out, err = process.communicate()
+                if process.returncode != 0:
+                    log.error("Failed to touch %s. Error: %s.",
+                              GCRON_CROND_TASK, err)
+            except (IOError, OSError) as (errno, strerror):
+                log.error("Failed to touch %s. Error: %s.",
+                          GCRON_CROND_TASK, strerror)
             return
         if os.lstat(GCRON_TASKS).st_mtime > \
            os.lstat(GCRON_CROND_TASK).st_mtime:
