@@ -307,12 +307,13 @@ dht_linkfile_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
 {
-        int     ret = -1;
-        call_frame_t *copy = NULL;
-        dht_local_t  *local = NULL;
-        dht_local_t  *copy_local = NULL;
-        xlator_t     *subvol = NULL;
-        struct iatt   stbuf = {0,};
+        int           ret         = -1;
+        call_frame_t  *copy       = NULL;
+        dht_local_t   *local      = NULL;
+        dht_local_t   *copy_local = NULL;
+        xlator_t      *subvol     = NULL;
+        struct iatt   stbuf       = {0,};
+        dict_t        *xattr      = NULL;
 
         local = frame->local;
 
@@ -321,6 +322,8 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
 
         if (local->stbuf.ia_type == IA_INVAL)
                 return 0;
+
+        DHT_MARK_FOP_INTERNAL (xattr);
 
         gf_uuid_copy (local->loc.gfid, local->stbuf.ia_gfid);
 
@@ -343,8 +346,14 @@ dht_linkfile_attr_heal (call_frame_t *frame, xlator_t *this)
 
         STACK_WIND (copy, dht_linkfile_setattr_cbk, subvol,
                     subvol->fops->setattr, &copy_local->loc,
-                    &stbuf, (GF_SET_ATTR_UID | GF_SET_ATTR_GID), NULL);
+                    &stbuf, (GF_SET_ATTR_UID | GF_SET_ATTR_GID), xattr);
         ret = 0;
 out:
+        if ((ret < 0) && (copy))
+                DHT_STACK_DESTROY (copy);
+
+        if (xattr)
+                dict_unref (xattr);
+
         return ret;
 }

@@ -577,6 +577,24 @@ typedef struct dht_migrate_info {
         } while (0)
 
 #define is_greater_time(a, an, b, bn) (((a) < (b)) || (((a) == (b)) && ((an) < (bn))))
+
+#define DHT_MARK_FOP_INTERNAL(xattr) do {                                      \
+                int tmp = -1;                                                  \
+                if (!xattr) {                                                  \
+                        xattr = dict_new ();                                   \
+                        if (!xattr)                                            \
+                                break;                                         \
+                }                                                              \
+                tmp = dict_set_str (xattr, GLUSTERFS_INTERNAL_FOP_KEY, "yes"); \
+                if (tmp) {                                                     \
+                        gf_msg (this->name, GF_LOG_ERROR, 0,                   \
+                                DHT_MSG_DICT_SET_FAILED,                       \
+                                "Failed to set dictionary value: key = %s,"    \
+                                " path = %s", GLUSTERFS_INTERNAL_FOP_KEY,      \
+                                 local->loc.path);                             \
+                }                                                              \
+        } while (0)
+
 dht_layout_t                            *dht_layout_new (xlator_t *this, int cnt);
 dht_layout_t                            *dht_layout_get (xlator_t *this, inode_t *inode);
 dht_layout_t                            *dht_layout_for_subvol (xlator_t *this, xlator_t *subvol);
