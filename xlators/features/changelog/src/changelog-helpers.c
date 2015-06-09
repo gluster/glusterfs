@@ -322,11 +322,21 @@ htime_update (xlator_t *this,
         sprintf (x_value,"%lu:%d",ts, priv->rollover_count);
 
         if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
-                       strlen (x_value),  XATTR_REPLACE)) {
+                           strlen (x_value), XATTR_REPLACE)) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Htime xattr updation failed, "
-                        "reason (%s)",strerror (errno));
-                goto out;
+                        "Htime xattr updation failed with XATTR_REPLACE "
+                        "Changelog: %s Reason (%s)", changelog_path,
+                        strerror (errno));
+
+                if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
+                                   strlen (x_value), 0)) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Htime xattr updation failed "
+                                "Changelog: %s Reason (%s)", changelog_path,
+                                strerror (errno));
+                        ret = -1;
+                        goto out;
+                }
         }
 
         priv->rollover_count +=1;
@@ -628,17 +638,21 @@ htime_open (xlator_t *this,
         size = sys_fgetxattr (ht_dir_fd, HTIME_CURRENT, ht_file_bname,
                              sizeof (ht_file_bname));
         if (size < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Error extracting"
-                        " HTIME_CURRENT: %s.", strerror (errno));
-
                 /* If upgrade scenario, find the latest HTIME.TSTAMP file
                  * and use the same. If error, create a new HTIME.TSTAMP
                  * file.
                  */
                 cnt = find_current_htime (ht_dir_fd, ht_dir_path,
                                            ht_file_bname);
-                if (cnt <= 0)
+                if (cnt <= 0) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "HTIME_CURRENT not found: %s. Changelog enabled"
+                                " before init", strerror (errno));
                         return htime_create (this, priv, ts);
+                }
+
+                gf_log (this->name, GF_LOG_ERROR, "Error extracting"
+                        " HTIME_CURRENT: %s.", strerror (errno));
         }
 
         gf_log (this->name, GF_LOG_INFO, "HTIME_CURRENT: %s", ht_file_bname);
@@ -695,6 +709,9 @@ htime_create (xlator_t *this,
         char ht_file_path[PATH_MAX]         = {0,};
         char ht_file_bname[NAME_MAX + 1]    = {0,};
         int flags                           = 0;
+
+        gf_log (this->name, GF_LOG_INFO, "Changelog enable: Creating new "
+                "HTIME.%lu file", ts);
 
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
 
