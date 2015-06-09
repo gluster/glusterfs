@@ -893,6 +893,14 @@
  *
  */
 
+#define P_MSG_BUFFER_OVERFLOW                   (POSIX_COMP_BASE + 105)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
