@@ -7,6 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
+
 #ifndef __BIT_ROT_H__
 #define __BIT_ROT_H__
 
@@ -21,6 +22,7 @@
 #include "timer-wheel.h"
 
 #include "bit-rot-tbf.h"
+#include "bit-rot-ssm.h"
 
 #include "bit-rot-common.h"
 #include "bit-rot-stub-mem-types.h"
@@ -47,6 +49,7 @@ typedef enum scrub_freq {
         BR_FSSCRUB_FREQ_WEEKLY,
         BR_FSSCRUB_FREQ_BIWEEKLY,
         BR_FSSCRUB_FREQ_MONTHLY,
+        BR_FSSCRUB_FREQ_STALLED,
 } scrub_freq_t;
 
 #define signature_size(hl) (sizeof (br_isignature_t) + hl + 1)
@@ -64,6 +67,9 @@ struct br_scanfs {
         /* scheduler */
         uint32_t boot;
         gf_boolean_t kick;
+        gf_boolean_t over;
+
+        br_scrub_state_t state;   /* current scrub state */
 
         pthread_mutex_t wakelock;
         pthread_cond_t  wakecond;
@@ -198,6 +204,7 @@ struct br_object {
 };
 
 typedef struct br_object br_object_t;
+typedef int32_t (br_scrub_ssm_call) (xlator_t *, br_child_t *);
 
 void
 br_log_object (xlator_t *, char *, uuid_t, int32_t);
@@ -237,6 +244,21 @@ static inline int
 _br_child_witnessed_connection (br_child_t *child)
 {
         return (child->witnessed == 1);
+}
+
+/* scrub state */
+static inline void
+_br_child_set_scrub_state (br_child_t *child, br_scrub_state_t state)
+{
+        struct br_scanfs *fsscan = &child->fsscan;
+        fsscan->state = state;
+}
+
+static inline br_scrub_event_t
+_br_child_get_scrub_event (struct br_scrubber *fsscrub)
+{
+        return (fsscrub->frequency == BR_FSSCRUB_FREQ_STALLED)
+                ? BR_SCRUB_EVENT_PAUSE : BR_SCRUB_EVENT_SCHEDULE;
 }
 
 #endif /* __BIT_ROT_H__ */
