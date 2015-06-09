@@ -1216,14 +1216,14 @@ fi
 * Sun May 31 2015 Milind Changire <mchangir@redhat.com>
 - Move file peer_add_secret_pub to the server RPM to support glusterfind (#1225552)
 
-* Sat May 31 2015 Aravinda VK <avishwan@redhat.com>
+* Sun May 31 2015 Aravinda VK <avishwan@redhat.com>
 - Added stop-all-gluster-processes.sh in glusterfs-server section (#1225331)
-
-* Tue May 19 2015 Avra Sengupta <asengupt@redhat.com>
-- Added S32gluster_enable_shared_storage.sh as volume set hook script (#1222013)
 
 * Fri May 29 2015 Anand Nekkunti <anekkunt@redhat.com>
 - glusterd.socket file cleanup during post run upgrade (#1222869)
+
+* Tue May 19 2015 Avra Sengupta <asengupt@redhat.com>
+- Added S32gluster_enable_shared_storage.sh as volume set hook script (#1222013)
 
 * Fri May 08 2015 Niels de Vos <ndevos@redhat.com>
 - Introduce glusterfs-client-xlators to reduce dependencies (#1219089)
