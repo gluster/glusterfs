@@ -1215,6 +1215,8 @@ changelog_setattr (call_frame_t *frame,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
+        CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO (frame, xdata, wind);
+
         CHANGELOG_OP_BOUNDARY_CHECK (frame, wind);
 
         CHANGELOG_INIT (this, frame->local,

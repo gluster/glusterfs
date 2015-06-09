@@ -364,22 +364,6 @@ dht_rename_track_for_changelog (xlator_t *this, dict_t *xattr,
 }
 
 
-#define DHT_MARK_FOP_INTERNAL(xattr) do {                                      \
-                int tmp = -1;                                                  \
-                if (!xattr) {                                                  \
-                        xattr = dict_new ();                                   \
-                        if (!xattr)                                            \
-                                break;                                         \
-                }                                                              \
-                tmp = dict_set_str (xattr, GLUSTERFS_INTERNAL_FOP_KEY, "yes"); \
-                if (tmp) {                                                     \
-                        gf_msg (this->name, GF_LOG_ERROR, 0,                   \
-                                DHT_MSG_DICT_SET_FAILED,                       \
-                                "Failed to set dictionary value: key = %s,"    \
-                                " path = %s", GLUSTERFS_INTERNAL_FOP_KEY,      \
-                                 local->loc.path);                             \
-                }                                                              \
-        }while (0)
 
 #define DHT_MARKER_DONT_ACCOUNT(xattr) do {                             \
                 int tmp = -1;                                                  \
