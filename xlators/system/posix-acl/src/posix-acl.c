@@ -306,6 +306,26 @@ posix_acl_ctx_get (inode_t *inode, xlator_t *this)
         return ctx;
 }
 
+int
+__posix_acl_set_specific (inode_t *inode, xlator_t *this,
+                          gf_boolean_t is_access, struct posix_acl *acl)
+{
+        int                    ret = 0;
+        struct posix_acl_ctx  *ctx = NULL;
+
+        ctx = posix_acl_ctx_get (inode, this);
+        if (!ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        if (is_access)
+                ctx->acl_access = acl;
+        else
+                ctx->acl_default = acl;
+out:
+        return ret;
+}
 
 int
 __posix_acl_set (inode_t *inode, xlator_t *this, struct posix_acl *acl_access,
@@ -426,6 +446,36 @@ posix_acl_unref (xlator_t *this, struct posix_acl *acl)
                 posix_acl_destroy (this, acl);
 }
 
+int
+posix_acl_set_specific (inode_t *inode, xlator_t *this, struct posix_acl *acl,
+                        gf_boolean_t is_access)
+{
+        int                     ret = 0;
+        int                     oldret = 0;
+        struct posix_acl       *old_acl = NULL;
+        struct posix_acl_conf  *conf = NULL;
+
+        conf = this->private;
+
+        LOCK (&conf->acl_lock);
+        {
+                if (is_access)
+                        oldret = __posix_acl_get (inode, this, &old_acl, NULL);
+                else
+                        oldret = __posix_acl_get (inode, this, NULL, &old_acl);
+                if (acl)
+                        acl->refcnt++;
+                ret = __posix_acl_set_specific (inode, this, is_access, acl);
+        }
+        UNLOCK (&conf->acl_lock);
+
+        if (oldret == 0) {
+                if (old_acl)
+                        posix_acl_unref (this, old_acl);
+        }
+
+        return ret;
+}
 
 int
 posix_acl_set (inode_t *inode, xlator_t *this, struct posix_acl *acl_access,
@@ -496,7 +546,6 @@ unlock:
 
         return ret;
 }
-
 
 mode_t
 posix_acl_inherit_mode (struct posix_acl *acl, mode_t modein)
@@ -1883,11 +1932,71 @@ posix_acl_setxattr_update (xlator_t *this, inode_t *inode, dict_t *xattr)
         return ret;
 }
 
+/* *
+ * Posix acl can be set using other xattr such as GF_POSIX_ACL_ACCESS/
+ * GF_POSIX_ACL_DEFAULT  which requires to update the context of
+ * access-control translator
+ */
+int
+handling_other_acl_related_xattr (xlator_t *this, inode_t *inode, dict_t *xattr)
+{
+        struct posix_acl       *acl      = NULL;
+        struct posix_acl_ctx   *ctx      = NULL;
+        data_t                 *data     = NULL;
+        int                     ret      = 0;
 
+        ctx = posix_acl_ctx_get (inode, this);
+        if (!ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        data = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
+        if (data) {
+                ctx = posix_acl_ctx_get (inode, this);
+                if (!ctx) {
+                        ret = -1;
+                        goto out;
+                }
+
+                acl = posix_acl_from_xattr (this, data->data, data->len);
+
+                ret = posix_acl_set_specific (inode, this, acl, _gf_true);
+                if (ret)
+                        goto out;
+
+                if (acl)
+                        posix_acl_access_set_mode (acl, ctx);
+
+        }
+
+        if (acl)
+                posix_acl_unref (this, acl);
+
+        data = dict_get (xattr, POSIX_ACL_DEFAULT_XATTR);
+        if (data) {
+                acl = posix_acl_from_xattr (this, data->data, data->len);
+
+                ret = posix_acl_set_specific (inode, this, acl, _gf_false);
+        }
+
+out:
+        if (acl)
+                posix_acl_unref (this, acl);
+
+        return ret;
+}
 int
 posix_acl_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *xdata)
 {
+
+        /*
+         * Update the context of posix_acl_translator, if any of
+         * POSIX_ACL_*_XATTR set in the call back
+         */
+        handling_other_acl_related_xattr (this, (inode_t *)cookie, xdata);
+
         STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
@@ -1907,9 +2016,13 @@ posix_acl_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         posix_acl_setxattr_update (this, loc->inode, xattr);
 
-        STACK_WIND (frame, posix_acl_setxattr_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->setxattr,
-                    loc, xattr, flags, xdata);
+        /*
+         * inode is required in call back function to update the context
+         * this translator
+         */
+        STACK_WIND_COOKIE (frame, posix_acl_setxattr_cbk, loc->inode,
+                           FIRST_CHILD(this), FIRST_CHILD(this)->fops->setxattr,
+                           loc, xattr, flags, xdata);
         return 0;
 red:
         STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno, xdata);
