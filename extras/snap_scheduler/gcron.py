@@ -120,6 +120,10 @@ def main():
     initLogger(script_name)
     global start_time
     if sys.argv[1] == "--update":
+        if not os.path.exists(GCRON_TASKS):
+            return
+        if not os.path.exists(GCRON_CROND_TASK):
+            return
         if os.lstat(GCRON_TASKS).st_mtime > \
            os.lstat(GCRON_CROND_TASK).st_mtime:
             try:
