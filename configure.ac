@@ -534,8 +534,9 @@ fi
 AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
 
 dnl check for old openssl
-AC_CHECK_FUNC([ssl], [CRYPTO_THREADID_set_callback], [HAVE_CRYPTO_THREADID=1], HAVE_CRYPTO_THREADID=0)
-AC_DEFINE(HAVE_CRYPTO_THREADID, $HAVE_CRYPTO_THREADID, [use new OpenSSL functions])
+AC_CHECK_LIB([crypto], CRYPTO_THREADID_set_callback, [AC_DEFINE([HAVE_CRYPTO_THREADID], [1], [use new OpenSSL functions])])
+
+AC_CHECK_LIB([ssl], TLSv1_2_method, [AC_DEFINE([HAVE_TLSV1_2_METHOD], [1], [use new OpenSSL functions])])
 
 # start encryption/crypt section
 
