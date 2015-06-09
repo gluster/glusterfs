@@ -1087,6 +1087,16 @@ br_set_child_state (br_child_t *child, br_child_state_t state)
         UNLOCK (&child->lock);
 }
 
+static void
+br_set_scrub_state (br_child_t *child, br_scrub_state_t state)
+{
+        LOCK (&child->lock);
+        {
+                _br_child_set_scrub_state (child, state);
+        }
+        UNLOCK (&child->lock);
+}
+
 /**
  * At this point a thread is spawned to crawl the filesystem (in
  * tortoise pace) to sign objects that were not signed in previous run(s).
@@ -1150,6 +1160,7 @@ br_launch_scrubber (xlator_t *this, br_child_t *child,
         priv = this->private;
 
         fsscan->kick = _gf_false;
+        fsscan->over = _gf_false;
         ret = gf_thread_create (&child->thread, NULL, br_fsscanner, child);
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_SPAWN_FAILED,
@@ -1161,7 +1172,7 @@ br_launch_scrubber (xlator_t *this, br_child_t *child,
         /* this needs to be serialized with reconfigure() */
         pthread_mutex_lock (&priv->lock);
         {
-                ret = br_fsscan_schedule (this, child, fsscan, fsscrub);
+                ret = br_scrub_state_machine (this, child);
         }
         pthread_mutex_unlock (&priv->lock);
         if (ret)
@@ -1385,6 +1396,11 @@ br_cleanup_scrubber (xlator_t *this, br_child_t *child)
                 GF_FREE (fsscan->timer);
                 fsscan->timer = NULL;
         }
+
+        /**
+         * 0x3: reset scrubber state
+         */
+        _br_child_set_scrub_state (child, BR_SCRUB_STATE_INACTIVE);
 
         gf_log (this->name, GF_LOG_INFO,
                 "Cleaned up scrubber for brick [%s]", child->brick_path);
@@ -1774,6 +1790,8 @@ br_init_children (xlator_t *this, br_private_t *priv)
 
                 LOCK_INIT (&child->lock);
                 child->witnessed = 0;
+
+                br_set_scrub_state (child, BR_SCRUB_STATE_INACTIVE);
                 br_set_child_state (child, BR_CHILD_STATE_DISCONNECTED);
 
                 child->this = this;
@@ -1901,13 +1919,11 @@ fini (xlator_t *this)
 }
 
 static void
-br_reconfigure_child (xlator_t *this,
-                      br_child_t *child, struct br_scrubber *fsscrub)
+br_reconfigure_child (xlator_t *this, br_child_t *child)
 {
         int32_t ret = 0;
-        struct br_scanfs *fsscan = &child->fsscan;
 
-        ret = br_fsscan_reschedule (this, child, fsscan, fsscrub, _gf_true);
+        ret = br_scrub_state_machine (this, child);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not reschedule scrubber for brick: %s. "
@@ -1919,14 +1935,12 @@ br_reconfigure_child (xlator_t *this,
 static int
 br_reconfigure_scrubber (xlator_t *this, dict_t *options)
 {
-        int                 i       = 0;
-        int32_t             ret     = -1;
-        br_child_t         *child   = NULL;
-        br_private_t       *priv    = NULL;
-        struct br_scrubber *fsscrub = NULL;
+        int           i     = 0;
+        int32_t       ret   = -1;
+        br_child_t   *child = NULL;
+        br_private_t *priv  = NULL;
 
         priv = this->private;
-        fsscrub = &priv->fsscrub;
 
         pthread_mutex_lock (&priv->lock);
         {
@@ -1937,7 +1951,7 @@ br_reconfigure_scrubber (xlator_t *this, dict_t *options)
         if (ret)
                 goto err;
 
-        /* reschedule all _up_ subvolume(s) */
+        /* change state for all _up_ subvolume(s) */
         for (; i < priv->child_count; i++) {
                 child = &priv->children[i];
 
@@ -1952,7 +1966,7 @@ br_reconfigure_scrubber (xlator_t *this, dict_t *options)
                         }
 
                         if (_br_is_child_connected (child))
-                                br_reconfigure_child (this, child, fsscrub);
+                                br_reconfigure_child (this, child);
 
                         /**
                          * for the rest.. either the child is in initialization

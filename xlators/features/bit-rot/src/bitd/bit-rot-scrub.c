@@ -523,6 +523,33 @@ br_fsscanner_handle_entry (xlator_t *subvol,
         return -1;
 }
 
+int32_t
+br_fsscan_deactivate (xlator_t *this, br_child_t *child)
+{
+        int ret = 0;
+        br_private_t *priv = NULL;
+        br_scrub_state_t nstate = 0;
+        struct br_scanfs *fsscan = NULL;
+
+        priv = this->private;
+        fsscan = &child->fsscan;
+
+        ret = gf_tw_del_timer (priv->timer_wheel, fsscan->timer);
+        if (ret == 0) {
+                nstate = BR_SCRUB_STATE_STALLED;
+                gf_log (this->name, GF_LOG_INFO, "Brick [%s] is under active "
+                        "scrubbing. Pausing scrub..", child->brick_path);
+        } else {
+                nstate = BR_SCRUB_STATE_PAUSED;
+                gf_log (this->name, GF_LOG_INFO,
+                        "Scrubber paused [Brick: %s]", child->brick_path);
+        }
+
+        _br_child_set_scrub_state (child, nstate);
+
+        return 0;
+}
+
 static inline void
 br_fsscanner_log_time (xlator_t *this, br_child_t *child, const char *sfx)
 {
@@ -558,22 +585,51 @@ br_fsscanner_wait_until_kicked (struct br_scanfs *fsscan)
         pthread_cleanup_pop (0);
 }
 
+static inline void
+br_fsscanner_entry_control (xlator_t *this, br_child_t *child)
+{
+        struct br_scanfs *fsscan = &child->fsscan;
+
+        LOCK (&child->lock);
+        {
+                if (fsscan->state == BR_SCRUB_STATE_PENDING)
+                        fsscan->state = BR_SCRUB_STATE_ACTIVE;
+                br_fsscanner_log_time (this, child, "started");
+        }
+        UNLOCK (&child->lock);
+}
+
+static inline void
+br_fsscanner_exit_control (xlator_t *this, br_child_t *child)
+{
+        struct br_scanfs *fsscan = &child->fsscan;
+
+        LOCK (&child->lock);
+        {
+                fsscan->over = _gf_true;
+                br_fsscanner_log_time (this, child, "finished");
+
+                if (fsscan->state == BR_SCRUB_STATE_ACTIVE) {
+                        (void) br_fsscan_activate (this, child);
+                } else {
+                        gf_log (this->name, GF_LOG_INFO, "Brick [%s] waiting "
+                                "to get rescheduled..", child->brick_path);
+                }
+        }
+        UNLOCK (&child->lock);
+}
+
 void *
 br_fsscanner (void *arg)
 {
         loc_t               loc     = {0,};
         br_child_t         *child   = NULL;
         xlator_t           *this    = NULL;
-        br_private_t       *priv    = NULL;
         struct br_scanfs   *fsscan  = NULL;
-        struct br_scrubber *fsscrub = NULL;
 
         child = arg;
         this = child->this;
-        priv = this->private;
-
         fsscan = &child->fsscan;
-        fsscrub = &priv->fsscrub;
 
         THIS = this;
         loc.inode = child->table->root;
@@ -581,8 +637,8 @@ br_fsscanner (void *arg)
         while (1) {
                 br_fsscanner_wait_until_kicked (fsscan);
                 {
-                        /* log start time */
-                        br_fsscanner_log_time (this, child, "started");
+                        /* precursor for scrub */
+                        br_fsscanner_entry_control (this, child);
 
                         /* scrub */
                         (void) syncop_ftw (child->xl,
@@ -591,15 +647,21 @@ br_fsscanner (void *arg)
                         if (!list_empty (&fsscan->queued))
                                 wait_for_scrubbing (this, fsscan);
 
-                        /* log finish time */
-                        br_fsscanner_log_time (this, child, "finished");
+                        /* scrub exit criteria */
+                        br_fsscanner_exit_control (this, child);
                 }
-                br_fsscan_reschedule (this, child, fsscan, fsscrub, _gf_false);
         }
 
         return NULL;
 }
 
+/**
+ * Keep this routine extremely simple and do not ever try to acquire
+ * child->lock here: it may lead to deadlock. Scrubber state is
+ * modified in br_fsscanner(). An intermediate state change to pause
+ * changes the scrub state to the _correct_ state by identifying a
+ * non-pending timer.
+ */
 void
 br_kickstart_scanner (struct gf_tw_timer_list *timer,
                       void *data, unsigned long calltime)
@@ -661,28 +723,38 @@ br_fsscan_calculate_timeout (uint32_t boot, uint32_t now, scrub_freq_t freq)
                 break;
         case BR_FSSCRUB_FREQ_MONTHLY:
                 timo = br_fsscan_calculate_delta (boot, now, BR_SCRUB_MONTHLY);
+                break;
+        default:
+                timo = 0;
         }
 
         return timo;
 }
 
 int32_t
-br_fsscan_schedule (xlator_t *this, br_child_t *child,
-                    struct br_scanfs *fsscan, struct br_scrubber *fsscrub)
+br_fsscan_schedule (xlator_t *this, br_child_t *child)
 {
         uint32_t timo = 0;
         br_private_t *priv = NULL;
         struct timeval tv = {0,};
         char timestr[1024] = {0,};
+        struct br_scanfs *fsscan = NULL;
+        struct br_scrubber *fsscrub = NULL;
         struct gf_tw_timer_list *timer = NULL;
 
         priv = this->private;
+        fsscan = &child->fsscan;
+        fsscrub = &priv->fsscrub;
 
         (void) gettimeofday (&tv, NULL);
         fsscan->boot = tv.tv_sec;
 
         timo = br_fsscan_calculate_timeout (fsscan->boot,
                                             fsscan->boot, fsscrub->frequency);
+        if (timo == 0) {
+                gf_log (this->name, GF_LOG_ERROR, "BUG: Zero schedule timeout");
+                goto error_return;
+        }
 
         fsscan->timer = GF_CALLOC (1, sizeof (*fsscan->timer),
                                    gf_br_stub_mt_br_scanner_freq_t);
@@ -695,7 +767,9 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child,
         timer->data = child;
         timer->expires = timo;
         timer->function = br_kickstart_scanner;
+
         gf_tw_add_timer (priv->timer_wheel, timer);
+        _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
 
         gf_time_fmt (timestr, sizeof (timestr),
                      (fsscan->boot + timo), gf_timefmt_FT);
@@ -709,39 +783,76 @@ br_fsscan_schedule (xlator_t *this, br_child_t *child,
 }
 
 int32_t
-br_fsscan_reschedule (xlator_t *this,
-                      br_child_t *child, struct br_scanfs *fsscan,
-                      struct br_scrubber *fsscrub, gf_boolean_t pendingcheck)
+br_fsscan_activate (xlator_t *this, br_child_t *child)
 {
-        int32_t ret = 0;
-        uint32_t timo = 0;
-        char timestr[1024] = {0,};
-        struct timeval now = {0,};
-        br_private_t *priv = NULL;
+        uint32_t            timo    = 0;
+        char timestr[1024]          = {0,};
+        struct timeval      now     = {0,};
+        br_private_t       *priv    = NULL;
+        struct br_scanfs   *fsscan  = NULL;
+        struct br_scrubber *fsscrub = NULL;
 
         priv = this->private;
+        fsscan = &child->fsscan;
+        fsscrub = &priv->fsscrub;
 
         (void) gettimeofday (&now, NULL);
         timo = br_fsscan_calculate_timeout (fsscan->boot,
                                             now.tv_sec, fsscrub->frequency);
+        if (timo == 0) {
+                gf_log (this->name, GF_LOG_ERROR, "BUG: Zero schedule timeout");
+                return -1;
+        }
+
+        fsscan->over = _gf_false;
+        gf_time_fmt (timestr, sizeof (timestr),
+                     (now.tv_sec + timo), gf_timefmt_FT);
+        (void) gf_tw_mod_timer (priv->timer_wheel, fsscan->timer, timo);
+
+        _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
+        gf_log (this->name, GF_LOG_INFO, "Scrubbing for %s rescheduled to run "
+                "at %s", child->brick_path, timestr);
+
+        return 0;
+}
+
+int32_t
+br_fsscan_reschedule (xlator_t *this, br_child_t *child)
+{
+        int32_t             ret     = 0;
+        uint32_t            timo    = 0;
+        char timestr[1024]          = {0,};
+        struct timeval      now     = {0,};
+        br_private_t       *priv    = NULL;
+        struct br_scanfs   *fsscan  = NULL;
+        struct br_scrubber *fsscrub = NULL;
+
+        priv = this->private;
+        fsscan = &child->fsscan;
+        fsscrub = &priv->fsscrub;
+
+        (void) gettimeofday (&now, NULL);
+        timo = br_fsscan_calculate_timeout (fsscan->boot,
+                                            now.tv_sec, fsscrub->frequency);
+        if (timo == 0) {
+                gf_log (this->name, GF_LOG_ERROR, "BUG: Zero schedule timeout");
+                return -1;
+        }
 
         gf_time_fmt (timestr, sizeof (timestr),
                      (now.tv_sec + timo), gf_timefmt_FT);
 
-        if (pendingcheck)
-                ret = gf_tw_mod_timer_pending (priv->timer_wheel,
-                                               fsscan->timer, timo);
-        else
-                ret = gf_tw_mod_timer (priv->timer_wheel, fsscan->timer, timo);
-
-        if (!ret && pendingcheck)
-                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_RUNNING,
+        fsscan->over = _gf_false;
+        ret = gf_tw_mod_timer_pending (priv->timer_wheel, fsscan->timer, timo);
+        if (ret == 0)
+                gf_log (this->name, GF_LOG_INFO,
                         "Scrubber for %s is currently running and would be "
                         "rescheduled after completion", child->brick_path);
-        else
-                gf_msg (this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_RESCHEDULED,
-                        "Scrubbing for %s rescheduled "
+        else {
+                _br_child_set_scrub_state (child, BR_SCRUB_STATE_PENDING);
+                gf_log (this->name, GF_LOG_INFO, "Scrubbing for %s rescheduled "
                         "to run at %s", child->brick_path, timestr);
+        }
 
         return 0;
 }
@@ -1126,7 +1237,8 @@ br_scrubber_handle_stall (xlator_t *this, br_private_t *priv,
 }
 
 static int32_t
-br_scrubber_handle_freq (xlator_t *this, br_private_t *priv, dict_t *options)
+br_scrubber_handle_freq (xlator_t *this, br_private_t *priv,
+                         dict_t *options, gf_boolean_t scrubstall)
 {
         int32_t ret  = -1;
         char *tmp = NULL;
@@ -1139,6 +1251,9 @@ br_scrubber_handle_freq (xlator_t *this, br_private_t *priv, dict_t *options)
         if (ret)
                 goto error_return;
 
+        if (scrubstall)
+                tmp = BR_SCRUB_STALLED;
+
         if (strcasecmp (tmp, "hourly") == 0) {
                 frequency = BR_FSSCRUB_FREQ_HOURLY;
         } else if (strcasecmp (tmp, "daily") == 0) {
@@ -1149,6 +1264,8 @@ br_scrubber_handle_freq (xlator_t *this, br_private_t *priv, dict_t *options)
                 frequency = BR_FSSCRUB_FREQ_BIWEEKLY;
         } else if (strcasecmp (tmp, "monthly") == 0) {
                 frequency = BR_FSSCRUB_FREQ_MONTHLY;
+        } else if (strcasecmp (tmp, BR_SCRUB_STALLED) == 0) {
+                frequency = BR_FSSCRUB_FREQ_STALLED;
         } else
                 goto error_return;
 
@@ -1200,7 +1317,7 @@ br_scrubber_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
         if (ret)
                 goto error_return;
 
-        ret = br_scrubber_handle_freq (this, priv, options);
+        ret = br_scrubber_handle_freq (this, priv, options, scrubstall);
         if (ret)
                 goto error_return;
 
