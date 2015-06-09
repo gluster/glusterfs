@@ -1009,6 +1009,7 @@ quota_check_object_limit (call_frame_t *frame, quota_inode_ctx_t *ctx,
                         local->op_ret = -1;
                         local->op_errno = EDQUOT;
                         *op_errno = EDQUOT;
+                        goto out;
                 }
 
                 /*We log usage only if quota limit is configured on
@@ -1184,8 +1185,11 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         goto done;
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to check "
-                                "quota object limit");
+                        if (op_errno != EDQUOT)
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "check quota object limit: %s",
+                                        strerror (op_errno));
+
                         goto err;
                 }
 
@@ -1196,8 +1200,10 @@ quota_check_limit (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         goto done;
 
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to check "
-                                "quota size limit");
+                        if (op_errno != EDQUOT)
+                                gf_log (this->name, GF_LOG_ERROR, "Failed to "
+                                        "check quota size limit: %s",
+                                        strerror (op_errno));
                         goto err;
                 }
 
