@@ -3266,8 +3266,10 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         int32_t       op_ret                  = -1;
         int32_t       op_errno                = 0;
         char *        real_path               = NULL;
+        char         *acl_xattr               = NULL;
         struct iatt   stbuf                   = {0};
         int32_t       ret                     = 0;
+        size_t        acl_size                = 0;
         dict_t       *xattr                   = NULL;
         posix_xattr_filler_t filler = {0,};
 
@@ -3306,6 +3308,10 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        xattr = dict_new();
+        if (!xattr)
+                goto out;
+
 /*
  * FIXFIX: Send the stbuf info in the xdata for now
  * This is used by DHT to redirect FOPs if the file is being migrated
@@ -3316,10 +3322,98 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                 if (ret)
                         goto out;
 
-                xattr = dict_new();
-                if (!xattr)
+               ret = posix_set_iatt_in_dict (xattr, &stbuf);
+        }
+
+/*
+ * ACL can be set on a file/folder using GF_POSIX_ACL_*_KEY xattrs which
+ * won't aware of access-control xlator. To update its context correctly,
+ * POSIX_ACL_*_XATTR stored in xdata which is send in the call_back path.
+ */
+        if (dict_get (dict, GF_POSIX_ACL_ACCESS)) {
+
+                /*
+                 * The size of buffer will be know after calling sys_lgetxattr,
+                 * so first we allocate buffer with large size(~4k), then we
+                 * reduced into required size using GF_REALLO().
+                 */
+                acl_xattr = GF_CALLOC (1, ACL_BUFFER_MAX, gf_posix_mt_char);
+                if (!acl_xattr) {
+                        ret = -1;
                         goto out;
-                ret = posix_set_iatt_in_dict (xattr, &stbuf);
+                }
+
+                acl_size = sys_lgetxattr (real_path, POSIX_ACL_ACCESS_XATTR,
+                                          acl_xattr, ACL_BUFFER_MAX);
+
+                if (acl_size < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_XATTR_FAILED, "Posix acl is not set "
+                                "properly at the backend");
+                        ret = -1;
+                        goto out;
+                }
+
+                /* If acl_size is more than max buffer size, just ignore it */
+                if (acl_size >= ACL_BUFFER_MAX) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                P_MSG_BUFFER_OVERFLOW, "size of acl is more"
+                                "than the buffer");
+                        ret = -1;
+                        goto out;
+                }
+
+                acl_xattr = GF_REALLOC (acl_xattr, acl_size);
+                ret = dict_set_bin (xattr, POSIX_ACL_ACCESS_XATTR,
+                                    acl_xattr, acl_size);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                P_MSG_SET_XDATA_FAIL, "failed to set"
+                                "xdata for acl");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        GF_FREE (acl_xattr);
+        acl_xattr = NULL;
+
+        if (dict_get (dict, GF_POSIX_ACL_DEFAULT)) {
+
+                acl_xattr = GF_CALLOC (1, ACL_BUFFER_MAX, gf_posix_mt_char);
+                if (!acl_xattr) {
+                        ret = -1;
+                        goto out;
+                }
+                acl_size = sys_lgetxattr (real_path, POSIX_ACL_DEFAULT_XATTR,
+                                          acl_xattr, ACL_BUFFER_MAX);
+
+                if (acl_size < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_XATTR_FAILED, "Posix acl is not set "
+                                "properly at the backend");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (acl_size >= ACL_BUFFER_MAX) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                P_MSG_BUFFER_OVERFLOW, "size of acl is more"
+                                "than the buffer");
+                        ret = -1;
+                        goto out;
+                }
+
+                acl_xattr = GF_REALLOC (acl_xattr, acl_size);
+                ret = dict_set_bin (xattr, POSIX_ACL_DEFAULT_XATTR,
+                                    acl_xattr, acl_size);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                P_MSG_SET_XDATA_FAIL, "failed to set"
+                                "xdata for acl");
+                        ret = -1;
+                        goto out;
+                }
         }
 out:
         SET_TO_OLD_FS_ID ();
@@ -3328,6 +3422,9 @@ out:
 
         if (xattr)
                 dict_unref(xattr);
+
+        if (acl_xattr)
+                GF_FREE (acl_xattr);
 
         return 0;
 }
