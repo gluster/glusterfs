@@ -2418,8 +2418,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 if (active_now) {
                         if (!active_earlier) {
                                 gf_log (this->name, GF_LOG_INFO,
-                                        "Changelog enable: Creating new "
-                                        "HTIME.TSTAMP file");
+                                        "Reconfigure: Changelog Enable");
                                 if (gettimeofday(&tv, NULL) ) {
                                         gf_log (this->name, GF_LOG_ERROR,
                                                  "unable to fetch htime");
