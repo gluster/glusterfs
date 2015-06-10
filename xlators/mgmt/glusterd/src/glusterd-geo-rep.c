@@ -51,6 +51,16 @@ struct gsync_config_opt_vals_ gsync_confopt_vals[] = {
          .case_sensitive = _gf_false,
          .values         = {"true", "false", "0", "1", "yes", "no"}
         },
+        {.op_name        = "use_meta_volume",
+         .no_of_pos_vals = 6,
+         .case_sensitive = _gf_false,
+         .values         = {"true", "false", "0", "1", "yes", "no"}
+        },
+        {.op_name        = "use-meta-volume",
+         .no_of_pos_vals = 6,
+         .case_sensitive = _gf_false,
+         .values         = {"true", "false", "0", "1", "yes", "no"}
+        },
         {.op_name = NULL,
         },
 };
