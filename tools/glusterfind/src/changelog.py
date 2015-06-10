@@ -101,7 +101,7 @@ def populate_pgfid_and_inodegfid(brick, changelog_data):
             path = output_path_prepare(path, args.output_prefix)
 
             changelog_data.gfidpath_update({"path1": path},
-                                           {"gfid": row[0]})
+                                           {"gfid": gfid})
         else:
             try:
                 # INODE and GFID to inodegfid table
