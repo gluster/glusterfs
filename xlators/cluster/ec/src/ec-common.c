@@ -1421,7 +1421,7 @@ void ec_unlock_lock(ec_lock_link_t *link)
         ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p", lock,
                  lock->loc.inode);
 
-        ec_inodelk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ALL,
+        ec_inodelk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ONE,
                    ec_unlocked, link, fop->xl->name, &lock->loc, F_SETLK,
                    &lock->flock, NULL);
     } else {
@@ -1834,6 +1834,24 @@ void ec_lock_reuse(ec_fop_data_t *fop)
     }
 }
 
+/* There could be already granted locks sitting on the bricks, unlock for which
+ * must be wound at all costs*/
+static gf_boolean_t
+ec_must_wind (ec_fop_data_t *fop)
+{
+        if ((fop->id == GF_FOP_INODELK) || (fop->id == GF_FOP_FINODELK) ||
+            (fop->id == GF_FOP_LK)) {
+                if (fop->flock.l_type == F_UNLCK)
+                        return _gf_true;
+        } else if ((fop->id == GF_FOP_ENTRYLK) ||
+                   (fop->id == GF_FOP_FENTRYLK)) {
+                if (fop->entrylk_cmd == ENTRYLK_UNLOCK)
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 void __ec_manager(ec_fop_data_t * fop, int32_t error)
 {
     ec_t *ec = fop->xl->private;
@@ -1841,9 +1859,12 @@ void __ec_manager(ec_fop_data_t * fop, int32_t error)
     do {
         ec_trace("MANAGER", fop, "error=%d", error);
 
-        if (ec->xl_up_count < ec->fragments) {
-            error = ENOTCONN;
+        if (!ec_must_wind (fop)) {
+                if (ec->xl_up_count < ec->fragments) {
+                    error = ENOTCONN;
+                }
         }
+
         if (error != 0) {
             fop->error = error;
             fop->state = -fop->state;
