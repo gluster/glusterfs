@@ -14,6 +14,7 @@ import os
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import urllib
+from errno import ENOTEMPTY
 
 from utils import setup_logger, mkdirp, handle_rm_error
 import conf
@@ -77,6 +78,15 @@ def mode_delete(args):
                                args.session)
     shutil.rmtree(os.path.join(session_dir, args.volume),
                   onerror=handle_rm_error)
+
+    # If the session contains only this volume, then cleanup the
+    # session directory. If a session contains multiple volumes
+    # then os.rmdir will fail with ENOTEMPTY
+    try:
+        os.rmdir(session_dir)
+    except OSError as e:
+        if not e.errno == ENOTEMPTY:
+            logger.warn("Failed to delete session directory: %s" % e)
 
 
 def _get_args():
