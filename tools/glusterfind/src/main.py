@@ -9,7 +9,7 @@
 # cases as published by the Free Software Foundation.
 
 import sys
-from errno import ENOENT
+from errno import ENOENT, ENOTEMPTY
 import time
 from multiprocessing import Process
 import os
@@ -453,6 +453,15 @@ def mode_delete(session_dir, args):
     run_cmd_nodes("delete", args)
     shutil.rmtree(os.path.join(session_dir, args.volume),
                   onerror=handle_rm_error)
+
+    # If the session contains only this volume, then cleanup the
+    # session directory. If a session contains multiple volumes
+    # then os.rmdir will fail with ENOTEMPTY
+    try:
+        os.rmdir(session_dir)
+    except OSError as e:
+        if not e.errno == ENOTEMPTY:
+            logger.warn("Failed to delete session directory: %s" % e)
 
 
 def mode_list(session_dir, args):
