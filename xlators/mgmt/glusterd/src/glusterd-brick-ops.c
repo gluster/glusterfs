@@ -2243,8 +2243,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         if (start_remove)
                 volinfo->rebal.dict = dict_ref (bricks_dict);
 
-        volinfo->subvol_count = (volinfo->brick_count /
-                                 volinfo->dist_leaf_count);
         ret = dict_get_int32 (dict, "replica-count", &replica_count);
         if (!ret) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -2273,6 +2271,8 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                         }
                 }
         }
+        volinfo->subvol_count = (volinfo->brick_count /
+                                 volinfo->dist_leaf_count);
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
