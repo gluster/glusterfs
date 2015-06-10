@@ -625,7 +625,10 @@ int32_t ec_gf_entrylk(call_frame_t * frame, xlator_t * this,
                       const char * volume, loc_t * loc, const char * basename,
                       entrylk_cmd cmd, entrylk_type type, dict_t * xdata)
 {
-    ec_entrylk(frame, this, -1, EC_MINIMUM_ALL, default_entrylk_cbk, NULL,
+    int32_t minimum = EC_MINIMUM_ALL;
+    if (cmd == ENTRYLK_UNLOCK)
+            minimum = EC_MINIMUM_ONE;
+    ec_entrylk(frame, this, -1, minimum, default_entrylk_cbk, NULL,
                volume, loc, basename, cmd, type, xdata);
 
     return 0;
@@ -635,7 +638,10 @@ int32_t ec_gf_fentrylk(call_frame_t * frame, xlator_t * this,
                        const char * volume, fd_t * fd, const char * basename,
                        entrylk_cmd cmd, entrylk_type type, dict_t * xdata)
 {
-    ec_fentrylk(frame, this, -1, EC_MINIMUM_ALL, default_fentrylk_cbk, NULL,
+    int32_t minimum = EC_MINIMUM_ALL;
+    if (cmd == ENTRYLK_UNLOCK)
+            minimum = EC_MINIMUM_ONE;
+    ec_fentrylk(frame, this, -1, minimum, default_fentrylk_cbk, NULL,
                 volume, fd, basename, cmd, type, xdata);
 
     return 0;
@@ -772,7 +778,11 @@ int32_t ec_gf_inodelk(call_frame_t * frame, xlator_t * this,
                       const char * volume, loc_t * loc, int32_t cmd,
                       struct gf_flock * flock, dict_t * xdata)
 {
-    ec_inodelk(frame, this, -1, EC_MINIMUM_ALL, default_inodelk_cbk, NULL,
+    int32_t minimum = EC_MINIMUM_ALL;
+    if (flock->l_type == F_UNLCK)
+            minimum = EC_MINIMUM_ONE;
+
+    ec_inodelk(frame, this, -1, minimum, default_inodelk_cbk, NULL,
                volume, loc, cmd, flock, xdata);
 
     return 0;
@@ -782,7 +792,10 @@ int32_t ec_gf_finodelk(call_frame_t * frame, xlator_t * this,
                        const char * volume, fd_t * fd, int32_t cmd,
                        struct gf_flock * flock, dict_t * xdata)
 {
-    ec_finodelk(frame, this, -1, EC_MINIMUM_ALL, default_finodelk_cbk, NULL,
+    int32_t minimum = EC_MINIMUM_ALL;
+    if (flock->l_type == F_UNLCK)
+            minimum = EC_MINIMUM_ONE;
+    ec_finodelk(frame, this, -1, minimum, default_finodelk_cbk, NULL,
                 volume, fd, cmd, flock, xdata);
 
     return 0;
@@ -800,7 +813,10 @@ int32_t ec_gf_link(call_frame_t * frame, xlator_t * this, loc_t * oldloc,
 int32_t ec_gf_lk(call_frame_t * frame, xlator_t * this, fd_t * fd,
                  int32_t cmd, struct gf_flock * flock, dict_t * xdata)
 {
-    ec_lk(frame, this, -1, EC_MINIMUM_ALL, default_lk_cbk, NULL, fd, cmd,
+    int32_t minimum = EC_MINIMUM_ALL;
+    if (flock->l_type == F_UNLCK)
+            minimum = EC_MINIMUM_ONE;
+    ec_lk(frame, this, -1, minimum, default_lk_cbk, NULL, fd, cmd,
           flock, xdata);
 
     return 0;
