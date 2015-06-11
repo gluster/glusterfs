@@ -807,8 +807,8 @@ afr_selfheal_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-afr_selfheal_locked_fill (call_frame_t *frame, xlator_t *this,
-			  unsigned char *locked_on)
+afr_locked_fill (call_frame_t *frame, xlator_t *this,
+                 unsigned char *locked_on)
 {
 	int i = 0;
 	afr_private_t *priv = NULL;
@@ -851,7 +851,7 @@ afr_selfheal_tryinodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	loc_wipe (&loc);
 
-	return afr_selfheal_locked_fill (frame, this, locked_on);
+	return afr_locked_fill (frame, this, locked_on);
 }
 
 
@@ -882,7 +882,7 @@ afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->replies[i].op_ret == -1 &&
 		    local->replies[i].op_errno == EAGAIN) {
-			afr_selfheal_locked_fill (frame, this, locked_on);
+			afr_locked_fill (frame, this, locked_on);
 			afr_selfheal_uninodelk (frame, this, inode, dom, off,
 						size, locked_on);
 
@@ -894,7 +894,7 @@ afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	loc_wipe (&loc);
 
-	return afr_selfheal_locked_fill (frame, this, locked_on);
+	return afr_locked_fill (frame, this, locked_on);
 }
 
 
@@ -937,7 +937,7 @@ afr_selfheal_tryentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	loc_wipe (&loc);
 
-	return afr_selfheal_locked_fill (frame, this, locked_on);
+	return afr_locked_fill (frame, this, locked_on);
 }
 
 
@@ -962,7 +962,7 @@ afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->replies[i].op_ret == -1 &&
 		    local->replies[i].op_errno == EAGAIN) {
-			afr_selfheal_locked_fill (frame, this, locked_on);
+			afr_locked_fill (frame, this, locked_on);
 			afr_selfheal_unentrylk (frame, this, inode, dom, name,
 						locked_on);
 
@@ -974,7 +974,7 @@ afr_selfheal_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	loc_wipe (&loc);
 
-	return afr_selfheal_locked_fill (frame, this, locked_on);
+	return afr_locked_fill (frame, this, locked_on);
 }
 
 
