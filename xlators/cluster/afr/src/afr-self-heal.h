@@ -251,4 +251,12 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 
 int
 afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid);
+
+int
+afr_selfheal_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		       int op_ret, int op_errno, dict_t *xdata);
+
+int
+afr_locked_fill (call_frame_t *frame, xlator_t *this,
+                 unsigned char *locked_on);
 #endif /* !_AFR_SELFHEAL_H */

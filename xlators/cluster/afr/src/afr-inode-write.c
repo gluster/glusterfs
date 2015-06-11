@@ -30,9 +30,10 @@
 #include "compat-errno.h"
 #include "compat.h"
 #include "protocol-common.h"
-
+#include "byte-order.h"
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
+#include "afr-messages.h"
 
 static void
 __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
@@ -968,6 +969,179 @@ afr_setxattr_wind (call_frame_t *frame, xlator_t *this, int subvol)
 }
 
 int
+afr_rb_set_pending_changelog_cbk (call_frame_t *frame, void *cookie,
+                                  xlator_t *this, int op_ret, int op_errno,
+                                  dict_t *xattr, dict_t *xdata)
+
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int i = 0;
+
+        local = frame->local;
+        priv = this->private;
+        i = (long) cookie;
+
+        local->replies[i].valid = 1;
+        local->replies[i].op_ret = op_ret;
+        local->replies[i].op_errno = op_errno;
+        gf_msg (this->name, op_ret ? GF_LOG_ERROR : GF_LOG_INFO,
+                op_ret ? op_errno : 0,
+                AFR_MSG_REPLACE_BRICK_STATUS, "Set of pending xattr %s on"
+                " %s.", op_ret ? "failed" : "succeeded",
+                priv->children[i]->name);
+
+        syncbarrier_wake (&local->barrier);
+        return 0;
+}
+
+int
+afr_rb_set_pending_changelog (call_frame_t *frame, xlator_t *this,
+                              unsigned char *locked_nodes)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int ret = 0, i = 0;
+
+        local = frame->local;
+        priv = this->private;
+
+        AFR_ONLIST (locked_nodes, frame, afr_rb_set_pending_changelog_cbk,
+                    xattrop, &local->loc, GF_XATTROP_ADD_ARRAY,
+                    local->xdata_req, NULL);
+
+        /* It is sufficient if xattrop was successful on one child */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid)
+                        continue;
+
+                if (local->replies[i].op_ret == 0) {
+                        ret = 0;
+                        goto out;
+                } else {
+                        ret = afr_higher_errno (ret,
+                                                local->replies[i].op_errno);
+                }
+        }
+out:
+        return -ret;
+}
+
+int
+_afr_handle_replace_brick_type (xlator_t *this, call_frame_t *frame,
+                                loc_t *loc, int rb_index,
+                                afr_transaction_type type)
+{
+        afr_local_t     *local            = NULL;
+        afr_private_t   *priv             = NULL;
+        unsigned char   *locked_nodes     = NULL;
+        int              count            = 0;
+        int              ret              = -ENOMEM;
+        int              idx              = -1;
+
+        priv = this->private;
+        local = frame->local;
+
+        locked_nodes = alloca0 (priv->child_count);
+
+        idx = afr_index_for_transaction_type (type);
+
+        local->pending = afr_matrix_create (priv->child_count,
+                                            AFR_NUM_CHANGE_LOGS);
+        if (!local->pending)
+                goto out;
+
+        local->pending[rb_index][idx] = hton32 (1);
+
+        local->xdata_req = dict_new ();
+        if (!local->xdata_req)
+                goto out;
+
+        ret = afr_set_pending_dict (priv, local->xdata_req, local->pending);
+        if (ret < 0)
+                goto out;
+
+        if (AFR_ENTRY_TRANSACTION == type) {
+                count = afr_selfheal_entrylk (frame, this, loc->inode,
+                                              this->name, NULL, locked_nodes);
+        } else {
+                count = afr_selfheal_inodelk (frame, this, loc->inode,
+                                              this->name, LLONG_MAX - 1, 0,
+                                              locked_nodes);
+        }
+
+        if (!count) {
+                gf_log (this->name, GF_LOG_ERROR, "Couldn't acquire lock on"
+                        " any child.");
+                ret = -EAGAIN;
+                goto unlock;
+        }
+
+        ret = afr_rb_set_pending_changelog (frame, this, locked_nodes);
+        if (ret)
+                goto unlock;
+        ret = 0;
+unlock:
+        if (AFR_ENTRY_TRANSACTION == type) {
+                afr_selfheal_unentrylk (frame, this, loc->inode, this->name,
+                                        NULL, locked_nodes);
+        } else {
+                afr_selfheal_uninodelk (frame, this, loc->inode, this->name,
+                                        LLONG_MAX - 1, 0, locked_nodes);
+        }
+out:
+        return ret;
+}
+
+int
+_afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
+                           int rb_index)
+{
+
+        afr_local_t     *local          = NULL;
+        afr_private_t   *priv           = NULL;
+        int              ret            = -1;
+        int              op_errno       = ENOMEM;
+
+        priv = this->private;
+
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local)
+                goto out;
+
+        loc_copy (&local->loc, loc);
+
+        gf_log (this->name, GF_LOG_DEBUG, "Child being replaced is : %s",
+                priv->children[rb_index]->name);
+
+        ret = _afr_handle_replace_brick_type (this, frame, loc, rb_index,
+                                              AFR_METADATA_TRANSACTION);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+
+        dict_unref (local->xdata_req);
+        afr_matrix_cleanup (local->pending, priv->child_count);
+        local->pending = NULL;
+        local->xdata_req = NULL;
+
+        ret = _afr_handle_replace_brick_type (this, frame, loc, rb_index,
+                                              AFR_ENTRY_TRANSACTION);
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
+        return 0;
+}
+
+
+int
 afr_split_brain_resolve_do (call_frame_t *frame, xlator_t *this, loc_t *loc,
                             char *data)
 {
@@ -1165,6 +1339,43 @@ afr_handle_spb_choice_timeout (xlator_t *this, call_frame_t *frame,
         return ret;
 }
 
+int
+afr_handle_replace_brick (xlator_t *this, call_frame_t *frame, loc_t *loc,
+                          dict_t *dict)
+{
+        int             ret               = -1;
+        int             rb_index          = -1;
+        char           *replace_brick     = NULL;
+
+        ret =  dict_get_str (dict, GF_AFR_REPLACE_BRICK, &replace_brick);
+
+        if (!ret) {
+                if (frame->root->pid != GF_CLIENT_PID_AFR_SELF_HEALD) {
+                        ret = 1;
+                        goto out;
+                }
+                rb_index = afr_get_child_index_from_name (this, replace_brick);
+
+                if (rb_index < 0)
+                         /* Didn't belong to this replica pair
+                          * Just do a no-op
+                          */
+                        AFR_STACK_UNWIND (setxattr, frame, 0, 0, NULL);
+                else
+                        _afr_handle_replace_brick (this, frame, loc, rb_index);
+                ret = 0;
+        }
+out:
+        if (ret == 1) {
+                gf_log (this->name, GF_LOG_ERROR, "'%s' is an internal"
+                        " extended attribute : %s.",
+                        GF_AFR_REPLACE_BRICK, strerror (EPERM));
+                AFR_STACK_UNWIND (setxattr, frame, -1, EPERM, NULL);
+                ret = 0;
+        }
+        return ret;
+}
+
 static int
 afr_handle_special_xattr (xlator_t *this, call_frame_t *frame, loc_t *loc,
                           dict_t *dict)
@@ -1176,6 +1387,10 @@ afr_handle_special_xattr (xlator_t *this, call_frame_t *frame, loc_t *loc,
                 goto out;
 
         ret = afr_handle_spb_choice_timeout (this, frame, dict);
+        if (ret == 0)
+                goto out;
+
+        ret = afr_handle_replace_brick (this, frame, loc, dict);
 out:
         return ret;
 }
