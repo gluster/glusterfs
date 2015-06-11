@@ -24,6 +24,7 @@ TEST $CLI volume set $V0 cluster.shd-max-threads 1
 TEST $CLI volume set $V0 cluster.halo-enabled True
 TEST $CLI volume set $V0 cluster.halo-failover-enabled on
 TEST $CLI volume set $V0 cluster.halo-max-replicas 2
+TEST $CLI volume set $V0 cluster.halo-min-samples 1
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 2
 TEST $CLI volume set $V0 cluster.heal-timeout 5
@@ -34,36 +35,45 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon on
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume set $V0 network.ping-timeout 20
 TEST $CLI volume set $V0 cluster.choose-local off
+TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
+TEST $CLI volume set $V0 diagnostics.brick-log-level DEBUG
+TEST $CLI volume set $V0 nfs.log-level DEBUG
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
-cd $M0
 
 # Write some data to the mount
 dd if=/dev/urandom of=$M0/test bs=1k count=200 conv=fsync
 
-# Calulate the MD5s on the two up volumes.
-MD5_B0=$(md5sum $B0/${V0}0/test | cut -d' ' -f1)
-MD5_B1=$(md5sum $B0/${V0}1/test | cut -d' ' -f1)
+KILL_IDX=$(cat /var/log/glusterfs/$M0LOG | grep "halo state: UP" | tail -n1 | grep -Eo "Child [0-9]+" | grep -Eo "[0-9]+")
+TEST [ -n "$KILL_IDX" ]
+# NB: UP_CHILDREN is the set of children that should be up after we kill
+# the brick indicated by KILL_IDX, *not* the set of children which are
+# currently up!
+UP_CHILDREN=($(echo "0 1 2" | sed "s/${KILL_IDX}//g"))
+UP1_HAS_TEST="$(ls $B0/${V0}${UP_CHILDREN[0]}/test 2>/dev/null)"
+UP2_HAS_TEST="$(ls $B0/${V0}${UP_CHILDREN[1]}/test 2>/dev/null)"
 
-# Verify they are the same
-TEST [ "$MD5_B0" == "$MD5_B1" ]
+# Of the bricks which will remain standing, there is only a single
+# brick which has the file called test.  If the both have the first
+# test file, the test is invalid as all the bricks are up and the
+# halo-max-replicas is not being honored; e.g. bug exists.
+ONLY_ONE=$((([ -z "$UP2_HAS_TEST" ] || [ -z "$UP1_HAS_TEST" ]) &&
+  ([ -n "$UP2_HAS_TEST" ] || [ -n "$UP1_HAS_TEST" ])) && echo true)
+TEST [ "x$ONLY_ONE" == "xtrue" ]
 
-sleep 0.5
-# Kill the first brick, fail-over to 3rd
-TEST kill_brick $V0 $H0 $B0/${V0}0
+echo "Failing child ${KILL_IDX}..."
+TEST kill_brick $V0 $H0 $B0/${V0}${KILL_IDX}
 
 # Test the mount is still RW (i.e. quorum works)
-TEST dd if=/dev/urandom of=$M0/test_rw bs=1M count=1 conv=fsync
+TEST dd if=/dev/urandom of=$M0/test_failover bs=1M count=1 conv=fsync
 
 # Calulate the MD5s
-MD5_B0=$(md5sum $B0/${V0}0/test_rw | cut -d' ' -f1)
-MD5_B1=$(md5sum $B0/${V0}1/test_rw | cut -d' ' -f1)
-MD5_B2=$(md5sum $B0/${V0}2/test_rw | cut -d' ' -f1)
+MD5_UP1=$(md5sum $B0/${V0}${UP_CHILDREN[0]}/test_failover | cut -d' ' -f1)
+MD5_UP2=$(md5sum $B0/${V0}${UP_CHILDREN[1]}/test_failover | cut -d' ' -f1)
 
-# Verify they are the same
-TEST [ x"$MD5_B1" == x"$MD5_B2" ]
-
-# Verify the failed brick has a different MD5
-TEST [ x"$MD5_B0" != x"$MD5_B1" ]
+# Verify the two up bricks have identical MD5s, if both are identical
+# then we must have successfully failed-over to the brick which was
+# previously proven to be down (via the ONLY_ONE test).
+TEST [ "$MD5_UP1" == "$MD5_UP2" ]
 
 cleanup

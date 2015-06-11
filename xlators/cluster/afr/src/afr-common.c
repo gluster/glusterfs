@@ -4253,6 +4253,21 @@ find_worst_up_child (xlator_t *this)
         return worst_child;
 }
 
+static void dump_halo_states (xlator_t *this) {
+        afr_private_t   *priv               = NULL;
+        int             i                   = -1;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Child %d halo state: %s (%"PRIi64"ms)",
+                        i,
+                        priv->child_up[i] ? CHILD_UP_STR : CHILD_DOWN_STR,
+                        priv->child_latency[i]);
+        }
+}
+
 static void
 _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
                 const int idx, const int64_t halo_max_latency_msec,
@@ -4264,7 +4279,6 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
         int             up_children         = 0;
         int             best_down_child     = 0;
         uint64_t        latency_samples     = 0;
-        char            *child_state_str    = NULL;
 
         priv = this->private;
 
@@ -4276,13 +4290,7 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
         for (i = 0; i < priv->child_count; i++) {
                 if (priv->child_up[i] == 1) {
                         up_children++;
-                        child_state_str = CHILD_UP_STR;
-                } else {
-                    child_state_str = CHILD_DOWN_STR;
                 }
-                gf_log (child_xlator->name, GF_LOG_DEBUG,
-                        "Child %d halo state: %s (%"PRIi64"ms)",
-                        i, child_state_str, priv->child_latency[i]);
         }
 
         /* Don't do anything until you have some minimum numbner of
@@ -4340,6 +4348,7 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
          * Case 3: Child latency is within halo,and currently marked up,
          * mark it down if it's the highest latency child and the
          * number of up children is greater than halo_max_replicas.
+         * UNLESS you are an SHD in which case do nothing.
          */
         } else if ((child_halo_enabled == _gf_true &&
                         *child_latency_msec <= halo_max_latency_msec) &&
@@ -4357,6 +4366,12 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
                                 priv->halo_max_replicas);
                         *event = GF_EVENT_CHILD_DOWN;
                 }
+        }
+
+        if (*event != GF_EVENT_CHILD_PING &&
+            gf_log_get_loglevel () >= GF_LOG_DEBUG) {
+                gf_log (this->name, GF_LOG_DEBUG, "Initial halo states:");
+                dump_halo_states (this);
         }
 }
 
@@ -4457,6 +4472,11 @@ out:
         }
 
         priv->last_event[idx] = *event;
+
+        if (gf_log_get_loglevel () >= GF_LOG_DEBUG) {
+                gf_log (this->name, GF_LOG_DEBUG, "New halo states:");
+                dump_halo_states (this);
+        }
 }
 
 void
@@ -4551,6 +4571,11 @@ _afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
                 *event = GF_EVENT_CHILD_MODIFIED;
         }
         priv->last_event[idx] = *event;
+
+        if (gf_log_get_loglevel () >= GF_LOG_DEBUG) {
+                gf_log (this->name, GF_LOG_DEBUG, "New halo states:");
+                dump_halo_states (this);
+        }
 }
 
 int64_t

@@ -18,6 +18,8 @@ META_MNT=${META_MNT:=/var/run/gluster/shared_storage}; # Mount point of shared g
 CC=cc
 OSTYPE=$(uname -s)
 
+M0LOG=${M0LOG:="mnt-glusterfs-0.log"}; # Log file for 0th FUSE mount point
+
 ENV_RC=$(dirname $0)/../env.rc
 if [ ! -f $ENV_RC ]; then
    ENV_RC=$(dirname $0)/../../env.rc
