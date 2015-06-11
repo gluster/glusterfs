@@ -1143,7 +1143,7 @@ void ec_get_real_size(ec_lock_link_t *link)
     ec_fop_data_t *fop;
     dict_t *xdata;
 
-    if (link->base == NULL) {
+    if (link->base == NULL || link->base->inode == NULL) {
         return;
     }
 
