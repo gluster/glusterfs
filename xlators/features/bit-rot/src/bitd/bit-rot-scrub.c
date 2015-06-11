@@ -1136,6 +1136,32 @@ br_scrubber_handle_freq (xlator_t *this, br_private_t *priv, dict_t *options)
         return -1;
 }
 
+static void br_scrubber_log_option (xlator_t *this,
+                                    br_private_t *priv, gf_boolean_t scrubstall)
+{
+        struct br_scrubber *fsscrub = &priv->fsscrub;
+        char *scrub_throttle_str[] = {
+                [BR_SCRUB_THROTTLE_LAZY]       = "lazy",
+                [BR_SCRUB_THROTTLE_NORMAL]     = "normal",
+                [BR_SCRUB_THROTTLE_AGGRESSIVE] = "aggressive",
+        };
+
+        char *scrub_freq_str[] = {
+                [BR_FSSCRUB_FREQ_HOURLY]   = "hourly",
+                [BR_FSSCRUB_FREQ_DAILY]    = "daily",
+                [BR_FSSCRUB_FREQ_WEEKLY]   = "weekly",
+                [BR_FSSCRUB_FREQ_BIWEEKLY] = "biweekly",
+                [BR_FSSCRUB_FREQ_MONTHLY]  = "monthly (30 days)",
+        };
+
+        if (scrubstall)
+                return; /* logged as pause */
+
+        gf_log (this->name, GF_LOG_INFO, "SCRUB TUNABLES:: [Frequency: %s, "
+                "Throttle: %s]", scrub_freq_str[fsscrub->frequency],
+                scrub_throttle_str[fsscrub->throttle]);
+}
+
 int32_t
 br_scrubber_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
 {
@@ -1153,6 +1179,8 @@ br_scrubber_handle_options (xlator_t *this, br_private_t *priv, dict_t *options)
         ret = br_scrubber_handle_freq (this, priv, options);
         if (ret)
                 goto error_return;
+
+        br_scrubber_log_option (this, priv, scrubstall);
 
         return 0;
 
