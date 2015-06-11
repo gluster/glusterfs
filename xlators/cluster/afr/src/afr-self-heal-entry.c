@@ -290,6 +290,13 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		return 0;
 	}
 
+        /* Set all the sources as 1, otheriwse newentry_mark won't be set */
+	for (i = 0; i < priv->child_count; i++) {
+		if (replies[i].valid && replies[i].op_ret == 0) {
+			sources[i] = 1;
+		}
+	}
+
         /* In case of a gfid or type mismatch on the entry, return -1.*/
         ret = afr_selfheal_detect_gfid_and_type_mismatch (this, replies,
                                                           fd->inode->gfid,
