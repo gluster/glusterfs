@@ -170,6 +170,7 @@ S: Maintained
 F: doc/
 
 Geo Replication
+M: Aravinda V K <avishwan@redhat.com>
 M: Venky Shankar <vshankar@redhat.com>
 S: Maintained
 F: geo-replication/
