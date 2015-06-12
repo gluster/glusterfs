@@ -3760,14 +3760,6 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                 goto out;
         }
 
-        ret = glusterd_snapdsvc_init (new_volinfo);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize "
-                        "snapdsvc for volume %s", new_volinfo->volname);
-                goto out;
-        }
-
         ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
         if (0 == ret) {
                 /* snapdsvc initialization of old_volinfo is also required here
@@ -3795,6 +3787,19 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         }
 
         ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to store "
+                        "volinfo for volume %s", new_volinfo->volname);
+                goto out;
+        }
+
+        ret = glusterd_snapdsvc_init (new_volinfo);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "Failed to initialize "
+                        "snapdsvc for volume %s", new_volinfo->volname);
+                goto out;
+        }
+
         ret = glusterd_create_volfiles_and_notify_services (new_volinfo);
         if (ret)
                 goto out;

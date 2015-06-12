@@ -9450,15 +9450,6 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
         /* Use the same version as the original version */
         new_volinfo->version = orig_vol->version;
 
-        /* Initialize the snapd service */
-        ret = glusterd_snapdsvc_init (new_volinfo);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize snapd "
-                        "service for volume %s", orig_vol->volname);
-                goto out;
-        }
-
         /* Copy the snap vol info to the new_volinfo.*/
         ret = glusterd_snap_volinfo_restore (dict, rsp_dict, new_volinfo,
                                              snap_vol, volcount);
@@ -9526,6 +9517,15 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOL_OP_FAILED, "Failed to store volinfo");
+                goto out;
+        }
+
+        /* Initialize the snapd service */
+        ret = glusterd_snapdsvc_init (new_volinfo);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAPD_INIT_FAIL, "Failed to initialize snapd "
+                        "service for volume %s", orig_vol->volname);
                 goto out;
         }
 

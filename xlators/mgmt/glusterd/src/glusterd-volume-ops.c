@@ -2273,16 +2273,18 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 
         volinfo->caps = caps;
 
-        ret = glusterd_snapdsvc_init (volinfo);
+        ret = glusterd_store_volinfo (volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret) {
-                *op_errstr = gf_strdup ("Failed to initialize snapd service");
+                glusterd_store_delete_volume (volinfo);
+                *op_errstr = gf_strdup ("Failed to store the "
+                                        "Volume information");
                 goto out;
         }
 
-        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        ret = glusterd_snapdsvc_init (volinfo);
         if (ret) {
-                glusterd_store_delete_volume (volinfo);
-                *op_errstr = gf_strdup ("Failed to store the Volume information");
+                *op_errstr = gf_strdup ("Failed to initialize snapd service");
                 goto out;
         }
 
