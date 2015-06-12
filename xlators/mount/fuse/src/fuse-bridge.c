@@ -63,39 +63,6 @@ fuse_forget_cbk (xlator_t *this, inode_t *inode)
         return 0;
 }
 
-void
-fuse_inode_set_need_lookup (inode_t *inode, xlator_t *this)
-{
-	uint64_t          need_lookup = 1;
-
-	if (!inode || !this)
-		return;
-
-	inode_ctx_set (inode, this, &need_lookup);
-
-	return;
-}
-
-
-gf_boolean_t
-fuse_inode_needs_lookup (inode_t *inode, xlator_t *this)
-{
-	uint64_t          need_lookup = 0;
-	gf_boolean_t      ret = _gf_false;
-
-	if (!inode || !this)
-		return ret;
-
-	inode_ctx_get (inode, this, &need_lookup);
-	if (need_lookup)
-		ret = _gf_true;
-	need_lookup = 0;
-	inode_ctx_set (inode, this, &need_lookup);
-
-	return ret;
-}
-
-
 fuse_fd_ctx_t *
 __fuse_fd_ctx_check_n_create (xlator_t *this, fd_t *fd)
 {
@@ -2787,7 +2754,7 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		feo->nodeid = inode_to_fuse_nodeid (linked_inode);
 
-		fuse_inode_set_need_lookup (linked_inode, this);
+		inode_set_need_lookup (linked_inode, this);
 
 		inode_unref (linked_inode);
 
