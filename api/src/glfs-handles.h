@@ -293,6 +293,7 @@ glfs_h_access (struct glfs *fs, struct glfs_object *object, int mask) __THROW
 
   0   : Success.
   -1  : Error condition, mostly due to out of memory.
+        'errno' is set to ENOTSUP if upcall feature is not enabled.
 
 */
 

@@ -253,6 +253,58 @@ get_volfp (struct glfs *fs)
 }
 
 
+static int
+detect_upcall_features (struct glfs *fs)
+{
+        xlator_t        *subvol   = NULL;
+        int              ret      = -1;
+        dict_t          *dict     = NULL;
+        uint32_t         features = 0;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        ret = syncop_ipc (subvol, GF_IPC_UPCALL_FEATURES, NULL, &dict);
+        DECODE_SYNCOP_ERR (ret);
+
+        if (ret)
+                /* some real error occured */
+                goto out;
+
+        if (!dict) {
+                /* unavailable upcalls should not be an error */
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_uint32 (dict, GF_UPCALL_FEATURES, &features);
+        if (ret) {
+                /* unavailable upcalls should not be an error */
+                ret = 0;
+                goto out;
+        }
+
+        fs->upcall_features = features;
+
+out:
+        if (dict)
+                dict_unref (dict);
+
+        glfs_subvol_done (fs, subvol);
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+
+
 int
 glfs_volumes_init (struct glfs *fs)
 {
@@ -267,7 +319,7 @@ glfs_volumes_init (struct glfs *fs)
 
 	if (cmd_args->volfile_server) {
 		ret = glfs_mgmt_init (fs);
-		goto out;
+		goto finish;
 	}
 
 	fp = get_volfp (fs);
@@ -283,6 +335,11 @@ glfs_volumes_init (struct glfs *fs)
 	ret = glfs_process_volfp (fs, fp);
 	if (ret)
 		goto out;
+
+finish:
+        ret = detect_upcall_features (fs);
+        if (ret)
+                goto out;
 
 out:
 	return ret;

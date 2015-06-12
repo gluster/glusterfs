@@ -1881,6 +1881,18 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 
         __GLFS_ENTRY_VALIDATE_FS (fs, err);
 
+        /* check if upcalls are enabled */
+        if (!fs->upcall_features) {
+                errno = ENOTSUP;
+                goto restore;
+        }
+
+        /* check if GF_UPCALL_CACHE_INVALIDATION is supported */
+        if (!(fs->upcall_features & (1 << GF_UPCALL_CACHE_INVALIDATION))) {
+                errno = ENOTSUP;
+                goto restore;
+        }
+
         /* get the active volume */
         subvol = glfs_active_subvol (fs);
 
