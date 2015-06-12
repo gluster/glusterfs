@@ -1816,6 +1816,37 @@ out:
         return inode;
 }
 
+void
+inode_set_need_lookup (inode_t *inode, xlator_t *this)
+{
+        uint64_t  need_lookup = 1;
+
+        if (!inode | !this)
+                return;
+
+        inode_ctx_set (inode, this, &need_lookup);
+
+        return;
+}
+
+gf_boolean_t
+inode_needs_lookup (inode_t *inode, xlator_t *this)
+{
+        uint64_t     need_lookup = 0;
+        gf_boolean_t ret         = _gf_false;
+
+        if (!inode || !this)
+                return ret;
+
+        inode_ctx_get (inode, this, &need_lookup);
+        if (need_lookup) {
+                ret = _gf_true;
+                need_lookup = 0;
+                inode_ctx_set (inode, this, &need_lookup);
+        }
+
+        return ret;
+}
 
 int
 __inode_ctx_set2 (inode_t *inode, xlator_t *xlator, uint64_t *value1_p,

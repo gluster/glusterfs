@@ -2271,6 +2271,7 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 	xlator_t        *subvol = NULL;
 	gf_dirent_t      entries;
 	gf_dirent_t      old;
+        gf_dirent_t     *entry = NULL;
 	int              ret = -1;
 	fd_t            *fd = NULL;
 
@@ -2305,8 +2306,20 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 				      &entries, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 	if (ret >= 0) {
-		if (plus)
+		if (plus) {
+                        /**
+                         * Set inode_needs_lookup flag before linking the
+                         * inode. Doing it later post linkage might lead
+                         * to a race where a fop comes after inode link
+                         * but before setting need_lookup flag.
+                         */
+                        list_for_each_entry (entry, &glfd->entries, list) {
+                                if (entry->inode)
+                                        inode_set_need_lookup (entry->inode, THIS);
+                        }
+
 			gf_link_inodes_from_dirent (THIS, fd->inode, &entries);
+                }
 
 		list_splice_init (&glfd->entries, &old.list);
 		list_splice_init (&entries.list, &glfd->entries);
@@ -2314,6 +2327,7 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
 		/* spurious errno is dangerous for glfd_entry_next() */
 		errno = 0;
 	}
+
 
 	if (ret > 0)
 		glfd->next = list_entry (glfd->entries.next, gf_dirent_t, list);

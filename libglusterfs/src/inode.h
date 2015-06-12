@@ -267,4 +267,10 @@ inode_ctx_merge (fd_t *fd, inode_t *inode, inode_t *linked_inode);
 int
 inode_is_linked (inode_t *inode);
 
+void
+inode_set_need_lookup (inode_t *inode, xlator_t *this);
+
+gf_boolean_t
+inode_needs_lookup (inode_t *inode, xlator_t *this);
+
 #endif /* _INODE_H */
