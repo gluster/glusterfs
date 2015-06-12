@@ -391,6 +391,7 @@ Group:            Applications/File
 Requires:         %{name} = %{version}-%{release}
 Requires:         %{name}-server = %{version}-%{release}
 Requires:         python python-ctypes
+Requires:         rsync
 
 %description geo-replication
 GlusterFS is a distributed file-system capable of scaling to several
@@ -1235,6 +1236,9 @@ fi
 
 
 %changelog
+* Fri Jun 12 2015 Aravinda VK <avishwan@redhat.com>
+- Added rsync as dependency to georeplication rpm (#1231205)
+
 * Tue Jun 02 2015 Aravinda VK <avishwan@redhat.com>
 - Added post hook for volume delete as part of glusterfind (#1225465)
 
