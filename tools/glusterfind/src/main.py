@@ -352,6 +352,13 @@ def mode_create(session_dir, args):
         logger.info("Volume option set %s, changelog.changelog on"
                     % args.volume)
 
+        execute(["gluster", "volume", "set",
+                 args.volume, "changelog.capture-del-path", "on"],
+                exit_msg="Failed to set volume option "
+                "changelog.capture-del-path on", logger=logger)
+        logger.info("Volume option set %s, changelog.capture-del-path on"
+                    % args.volume)
+
     # Add Rollover time to current time to make sure changelogs
     # will be available if we use this time as start time
     time_to_update = int(time.time()) + get_changelog_rollover_time(
