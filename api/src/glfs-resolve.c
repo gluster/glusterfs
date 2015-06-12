@@ -70,27 +70,44 @@ __glfs_first_lookup (struct glfs *fs, xlator_t *subvol)
 }
 
 
+/**
+ * We have to check if need_lookup flag is set in both old and the new inodes.
+ * If its set in oldinode, then directly go ahead and do an explicit lookup.
+ * But if its not set in the oldinode, then check if the newinode is linked
+ * via readdirp. If so an explicit lookup is needed on the new inode, so that
+ * below xlators can set their respective contexts.
+ */
 inode_t *
-glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode)
+glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode,
+                         gf_boolean_t need_lookup)
 {
 	loc_t        loc = {0, };
 	int          ret = -1;
 	struct iatt  iatt = {0, };
 	inode_t     *newinode = NULL;
+        gf_boolean_t lookup_needed = _gf_false;
 
 
 	if (!oldinode)
 		return NULL;
 
-	if (oldinode->table->xl == subvol)
+	if (!need_lookup && oldinode->table->xl == subvol)
 		return inode_ref (oldinode);
 
 	newinode = inode_find (subvol->itable, oldinode->gfid);
-	if (newinode)
-		return newinode;
+	if (!need_lookup && newinode) {
+
+                lookup_needed = inode_needs_lookup (newinode, THIS);
+                if (!lookup_needed)
+                        return newinode;
+        }
 
 	gf_uuid_copy (loc.gfid, oldinode->gfid);
-	loc.inode = inode_new (subvol->itable);
+        if (!newinode)
+                loc.inode = inode_new (subvol->itable);
+        else
+                loc.inode = newinode;
+
 	if (!loc.inode)
 		return NULL;
 
@@ -117,14 +134,15 @@ glfs_refresh_inode_safe (xlator_t *subvol, inode_t *oldinode)
 
 
 inode_t *
-__glfs_refresh_inode (struct glfs *fs, xlator_t *subvol, inode_t *inode)
+__glfs_refresh_inode (struct glfs *fs, xlator_t *subvol, inode_t *inode,
+                      gf_boolean_t need_lookup)
 {
 	inode_t *newinode = NULL;
 
 	fs->migration_in_progress = 1;
 	pthread_mutex_unlock (&fs->mutex);
 	{
-		newinode = glfs_refresh_inode_safe (subvol, inode);
+		newinode = glfs_refresh_inode_safe (subvol, inode, need_lookup);
 	}
 	pthread_mutex_lock (&fs->mutex);
 	fs->migration_in_progress = 0;
@@ -617,7 +635,7 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 		}
 	}
 
-	newinode = glfs_refresh_inode_safe (newsubvol, oldinode);
+	newinode = glfs_refresh_inode_safe (newsubvol, oldinode, _gf_false);
 	if (!newinode) {
 		gf_msg (fs->volname, GF_LOG_WARNING, errno,
                         API_MSG_INODE_REFRESH_FAILED,
@@ -805,7 +823,8 @@ __glfs_active_subvol (struct glfs *fs)
 	}
 
 	if (fs->cwd) {
-		new_cwd = __glfs_refresh_inode (fs, new_subvol, fs->cwd);
+		new_cwd = __glfs_refresh_inode (fs, new_subvol, fs->cwd,
+                                                _gf_false);
 
 		if (!new_cwd) {
 			char buf1[64];
@@ -899,7 +918,8 @@ int
 __glfs_cwd_set (struct glfs *fs, inode_t *inode)
 {
 	if (inode->table->xl != fs->active_subvol) {
-		inode = __glfs_refresh_inode (fs, fs->active_subvol, inode);
+		inode = __glfs_refresh_inode (fs, fs->active_subvol, inode,
+                                              _gf_false);
 		if (!inode)
 			return -1;
 	} else {
@@ -943,7 +963,7 @@ __glfs_cwd_get (struct glfs *fs)
 		return cwd;
 	}
 
-	cwd = __glfs_refresh_inode (fs, fs->active_subvol, fs->cwd);
+	cwd = __glfs_refresh_inode (fs, fs->active_subvol, fs->cwd, _gf_false);
 
 	return cwd;
 }
@@ -967,12 +987,15 @@ __glfs_resolve_inode (struct glfs *fs, xlator_t *subvol,
 		    struct glfs_object *object)
 {
 	inode_t *inode = NULL;
+        gf_boolean_t lookup_needed = _gf_false;
 
-	if (object->inode->table->xl == subvol)
+        lookup_needed = inode_needs_lookup (object->inode, THIS);
+
+	if (!lookup_needed && object->inode->table->xl == subvol)
 		return inode_ref (object->inode);
 
 	inode = __glfs_refresh_inode (fs, fs->active_subvol,
-					object->inode);
+                                      object->inode, lookup_needed);
 	if (!inode)
 		return NULL;
 
