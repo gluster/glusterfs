@@ -397,6 +397,7 @@ upcall_reaper_thread (void *data)
         upcall_inode_ctx_t *inode_ctx   = NULL;
         upcall_inode_ctx_t *tmp         = NULL;
         xlator_t           *this        = NULL;
+        time_t              timeout     = 0;
 
         this = (xlator_t *)data;
         GF_ASSERT (this);
@@ -429,6 +430,10 @@ upcall_reaper_thread (void *data)
                         }
                         UNLOCK (&priv->inode_ctx_lk);
                 }
+
+                /* don't do a very busy loop */
+                timeout = get_cache_invalidation_timeout (this);
+                sleep (timeout / 2);
         }
 
         return NULL;
