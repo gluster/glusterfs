@@ -42,13 +42,13 @@ make_hashkey(struct nfs3_fh *fh, const char *host)
         gf_uuid_unparse (fh->gfid, gfid);
         gf_uuid_unparse (fh->mountid, mountid);
 
-        nbytes = strlen (exportid) + strlen (gfid) + strlen (host)
-                 + strlen (mountid) + 5;
+        nbytes = strlen (exportid) + strlen (host)
+                 + strlen (mountid) + 3;
         hashkey = GF_MALLOC (nbytes, gf_common_mt_char);
         if (!hashkey)
                 return NULL;
 
-        snprintf (hashkey, nbytes, "%s:%s:%s:%s", exportid, gfid,
+        snprintf (hashkey, nbytes, "%s:%s:%s", exportid,
                   mountid, host);
 
         return hashkey;
