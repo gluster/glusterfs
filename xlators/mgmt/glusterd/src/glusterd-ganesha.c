@@ -671,7 +671,9 @@ pre_setup (char **op_errstr)
                 goto out;
         }
 
-        if (check_host_list()) {
+        ret = check_host_list();
+
+        if (ret) {
                 ret = setup_cluster();
                 if (ret == -1)
                         gf_asprintf (op_errstr, "Failed to set up HA "
