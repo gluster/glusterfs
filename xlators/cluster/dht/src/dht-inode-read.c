@@ -31,9 +31,9 @@ dht_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_errno = op_errno;
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
-                gf_msg_debug (this->name, 0,
-                              "subvolume %s returned -1 (%s)",
-                              prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
                 goto out;
         }
 
@@ -140,9 +140,9 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
-                gf_msg_debug (this->name, 0,
-                              "subvolume %s returned -1 (%s)",
-                              prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
                 goto out;
         }
 
@@ -226,9 +226,9 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
-                        gf_msg_debug (this->name, 0,
-                                      "subvolume %s returned -1 (%s)",
-                                      prev->this->name, strerror (op_errno));
+                        gf_msg_debug (this->name, op_errno,
+                                      "subvolume %s returned -1",
+                                      prev->this->name);
 
                         goto unlock;
                 }
@@ -720,9 +720,9 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         local->op_errno = op_errno;
         if (op_ret == -1 && !dht_inode_missing(op_errno)) {
-                gf_msg_debug (this->name, 0,
-                              "subvolume %s returned -1 (%s)",
-                              prev->this->name, strerror (op_errno));
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
                 goto out;
         }
 

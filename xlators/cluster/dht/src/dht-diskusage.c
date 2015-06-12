@@ -39,7 +39,8 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev = cookie;
 
 	if (op_ret == -1) {
-		gf_log (this->name, GF_LOG_WARNING,
+		gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_GET_DISK_INFO_ERROR,
 			"failed to get disk info from %s", prev->this->name);
 		goto out;
 	}
@@ -184,7 +185,8 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 ret = dict_set_int8 (statfs_local->params,
                                      GF_INTERNAL_IGNORE_DEEM_STATFS, 1);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
                                 "Failed to set "
                                 GF_INTERNAL_IGNORE_DEEM_STATFS" in dict");
                         goto err;

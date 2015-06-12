@@ -259,8 +259,9 @@ mem_acct_init (xlator_t *this)
         ret = xlator_mem_acct_init (this, gf_dht_mt_end + 1);
 
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                        "failed");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_NO_MEMORY,
+                        "Memory accounting init failed");
                 return ret;
         }
 out:
@@ -289,7 +290,8 @@ dht_parse_decommissioned_bricks (xlator_t *this, dht_conf_t *conf,
                                 conf->decommissioned_bricks[i] =
                                         conf->subvolumes[i];
                                         conf->decommission_subvols_cnt++;
-                                gf_log (this->name, GF_LOG_INFO,
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_SUBVOL_DECOMMISSION_INFO,
                                         "decommissioning subvolume %s",
                                         conf->subvolumes[i]->name);
                                 break;
@@ -354,12 +356,13 @@ dht_init_regex (xlator_t *this, dict_t *odict, char *name,
         }
 
         if (regcomp(re,temp_str,REG_EXTENDED) == 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "using regex %s = %s", name, temp_str);
+                gf_msg_debug (this->name, 0,
+                              "using regex %s = %s", name, temp_str);
                 *re_valid = _gf_true;
         }
         else {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_REGEX_INFO,
                         "compiling regex %s failed", temp_str);
         }
 }
@@ -453,7 +456,9 @@ dht_reconfigure (xlator_t *this, dict_t *options)
 
         if (conf->defrag) {
                 GF_DECIDE_DEFRAG_THROTTLE_COUNT (throttle_count, conf);
-                gf_log ("DHT", GF_LOG_INFO, "conf->dthrottle: %s, "
+                gf_msg ("DHT", GF_LOG_INFO, 0,
+                        DHT_MSG_REBAL_THROTTLE_INFO,
+                        "conf->dthrottle: %s, "
                         "conf->defrag->recon_thread_count: %d",
                          conf->dthrottle, conf->defrag->recon_thread_count);
         }
@@ -592,7 +597,8 @@ dht_init (xlator_t *this)
         /* We get the commit-hash to set only for rebalance process */
         if (dict_get_uint32 (this->options,
                              "commit-hash", &commit_hash) == 0) {
-                gf_log (this->name, GF_LOG_INFO, "%s using commit hash %u",
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        DHT_MSG_COMMIT_HASH_INFO, "%s using commit hash %u",
                         __func__, commit_hash);
                 conf->vol_commit_hash = commit_hash;
                 conf->vch_forced = _gf_true;
@@ -717,7 +723,8 @@ dht_init (xlator_t *this)
         if (cmd) {
                 ret = dht_init_local_subvolumes (this, conf);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_INIT_LOCAL_SUBVOL_FAILED,
                                 "dht_init_local_subvolumes failed");
                         goto err;
                 }
@@ -746,8 +753,8 @@ dht_init (xlator_t *this)
 
         this->local_pool = mem_pool_new (dht_local_t, 512);
         if (!this->local_pool) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_INIT_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_NO_MEMORY,
                         " DHT initialisation failed. "
                         "failed to create local_t's memory pool");
                 goto err;
@@ -762,9 +769,10 @@ dht_init (xlator_t *this)
 
                 GF_DECIDE_DEFRAG_THROTTLE_COUNT(throttle_count, conf);
 
-                gf_log ("DHT", GF_LOG_DEBUG, "conf->dthrottle: %s, "
-                        "conf->defrag->recon_thread_count: %d",
-                         conf->dthrottle, conf->defrag->recon_thread_count);
+                gf_msg_debug ("DHT", 0, "conf->dthrottle: %s, "
+                              "conf->defrag->recon_thread_count: %d",
+                              conf->dthrottle,
+                              conf->defrag->recon_thread_count);
         }
 
         GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);

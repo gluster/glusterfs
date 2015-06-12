@@ -250,7 +250,8 @@ dht_log_lk_array (char *name, gf_loglevel_t log_level, dht_lock_t **lk_array,
 
         for (i = 0; i < count; i++) {
                 lk_buf = dht_lock_asprintf (lk_array[i]);
-                gf_log (name, log_level, "%d. %s", i, lk_buf);
+                gf_msg (name, log_level, 0, DHT_MSG_LK_ARRAY_INFO,
+                        "%d. %s", i, lk_buf);
                 GF_FREE (lk_buf);
         }
 
@@ -961,9 +962,10 @@ dht_migration_complete_check_task (void *data)
 
         ret = syncop_lookup (this, &tmp_loc, &stbuf, 0, 0, 0);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to lookup the file on %s (%s)",
-                        tmp_loc.path, this->name, strerror (-ret));
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_FILE_LOOKUP_FAILED,
+                        "%s: failed to lookup the file on %s",
+                        tmp_loc.path, this->name);
                 local->op_errno = -ret;
                 ret = -1;
                 goto out;
@@ -971,17 +973,19 @@ dht_migration_complete_check_task (void *data)
 
         dst_node = dht_subvol_get_cached (this, tmp_loc.inode);
         if (linkto_target && dst_node != linkto_target) {
-                gf_log (this->name, GF_LOG_WARNING, "linkto target (%s) is "
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_INVALID_LINKFILE,
+                        "linkto target (%s) is "
                         "different from cached-subvol (%s). Treating %s as "
                         "destination subvol", linkto_target->name,
                         dst_node->name, dst_node->name);
         }
 
         if (gf_uuid_compare (stbuf.ia_gfid, tmp_loc.inode->gfid)) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_GFID_MISMATCH,
-                        "%s: gfid different on the target file on %s",
-                        tmp_loc.path, dst_node->name);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_GFID_MISMATCH,
+                                "%s: gfid different on the target file on %s",
+                                tmp_loc.path, dst_node->name);
                 ret = -1;
                 local->op_errno = EIO;
                 goto out;
@@ -1030,7 +1034,8 @@ dht_migration_complete_check_task (void *data)
                                    ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd,
                                    NULL, NULL);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to open "
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_OPEN_FD_ON_DST_FAILED, "failed to open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
                                 iter_fd, iter_fd->flags, path, dst_node->name);
                         open_failed = 1;
@@ -1138,16 +1143,18 @@ dht_rebalance_inprogress_task (void *data)
         }
 
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "%s: failed to get the 'linkto' xattr %s",
-                        local->loc.path, strerror (-ret));
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_GET_XATTR_FAILED,
+                        "%s: failed to get the 'linkto' xattr",
+                        local->loc.path);
                 ret = -1;
                 goto out;
         }
 
         dst_node = dht_linkfile_subvol (this, NULL, NULL, dict);
         if (!dst_node) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_SUBVOL_NOT_FOUND,
                         "%s: failed to get the 'linkto' xattr from dict",
                         local->loc.path);
                 ret = -1;
@@ -1161,7 +1168,8 @@ dht_rebalance_inprogress_task (void *data)
                 ret = syncop_lookup (dst_node, &local->loc, &stbuf, NULL,
                                      NULL, NULL);
                 if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_FILE_LOOKUP_ON_DST_FAILED,
                                 "%s: failed to lookup the file on %s",
                                 local->loc.path, dst_node->name);
                         ret = -1;
@@ -1205,7 +1213,9 @@ dht_rebalance_inprogress_task (void *data)
                                    ~(O_CREAT | O_EXCL | O_TRUNC)), iter_fd,
                                    NULL, NULL);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to send open "
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_OPEN_FD_ON_DST_FAILED,
+                                "failed to send open "
                                 "the fd (%p, flags=0%o) on file %s @ %s",
                                 iter_fd, iter_fd->flags, path, dst_node->name);
                         ret = -1;
@@ -1224,7 +1234,8 @@ dht_rebalance_inprogress_task (void *data)
 done:
         ret = dht_inode_ctx_set_mig_info (this, inode, src_node, dst_node);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_SET_INODE_CTX_FAILED,
                         "%s: failed to set inode-ctx target file at %s",
                         local->loc.path, dst_node->name);
                 goto out;
@@ -1480,10 +1491,11 @@ dht_unlock_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 uuid_utoa_r (local->lock.locks[lk_index]->loc.gfid,
                              gfid);
 
-                gf_log (this->name, GF_LOG_WARNING,
-                        "unlocking failed on %s:%s (%s)",
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_UNLOCKING_FAILED,
+                        "unlocking failed on %s:%s",
                         local->lock.locks[lk_index]->xl->name,
-                        gfid, strerror (op_errno));
+                        gfid);
         } else {
                 local->lock.locks[lk_index]->locked = 0;
         }
@@ -1533,7 +1545,8 @@ dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
         lock_frame = dht_lock_frame (frame);
         if (lock_frame == NULL) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_UNLOCKING_FAILED,
                         "cannot allocate a frame, not unlocking following "
                         "locks:");
 
@@ -1544,7 +1557,8 @@ dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 
         ret = dht_local_lock_init (lock_frame, lk_array, lk_count, inodelk_cbk);
         if (ret < 0) {
-                gf_log (frame->this->name, GF_LOG_WARNING,
+                gf_msg (frame->this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_UNLOCKING_FAILED,
                         "storing locks in local failed, not unlocking "
                         "following locks:");
 
@@ -1608,11 +1622,10 @@ dht_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         uuid_utoa_r (local->lock.locks[lk_index]->loc.inode->gfid,
                                      gfid);
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "inodelk failed on gfid: %s "
-                                "subvolume: %s (%s)", gfid,
-                                local->lock.locks[lk_index]->xl->name,
-                                strerror (op_errno));
+                        gf_msg_debug (this->name, op_errno,
+                                      "inodelk failed on gfid: %s "
+                                      "subvolume: %s", gfid,
+                                      local->lock.locks[lk_index]->xl->name);
                 }
 
                 goto out;

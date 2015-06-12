@@ -308,7 +308,9 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         } else {
                 linkto_subvol = dht_linkfile_subvol (this, NULL, NULL, xattrs);
                 if (!linkto_subvol) {
-                        gf_log (this->name, GF_LOG_ERROR, "Failed to get "
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_SUBVOL_ERROR,
+                                "Failed to get "
                                 "linkto subvol for %s", loc->name);
                 } else {
                         hashed_subvol = linkto_subvol;
@@ -321,10 +323,12 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
 
                         loglevel = (op_errno == EEXIST) ? GF_LOG_DEBUG : \
                                     GF_LOG_ERROR;
-                        gf_log (this->name, loglevel, "link of %s -> %s"
-                                " failed on  subvol %s (%s)", loc->name,
+                        gf_msg (this->name, loglevel, op_errno,
+                                DHT_MSG_MIGRATE_HARDLINK_FILE_FAILED,
+                                "link of %s -> %s"
+                                " failed on  subvol %s", loc->name,
                                 uuid_utoa(loc->gfid),
-                                hashed_subvol->name, strerror (op_errno));
+                                hashed_subvol->name);
                         if (op_errno != EEXIST)
                                 goto out;
                 }
@@ -580,7 +584,8 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
         xdata = dict_new ();
         if (!xdata) {
                 errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_NO_MEMORY,
                         "failed to allocate dictionary");
                 goto out;
         }
@@ -1402,9 +1407,10 @@ gf_listener_stop (xlator_t *this)
         }
 
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to unlink listener "
-                        "socket %s, error: %s", cmd_args->sock_file,
-                        strerror (errno));
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        DHT_MSG_SOCKET_ERROR,
+                        "Failed to unlink listener "
+                        "socket %s", cmd_args->sock_file);
         }
         return ret;
 }
@@ -1757,8 +1763,8 @@ gf_defrag_task (void *opaque)
                                 iterator = list_entry (q_head->next,
                                                 typeof(*iterator), list);
 
-                                gf_log ("DHT", GF_LOG_DEBUG, "picking entry "
-                                        "%s", iterator->df_entry->d_name);
+                                gf_msg_debug ("DHT", 0, "picking entry "
+                                              "%s", iterator->df_entry->d_name);
 
                                 list_del_init (&(iterator->list));
 
@@ -1960,9 +1966,9 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                            migration. Only the actual data file need to
                            be checked for migration criteria.
                         */
-                        gf_log (this->name, GF_LOG_DEBUG, "Skipping linkfile"
-                                " %s on subvol: %s", entry_loc.path,
-                                conf->local_subvols[i]->name);
+                        gf_msg_debug (this->name, 0, "Skipping linkfile"
+                                      " %s on subvol: %s", entry_loc.path,
+                                      conf->local_subvols[i]->name);
                         continue;
                 }
 
@@ -2296,10 +2302,10 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 defrag->q_entry_count++;
                                 ldfq_count = defrag->q_entry_count;
 
-                                gf_log (this->name, GF_LOG_DEBUG, "added "
-                                        "file:%s parent:%s to the queue ",
-                                        container->df_entry->d_name,
-                                        container->parent_loc->path);
+                                gf_msg_debug (this->name, 0, "added "
+                                              "file:%s parent:%s to the queue ",
+                                              container->df_entry->d_name,
+                                              container->parent_loc->path);
 
                                 pthread_cond_signal (
                                         &defrag->parallel_migration_cond);
@@ -2733,8 +2739,8 @@ gf_defrag_start_crawl (void *data)
 
                 thread_spawn_count = MAX ((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);
 
-                gf_log (this->name, GF_LOG_DEBUG, "thread_spawn_count: %d",
-                        thread_spawn_count);
+                gf_msg_debug (this->name, 0, "thread_spawn_count: %d",
+                              thread_spawn_count);
 
                 defrag->current_thread_count = thread_spawn_count;
 
