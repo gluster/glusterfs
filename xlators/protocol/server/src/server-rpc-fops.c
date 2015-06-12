@@ -423,7 +423,8 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, GF_LOG_INFO,
                         op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": RMDIR %s (%s/%s) ==> (%s)",
-                        frame->root->unique, state->loc.path,
+                        frame->root->unique,
+                        (state->loc.path) ? state->loc.path : "",
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
@@ -477,7 +478,8 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, fop_log_level (GF_FOP_MKDIR, op_errno),
                         op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": MKDIR %s (%s/%s) ==> (%s)",
-                        frame->root->unique, state->loc.path,
+                        frame->root->unique,
+                        (state->loc.path) ? state->loc.path : "",
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname, strerror (op_errno));
                 goto out;
@@ -655,7 +657,8 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, fop_log_level (GF_FOP_OPENDIR, op_errno),
                         op_errno, PS_MSG_DIR_INFO,
                         "%"PRId64": OPENDIR %s (%s) ==> (%s)",
-                        frame->root->unique, state->loc.path,
+                        frame->root->unique,
+                        (state->loc.path) ? state->loc.path : "",
                         uuid_utoa (state->resolve.gfid), strerror (op_errno));
                 goto out;
         }
